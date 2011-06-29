@@ -42,7 +42,7 @@ import java.io.PrintStream;
 /**
  * Test routine for new VariantContext object
  */
-@Reference(window=@Window(start=-1,stop=1))
+@Reference(window=@Window(start=-20,stop=1))
 public class TestVariantContextWalker extends RodWalker<Integer, Integer> {
     @Output
     PrintStream out;
