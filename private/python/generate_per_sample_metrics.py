@@ -40,20 +40,32 @@ def get_all_metrics(filename):
 def get_sample_summary_metrics_fields(type):
     return [field.getName() for field in type.getFields() if not field.getName().startswith('__')]
 
-def get_sample_summary_metrics(filename):
+def get_sample_summary_metrics(filename,filter):
     if not os.path.exists(filename):
         return None
     file_reader = FileReader(filename)
     metrics_file = MetricsFile()
     metrics_file.read(file_reader)
-    metrics = metrics_file.getMetrics()[0]
+    raw_metrics = metrics_file.getMetrics()
     file_reader.close()
-    return metrics
+    sampled_metrics = []
+    for metric in raw_metrics:
+        if filter != None:
+            key,value = filter.split('=')
+            if hasattr(metric,key) and getattr(metric,key).toString() == value:
+                sampled_metrics.append(metric)
+        else:
+            sampled_metrics.append(metric)
+    if len(sampled_metrics) > 1:
+        raise Exception("Too many metrics to return from filename %s"%filename)
+    if len(sampled_metrics) < 1:
+        raise Exception("Too few metrics to return from filename %s"%filename)
+    return sampled_metrics[0]
 
-sample_summary_metrics_types = [ (HsMetrics,'hybrid_selection_metrics'),
-                                 (AlignmentSummaryMetrics, 'alignment_summary_metrics'),
-                                 (InsertSizeMetrics, 'insert_size_metrics'),
-                                 (DbSnpMatchMetrics, 'dbsnp_matches') ]
+sample_summary_metrics_types = [ (HsMetrics,'hybrid_selection_metrics',None),
+                                 (AlignmentSummaryMetrics,'alignment_summary_metrics','CATEGORY=PAIR'),
+                                 (InsertSizeMetrics, 'insert_size_metrics',None),
+                                 (DbSnpMatchMetrics, 'dbsnp_matches',None) ]
 
 def get_full_metrics_fields():
     headers = ['FINGERPRINT_LODS','HAPLOTYPES_CONFIDENTLY_MATCHING']
@@ -73,10 +85,10 @@ def get_full_metrics(sample,basepath):
         
     data = ['c('+string.join(fingerprint_lods,',')+')','c('+string.join(haplotypes_confidently_matching,',')+')']
 
-    for metrics_type,metrics_extension in sample_summary_metrics_types:
+    for metrics_type,metrics_extension,metrics_filter in sample_summary_metrics_types:
         metrics_pathname = '%s.%s' % (basepath,metrics_extension)
         if os.path.exists(metrics_pathname):
-            metrics = get_sample_summary_metrics(metrics_pathname)
+            metrics = get_sample_summary_metrics(metrics_pathname,metrics_filter)
             data.extend([str(getattr(metrics, metrics_field_name)) for metrics_field_name in get_sample_summary_metrics_fields(metrics_type)])
         else:
             data.extend(['NA' for metrics_field_name in get_sample_summary_metrics_fields(metrics_type)])
