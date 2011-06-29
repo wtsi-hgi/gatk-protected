@@ -46,7 +46,7 @@ class Phase1ProjectConsensus extends QScript {
     this.jarFile = qscript.gatkJar
     this.reference_sequence = qscript.reference
     this.memoryLimit = Some(3)
-    this.jobQueue = "gsa"
+    this.jobQueue = "week"
 
   }
 
@@ -81,6 +81,7 @@ class Phase1ProjectConsensus extends QScript {
     callIndels.rodBind :+= RodBind("alleles", "VCF", qscript.indelAlleles)
     callIndels.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
     callIndels.sites_only = true
+    callIndels.A ++= List("TechnologyComposition")
     callIndels.nt=Some(8)
   }
 
