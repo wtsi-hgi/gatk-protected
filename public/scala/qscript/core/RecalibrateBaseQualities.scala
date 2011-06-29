@@ -1,4 +1,4 @@
-package oneoffs.carneiro
+package core
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
