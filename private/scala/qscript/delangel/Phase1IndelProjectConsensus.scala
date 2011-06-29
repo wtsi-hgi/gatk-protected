@@ -6,7 +6,7 @@ import org.broadinstitute.sting.queue.extensions.samtools._
 import org.broadinstitute.sting.queue.{QException, QScript}
 import collection.JavaConversions._
 import org.broadinstitute.sting.utils.yaml.YamlUtils
-import org.broadinstitute.sting.utils.report.VE2ReportFactory.VE2TemplateType
+//import org.broadinstitute.sting.utils.report.VE2ReportFactory.VE2TemplateType
 
 class Phase1ProjectConsensus extends QScript {
   qscript =>
@@ -29,13 +29,16 @@ class Phase1ProjectConsensus extends QScript {
   @Input(doc="Generate bam files", shortName="generateBAMs", required=false)
    var generateBAMs: Boolean = false
 
+  @Input(doc="indel alleles", shortName="indelAlleles", required=false)
+  var indelAlleles: String = "/humgen/1kg/processing/production_wgs_phase1/consensus/ALL.indels.combined.chr20.vcf"
+
   private val reference: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
   private val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/data/dbsnp_132_b37.leftAligned.vcf")
   private val dindelCalls: String = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Unvalidated/AFR+EUR+ASN+1KG.dindel_august_release_merged_pilot1.20110126.sites.vcf"
   val chromosomeLength = List(249250621,243199373,198022430,191154276,180915260,171115067,159138663,146364022,141213431,135534747,135006516,133851895,115169878,107349540,102531392,90354753,81195210,78077248,59128983,63025520,48129895,51304566,155270560)
+//  val chromosomeLength = List(249250621,243199373,198022430,191154276,180915260,171115067,159138663,146364022,141213431,135534747,135006516,133851895,115169878,107349540,102531392,90354753,81195210,78077248,59128983,3000000,48129895,51304566,155270560)
   val populations = List("ASW","CEU","CHB","CHS","CLM","FIN","GBR","IBS","JPT","LWK","MXL","PUR","TSI","YRI")
   private val snpAlleles: String = "/humgen/1kg/processing/production_wgs_phase1/consensus/ALL.phase1.wgs.union.pass.sites.vcf"
-  private val indelAlleles: String = "//humgen/1kg/processing/production_wgs_phase1/consensus/ALL.indels.combined.chr20.vcf"
 
   private var pipeline: Pipeline = _
 
@@ -67,7 +70,7 @@ class Phase1ProjectConsensus extends QScript {
 
     val callIndels = new UnifiedGenotyper with CommandLineGATKArgs
     callIndels.out = rawVCFindels
-    callIndels.dcov = 50
+    callIndels.dcov = 20
     callIndels.stand_call_conf = 4.0
     callIndels.stand_emit_conf = 4.0
     callIndels.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
@@ -78,9 +81,7 @@ class Phase1ProjectConsensus extends QScript {
     callIndels.rodBind :+= RodBind("alleles", "VCF", qscript.indelAlleles)
     callIndels.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
     callIndels.sites_only = true
-    // indel specific stuff: add FisherStrand, add F-test statistic (excessive hets/homs)
-
-    callIndels.A ++= List ("FisherStrand","GLstats")
+    callIndels.nt=Some(8)
   }
 
   class Chromosome(val inputChr: Int) {
@@ -105,7 +106,10 @@ class Phase1ProjectConsensus extends QScript {
     }
     for(chr <- chrList) {
       val chrObject = new Chromosome(chr)
-      val basesPerJob: Int = 1000000
+      var basesPerJob: Int = 3000000
+      if (qscript.onlyChr20)  {
+        basesPerJob = 1000000
+      }
       val lastBase: Int = qscript.chromosomeLength(chr - 1)
       var start: Int = 1
       var stop: Int = start - 1 + basesPerJob
@@ -183,13 +187,14 @@ class Phase1ProjectConsensus extends QScript {
 
       // 2.) Clean without SW
       val clean = new IndelRealigner with CommandLineGATKArgs
-      val cleanedBam = new File(baseTmpName + "cleaned.bam")
+//      val cleanedBam = new File(baseTmpName + "cleaned.bam")
+      val cleanedBam = new File("/humgen/1kg/phase1_cleaned_bams/bams/chr" + chr + "/" + population + ".phase1.chr"+chr + "." +jobNumber.toString+".cleaned.bam")
       clean.memoryLimit = 6
       clean.input_file :+= bamList
       clean.intervalsString :+= interval
       clean.targetIntervals = targetIntervals
       clean.out = cleanedBam
-      clean.doNotUseSW = true
+      //clean.doNotUseSW = true
       clean.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
       clean.simplifyBAM = true
       clean.rodBind :+= RodBind("indels1", "VCF", qscript.dindelCalls)
