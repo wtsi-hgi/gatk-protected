@@ -12,7 +12,7 @@ import net.sf.samtools.SAMFileReader
  */
 
 
-class justRecalibrate extends QScript {
+class RecalibrateBaseQualities extends QScript {
 
   @Input(doc="path to GenomeAnalysisTK.jar", shortName="gatk", required=true)
   var GATKjar: File = _
