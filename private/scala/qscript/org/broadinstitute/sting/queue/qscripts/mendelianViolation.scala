@@ -1,3 +1,5 @@
+package org.broadinstitute.sting.queue.qscripts
+
 import java.io.File
 import org.broadinstitute.sting.commandline.Argument
 import org.broadinstitute.sting.queue.extensions.gatk.{SelectVariants, RodBind, VariantsToTable}

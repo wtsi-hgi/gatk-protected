@@ -1,11 +1,11 @@
+package org.broadinstitute.sting.queue.qscripts
+
 /*
  * Created by IntelliJ IDEA.
  * User: carneiro
  * Date: 3/29/11
  * Time: 5:31 PM
  */
-package oneoffs.carneiro;
-
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 
