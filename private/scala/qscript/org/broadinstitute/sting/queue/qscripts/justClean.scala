@@ -1,3 +1,5 @@
+package org.broadinstitute.sting.queue.qscripts
+
 /**
  * Created by IntelliJ IDEA.
  * User: carneiro
