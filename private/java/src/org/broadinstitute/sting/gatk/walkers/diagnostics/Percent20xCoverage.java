@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.qc;
+package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
