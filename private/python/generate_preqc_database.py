@@ -1,7 +1,7 @@
 #
 # To run:
 #   /humgen/gsa-hpprojects/software/bin/jython2.5.2/jython \
-#     -J-classpath $STING_HOME/lib/poi-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-schemas-3.8-beta3.jar:$STING_HOME/lib/xmlbeans-2.3.0.jar:$STING_HOME/lib/dom4j-1.6.1.jar:$STING_HOME/lib/sam-1.47.869.jar:$STING_HOME/lib/picard-1.47.869.jar:$STING_HOME/lib/picard-private-parts-1941.jar:$STING_HOME/dist/GenomeAnalysisTK.jar:/Users/mhanna/src/StingUnstable/ojdbc6-11.2.0.1.0.jar \
+#     -J-classpath $STING_HOME/lib/poi-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-schemas-3.8-beta3.jar:$STING_HOME/lib/xmlbeans-2.3.0.jar:$STING_HOME/lib/dom4j-1.6.1.jar:$STING_HOME/lib/sam-1.47.869.jar:$STING_HOME/lib/picard-1.47.869.jar:$STING_HOME/lib/picard-private-parts-1941.jar:$STING_HOME/dist/GenomeAnalysisTK.jar:$STING_HOME/ojdbc6-11.2.0.1.0.jar \
 #     generate_preqc_database.py <input file>
 #
 import os,string,sys
@@ -12,6 +12,7 @@ from generate_per_sample_metrics import get_full_metrics_fields,get_full_metrics
 from java.io import File
 from java.lang import Class,Exception
 from java.sql import *
+from java.text import SimpleDateFormat
 
 from org.broadinstitute.sting.gatk.report import GATKReportParser
 
@@ -36,7 +37,8 @@ def load_dates_from_database(project,sample):
     list = []
     rs.next()
     last_sequenced_wr = rs.getString(1)
-    last_sequenced_wr_created_date = rs.getString(2)
+    date_formatter = SimpleDateFormat('yyyy-MM-dd')
+    last_sequenced_wr_created_date = date_formatter.format(rs.getDate(2))
     rs.close()
     stmt.close()
     con.close()
@@ -60,7 +62,7 @@ def generate_project_files_from_filtered_annotated_vcfs(vcf_list_file):
     vcf_list.close()
 
 # print out headers
-print 'project\tsample\t',string.join(count_variants_columns,'\t'),string.join(titv_variant_evaluator_columns,'\t'),string.join(get_full_metrics_fields(),'\t'),'Last_Sequenced_WR','Last_Sequenced_WR_Created_Date'
+print string.join(['project','squid','sample'],'\t'),string.join(count_variants_columns,'\t'),string.join(titv_variant_evaluator_columns,'\t'),string.join(get_full_metrics_fields(),'\t'),'Last_Sequenced_WR','Last_Sequenced_WR_Created_Date'
 
 for project,squid,sample,latest_version in generate_project_files_from_filtered_annotated_vcfs('%s/filtered_annotated_vcfs'%pipeline_metrics_base):
     if 'C281' not in squid:
@@ -76,10 +78,10 @@ for project,squid,sample,latest_version in generate_project_files_from_filtered_
 
     for functional_class in functional_classes:
         for novelty in novelties:
-            columns = [project,sample]
+            columns = [project,squid,sample]
             columns.extend([report_parser.getValue('CountVariants','dbsnp.eval.%s.%s.%s'%(functional_class,novelty,sample),column) for column in count_variants_columns])
             columns.extend([report_parser.getValue('TiTvVariantEvaluator','dbsnp.eval.%s.%s.%s'%(functional_class,novelty,sample),column) for column in titv_variant_evaluator_columns])
             columns.extend(get_full_metrics(sample,'/seq/picard_aggregation/%s/%s/v%s/%s'%(squid,sample,latest_version,sample)))
-            columns.extend([last_sequenced_wr,'"'+last_sequenced_wr_created_date+'"'])
+            columns.extend([last_sequenced_wr,last_sequenced_wr_created_date])
             print string.join(columns,'\t')
             

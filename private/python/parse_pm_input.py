@@ -84,9 +84,13 @@ def project_file_reader(filename):
         sample = entries[sample_column]
 
         sample_path = base_path % (project,sample)
+        if not os.path.exists(sample_path):
+            print >> sys.stderr, 'WARNING: Unable to find home for data with project = %s, sample = %s; path %s not found' % (project,sample,sample_path)
+            continue
         versions = []
         for version_path in os.listdir(sample_path):
             if version_path[0] != 'v':
+                continue
                 print >> sys.stderr, 'WARNING: Encountered a path name that cannot be parsed: ',version_path
                 sys.exit(1)
             versions.append(int(version_path[1:]))
