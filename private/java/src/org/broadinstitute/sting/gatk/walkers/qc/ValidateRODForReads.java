@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.walkers;
+package org.broadinstitute.sting.gatk.walkers.qc;
 
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;

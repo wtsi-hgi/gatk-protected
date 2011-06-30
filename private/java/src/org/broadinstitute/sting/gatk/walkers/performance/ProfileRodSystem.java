@@ -22,7 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.gatk.walkers.qc;
+package org.broadinstitute.sting.gatk.walkers.performance;
 
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broad.tribble.util.ParsingUtils;
