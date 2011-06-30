@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.scala
+package org.broadinstitute.sting.queue.qscripts.archive
 
 import org.broadinstitute.sting.gatk.walkers.LocusWalker
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker

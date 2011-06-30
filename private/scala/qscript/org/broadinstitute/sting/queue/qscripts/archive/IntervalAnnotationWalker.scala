@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.scala
+package org.broadinstitute.sting.queue.qscripts.archive
 
 import java.io.PrintStream
 import org.broadinstitute.sting.gatk.contexts.{ReferenceContext, AlignmentContext}
