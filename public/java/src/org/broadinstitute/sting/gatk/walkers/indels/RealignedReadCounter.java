@@ -23,7 +23,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.walkers;
+package org.broadinstitute.sting.gatk.walkers.indels;
 
 import net.sf.samtools.*;
 import org.broadinstitute.sting.utils.interval.IntervalMergingRule;

@@ -23,7 +23,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.walkers;
+package org.broadinstitute.sting.gatk.walkers.genotypeLikelhoodCalibration;
 
 import net.sf.samtools.SAMReadGroupRecord;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -44,8 +44,6 @@ import org.broadinstitute.sting.utils.exceptions.UserException;
 
 import java.io.PrintStream;
 import java.util.*;
-
-import static org.broadinstitute.sting.utils.IndelUtils.isInsideExtendedIndel;
 
 /**
  * Computes raw GL calibration data for read groups in BAMs against a comp VCF track of genotypes
