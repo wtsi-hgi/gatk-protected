@@ -1,11 +1,8 @@
 package org.broadinstitute.sting.gatk.walkers.replication_validation;
 
-import org.broadinstitute.sting.gatk.walkers.RMD;
-import org.broadinstitute.sting.gatk.walkers.Requires;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.*;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -30,18 +27,14 @@ import java.util.*;
  *
  * A reference sample name must be provided and it must be barcoded uniquely.
  */
-@Requires(value={},referenceMetaData={@RMD(name="reference", type=VariantContext.class)})
 public class ReplicationValidationWalker extends LocusWalker<Integer, Long> implements TreeReducible<Long> {
 
 
     @Argument(shortName="refsample", fullName="reference_sample_name", doc="Reference sample name.", required=true)
     String referenceSampleName;
 
-    @Argument(shortName="nsamples", fullName="number_of_samples", doc="Number of samples in the dataset (not counting the reference sample).", required=true)
-    int nSamples = -1;
-
     @Argument(shortName="nchr", fullName="number_of_chromosomes", doc="Number of chromosomes per sample (in case you're not dealing with diploids). Default: 2.", required=false)
-    int nChromosomes = 2;
+    int ploidy = 2;
 
     @Argument(shortName="maxac", fullName="max_allele_count", doc="Max number of alleles expected in a site. Smaller numbers process faster. Default: 2 * number of samples. ", required=false)
     int overrideMaxAlleleCount = -1;
@@ -55,30 +48,50 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
     @Argument(shortName="ef", fullName="exclude_filtered_reference_sites", doc="Don't include in the analysis sites where the reference sample VCF is filtered. Default: false.", required=false)
     boolean EXCLUDE_FILTERED_REFERENCE_SITES = false;
 
+    @Hidden
+    @Argument(shortName = "dl", doc="DEBUG ARGUMENT -- treats all reads as coming from the same lane", required=false)
+    boolean DEBUG_IGNORE_LANES = false;
 
     @Output(doc="Write output to this file instead of STDOUT")
     PrintStream out;
 
+    int nSamples;
     int maxAlleleCount;
+    boolean USE_TRUTH_ROD;
+    double THETA = 0.001; // Human heterozygozity rate
 
     final String REFERENCE_ROD_NAME = "reference";
+    final String TRUTH_ROD_NAME = "truth";
 
 
     /**
      * GATK Engine creates readgroups of the form XXX.Y.Z
      * XXX.Y is the unique lane identifier.
      *     Z is the id of the sample to make the read group id unique
-     * This function returns a list of unique lane identifiers.
+     * This function returns the list of lane identifiers.
+     *
      * @param readGroups readGroups A collection of read group strings (obtained from the alignment context pileup)
      * @return a collection of lane ids.
      */
     private Set<String> getLaneIDs(Collection<String> readGroups) {
         HashSet<String> result = new HashSet<String>();
         for (String rgid : readGroups) {
-            String [] parsedId = rgid.split("\\.");
-            result.add(parsedId[0] + "." + parsedId[1]);
+            result.add(getLaneID(rgid));
         }
         return result;
+    }
+
+    /**
+     * GATK Engine creates readgroups of the form XXX.Y.Z
+     * XXX.Y is the unique lane identifier.
+     *     Z is the id of the sample to make the read group id unique
+     *
+     * @param readGroupID the read group id string
+     * @return just the lane id (the XXX.Y string)
+     */
+    private String getLaneID (String readGroupID) {
+        String [] parsedID = readGroupID.split("\\.");
+        return parsedID[0] + "." + parsedID[1];
     }
 
     /**
@@ -109,17 +122,24 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
     /**
      * Returns the number of mismatching bases in a pileup
      * @param data the bases of a pileup
-     * @param refBase the reference sample base to compare to
+     * @param refBases the reference sample base to compare to
      * @return number of bases in data that are different from refBase
      */
-    private int getNumberOfMismatches (byte[] data, Collection<Byte> refBase) {
+    private int getNumberOfMismatches (byte[] data, Collection<Byte> refBases) {
         int mismatches = 0;
         for (byte seqBase : data) {
-            if (!refBase.contains(seqBase))
+            if (!refBases.contains(seqBase))
                 mismatches++;
         }
         return mismatches;
     }
+
+    private int getNumberOfMismatches (byte[] data, Byte refBase) {
+        ArrayList<Byte> refBases = new ArrayList<Byte>(1);
+        refBases.add(refBase);
+        return getNumberOfMismatches(data, refBases);
+    }
+
 
     /**
      * Returns the true bases for the reference sample in this locus. Homozygous loci will return one base
@@ -161,10 +181,98 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
         return trueReferenceBase;
     }
 
+    /**
+     * The prior probability of an allele count being observed based solely on the human heterozygozity rate
+     * and the number of samples
+     *
+     * @param nChromosomes number of chromosomes
+     * @param ac given allele count
+     * @return the prior probability of ac
+     */
+    private double log10PriorAC(int nChromosomes, int ac) {
+        // prior probability for a given allele count is THETA/AC.
+        if (ac > 0)
+            return Math.log10(THETA/ac);
+
+        // if allele count is 0, the prior is one minus the sum of all other possibilities.
+        double result = 0.0;
+        for (int i=1; i<=ac; i++)
+            result += THETA/i;
+        return Math.log10(1-result);
+    }
+
+    /**
+     * Calculates the pool's probability for all possible allele counts. Calculation is based on the error model
+     * generated by the reference sample on the same lane. The probability is given by :
+     *
+     * Pr(ac=j | pool, errorModel) = sum_over_all_Qs ( Pr(ac=j) * Pr(errorModel_q) * [ (n-j/2n) * (1-e) + (j/n)*e]^m * [(n-j/n)*e + (j/n) * (1-e)]^(1-m)
+     *
+     * where:
+     *  n = number of chromosomes
+     *  e = probability of an error at a given Q level (e.g. Q30 = 0.001, Q20 = 0.01, ...)
+     *  m = number of mismatches
+     *
+     * @param pool
+     * @param errorModel
+     * @param refBase
+     * @return
+     */
+    private double[] getPoolACProbabilityDistribution (ReadBackedPileup pool, double[] errorModel, byte refBase) {
+        double [] result = new double[maxAlleleCount+1];
+        int nAlleles = 2 * nSamples;
+        for (int ac=0; ac<=maxAlleleCount; ac++) {
+            double log10PAC = log10PriorAC(nAlleles, ac);
+            int mismatches = getNumberOfMismatches(pool.getBases(), refBase);
+            int matches = pool.size();
+            double p = ac / nAlleles;
+            double q = 1 - p;
+
+            // for each quality probability in the model, calculate the probability of the allele count = ac
+            // we skip Q0 because it's meaningless.
+            double [] acc = new double[maxQualityScore]; // we're skipping Q0 so we don't need maxQualityScore + 1 here.
+            for (byte i = 1; i <= maxQualityScore; i++) {
+                double e = MathUtils.phredScaleToProbability(i);
+                double x = Math.log10(q * (1-e) + p * e);
+                double y = Math.log10(q * e + p * (1-e));
+                acc[i-1] = errorModel[i] + matches * x + mismatches * y;
+            }
+            result[ac] = log10PAC + MathUtils.log10sumLog10(acc);
+        }
+        return result;
+    }
+
+
     public void initialize() {
 
+        // Set the number of samples in the pools ( - reference sample)
+        nSamples = getToolkit().getSAMFileSamples().size() - 1;
+
+        if (DEBUG_IGNORE_LANES)
+            nSamples++;
+
         // Set the max allele count (defines the size of the error model array)
-        maxAlleleCount = (overrideMaxAlleleCount > 0) ? overrideMaxAlleleCount : nSamples*nChromosomes;
+        maxAlleleCount = (overrideMaxAlleleCount > 0) ? overrideMaxAlleleCount : nSamples*ploidy;
+
+        // Look for the reference ROD and the optional truth ROD. If truth is provided, set the truth "test" mode ON.
+        List<ReferenceOrderedDataSource> rods = getToolkit().getRodDataSources();
+        if (rods.size() < 1) {
+            throw new IllegalArgumentException("You must provide a reference ROD.");
+        }
+        boolean foundReferenceROD = false;
+        boolean foundTruthROD = false;
+        for (ReferenceOrderedDataSource rod : rods) {
+            if (rod.getName().equals(REFERENCE_ROD_NAME)) {
+                foundReferenceROD = true;
+            }
+            if (rod.getName().equals(TRUTH_ROD_NAME)) {
+                foundReferenceROD = true;
+            }
+        }
+        if (!foundReferenceROD) {
+            throw new IllegalArgumentException("You haven't provided a reference ROD. Note that the reference ROD must be labeled " + REFERENCE_ROD_NAME + ".");
+        }
+        USE_TRUTH_ROD = foundTruthROD;
+
     }
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
@@ -180,8 +288,12 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
         ReadBackedPileup contextPileup = context.getBasePileup();
         Set<String> lanesInLocus = getLaneIDs(contextPileup.getReadGroups());
         for (String laneID : lanesInLocus) {
+
             // make a pileup for this lane
-            ReadBackedPileup lanePileup = contextPileup.getPileupForLane(laneID);
+            ReadBackedPileup lanePileup;
+            if (DEBUG_IGNORE_LANES) lanePileup = contextPileup;
+            else lanePileup = contextPileup.getPileupForLane(laneID);
+
             Collection<String> samplesInLane = lanePileup.getSampleNames();
 
             // we can only analyze loci that have reads for the reference sample
@@ -196,18 +308,41 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
                 // iterate over all samples (pools) in this lane except the reference
                 samplesInLane.remove(referenceSampleName);
                 for (String pool : samplesInLane) {
-                    ReadBackedPileup poolPileup = lanePileup.getPileupForSampleName(pool);
 
-                    // Debug error model
+                    // get the pileup for the pool
+                    ReadBackedPileup poolPileup;
+                    if (DEBUG_IGNORE_LANES) poolPileup = lanePileup;
+                    else poolPileup = lanePileup.getPileupForSampleName(pool);
+
+                    double [] AC = getPoolACProbabilityDistribution(poolPileup, errorModel, ref.getBase());
+
+                    // Debug AC distribution
                     if (referenceSamplePileup.getBases().length > 50) {
-                        System.out.println("\n" + laneID + " - " + pool + ": " + referenceSamplePileup.getBases().length);
+                        System.out.println("\n\n" + "[" + ref.getLocus() + "] " + laneID + " - " + pool +
+                                "\nNumber of Samples: " + nSamples +
+                                "\nRefSample Size: " + referenceSamplePileup.getBases().length +
+                                "\nRefSample AAs: " + getNumberOfMismatches(referenceSamplePileup.getBases(), trueReferenceBases) +
+                                "\nPool Size: " + poolPileup.size() +
+                                "\nPool AAs: " + getNumberOfMismatches(poolPileup.getBases(), ref.getBase()) +
+                                "\nPool AF: " + (double) getNumberOfMismatches(poolPileup.getBases(), ref.getBase())/poolPileup.size());
+
+                        System.out.println("\nError Model: ");
                         for (double v : errorModel)
+                            System.out.print(v + ", ");
+                        System.out.println("\n");
+
+                        System.out.println("AC Distribution: ");
+                        for (double v : AC)
                             System.out.print(v + ", ");
                         System.out.println();
                     }
+
+                    if (DEBUG_IGNORE_LANES) break;
                 }
             }
-            // todo: call each pool for this site
+
+            if (DEBUG_IGNORE_LANES) break;
+
             // todo: merge pools
             // todo: decide whether or not it's a variant
         }

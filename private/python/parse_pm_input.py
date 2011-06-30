@@ -4,17 +4,17 @@
 #
 # To run:
 #   /humgen/gsa-hpprojects/software/bin/jython2.5.2/jython \
-#     -J-classpath $STING_HOME/lib/poi-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-schemas-3.8-beta3.jar:$STING_HOME/lib/xmlbeans-2.3.0.jar:$STING_HOME/lib/dom4j-1.6.1.jar \
+#     -J-classpath $STING_HOME/lib/poi-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-schemas-3.8-beta3.jar:$STING_HOME/lib/xmlbeans-2.3.0.jar:$STING_HOME/lib/dom4j-1.6.1.jar:$STING_HOME/dist/GenomeAnalysisTK.jar \
 #     parse_pm_input.py <input file.{xls|xlsx|txt|tsv}> > <bam.list>
 #
 from java.io import FileInputStream
 from org.apache.poi.ss.usermodel import Row,Sheet,Workbook,WorkbookFactory
 
-import os,sys
+import re,os,sys
 
 base_path = '/seq/picard_aggregation/%s/%s'
 
-def excel_reader(filename):
+def excel_generator(filename):
     wb = WorkbookFactory.create(FileInputStream(filename));
     for sheet_number in range(wb.getNumberOfSheets()):
         project_column = None
@@ -37,47 +37,82 @@ def excel_reader(filename):
                 yield project,sample
             return
 
-def tsv_reader(filename):
+def tsv_generator(filename):
     f = open(filename,'rU')
     for line in f:
-        tokens =line.split('\t')
-        project = tokens[0].strip()
-        sample = tokens[1].strip()
-        yield project,sample
+        tokens =line.strip().split('\t')
+        yield tokens
     f.close()    
         
-def create_reader(filename):
+def create_format_generator(filename):
     extension = os.path.splitext(filename)[1]
     if extension == '.xls' or extension == '.xlsx':
-        return excel_reader(filename)
+        return excel_generator(filename)
     elif extension == '.tsv' or extension == '.txt':
-        return tsv_reader(filename)
+        return tsv_generator(filename)
     else:
         print 'Unrecognized file extension',extension
         sys.exit(1)
 
-if len(sys.argv) != 2:
-    print 'USAGE: %s <input file.{xls|xlsx|tsv|txt}>'
-    sys.exit(1)
-if not os.path.exists(sys.argv[1]):
-    print 'Input file %s not found' % sys.argv[1]
-    sys.exit(1)
+# Detects how xlses / tsvs should be parsed.
+def project_file_reader(filename):
+    generator = create_format_generator(filename)
+    project_column = 0
+    sample_column = 1
+    first = True
+    for entries in generator:
+        if first:
+            first = False
+            # If only two columns exist and anything looks like a project, decide that this is a no-header format.
+            if not (len(entries) == 2 and any([re.match('C([0-9])+',entry) for entry in entries])):
+                # Didn't meet the simple two column no header format; try to locate the header columns
+                project_column = None
+                sample_column = None
+                for i in range(len(entries)):
+                    if entries[i].lower().find('project') >= 0:
+                        project_column = i
+                    elif 'external' in entries[i].lower() or 'individual' in entries[i].lower() or 'collaborator' in entries[i].lower():
+                        sample_column = i
+                # Verify that the columns were found.
+                if project_column == None:
+                    raise Exception('Unable to find project column; file was %s, columns were %s'%(filename,entries))
+                if sample_column == None:
+                    raise Exception('Unable to find sample column; file was %s, columns were %s'%(filename,entries))
+                # Header parsed and understood; skip to the next row and start reading.
+                continue
+        project = entries[project_column]
+        sample = entries[sample_column]
 
-input_filename = sys.argv[1]
+        sample_path = base_path % (project,sample)
+        versions = []
+        for version_path in os.listdir(sample_path):
+            if version_path[0] != 'v':
+                print >> sys.stderr, 'WARNING: Encountered a path name that cannot be parsed: ',version_path
+                sys.exit(1)
+            versions.append(int(version_path[1:]))
+        if len(versions) != 0:
+            latest_version = sorted(versions)[-1]
+        else:
+            latest_version = None
+        
+        yield project,sample,latest_version
 
-for project,sample in create_reader(input_filename):
-    sample_path = base_path % (project,sample)
-    versions = []
-    for version_path in os.listdir(sample_path):
-        if version_path[0] != 'v':
-            print 'Hit a path name that cannot be parsed: ',version_path
-            sys.exit(1)
-        versions.append(int(version_path[1:]))
-    if len(versions) == 0:
-        continue
-    versions = sorted(versions)
-    bam_file = '%s/v%d/%s.bam' % (sample_path,versions[-1],sample)
-    if not os.path.exists(bam_file):
-        print 'Malformed file: tried to find %s, but no such path exists' % bam_file
+def main():
+    if len(sys.argv) != 2:
+        print 'USAGE: %s <input file.{xls|xlsx|tsv|txt}>'
         sys.exit(1)
-    print bam_file
+    if not os.path.exists(sys.argv[1]):
+        print 'Input file %s not found' % sys.argv[1]
+        sys.exit(1)
+
+    input_filename = sys.argv[1]
+
+    for project,sample,latest_version in project_file_reader(input_filename):
+        bam_file = '%s/v%d/%s.bam' % (sample_path,latest_version,sample)
+        if not os.path.exists(bam_file):
+            print 'Malformed file: tried to find %s, but no such path exists' % bam_file
+            sys.exit(1)
+        print bam_file
+
+if __name__ == "__main__":
+    main()
