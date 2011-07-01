@@ -66,7 +66,7 @@ class HybridSelectionPipelineTest {
 
     // Run the pipeline with the expected inputs.
     val pipelineCommand =
-      "-retry 1 -S scala/qscript/playground/HybridSelectionPipeline.scala -Y %s"
+      "-retry 1 -S private/scala/qscript/HybridSelectionPipeline.scala -Y %s"
         .format(yamlFile)
 
     val pipelineSpec = new PipelineTestSpec
