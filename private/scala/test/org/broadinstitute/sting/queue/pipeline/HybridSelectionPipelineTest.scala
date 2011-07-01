@@ -22,7 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.queue.pipeline.playground
+package org.broadinstitute.sting.queue.pipeline
 
 import org.testng.annotations.{DataProvider, Test}
 import org.broadinstitute.sting.datasources.pipeline.{PipelineSample, Pipeline}
