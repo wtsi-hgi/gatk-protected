@@ -80,7 +80,7 @@ def main():
     variant_eval_base = sys.argv[2]
 
     # print out headers
-    print string.join(['project','squid','sample'],'\t'),string.join(count_variants_columns,'\t'),string.join(titv_variant_evaluator_columns,'\t'),string.join(get_full_metrics_fields(),'\t'),'Last_Sequenced_WR','Last_Sequenced_WR_Created_Date'
+    print string.join(['project','squid','sample']+count_variants_columns+titv_variant_evaluator_columns+get_full_metrics_fields()+['Last_Sequenced_WR','Last_Sequenced_WR_Created_Date'],'\t')
 
     for project,squid,sample,latest_version in generate_project_files_from_filtered_annotated_vcfs(vcf_list):
         print >> sys.stderr, 'processing project = %s, squid id = %s, sample = %s'%(project,squid,sample)
@@ -103,6 +103,7 @@ def main():
                 # replace any Nones in the columns with the text 'NA'
                 columns = [column if column != None else 'NA' for column in columns]
                 print string.join(columns,'\t')
+        break
             
 if __name__ == "__main__":
     main()

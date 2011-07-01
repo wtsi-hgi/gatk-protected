@@ -70,13 +70,15 @@ sample_summary_metrics_types = [ (HsMetrics,'hybrid_selection_metrics',None,None
                                  (DbSnpMatchMetrics,'dbsnp_matches',None,None) ]
 
 def get_full_metrics_fields():
+    sample_summary_metrics_fields = []
     headers = ['FINGERPRINT_LODS','HAPLOTYPES_CONFIDENTLY_MATCHING']
     for metric_type in sample_summary_metrics_types:
         metric_class = metric_type[0]
         metric_suffix = metric_type[3]
-        sample_summary_metrics_fields = get_sample_summary_metrics_fields(metric_class)
+        metrics_fields = get_sample_summary_metrics_fields(metric_class)
         if metric_suffix != None:
-            sample_summary_metrics_fields = [field_name+ '_'+metric_suffix for field_name in sample_summary_metrics_fields]
+            metrics_fields = [field_name+ '_'+metric_suffix for field_name in metrics_fields]
+        sample_summary_metrics_fields.extend(metrics_fields)
     return headers + sample_summary_metrics_fields
 
 def get_full_metrics(sample,basepath):
