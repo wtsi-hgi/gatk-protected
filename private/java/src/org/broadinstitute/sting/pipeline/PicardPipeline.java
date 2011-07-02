@@ -22,13 +22,10 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.broad;
+package org.broadinstitute.sting.pipeline;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.NullArgumentException;
-import org.broadinstitute.sting.datasources.pipeline.Pipeline;
-import org.broadinstitute.sting.datasources.pipeline.PipelineProject;
-import org.broadinstitute.sting.datasources.pipeline.PipelineSample;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.yaml.YamlUtils;

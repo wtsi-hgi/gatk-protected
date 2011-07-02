@@ -1,5 +1,5 @@
 import org.broadinstitute.sting.commandline.ArgumentSource
-import org.broadinstitute.sting.datasources.pipeline.Pipeline
+import org.broadinstitute.sting.pipeline.Pipeline
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.function.ListWriterFunction
 import org.broadinstitute.sting.queue.function.scattergather.{GatherFunction, CloneFunction, ScatterFunction}

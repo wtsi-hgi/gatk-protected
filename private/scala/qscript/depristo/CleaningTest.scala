@@ -1,6 +1,6 @@
 package oneoffs.depristo
 
-//import org.broadinstitute.sting.datasources.pipeline.Pipeline
+//import org.broadinstitute.sting.pipeline.Pipeline
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
 import collection.JavaConversions._

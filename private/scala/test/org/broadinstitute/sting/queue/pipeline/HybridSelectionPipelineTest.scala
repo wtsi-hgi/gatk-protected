@@ -25,9 +25,8 @@
 package org.broadinstitute.sting.queue.pipeline
 
 import org.testng.annotations.{DataProvider, Test}
-import org.broadinstitute.sting.datasources.pipeline.{PipelineSample, Pipeline}
+import org.broadinstitute.sting.pipeline.{PipelineSample, Pipeline}
 import org.broadinstitute.sting.utils.yaml.YamlUtils
-import org.broadinstitute.sting.queue.pipeline._
 import org.broadinstitute.sting.BaseTest
 
 class HybridSelectionPipelineTest {
@@ -47,11 +46,11 @@ class HybridSelectionPipelineTest {
   }
 
   def newK1gDataset(projectName: String, intervals: String) = {
-    val project = PipelineTest.createHg19Project(projectName, intervals)
+    val project = K1gPipelineTest.createHg19Project(projectName, intervals)
     var samples = List.empty[PipelineSample]
-    for (k1gBam <- PipelineTest.k1gBams)
-      samples :+= PipelineTest.createK1gSample(projectName, k1gBam)
-    new PipelineDataset(PipelineTest.createPipeline(project, samples))
+    for (k1gBam <- K1gPipelineTest.k1gBams)
+      samples :+= K1gPipelineTest.createK1gSample(projectName, k1gBam)
+    new PipelineDataset(K1gPipelineTest.createPipeline(project, samples))
   }
 
   @DataProvider(name="datasets")//, parallel=true)
