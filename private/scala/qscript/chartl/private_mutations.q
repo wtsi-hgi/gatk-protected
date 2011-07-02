@@ -1,6 +1,6 @@
 import collection.JavaConversions._
 import java.io.FileNotFoundException
-import org.broadinstitute.sting.datasources.pipeline._
+import org.broadinstitute.sting.pipeline._
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.library.ipf.vcf._
 import org.broadinstitute.sting.queue.pipeline._

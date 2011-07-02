@@ -1,5 +1,5 @@
 import net.sf.picard.reference.FastaSequenceFile
-import org.broadinstitute.sting.datasources.pipeline.Pipeline
+import org.broadinstitute.sting.pipeline.Pipeline
 import org.broadinstitute.sting.gatk.DownsampleType
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeCalculationModel.Model
 import org.broadinstitute.sting.queue.extensions.gatk._

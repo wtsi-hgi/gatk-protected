@@ -22,7 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.broad;
+package org.broadinstitute.sting.pipeline;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.broadinstitute.sting.utils.exceptions.StingException;

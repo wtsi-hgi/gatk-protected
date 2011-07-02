@@ -22,8 +22,9 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.broad;
+package org.broadinstitute.sting.pipeline;
 
+import net.sf.picard.io.IoUtil;
 import org.apache.commons.io.filefilter.RegexFileFilter;
 
 import java.io.File;
@@ -42,7 +43,7 @@ public class PicardAggregationUtils {
      * @return The path to the sample BAM.
      */
     public static String getSampleBam(String project, String sample, int version) {
-        return getSampleDir(project, sample, version) + sample + ".bam";
+        return getSampleDir(project, sample, version) + IoUtil.makeFileNameSafe(sample) + ".bam";
     }
 
     /**
@@ -53,7 +54,7 @@ public class PicardAggregationUtils {
      * @throws FileNotFoundException If a finished directory cannot be found for a sample.
      */
     public static String getSampleBam(String project, String sample) throws FileNotFoundException {
-        return getSampleDir(project, sample) + sample + ".bam";
+        return getSampleDir(project, sample) + IoUtil.makeFileNameSafe(sample) + ".bam";
     }
 
     /**
@@ -64,7 +65,7 @@ public class PicardAggregationUtils {
      * @return the sample directory.
      */
     public static String getSampleDir(String project, String sample, int version) {
-        return PICARD_AGGREGATION_DIR + String.format("%s/%s/v%d/", project, sample, version);
+        return PICARD_AGGREGATION_DIR + String.format("%s/%s/v%d/", IoUtil.makeFileNameSafe(project), IoUtil.makeFileNameSafe(sample), version);
     }
 
     /**

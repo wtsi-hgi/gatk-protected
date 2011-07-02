@@ -22,7 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.broad;
+package org.broadinstitute.sting.pipeline;
 
 import java.util.Collections;
 import java.util.Map;
