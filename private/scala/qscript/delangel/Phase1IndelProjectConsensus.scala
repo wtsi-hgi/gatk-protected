@@ -17,6 +17,9 @@ class Phase1ProjectConsensus extends QScript {
   @Input(doc="output path", shortName="outputDir", required=true)
   var outputDir: String = _
 
+  @Input(doc="queue", shortName="queue", required=true)
+  var jobQueue: String = _
+
   @Input(doc="the chromosome to process", shortName="onlyOneChr", required=false)
   var onlyOneChr: Boolean = false
 
@@ -53,13 +56,13 @@ class Phase1ProjectConsensus extends QScript {
     this.jarFile = qscript.gatkJar
     this.reference_sequence = qscript.reference
     this.memoryLimit = Some(2)
-    this.jobQueue = "hour"
+    this.jobQueue = qscript.jobQueue
 
   }
 
   class AnalysisPanel(val baseName: String, val pops: List[String], val jobNumber: Int, val subJobNumber: Int, val chr: String) {
     val rawVCFindels = new File(qscript.outputDir + "/calls/chr" + chr + "/" + baseName + "/" + baseName + ".phase1.chr" + chr + "." + subJobNumber + ".raw.indels.vcf")
-    val chunkAlleles = new File(qscript.outputDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + jobNumber + ".raw.indels.vcf")
+    val chunkAlleles = new File(qscript.outputTmpDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + jobNumber + ".raw.indels.vcf")
 
 
     val callIndels = new UnifiedGenotyper with CommandLineGATKArgs
@@ -111,17 +114,16 @@ class Phase1ProjectConsensus extends QScript {
           if (qscript.createTargets) {
            createAlleleTarget("%d:%d-%d".format(chr, start, stop), subJobNumber, chr, chrObject)
           }
-          else {
-            callThisChunk("%d:%d-%d".format(chr, start, stop), subJobNumber, chr, chrObject)
-          }
+
+          callThisChunk("%d:%d-%d".format(chr, start, stop), subJobNumber, chr, chrObject)
+
         }
         else {
           if (qscript.createTargets) {
            createAlleleTarget("X:%d-%d".format(start, stop), subJobNumber, chr, chrObject)
           }
-          else {
-            callThisChunk("X:%d-%d".format(start, stop), subJobNumber, chr, chrObject)
-          }
+          callThisChunk("X:%d-%d".format(start, stop), subJobNumber, chr, chrObject)
+
         }
         start += basesPerSubJob
         stop += basesPerSubJob
@@ -139,7 +141,7 @@ class Phase1ProjectConsensus extends QScript {
     var chr: String = inputChr.toString
     if(inputChr == 23) { chr = "X" }
     val selectTargets = new SelectVariants with CommandLineGATKArgs
-    val alleleTargets = new File(qscript.outputDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + jobNumber + ".raw.indels.vcf")
+    val alleleTargets = new File(qscript.outputTmpDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + jobNumber + ".raw.indels.vcf")
     selectTargets.intervalsString :+= interval
     selectTargets.o = alleleTargets
     selectTargets.rodBind :+= RodBind("variant", "VCF", qscript.indelAlleles )
@@ -185,7 +187,8 @@ class Phase1ProjectConsensus extends QScript {
 
     for( population <- qscript.populations ) {
       val baseTmpName: String = qscript.outputTmpDir + "/calls/chr" + chr + "/" + population + ".phase1.chr" + chr + "." + jobNumber.toString + "."
-      val cleanedBam = new File(baseTmpName + "cleaned.bam")
+ //     val cleanedBam = new File(baseTmpName + "cleaned.bam")
+      val cleanedBam = new File("/humgen/1kg/phase1_cleaned_bams/bams/chr" + chr + "/" + population + ".phase1.chr"+chr + "." +jobNumber.toString+".cleaned.bam")
 
       for( a <- analysisPanels ) {
         for( p <- a.pops) {
