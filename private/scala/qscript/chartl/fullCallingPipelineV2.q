@@ -1,5 +1,5 @@
 import org.broadinstitute.sting.commandline.ArgumentCollection
-import org.broadinstitute.sting.datasources.pipeline.Pipeline
+import org.broadinstitute.sting.pipeline.Pipeline
 import org.broadinstitute.sting.queue.extensions.gatk.CommandLineGATK
 import org.broadinstitute.sting.queue.pipeline._
 import org.broadinstitute.sting.queue.util.PipelineUtils
