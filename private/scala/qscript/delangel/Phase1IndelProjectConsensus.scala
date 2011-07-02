@@ -17,8 +17,11 @@ class Phase1ProjectConsensus extends QScript {
   @Input(doc="output path", shortName="outputDir", required=true)
   var outputDir: String = _
 
-  @Input(doc="the chromosome to process", shortName="onlyChr20", required=false)
-  var onlyChr20: Boolean = false
+  @Input(doc="the chromosome to process", shortName="onlyOneChr", required=false)
+  var onlyOneChr: Boolean = false
+
+  @Input(doc="the chromosome to process", shortName="chrToProcess", required=false)
+  var chrToProcess: Int = 20
 
   @Input(doc="the chromosome to process", shortName="indelsOnly", required=false)
   var indelsOnly: Boolean = false
@@ -28,6 +31,8 @@ class Phase1ProjectConsensus extends QScript {
 
   @Input(doc="Generate bam files", shortName="generateBAMs", required=false)
    var generateBAMs: Boolean = false
+  @Input(doc="Generate bam files", shortName="createTargets", required=false)
+   var createTargets: Boolean = false
 
   @Input(doc="indel alleles", shortName="indelAlleles", required=false)
   var indelAlleles: String = "/humgen/1kg/processing/production_wgs_phase1/consensus/ALL.indels.combined.chr20.vcf"
@@ -40,33 +45,22 @@ class Phase1ProjectConsensus extends QScript {
   val populations = List("ASW","CEU","CHB","CHS","CLM","FIN","GBR","IBS","JPT","LWK","MXL","PUR","TSI","YRI")
   private val snpAlleles: String = "/humgen/1kg/processing/production_wgs_phase1/consensus/ALL.phase1.wgs.union.pass.sites.vcf"
 
+  private val subJobsPerJob:Int = 100
+
   private var pipeline: Pipeline = _
 
   trait CommandLineGATKArgs extends CommandLineGATK {
     this.jarFile = qscript.gatkJar
     this.reference_sequence = qscript.reference
-    this.memoryLimit = Some(3)
-    this.jobQueue = "week"
+    this.memoryLimit = Some(2)
+    this.jobQueue = "hour"
 
   }
 
-  class AnalysisPanel(val baseName: String, val pops: List[String], val jobNumber: Int, val chr: String) {
-    val rawVCFsnps = new File(qscript.outputDir + "/calls/chr" + chr + "/" + baseName + "/" + baseName + ".phase1.chr" + chr + "." + jobNumber + ".raw.snps.vcf")
-    val rawVCFindels = new File(qscript.outputDir + "/calls/chr" + chr + "/" + baseName + "/" + baseName + ".phase1.chr" + chr + "." + jobNumber + ".raw.indels.vcf")
+  class AnalysisPanel(val baseName: String, val pops: List[String], val jobNumber: Int, val subJobNumber: Int, val chr: String) {
+    val rawVCFindels = new File(qscript.outputDir + "/calls/chr" + chr + "/" + baseName + "/" + baseName + ".phase1.chr" + chr + "." + subJobNumber + ".raw.indels.vcf")
+    val chunkAlleles = new File(qscript.outputDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + jobNumber + ".raw.indels.vcf")
 
-    val callSnps = new UnifiedGenotyper with CommandLineGATKArgs
-    callSnps.out = rawVCFsnps
-    callSnps.dcov = 50
-    callSnps.stand_call_conf = 4.0
-    callSnps.stand_emit_conf = 4.0
-    callSnps.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE
-    callSnps.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" +baseName + ".phase1.chr" + chr + "." + jobNumber + ".raw.snps"
-    callSnps.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
-    callSnps.genotyping_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
-    //callSnps.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
-    callSnps.rodBind :+= RodBind("alleles", "VCF", qscript.snpAlleles)
-    callSnps.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
-    callSnps.sites_only = true
 
     val callIndels = new UnifiedGenotyper with CommandLineGATKArgs
     callIndels.out = rawVCFindels
@@ -74,25 +68,23 @@ class Phase1ProjectConsensus extends QScript {
     callIndels.stand_call_conf = 4.0
     callIndels.stand_emit_conf = 4.0
     callIndels.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
-    callIndels.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" +baseName + ".phase1.chr" + chr + "." + jobNumber + ".raw.indels"
+    callIndels.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" +baseName + ".phase1.chr" + chr + "." + subJobNumber + ".raw.indels"
     callIndels.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
     callIndels.genotyping_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
     callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
-    callIndels.rodBind :+= RodBind("alleles", "VCF", qscript.indelAlleles)
+    callIndels.rodBind :+= RodBind("alleles", "VCF", chunkAlleles)
     callIndels.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
     callIndels.sites_only = true
     callIndels.A ++= List("TechnologyComposition")
-    callIndels.nt=Some(8)
+    callIndels.BTI = "alleles"
+    callIndels.ignoreSNPAlleles = true
+   // callIndels.nt=Some(8)
   }
 
   class Chromosome(val inputChr: Int) {
     var chr: String = inputChr.toString
     if(inputChr == 23) { chr = "X" }
 
-    val snpCombine = new CombineVariants with CommandLineGATKArgs
-    val snpChrVCF = new File(qscript.outputDir + "/calls/" + "combined.phase1.chr" + chr + ".raw.snps.vcf")
-    snpCombine.out = snpChrVCF
-    snpCombine.intervalsString :+= chr
     val indelCombine = new CombineVariants with CommandLineGATKArgs
     val indelChrVCF = new File(qscript.outputDir + "/calls/" + "combined.phase1.chr" + chr + ".raw.indels.vcf")
     indelCombine.out = indelChrVCF
@@ -102,141 +94,123 @@ class Phase1ProjectConsensus extends QScript {
   def script = {
 
     var chrList =  List(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23)
-    if (qscript.onlyChr20) {
-      chrList = List(20)
+    if (qscript.onlyOneChr) {
+      chrList = List(qscript.chrToProcess)
     }
     for(chr <- chrList) {
       val chrObject = new Chromosome(chr)
-      var basesPerJob: Int = 3000000
-      if (qscript.onlyChr20)  {
-        basesPerJob = 1000000
-      }
-      val lastBase: Int = qscript.chromosomeLength(chr - 1)
+      var basesPerSubJob: Int = 3000000/qscript.subJobsPerJob
+
+       val lastBase: Int = qscript.chromosomeLength(chr - 1)
       var start: Int = 1
-      var stop: Int = start - 1 + basesPerJob
+      var stop: Int = start - 1 + basesPerSubJob
       if( stop > lastBase ) { stop = lastBase }
-      var jobNumber: Int = 1
-      while( jobNumber < (lastBase.toFloat / basesPerJob.toFloat) + 1.0) {
+      var subJobNumber: Int = 1
+      while( subJobNumber < (lastBase.toFloat / basesPerSubJob.toFloat) + 1.0) {
         if( chr != 23 ) {
-          callThisChunk("%d:%d-%d".format(chr, start, stop), jobNumber, chr, chrObject)
-        } else {
-          callThisChunk("X:%d-%d".format(start, stop), jobNumber, chr, chrObject)
+          if (qscript.createTargets) {
+           createAlleleTarget("%d:%d-%d".format(chr, start, stop), subJobNumber, chr, chrObject)
+          }
+          else {
+            callThisChunk("%d:%d-%d".format(chr, start, stop), subJobNumber, chr, chrObject)
+          }
         }
-        start += basesPerJob
-        stop += basesPerJob
+        else {
+          if (qscript.createTargets) {
+           createAlleleTarget("X:%d-%d".format(start, stop), subJobNumber, chr, chrObject)
+          }
+          else {
+            callThisChunk("X:%d-%d".format(start, stop), subJobNumber, chr, chrObject)
+          }
+        }
+        start += basesPerSubJob
+        stop += basesPerSubJob
         if( stop > lastBase ) { stop = lastBase }
-        jobNumber += 1
+        subJobNumber += 1
       }
-      add(chrObject.indelCombine)
-      if (!qscript.indelsOnly)
-        add(chrObject.snpCombine)
+      if (!qscript.createTargets)
+        add(chrObject.indelCombine)
+
     }
   }
 
+  def createAlleleTarget(interval: String, jobNumber: Int, inputChr: Int, chrObject: Chromosome) = {
 
-  def callThisChunk(interval: String, jobNumber: Int, inputChr: Int, chrObject: Chromosome) = {
+    var chr: String = inputChr.toString
+    if(inputChr == 23) { chr = "X" }
+    val selectTargets = new SelectVariants with CommandLineGATKArgs
+    val alleleTargets = new File(qscript.outputDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + jobNumber + ".raw.indels.vcf")
+    selectTargets.intervalsString :+= interval
+    selectTargets.o = alleleTargets
+    selectTargets.rodBind :+= RodBind("variant", "VCF", qscript.indelAlleles )
+    add(selectTargets)
+
+  }
+  def callThisChunk(interval: String, subJobNumber: Int, inputChr: Int, chrObject: Chromosome) = {
 
     var chr: String = inputChr.toString
     if(inputChr == 23) { chr = "X" }
 
-    val AFRadmix = new AnalysisPanel("AFR.admix", List("LWK","YRI","ASW","CLM","PUR"), jobNumber, chr)
-    val AMRadmix = new AnalysisPanel("AMR.admix", List("MXL","CLM","PUR","ASW"), jobNumber, chr)
-    val EURadmix = new AnalysisPanel("EUR.admix", List("CEU","FIN","GBR","TSI","IBS","MXL","CLM","PUR","ASW"), jobNumber, chr)
-    val ASNadmix = new AnalysisPanel("ASN.admix", List("CHB","CHS","JPT","MXL","CLM","PUR"), jobNumber, chr)
-    val AFR = new AnalysisPanel("AFR", List("LWK","YRI","ASW"), jobNumber, chr)
-    val AMR = new AnalysisPanel("AMR", List("MXL","CLM","PUR"), jobNumber, chr)
-    val EUR = new AnalysisPanel("EUR", List("CEU","FIN","GBR","TSI","IBS"), jobNumber, chr)
-    val ASN = new AnalysisPanel("ASN", List("CHB","CHS","JPT"), jobNumber, chr)
-    val ALL = new AnalysisPanel("ALL", List("LWK","YRI","ASW","MXL","CLM","PUR","CEU","FIN","GBR","TSI","IBS","CHB","CHS","JPT"), jobNumber, chr)
+
+    // jobs 1-100 get input BAM and VCF 1
+    // jobs 101-200 get input BAM and VCF 2
+    // 201-300 get 3
+    // etc
+
+    var jobNumber = ( ( subJobNumber -1)  / qscript.subJobsPerJob  ) + 1
+
+    val AFRadmix = new AnalysisPanel("AFR.admix", List("LWK","YRI","ASW","CLM","PUR"), jobNumber, subJobNumber, chr)
+    val AMRadmix = new AnalysisPanel("AMR.admix", List("MXL","CLM","PUR","ASW"), jobNumber, subJobNumber, chr)
+    val EURadmix = new AnalysisPanel("EUR.admix", List("CEU","FIN","GBR","TSI","IBS","MXL","CLM","PUR","ASW"), jobNumber, subJobNumber, chr)
+    val ASNadmix = new AnalysisPanel("ASN.admix", List("CHB","CHS","JPT","MXL","CLM","PUR"), jobNumber, subJobNumber, chr)
+    val AFR = new AnalysisPanel("AFR", List("LWK","YRI","ASW"), jobNumber, subJobNumber, chr)
+    val AMR = new AnalysisPanel("AMR", List("MXL","CLM","PUR"), jobNumber, subJobNumber, chr)
+    val EUR = new AnalysisPanel("EUR", List("CEU","FIN","GBR","TSI","IBS"), jobNumber, subJobNumber, chr)
+    val ASN = new AnalysisPanel("ASN", List("CHB","CHS","JPT"), jobNumber, subJobNumber, chr)
+    val ALL = new AnalysisPanel("ALL", List("LWK","YRI","ASW","MXL","CLM","PUR","CEU","FIN","GBR","TSI","IBS","CHB","CHS","JPT"), jobNumber, subJobNumber, chr)
 
     val analysisPanels = List(AFR, ASN, AMR, EUR, AFRadmix, ASNadmix, AMRadmix, EURadmix) //ALL
+    //val analysisPanels = List(AFR, ASN, AMR, EUR) //ALL
 
-    val snpCombine = new CombineVariants with CommandLineGATKArgs
     val indelCombine = new CombineVariants with CommandLineGATKArgs
-    val combinedIndelChunk = new File(qscript.outputDir + "/calls/chr" + chr + "/" + "combined.phase1.chr" + chr + "." + jobNumber + ".raw.indels.vcf")
-    val combinedSnpChunk = new File(qscript.outputDir + "/calls/chr" + chr + "/" + "combined.phase1.chr" + chr + "." + jobNumber + ".raw.snps.vcf")
+    val combinedIndelChunk = new File(qscript.outputDir + "/calls/chr" + chr + "/" + "combined.phase1.chr" + chr + "." + subJobNumber + ".raw.indels.vcf")
 
     indelCombine.out = combinedIndelChunk
-    indelCombine.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" + "combined.phase1.chr" + chr + "." + jobNumber + ".raw.indels"
+    indelCombine.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" + "combined.phase1.chr" + chr + "." + subJobNumber + ".raw.indels"
     indelCombine.intervalsString :+= interval
     indelCombine.mergeInfoWithMaxAC = true
     indelCombine.priority = "AFR.admix,AMR.admix,EUR.admix,ASN.admix,AFR,AMR,EUR,ASN" //ALL,
+   //indelCombine.priority = "AFR,AMR,EUR,ASN" //ALL,
 
-    snpCombine.out = combinedSnpChunk
-    snpCombine.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" + "combined.phase1.chr" + chr + "." + jobNumber + ".raw.snps"
-    snpCombine.intervalsString :+= interval
-    snpCombine.mergeInfoWithMaxAC = true
-    snpCombine.priority = "AFR.admix,AMR.admix,EUR.admix,ASN.admix,AFR,AMR,EUR,ASN" //ALL,
 
     for( population <- qscript.populations ) {
       val baseTmpName: String = qscript.outputTmpDir + "/calls/chr" + chr + "/" + population + ".phase1.chr" + chr + "." + jobNumber.toString + "."
-      val bamList: File = new File("/humgen/1kg/processing/production_wgs_phase1/bam_lists/%s.list".format(population))
-      val targetIntervals: File = new File(baseTmpName + "target.intervals")
-
-      // 1.) Create cleaning targets
-      val target = new RealignerTargetCreator with CommandLineGATKArgs
-      target.memoryLimit = 4
-      target.input_file :+= bamList
-      target.intervalsString :+= interval
-      target.out = targetIntervals
-      target.mismatchFraction = 0.0
-      target.maxIntervalSize = 700
-      target.rodBind :+= RodBind("indels1", "VCF", qscript.dindelCalls)
-      target.jobName = baseTmpName + "target"
-      //target.isIntermediate = true
-      target.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
-
-      // 2.) Clean without SW
-      val clean = new IndelRealigner with CommandLineGATKArgs
-//      val cleanedBam = new File(baseTmpName + "cleaned.bam")
-      val cleanedBam = new File("/humgen/1kg/phase1_cleaned_bams/bams/chr" + chr + "/" + population + ".phase1.chr"+chr + "." +jobNumber.toString+".cleaned.bam")
-      clean.memoryLimit = 6
-      clean.input_file :+= bamList
-      clean.intervalsString :+= interval
-      clean.targetIntervals = targetIntervals
-      clean.out = cleanedBam
-      //clean.doNotUseSW = true
-      clean.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
-      clean.simplifyBAM = true
-      clean.rodBind :+= RodBind("indels1", "VCF", qscript.dindelCalls)
-      clean.jobName = baseTmpName + "clean"
-      //clean.isIntermediate = true
-      clean.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
-
-      if (qscript.generateBAMs) {
-        add(target, clean)
-      }
+      val cleanedBam = new File(baseTmpName + "cleaned.bam")
 
       for( a <- analysisPanels ) {
         for( p <- a.pops) {
           if( p == population ) {
             a.callIndels.input_file :+= cleanedBam
-            a.callSnps.input_file :+= cleanedBam
           }
         }
       }
     }
 
     for( a <- analysisPanels ) {
-      a.callSnps.intervalsString :+= interval
-      a.callIndels.intervalsString :+= interval
+      // use BTI with indels
+      // a.callIndels.intervalsString :+= interval
+
       if(a.baseName == "ALL") {
         a.callIndels.memoryLimit = 4
-        a.callSnps.memoryLimit = 4
       }
-      if (!qscript.indelsOnly)
-        add(a.callSnps)
+
       add(a.callIndels)
 
-      snpCombine.rodBind :+= RodBind(a.baseName, "VCF", a.callSnps.out)
       indelCombine.rodBind :+= RodBind(a.baseName, "VCF", a.callIndels.out)
     }
 
     add(indelCombine)
-    if (!qscript.indelsOnly)
-      add(snpCombine)
 
-    chrObject.snpCombine.rodBind :+= RodBind("ALL" + jobNumber.toString, "VCF", snpCombine.out)
     chrObject.indelCombine.rodBind :+= RodBind("ALL" + jobNumber.toString, "VCF", indelCombine.out)
   }
 }
