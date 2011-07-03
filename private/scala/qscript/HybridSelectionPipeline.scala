@@ -22,13 +22,12 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import org.broadinstitute.sting.datasources.pipeline.Pipeline
+import org.broadinstitute.sting.pipeline.{PicardPipeline, Pipeline}
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.function.ListWriterFunction
 import org.broadinstitute.sting.queue.library.ipf.intervals.ExpandIntervals
 import org.broadinstitute.sting.queue.QScript
 import collection.JavaConversions._
-import org.broadinstitute.sting.utils.broad.PicardPipeline
 
 class HybridSelectionPipeline extends QScript {
   qscript =>
