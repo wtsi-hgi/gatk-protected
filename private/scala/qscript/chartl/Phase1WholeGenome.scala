@@ -1,5 +1,5 @@
 import net.sf.picard.reference.FastaSequenceFile
-import org.broadinstitute.sting.datasources.pipeline.Pipeline
+import org.broadinstitute.sting.pipeline.Pipeline
 import org.broadinstitute.sting.gatk.DownsampleType
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.picard.PicardBamJarFunction
