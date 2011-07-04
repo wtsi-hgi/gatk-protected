@@ -53,7 +53,7 @@ class ReducedBAMEvaluation extends QScript {
     combineCalls.rodBind :+= RodBind("fullBAM", "VCF", fullBAMVCF)
     combineCalls.rodBind :+= RodBind("reducedBAM", "VCF", reducedBAMVCF)
     combineCalls.rod_priority_list = "reducedBAM,fullBAM"
-    combineCalls.filteredrecordsmergetype = org.broadinstitute.sting.gatk.contexts.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    combineCalls.filteredrecordsmergetype = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     combineCalls.out = swapExt(reducedBAM.out,".bam",".filtered.combined.vcf")
     add(combineCalls)
     val eval = new Eval(combineCalls.out) // evaluate the combined VCF
