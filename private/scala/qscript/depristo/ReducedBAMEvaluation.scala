@@ -12,7 +12,7 @@ class ReducedBAMEvaluation extends QScript {
   @Argument(shortName = "bam", doc="BAM", required=true)
   val bam: File = null;
 
-  @Argument(shortName = "reduceIntervals", doc="intervals", required=false)
+  @Argument(shortName = "reduceIntervals", doc="Interval to reduce at", required=false)
   val REDUCE_INTERVAL: String = null;
 
   @Argument(shortName = "callingIntervals", doc="intervals", required=false)
@@ -115,13 +115,12 @@ class ReducedBAMEvaluation extends QScript {
       this.intervalsString = List(REDUCE_INTERVAL);
   }
 
-  class Call(@Input(doc="foo") bam: File) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
-    @Output(doc="foo") var outVCF: File = swapExt(bam,".bam",".vcf")
+  class Call(bam: File) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
     this.input_file = List(bam)
     this.stand_call_conf = 50.0
     this.stand_emit_conf = 50.0
     this.dcov = DCOV;
-    this.o = outVCF
+    this.o = swapExt(bam,".bam",".vcf")
 
     if ( dbSNP.exists() )
       this.rodBind :+= RodBind("dbsnp", "VCF", dbSNP)
