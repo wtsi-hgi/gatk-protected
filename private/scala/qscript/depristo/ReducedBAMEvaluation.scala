@@ -6,9 +6,6 @@ import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.function.JavaCommandLineFunction
 
 class ReducedBAMEvaluation extends QScript {
-  @Argument(doc="gatkJarFile", required=false)
-  var gatkJarFile: File = new File("/home/radon01/depristo/dev/GenomeAnalysisTK/trunk/dist/GenomeAnalysisTK.jar")
-
   @Argument(shortName = "R", doc="ref", required=false)
   var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
 
@@ -31,7 +28,6 @@ class ReducedBAMEvaluation extends QScript {
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO";
-    this.jarFile = gatkJarFile;
     this.reference_sequence = referenceFile;
     this.memoryLimit = 4
   }
