@@ -33,7 +33,7 @@ package org.broadinstitute.sting.gatk.walkers.diffengine;
  * An interface that must be implemented to allow us to calculate differences
  * between structured objects
  */
-public class DiffElement {
+public abstract class DiffElement {
     private String name;
     private DiffNode parent;
 

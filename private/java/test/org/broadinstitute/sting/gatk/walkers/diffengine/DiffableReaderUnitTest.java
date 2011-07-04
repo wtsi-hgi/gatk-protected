@@ -35,7 +35,6 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import javax.management.StringValueExp;
 import java.io.File;
 import java.util.*;
 
@@ -123,7 +122,7 @@ public class DiffableReaderUnitTest extends BaseTest {
         Assert.assertEquals(diff.getNodes().size(), 9);
 
         // chr1    2646    rs62635284      G       A       0.15    PASS    AC=2;AF=1.00;AN=2       GT:AD:DP:GL:GQ  1/1:53,75:3:-12.40,-0.90,-0.00:9.03
-        DiffNode rec1 = diff.getNodes().get(0);
+        DiffNode rec1 = diff.getNode("chr1:2646");
         testLeaf(rec1, "CHROM", "chr1");
         testLeaf(rec1, "POS", 2646);
         testLeaf(rec1, "ID", "rs62635284");

@@ -25,6 +25,7 @@
 package org.broadinstitute.sting.gatk.walkers.diffengine;
 
 import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import scala.Left;
 import scala.xml.Null;
 
@@ -40,22 +41,16 @@ import java.util.*;
  * between structured objects
  */
 public class DiffNode extends DiffElement {
-    public final static DiffNode ROOT = new DiffNode("ROOT", null, null, null);
+    public final static DiffNode ROOT = new DiffNode("ROOT", null, null);
+    public boolean isRoot() { return this == ROOT; }
 
-    private List<DiffLeaf> leaves;
-    private List<DiffNode> nodes;
+    private Map<String, DiffElement> leaves;
 
-    private static List<DiffLeaf> emptyLeaves() { return new ArrayList<DiffLeaf>(); }
-    private static List<DiffNode> emptyNodes() { return new ArrayList<DiffNode>(); }
+    private static Map<String, DiffElement> emptyLeaves() { return new HashMap<String, DiffElement>(); }
 
-    private DiffNode(String name, DiffNode parent, List<DiffLeaf> leaves, List<DiffNode> nodes) {
+    private DiffNode(String name, DiffNode parent, Map<String, DiffElement> leaves) {
         super(name, parent);
         this.leaves = leaves;
-        this.nodes = nodes;
-    }
-
-    public static DiffNode withLeavesAndNodes(String name, DiffNode parent, List<DiffLeaf> leaves, List<DiffNode> nodes) {
-        return new DiffNode(name, parent, leaves, nodes);
     }
 
     public static DiffNode rooted(String name) {
@@ -63,30 +58,32 @@ public class DiffNode extends DiffElement {
     }
 
     public static DiffNode empty(String name, DiffNode parent) {
-        return withLeavesAndNodes(name, parent, emptyLeaves(), emptyNodes());
+        return withLeaves(name, parent, emptyLeaves());
     }
 
-    public static DiffNode withLeaves(String name, DiffNode parent, List<DiffLeaf> leaves) {
-        return withLeavesAndNodes(name, parent, leaves, emptyNodes());
+    public static DiffNode withLeaves(String name, DiffNode parent, List<DiffElement> leaves) {
+        DiffNode node = empty(name, parent);
+        node.add(leaves);
+        return node;
     }
 
-    public static DiffNode withNodes(String name, DiffNode parent, List<DiffNode> nodes) {
-        return withLeavesAndNodes(name, parent, emptyLeaves(), nodes);
+    public static DiffNode withLeaves(String name, DiffNode parent, Map<String, DiffElement> leaves) {
+        return new DiffNode(name, parent, leaves);
     }
 
-    public boolean isRoot() { return this == ROOT; }
+    public void add(DiffElement elt) {
+        leaves.put(elt.getName(), elt);
+    }
 
-    public void add(DiffLeaf leaf) {
-        leaves.add(leaf);
+    public void add(Collection<DiffElement> elts) {
+        for ( DiffElement e : elts )
+            add(e);
     }
 
     public void add(String name, Object value) {
         add(new DiffLeaf(name, this, value));
     }
 
-    public void add(DiffNode node) {
-        nodes.add(node);
-    }
 
     public String toString() {
         return toString(0);
@@ -98,33 +95,57 @@ public class DiffNode extends DiffElement {
         StringBuilder b = new StringBuilder();
 
         b.append(String.format("%s%s%n", off, super.toString()));
-        for ( DiffLeaf leaf : leaves )
+        for ( DiffLeaf leaf : getLeaves() )
             b.append(off2).append(leaf.toString()).append('\n');
-        for ( DiffNode node : nodes )
+        for ( DiffNode node : getNodes() )
             b.append(node.toString(offset + 4));
 
         return b.toString();
     }
 
-    public List<DiffLeaf> getLeaves() {
-        return leaves;
+    public Collection<DiffElement> getElements() {
+        return leaves.values();
     }
 
-    public List<DiffNode> getNodes() {
-        return nodes;
+    private <T> Collection<T> getElements(Class<T> restriction) {
+        List<T> l = new ArrayList<T>();
+        for ( DiffElement e : getElements() ) {
+            if ( restriction.isInstance(e) )
+                l.add((T)e);
+        }
+        return l;
+    }
+
+    public Collection<DiffLeaf> getLeaves() {
+        return getElements(DiffLeaf.class);
+    }
+
+    public Collection<DiffNode> getNodes() {
+        return getElements(DiffNode.class);
+    }
+
+    public DiffElement getElement(String name) {
+        for ( DiffElement elt : getElements() )
+            if ( elt.getName().equals(name) )
+                return elt;
+        return null;
+    }
+
+    public <T> T getElement(String name, Class<T> restriction) {
+        DiffElement elt = getElement(name);
+        if ( elt == null )
+            return null;
+        else if ( restriction.isInstance(elt) )
+            return (T)elt;
+        else
+            throw new ReviewedStingException("Requested object of type " + restriction + " but found binding to class " + elt.getClass());
     }
 
     public DiffLeaf getLeaf(String name) {
-        for ( DiffLeaf leaf : getLeaves() )
-            if ( leaf.getName().equals(name) )
-                return leaf;
-        return null;
+        return getElement(name, DiffLeaf.class);
     }
 
     public DiffNode getNode(String name) {
-        for ( DiffNode node : getNodes() )
-            if ( node.getName().equals(name) )
-                return node;
-        return null;
+        return getElement(name, DiffNode.class);
     }
 }
