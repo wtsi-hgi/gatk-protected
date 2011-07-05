@@ -9,7 +9,7 @@ class ReducedBAMEvaluation extends QScript {
   @Argument(shortName = "R", doc="ref", required=false)
   var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
 
-  @Argument(shortName = "inBAM", doc="BAM", required=true)
+  @Argument(shortName = "bam", doc="BAM", required=true)
   val bam: File = null;
 
   @Argument(shortName = "reduceIntervals", doc="Interval to reduce at", required=false)
@@ -38,11 +38,11 @@ class ReducedBAMEvaluation extends QScript {
 
   def script = {
 
-    val reduceBAM = swapExt(bam, ".inBAM", ".reduced.inBAM")
-    val reduceVCF = swapExt(reduceBAM,".inBAM",".filtered.vcf")
-    val sliceBAM =  swapExt(bam,".inBAM",".printreads.inBAM")
-    val sliceVCF = swapExt(sliceVCF,".inBAM",".filtered.vcf")
-    val combineVCF = swapExt(reduceVCF, ".inBAM", ".filtered.combined.vcf")
+    val reduceBAM = swapExt(bam, ".bam", ".reduced.bam")
+    val reduceVCF = swapExt(reduceBAM,".bam",".filtered.vcf")
+    val sliceBAM =  swapExt(bam,".bam",".printreads.bam")
+    val sliceVCF = swapExt(sliceBAM,".bam",".filtered.vcf")
+    val combineVCF = swapExt(reduceVCF, ".bam", ".filtered.combined.vcf")
 
     // Generate the new BAMs
     add(ReduceBAM(bam, reduceBAM),
