@@ -29,15 +29,11 @@ package org.broadinstitute.sting.gatk.walkers.diffengine;
 // the imports for unit testing.
 
 
-import org.apache.xmlbeans.impl.tool.Diff;
 import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.util.*;
 
 /**
@@ -51,22 +47,22 @@ public class DiffNodeUnitTest extends BaseTest {
     //   C: fields: E=E, nodes: none
     //   D: fields: F=F, G=G, nodes: none
     static DiffNode MY_ROOT = DiffNode.rooted("MY_ROOT");
-    static DiffLeaf LEAF_A = new DiffLeaf("A", MY_ROOT, "A");
-    static DiffLeaf LEAF_B = new DiffLeaf("B", MY_ROOT, "B");
+    static DiffValue Value_A = new DiffValue("A", MY_ROOT, "A");
+    static DiffValue Value_B = new DiffValue("B", MY_ROOT, "B");
     static DiffNode NODE_C = DiffNode.empty("C", MY_ROOT);
     static DiffNode NODE_D = DiffNode.empty("D", MY_ROOT);
-    static DiffLeaf LEAF_E = new DiffLeaf("E", NODE_C, "E");
-    static DiffLeaf LEAF_F = new DiffLeaf("F", NODE_D, "F");
-    static DiffLeaf LEAF_G = new DiffLeaf("G", NODE_D, "G");
+    static DiffValue Value_E = new DiffValue("E", NODE_C, "E");
+    static DiffValue Value_F = new DiffValue("F", NODE_D, "F");
+    static DiffValue Value_G = new DiffValue("G", NODE_D, "G");
 
     static {
-        MY_ROOT.add(LEAF_A);
-        MY_ROOT.add(LEAF_B);
+        MY_ROOT.add(Value_A);
+        MY_ROOT.add(Value_B);
         MY_ROOT.add(NODE_C);
         MY_ROOT.add(NODE_D);
-        NODE_C.add(LEAF_E);
-        NODE_D.add(LEAF_F);
-        NODE_D.add(LEAF_G);
+        NODE_C.add(Value_E);
+        NODE_D.add(Value_F);
+        NODE_D.add(Value_G);
     }
 
 
@@ -82,11 +78,20 @@ public class DiffNodeUnitTest extends BaseTest {
         public String fullName;
         public DiffElement parent;
 
+        private ElementTest(DiffValue elt, DiffValue parent, String name, String fullName) {
+            this(elt.getBinding(), parent.getBinding(), name, fullName);
+        }
+
         private ElementTest(DiffElement elt, DiffElement parent, String name, String fullName) {
             this.elt = elt;
             this.name = name;
             this.fullName = fullName;
             this.parent = parent;
+        }
+
+        public String toString() {
+            return String.format("ElementTest elt=%s name=%s fullName=%s parent=%s",
+                    elt.toOneLineString(), name, fullName, parent.getName());
         }
     }
 
@@ -94,14 +99,14 @@ public class DiffNodeUnitTest extends BaseTest {
     public Object[][] createElementData() {
         List<ElementTest> params = new ArrayList<ElementTest>();
 
-        params.add(new ElementTest(MY_ROOT, DiffNode.ROOT, "MY_ROOT", "MY_ROOT"));
+        params.add(new ElementTest(MY_ROOT.getBinding(), DiffElement.ROOT, "MY_ROOT", "MY_ROOT"));
         params.add(new ElementTest(NODE_C, MY_ROOT, "C", "MY_ROOT.C"));
         params.add(new ElementTest(NODE_D, MY_ROOT, "D", "MY_ROOT.D"));
-        params.add(new ElementTest(LEAF_A, MY_ROOT, "A", "MY_ROOT.A"));
-        params.add(new ElementTest(LEAF_B, MY_ROOT, "B", "MY_ROOT.B"));
-        params.add(new ElementTest(LEAF_E, NODE_C, "E", "MY_ROOT.C.E"));
-        params.add(new ElementTest(LEAF_F, NODE_D, "F", "MY_ROOT.D.F"));
-        params.add(new ElementTest(LEAF_G, NODE_D, "G", "MY_ROOT.D.G"));
+        params.add(new ElementTest(Value_A, MY_ROOT, "A", "MY_ROOT.A"));
+        params.add(new ElementTest(Value_B, MY_ROOT, "B", "MY_ROOT.B"));
+        params.add(new ElementTest(Value_E, NODE_C, "E", "MY_ROOT.C.E"));
+        params.add(new ElementTest(Value_F, NODE_D, "F", "MY_ROOT.D.F"));
+        params.add(new ElementTest(Value_G, NODE_D, "G", "MY_ROOT.D.G"));
 
         List<Object[]> params2 = new ArrayList<Object[]>();
         for ( ElementTest x : params ) params2.add(new Object[]{x});
@@ -119,17 +124,21 @@ public class DiffNodeUnitTest extends BaseTest {
 
     // --------------------------------------------------------------------------------
     //
-    // leaf testing routines
+    // DiffValue testing routines
     //
     // --------------------------------------------------------------------------------
 
     private class LeafTest {
-        public DiffLeaf leaf;
+        public DiffValue diffvalue;
         public Object value;
 
-        private LeafTest(DiffLeaf leaf, Object value) {
-            this.leaf = leaf;
+        private LeafTest(DiffValue diffvalue, Object value) {
+            this.diffvalue = diffvalue;
             this.value = value;
+        }
+
+        public String toString() {
+            return String.format("LeafTest diffvalue=%s value=%s", diffvalue.toOneLineString(), value);
         }
     }
 
@@ -137,11 +146,11 @@ public class DiffNodeUnitTest extends BaseTest {
     public Object[][] createLeafData() {
         List<LeafTest> params = new ArrayList<LeafTest>();
 
-        params.add(new LeafTest(LEAF_A, "A"));
-        params.add(new LeafTest(LEAF_B, "B"));
-        params.add(new LeafTest(LEAF_E, "E"));
-        params.add(new LeafTest(LEAF_F, "F"));
-        params.add(new LeafTest(LEAF_G, "G"));
+        params.add(new LeafTest(Value_A, "A"));
+        params.add(new LeafTest(Value_B, "B"));
+        params.add(new LeafTest(Value_E, "E"));
+        params.add(new LeafTest(Value_F, "F"));
+        params.add(new LeafTest(Value_G, "G"));
 
         List<Object[]> params2 = new ArrayList<Object[]>();
         for ( LeafTest x : params ) params2.add(new Object[]{x});
@@ -150,8 +159,8 @@ public class DiffNodeUnitTest extends BaseTest {
 
     @Test(enabled = true, dataProvider = "leafdata")
     public void testLeafMethods(LeafTest test) {
-        Assert.assertNotNull(test.leaf.getValue());
-        Assert.assertEquals(test.leaf.getValue(), test.value);
+        Assert.assertNotNull(test.diffvalue.getValue());
+        Assert.assertEquals(test.diffvalue.getValue(), test.value);
     }
 
     // --------------------------------------------------------------------------------
@@ -162,13 +171,21 @@ public class DiffNodeUnitTest extends BaseTest {
 
     private class NodeTest {
         public DiffNode node;
-        public List<String> fields;
-        public List<String> nodes;
+        public Set<String> fields;
+        public Set<String> subnodes;
+        public Set<String> allNames;
 
-        private NodeTest(DiffNode node, List<String> fields, List<String> nodes) {
+        private NodeTest(DiffNode node, List<String> fields, List<String> subnodes) {
             this.node = node;
-            this.fields = fields;
-            this.nodes = nodes;
+            this.fields = new HashSet<String>(fields);
+            this.subnodes = new HashSet<String>(subnodes);
+            this.allNames = new HashSet<String>(fields);
+            allNames.addAll(subnodes);
+        }
+
+        public String toString() {
+            return String.format("NodeTest node=%s fields=%s subnodes=%s",
+                    node.toOneLineString(), fields, subnodes);
         }
     }
 
@@ -187,28 +204,22 @@ public class DiffNodeUnitTest extends BaseTest {
 
     @Test(enabled = true, dataProvider = "nodedata")
     public void testNodeAccessors(NodeTest test) {
-        Assert.assertNotNull(test.node.getLeaves());
-        Assert.assertNotNull(test.node.getNodes());
+        Assert.assertNotNull(test.node.getElements());
 
-        for ( String field : test.fields ) {
-            DiffLeaf fieldNode = test.node.getLeaf(field);
-            Assert.assertNotNull(fieldNode, "Failed to find field " + fieldNode + " in " + test.node);
-            Assert.assertEquals(fieldNode.getName(), field);
-        }
-
-        for ( String node : test.nodes ) {
-            DiffNode subNode = test.node.getNode(node);
-            Assert.assertNotNull(subNode, "Failed to find node " + node + " in " + test.node);
-            Assert.assertEquals(subNode.getName(), node);
+        for ( String name : test.allNames ) {
+            DiffElement elt = test.node.getElement(name);
+            Assert.assertNotNull(elt, "Failed to find field " + elt + " in " + test.node);
+            Assert.assertEquals(elt.getName(), name);
+            Assert.assertEquals(elt.getValue().isAtomic(), test.fields.contains(name), "Failed atomic/compound expectation: " + test.node);
         }
     }
 
-    // TODO -- test node modifiers
+    // NOTE: add routines are being implicitly tested by the creation of the data structures
 
     @Test(enabled = true, dataProvider = "nodedata")
     public void testCounts(NodeTest test) {
-        Assert.assertEquals(test.node.getLeaves().size(), test.fields.size());
-        Assert.assertEquals(test.node.getNodes().size(), test.nodes.size());
+        Assert.assertEquals(test.node.getElements().size(), test.allNames.size());
+        Assert.assertEquals(test.node.getElementNames(), test.allNames);
     }
 
     // --------------------------------------------------------------------------------
@@ -225,16 +236,20 @@ public class DiffNodeUnitTest extends BaseTest {
             this.string = string;
             this.expected = expected;
         }
+
+        public String toString() {
+            return String.format("FromStringTest string=%s expected=%s", string, expected.toOneLineString());
+        }
     }
 
     @DataProvider(name = "fromstringdata")
     public Object[][] createFromData() {
         List<FromStringTest> params = new ArrayList<FromStringTest>();
 
-        params.add(new FromStringTest("A=A", LEAF_A));
-        params.add(new FromStringTest("B=B", LEAF_B));
-        params.add(new FromStringTest("C=(E=E)", NODE_C));
-        params.add(new FromStringTest("D=(F=F G=G)", NODE_D));
+        params.add(new FromStringTest("A=A", Value_A.getBinding()));
+        params.add(new FromStringTest("B=B", Value_B.getBinding()));
+        params.add(new FromStringTest("C=(E=E)", NODE_C.getBinding()));
+        params.add(new FromStringTest("D=(F=F G=G)", NODE_D.getBinding()));
 
         List<Object[]> params2 = new ArrayList<Object[]>();
         for ( FromStringTest x : params ) params2.add(new Object[]{x});

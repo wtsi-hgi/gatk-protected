@@ -24,6 +24,10 @@
 
 package org.broadinstitute.sting.gatk.walkers.diffengine;
 
+import com.google.java.contract.*;
+import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+
 /**
  * Created by IntelliJ IDEA.
  * User: depristo
@@ -33,35 +37,82 @@ package org.broadinstitute.sting.gatk.walkers.diffengine;
  * An interface that must be implemented to allow us to calculate differences
  * between structured objects
  */
-public abstract class DiffElement {
-    private String name;
-    private DiffNode parent;
+@Invariant({
+        "name != null",
+        "value != null",
+        "parent != null || name.equals(\"ROOT\")",
+        "value == null || value.getBinding() == this"})
+public class DiffElement {
+    public final static DiffElement ROOT = new DiffElement();
 
-    public DiffElement(String name, DiffNode parent) {
-        this.name = name;
-        this.parent = parent;
+    final private String name;
+    final private DiffElement parent;
+    final private DiffValue value;
+
+    /**
+     * For ROOT only
+     */
+    private DiffElement() {
+        this.name = "ROOT";
+        this.parent = null;
+        this.value = new DiffValue(this, "ROOT");
     }
 
+    @Requires({"name != null", "parent != null", "value != null"})
+    public DiffElement(String name, DiffElement parent, DiffValue value) {
+        if ( name.equals("ROOT") ) throw new IllegalArgumentException("Cannot use reserved name ROOT");
+        this.name = name;
+        this.parent = parent;
+        this.value = value;
+        this.value.setBinding(this);
+    }
+
+    @Ensures({"result != null"})
     public String getName() {
         return name;
     }
 
-    public DiffNode getParent() {
+    public DiffElement getParent() {
         return parent;
     }
 
-    public String toString() {
-        return fullyQualifiedName();
+    @Ensures({"result != null"})
+    public DiffValue getValue() {
+        return value;
     }
 
+    public boolean isRoot() { return this == ROOT; }
+
+    @Ensures({"result != null"})
+    @Override
+    public String toString() {
+        return getName() + "=" + getValue().toString();
+    }
+
+    public String toString(int offset) {
+        return (offset > 0 ? Utils.dupString(' ', offset) : 0) + getName() + "=" + getValue().toString(offset);
+    }
+
+    @Ensures({"result != null"})
     public final String fullyQualifiedName() {
-        if ( parent.isRoot() )
+        if ( isRoot() )
+            return "";
+        else if ( parent.isRoot() )
             return name;
         else
             return parent.fullyQualifiedName() + "." + name;
     }
 
+    @Ensures({"result != null"})
     public String toOneLineString() {
-        return getName() + "=";
+        return getName() + "=" + getValue().toOneLineString();
+    }
+
+    @Ensures({"result != null"})
+    public DiffNode getValueAsNode() {
+        if ( getValue().isCompound() )
+            return (DiffNode)getValue();
+        else
+            throw new ReviewedStingException("Illegal request conversion of a DiffValue into a DiffNode: " + this);
     }
 }

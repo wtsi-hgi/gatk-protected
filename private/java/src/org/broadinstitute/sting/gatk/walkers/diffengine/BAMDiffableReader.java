@@ -53,7 +53,7 @@ public class BAMDiffableReader implements DiffableReader {
     public String getName() { return "BAM"; }
 
     @Override
-    public DiffNode readFromFile(File file) {
+    public DiffElement readFromFile(File file) {
         final SAMFileReader reader = new SAMFileReader(file, null); // null because we don't want it to look for the index
 
         DiffNode root = DiffNode.rooted(file.getName());
@@ -92,7 +92,7 @@ public class BAMDiffableReader implements DiffableReader {
 
         reader.close();
 
-        return root;
+        return root.getBinding();
     }
 
     @Override

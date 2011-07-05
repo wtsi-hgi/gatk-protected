@@ -24,6 +24,8 @@
 
 package org.broadinstitute.sting.gatk.walkers.diffengine;
 
+import org.broadinstitute.sting.utils.Utils;
+
 /**
  * Created by IntelliJ IDEA.
  * User: depristo
@@ -33,12 +35,38 @@ package org.broadinstitute.sting.gatk.walkers.diffengine;
  * An interface that must be implemented to allow us to calculate differences
  * between structured objects
  */
-public class DiffLeaf extends DiffElement {
-    private Object value;
+public class DiffValue {
+    private DiffElement binding = null;
+    final private Object value;
 
-    public DiffLeaf(String name, DiffNode parent, Object value) {
-        super(name, parent);
+    public DiffValue(Object value) {
         this.value = value;
+    }
+
+    public DiffValue(DiffElement binding, Object value) {
+        this.binding = binding;
+        this.value = value;
+    }
+
+    public DiffValue(DiffValue parent, Object value) {
+        this(parent.getBinding(), value);
+    }
+
+    public DiffValue(String name, DiffElement parent, Object value) {
+        this.binding = new DiffElement(name, parent, this);
+        this.value = value;
+    }
+
+    public DiffValue(String name, DiffValue parent, Object value) {
+        this(name, parent.getBinding(), value);
+    }
+
+    public DiffElement getBinding() {
+        return binding;
+    }
+
+    protected void setBinding(DiffElement binding) {
+        this.binding = binding;
     }
 
     public Object getValue() {
@@ -46,10 +74,17 @@ public class DiffLeaf extends DiffElement {
     }
 
     public String toString() {
-        return getName() + " = " + getValue();
+        return getValue().toString();
+    }
+
+    public String toString(int offset) {
+        return toString();
     }
 
     public String toOneLineString() {
-        return super.toOneLineString() + getValue();
+        return getValue().toString();
     }
+
+    public boolean isAtomic() { return true; }
+    public boolean isCompound() { return ! isAtomic(); }
 }

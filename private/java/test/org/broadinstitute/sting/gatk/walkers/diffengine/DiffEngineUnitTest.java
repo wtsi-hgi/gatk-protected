@@ -64,10 +64,23 @@ public class DiffEngineUnitTest extends BaseTest {
         public DiffElement tree1, tree2;
         public List<String> differences;
 
+        private DifferenceTest(String tree1, String tree2) {
+            this(tree1, tree2, Collections.<String>emptyList());
+        }
+
+        private DifferenceTest(String tree1, String tree2, String difference) {
+            this(tree1, tree2, Arrays.asList(difference));
+        }
+
         private DifferenceTest(String tree1, String tree2, List<String> differences) {
             this.tree1 = DiffNode.fromString(tree1);
             this.tree2 = DiffNode.fromString(tree2);
             this.differences = differences;
+        }
+
+        public String toString() {
+            return String.format("tree1=%s tree2=%s diff=%s",
+                    tree1.toOneLineString(), tree2.toOneLineString(), differences);
         }
     }
 
@@ -75,23 +88,17 @@ public class DiffEngineUnitTest extends BaseTest {
     public Object[][] createTrees() {
         List<DifferenceTest> params = new ArrayList<DifferenceTest>();
 
-        params.add(new DifferenceTest("A=X", "A=X",
-                Collections.<String>emptyList()));
-
-        params.add(new DifferenceTest("A=X", "A=Y",
-                Arrays.asList("A:X!=Y")));
-
-        params.add(new DifferenceTest("A=X", "B=X",
-                Arrays.asList("A:X!=MISSING", "B:MISSING!=X")));
-
-        params.add(new DifferenceTest("A=(X=1)", "A=(X=1)",
-                Collections.<String>emptyList()));
-
-        params.add(new DifferenceTest("A=(X=1)", "A=(X=2)",
-                Arrays.asList("A.X:1!=2")));
-
-        params.add(new DifferenceTest("A=(X=1)", "A=(X=1 Y=2)",
-                Arrays.asList("A.Y:MISSING!=2")));
+        params.add(new DifferenceTest("A=X", "A=X"));
+        params.add(new DifferenceTest("A=X", "A=Y", "A:X!=Y"));
+        params.add(new DifferenceTest("A=X", "B=X", Arrays.asList("A:X!=MISSING", "B:MISSING!=X")));
+        params.add(new DifferenceTest("A=(X=1)", "B=(X=1)", Arrays.asList("A:(X=1)!=MISSING", "B:MISSING!=(X=1)")));
+        params.add(new DifferenceTest("A=(X=1)", "A=(X=1)"));
+        params.add(new DifferenceTest("A=(X=1 Y=2)", "A=(X=1 Y=2)"));
+        params.add(new DifferenceTest("A=(X=1 Y=2 B=(Z=3))", "A=(X=1 Y=2 B=(Z=3))"));
+        params.add(new DifferenceTest("A=(X=1)", "A=(X=2)", "A.X:1!=2"));
+        params.add(new DifferenceTest("A=(X=1 Y=2 B=(Z=3))", "A=(X=1 Y=2 B=(Z=4))", "A.B.Z:3!=4"));
+        params.add(new DifferenceTest("A=(X=1)", "A=(X=1 Y=2)", "A.Y:MISSING!=2"));
+        params.add(new DifferenceTest("A=(X=1 Y=2 B=(Z=3))", "A=(X=1 Y=2)", "A.B:(Z=3)!=MISSING"));
 
         List<Object[]> params2 = new ArrayList<Object[]>();
         for ( DifferenceTest x : params ) params2.add(new Object[]{x});

@@ -80,12 +80,20 @@ public class DiffObjectsWalker extends RodWalker<Integer, Integer> {
 
     @Override
     public void onTraversalDone(Integer sum) {
-        out.printf("Itemized results%n");
-        DiffNode master = diffEngine.createDiffableFromFile(masterFile);
+        DiffElement master = diffEngine.createDiffableFromFile(masterFile);
+        DiffElement test = diffEngine.createDiffableFromFile(testFile);
+
+        out.printf("Master diff objects%n");
         out.println(master.toString());
-//        DiffNode test = diffEngine.createDiffableFromFile(testFile);
-//        List<Difference> diffs = diffEngine.diff(master, test);
-//        out.println(diffEngine.reportItemizedDifference(diffs));
-//        out.println(diffEngine.reportSummarizedDifferences(diffs));
+        out.printf("Test diff objects%n");
+        out.println(test.toString());
+
+        out.printf("Itemized results%n");
+        List<Difference> diffs = diffEngine.diff(master, test);
+        for ( Difference diff : diffs )
+            out.printf("DIFF: %s%n", diff.toString());
+
+        out.println(diffEngine.reportItemizedDifference(diffs));
+        out.println(diffEngine.reportSummarizedDifferences(diffs));
     }
 }

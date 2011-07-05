@@ -43,39 +43,6 @@ import java.util.*;
  */
 public class DiffableReaderUnitTest extends BaseTest {
     DiffEngine engine;
-//    private class SingleTest {
-//        public String bases;
-//        public byte mostCountBase;
-//        public int mostCommonCount;
-//
-//        private SingleTest(String bases, char mostCountBase, int mostCommonCount) {
-//            this.mostCommonCount = mostCommonCount;
-//            this.mostCountBase = (byte)mostCountBase;
-//            this.bases = bases;
-//        }
-//    }
-//
-//    @DataProvider(name = "data")
-//    public Object[][] createData1() {
-//        List<SingleTest> params = new ArrayList<SingleTest>();
-//
-//        params.add(new SingleTest("A", 'A', 1 ));
-//        params.add(new SingleTest("AA", 'A', 2 ));
-//        params.add(new SingleTest("AC", 'A', 1 ));
-//        params.add(new SingleTest("AAC", 'A', 2 ));
-//        params.add(new SingleTest("AAA", 'A', 3 ));
-//        params.add(new SingleTest("AAAN", 'A', 3 ));
-//        params.add(new SingleTest("AAANNNN", 'A', 3 ));
-//        params.add(new SingleTest("AACTG", 'A', 2 ));
-//        params.add(new SingleTest("D", 'D', 1 ));
-//        params.add(new SingleTest("DDAAD", 'D', 3));
-//        params.add(new SingleTest("", (char)BaseCounts.MAX_BASE_WITH_NO_COUNTS, 0 ));
-//        params.add(new SingleTest("AAIIIAI", 'I', 4 ));
-//
-//        List<Object[]> params2 = new ArrayList<Object[]>();
-//        for ( SingleTest x : params ) params2.add(new Object[]{x});
-//        return params2.toArray(new Object[][]{});
-//    }
 
     File vcfFile = new File(testDir + "diffTestMaster.vcf");
     File bamFile = new File(testDir + "exampleBAM.bam");
@@ -100,9 +67,9 @@ public class DiffableReaderUnitTest extends BaseTest {
     }
 
     private static void testLeaf(DiffNode rec, String field, Object expected) {
-        DiffLeaf leaf = rec.getLeaf(field);
-        Assert.assertNotNull(leaf, "Expected to see leaf named " + field + " in rec " + rec);
-        Assert.assertEquals(leaf.getValue(), expected, "Expected to leaf named " + field + " to have value " + expected + " in rec " + rec);
+        DiffElement value = rec.getElement(field);
+        Assert.assertNotNull(value, "Expected to see leaf named " + field + " in rec " + rec);
+        Assert.assertEquals(value.getValue().getValue(), expected, "Expected to leaf named " + field + " to have value " + expected + " in rec " + rec);
     }
 
     @Test(enabled = true, dependsOnMethods = "testPluggableDiffableReaders")
@@ -112,17 +79,17 @@ public class DiffableReaderUnitTest extends BaseTest {
         Assert.assertTrue(vcfReader.canRead(vcfFile));
         Assert.assertFalse(vcfReader.canRead(bamFile));
 
-        DiffNode diff = vcfReader.readFromFile(vcfFile);
+        DiffElement diff = vcfReader.readFromFile(vcfFile);
         Assert.assertNotNull(diff);
-        //logger.warn(diff);
 
         Assert.assertEquals(diff.getName(), vcfFile.getName());
-        Assert.assertSame(diff.getParent(), DiffNode.ROOT);
-        Assert.assertEquals(diff.getLeaves().size(), 0);
-        Assert.assertEquals(diff.getNodes().size(), 9);
+        Assert.assertSame(diff.getParent(), DiffElement.ROOT);
+
+        DiffNode node = diff.getValueAsNode();
+        Assert.assertEquals(node.getElements().size(), 9);
 
         // chr1    2646    rs62635284      G       A       0.15    PASS    AC=2;AF=1.00;AN=2       GT:AD:DP:GL:GQ  1/1:53,75:3:-12.40,-0.90,-0.00:9.03
-        DiffNode rec1 = diff.getNode("chr1:2646");
+        DiffNode rec1 = node.getElement("chr1:2646").getValueAsNode();
         testLeaf(rec1, "CHROM", "chr1");
         testLeaf(rec1, "POS", 2646);
         testLeaf(rec1, "ID", "rs62635284");

@@ -24,10 +24,9 @@
 
 package org.broadinstitute.sting.gatk.walkers.diffengine;
 
+import com.google.java.contract.Requires;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import scala.Left;
-import scala.xml.Null;
 
 import java.util.*;
 
@@ -40,92 +39,72 @@ import java.util.*;
  * An interface that must be implemented to allow us to calculate differences
  * between structured objects
  */
-public class DiffNode extends DiffElement {
-    public final static DiffNode ROOT = new DiffNode("ROOT", null, null);
-    public boolean isRoot() { return this == ROOT; }
-
-    private Map<String, DiffElement> leaves;
-
-    private static Map<String, DiffElement> emptyLeaves() { return new HashMap<String, DiffElement>(); }
-
-    private DiffNode(String name, DiffNode parent, Map<String, DiffElement> leaves) {
-        super(name, parent);
-        this.leaves = leaves;
+public class DiffNode extends DiffValue {
+    private Map<String, DiffElement> getElementMap() {
+        return (Map<String, DiffElement>)super.getValue();
     }
+    private static Map<String, DiffElement> emptyElements() { return new HashMap<String, DiffElement>(); }
+
+    private DiffNode(Map<String, DiffElement> elements) {
+        super(elements);
+    }
+
+    private DiffNode(DiffElement binding, Map<String, DiffElement> elements) {
+        super(binding, elements);
+    }
+
+    // ---------------------------------------------------------------------------
+    //
+    // constructors
+    //
+    // ---------------------------------------------------------------------------
 
     public static DiffNode rooted(String name) {
-        return empty(name, ROOT);
+        return empty(name, DiffElement.ROOT);
     }
 
-    public static DiffNode empty(String name, DiffNode parent) {
-        return withLeaves(name, parent, emptyLeaves());
+    public static DiffNode empty(String name, DiffElement parent) {
+        DiffNode df = new DiffNode(emptyElements());
+        DiffElement elt = new DiffElement(name, parent, df);
+        df.setBinding(elt);
+        return df;
     }
 
-    public static DiffNode withLeaves(String name, DiffNode parent, List<DiffElement> leaves) {
-        DiffNode node = empty(name, parent);
-        node.add(leaves);
-        return node;
+    public static DiffNode empty(String name, DiffValue parent) {
+        return empty(name, parent.getBinding());
     }
 
-    public static DiffNode withLeaves(String name, DiffNode parent, Map<String, DiffElement> leaves) {
-        return new DiffNode(name, parent, leaves);
-    }
+    // ---------------------------------------------------------------------------
+    //
+    // accessors
+    //
+    // ---------------------------------------------------------------------------
 
-    public void add(DiffElement elt) {
-        leaves.put(elt.getName(), elt);
-    }
-
-    public void add(Collection<DiffElement> elts) {
-        for ( DiffElement e : elts )
-            add(e);
-    }
-
-    public void add(String name, Object value) {
-        add(new DiffLeaf(name, this, value));
-    }
-
-
-    public String toString() {
-        return toString(0);
-    }
-
-    public String toString(int offset) {
-        String off = offset > 0 ? Utils.dupString(' ', offset) : "";
-        String off2 = Utils.dupString(' ', offset+2);
-        StringBuilder b = new StringBuilder();
-
-        b.append(String.format("%s%s%n", off, super.toString()));
-        for ( DiffLeaf leaf : getLeaves() )
-            b.append(off2).append(leaf.toString()).append('\n');
-        for ( DiffNode node : getNodes() )
-            b.append(node.toString(offset + 4));
-
-        return b.toString();
-    }
+    @Override
+    public boolean isAtomic() { return false; }
 
     public Collection<String> getElementNames() {
-        return leaves.keySet();
+        return getElementMap().keySet();
     }
 
     public Collection<DiffElement> getElements() {
-        return leaves.values();
+        return getElementMap().values();
     }
 
-    private <T> Collection<T> getElements(Class<T> restriction) {
-        List<T> l = new ArrayList<T>();
-        for ( DiffElement e : getElements() ) {
-            if ( restriction.isInstance(e) )
-                l.add((T)e);
-        }
-        return l;
+    private Collection<DiffElement> getElements(boolean atomicOnly) {
+        List<DiffElement> elts = new ArrayList<DiffElement>();
+        for ( DiffElement elt : getElements() )
+            if ( (atomicOnly && elt.getValue().isAtomic()) || (! atomicOnly && elt.getValue().isCompound()))
+                elts.add(elt);
+        return elts;
     }
 
-    public Collection<DiffLeaf> getLeaves() {
-        return getElements(DiffLeaf.class);
+    public Collection<DiffElement> getAtomicElements() {
+        return getElements(true);
     }
 
-    public Collection<DiffNode> getNodes() {
-        return getElements(DiffNode.class);
+    public Collection<DiffElement> getCompoundElements() {
+        return getElements(false);
     }
 
     public DiffElement getElement(String name) {
@@ -135,22 +114,76 @@ public class DiffNode extends DiffElement {
         return null;
     }
 
-    public <T> T getElement(String name, Class<T> restriction) {
-        DiffElement elt = getElement(name);
-        if ( elt == null )
-            return null;
-        else if ( restriction.isInstance(elt) )
-            return (T)elt;
-        else
-            throw new ReviewedStingException("Requested object of type " + restriction + " but found binding to class " + elt.getClass());
+    // ---------------------------------------------------------------------------
+    //
+    // add
+    //
+    // ---------------------------------------------------------------------------
+
+    @Requires("elt != null")
+    public void add(DiffElement elt) {
+        if ( getElementMap().containsKey(elt.getName()) )
+            throw new IllegalArgumentException("Attempting to rebind already existing binding: " + elt + " node=" + this);
+        getElementMap().put(elt.getName(), elt);
     }
 
-    public DiffLeaf getLeaf(String name) {
-        return getElement(name, DiffLeaf.class);
+    @Requires("elt != null")
+    public void add(DiffValue elt) {
+        add(elt.getBinding());
     }
 
-    public DiffNode getNode(String name) {
-        return getElement(name, DiffNode.class);
+    @Requires("elts != null")
+    public void add(Collection<DiffElement> elts) {
+        for ( DiffElement e : elts )
+            add(e);
+    }
+
+    public void add(String name, Object value) {
+        add(new DiffElement(name, this.getBinding(), new DiffValue(value)));
+    }
+
+    // ---------------------------------------------------------------------------
+    //
+    // toString
+    //
+    // ---------------------------------------------------------------------------
+
+    @Override
+    public String toString() {
+        return toString(0);
+    }
+
+    @Override
+    public String toString(int offset) {
+        String off = offset > 0 ? Utils.dupString(' ', offset) : "";
+        StringBuilder b = new StringBuilder();
+
+        b.append("(").append("\n");
+        Collection<DiffElement> atomicElts = getAtomicElements();
+        for ( DiffElement elt : atomicElts ) {
+            b.append(elt.toString(offset + 2)).append('\n');
+        }
+
+        for ( DiffElement elt : getCompoundElements() ) {
+            b.append(elt.toString(offset + 4)).append('\n');
+        }
+        b.append(off).append(")").append("\n");
+
+        return b.toString();
+    }
+
+    @Override
+    public String toOneLineString() {
+        StringBuilder b = new StringBuilder();
+
+        b.append('(');
+        List<String> parts = new ArrayList<String>();
+        for ( DiffElement elt : getElements() )
+            parts.add(elt.toOneLineString());
+        b.append(Utils.join(" ", parts));
+        b.append(')');
+
+        return b.toString();
     }
 
     // --------------------------------------------------------------------------------
@@ -160,7 +193,7 @@ public class DiffNode extends DiffElement {
     // --------------------------------------------------------------------------------
 
     public static DiffElement fromString(String tree) {
-        return fromString(tree, ROOT);
+        return fromString(tree, DiffElement.ROOT);
     }
 
     /**
@@ -169,7 +202,7 @@ public class DiffNode extends DiffElement {
      * @param parent
      * @return
      */
-    private static DiffElement fromString(String tree, DiffNode parent) {
+    private static DiffElement fromString(String tree, DiffElement parent) {
         // X=(A=A B=B C=(D=D))
         String[] parts = tree.split("=", 2);
         if ( parts.length != 2 )
@@ -187,26 +220,11 @@ public class DiffNode extends DiffElement {
             DiffNode rec = DiffNode.empty(name, parent);
             String[] subParts = subtree.split(" ");
             for ( String subPart : subParts ) {
-                rec.add(fromString(subPart, rec));
+                rec.add(fromString(subPart, rec.getBinding()));
             }
-            return rec;
+            return rec.getBinding();
         } else {
-            return new DiffLeaf(name, parent, value);
+            return new DiffValue(name, parent, value).getBinding();
         }
-    }
-
-    @Override
-    public String toOneLineString() {
-        StringBuilder b = new StringBuilder();
-
-        b.append(super.toOneLineString());
-        b.append('(');
-        List<String> parts = new ArrayList<String>();
-        for ( DiffElement elt : getElements() )
-            parts.add(elt.toOneLineString());
-        b.append(Utils.join(" ", parts));
-        b.append(')');
-
-        return b.toString();
     }
 }

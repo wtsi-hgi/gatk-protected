@@ -24,7 +24,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.diffengine;
 
-import junit.framework.Test;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
@@ -58,13 +57,13 @@ public class DiffEngine {
     // --------------------------------------------------------------------------------
 
     public List<Difference> diff(DiffElement master, DiffElement test) {
-        boolean masterIsNode = master instanceof DiffNode;
-        boolean testIsNode = test instanceof DiffNode;
+        DiffValue masterValue = master.getValue();
+        DiffValue testValue = test.getValue();
 
-        if ( masterIsNode && testIsNode ) {
-            return diff((DiffNode)master, (DiffNode)test);
-        } else if ( ! masterIsNode && ! testIsNode ) {
-            return diff((DiffLeaf) master, (DiffLeaf) test);
+        if ( masterValue.isCompound() && masterValue.isCompound() ) {
+            return diff(master.getValueAsNode(), test.getValueAsNode());
+        } else if ( masterValue.isAtomic() && testValue.isAtomic() ) {
+            return diff(masterValue, testValue);
         } else {
             // structural difference in types.  one is node, other is leaf
             return Arrays.asList(new Difference(master, test));
@@ -92,11 +91,11 @@ public class DiffEngine {
         return diffs;
     }
 
-    public List<Difference> diff(DiffLeaf master, DiffLeaf test) {
+    public List<Difference> diff(DiffValue master, DiffValue test) {
         if ( master.getValue().equals(test.getValue()) ) {
             return Collections.emptyList();
         } else {
-            return Arrays.asList(new Difference(master, test));
+            return Arrays.asList(new Difference(master.getBinding(), test.getBinding()));
         }
     }
 
@@ -154,7 +153,7 @@ public class DiffEngine {
         return null;
     }
 
-    public DiffNode createDiffableFromFile(File file) {
+    public DiffElement createDiffableFromFile(File file) {
         DiffableReader reader = findReaderForFile(file);
         if ( reader == null )
             throw new UserException("Unsupported file type: " + file);

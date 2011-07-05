@@ -63,6 +63,13 @@ public class DifferenceUnitTest extends BaseTest {
             this.tree2 = tree2;
             this.difference = difference;
         }
+
+        public String toString() {
+            return String.format("tree1=%s tree2=%s diff=%s",
+                    tree1 == null ? "null" : tree1.toOneLineString(),
+                    tree2 == null ? "null" : tree2.toOneLineString(),
+                    difference);
+        }
     }
 
     @DataProvider(name = "data")
@@ -85,8 +92,8 @@ public class DifferenceUnitTest extends BaseTest {
 
     @Test(enabled = true, dataProvider = "data")
     public void testDiffToString(DifferenceTest test) {
-        logger.warn("Test tree1: " + test.tree1.toOneLineString());
-        logger.warn("Test tree2: " + test.tree2.toOneLineString());
+        logger.warn("Test tree1: " + (test.tree1 == null ? "null" : test.tree1.toOneLineString()));
+        logger.warn("Test tree2: " + (test.tree2 == null ? "null" : test.tree2.toOneLineString()));
         logger.warn("Test expected diff : " + test.difference);
         Difference diff = new Difference(test.tree1, test.tree2);
         logger.warn("Observed diffs     : " + diff);

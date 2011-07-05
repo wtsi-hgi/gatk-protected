@@ -24,6 +24,9 @@
 
 package org.broadinstitute.sting.gatk.walkers.diffengine;
 
+import com.google.java.contract.Ensures;
+import com.google.java.contract.Requires;
+
 import java.io.File;
 
 /**
@@ -35,7 +38,13 @@ import java.io.File;
  * Interface for readers creating diffable objects from a file
  */
 public interface DiffableReader {
+    @Ensures("result != null")
     public String getName();
-    public DiffNode readFromFile(File file);
+
+    @Ensures("result != null")
+    @Requires("file != null")
+    public DiffElement readFromFile(File file);
+
+    @Requires("file != null")
     public boolean canRead(File file);
 }

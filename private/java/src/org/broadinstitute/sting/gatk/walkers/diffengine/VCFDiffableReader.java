@@ -51,7 +51,7 @@ public class VCFDiffableReader implements DiffableReader {
     public String getName() { return "VCF"; }
 
     @Override
-    public DiffNode readFromFile(File file) {
+    public DiffElement readFromFile(File file) {
         DiffNode root = DiffNode.rooted(file.getName());
         try {
             LineReader lineReader = new AsciiLineReader(new FileInputStream(file));
@@ -67,7 +67,7 @@ public class VCFDiffableReader implements DiffableReader {
                 // add fields
                 vcRoot.add("CHROM", vc.getChr());
                 vcRoot.add("POS", vc.getStart());
-                vcRoot.add("ID", vc.getID());
+                vcRoot.add("ID", vc.hasID() ? vc.getID() : VCFConstants.MISSING_VALUE_v4);
                 vcRoot.add("REF", vc.getReference());
                 vcRoot.add("ALT", vc.getAlternateAlleles());
                 vcRoot.add("QUAL", vc.hasNegLog10PError() ? vc.getNegLog10PError() * 10 : VCFConstants.MISSING_VALUE_v4);
@@ -75,7 +75,7 @@ public class VCFDiffableReader implements DiffableReader {
 
                 // add info fields
                 for (Map.Entry<String, Object> attribute : vc.getAttributes().entrySet()) {
-                    if ( ! attribute.getKey().startsWith("_") )
+                    if ( ! attribute.getKey().startsWith("_") && ! attribute.getKey().equals(VariantContext.ID_KEY))
                         vcRoot.add(attribute.getKey(), attribute.getValue());
                 }
 
@@ -101,7 +101,7 @@ public class VCFDiffableReader implements DiffableReader {
             return null;
         }
 
-        return root;
+        return root.getBinding();
     }
 
     @Override
