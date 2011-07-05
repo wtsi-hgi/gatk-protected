@@ -1,4 +1,4 @@
-package oneoffs.depristo
+package org.broadinstitute.sting.queue.qscripts.analysis
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
