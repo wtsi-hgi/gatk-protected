@@ -103,6 +103,10 @@ public class DiffNode extends DiffElement {
         return b.toString();
     }
 
+    public Collection<String> getElementNames() {
+        return leaves.keySet();
+    }
+
     public Collection<DiffElement> getElements() {
         return leaves.values();
     }
@@ -147,5 +151,62 @@ public class DiffNode extends DiffElement {
 
     public DiffNode getNode(String name) {
         return getElement(name, DiffNode.class);
+    }
+
+    // --------------------------------------------------------------------------------
+    //
+    // fromString and toOneLineString
+    //
+    // --------------------------------------------------------------------------------
+
+    public static DiffElement fromString(String tree) {
+        return fromString(tree, ROOT);
+    }
+
+    /**
+     * Doesn't support full tree structure parsing
+     * @param tree
+     * @param parent
+     * @return
+     */
+    private static DiffElement fromString(String tree, DiffNode parent) {
+        // X=(A=A B=B C=(D=D))
+        String[] parts = tree.split("=", 2);
+        if ( parts.length != 2 )
+            throw new ReviewedStingException("Unexpected tree structure: " + tree + " parts=" + parts);
+        String name = parts[0];
+        String value = parts[1];
+
+        if ( value.length() == 0 )
+            throw new ReviewedStingException("Illegal tree structure: " + value + " at " + tree);
+
+        if ( value.charAt(0) == '(' ) {
+            if ( ! value.endsWith(")") )
+                throw new ReviewedStingException("Illegal tree structure.  Missing ): " + value + " at " + tree);
+            String subtree = value.substring(1, value.length()-1);
+            DiffNode rec = DiffNode.empty(name, parent);
+            String[] subParts = subtree.split(" ");
+            for ( String subPart : subParts ) {
+                rec.add(fromString(subPart, rec));
+            }
+            return rec;
+        } else {
+            return new DiffLeaf(name, parent, value);
+        }
+    }
+
+    @Override
+    public String toOneLineString() {
+        StringBuilder b = new StringBuilder();
+
+        b.append(super.toOneLineString());
+        b.append('(');
+        List<String> parts = new ArrayList<String>();
+        for ( DiffElement elt : getElements() )
+            parts.add(elt.toOneLineString());
+        b.append(Utils.join(" ", parts));
+        b.append(')');
+
+        return b.toString();
     }
 }

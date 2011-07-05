@@ -48,4 +48,8 @@ public class DiffLeaf extends DiffElement {
     public String toString() {
         return getName() + " = " + getValue();
     }
+
+    public String toOneLineString() {
+        return super.toOneLineString() + getValue();
+    }
 }

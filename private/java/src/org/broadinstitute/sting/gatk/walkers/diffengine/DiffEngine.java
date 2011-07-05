@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.diffengine;
 
+import junit.framework.Test;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
@@ -50,9 +51,60 @@ public class DiffEngine {
         loadDiffableReaders();
     }
 
-    public List<Difference> diff(DiffNode master, DiffNode novel) {
-        return Collections.emptyList();
+    // --------------------------------------------------------------------------------
+    //
+    // difference calculation
+    //
+    // --------------------------------------------------------------------------------
+
+    public List<Difference> diff(DiffElement master, DiffElement test) {
+        boolean masterIsNode = master instanceof DiffNode;
+        boolean testIsNode = test instanceof DiffNode;
+
+        if ( masterIsNode && testIsNode ) {
+            return diff((DiffNode)master, (DiffNode)test);
+        } else if ( ! masterIsNode && ! testIsNode ) {
+            return diff((DiffLeaf) master, (DiffLeaf) test);
+        } else {
+            // structural difference in types.  one is node, other is leaf
+            return Arrays.asList(new Difference(master, test));
+        }
     }
+
+    public List<Difference> diff(DiffNode master, DiffNode test) {
+        Set<String> allNames = new HashSet<String>(master.getElementNames());
+        allNames.addAll(test.getElementNames());
+        List<Difference> diffs = new ArrayList<Difference>();
+
+        for ( String name : allNames ) {
+            DiffElement masterElt = master.getElement(name);
+            DiffElement testElt = test.getElement(name);
+            if ( masterElt == null && testElt == null ) {
+                throw new ReviewedStingException("BUG: unexceptedly got two null elements for field: " + name);
+            } else if ( masterElt == null || testElt == null ) { // if either is null, we are missing a value
+                // todo -- should one of these be a special MISSING item?
+                diffs.add(new Difference(masterElt, testElt));
+            } else {
+                diffs.addAll(diff(masterElt, testElt));
+            }
+        }
+
+        return diffs;
+    }
+
+    public List<Difference> diff(DiffLeaf master, DiffLeaf test) {
+        if ( master.getValue().equals(test.getValue()) ) {
+            return Collections.emptyList();
+        } else {
+            return Arrays.asList(new Difference(master, test));
+        }
+    }
+
+    // --------------------------------------------------------------------------------
+    //
+    // Reporting Structure
+    //
+    // --------------------------------------------------------------------------------
 
     public String reportItemizedDifference(List<Difference> diffs) {
         return "";

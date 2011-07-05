@@ -30,8 +30,13 @@ package org.broadinstitute.sting.gatk.walkers.diffengine;
  * Date: 7/4/11
  * Time: 12:53 PM
  *
- * Represents a specific difference between two specific Diffable objects
+ * Represents a specific difference between two specific DiffElements
  */
 public class Difference {
+    DiffElement master, test;
 
+    public Difference(DiffElement master, DiffElement test) {
+        this.master = master;
+        this.test = test;
+    }
 }

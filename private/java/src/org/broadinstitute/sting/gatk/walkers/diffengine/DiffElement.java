@@ -60,4 +60,8 @@ public abstract class DiffElement {
         else
             return parent.fullyQualifiedName() + "." + name;
     }
+
+    public String toOneLineString() {
+        return getName() + "=";
+    }
 }

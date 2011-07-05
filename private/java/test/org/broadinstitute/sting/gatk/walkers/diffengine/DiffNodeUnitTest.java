@@ -203,9 +203,48 @@ public class DiffNodeUnitTest extends BaseTest {
         }
     }
 
+    // TODO -- test node modifiers
+
     @Test(enabled = true, dataProvider = "nodedata")
     public void testCounts(NodeTest test) {
         Assert.assertEquals(test.node.getLeaves().size(), test.fields.size());
         Assert.assertEquals(test.node.getNodes().size(), test.nodes.size());
+    }
+
+    // --------------------------------------------------------------------------------
+    //
+    // fromString testing routines
+    //
+    // --------------------------------------------------------------------------------
+
+    private class FromStringTest {
+        public String string;
+        public DiffElement expected;
+
+        private FromStringTest(String string, DiffElement expected) {
+            this.string = string;
+            this.expected = expected;
+        }
+    }
+
+    @DataProvider(name = "fromstringdata")
+    public Object[][] createFromData() {
+        List<FromStringTest> params = new ArrayList<FromStringTest>();
+
+        params.add(new FromStringTest("A=A", LEAF_A));
+        params.add(new FromStringTest("B=B", LEAF_B));
+        params.add(new FromStringTest("C=(E=E)", NODE_C));
+        params.add(new FromStringTest("D=(F=F G=G)", NODE_D));
+
+        List<Object[]> params2 = new ArrayList<Object[]>();
+        for ( FromStringTest x : params ) params2.add(new Object[]{x});
+        return params2.toArray(new Object[][]{});
+    }
+
+    @Test(enabled = true, dataProvider = "fromstringdata")
+    public void parseFromString(FromStringTest test) {
+        logger.warn("Testing from string: " + test.string);
+        DiffElement elt = DiffNode.fromString(test.string);
+        Assert.assertEquals(elt.toOneLineString(), test.expected.toOneLineString());
     }
 }
