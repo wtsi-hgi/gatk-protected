@@ -24,6 +24,8 @@
 
 package org.broadinstitute.sting.gatk.walkers.diffengine;
 
+import java.util.Arrays;
+
 /**
  * Created by IntelliJ IDEA.
  * User: depristo
@@ -38,5 +40,20 @@ public class Difference {
     public Difference(DiffElement master, DiffElement test) {
         this.master = master;
         this.test = test;
+    }
+
+    public String toString() {
+        return String.format("%s:%s!=%s",
+                getFullyQualifiedName(),
+                getOneLineString(master),
+                getOneLineString(test));
+    }
+
+    public String getFullyQualifiedName() {
+        return master == null ? test.fullyQualifiedName() : master.fullyQualifiedName();
+    }
+
+    private static String getOneLineString(DiffElement elt) {
+        return elt == null ? "MISSING" : elt.toOneLineString();
     }
 }

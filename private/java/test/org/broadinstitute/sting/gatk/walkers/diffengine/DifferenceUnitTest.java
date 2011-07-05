@@ -29,14 +29,12 @@ package org.broadinstitute.sting.gatk.walkers.diffengine;
 // the imports for unit testing.
 
 
-import com.sun.xml.internal.ws.api.pipe.Engine;
 import org.broadinstitute.sting.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,66 +43,54 @@ import java.util.List;
 /**
  * Basic unit test for DifferableReaders in reduced reads
  */
-public class DiffEngineUnitTest extends BaseTest {
-    DiffEngine engine;
-
-    @BeforeClass(enabled = true)
-    public void createDiffEngine() {
-        engine = new DiffEngine(10);
-    }
-
-
+public class DifferenceUnitTest extends BaseTest {
     // --------------------------------------------------------------------------------
     //
-    // Element testing routines
+    // testing routines
     //
     // --------------------------------------------------------------------------------
 
     private class DifferenceTest {
         public DiffElement tree1, tree2;
-        public List<String> differences;
+        public String difference;
 
-        private DifferenceTest(String tree1, String tree2, List<String> differences) {
-            this.tree1 = DiffNode.fromString(tree1);
-            this.tree2 = DiffNode.fromString(tree2);
-            this.differences = differences;
+        private DifferenceTest(String tree1, String tree2, String difference) {
+            this(DiffNode.fromString(tree1), DiffNode.fromString(tree2), difference);
+        }
+
+        private DifferenceTest(DiffElement tree1, DiffElement tree2, String difference) {
+            this.tree1 = tree1;
+            this.tree2 = tree2;
+            this.difference = difference;
         }
     }
 
-    @DataProvider(name = "trees")
+    @DataProvider(name = "data")
     public Object[][] createTrees() {
         List<DifferenceTest> params = new ArrayList<DifferenceTest>();
 
-        params.add(new DifferenceTest("A=X", "A=X",
-                Collections.<String>emptyList()));
-
-        params.add(new DifferenceTest("A=X", "A=Y",
-                Arrays.asList("A:X!=Y")));
-
-        params.add(new DifferenceTest("A=X", "B=X",
-                Arrays.asList("A:X!=MISSING", "B:MISSING!=X")));
-
-        params.add(new DifferenceTest("A=(X=1)", "A=(X=1)",
-                Collections.<String>emptyList()));
-
-        params.add(new DifferenceTest("A=(X=1)", "A=(X=2)",
-                Arrays.asList("A.X:1!=2")));
-
-        params.add(new DifferenceTest("A=(X=1)", "A=(X=1 Y=2)",
-                Arrays.asList("A.Y:MISSING!=2")));
+        params.add(new DifferenceTest("A=X", "A=Y", "A:X!=Y"));
+        params.add(new DifferenceTest("A=Y", "A=X", "A:Y!=X"));
+        params.add(new DifferenceTest(DiffNode.fromString("A=X"), null, "A:X!=MISSING"));
+        params.add(new DifferenceTest(null, DiffNode.fromString("A=X"), "A:MISSING!=X"));
 
         List<Object[]> params2 = new ArrayList<Object[]>();
         for ( DifferenceTest x : params ) params2.add(new Object[]{x});
         return params2.toArray(new Object[][]{});
     }
 
-    @Test(enabled = true, dataProvider = "trees")
-    public void testDiffs(DifferenceTest test) {
+//    private static DiffElement subtree(DiffElement tree) {
+//        return tree == null ? null : ((DiffLeaf)tree).getValue();
+//    }
+
+    @Test(enabled = true, dataProvider = "data")
+    public void testDiffToString(DifferenceTest test) {
         logger.warn("Test tree1: " + test.tree1.toOneLineString());
         logger.warn("Test tree2: " + test.tree2.toOneLineString());
+        logger.warn("Test expected diff : " + test.difference);
+        Difference diff = new Difference(test.tree1, test.tree2);
+        logger.warn("Observed diffs     : " + diff);
+        Assert.assertEquals(diff.toString(), test.difference, "Observed diff string " + diff + " not equal to expected difference string " + test.difference );
 
-        List<Difference> diffs = engine.diff(test.tree1, test.tree2);
-        logger.warn("Test expected diff : " + test.differences);
-        logger.warn("Observed diffs     : " + diffs);
     }
 }
