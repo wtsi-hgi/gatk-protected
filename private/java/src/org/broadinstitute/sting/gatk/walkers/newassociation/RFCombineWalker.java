@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.walkers.newassociation;
+package org.broadinstitute.sting.oneoffprojects.walkers.newassociation;
 
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;

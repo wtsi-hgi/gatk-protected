@@ -1,6 +1,6 @@
-package org.broadinstitute.sting.walkers.validation;
+package org.broadinstitute.sting.oneoffprojects.walkers.validation;
 
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broad.tribble.util.variantcontext.VariantContext;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;

@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.walkers.newassociation;
+package org.broadinstitute.sting.oneoffprojects.walkers.newassociation;
 
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
@@ -12,9 +12,9 @@ import org.broadinstitute.sting.gatk.walkers.By;
 import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.walkers.newassociation.features.ClippedBases;
-import org.broadinstitute.sting.walkers.newassociation.features.InsertSize;
-import org.broadinstitute.sting.walkers.newassociation.features.ReadFeatureAggregator;
+import org.broadinstitute.sting.oneoffprojects.walkers.newassociation.features.ClippedBases;
+import org.broadinstitute.sting.oneoffprojects.walkers.newassociation.features.InsertSize;
+import org.broadinstitute.sting.oneoffprojects.walkers.newassociation.features.ReadFeatureAggregator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.classloader.PluginManager;

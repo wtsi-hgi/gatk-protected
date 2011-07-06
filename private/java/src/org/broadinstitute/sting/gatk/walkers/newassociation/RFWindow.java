@@ -1,8 +1,8 @@
-package org.broadinstitute.sting.walkers.newassociation;
+package org.broadinstitute.sting.oneoffprojects.walkers.newassociation;
 
 import com.google.java.contract.Requires;
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.walkers.newassociation.features.ReadFeatureAggregator;
+import org.broadinstitute.sting.oneoffprojects.walkers.newassociation.features.ReadFeatureAggregator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.GenomeLocSortedSet;

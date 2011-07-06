@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.walkers.newassociation;
+package org.broadinstitute.sting.oneoffprojects.walkers.newassociation;
 
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
@@ -7,7 +7,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.sample.Sample;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.walkers.newassociation.features.*;
+import org.broadinstitute.sting.oneoffprojects.walkers.newassociation.features.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.exceptions.StingException;
