@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.oneoffprojects.walkers.newassociation;
+package org.broadinstitute.sting.gatk.walkers.newassociation;
 
 import net.sf.picard.reference.ReferenceSequenceFileFactory;
 import net.sf.samtools.SAMFileHeader;

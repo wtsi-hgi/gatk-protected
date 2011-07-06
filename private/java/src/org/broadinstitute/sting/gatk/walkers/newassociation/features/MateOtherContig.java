@@ -1,7 +1,7 @@
-package org.broadinstitute.sting.oneoffprojects.walkers.newassociation.features;
+package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.oneoffprojects.walkers.newassociation.RFAArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
  * Created by IntelliJ IDEA.

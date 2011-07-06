@@ -1,7 +1,7 @@
-package org.broadinstitute.sting.oneoffprojects.walkers.newassociation;
+package org.broadinstitute.sting.gatk.walkers.newassociation;
 
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.oneoffprojects.walkers.newassociation.features.ReadFeatureAggregator;
+import org.broadinstitute.sting.gatk.walkers.newassociation.features.ReadFeatureAggregator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.collections.Pair;
