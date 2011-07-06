@@ -25,11 +25,13 @@
 package org.broadinstitute.sting.gatk.walkers.diffengine;
 
 import org.apache.log4j.Logger;
+import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 
 import java.io.File;
+import java.io.PrintStream;
 import java.util.*;
 
 /**
@@ -101,16 +103,117 @@ public class DiffEngine {
 
     // --------------------------------------------------------------------------------
     //
-    // Reporting Structure
+    // Summarizing differences
     //
     // --------------------------------------------------------------------------------
 
-    public String reportItemizedDifference(List<Difference> diffs) {
-        return "";
+    /**
+     * Emits a summary of the diffs to out.  Suppose you have the following three differences:
+     *
+     *   A.X.Z:1!=2
+     *   A.Y.Z:3!=4
+     *   B.X.Z:5!=6
+     *
+     * The above is the itemized list of the differences.  The summary looks for common differences
+     * in the name hierarchy, counts those shared elements, and emits the differences that occur
+     * in order of decreasing counts.
+     *
+     * So, in the above example, what are the shared elements?
+     *
+     * A.X.Z and B.X.Z share X.Z, so there's a *.X.Z with count 2
+     * A.X.Z, A.Y.Z, and B.X.Z all share *.*.Z, with count 3
+     * Each of A.X.Z, A.Y.Z, and B.X.Z are individually unique, with count 1
+     *
+     * So we would emit the following summary:
+     *
+     * *.*.Z: 3
+     * *.X.Z: 2
+     * A.X.Z: 1 [specific difference: 1!=2]
+     * A.Y.Z: 1 [specific difference: 3!=4]
+     * B.X.Z: 1 [specific difference: 5!=6]
+     *
+     * The algorithm to accomplish this calculation is relatively simple. Start with all of the
+     * concrete differences.  For each pair of differences A1.A2....AN and B1.B2....BN:
+     *
+     * find the longest common subsequence Si.Si+1...SN where Ai = Bi = Si
+     * If i == 0, then there's no shared substructure
+     * If i > 0, then generate the summarized value X = *.*...Si.Si+1...SN
+     * if X is a known summary, increment it's count, otherwise set its count to 1
+     *
+     * Not that only pairs of the same length are considered as potentially equivalent
+     *
+     * @param out
+     * @param diffs
+     */
+    public void reportSummarizedDifferences(PrintStream out, List<Difference> diffs) {
+        Map<String, SummarizedDifference> summaries = new HashMap<String, SummarizedDifference>();
+
+        for ( Difference diff1 : diffs ) {
+            String[] diffPath1 = diff1.getFullyQualifiedName().split("\\.");
+            for ( Difference diff2 : diffs ) {
+                String[] diffPath2 = diff2.getFullyQualifiedName().split("\\.");
+                if ( diffPath1.length == diffPath2.length ) {
+                    int i = longestCommonPostfix(diffPath1, diffPath2);
+                    String path = i > 0 ? summarizedPath(diffPath2, i) : diff2.getFullyQualifiedName();
+                    if ( summaries.containsKey(path)  )
+                        summaries.get(path).incCount();
+                    else {
+                        SummarizedDifference sumDiff = new SummarizedDifference(path);
+                        summaries.put(sumDiff.getPath(), sumDiff);
+                    }
+                }
+            }
+        }
     }
 
-    public String reportSummarizedDifferences(List<Difference> diff) {
-        return "";
+    protected static int longestCommonPostfix(String[] diffPath1, String[] diffPath2) {
+        int i = 0;
+        for ( ; i < diffPath1.length; i++ ) {
+            int j = diffPath1.length - i - 1;
+            if ( ! diffPath1[j].equals(diffPath2[j]) )
+                break;
+        }
+        return i;
+    }
+
+    /**
+     * parts is [A B C D]
+     * commonPostfixLength: how many parts are shared at the end, suppose its 2
+     * We want to create a string *.*.C.D
+     *
+     * @param parts
+     * @param commonPostfixLength
+     * @return
+     */
+    protected static String summarizedPath(String[] parts, int commonPostfixLength) {
+        int stop = parts.length - commonPostfixLength;
+        for ( int i = 0; i < stop; i++ ) {
+            parts[i] = "*";
+        }
+        return Utils.join(".", parts);
+    }
+
+    private class SummarizedDifference {
+        final String path; // X.Y.Z
+        int count = 1;
+
+        public SummarizedDifference(String path) {
+            this.path = path;
+        }
+
+        public void incCount() { count++; }
+
+        public int getCount() {
+            return count;
+        }
+
+        public String getPath() {
+            return path;
+        }
+
+        public String getString() {
+            return String.format("%s : %d%n", getPath(), getCount());
+        }
     }
 
     // --------------------------------------------------------------------------------

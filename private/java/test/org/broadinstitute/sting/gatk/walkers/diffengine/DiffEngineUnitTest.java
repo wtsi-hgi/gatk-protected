@@ -114,4 +114,49 @@ public class DiffEngineUnitTest extends BaseTest {
         logger.warn("Test expected diff : " + test.differences);
         logger.warn("Observed diffs     : " + diffs);
     }
+
+    @Test(enabled = true)
+    public void testLongestCommonPostfix() {
+        testLongestCommonPostfixHelper("A", "A", 1);
+        testLongestCommonPostfixHelper("A", "B", 0);
+        testLongestCommonPostfixHelper("A.B", "A.B", 2);
+        testLongestCommonPostfixHelper("A.B.C", "A.B.C", 3);
+        testLongestCommonPostfixHelper("A.B.C", "X.B.C", 2);
+        testLongestCommonPostfixHelper("A.B.C", "X.Y.C", 1);
+        testLongestCommonPostfixHelper("A.B.C", "X.Y.Z", 0);
+        testLongestCommonPostfixHelper("A.B.C", "A.X.C", 1);
+        testLongestCommonPostfixHelper("A.B.C", "A.X.Z", 0);
+        testLongestCommonPostfixHelper("A.B.C", "A.B.Z", 0);
+    }
+
+    public void testLongestCommonPostfixHelper(String p1, String p2, int expected) {
+        String[] parts1 = p1.split("\\.");
+        String[] parts2 = p2.split("\\.");
+        int obs = DiffEngine.longestCommonPostfix(parts1, parts2);
+        Assert.assertEquals(obs, expected, "p1=" + p1 + " p2=" + p2 + " failed");
+    }
+
+    @Test(enabled = true, dependsOnMethods = "testLongestCommonPostfix")
+    public void testSummarizePath() {
+        testSummarizePathHelper("A", "A", "A");
+        testSummarizePathHelper("A", "B", "*");
+        testSummarizePathHelper("A.B", "A.B", "A.B");
+        testSummarizePathHelper("A.B", "X.B", "*.B");
+        testSummarizePathHelper("A.B", "X.Y", "*.*");
+        testSummarizePathHelper("A.B.C", "A.B.C", "A.B.C");
+        testSummarizePathHelper("A.B.C", "X.B.C", "*.B.C");
+        testSummarizePathHelper("A.B.C", "X.Y.C", "*.*.C");
+        testSummarizePathHelper("A.B.C", "X.Y.Z", "*.*.*");
+        testSummarizePathHelper("A.B.C", "A.X.C", "*.*.C");
+        testSummarizePathHelper("A.B.C", "A.X.Z", "*.*.*");
+        testSummarizePathHelper("A.B.C", "A.B.Z", "*.*.*");
+    }
+
+    public void testSummarizePathHelper(String p1, String p2, String expected) {
+        String[] parts1 = p1.split("\\.");
+        String[] parts2 = p2.split("\\.");
+        int obs = DiffEngine.longestCommonPostfix(parts1, parts2);
+        String path = DiffEngine.summarizedPath(parts2, obs);
+        Assert.assertEquals(path, expected, "p1=" + p1 + " p2=" + p2 + " failed");
+    }
 }
