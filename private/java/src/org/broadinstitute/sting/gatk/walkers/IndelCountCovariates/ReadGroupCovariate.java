@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.walkers.IndelCountCovariates;
+package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
 import net.sf.samtools.SAMRecord;
 //import org.broadinstitute.sting.gatk.walkers.recalibration.RecalibrationArgumentCollection;

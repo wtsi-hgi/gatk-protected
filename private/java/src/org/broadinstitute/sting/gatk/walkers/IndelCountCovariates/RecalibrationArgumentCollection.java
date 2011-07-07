@@ -23,7 +23,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.walkers.IndelCountCovariates;
+package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
 import org.broadinstitute.sting.commandline.Argument;
 
