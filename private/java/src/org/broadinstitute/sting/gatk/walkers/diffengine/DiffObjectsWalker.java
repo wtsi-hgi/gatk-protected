@@ -48,7 +48,13 @@ public class DiffObjectsWalker extends RodWalker<Integer, Integer> {
     protected PrintStream out;
 
     @Argument(fullName="maxRecords", shortName="M", doc="Max. number of records to process", required=false)
-    int MAX_RECORDS = -1;
+    int MAX_RECORDS = 0;
+
+    @Argument(fullName="minCountForDiff", shortName="MCFD", doc="Min number of observations for a records to display", required=false)
+    int minCountForDiff = 1;
+
+    @Argument(fullName="showItemizedDifferences", shortName="SID", doc="Should we enumerate all differences between the files?", required=false)
+    boolean showItemizedDifferences = false;
 
     @Argument(fullName="master", shortName="m", doc="Master file: expected results", required=true)
     File masterFile;
@@ -60,7 +66,7 @@ public class DiffObjectsWalker extends RodWalker<Integer, Integer> {
 
     @Override
     public void initialize() {
-        diffEngine = new DiffEngine(MAX_RECORDS);
+        diffEngine = new DiffEngine(MAX_RECORDS, minCountForDiff);
     }
 
     @Override
@@ -88,12 +94,13 @@ public class DiffObjectsWalker extends RodWalker<Integer, Integer> {
         out.printf("Test diff objects%n");
         out.println(test.toString());
 
-        out.printf("Itemized results%n");
         List<Difference> diffs = diffEngine.diff(master, test);
-        for ( Difference diff : diffs )
-            out.printf("DIFF: %s%n", diff.toString());
+        if ( showItemizedDifferences ) {
+            out.printf("Itemized results%n");
+            for ( Difference diff : diffs )
+                out.printf("DIFF: %s%n", diff.toString());
+        }
 
-        out.println(diffEngine.reportItemizedDifference(diffs));
-        out.println(diffEngine.reportSummarizedDifferences(diffs));
+        diffEngine.reportSummarizedDifferences(out, diffs);
     }
 }

@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.diffengine;
 
+import com.google.java.contract.Requires;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
@@ -46,9 +47,12 @@ public class DiffEngine {
 
     private final Map<String, DiffableReader> readers = new HashMap<String, DiffableReader>();
     private final int maxItems;
+    private final int minSumDiffCountForPrinting;
 
-    public DiffEngine(int maxItems) {
+    @Requires("maxItems >= 0")
+    public DiffEngine(int maxItems, int minSumDiffCountForPrinting ) {
         this.maxItems = maxItems;
+        this.minSumDiffCountForPrinting = minSumDiffCountForPrinting;
         loadDiffableReaders();
     }
 
@@ -202,10 +206,15 @@ public class DiffEngine {
         }
     }
 
+    // TODO -- create a clean column output.  Maybe with the GATKRReport?
     protected void printSortedSummary(PrintStream out, List<SummarizedDifference> sortedSummaries) {
         int count = 0;
         for ( SummarizedDifference diff : sortedSummaries ) {
-            if ( count++ < maxItems ) {
+            if ( diff.getCount() < minSumDiffCountForPrinting )
+                // in order, so break as soon as the count is too low
+                break;
+
+            if ( maxItems == 0 || count++ < maxItems ) {
                 out.println(diff);
             } else {
                 break;
