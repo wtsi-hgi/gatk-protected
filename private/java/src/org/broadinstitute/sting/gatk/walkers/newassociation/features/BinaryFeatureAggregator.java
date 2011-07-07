@@ -1,7 +1,7 @@
-package org.broadinstitute.sting.walkers.newassociation.features;
+package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.walkers.newassociation.RFAArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
  * Created by IntelliJ IDEA.
@@ -20,5 +20,8 @@ public abstract class BinaryFeatureAggregator extends ReadFeatureAggregator<Bool
 	// now robustified
         mean = ( (hasFeature ? 1 : 0)+nReads*mean)/(++nReads);
         var = mean*(1-mean) + Math.pow(2,1-nReads);
+        // todo -- this is a massive bias to the variance. Really we want to estimate the prior for a mixture distribution
+        // in order to find the proper variance...
+        //var = mean*(1-mean) + Math.pow(nReads,Math.pow(mean,4)-1);
     }
 }

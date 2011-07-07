@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.walkers.validation;
+package org.broadinstitute.sting.gatk.walkers.validation;
 
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.commandline.Output;

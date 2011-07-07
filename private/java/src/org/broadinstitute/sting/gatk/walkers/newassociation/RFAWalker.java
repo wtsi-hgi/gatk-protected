@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.walkers.newassociation;
+package org.broadinstitute.sting.gatk.walkers.newassociation;
 
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
@@ -9,7 +9,8 @@ import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.walkers.newassociation.features.*;
+import org.broadinstitute.sting.filters.AddAberrantInsertTagFilter;
+import org.broadinstitute.sting.gatk.walkers.newassociation.features.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.Utils;
@@ -29,7 +30,9 @@ import java.util.*;
  * todo -- for most features there's a nuisance variable which is the proportion of *paired* reads, perhaps a pair-only setting for read features
  */
 
-@ReadFilters({MaxInsertSizeFilter.class,MappingQualityReadFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckReadFilter.class,NotPrimaryAlignmentReadFilter.class,UnmappedReadFilter.class})
+@ReadFilters({MaxInsertSizeFilter.class,MappingQualityReadFilter.class,DuplicateReadFilter.class,
+        FailsVendorQualityCheckReadFilter.class,NotPrimaryAlignmentReadFilter.class,UnmappedReadFilter.class,
+        AddAberrantInsertTagFilter.class})
 public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
     // todo -- this needs to be an argument collection that can get passed around to initialize read features etc
     @ArgumentCollection
@@ -48,6 +51,9 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
     protected String sample;
     private List<String> EMPTY_LIST = new ArrayList<String>(0);
 
+    private short nCase;
+    private short nControl;
+
     public void initialize() {
         if ( collection.windowSize % collection.windowJump != 0 ) {
             throw new UserException("Window size is not divisible by window jump.");
@@ -58,12 +64,16 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
         }
 
         caseStatus = new HashMap<String,Boolean>(getToolkit().getSAMFileSamples().size());
+        nCase = 0;
+        nControl = 0;
         try {
             for ( String sample : new XReadLines(collection.caseFile) ) {
                 caseStatus.put(sample,true);
+                ++nCase;
             }
             for ( String sample : new XReadLines(collection.controlFile)) {
                 caseStatus.put(sample,false);
+                ++nControl;
             }
 
             for ( Sample sample : getToolkit().getSAMFileSamples() ) {
@@ -93,7 +103,6 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
             rfHolder2[idx++] = f;
         }
         Arrays.sort(rfHolder2, new Comparator<ReadFeatureAggregator>() {
-            @Override
             public int compare(ReadFeatureAggregator a, ReadFeatureAggregator b) {
                 return a.getClass().getSimpleName().compareTo(b.getClass().getSimpleName());
             }
@@ -208,7 +217,8 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
             Pair<List<String>,List<String>> caseControlAffected = getAffectedSamples(window,agIdx,fixedDelta);
             List<String> cases = caseControlAffected.getFirst();
             List<String> controls = caseControlAffected.getSecond();
-            out.printf("\t%.2e\t%d:%d\t%.2e\t%s;%s",fixedDelta,cases.size(),controls.size(), MathUtils.binomialProbability(cases.size(),cases.size()+controls.size(),0.5),Utils.join(",",cases),Utils.join(",",controls));
+            double caseP = MathUtils.binomialProbability(cases.size(),cases.size()+controls.size(),((double) nCase)/(nCase+nControl));
+            out.printf("\t%.2e\t%d:%d\t%.2e\t%s;%s",fixedDelta,cases.size(),controls.size(), caseP,Utils.join(",",cases),Utils.join(",",controls));
 
         }
         out.printf("%n");
@@ -242,8 +252,8 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
         double stat_num = caseAg.getMean() - controlAg.getMean();
         double stat_denom = Math.sqrt(caseAg.getUnbiasedVar()/caseAg.getnReads() + controlAg.getUnbiasedVar()/controlAg.getnReads());
         double stat = stat_num/stat_denom;
-        //System.out.printf("Mean_dif: %.2e Var: %.2e Stat: %.2f Z: %.2f SS-ZZ: %.2f%n",stat_num,stat_denom,stat, collection.fixedZ, stat*stat-collection.fixedZ*collection.fixedZ);
-        if ( stat*stat < collection.fixedZ*collection.fixedZ ) {
+        System.out.printf("Mean_dif: %.2e Var: %.2e Stat: %.2f Z: %.2f SS-ZZ: %.2f%n",stat_num,stat_denom,stat, collection.fixedZ, stat*stat-collection.fixedZ*collection.fixedZ);
+        if ( ! Double.isNaN(stat) && stat*stat < collection.fixedZ*collection.fixedZ ) {
             return 0.0;
         } else {
             //System.out.printf("Calculating delta: %.2f%n",(stat < 0) ? stat_denom*(-1*collection.fixedZ-stat) : stat_denom*(stat-collection.fixedZ));

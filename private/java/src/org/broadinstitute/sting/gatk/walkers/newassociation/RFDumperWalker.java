@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.walkers.newassociation;
+package org.broadinstitute.sting.gatk.walkers.newassociation;
 
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
@@ -7,7 +7,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.sample.Sample;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.walkers.newassociation.features.*;
+import org.broadinstitute.sting.gatk.walkers.newassociation.features.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.exceptions.StingException;
@@ -56,7 +56,6 @@ public class RFDumperWalker extends ReadWalker<String[],ReadFeatureWindow> {
             rfHolder2[idx++] = f;
         }
         Arrays.sort(rfHolder2, new Comparator<ReadFeatureAggregator>() {
-            @Override
             public int compare(ReadFeatureAggregator a, ReadFeatureAggregator b) {
                 return a.getClass().getSimpleName().compareTo(b.getClass().getSimpleName());
             }

@@ -1,9 +1,9 @@
-package org.broadinstitute.sting.walkers.newassociation.features;
+package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.walkers.newassociation.RFAArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
  * Created by IntelliJ IDEA.

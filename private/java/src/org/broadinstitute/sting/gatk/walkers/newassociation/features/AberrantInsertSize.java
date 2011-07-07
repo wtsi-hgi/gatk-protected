@@ -1,7 +1,7 @@
-package org.broadinstitute.sting.walkers.newassociation.features;
+package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.walkers.newassociation.RFAArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
  * Created by IntelliJ IDEA.
@@ -22,7 +22,7 @@ public class AberrantInsertSize extends BinaryFeatureAggregator {
     }
 
     public Boolean extractFeature(SAMRecord rec) {
-        return Math.abs(rec.getInferredInsertSize()) > max || Math.abs(rec.getInferredInsertSize()) < min;
+        return rec.getAttribute("AI") != null ? (rec.getAttribute("AI").equals(1)) : (Math.abs(rec.getInferredInsertSize()) > max || Math.abs(rec.getInferredInsertSize()) < min);
     }
 
     public boolean featureDefined(SAMRecord rec) {
