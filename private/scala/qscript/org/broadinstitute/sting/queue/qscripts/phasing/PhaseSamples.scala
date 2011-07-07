@@ -1,4 +1,4 @@
-package oneoffs.fromer
+package org.broadinstitute.sting.queue.qscripts.phasing
 
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript

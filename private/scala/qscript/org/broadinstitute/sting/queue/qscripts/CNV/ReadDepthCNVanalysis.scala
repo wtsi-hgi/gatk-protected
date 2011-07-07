@@ -1,11 +1,9 @@
-package oneoffs.fromer.CNV
+package org.broadinstitute.sting.queue.qscripts.CNV
 
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.gatk.DownsampleType
 import org.broadinstitute.sting.queue.util.VCF_BAM_utilities
-import java.io.PrintWriter
-import org.apache.commons.io.IOUtils
 
 class ReadDepthCNVanalysis extends QScript {
   qscript =>

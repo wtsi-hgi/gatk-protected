@@ -22,38 +22,32 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.walkers.CNV;
+package org.broadinstitute.sting.gatk.walkers.CNV;
 
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
-import org.broadinstitute.sting.gatk.refdata.features.annotator.AnnotatorInputTableFeature;
 import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.UserException;
 
 import java.io.PrintStream;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
- * Walks along reference and calculates the genes (from "refseq" ROD) for each interval.
+ * Walks along reference and calculates the percent overlap with the BED file intervals for each -L interval.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = GeneNamesIntervalWalker.REFSEQ_ROD_NAME, type = AnnotatorInputTableFeature.class)})
+@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = OverlapWithBedInIntervalWalker.INTERVALS_ROD_NAME, type = ReferenceOrderedDatum.class)})
 
-public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
+public class OverlapWithBedInIntervalWalker extends RodWalker<CumulativeBaseOverlapCount, CumulativeBaseOverlapCount> {
     @Output
     protected PrintStream out;
 
-    public final static String REFSEQ_ROD_NAME = "refseq";
-
-    public final static String REFSEQ_NAME2 = "name2";
+    public final static String INTERVALS_ROD_NAME = "intervals";
 
 
     public boolean isReduceByInterval() {
@@ -67,8 +61,8 @@ public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
         return false;
     }
 
-    public GeneNames reduceInit() {
-        return new GeneNames();
+    public CumulativeBaseOverlapCount reduceInit() {
+        return new CumulativeBaseOverlapCount();
     }
 
     /**
@@ -77,16 +71,16 @@ public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
      * @param context the context for the given locus
      * @return statistics of and list of all phased VariantContexts and their base pileup that have gone out of cacheWindow range.
      */
-    public GeneNames map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+    public CumulativeBaseOverlapCount map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker == null)
             return null;
 
-        return new GeneNames().addGenes(tracker.getReferenceMetaData(REFSEQ_ROD_NAME));
+        return new CumulativeBaseOverlapCount().addIntervals(tracker.getGATKFeatureMetaData(INTERVALS_ROD_NAME, true));
     }
 
-    public GeneNames reduce(GeneNames add, GeneNames runningCount) {
+    public CumulativeBaseOverlapCount reduce(CumulativeBaseOverlapCount add, CumulativeBaseOverlapCount runningCount) {
         if (add == null)
-            add = new GeneNames();
+            add = new CumulativeBaseOverlapCount();
 
         return runningCount.addIn(add);
     }
@@ -94,47 +88,41 @@ public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
     /**
      * @param results the genes found in each interval.
      */
-    public void onTraversalDone(List<Pair<GenomeLoc, GeneNames>> results) {
-        for (Pair<GenomeLoc, GeneNames> result : results ) {
+    public void onTraversalDone(List<Pair<GenomeLoc, CumulativeBaseOverlapCount>> results) {
+        for (Pair<GenomeLoc, CumulativeBaseOverlapCount> result : results ) {
             GenomeLoc loc = result.getFirst();
-            GeneNames names = result.getSecond();
 
-            out.println(loc + "\t" + names);
+            CumulativeBaseOverlapCount overlapCount = result.getSecond();
+            double meanOverlap = ((double) overlapCount.totalOverlapCount) / loc.size();
+
+            out.println(loc + "\t" + meanOverlap);
         }
     }
 }
 
-class GeneNames {
-    public Set<String> geneNames;
+class CumulativeBaseOverlapCount {
+    public int totalOverlapCount;
 
-    public GeneNames() {
-        this.geneNames = new HashSet<String>();
+    public CumulativeBaseOverlapCount() {
+        this.totalOverlapCount = 0;
     }
 
-    public GeneNames addIn(GeneNames other) {
-        this.geneNames.addAll(other.geneNames);
+    public CumulativeBaseOverlapCount addIn(CumulativeBaseOverlapCount other) {
+        this.totalOverlapCount += other.totalOverlapCount;
 
         return this;
     }
 
-    public GeneNames addGenes(List<Object> refSeqRODs) {
-        for (Object refSeqObject : refSeqRODs) {
-            AnnotatorInputTableFeature refSeqAnnotation = (AnnotatorInputTableFeature) refSeqObject;
-            if (refSeqAnnotation.containsColumnName(GeneNamesIntervalWalker.REFSEQ_NAME2))
-                geneNames.add(refSeqAnnotation.getColumnValue(GeneNamesIntervalWalker.REFSEQ_NAME2));
-        }
+    public CumulativeBaseOverlapCount addIntervals(List<GATKFeature> interval) {
+        totalOverlapCount += interval.size();
 
         return this;
     }
 
     public String toString() {
-        if (geneNames.isEmpty())
-            return ".";
-
         StringBuilder sb = new StringBuilder();
 
-        for (String gene : geneNames)
-            sb.append(gene).append(";");
+        sb.append(totalOverlapCount);
 
         return sb.toString();
     }

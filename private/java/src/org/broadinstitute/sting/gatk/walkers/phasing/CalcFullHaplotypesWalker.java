@@ -22,7 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.walkers.phasing;
+package org.broadinstitute.sting.gatk.walkers.phasing;
 
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -43,7 +43,7 @@ import java.util.*;
 import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFromRods;
 
 /**
- * Walks along all variant ROD loci and verifies the phasing from the reads for user-defined pairs of sites.
+ * Walks along all variant ROD loci and uses the phase information to divide up the genome into phased segments.
  */
 @Allows(value = {DataSource.REFERENCE})
 @Requires(value = {DataSource.REFERENCE})

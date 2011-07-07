@@ -22,7 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.walkers.phasing;
+package org.broadinstitute.sting.gatk.walkers.phasing;
 
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -38,9 +38,6 @@ import org.broadinstitute.sting.gatk.filters.ZeroMappingQualityReadFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
 import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.gatk.walkers.phasing.AllelePair;
-import org.broadinstitute.sting.gatk.walkers.phasing.ReadBackedPhasingWalker;
-import org.broadinstitute.sting.gatk.walkers.phasing.WriteVCF;
 import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.GenotypePhasingEvaluator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;

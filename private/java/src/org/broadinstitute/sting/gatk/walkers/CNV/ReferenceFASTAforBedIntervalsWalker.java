@@ -22,7 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.walkers.CNV;
+package org.broadinstitute.sting.gatk.walkers.CNV;
 
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -31,27 +31,32 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
 import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
 import org.broadinstitute.sting.gatk.walkers.*;
+import org.broadinstitute.sting.gatk.walkers.fasta.FastaSequence;
 import org.broadinstitute.sting.utils.GenomeLoc;
 
 import java.io.PrintStream;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Walks along reference and prints intervals of sequence not covered in ANY interval in "intervals" ROD.
+ * Walks along reference and prints the reference sequence (as FASTA) for the BED file intervals ("intervals" ROD).
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = PrintIntervalsNotInBedWalker.INTERVALS_ROD_NAME, type = ReferenceOrderedDatum.class)})
-@By(DataSource.REFERENCE) // So that we will actually enter loci with no ROD on them
+@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = ReferenceFASTAforBedIntervalsWalker.INTERVALS_ROD_NAME, type = ReferenceOrderedDatum.class)})
 
-public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {
+public class ReferenceFASTAforBedIntervalsWalker extends RodWalker<Integer, Integer> {
     @Output
     protected PrintStream out;
 
     public final static String INTERVALS_ROD_NAME = "intervals";
 
-    private GenomeLoc waitingInterval = null;
+    private Map<GenomeLoc, FastaSequence> intervalSequences;
+
+    private final static int LINE_WIDTH = 60;
 
     public void initialize() {
+        this.intervalSequences = new HashMap<GenomeLoc, FastaSequence>();
     }
 
     public boolean generateExtendedEvents() {
@@ -66,7 +71,7 @@ public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {
      * @param tracker the meta-data tracker
      * @param ref     the reference base
      * @param context the context for the given locus
-     * @return number of intervals printed.
+     * @return number of interval sequences printed
      */
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker == null)
@@ -74,23 +79,34 @@ public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {
 
         GenomeLoc curLoc = ref.getLocus();
         int curPos = curLoc.getStart();
-        int printed = 0;
+        int entries = 0;
 
         List<GATKFeature> intervals = tracker.getGATKFeatureMetaData(INTERVALS_ROD_NAME, true);
-        if (intervals.isEmpty()) {
-            if (waitingInterval != null && curLoc.compareContigs(waitingInterval) == 0 && curPos == waitingInterval.getStop() + 1) {
-                waitingInterval = getToolkit().getGenomeLocParser().setStop(waitingInterval, curPos);
+        for (GATKFeature interval : intervals) {
+            GenomeLoc loc = interval.getLocation();
+            /* TODO: note that an interval may actually start BEFORE here, but not be covered, but would need to cache the remappings
+               of origLoc -> newLoc, and then setName(newLoc.toString()) */
+
+            FastaSequence seq = null;
+            if (loc.getStart() == curPos) { // at the start of this interval:
+                seq = new FastaSequence(out, LINE_WIDTH, false);
+                seq.setName(loc.toString());
+                intervalSequences.put(loc, seq);
             }
             else {
-                printed += printWaitingIntervalAsBed();
-                waitingInterval = ref.getLocus();
+                seq = intervalSequences.get(loc);
+            }
+
+            seq.append(String.valueOf((char) ref.getBase()));
+
+            if (loc.getStop() == curPos) { // at the end of this interval:
+                intervalSequences.remove(loc);
+                seq.flush();
+                entries++;
             }
         }
-        else {
-            printed += printWaitingIntervalAsBed();
-        }
 
-        return printed;
+        return entries;
     }
 
     public Integer reduce(Integer add, Integer runningCount) {
@@ -104,19 +120,20 @@ public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {
      * @param result the genes found in each interval.
      */
     public void onTraversalDone(Integer result) {
-        result += printWaitingIntervalAsBed();
+        result += intervalSequences.size();
 
-        System.out.println("Printed out " + result + " intervals.");
-    }
+        for (Map.Entry<GenomeLoc, FastaSequence> locSeqEntry : intervalSequences.entrySet()) {
+            GenomeLoc interval = locSeqEntry.getKey();
+            FastaSequence seq = locSeqEntry.getValue();
 
-    private int printWaitingIntervalAsBed() {
-        if (waitingInterval == null)
-            return 0;
+            int actualStop = interval.getStart() + (int)seq.getCurrentCount() - 1;
+            GenomeLoc actualInterval = getToolkit().getGenomeLocParser().setStop(interval, actualStop);
+            seq.setName(actualInterval.toString());
 
-        out.println(waitingInterval.getContig() + "\t" + (waitingInterval.getStart() - 1) + "\t" + waitingInterval.getStop());
-        waitingInterval = null;
+            seq.flush();
+        }
 
-        return 1;
+        System.out.println("Printed out " + result + " sequence entries.");
     }
 }
 
