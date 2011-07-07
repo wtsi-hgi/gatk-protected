@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.walkers.IndelCountCovariates;
+package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
 /*
  * Copyright (c) 2009 The Broad Institute
