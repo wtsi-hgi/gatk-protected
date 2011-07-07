@@ -1,3 +1,5 @@
+package org.broadinstitute.sting.queue.qscripts.calling
+
 import collection.SeqLike._
 import management.CompilationMXBean
 import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.IndelStatistics
