@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.walkers.IndelCountCovariates;
+package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.QualityUtils;

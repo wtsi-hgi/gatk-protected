@@ -1,13 +1,12 @@
-package org.broadinstitute.sting.walkers.IndelCountCovariates;
+package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
 
 import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
-import net.sf.samtools.CigarOperator;
 import net.sf.samtools.SAMRecord;
 //g import org.broadinstitute.sting.gatk.walkers.recalibration.ExperimentalCovariate;
 //g import org.broadinstitute.sting.gatk.walkers.recalibration.RecalibrationArgumentCollection;
-import org.broadinstitute.sting.utils.BaseUtils;
+
 
 /*
  * Copyright (c) 2009 The Broad Institute
