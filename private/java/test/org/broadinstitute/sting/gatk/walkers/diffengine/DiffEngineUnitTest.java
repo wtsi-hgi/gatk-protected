@@ -28,19 +28,13 @@ package org.broadinstitute.sting.gatk.walkers.diffengine;
 
 // the imports for unit testing.
 
-
-import com.sun.xml.internal.ws.api.pipe.Engine;
 import org.broadinstitute.sting.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * Basic unit test for DifferableReaders in reduced reads
@@ -53,14 +47,13 @@ public class DiffEngineUnitTest extends BaseTest {
         engine = new DiffEngine(10);
     }
 
-
     // --------------------------------------------------------------------------------
     //
-    // Element testing routines
+    // Difference testing routines
     //
     // --------------------------------------------------------------------------------
 
-    private class DifferenceTest {
+    private class DifferenceTest extends TestDataProvider {
         public DiffElement tree1, tree2;
         public List<String> differences;
 
@@ -73,6 +66,7 @@ public class DiffEngineUnitTest extends BaseTest {
         }
 
         private DifferenceTest(String tree1, String tree2, List<String> differences) {
+            super(DifferenceTest.class);
             this.tree1 = DiffNode.fromString(tree1);
             this.tree2 = DiffNode.fromString(tree2);
             this.differences = differences;
@@ -86,23 +80,18 @@ public class DiffEngineUnitTest extends BaseTest {
 
     @DataProvider(name = "trees")
     public Object[][] createTrees() {
-        List<DifferenceTest> params = new ArrayList<DifferenceTest>();
-
-        params.add(new DifferenceTest("A=X", "A=X"));
-        params.add(new DifferenceTest("A=X", "A=Y", "A:X!=Y"));
-        params.add(new DifferenceTest("A=X", "B=X", Arrays.asList("A:X!=MISSING", "B:MISSING!=X")));
-        params.add(new DifferenceTest("A=(X=1)", "B=(X=1)", Arrays.asList("A:(X=1)!=MISSING", "B:MISSING!=(X=1)")));
-        params.add(new DifferenceTest("A=(X=1)", "A=(X=1)"));
-        params.add(new DifferenceTest("A=(X=1 Y=2)", "A=(X=1 Y=2)"));
-        params.add(new DifferenceTest("A=(X=1 Y=2 B=(Z=3))", "A=(X=1 Y=2 B=(Z=3))"));
-        params.add(new DifferenceTest("A=(X=1)", "A=(X=2)", "A.X:1!=2"));
-        params.add(new DifferenceTest("A=(X=1 Y=2 B=(Z=3))", "A=(X=1 Y=2 B=(Z=4))", "A.B.Z:3!=4"));
-        params.add(new DifferenceTest("A=(X=1)", "A=(X=1 Y=2)", "A.Y:MISSING!=2"));
-        params.add(new DifferenceTest("A=(X=1 Y=2 B=(Z=3))", "A=(X=1 Y=2)", "A.B:(Z=3)!=MISSING"));
-
-        List<Object[]> params2 = new ArrayList<Object[]>();
-        for ( DifferenceTest x : params ) params2.add(new Object[]{x});
-        return params2.toArray(new Object[][]{});
+        new DifferenceTest("A=X", "A=X");
+        new DifferenceTest("A=X", "A=Y", "A:X!=Y");
+        new DifferenceTest("A=X", "B=X", Arrays.asList("A:X!=MISSING", "B:MISSING!=X"));
+        new DifferenceTest("A=(X=1)", "B=(X=1)", Arrays.asList("A:(X=1)!=MISSING", "B:MISSING!=(X=1)"));
+        new DifferenceTest("A=(X=1)", "A=(X=1)");
+        new DifferenceTest("A=(X=1 Y=2)", "A=(X=1 Y=2)");
+        new DifferenceTest("A=(X=1 Y=2 B=(Z=3))", "A=(X=1 Y=2 B=(Z=3))");
+        new DifferenceTest("A=(X=1)", "A=(X=2)", "A.X:1!=2");
+        new DifferenceTest("A=(X=1 Y=2 B=(Z=3))", "A=(X=1 Y=2 B=(Z=4))", "A.B.Z:3!=4");
+        new DifferenceTest("A=(X=1)", "A=(X=1 Y=2)", "A.Y:MISSING!=2");
+        new DifferenceTest("A=(X=1 Y=2 B=(Z=3))", "A=(X=1 Y=2)", "A.B:(Z=3)!=MISSING");
+        return DifferenceTest.getTests(DifferenceTest.class);
     }
 
     @Test(enabled = true, dataProvider = "trees")
@@ -114,6 +103,12 @@ public class DiffEngineUnitTest extends BaseTest {
         logger.warn("Test expected diff : " + test.differences);
         logger.warn("Observed diffs     : " + diffs);
     }
+
+    // --------------------------------------------------------------------------------
+    //
+    // Low-level routines for summarizing differences
+    //
+    // --------------------------------------------------------------------------------
 
     @Test(enabled = true)
     public void testLongestCommonPostfix() {
@@ -153,10 +148,82 @@ public class DiffEngineUnitTest extends BaseTest {
     }
 
     public void testSummarizePathHelper(String p1, String p2, String expected) {
-        String[] parts1 = p1.split("\\.");
-        String[] parts2 = p2.split("\\.");
+        String[] parts1 = DiffEngine.diffNameToPath(p1);
+        String[] parts2 = DiffEngine.diffNameToPath(p2);
         int obs = DiffEngine.longestCommonPostfix(parts1, parts2);
         String path = DiffEngine.summarizedPath(parts2, obs);
         Assert.assertEquals(path, expected, "p1=" + p1 + " p2=" + p2 + " failed");
+    }
+
+    // --------------------------------------------------------------------------------
+    //
+    // High-level difference summary
+    //
+    // --------------------------------------------------------------------------------
+
+    private class SummarizeDifferenceTest extends TestDataProvider {
+        List<String> diffs = new ArrayList<String>();
+        List<String> expecteds = new ArrayList<String>();
+
+        public SummarizeDifferenceTest() { super(SummarizeDifferenceTest.class); }
+
+        public SummarizeDifferenceTest addDiff(String... diffsToAdd) {
+            diffs.addAll(Arrays.asList(diffsToAdd));
+            return this;
+        }
+
+        public SummarizeDifferenceTest addSummary(String... expectedSummary) {
+            expecteds.addAll(Arrays.asList(expectedSummary));
+            return this;
+        }
+
+        public String toString() {
+            return String.format("diffs=%s => expected=%s", diffs, expecteds);
+        }
+
+        public void test() {
+            List<String[]> diffPaths = new ArrayList<String[]>(diffs.size());
+            for ( String diff : diffs ) { diffPaths.add(DiffEngine.diffNameToPath(diff)); }
+
+            List<DiffEngine.SummarizedDifference> sumDiffs = engine.summarizedDifferencesOfPaths(diffPaths);
+
+            Assert.assertEquals(sumDiffs.size(), expecteds.size(), "Unexpected number of summarized differences: " + sumDiffs);
+
+            for ( int i = 0; i < sumDiffs.size(); i++ ) {
+                DiffEngine.SummarizedDifference sumDiff = sumDiffs.get(i);
+                String expected = expecteds.get(i);
+                String[] pathCount = expected.split(":");
+                String path = pathCount[0];
+                int count = Integer.valueOf(pathCount[1]);
+                Assert.assertEquals(sumDiff.getPath(), path, "Unexpected path at: " + expected + " obs=" + sumDiff + " all=" + sumDiffs);
+                Assert.assertEquals(sumDiff.getCount(), count, "Unexpected counts at: " + expected + " obs=" + sumDiff + " all=" + sumDiffs);
+            }
+        }
+    }
+
+    @DataProvider(name = "summaries")
+    public Object[][] createSummaries() {
+        new SummarizeDifferenceTest().addDiff("A", "A").addSummary("A:2");
+        new SummarizeDifferenceTest().addDiff("A", "B").addSummary("A:1", "B:1");
+        new SummarizeDifferenceTest().addDiff("A", "A", "A").addSummary("A:3");
+        new SummarizeDifferenceTest().addDiff("A", "A", "A", "B").addSummary("A:3", "B:1");
+        new SummarizeDifferenceTest().addDiff("A", "A", "A", "B", "B").addSummary("A:3", "B:2");
+        new SummarizeDifferenceTest().addDiff("A", "A", "A", "B", "B", "C").addSummary("A:3", "B:2", "C:1");
+        new SummarizeDifferenceTest().addDiff("A.X", "A.X").addSummary("A.X:2");
+        new SummarizeDifferenceTest().addDiff("A.X", "A.X", "B.X").addSummary("*.X:3", "A.X:2", "B.X:1");
+        new SummarizeDifferenceTest().addDiff("A.X", "A.X", "B.X", "B.X").addSummary("*.X:4", "A.X:2", "B.X:2");
+        new SummarizeDifferenceTest().addDiff("A.B.C", "X.B.C").addSummary("*.B.C:2", "A.B.C:1", "X.B.C:1");
+        new SummarizeDifferenceTest().addDiff("A.B.C", "X.Y.C", "X.Y.C").addSummary("*.*.C:3", "X.Y.C:2", "A.B.C:1");
+        new SummarizeDifferenceTest().addDiff("A.B.C", "A.X.C", "X.Y.C").addSummary("*.*.C:3", "A.B.C:1", "A.X.C:1", "X.Y.C:1");
+        new SummarizeDifferenceTest().addDiff("A.B.C", "A.X.C", "B.X.C").addSummary("*.*.C:3", "*.X.C:2", "A.B.C:1", "A.X.C:1", "B.X.C:1");
+        new SummarizeDifferenceTest().addDiff("A.B.C", "A.X.C", "B.X.C", "B.X.C").addSummary("*.*.C:4", "*.X.C:3", "B.X.C:2", "A.B.C:1", "A.X.C:1");
+
+        return SummarizeDifferenceTest.getTests(SummarizeDifferenceTest.class);
+    }
+
+
+    @Test(enabled = true, dependsOnMethods = "testSummarizePath", dataProvider = "summaries")
+    public void testSummarizeDifferences(SummarizeDifferenceTest test) {
+        test.test();
     }
 }

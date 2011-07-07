@@ -72,7 +72,7 @@ public class DiffNodeUnitTest extends BaseTest {
     //
     // --------------------------------------------------------------------------------
 
-    private class ElementTest {
+    private class ElementTest extends TestDataProvider {
         public DiffElement elt;
         public String name;
         public String fullName;
@@ -83,6 +83,7 @@ public class DiffNodeUnitTest extends BaseTest {
         }
 
         private ElementTest(DiffElement elt, DiffElement parent, String name, String fullName) {
+            super(ElementTest.class);
             this.elt = elt;
             this.name = name;
             this.fullName = fullName;
@@ -97,20 +98,15 @@ public class DiffNodeUnitTest extends BaseTest {
 
     @DataProvider(name = "elementdata")
     public Object[][] createElementData() {
-        List<ElementTest> params = new ArrayList<ElementTest>();
-
-        params.add(new ElementTest(MY_ROOT.getBinding(), DiffElement.ROOT, "MY_ROOT", "MY_ROOT"));
-        params.add(new ElementTest(NODE_C, MY_ROOT, "C", "MY_ROOT.C"));
-        params.add(new ElementTest(NODE_D, MY_ROOT, "D", "MY_ROOT.D"));
-        params.add(new ElementTest(Value_A, MY_ROOT, "A", "MY_ROOT.A"));
-        params.add(new ElementTest(Value_B, MY_ROOT, "B", "MY_ROOT.B"));
-        params.add(new ElementTest(Value_E, NODE_C, "E", "MY_ROOT.C.E"));
-        params.add(new ElementTest(Value_F, NODE_D, "F", "MY_ROOT.D.F"));
-        params.add(new ElementTest(Value_G, NODE_D, "G", "MY_ROOT.D.G"));
-
-        List<Object[]> params2 = new ArrayList<Object[]>();
-        for ( ElementTest x : params ) params2.add(new Object[]{x});
-        return params2.toArray(new Object[][]{});
+        new ElementTest(MY_ROOT.getBinding(), DiffElement.ROOT, "MY_ROOT", "MY_ROOT");
+        new ElementTest(NODE_C, MY_ROOT, "C", "MY_ROOT.C");
+        new ElementTest(NODE_D, MY_ROOT, "D", "MY_ROOT.D");
+        new ElementTest(Value_A, MY_ROOT, "A", "MY_ROOT.A");
+        new ElementTest(Value_B, MY_ROOT, "B", "MY_ROOT.B");
+        new ElementTest(Value_E, NODE_C, "E", "MY_ROOT.C.E");
+        new ElementTest(Value_F, NODE_D, "F", "MY_ROOT.D.F");
+        new ElementTest(Value_G, NODE_D, "G", "MY_ROOT.D.G");
+        return TestDataProvider.getTests(ElementTest.class);
     }
 
     @Test(enabled = true, dataProvider = "elementdata")
@@ -128,11 +124,12 @@ public class DiffNodeUnitTest extends BaseTest {
     //
     // --------------------------------------------------------------------------------
 
-    private class LeafTest {
+    private class LeafTest extends TestDataProvider {
         public DiffValue diffvalue;
         public Object value;
 
         private LeafTest(DiffValue diffvalue, Object value) {
+            super(LeafTest.class);
             this.diffvalue = diffvalue;
             this.value = value;
         }
@@ -144,17 +141,12 @@ public class DiffNodeUnitTest extends BaseTest {
 
     @DataProvider(name = "leafdata")
     public Object[][] createLeafData() {
-        List<LeafTest> params = new ArrayList<LeafTest>();
-
-        params.add(new LeafTest(Value_A, "A"));
-        params.add(new LeafTest(Value_B, "B"));
-        params.add(new LeafTest(Value_E, "E"));
-        params.add(new LeafTest(Value_F, "F"));
-        params.add(new LeafTest(Value_G, "G"));
-
-        List<Object[]> params2 = new ArrayList<Object[]>();
-        for ( LeafTest x : params ) params2.add(new Object[]{x});
-        return params2.toArray(new Object[][]{});
+        new LeafTest(Value_A, "A");
+        new LeafTest(Value_B, "B");
+        new LeafTest(Value_E, "E");
+        new LeafTest(Value_F, "F");
+        new LeafTest(Value_G, "G");
+        return TestDataProvider.getTests(LeafTest.class);
     }
 
     @Test(enabled = true, dataProvider = "leafdata")
@@ -169,13 +161,14 @@ public class DiffNodeUnitTest extends BaseTest {
     //
     // --------------------------------------------------------------------------------
 
-    private class NodeTest {
+    private class NodeTest extends TestDataProvider {
         public DiffNode node;
         public Set<String> fields;
         public Set<String> subnodes;
         public Set<String> allNames;
 
         private NodeTest(DiffNode node, List<String> fields, List<String> subnodes) {
+            super(NodeTest.class);
             this.node = node;
             this.fields = new HashSet<String>(fields);
             this.subnodes = new HashSet<String>(subnodes);
@@ -191,15 +184,10 @@ public class DiffNodeUnitTest extends BaseTest {
 
     @DataProvider(name = "nodedata")
     public Object[][] createData1() {
-        List<NodeTest> params = new ArrayList<NodeTest>();
-
-        params.add(new NodeTest(MY_ROOT, Arrays.asList("A", "B"), Arrays.asList("C", "D")));
-        params.add(new NodeTest(NODE_C, Arrays.asList("E"), Collections.<String>emptyList()));
-        params.add(new NodeTest(NODE_D, Arrays.asList("F", "G"), Collections.<String>emptyList()));
-
-        List<Object[]> params2 = new ArrayList<Object[]>();
-        for ( NodeTest x : params ) params2.add(new Object[]{x});
-        return params2.toArray(new Object[][]{});
+        new NodeTest(MY_ROOT, Arrays.asList("A", "B"), Arrays.asList("C", "D"));
+        new NodeTest(NODE_C, Arrays.asList("E"), Collections.<String>emptyList());
+        new NodeTest(NODE_D, Arrays.asList("F", "G"), Collections.<String>emptyList());
+        return TestDataProvider.getTests(NodeTest.class);
     }
 
     @Test(enabled = true, dataProvider = "nodedata")
@@ -228,11 +216,12 @@ public class DiffNodeUnitTest extends BaseTest {
     //
     // --------------------------------------------------------------------------------
 
-    private class FromStringTest {
+    private class FromStringTest extends TestDataProvider {
         public String string;
         public DiffElement expected;
 
         private FromStringTest(String string, DiffElement expected) {
+            super(FromStringTest.class);
             this.string = string;
             this.expected = expected;
         }
@@ -244,16 +233,11 @@ public class DiffNodeUnitTest extends BaseTest {
 
     @DataProvider(name = "fromstringdata")
     public Object[][] createFromData() {
-        List<FromStringTest> params = new ArrayList<FromStringTest>();
-
-        params.add(new FromStringTest("A=A", Value_A.getBinding()));
-        params.add(new FromStringTest("B=B", Value_B.getBinding()));
-        params.add(new FromStringTest("C=(E=E)", NODE_C.getBinding()));
-        params.add(new FromStringTest("D=(F=F G=G)", NODE_D.getBinding()));
-
-        List<Object[]> params2 = new ArrayList<Object[]>();
-        for ( FromStringTest x : params ) params2.add(new Object[]{x});
-        return params2.toArray(new Object[][]{});
+        new FromStringTest("A=A", Value_A.getBinding());
+        new FromStringTest("B=B", Value_B.getBinding());
+        new FromStringTest("C=(E=E)", NODE_C.getBinding());
+        new FromStringTest("D=(F=F G=G)", NODE_D.getBinding());
+        return TestDataProvider.getTests(FromStringTest.class);
     }
 
     @Test(enabled = true, dataProvider = "fromstringdata")

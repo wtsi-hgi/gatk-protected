@@ -146,22 +146,69 @@ public class DiffEngine {
      * @param diffs
      */
     public void reportSummarizedDifferences(PrintStream out, List<Difference> diffs) {
-        Map<String, SummarizedDifference> summaries = new HashMap<String, SummarizedDifference>();
+        printSortedSummary(out, summarizeDifferences(diffs));
+    }
+
+    public List<SummarizedDifference> summarizeDifferences(List<Difference> diffs) {
+        List<String[]> diffPaths = new ArrayList<String[]>(diffs.size());
 
         for ( Difference diff1 : diffs ) {
-            String[] diffPath1 = diff1.getFullyQualifiedName().split("\\.");
-            for ( Difference diff2 : diffs ) {
-                String[] diffPath2 = diff2.getFullyQualifiedName().split("\\.");
+            diffPaths.add(diffNameToPath(diff1.getFullyQualifiedName()));
+        }
+
+        return summarizedDifferencesOfPaths(diffPaths);
+    }
+
+    final protected static String[] diffNameToPath(String diffName) {
+        return diffName.split("\\.");
+    }
+
+    protected List<SummarizedDifference> summarizedDifferencesOfPaths(List<String[]> diffPaths) {
+        Map<String, SummarizedDifference> summaries = new HashMap<String, SummarizedDifference>();
+
+        // create the initial set of differences
+        for ( int i = 0; i < diffPaths.size(); i++ ) {
+            for ( int j = 0; j <= i; j++ ) {
+                String[] diffPath1 = diffPaths.get(i);
+                String[] diffPath2 = diffPaths.get(j);
                 if ( diffPath1.length == diffPath2.length ) {
-                    int i = longestCommonPostfix(diffPath1, diffPath2);
-                    String path = i > 0 ? summarizedPath(diffPath2, i) : diff2.getFullyQualifiedName();
-                    if ( summaries.containsKey(path)  )
-                        summaries.get(path).incCount();
-                    else {
-                        SummarizedDifference sumDiff = new SummarizedDifference(path);
-                        summaries.put(sumDiff.getPath(), sumDiff);
-                    }
+                    int lcp = longestCommonPostfix(diffPath1, diffPath2);
+                    String path = lcp > 0 ? summarizedPath(diffPath2, lcp) : Utils.join(".", diffPath2);
+                    addSummary(summaries, path, true);
                 }
+            }
+        }
+
+        // count differences
+        for ( String[] diffPath : diffPaths ) {
+            for ( SummarizedDifference sumDiff : summaries.values() ) {
+                if ( sumDiff.matches(diffPath) )
+                    addSummary(summaries, sumDiff.getPath(), false);
+            }
+        }
+
+        List<SummarizedDifference> sortedSummaries = new ArrayList<SummarizedDifference>(summaries.values());
+        Collections.sort(sortedSummaries);
+        return sortedSummaries;
+    }
+
+    private static void addSummary(Map<String, SummarizedDifference> summaries, String path, boolean onlyCatalog) {
+        if ( summaries.containsKey(path) ) {
+            if ( ! onlyCatalog )
+                summaries.get(path).incCount();
+        } else {
+            SummarizedDifference sumDiff = new SummarizedDifference(path);
+            summaries.put(sumDiff.getPath(), sumDiff);
+        }
+    }
+
+    protected void printSortedSummary(PrintStream out, List<SummarizedDifference> sortedSummaries) {
+        int count = 0;
+        for ( SummarizedDifference diff : sortedSummaries ) {
+            if ( count++ < maxItems ) {
+                out.println(diff);
+            } else {
+                break;
             }
         }
     }
@@ -187,18 +234,25 @@ public class DiffEngine {
      */
     protected static String summarizedPath(String[] parts, int commonPostfixLength) {
         int stop = parts.length - commonPostfixLength;
+        if ( stop > 0 ) parts = parts.clone();
         for ( int i = 0; i < stop; i++ ) {
             parts[i] = "*";
         }
         return Utils.join(".", parts);
     }
 
-    private class SummarizedDifference {
+    /**
+     * TODO -- all of the algorithms above should use SummarizedDifference instead
+     * TODO -- of some SummarizedDifferences and some low-level String[]
+     */
+    public static class SummarizedDifference implements Comparable<SummarizedDifference> {
         final String path; // X.Y.Z
-        int count = 1;
+        final String[] parts;
+        int count = 0;
 
         public SummarizedDifference(String path) {
             this.path = path;
+            this.parts = diffNameToPath(path);
         }
 
         public void incCount() { count++; }
@@ -207,13 +261,54 @@ public class DiffEngine {
             return count;
         }
 
+        /**
+         * The fully qualified path object A.B.C etc
+         * @return
+         */
         public String getPath() {
             return path;
         }
 
-        public String getString() {
-            return String.format("%s : %d%n", getPath(), getCount());
+        /**
+         * @return the length of the parts of this summary
+         */
+        public int length() {
+            return this.parts.length;
         }
+
+        /**
+         * Returns true if the string parts matches this summary.  Matches are
+         * must be equal() everywhere where this summary isn't *.
+         * @param otherParts
+         * @return
+         */
+        public boolean matches(String[] otherParts) {
+            if ( otherParts.length != length() )
+                return false;
+
+            // TODO optimization: can start at right most non-star element
+            for ( int i = 0; i < length(); i++ ) {
+                String part = parts[i];
+                if ( ! part.equals("*") && ! part.equals(otherParts[i]) )
+                    return false;
+            }
+
+            return true;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s:%d", getPath(), getCount());
+        }
+
+        @Override
+        public int compareTo(SummarizedDifference other) {
+            // sort first highest to lowest count, then by lowest to highest path
+            int countCmp = Integer.valueOf(count).compareTo(other.count);
+            return countCmp != 0 ? -1 * countCmp : path.compareTo(other.path);
+        }
+
+
     }
 
     // --------------------------------------------------------------------------------

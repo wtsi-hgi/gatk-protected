@@ -50,7 +50,7 @@ public class DifferenceUnitTest extends BaseTest {
     //
     // --------------------------------------------------------------------------------
 
-    private class DifferenceTest {
+    private class DifferenceTest extends TestDataProvider {
         public DiffElement tree1, tree2;
         public String difference;
 
@@ -59,6 +59,7 @@ public class DifferenceUnitTest extends BaseTest {
         }
 
         private DifferenceTest(DiffElement tree1, DiffElement tree2, String difference) {
+            super(DifferenceTest.class);
             this.tree1 = tree1;
             this.tree2 = tree2;
             this.difference = difference;
@@ -74,21 +75,12 @@ public class DifferenceUnitTest extends BaseTest {
 
     @DataProvider(name = "data")
     public Object[][] createTrees() {
-        List<DifferenceTest> params = new ArrayList<DifferenceTest>();
-
-        params.add(new DifferenceTest("A=X", "A=Y", "A:X!=Y"));
-        params.add(new DifferenceTest("A=Y", "A=X", "A:Y!=X"));
-        params.add(new DifferenceTest(DiffNode.fromString("A=X"), null, "A:X!=MISSING"));
-        params.add(new DifferenceTest(null, DiffNode.fromString("A=X"), "A:MISSING!=X"));
-
-        List<Object[]> params2 = new ArrayList<Object[]>();
-        for ( DifferenceTest x : params ) params2.add(new Object[]{x});
-        return params2.toArray(new Object[][]{});
+        new DifferenceTest("A=X", "A=Y", "A:X!=Y");
+        new DifferenceTest("A=Y", "A=X", "A:Y!=X");
+        new DifferenceTest(DiffNode.fromString("A=X"), null, "A:X!=MISSING");
+        new DifferenceTest(null, DiffNode.fromString("A=X"), "A:MISSING!=X");
+        return DifferenceTest.getTests(DifferenceTest.class);
     }
-
-//    private static DiffElement subtree(DiffElement tree) {
-//        return tree == null ? null : ((DiffLeaf)tree).getValue();
-//    }
 
     @Test(enabled = true, dataProvider = "data")
     public void testDiffToString(DifferenceTest test) {
