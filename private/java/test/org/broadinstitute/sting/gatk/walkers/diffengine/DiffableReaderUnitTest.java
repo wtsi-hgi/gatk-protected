@@ -29,6 +29,7 @@ package org.broadinstitute.sting.gatk.walkers.diffengine;
 // the imports for unit testing.
 
 
+import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.BaseTest;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.testng.Assert;
@@ -100,5 +101,43 @@ public class DiffableReaderUnitTest extends BaseTest {
         testLeaf(rec1, "AC", "2");
         testLeaf(rec1, "AF", "1.00");
         testLeaf(rec1, "AN", "2");
+    }
+
+    @Test(enabled = true, dependsOnMethods = "testPluggableDiffableReaders")
+    public void testBAM() {
+        logger.warn("testBAM");
+        DiffableReader bamReader = engine.getReader("BAM");
+        Assert.assertTrue(bamReader.canRead(bamFile));
+        Assert.assertFalse(bamReader.canRead(vcfFile));
+
+        DiffElement diff = bamReader.readFromFile(bamFile);
+        Assert.assertNotNull(diff);
+
+        Assert.assertEquals(diff.getName(), bamFile.getName());
+        Assert.assertSame(diff.getParent(), DiffElement.ROOT);
+
+        DiffNode node = diff.getValueAsNode();
+        Assert.assertEquals(node.getElements().size(), 33);
+
+        // 30PPJAAXX090125:1:42:512:1817#0 99      chr1    200     0       76M     =
+        // 255     -130    ACCCTAACCCTAACCCTAACCCTAACCATAACCCTAAGACTAACCCTAAACCTAACCCTCATAATCGAAATACAAC
+        // BBBBC@C?AABCBB<63>=B@>+B9-9+)2B8,+@327B5A>90((>-+''3?(/'''A)(''19('7.,**%)3:
+        // PG:Z:0  RG:Z:exampleBAM.bam     SM:Z:exampleBAM.bam
+
+        DiffNode rec1 = node.getElement("30PPJAAXX090125:1:42:512:1817#0_1").getValueAsNode();
+        testLeaf(rec1, "NAME", "30PPJAAXX090125:1:42:512:1817#0");
+        testLeaf(rec1, "FLAGS", 99);
+        testLeaf(rec1, "RNAME", "chr1");
+        testLeaf(rec1, "POS", 200);
+        testLeaf(rec1, "MAPQ", 0);
+        testLeaf(rec1, "CIGAR", "76M");
+        testLeaf(rec1, "RNEXT", "chr1");
+        testLeaf(rec1, "PNEXT", 255);
+        testLeaf(rec1, "TLEN", -130);
+        testLeaf(rec1, "SEQ", "ACCCTAACCCTAACCCTAACCCTAACCATAACCCTAAGACTAACCCTAAACCTAACCCTCATAATCGAAATACAAC");
+        testLeaf(rec1, "QUAL", "BBBBC@C?AABCBB<63>=B@>+B9-9+)2B8,+@327B5A>90((>-+''3?(/'''A)(''19('7.,**%)3:");
+        testLeaf(rec1, "PG", "0");
+        testLeaf(rec1, "RG", "exampleBAM.bam");
+        testLeaf(rec1, "SM", "exampleBAM.bam");
     }
 }

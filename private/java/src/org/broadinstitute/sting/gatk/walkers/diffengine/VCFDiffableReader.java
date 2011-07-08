@@ -32,10 +32,10 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.zip.GZIPInputStream;
 
 
 /**
@@ -106,17 +106,14 @@ public class VCFDiffableReader implements DiffableReader {
 
     @Override
     public boolean canRead(File file) {
-        LineReader lineReader = null;
         try {
-            lineReader = new AsciiLineReader(new FileInputStream(file));
-            VCFCodec vcfCodec = new VCFCodec();
-            VCFHeader header = (VCFHeader)vcfCodec.readHeader(lineReader);
-            return header != null;
-        } catch ( Exception e ) {
+            final String VCF4_HEADER = "##fileformat=VCFv4";
+            char[] buff = new char[VCF4_HEADER.length()];
+            new FileReader(file).read(buff, 0, VCF4_HEADER.length());
+            String firstLine = new String(buff);
+            return firstLine.startsWith(VCF4_HEADER);
+        } catch ( IOException e ) {
             return false;
-        } finally {
-            if ( lineReader != null )
-                lineReader.close();
         }
     }
 }

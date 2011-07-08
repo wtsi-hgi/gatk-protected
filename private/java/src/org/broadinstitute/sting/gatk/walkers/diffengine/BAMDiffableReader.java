@@ -24,10 +24,8 @@
 
 package org.broadinstitute.sting.gatk.walkers.diffengine;
 
-import net.sf.samtools.SAMException;
-import net.sf.samtools.SAMFileReader;
-import net.sf.samtools.SAMRecord;
-import net.sf.samtools.SAMRecordIterator;
+import net.sf.samtools.*;
+import net.sf.samtools.util.BlockCompressedInputStream;
 import org.broad.tribble.readers.AsciiLineReader;
 import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
@@ -35,9 +33,13 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.zip.GZIPInputStream;
 
 
 /**
@@ -71,6 +73,7 @@ public class BAMDiffableReader implements DiffableReader {
             DiffNode readRoot = DiffNode.empty(name, root);
 
             // add fields
+            readRoot.add("NAME", record.getReadName());
             readRoot.add("FLAGS", record.getFlags());
             readRoot.add("RNAME", record.getReferenceName());
             readRoot.add("POS", record.getAlignmentStart());
@@ -78,7 +81,7 @@ public class BAMDiffableReader implements DiffableReader {
             readRoot.add("CIGAR", record.getCigarString());
             readRoot.add("RNEXT", record.getMateReferenceName());
             readRoot.add("PNEXT", record.getMateAlignmentStart());
-            readRoot.add("TLEN", record.getReadLength());
+            readRoot.add("TLEN", record.getInferredInsertSize());
             readRoot.add("SEQ", record.getReadString());
             readRoot.add("QUAL", record.getBaseQualityString());
 
@@ -97,16 +100,16 @@ public class BAMDiffableReader implements DiffableReader {
 
     @Override
     public boolean canRead(File file) {
-        // todo -- we are going to have to manually look into the file and use the BAMFileReader
-        // since the SAM-JDK is looking at extensions.  Need to figure out what exception is
-        // getting thrown so we can catch it, and return false.
-        return false;
+        final byte[] BAM_MAGIC = "BAM\1".getBytes();
+        final byte[] buffer = new byte[BAM_MAGIC.length];
+        try {
+            FileInputStream fstream = new FileInputStream(file);
+            new BlockCompressedInputStream(fstream).read(buffer,0,BAM_MAGIC.length);
+            return Arrays.equals(buffer, BAM_MAGIC);
+        } catch ( IOException e ) {
+            return false;
+        } catch ( net.sf.samtools.FileTruncatedException e ) {
+            return false;
+        }
     }
-//        try {
-//            final SAMFileReader inReader = new SAMFileReader(file, null); // null because we don't want it to look for the index
-//            return true;
-//        } catch ( SAMException e ) {
-//            return false;
-//        }
-//    }
 }

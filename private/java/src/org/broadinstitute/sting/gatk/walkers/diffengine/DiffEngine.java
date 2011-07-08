@@ -49,6 +49,14 @@ public class DiffEngine {
     private final int maxItems;
     private final int minSumDiffCountForPrinting;
 
+    public DiffEngine() {
+        this(0);
+    }
+
+    public DiffEngine(int maxItems) {
+        this(maxItems, 1);
+    }
+
     @Requires("maxItems >= 0")
     public DiffEngine(int maxItems, int minSumDiffCountForPrinting ) {
         this.maxItems = maxItems;
