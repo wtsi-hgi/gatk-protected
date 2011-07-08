@@ -1,5 +1,7 @@
-library("gsalib", lib.loc="private/R/")
+#library("gsalib", lib.loc="private/R/")
 #library("gsalib", lib.loc="/home/radon01/depristo/dev/GenomeAnalysisTK/trunk/R/")
+#library("gsalib", lib.loc="~/Desktop/broadLocal/GATK/unstable/private/R/")
+library("gsalib")
 require("ggplot2")
 require("gplots")
 
@@ -10,7 +12,7 @@ require("gplots")
 
 args = commandArgs(TRUE)
 onCMDLine = ! is.na(args[1])
-LOAD_DATA = T
+LOAD_DATA = F
 
 # creates an array of c(sampleName1, ..., sampleNameN)
 parseHighlightSamples <- function(s) {
@@ -32,7 +34,8 @@ if ( onCMDLine ) {
   ProjectName = "InDevelopmentInR"
   preQCFile <- NA # "~/Desktop/broadLocal/GATK/trunk/qcTestData/GoT2D_exomes_batch_005_per_sample_metrics.tsv"
   #VariantEvalRoot <- "qcTestData//ESPGO_Gabriel_NHLBI_eomi_june_2011_batch1"
-  VariantEvalRoot <- "qcTestData/MC_Engle_11_Samples_06092011"
+  #VariantEvalRoot <- "qcTestData/MC_Engle_11_Samples_06092011"
+  VariantEvalRoot <- "t2dChr20Eval/ALL.chr20.freeze20110608_umich.genotypes.vcf.gz"
   outputPDF = "bar.pdf"
   highlightSamples = c() # parseHighlightSamples("29029,47243")
 }
@@ -89,7 +92,7 @@ summaryTable <- function(metricsBySites, metricsBySample) {
   return(table)
 }
 
-sampleSummaryTable <- function(metricsBySample) {
+sampleSummaryTable <- function(metricsBySamples) {
   # SNP summary statistics
   raw <- melt(metricsBySamples, id.vars=c("Novelty", "Sample"), measure.vars=c("nProcessedLoci", "nSNPs", "tiTvRatio", "nIndels", "deletionInsertionRatio"))
   table = cast(raw, Novelty ~ variable, mean)
@@ -155,26 +158,28 @@ summaryPlots <- function(metricsBySites) {
   distributePerSampleGraph(p2, p, c(1,1))
   
   # SNPs to indels ratio by allele frequency
-  name = "SNPs to indels ratio by allele frequency" 
-  if ( sum(metricsBySites$byAC$CountVariants$nIndels) > 0 ) {
-    metricsBySites$byAC$CountVariants$SNP.Indel.Ratio = metricsBySites$byAC$CountVariants$nSNPs / metricsBySites$byAC$CountVariants$nIndels
-    metricsBySites$byAC$CountVariants$SNP.Indel.Ratio[metricsBySites$byAC$CountVariants$nIndels == 0] = NaN
-    p <- ggplot(data=subset(metricsBySites$byAC$CountVariants, Novelty == "all" & nSNPs > 0), aes(x=AC, y=SNP.Indel.Ratio))
-    p <- p + opts(title = name)
-    p <- p + scale_y_continuous("SNP to indel ratio")
-    #p <- p + scale_y_log10()
-    p <- p + geom_point(alpha=0.5, aes(size=log10(nIndels)))
-    p <- p + geom_smooth(size=2, aes(weight=nIndels))
-    print(p)
-  }
+ name = "SNPs to indels ratio by allele frequency" 
+ if ( sum(metricsBySites$byAC$CountVariants$nIndels) > 0 ) {
+   metricsBySites$byAC$CountVariants$SNP.Indel.Ratio = metricsBySites$byAC$CountVariants$nSNPs / metricsBySites$byAC$CountVariants$nIndels
+   metricsBySites$byAC$CountVariants$SNP.Indel.Ratio[metricsBySites$byAC$CountVariants$nIndels == 0] = NaN
+   p <- ggplot(data=subset(metricsBySites$byAC$CountVariants, Novelty == "all" & nSNPs > 0), aes(x=AC, y=SNP.Indel.Ratio))
+   p <- p + opts(title = name)
+   p <- p + scale_y_continuous("SNP to indel ratio")
+   #p <- p + scale_y_log10()
+   p <- p + geom_point(alpha=0.5, aes(size=log10(nIndels)))
+   p <- p + geom_smooth(size=2, aes(weight=nIndels))
+   print(p)
+ }
   
   name = "SNP counts by functional class" 
   molten = melt(subset(metricsBySites$bySite$CountVariants, Novelty != "all" & FunctionalClass != "all"), id.vars=c("Novelty", "FunctionalClass"), measure.vars=c(c("nSNPs")))
-  p <- ggplot(data=molten, aes(x=FunctionalClass, y=value, fill=Novelty), group=FunctionalClass)
-  p <- p + opts(title = name)
-  p <- p + scale_y_log10("No. of SNPs")
-  p <- p + geom_bar(position="dodge")
-  print(p)
+  if ( sum(molten$value) > 0 ) {
+    p <- ggplot(data=molten, aes(x=FunctionalClass, y=value, fill=Novelty), group=FunctionalClass)
+    p <- p + opts(title = name)
+    p <- p + scale_y_log10("No. of SNPs")
+    p <- p + geom_bar(position="dodge")
+    print(p)
+  }
 }
 
 addSection <- function(name) {
@@ -289,7 +294,7 @@ if ( ! is.na(outputPDF) ) {
 } 
 
 # Table of overall counts and quality
-textplot(overallSummaryTable(metricsBySites), show.rownames=F)
+textplot(overallSummaryTable(metricsBySites, metricsBySamples), show.rownames=F)
 title(paste("Summary metrics for project", ProjectName), cex=3)
 # textplot(as.data.frame(sampleSummaryTable(metricsBySamples)), show.rownames=F)
 # title(paste("Summary metrics per sample for project", ProjectName), cex=3)
