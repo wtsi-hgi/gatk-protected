@@ -20,6 +20,8 @@ from net.sf.picard.analysis import AlignmentSummaryMetrics,InsertSizeMetrics
 from net.sf.picard.analysis.directed import HsMetrics
 from net.sf.picard.metrics import MetricsFile
 
+import generate_preqc_database
+
 import os,string,sys
 
 def median(l):
@@ -103,18 +105,23 @@ def get_full_metrics(sample,basepath):
     return data    
 
 def main():
-    if len(sys.argv) != 2:
-        print 'USAGE: %s <bam files.list>'
+    include_sequence_date = False
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
+        print >> sys.stderr, 'USAGE: %s <bam files.list> {include sequence date}'
         sys.exit(1)
     if not os.path.exists(sys.argv[1]):
-        print 'BAM list %s not found' % sys.argv[1]
+        print >> sys.stderr, 'BAM list %s not found' % sys.argv[1]
         sys.exit(1)
+    if len(sys.argv) == 3:
+        if sys.argv[2].lower() == 'true':
+            include_sequence_date = True
 
     bam_list_filename = sys.argv[1]
 
     header = ['sample']
-    for metric_type in sample_summary_metrics_types:
-        header.extend(get_sample_summary_metrics_fields(metric_type[0]))
+    header.extend(get_full_metrics_fields())
+    if include_sequence_date:
+        header.extend(['Last_Sequenced_WR','Last_Sequenced_WR_Created_Date'])
     print string.join(header,'\t')
 
     # get a representative BAM file for each sample, to use as a base path.  Note that this assumes every sample corresponds to the same base path.
@@ -126,13 +133,17 @@ def main():
         if bam_filename == '':
             continue
         bam_filename_tokens = bam_filename.split('/')
-        sample_id = bam_filename_tokens[len(bam_filename_tokens)-3]
+        project_id = bam_filename_tokens[-4]
+        sample_id = bam_filename_tokens[-3]
         samples[sample_id] = bam_filename
     bam_list.close()
 
     for sample_id,filename in samples.items():
         basepath = filename[:filename.rindex('.bam')]
-        print string.join([sample_id]+get_full_metrics(sample_id,basepath),'\t')
+        metrics = [sample_id]+get_full_metrics(sample_id,basepath)
+        if include_sequence_date:
+            metrics += generate_preqc_database.load_dates_from_database(project_id,sample_id)
+        print string.join(metrics,'\t')
 
 if __name__ == "__main__":
     main()

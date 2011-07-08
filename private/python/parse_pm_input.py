@@ -8,13 +8,13 @@
 #     parse_pm_input.py <input file.{xls|xlsx|txt|tsv}> > <bam.list>
 #
 from java.io import FileInputStream
-from org.apache.poi.ss.usermodel import Row,Sheet,Workbook,WorkbookFactory
 
 import re,os,sys
 
 base_path = '/seq/picard_aggregation/%s/%s'
 
 def excel_generator(filename):
+    from org.apache.poi.ss.usermodel import Row,Sheet,Workbook,WorkbookFactory
     wb = WorkbookFactory.create(FileInputStream(filename));
     for sheet_number in range(wb.getNumberOfSheets()):
         project_column = None

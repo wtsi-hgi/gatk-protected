@@ -14,8 +14,6 @@ from java.lang import Class,Exception
 from java.sql import *
 from java.text import SimpleDateFormat
 
-from org.broadinstitute.sting.gatk.report import GATKReportParser
-
 functional_classes = ['all','missense','nonsense','silent']
 novelties = ['all','known','novel']
 
@@ -66,6 +64,8 @@ def generate_project_files_from_filtered_annotated_vcfs(vcf_list_file):
     vcf_list.close()
 
 def main():
+    from org.broadinstitute.sting.gatk.report import GATKReportParser
+
     if len(sys.argv) != 3:
         print >> sys.stderr, 'USAGE: %s <vcf.list> <variant eval outputs dir>'
         sys.exit(1)
@@ -103,7 +103,6 @@ def main():
                 # replace any Nones in the columns with the text 'NA'
                 columns = [column if column != None else 'NA' for column in columns]
                 print string.join(columns,'\t')
-        break
             
 if __name__ == "__main__":
     main()
