@@ -1,7 +1,8 @@
 import org.broadinstitute.sting.commandline.ArgumentCollection
 import org.broadinstitute.sting.gatk.CommandLineGATK
+import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection
 import org.broadinstitute.sting.oneoffprojects.walkers.newassociation.RFAArgumentCollection
-import org.broadinstitute.sting.queue.extensions.gatk.{RodBind, RFCombine, RFExtractor}
+import org.broadinstitute.sting.queue.extensions.gatk.{RodBind,RFExtractor,RFCombine}
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.util.IOUtils
 
@@ -15,6 +16,7 @@ class RFAPipeline extends QScript {
   @Argument(doc="interval list",shortName="L") var intervals: File = _
   @ArgumentCollection var rfaArgs : RFAArgumentCollection = new RFAArgumentCollection()
   @Argument(doc="Number of bams per text file output",shortName="br",required = false) var br = 20
+  @Argument(doc="Mapping from read group to aberrant size",shortName="aif",required=false) var insertFile : File = _
 
   def script = {
     // step one, break the bam files up
@@ -22,7 +24,6 @@ class RFAPipeline extends QScript {
 
     trait ExtractorArgs extends RFExtractor {
       this.reference_sequence = rfapipeline.ref
-      this.jarFile = new File(rfapipeline.stingDir+"/dist/GenomeAnalysisTK.jar")
       this.intervals :+= rfapipeline.intervals
       // copy the args into the extractor
       this.windowJump = Some(rfaArgs.windowJump)
@@ -34,6 +35,7 @@ class RFAPipeline extends QScript {
       this.clippedBases = Some(rfaArgs.clippedBases)
       this.sampleEpsilon = Some(rfaArgs.EPSILON)
       this.memoryLimit = Some(2)
+      this.aif = Some(rfapipeline.insertFile)
     }
 
     val extract : List[RFExtractor] = subBams.zipWithIndex.map( u => {
