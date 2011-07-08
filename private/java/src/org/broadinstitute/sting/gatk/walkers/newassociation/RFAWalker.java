@@ -251,7 +251,7 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
         double stat_num = caseAg.getMean() - controlAg.getMean();
         double stat_denom = Math.sqrt(caseAg.getUnbiasedVar()/caseAg.getnReads() + controlAg.getUnbiasedVar()/controlAg.getnReads());
         double stat = stat_num/stat_denom;
-        System.out.printf("Mean_dif: %.2e Var: %.2e Stat: %.2f Z: %.2f SS-ZZ: %.2f%n",stat_num,stat_denom,stat, collection.fixedZ, stat*stat-collection.fixedZ*collection.fixedZ);
+        //System.out.printf("Mean_dif: %.2e Var: %.2e Stat: %.2f Z: %.2f SS-ZZ: %.2f%n",stat_num,stat_denom,stat, collection.fixedZ, stat*stat-collection.fixedZ*collection.fixedZ);
         if ( ! Double.isNaN(stat) && stat*stat < collection.fixedZ*collection.fixedZ ) {
             return 0.0;
         } else {
