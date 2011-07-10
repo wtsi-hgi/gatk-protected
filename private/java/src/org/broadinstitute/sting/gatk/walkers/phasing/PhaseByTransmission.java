@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.walkers.phasing;
+package org.broadinstitute.sting.gatk.walkers.phasing;
 
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
