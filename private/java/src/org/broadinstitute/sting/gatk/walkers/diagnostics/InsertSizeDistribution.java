@@ -56,6 +56,7 @@ public class InsertSizeDistribution extends ReadWalker<Integer, Integer> {
     }
 
     public void onTraversalDone(Integer sum) {
+        // Write report.
         report.print(out);
     }
 }
