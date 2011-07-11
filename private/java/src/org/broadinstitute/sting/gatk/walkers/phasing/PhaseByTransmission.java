@@ -498,7 +498,7 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
             vcfWriter.add(reo, reo.getReference().getBases()[0]);
         }
 
-        System.out.printf("total: %d, correct: %d (%0.2f), incorrect: %d (%0.2f)%n",
+        System.out.printf("total: %d, correct: %d (%f), incorrect: %d (%f)%n",
                           phaseTotal,
                           phaseCorrect,
                           (double) phaseCorrect / (double) phaseTotal,
