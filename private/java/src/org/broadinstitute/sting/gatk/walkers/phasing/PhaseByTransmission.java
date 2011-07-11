@@ -409,7 +409,7 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
                 Genotype rbpChild = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD);
                 Genotype pvcChild = pvcList.get(i).getGenotype(SAMPLE_NAME_CHILD);
 
-                if (rbpChild.sameGenotype(pvcChild, true) && !rbpChild.sameGenotype(pvcChild, false)) {
+                if (rbpChild.isPhased() && rbpChild.sameGenotype(pvcChild, true) && !rbpChild.sameGenotype(pvcChild, false)) {
                     System.out.printf("%s:%d : rbpChild=%s pvcChild=%s%n", rbpList.get(i).getChr(), rbpList.get(i).getStart(), rbpChild.toBriefString(), pvcChild.toBriefString());
                 }
             }
