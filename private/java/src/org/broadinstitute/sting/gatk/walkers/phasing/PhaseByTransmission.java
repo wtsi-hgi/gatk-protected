@@ -41,6 +41,9 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
 
     private ArrayList<VariantContext> rbpCache = new ArrayList<VariantContext>();
     private ArrayList<VariantContext> pvcCache = new ArrayList<VariantContext>();
+    private int phaseError = 0;
+    private int phaseCorrect = 0;
+    private int phaseTotal = 0;
 
     private String SAMPLE_NAME_MOM;
     private String SAMPLE_NAME_DAD;
@@ -404,14 +407,27 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
             }
         } else {
             orientedVCs = pvcList;
+        }
 
-            for (int i = 0; i < rbpList.size(); i++) {
-                Genotype rbpChild = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD);
-                Genotype pvcChild = pvcList.get(i).getGenotype(SAMPLE_NAME_CHILD);
+        for (int i = 0; i < rbpList.size(); i++) {
+            Genotype rbpChild = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD);
+            Genotype pvcChild = pvcList.get(i).getGenotype(SAMPLE_NAME_CHILD);
 
-                if (rbpChild.isPhased() && rbpChild.sameGenotype(pvcChild, true) && !rbpChild.sameGenotype(pvcChild, false)) {
+            if (rbpChild.isPhased() && rbpChild.sameGenotype(pvcChild, true)) {
+                if (isAmbiguous && !rbpChild.sameGenotype(pvcChild, false)) {
                     System.out.printf("%s:%d : rbpChild=%s pvcChild=%s%n", rbpList.get(i).getChr(), rbpList.get(i).getStart(), rbpChild.toBriefString(), pvcChild.toBriefString());
+                    phaseError++;
+                } else {
+                    if (rbpChild.sameGenotype(pvcChild, false)) {
+                        if (!isFlipped) {
+                            phaseCorrect++;
+                        } else {
+                            phaseError++;
+                        }
+                    }
                 }
+
+                phaseTotal++;
             }
         }
 
@@ -481,5 +497,13 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
         for (VariantContext reo : reoCache) {
             vcfWriter.add(reo, reo.getReference().getBases()[0]);
         }
+
+        System.out.printf("total: %d, correct: %d (%0.2f), incorrect: %d (%0.2f)%n",
+                          phaseTotal,
+                          phaseCorrect,
+                          (double) phaseCorrect / (double) phaseTotal,
+                          phaseError,
+                          (double) phaseError / (double) phaseTotal
+        );
     }
 }
