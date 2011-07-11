@@ -216,7 +216,8 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
             Pair<List<String>,List<String>> caseControlAffected = getAffectedSamples(window,agIdx,fixedDelta);
             List<String> cases = caseControlAffected.getFirst();
             List<String> controls = caseControlAffected.getSecond();
-            double caseP = MathUtils.binomialProbability(cases.size(),cases.size()+controls.size(),((double) nCase)/(nCase+nControl));
+            double caseP = MathUtils.binomialProbability(cases.size()+controls.size(),cases.size(),((double) nCase)/(nCase+nControl));
+            logger.debug(String.format("NCa:%d NCo:%d CaS:%d CoS:%d, P:%f%n",nCase,nControl,cases.size(),controls.size(),caseP));
             out.printf("\t%.2e\t%d:%d\t%.2e\t%s;%s",fixedDelta,cases.size(),controls.size(), caseP,Utils.join(",",cases),Utils.join(",",controls));
 
         }
