@@ -5,7 +5,7 @@ import org.broadinstitute.sting.queue.extensions.samtools.SamtoolsIndexFunction
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.function.JavaCommandLineFunction
 
-class ExomePostQCEval extends QScript {
+class PostCallingQC extends QScript {
   @Argument(doc="gatkJarFile", required=false)
   var gatkJarFile: File = new File("/home/radon01/depristo/dev/GenomeAnalysisTK/trunk/dist/GenomeAnalysisTK.jar")
 
@@ -50,7 +50,7 @@ class ExomePostQCEval extends QScript {
       createEval(evalVCF, ".bySample",
         List("TiTvVariantEvaluator", "CountVariants", "CompOverlap"),
         List("Sample"))
-      add(new ExomeQCRScript(evalVCF))
+      add(new QCRScript(evalVCF))
     }
   }
 
@@ -71,10 +71,10 @@ class ExomePostQCEval extends QScript {
     this.intervalsString = List(myIntervals);
   }
 
-  class ExomeQCRScript(vcf: File) extends CommandLineFunction {
+  class QCRScript(vcf: File) extends CommandLineFunction {
     @Output var pdf: File = swapExt(vcf,".vcf", ".pdf")
     val root = swapExt(vcf,".vcf", "") // remove the prefix
-    def commandLine = "Rscript %s/exomeQC.R %s %s %s".format(RPath, root, root, pdf)
+    def commandLine = "Rscript %s/variantCallQC.R %s %s %s".format(RPath, root, root, pdf)
   }
 }
 
