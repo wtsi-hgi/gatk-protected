@@ -343,8 +343,6 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
                 Genotype rbpGenotype = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD);
                 Genotype pvcGenotype = pvcList.get(i).getGenotype(SAMPLE_NAME_CHILD);
 
-                //System.out.printf("[DEBUG] %s %s %b%n", rbpGenotype, pvcGenotype, rbpGenotype.sameGenotype(pvcGenotype, false));
-
                 if (rbpGenotype.isHet()) {
                     if (rbpGenotype.sameGenotype(pvcGenotype, false)) {
                         correctOrientation++;
@@ -364,8 +362,6 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
         } else {
             isAmbiguous = true;
         }
-
-        //System.out.printf("[DEBUG] isFlipped: %b, isAmbiguous: %b, numCorrect: %d, numIncorrect: %d%n", isFlipped, isAmbiguous, correctOrientation, incorrectOrientation);
 
         if (!isAmbiguous) {
             for (int i = 0; i < rbpList.size(); i++) {
@@ -392,7 +388,6 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
                         }
 
                         child = new Genotype(SAMPLE_NAME_CHILD, revAlleles, child.getNegLog10PError(), child.getFilters(), child.getAttributes(), true);
-
                     }
 
                     List<Genotype> finalGenotypes = new ArrayList<Genotype>();
@@ -409,6 +404,15 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
             }
         } else {
             orientedVCs = pvcList;
+
+            for (int i = 0; i < rbpList.size(); i++) {
+                Genotype rbpChild = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD);
+                Genotype pvcChild = pvcList.get(i).getGenotype(SAMPLE_NAME_CHILD);
+
+                if (!rbpChild.sameGenotype(pvcChild)) {
+                    System.out.printf("%s:%d : rbpChild=%s pvcChild=%s%n", rbpList.get(i).getChr(), rbpList.get(i).getStart(), rbpChild.toBriefString(), pvcChild.toBriefString());
+                }
+            }
         }
 
         return orientedVCs;
@@ -430,10 +434,8 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
             for (VariantContext vc : vcs) {
                 VariantContext phasedVC = phaseTrioGenotypes(vc);
 
-                //if (vc.isFiltered() || vc.getGenotype(SAMPLE_NAME_CHILD).isPhased()) {
-                    rbpCache.add(vc);
-                    pvcCache.add(phasedVC);
-                //}
+                rbpCache.add(vc);
+                pvcCache.add(phasedVC);
 
                 if (!vc.isFiltered() && !vc.getGenotype(SAMPLE_NAME_CHILD).isPhased()) {
                     ArrayList<VariantContext> reoCache = reorientHaplotypes(rbpCache, pvcCache);
