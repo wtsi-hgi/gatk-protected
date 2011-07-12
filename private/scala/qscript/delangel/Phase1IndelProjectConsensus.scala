@@ -1,5 +1,5 @@
 import net.sf.picard.reference.FastaSequenceFile
-import org.broadinstitute.sting.pipeline.Pipeline
+import org.broadinstitute.sting.datasources.pipeline.Pipeline
 import org.broadinstitute.sting.gatk.DownsampleType
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.samtools._
@@ -48,7 +48,7 @@ class Phase1ProjectConsensus extends QScript {
   val populations = List("ASW","CEU","CHB","CHS","CLM","FIN","GBR","IBS","JPT","LWK","MXL","PUR","TSI","YRI")
   private val snpAlleles: String = "/humgen/1kg/processing/production_wgs_phase1/consensus/ALL.phase1.wgs.union.pass.sites.vcf"
 
-  private val subJobsPerJob:Int = 100
+  private val subJobsPerJob:Int = 20
 
   private var pipeline: Pipeline = _
 
@@ -62,7 +62,7 @@ class Phase1ProjectConsensus extends QScript {
 
   class AnalysisPanel(val baseName: String, val pops: List[String], val jobNumber: Int, val subJobNumber: Int, val chr: String) {
     val rawVCFindels = new File(qscript.outputDir + "/calls/chr" + chr + "/" + baseName + "/" + baseName + ".phase1.chr" + chr + "." + subJobNumber + ".raw.indels.vcf")
-    val chunkAlleles = new File(qscript.outputTmpDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + jobNumber + ".raw.indels.vcf")
+    val chunkAlleles = new File(qscript.outputTmpDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + subJobNumber + ".raw.indels.vcf")
 
 
     val callIndels = new UnifiedGenotyper with CommandLineGATKArgs
@@ -77,11 +77,12 @@ class Phase1ProjectConsensus extends QScript {
     callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
     callIndels.rodBind :+= RodBind("alleles", "VCF", chunkAlleles)
     callIndels.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
-    callIndels.sites_only = true
     callIndels.A ++= List("TechnologyComposition")
-    callIndels.BTI = "alleles"
+    callIndels.sites_only = false
+
+//    callIndels.BTI = "alleles"
     callIndels.ignoreSNPAlleles = true
-   // callIndels.nt=Some(8)
+    // callIndels.nt=Some(8)
   }
 
   class Chromosome(val inputChr: Int) {
@@ -130,8 +131,8 @@ class Phase1ProjectConsensus extends QScript {
         if( stop > lastBase ) { stop = lastBase }
         subJobNumber += 1
       }
-      if (!qscript.createTargets)
-        add(chrObject.indelCombine)
+
+      add(chrObject.indelCombine)
 
     }
   }
@@ -145,6 +146,7 @@ class Phase1ProjectConsensus extends QScript {
     selectTargets.intervalsString :+= interval
     selectTargets.o = alleleTargets
     selectTargets.rodBind :+= RodBind("variant", "VCF", qscript.indelAlleles )
+    selectTargets.jobName =    qscript.outputTmpDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + jobNumber + ".raw.indels"
     add(selectTargets)
 
   }
@@ -182,6 +184,8 @@ class Phase1ProjectConsensus extends QScript {
     indelCombine.intervalsString :+= interval
     indelCombine.mergeInfoWithMaxAC = true
     indelCombine.priority = "AFR.admix,AMR.admix,EUR.admix,ASN.admix,AFR,AMR,EUR,ASN" //ALL,
+    indelCombine.sites_only = true
+
    //indelCombine.priority = "AFR,AMR,EUR,ASN" //ALL,
 
 
@@ -201,7 +205,7 @@ class Phase1ProjectConsensus extends QScript {
 
     for( a <- analysisPanels ) {
       // use BTI with indels
-      // a.callIndels.intervalsString :+= interval
+      a.callIndels.intervalsString :+= interval
 
       if(a.baseName == "ALL") {
         a.callIndels.memoryLimit = 4
@@ -214,6 +218,6 @@ class Phase1ProjectConsensus extends QScript {
 
     add(indelCombine)
 
-    chrObject.indelCombine.rodBind :+= RodBind("ALL" + jobNumber.toString, "VCF", indelCombine.out)
+    chrObject.indelCombine.rodBind :+= RodBind("ALL" + subJobNumber.toString, "VCF", indelCombine.out)
   }
 }
