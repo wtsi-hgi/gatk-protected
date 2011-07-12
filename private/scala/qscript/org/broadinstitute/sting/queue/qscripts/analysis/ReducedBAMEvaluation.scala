@@ -117,21 +117,18 @@ class ReducedBAMEvaluation extends QScript {
   }
 
   def callAndEvaluateBAM(inBAM: File, outVCF: File) {
-    val vcf = swapExt(inBAM, ".bam", ".vcf")
+    val rawVCF   = swapExt(inBAM, ".bam", ".vcf")
+    val recalVCF = swapExt(inBAM, ".bam", ".recalibrated.vcf")
+    val recal    = swapExt(inBAM, ".bam", ".recal")
+    val tranches = swapExt(inBAM, ".bam", ".tranches")
 
-    val filterSNPs = new VariantFiltration with UNIVERSAL_GATK_ARGS
-    filterSNPs.variantVCF = vcf
-    filterSNPs.filterName = List("SNP_SB", "SNP_QD", "SNP_HRun")
-    filterSNPs.filterExpression = List("\"SB>=0.10\"", "\"QD<5.0\"", "\"HRun>=4\"")
-    filterSNPs.clusterWindowSize = 10
-    filterSNPs.clusterSize = 3
-    filterSNPs.out = outVCF
-
-    add(Call(inBAM, vcf),
-        filterSNPs,
-        Eval(filterSNPs.out),          // create a variant eval for us
-        DiffableTable(vcf),            // for convenient diffing
-        DiffableTable(filterSNPs.out)) // for convenient diffing
+    add(Call(inBAM, rawVCF),
+        VQSR(rawVCF, recal, tranches),
+        applyVQSR(rawVCF, recal, tranches, recalVCF),
+        Eval(recalVCF)
+//        DiffableTable(rawVCF),   // for convenient diffing
+//        DiffableTable(recalVCF)  // for convenient diffing
+    )
   }
 
   case class Eval(@Input vcf: File) extends VariantEval with UNIVERSAL_GATK_ARGS {
@@ -165,6 +162,43 @@ class ReducedBAMEvaluation extends QScript {
       this.intervalsString = List(CALLING_INTERVAL)
     }
   }
+
+  // 3.) Variant Quality Score Recalibration - Generate Recalibration table
+  case class VQSR(inVCF: File, outRecal: File, outTranches: File) extends VariantRecalibrator with UNIVERSAL_GATK_ARGS {
+    val hapmap_b37 = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/HapMap/3.3/sites_r27_nr.b37_fwd.vcf"
+    val dbSNP_b37 = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/dbSNP/dbsnp_132_b37.leftAligned.vcf"
+    val omni_b37 = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Omni2.5_chip/Omni25_sites_1525_samples.b37.vcf"
+
+    this.intervalsString ++= List(CALLING_INTERVAL)
+    this.rodBind :+= RodBind("input", "VCF", inVCF)
+    this.rodBind :+= RodBind("hapmap", "VCF", hapmap_b37, "known=false,training=true,truth=true,prior=15.0")
+    this.rodBind :+= RodBind("omni", "VCF", omni_b37, "known=false,training=true,truth=false,prior=12.0")
+    this.rodBind :+= RodBind("dbsnp", "VCF", dbSNP_b37, "known=true,training=false,truth=false,prior=4.0")
+    this.use_annotation ++= List("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "MQ", "FS", "DP")
+    this.tranches_file = outTranches
+    this.recal_file = outRecal
+    this.allPoly = true
+    this.tranche ++= List("100.0", "99.9", "99.5", "99.3", "99.0", "98.9", "98.8", "98.5", "98.4", "98.3", "98.2", "98.1", "98.0", "97.9", "97.8", "97.5", "97.0", "95.0", "90.0")
+    this.analysisName = outTranches + "_VQSR"
+    this.jobName =  outTranches + ".VQSR"
+    this.mG = 5
+    this.std = 14
+    this.percentBad = 0.04
+    this.nt = 5
+}
+
+  // 4.) Apply the recalibration table to the appropriate tranches
+  case class applyVQSR (inVCF: File, inRecal: File, inTranches: File, outVCF: File) extends ApplyRecalibration with UNIVERSAL_GATK_ARGS {
+    this.intervalsString ++= List(CALLING_INTERVAL)
+    this.rodBind :+= RodBind("input", "VCF", inVCF )
+    this.tranches_file = inTranches
+    this.recal_file = inRecal
+    this.ts_filter_level = 99.0
+    this.out = outVCF
+    this.analysisName = outVCF + "_AVQSR"
+    this.jobName =  outVCF + ".applyVQSR"
+  }
+
 
   case class DiffableTable(@Input vcf: File) extends CommandLineFunction {
     @Output var out: File = swapExt(vcf,".vcf",".table")
