@@ -127,6 +127,11 @@ public class PickSequenomProbes2 extends RodWalker<Integer,Integer> {
             rawSequence.append(Character.toUpperCase((char) ref.getBase()));
         } else if ( validate != null ) {
             // doesn't matter if there's a mask here too -- this is what we want to validate
+            if ( validate.isFiltered() ) {
+                logger.warn("You are attempting to validate a filtered site. Why are you attempting to validate a filtered site? You should not be attempting to validate a filtered site.");
+                sequenceInvalid = true;
+                invReason.add("SITE_IS_FILTERED");
+            }
             sequence.append('[');
             sequence.append(validate.getAlternateAllele(0).toString());
             sequence.append('/');
@@ -191,7 +196,7 @@ public class PickSequenomProbes2 extends RodWalker<Integer,Integer> {
         } else {
             boolean maskNearVariantSite = false;
             for ( int i = start; i < end; i++ ) {
-                maskNearVariantSite |= (seq.charAt(i) == 'N');
+                maskNearVariantSite |= (seq.charAt(i) == 'N' || Character.isLowerCase(seq.charAt(i)));
             }
 
             if ( maskNearVariantSite ) {
