@@ -84,7 +84,7 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
                                     "mother, the father, and the child");
         }
 
-        Set<String> samples = new HashSet<String>();
+        Set<String> samples = new TreeSet<String>();
         samples.add(SAMPLE_NAME_MOM);
         samples.add(SAMPLE_NAME_DAD);
         samples.add(SAMPLE_NAME_CHILD);
