@@ -26,6 +26,9 @@ package org.broadinstitute.sting.gatk.walkers.diffengine;
 
 import com.google.java.contract.Requires;
 import org.apache.log4j.Logger;
+import org.broadinstitute.sting.gatk.report.GATKReport;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.walkers.varianteval.stratifications.VariantStratifier;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
@@ -46,21 +49,8 @@ public class DiffEngine {
     final protected static Logger logger = Logger.getLogger(DiffEngine.class);
 
     private final Map<String, DiffableReader> readers = new HashMap<String, DiffableReader>();
-    private final int maxItems;
-    private final int minSumDiffCountForPrinting;
 
     public DiffEngine() {
-        this(0);
-    }
-
-    public DiffEngine(int maxItems) {
-        this(maxItems, 1);
-    }
-
-    @Requires("maxItems >= 0")
-    public DiffEngine(int maxItems, int minSumDiffCountForPrinting ) {
-        this.maxItems = maxItems;
-        this.minSumDiffCountForPrinting = minSumDiffCountForPrinting;
         loadDiffableReaders();
     }
 
@@ -154,11 +144,11 @@ public class DiffEngine {
      *
      * Not that only pairs of the same length are considered as potentially equivalent
      *
-     * @param out
+     * @param params determines how we display the items
      * @param diffs
      */
-    public void reportSummarizedDifferences(PrintStream out, List<Difference> diffs) {
-        printSortedSummary(out, summarizeDifferences(diffs));
+    public void reportSummarizedDifferences(List<Difference> diffs, SummaryReportParams params ) {
+        printSummaryReport(summarizeDifferences(diffs), params );
     }
 
     public List<SummarizedDifference> summarizeDifferences(List<Difference> diffs) {
@@ -214,20 +204,33 @@ public class DiffEngine {
         }
     }
 
-    // TODO -- create a clean column output.  Maybe with the GATKRReport?
-    protected void printSortedSummary(PrintStream out, List<SummarizedDifference> sortedSummaries) {
-        int count = 0;
+    protected void printSummaryReport(List<SummarizedDifference> sortedSummaries, SummaryReportParams params ) {
+        GATKReport report = new GATKReport();
+        final String tableName = "diffences";
+        report.addTable(tableName, "Summarized differences between the master and test files.\nSee http://www.broadinstitute.org/gsa/wiki/index.php/DiffObjectsWalker_and_SummarizedDifferences for more information");
+        GATKReportTable table = report.getTable(tableName);
+        table.addPrimaryKey("Difference", true);
+        table.addColumn("NumberOfOccurrences", 0);
+
+        int count = 0, count1 = 0;
         for ( SummarizedDifference diff : sortedSummaries ) {
-            if ( diff.getCount() < minSumDiffCountForPrinting )
+            if ( diff.getCount() < params.minSumDiffToShow )
                 // in order, so break as soon as the count is too low
                 break;
 
-            if ( maxItems == 0 || count++ < maxItems ) {
-                out.println(diff);
-            } else {
+            if ( params.maxItemsToDisplay != 0 && count++ > params.maxItemsToDisplay )
                 break;
+
+            if ( diff.getCount() == 1 ) {
+                count1++;
+                if ( params.maxCountOneItems != 0 && count1 > params.maxCountOneItems )
+                    break;
             }
+
+            table.set(diff.getPath(), "NumberOfOccurrences", diff.getCount());
         }
+
+        table.write(params.out);
     }
 
     protected static int longestCommonPostfix(String[] diffPath1, String[] diffPath2) {
@@ -360,6 +363,11 @@ public class DiffEngine {
         return readers.get(name);
     }
 
+    /**
+     * Returns a reader appropriate for this file, or null if no such reader exists
+     * @param file
+     * @return
+     */
     public DiffableReader findReaderForFile(File file) {
         for ( DiffableReader reader : readers.values() )
             if (reader.canRead(file) )
@@ -368,11 +376,48 @@ public class DiffEngine {
         return null;
     }
 
+    /**
+     * Returns true if reader appropriate for this file, or false if no such reader exists
+     * @param file
+     * @return
+     */
+    public boolean canRead(File file) {
+        return findReaderForFile(file) != null;
+    }
+
     public DiffElement createDiffableFromFile(File file) {
         DiffableReader reader = findReaderForFile(file);
         if ( reader == null )
             throw new UserException("Unsupported file type: " + file);
         else
             return reader.readFromFile(file);
+    }
+
+    public static boolean simpleDiffFiles(File masterFile, File testFile, DiffEngine.SummaryReportParams params) {
+        DiffEngine diffEngine = new DiffEngine();
+
+        if ( diffEngine.canRead(masterFile) && diffEngine.canRead(testFile) ) {
+            DiffElement master = diffEngine.createDiffableFromFile(masterFile);
+            DiffElement test = diffEngine.createDiffableFromFile(testFile);
+            List<Difference> diffs = diffEngine.diff(master, test);
+            diffEngine.reportSummarizedDifferences(diffs, params);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public static class SummaryReportParams {
+        PrintStream out = System.out;
+        int maxItemsToDisplay = 0;
+        int maxCountOneItems = 0;
+        int minSumDiffToShow = 0;
+
+        public SummaryReportParams(PrintStream out, int maxItemsToDisplay, int maxCountOneItems, int minSumDiffToShow) {
+            this.out = out;
+            this.maxItemsToDisplay = maxItemsToDisplay;
+            this.maxCountOneItems = maxCountOneItems;
+            this.minSumDiffToShow = minSumDiffToShow;
+        }
     }
 }
