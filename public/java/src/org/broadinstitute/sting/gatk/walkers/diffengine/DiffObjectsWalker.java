@@ -47,8 +47,14 @@ public class DiffObjectsWalker extends RodWalker<Integer, Integer> {
     @Output(doc="File to which results should be written",required=true)
     protected PrintStream out;
 
-    @Argument(fullName="maxRecords", shortName="M", doc="Max. number of records to process", required=false)
-    int MAX_RECORDS = 0;
+    @Argument(fullName="maxObjectsToRead", shortName="motr", doc="Max. number of objects to read from the files.  -1 [default] means unlimited", required=false)
+    int MAX_OBJECTS_TO_READ = -1;
+
+    @Argument(fullName="maxDiffs", shortName="M", doc="Max. number of diffs to process", required=false)
+    int MAX_DIFFS = 0;
+
+    @Argument(fullName="maxCount1Diffs", shortName="M1", doc="Max. number of diffs occuring exactly once in the file to process", required=false)
+    int MAX_COUNT1_DIFFS = 0;
 
     @Argument(fullName="minCountForDiff", shortName="MCFD", doc="Min number of observations for a records to display", required=false)
     int minCountForDiff = 1;
@@ -62,11 +68,11 @@ public class DiffObjectsWalker extends RodWalker<Integer, Integer> {
     @Argument(fullName="test", shortName="t", doc="Test file: new results to compare to the master file", required=true)
     File testFile;
 
-    DiffEngine diffEngine;
+    final DiffEngine diffEngine = new DiffEngine();
 
     @Override
     public void initialize() {
-        diffEngine = new DiffEngine(MAX_RECORDS, minCountForDiff);
+
     }
 
     @Override
@@ -86,21 +92,26 @@ public class DiffObjectsWalker extends RodWalker<Integer, Integer> {
 
     @Override
     public void onTraversalDone(Integer sum) {
-        DiffElement master = diffEngine.createDiffableFromFile(masterFile);
-        DiffElement test = diffEngine.createDiffableFromFile(testFile);
+        out.printf("Reading master file %s%n", masterFile);
+        DiffElement master = diffEngine.createDiffableFromFile(masterFile, MAX_OBJECTS_TO_READ);
+        out.printf("  Read %d objects%n", master.size());
+        out.printf("Reading test file %s%n", testFile);
+        DiffElement test = diffEngine.createDiffableFromFile(testFile, MAX_OBJECTS_TO_READ);
+        out.printf("  Read %d objects%n", test.size());
 
-        out.printf("Master diff objects%n");
-        out.println(master.toString());
-        out.printf("Test diff objects%n");
-        out.println(test.toString());
+//        out.printf("Master diff objects%n");
+//        out.println(master.toString());
+//        out.printf("Test diff objects%n");
+//        out.println(test.toString());
 
-        List<Difference> diffs = diffEngine.diff(master, test);
+        List<SpecificDifference> diffs = diffEngine.diff(master, test);
         if ( showItemizedDifferences ) {
             out.printf("Itemized results%n");
-            for ( Difference diff : diffs )
+            for ( SpecificDifference diff : diffs )
                 out.printf("DIFF: %s%n", diff.toString());
         }
 
-        diffEngine.reportSummarizedDifferences(out, diffs);
+        DiffEngine.SummaryReportParams params = new DiffEngine.SummaryReportParams(out, MAX_DIFFS, MAX_COUNT1_DIFFS, minCountForDiff);
+        diffEngine.reportSummarizedDifferences(diffs, params);
     }
 }

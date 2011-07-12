@@ -107,11 +107,22 @@ public class DiffNode extends DiffValue {
         return getElements(false);
     }
 
+    /**
+     * Returns the element bound to name, or null if no such binding exists
+     * @param name
+     * @return
+     */
     public DiffElement getElement(String name) {
-        for ( DiffElement elt : getElements() )
-            if ( elt.getName().equals(name) )
-                return elt;
-        return null;
+        return getElementMap().get(name);
+    }
+
+    /**
+     * Returns true if name is bound in this node
+     * @param name
+     * @return
+     */
+    public boolean hasElement(String name) {
+        return getElement(name) != null;
     }
 
     // ---------------------------------------------------------------------------
@@ -140,6 +151,13 @@ public class DiffNode extends DiffValue {
 
     public void add(String name, Object value) {
         add(new DiffElement(name, this.getBinding(), new DiffValue(value)));
+    }
+
+    public int size() {
+        int count = 0;
+        for ( DiffElement value : getElements() )
+            count += value.size();
+        return count;
     }
 
     // ---------------------------------------------------------------------------

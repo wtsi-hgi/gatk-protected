@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2011, The Broad Institute
- *
+ * Copyright (c) 2009 The Broad Institute
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
  * files (the "Software"), to deal in the Software without
@@ -12,6 +11,7 @@
  *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
  * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -22,29 +22,22 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.gatk.walkers.diffengine;
+package org.broadinstitute.sting.gatk.filters;
 
-import com.google.java.contract.Ensures;
-import com.google.java.contract.Requires;
-
-import java.io.File;
+import net.sf.picard.util.QualityUtil;
+import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.QualityUtils;
 
 /**
- * Created by IntelliJ IDEA.
- * User: depristo
- * Date: 7/4/11
- * Time: 1:09 PM
+ * Filter out mapping quality zero reads.
  *
- * Interface for readers creating diffable objects from a file
+ * @author ebanks
+ * @version 0.1
  */
-public interface DiffableReader {
-    @Ensures("result != null")
-    public String getName();
 
-    @Ensures("result != null")
-    @Requires("file != null")
-    public DiffElement readFromFile(File file);
-
-    @Requires("file != null")
-    public boolean canRead(File file);
+public class MappingQualityUnavailableReadFilter extends ReadFilter {
+    public boolean filterOut(SAMRecord rec) {
+        return (rec.getMappingQuality() == QualityUtils.MAPPING_QUALITY_UNAVAILABLE);
+    }
 }
+

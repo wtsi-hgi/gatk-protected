@@ -32,10 +32,11 @@ package org.broadinstitute.sting.gatk.walkers.diffengine;
  *
  * Represents a specific difference between two specific DiffElements
  */
-public class Difference {
+public class SpecificDifference extends Difference {
     DiffElement master, test;
 
-    public Difference(DiffElement master, DiffElement test) {
+    public SpecificDifference(DiffElement master, DiffElement test) {
+        super(createName(master, test));
         if ( master == null && test == null ) throw new IllegalArgumentException("Master and test both cannot be null");
         this.master = master;
         this.test = test;
@@ -43,12 +44,12 @@ public class Difference {
 
     public String toString() {
         return String.format("%s:%s!=%s",
-                getFullyQualifiedName(),
+                getPath(),
                 getOneLineString(master),
                 getOneLineString(test));
     }
 
-    public String getFullyQualifiedName() {
+    private static String createName(DiffElement master, DiffElement test) {
         return (master == null ? test : master).fullyQualifiedName();
     }
 
