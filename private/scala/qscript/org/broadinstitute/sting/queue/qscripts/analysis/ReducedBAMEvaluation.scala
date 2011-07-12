@@ -6,6 +6,21 @@ import org.broadinstitute.sting.queue.function.JavaCommandLineFunction
 import org.broadinstitute.sting.utils.baq.BAQ
 
 class ReducedBAMEvaluation extends QScript {
+
+  val MRAV = 15 to 35
+
+  //Makes the file name sorting less confusing "CS-9" -> "CS-09"
+  def toStringLength(num: Int): String = {
+    val length = MRAV.max.toString().length()
+    var Num = num.toString()
+    if (Num.length() >= length)
+      Num
+    else {
+      while(Num.length() < length) { Num = "0" + Num }
+      Num
+    }
+  }
+
   @Argument(shortName = "R", doc="ref", required=false)
   var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
 
@@ -38,19 +53,23 @@ class ReducedBAMEvaluation extends QScript {
 
   def script = {
 
-    val reduceBAM = swapExt(bam, ".bam", ".reduced.bam")
-    val reduceVCF = swapExt(reduceBAM,".bam",".filtered.vcf")
     val sliceBAM =  swapExt(bam,".bam",".printreads.bam")
     val sliceVCF = swapExt(sliceBAM,".bam",".filtered.vcf")
+    add(SliceBAM(bam, sliceBAM))
+    callAndEvaluateBAM(sliceBAM, sliceVCF)
+
+    for {i <- MRAV}
+      yield {
+    val header = ".mbrc-" + toStringLength(i)
+    val reduceBAM = swapExt(bam, ".bam", header + ".reduced.bam")
+    val reduceVCF = swapExt(reduceBAM,".bam",".filtered.vcf")
     val combineVCF = swapExt(reduceVCF, ".bam", ".filtered.combined.vcf")
 
     // Generate the new BAMs
-    add(ReduceBAM(bam, reduceBAM),
-        SliceBAM(bam, sliceBAM))
+    add(ReduceBAM(bam, reduceBAM, i))
 
     // Call SNPs, filter and get variant eval report
     callAndEvaluateBAM(reduceBAM, reduceVCF)
-    callAndEvaluateBAM(sliceBAM, sliceVCF)
 
     // Combine the callsets
     add(combine(reduceVCF, sliceVCF, combineVCF))
@@ -60,14 +79,16 @@ class ReducedBAMEvaluation extends QScript {
     eval.select = List("'set==\"Intersection\"'", "'set==\"fullBAM\"'", "'set==\"reducedBAM\"'", "'set==\"filterInreducedBAM-fullBAM\"'", "'set==\"reducedBAM-filterInfullBAM\"'")
     eval.selectName = List("Intersection", "fullBAM", "reducedBAM", "filterInreducedBAM-fullBAM", "reducedBAM-filterInfullBAM")
     add(eval)
+    }
+
   }
 
-  case class ReduceBAM(bam: File, outVCF: File) extends ReduceReads with UNIVERSAL_GATK_ARGS with CoFoJa {
+  case class ReduceBAM(bam: File, outVCF: File, a: Int) extends ReduceReads with UNIVERSAL_GATK_ARGS with CoFoJa {
     this.memoryLimit = 3
     this.input_file = List(bam)
     this.o = outVCF
-    this.CS = 20
-    this.mravs = 50
+    this.CS = 20   // Best value 5
+    this.mravs = a     //Best 30
     this.mbrc = 10000
     this.baq = BAQ.CalculationMode.OFF
 
@@ -83,6 +104,9 @@ class ReducedBAMEvaluation extends QScript {
     if ( REDUCE_INTERVAL != null )
       this.intervalsString = List(REDUCE_INTERVAL);
   }
+
+  val a = 9
+
 
   case class combine (reducedBAMVCF: File, fullBAMVCF: File, outVCF: File) extends CombineVariants with UNIVERSAL_GATK_ARGS {
     this.rodBind :+= RodBind("fullBAM", "VCF", fullBAMVCF)
