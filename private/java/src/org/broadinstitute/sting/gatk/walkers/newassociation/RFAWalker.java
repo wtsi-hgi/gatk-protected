@@ -216,7 +216,8 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
             Pair<List<String>,List<String>> caseControlAffected = getAffectedSamples(window,agIdx,fixedDelta);
             List<String> cases = caseControlAffected.getFirst();
             List<String> controls = caseControlAffected.getSecond();
-            double caseP = MathUtils.binomialProbability(cases.size(),cases.size()+controls.size(),((double) nCase)/(nCase+nControl));
+            double caseP = MathUtils.binomialProbability(cases.size()+controls.size(),cases.size(),((double) nCase)/(nCase+nControl));
+            logger.debug(String.format("NCa:%d NCo:%d CaS:%d CoS:%d, P:%f%n",nCase,nControl,cases.size(),controls.size(),caseP));
             out.printf("\t%.2e\t%d:%d\t%.2e\t%s;%s",fixedDelta,cases.size(),controls.size(), caseP,Utils.join(",",cases),Utils.join(",",controls));
 
         }
@@ -251,7 +252,7 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
         double stat_num = caseAg.getMean() - controlAg.getMean();
         double stat_denom = Math.sqrt(caseAg.getUnbiasedVar()/caseAg.getnReads() + controlAg.getUnbiasedVar()/controlAg.getnReads());
         double stat = stat_num/stat_denom;
-        System.out.printf("Mean_dif: %.2e Var: %.2e Stat: %.2f Z: %.2f SS-ZZ: %.2f%n",stat_num,stat_denom,stat, collection.fixedZ, stat*stat-collection.fixedZ*collection.fixedZ);
+        //System.out.printf("Mean_dif: %.2e Var: %.2e Stat: %.2f Z: %.2f SS-ZZ: %.2f%n",stat_num,stat_denom,stat, collection.fixedZ, stat*stat-collection.fixedZ*collection.fixedZ);
         if ( ! Double.isNaN(stat) && stat*stat < collection.fixedZ*collection.fixedZ ) {
             return 0.0;
         } else {

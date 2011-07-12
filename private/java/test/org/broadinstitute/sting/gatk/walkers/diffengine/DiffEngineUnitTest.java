@@ -44,7 +44,7 @@ public class DiffEngineUnitTest extends BaseTest {
 
     @BeforeClass(enabled = true)
     public void createDiffEngine() {
-        engine = new DiffEngine(10);
+        engine = new DiffEngine();
     }
 
     // --------------------------------------------------------------------------------
