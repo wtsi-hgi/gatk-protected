@@ -56,10 +56,13 @@ public class MergeReadBackedAndTransmissionPhasedVariants extends RodWalker<Inte
                         Genotype pbtg = pbt.getGenotype(sample);
 
                         // Propagate read-backed phasing information to genotypes unphased by transmission
-                        if (!pbtg.isPhased() && rbpCache.containsKey(sample)) {
+                        //if (!pbtg.isPhased() && rbpCache.containsKey(sample)) {
+                        if (!pbtg.isPhased() && rbpg.isPhased() && rbpCache.containsKey(sample)) {
                             boolean orientationMatches = rbpCache.get(sample).sameGenotype(pbtCache.get(sample), false);
 
-                            if (!orientationMatches) {
+                            if (orientationMatches) {
+                                pbtg = rbpg;
+                            } else {
                                 List<Allele> fwdAlleles = rbpg.getAlleles();
                                 List<Allele> revAlleles = new ArrayList<Allele>();
 
@@ -74,7 +77,7 @@ public class MergeReadBackedAndTransmissionPhasedVariants extends RodWalker<Inte
                         genotypes.put(sample, pbtg);
 
                         // Update the cache
-                        if (rbpg.isPhased() && rbpg.isHet()) {
+                        if (/*rbpg.isPhased() &&*/ rbpg.isHet()) {
                             rbpCache.put(sample, rbpg);
                             pbtCache.put(sample, pbtg);
                         } else if (!rbpg.isPhased()) {
