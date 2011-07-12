@@ -55,7 +55,6 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
 
     private final Double MENDELIAN_VIOLATION_PRIOR = 1e-8;
 
-
     /**
      * Parse the familial relationship specification, and initialize VCF writer
      */
