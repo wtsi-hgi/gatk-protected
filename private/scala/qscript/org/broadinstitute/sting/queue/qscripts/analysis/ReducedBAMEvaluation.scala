@@ -7,11 +7,11 @@ import org.broadinstitute.sting.utils.baq.BAQ
 
 class ReducedBAMEvaluation extends QScript {
 
-  val MRAV = 15 to 35
+  val CS = 0 to 10
 
   //Makes the file name sorting less confusing "CS-9" -> "CS-09"
   def toStringLength(num: Int): String = {
-    val length = MRAV.max.toString().length()
+    val length = CS.max.toString().length()
     var Num = num.toString()
     if (Num.length() >= length)
       Num
@@ -58,9 +58,9 @@ class ReducedBAMEvaluation extends QScript {
     add(SliceBAM(bam, sliceBAM))
     callAndEvaluateBAM(sliceBAM, sliceVCF)
 
-    for {i <- MRAV}
+    for {i <- CS}
       yield {
-    val header = ".mbrc-" + toStringLength(i)
+    val header = ".CS-" + toStringLength(i)
     val reduceBAM = swapExt(bam, ".bam", header + ".reduced.bam")
     val reduceVCF = swapExt(reduceBAM,".bam",".filtered.vcf")
     val combineVCF = swapExt(reduceVCF, ".bam", ".filtered.combined.vcf")
@@ -87,8 +87,8 @@ class ReducedBAMEvaluation extends QScript {
     this.memoryLimit = 3
     this.input_file = List(bam)
     this.o = outVCF
-    this.CS = 20   // Best value 5
-    this.mravs = a     //Best 30
+    this.CS = a   // Best value 5
+    this.mravs = 50     //Best 30
     this.mbrc = 10000
     this.baq = BAQ.CalculationMode.OFF
 
