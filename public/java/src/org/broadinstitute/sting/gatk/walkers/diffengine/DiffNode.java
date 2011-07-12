@@ -114,6 +114,15 @@ public class DiffNode extends DiffValue {
         return null;
     }
 
+    /**
+     * Returns true if name is bound in this node
+     * @param name
+     * @return
+     */
+    public boolean hasElement(String name) {
+        return getElement(name) != null;
+    }
+
     // ---------------------------------------------------------------------------
     //
     // add

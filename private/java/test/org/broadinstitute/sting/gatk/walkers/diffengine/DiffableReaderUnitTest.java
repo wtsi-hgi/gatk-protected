@@ -50,7 +50,7 @@ public class DiffableReaderUnitTest extends BaseTest {
 
     @BeforeClass(enabled = true)
     public void createDiffEngine() {
-        engine = new DiffEngine(10);
+        engine = new DiffEngine();
     }
 
     @Test(enabled = true)
