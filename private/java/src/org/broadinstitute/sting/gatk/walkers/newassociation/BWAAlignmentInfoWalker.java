@@ -44,7 +44,7 @@ public class BWAAlignmentInfoWalker extends ReadWalker<Integer,Integer> {
         BWTFiles bwtFiles = new BWTFiles(targetReferenceFile.getAbsolutePath());
         BWAConfiguration configuration = new BWAConfiguration();
         aligner = new BWACAligner(bwtFiles,configuration);
-            header = getToolkit().getSAMFileHeader().clone();
+        header = getToolkit().getSAMFileHeader().clone();
         SAMSequenceDictionary referenceDictionary =
                 ReferenceSequenceFileFactory.getReferenceSequenceFile(targetReferenceFile).getSequenceDictionary();
         header.setSequenceDictionary(referenceDictionary);
