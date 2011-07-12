@@ -18,6 +18,7 @@ from java.io import File,FileReader
 from edu.mit.broad.picard.genotype.concordance import DbSnpMatchMetrics
 from net.sf.picard.analysis import AlignmentSummaryMetrics,InsertSizeMetrics
 from net.sf.picard.analysis.directed import HsMetrics
+from net.sf.picard.io import IoUtil
 from net.sf.picard.metrics import MetricsFile
 
 import generate_preqc_database
@@ -135,14 +136,20 @@ def main():
         bam_filename_tokens = bam_filename.split('/')
         project_id = bam_filename_tokens[-4]
         sample_id = bam_filename_tokens[-3]
+        # Temporary hack to get through today: we currently do NOT have a way to go from a BAM list back to a sample id.
+        if sample_id == 'C_III-3_A':
+            sample_id = 'C III-3_A'
         samples[sample_id] = bam_filename
     bam_list.close()
 
     for sample_id,filename in samples.items():
         basepath = filename[:filename.rindex('.bam')]
-        metrics = [sample_id]+get_full_metrics(sample_id,basepath)
+        # Be certain to quote the metrics to ensure that spaces are properly handled by R.
+        metrics = ['"%s"'%sample_id]
+        metrics += get_full_metrics(sample_id,basepath)
         if include_sequence_date:
             metrics += generate_preqc_database.load_dates_from_database(project_id,sample_id)
+        print >> sys.stderr, 'Processing',filename
         print string.join(metrics,'\t')
 
 if __name__ == "__main__":
