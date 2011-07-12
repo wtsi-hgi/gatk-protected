@@ -34,7 +34,7 @@ import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.filters.ZeroMappingQualityReadFilter;
+import org.broadinstitute.sting.gatk.filters.MappingQualityZeroReadFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
 import org.broadinstitute.sting.gatk.walkers.*;
@@ -56,7 +56,7 @@ import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFr
 @Allows(value = {DataSource.REFERENCE})
 @Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = ComparePhasingToTrioPhasingNoRecombinationWalker.TRIO_ROD_NAME, type = ReferenceOrderedDatum.class), @RMD(name = ComparePhasingToTrioPhasingNoRecombinationWalker.PHASING_ROD_NAME, type = ReferenceOrderedDatum.class)})
 
-@ReadFilters({ZeroMappingQualityReadFilter.class})
+@ReadFilters({MappingQualityZeroReadFilter.class})
 // Filter out all reads with zero mapping quality
 
 public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<CompareResult, CompareToTrioPhasingStats> {
