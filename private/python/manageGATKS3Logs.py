@@ -2,6 +2,7 @@ import os.path
 import sys
 from optparse import OptionParser
 import subprocess
+from itertools import *
 
 # 
 #
@@ -21,9 +22,9 @@ def s3bucket():
 def execS3Command(args, stdout = None):
     """Executes the S3cmd command, putting results into stdout, if provided"""
     executionString = " ".join([OPTIONS.S3CMD] + args)
-    # Actually execute the command if we're not just in debugging output mode
-    #print 'Executing', executionString.split()
-    #status = os.system(executionString)
+    if OPTIONS.dryRun:
+        print 'DRY-RUN:', executionString
+        return
     try:
         retcode = subprocess.call(executionString, shell=True, stdout=stdout)
         if retcode < 0:
@@ -40,16 +41,45 @@ def lsBucket(args):
     print 'ls:', args[0]
     for line in open(args[0]): print line,
 
+def getFilesFromS3LSByGroup(file):
+    def fileStream():
+        for line in open(file):
+            yield line.split()[3]
+    return grouper(OPTIONS.GROUP_SIZE, fileStream())
+            
+def grouper(n, iterable, fillvalue=None):
+    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return izip_longest(fillvalue=fillvalue, *args)    
+
+# TODO -- get by groups
 def getFilesInBucket(args, delete=False):
-    for line in open(args[0]):
-        file = line.split()[3]
-        destFile = os.path.join(OPTIONS.DIR, file.replace(s3bucket() + "/", ""))
-        if not os.path.exists(destFile) or OPTIONS.FromScratch:
-            print 'Getting file', file, 'to', destFile
-            execS3Command(["get", "--force", file, destFile]) 
+    def filterExistingFiles(files):
+        def alreadyExists(file):
+            destFile = os.path.join(OPTIONS.DIR, file.replace(s3bucket() + "/", ""))
+            return os.path.exists(destFile) or OPTIONS.FromScratch
+        return filter(lambda x: not alreadyExists(x), files)
+     
+    log = None
+    if OPTIONS.progressLog != None:
+        log = open(OPTIONS.progressLog, 'w')
+     
+    for filesInGroupRaw in getFilesFromS3LSByGroup(args[0]):
+        filesInGroup = filter(lambda x: x != None, list(filesInGroupRaw))
+        print '\ngroup:', len(filesInGroup), 'files'
+        filesToGet = filterExistingFiles(filesInGroup)
+        print 'to get:', len(filesToGet), 'files'
+        if filesToGet != []:
+            destDir = OPTIONS.DIR
+            print 'Getting files', filesToGet, 'to', destDir
+            execS3Command(["get", "--force"] + filesToGet + [destDir])
+        if log != None: 
+            for file in filesInGroup: print >> log, 'get', file
         if delete:
-            print 'Deleting remote', file
-            execS3Command(["del", file]) 
+            print 'Deleting remotes', filesInGroup
+            execS3Command(["del"] + filesInGroup) 
+            if log != None: 
+                for file in filesInGroup: print >> log, 'del', file
             
 # Create the mode map
 MODES["upload"] = putFilesToBucket
@@ -69,9 +99,18 @@ if __name__ == "__main__":
     parser.add_option("-s", "--s3cmd", dest="S3CMD",
                         type='string', default="/Users/depristo/Desktop/broadLocal/s3/s3cmd-1.0.1/s3cmd",
                         help="Path to s3cmd executable")
+    parser.add_option("-g", "--groupSize", dest="GROUP_SIZE",
+                        type='int', default=100,
+                        help="Number of elements to get at the same time")
     parser.add_option("-r", "--fromScratch", dest="FromScratch",
                         action='store_true', default=False,
                         help="If provided, we will redownload files already present locally")
+    parser.add_option("-p", "--progressLog", dest="progressLog",
+                        type='string', default=None,
+                        help="If provided, we will write out the files we have downloaded to this file")
+    parser.add_option("", "--dryRun", dest="dryRun",
+                        action='store_true', default=False,
+                        help="If provided, we will not actually execute any s3 commands")
                         
     (OPTIONS, args) = parser.parse_args()
     if len(args) < 1:
