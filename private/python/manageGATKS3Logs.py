@@ -59,19 +59,27 @@ def getFilesInBucket(args, delete=False):
             destFile = os.path.join(OPTIONS.DIR, file.replace(s3bucket() + "/", ""))
             return os.path.exists(destFile) or OPTIONS.FromScratch
         return filter(lambda x: not alreadyExists(x), files)
-            
+     
+    log = None
+    if OPTIONS.progressLog != None:
+        log = open(OPTIONS.progressLog, 'w')
+     
     for filesInGroupRaw in getFilesFromS3LSByGroup(args[0]):
         filesInGroup = filter(lambda x: x != None, list(filesInGroupRaw))
-        print '\ngroup:', len(filesInGroup), files
+        print '\ngroup:', len(filesInGroup), 'files'
         filesToGet = filterExistingFiles(filesInGroup)
-        print '\nto get:', len(filesToGet), files
+        print '\nto get:', len(filesToGet), 'files'
         if filesToGet != []:
             destDir = OPTIONS.DIR
             print 'Getting files', filesToGet, 'to', destDir
-            execS3Command(["get", "--force"] + filesToGet + [destDir]) 
+            execS3Command(["get", "--force"] + filesToGet + [destDir])
+            if log != None: 
+                for file in filesToGet: print >> log, 'get', file
         if delete:
             print 'Deleting remotes', filesInGroup
             execS3Command(["del"] + filesInGroup) 
+            if log != None: 
+                for file in filesToGet: print >> log, 'del', file
             
 # Create the mode map
 MODES["upload"] = putFilesToBucket
@@ -97,6 +105,9 @@ if __name__ == "__main__":
     parser.add_option("-r", "--fromScratch", dest="FromScratch",
                         action='store_true', default=False,
                         help="If provided, we will redownload files already present locally")
+    parser.add_option("-p", "--progressLog", dest="progressLog",
+                        type='string', default=None,
+                        help="If provided, we will write out the files we have downloaded to this file")
     parser.add_option("", "--dryRun", dest="dryRun",
                         action='store_true', default=False,
                         help="If provided, we will not actually execute any s3 commands")
