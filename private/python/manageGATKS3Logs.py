@@ -68,18 +68,18 @@ def getFilesInBucket(args, delete=False):
         filesInGroup = filter(lambda x: x != None, list(filesInGroupRaw))
         print '\ngroup:', len(filesInGroup), 'files'
         filesToGet = filterExistingFiles(filesInGroup)
-        print '\nto get:', len(filesToGet), 'files'
+        print 'to get:', len(filesToGet), 'files'
         if filesToGet != []:
             destDir = OPTIONS.DIR
             print 'Getting files', filesToGet, 'to', destDir
             execS3Command(["get", "--force"] + filesToGet + [destDir])
-            if log != None: 
-                for file in filesToGet: print >> log, 'get', file
+        if log != None: 
+            for file in filesInGroup: print >> log, 'get', file
         if delete:
             print 'Deleting remotes', filesInGroup
             execS3Command(["del"] + filesInGroup) 
             if log != None: 
-                for file in filesToGet: print >> log, 'del', file
+                for file in filesInGroup: print >> log, 'del', file
             
 # Create the mode map
 MODES["upload"] = putFilesToBucket
