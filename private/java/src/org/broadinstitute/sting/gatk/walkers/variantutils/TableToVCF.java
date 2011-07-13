@@ -101,7 +101,7 @@ public class TableToVCF extends RodWalker<VariantContext,Integer> {
             }
             ref = Allele.create(refBase,true);
             alt = Allele.create(Allele.NULL_ALLELE_STRING,false);
-            end = featureLoc.getStart()+size;
+            end = featureLoc.getStart()+size    ;
         } else if ( type.equals(VariantType.INSERTION) ) {
             alt = Allele.create(features.get(3).getBytes());
             ref = Allele.create(Allele.NULL_ALLELE_STRING,true);
