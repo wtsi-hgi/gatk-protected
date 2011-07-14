@@ -55,27 +55,25 @@ def grouper(n, iterable, fillvalue=None):
 
 # TODO -- get by groups
 def getFilesInBucket(args, delete=False):
-    log, alreadyGot, alreadyDeleted = None, set(), set()
-    if OPTIONS.progressLog != None:
-        logLines = [line.split() for line in open(OPTIONS.progressLog)]
-        alreadyGot = [parts[1] for parts in logLines if parts[0] == "get"]
-        alreadyDel = [parts[1] for parts in logLines if parts[0] == "del"]
-        print alreadyGot, alreadyDel
-        log = open(OPTIONS.progressLog, 'a')
+    lsFile, logFile = args
+    logLines = [line.split() for line in open(logFile)]
+    alreadyGot = [parts[1] for parts in logLines if parts[0] == "get"]
+    alreadyDel = [parts[1] for parts in logLines if parts[0] == "del"]
+    print alreadyGot, alreadyDel
+    log = open(logFile, 'a')
 
     def writeLog(action, skipSet, files):
-        if log != None: 
-            for file in files: 
-                if file not in skipSet: 
-                    print >> log, action, file
+        for file in files: 
+            if file not in skipSet: 
+                print >> log, action, file
 
     def filterExistingFiles(files):
         def alreadyExists(file):
             destFile = os.path.join(OPTIONS.DIR, file.replace(s3bucket() + "/", ""))
-            return file in alreadyGot or OPTIONS.FromScratch or os.path.exists(destFile)
+            return file in alreadyGot or OPTIONS.FromScratch or (OPTIONS.checkExistsOnDisk and os.path.exists(destFile))
         return filter(lambda x: not alreadyExists(x), files)
      
-    for filesInGroupRaw in getFilesFromS3LSByGroup(args[0]):
+    for filesInGroupRaw in getFilesFromS3LSByGroup(lsFile):
         filesInGroup = filter(lambda x: x != None, list(filesInGroupRaw))
         print '\ngroup:', len(filesInGroup), 'files'
         filesToGet = filterExistingFiles(filesInGroup)
@@ -115,9 +113,9 @@ if __name__ == "__main__":
     parser.add_option("-r", "--fromScratch", dest="FromScratch",
                         action='store_true', default=False,
                         help="If provided, we will redownload files already present locally")
-    parser.add_option("-p", "--progressLog", dest="progressLog",
-                        type='string', default=None,
-                        help="If provided, we will write out the files we have downloaded to this file")
+    parser.add_option("", "--checkExistsOnDisk", dest="checkExistsOnDisk",
+                        action='store_true', default=False,
+                        help="If provided, we will check the file system for a file before we download it")
     parser.add_option("", "--dryRun", dest="dryRun",
                         action='store_true', default=False,
                         help="If provided, we will not actually execute any s3 commands")
