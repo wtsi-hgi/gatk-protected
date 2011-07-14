@@ -23,35 +23,25 @@ trim_to_95_pct <- function(data,complete_column,sampled_column) {
   return(subset(data,sampled_column>=min&sampled_column<=max))
 }
 
-create_base_plot <- function(title,reference_dataset,new_dataset,column) {
+create_base_plot <- function(title,reference_dataset,new_dataset,column_name) {
   # Create the basic plot with reference data
-  p <- ggplot(reference_dataset,aes_string(x='sample',y=column))
+  p <- ggplot(reference_dataset,aes_string(x='sample',y=column_name))
   p <- p + opts(title=title,axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank())
   p <- p + xlab('Sample (ordered by sequencing date)')
 
   # Add in the new points and color them red.
   p <- p + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100))
-  p <- p + geom_point(data=new_dataset,aes_string(x='sample',y=column),color='red')
+  p <- p + geom_point(data=new_dataset,aes_string(x='sample',y=column_name),color='red')
 
   # Lines for the mean,+/- one sigma,+/- two sigma
-  mean <- mean(column,na.rm=T)
-  sd <- sd(column,na.rm=T)
+  mean <- mean(complete[,column_name],na.rm=T)
+  sd <- sd(complete[,column_name],na.rm=T)
   text=c('-2*sigma','-1*sigma','mean','1*sigma','2*sigma')
   value=c(mean-2*sd,mean-1*sd,mean,mean+1*sd,mean+2*sd)
   p <- p + geom_hline(yintercept=value,color='blue',alpha=I(1/10))
   p <- p + geom_text(aes(x,y,label=label),data=data.frame(x=levels(complete$sample)[1],y=value,label=text),hjust=0,vjust=0,color='blue',size=2)
 
   return(p)
-}
-
-add_distribution <- function(plot,column) {
-  mean <- mean(column,na.rm=T)
-  sd <- sd(column,na.rm=T)
-  text=c('-2*sigma','-1*sigma','mean','1*sigma','2*sigma')
-  value=c(mean-2*sd,mean-1*sd,mean,mean+1*sd,mean+2*sd)
-  plot <- plot + geom_hline(yintercept=value,color='blue',alpha=I(1/10))
-  plot <- plot + geom_text(aes(x,y,label=label),data=data.frame(x=levels(complete$sample)[1],y=value,label=text),hjust=0,vjust=0,color='blue',size=2)
-  return(plot)
 }
 
 # Return the number of months in the difference date-reference
@@ -142,7 +132,6 @@ p <- create_base_plot('# SNPs called per Sample',novel_sampled,data,'TOTAL_SNPS'
 p
 
 pct_dbsnp_scatter <- create_base_plot('% SNPs in dbSNP per Sample',novel_sampled,data,'PCT_DBSNP')
-pct_dbsnp_scatter <- add_distribution(p,complete$PCT_DBSNP)
 
 pct_dbsnp_merged <- rbind(data.frame(sample=novel_sampled$sample,PCT_DBSNP=novel_sampled$PCT_DBSNP,type='reference'),data.frame(sample=data$sample,PCT_DBSNP=data$PCT_DBSNP,type='new'))
 pct_dbsnp_density <- qplot(PCT_DBSNP,data=pct_dbsnp_merged,geom="density",fill=type) + opts(title='% SNPs in dbSNP per Sample')
