@@ -80,14 +80,14 @@ public class DiffableReaderUnitTest extends BaseTest {
         Assert.assertTrue(vcfReader.canRead(vcfFile));
         Assert.assertFalse(vcfReader.canRead(bamFile));
 
-        DiffElement diff = vcfReader.readFromFile(vcfFile);
+        DiffElement diff = vcfReader.readFromFile(vcfFile, -1);
         Assert.assertNotNull(diff);
 
         Assert.assertEquals(diff.getName(), vcfFile.getName());
         Assert.assertSame(diff.getParent(), DiffElement.ROOT);
 
         DiffNode node = diff.getValueAsNode();
-        Assert.assertEquals(node.getElements().size(), 9);
+        Assert.assertEquals(node.getElements().size(), 10);
 
         // chr1    2646    rs62635284      G       A       0.15    PASS    AC=2;AF=1.00;AN=2       GT:AD:DP:GL:GQ  1/1:53,75:3:-12.40,-0.90,-0.00:9.03
         DiffNode rec1 = node.getElement("chr1:2646").getValueAsNode();
@@ -110,7 +110,7 @@ public class DiffableReaderUnitTest extends BaseTest {
         Assert.assertTrue(bamReader.canRead(bamFile));
         Assert.assertFalse(bamReader.canRead(vcfFile));
 
-        DiffElement diff = bamReader.readFromFile(bamFile);
+        DiffElement diff = bamReader.readFromFile(bamFile, -1);
         Assert.assertNotNull(diff);
 
         Assert.assertEquals(diff.getName(), bamFile.getName());
