@@ -60,7 +60,8 @@ def getFilesInBucket(args, delete=False):
     logLines = [line.split() for line in open(logFile)]
     alreadyGot = [parts[1] for parts in logLines if parts[0] == "get"]
     alreadyDel = [parts[1] for parts in logLines if parts[0] == "del"]
-    print alreadyGot, alreadyDel
+    print 'alreadyGot', len(alreadyGot)
+    print 'alreadyDel', len(alreadyDel)
     log = open(logFile, 'a')
 
     def writeLog(action, skipSet, files):
