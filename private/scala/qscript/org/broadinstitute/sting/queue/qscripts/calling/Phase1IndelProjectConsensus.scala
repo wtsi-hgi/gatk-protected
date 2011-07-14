@@ -1,7 +1,5 @@
-package org.broadinstitute.sting.queue.qscripts.calling
-
 import net.sf.picard.reference.FastaSequenceFile
-import org.broadinstitute.sting.datasources.pipeline.Pipeline
+import org.broadinstitute.sting.pipeline.Pipeline
 import org.broadinstitute.sting.gatk.DownsampleType
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.samtools._
@@ -76,10 +74,10 @@ class Phase1ProjectConsensus extends QScript {
     callIndels.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" +baseName + ".phase1.chr" + chr + "." + subJobNumber + ".raw.indels"
     callIndels.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
     callIndels.genotyping_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
-    callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+   // callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
     callIndels.rodBind :+= RodBind("alleles", "VCF", chunkAlleles)
     callIndels.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
-    callIndels.A ++= List("TechnologyComposition")
+    //callIndels.A ++= List("TechnologyComposition")
     callIndels.sites_only = false
 
 //    callIndels.BTI = "alleles"
