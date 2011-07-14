@@ -33,9 +33,9 @@ class Phase1ProjectConsensus extends QScript {
   var outputTmpDir: String = "/broad/shptmp/delangel"
 
   @Input(doc="Generate bam files", shortName="generateBAMs", required=false)
-   var generateBAMs: Boolean = false
+  var generateBAMs: Boolean = false
   @Input(doc="Generate bam files", shortName="createTargets", required=false)
-   var createTargets: Boolean = false
+  var createTargets: Boolean = false
 
   @Input(doc="indel alleles", shortName="indelAlleles", required=false)
   var indelAlleles: String = "/humgen/1kg/processing/production_wgs_phase1/consensus/ALL.indels.combined.chr20.vcf"
@@ -44,7 +44,7 @@ class Phase1ProjectConsensus extends QScript {
   private val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/data/dbsnp_132_b37.leftAligned.vcf")
   private val dindelCalls: String = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Unvalidated/AFR+EUR+ASN+1KG.dindel_august_release_merged_pilot1.20110126.sites.vcf"
   val chromosomeLength = List(249250621,243199373,198022430,191154276,180915260,171115067,159138663,146364022,141213431,135534747,135006516,133851895,115169878,107349540,102531392,90354753,81195210,78077248,59128983,63025520,48129895,51304566,155270560)
-//  val chromosomeLength = List(249250621,243199373,198022430,191154276,180915260,171115067,159138663,146364022,141213431,135534747,135006516,133851895,115169878,107349540,102531392,90354753,81195210,78077248,59128983,3000000,48129895,51304566,155270560)
+  //  val chromosomeLength = List(249250621,243199373,198022430,191154276,180915260,171115067,159138663,146364022,141213431,135534747,135006516,133851895,115169878,107349540,102531392,90354753,81195210,78077248,59128983,3000000,48129895,51304566,155270560)
   val populations = List("ASW","CEU","CHB","CHS","CLM","FIN","GBR","IBS","JPT","LWK","MXL","PUR","TSI","YRI")
   private val snpAlleles: String = "/humgen/1kg/processing/production_wgs_phase1/consensus/ALL.phase1.wgs.union.pass.sites.vcf"
 
@@ -74,13 +74,13 @@ class Phase1ProjectConsensus extends QScript {
     callIndels.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" +baseName + ".phase1.chr" + chr + "." + subJobNumber + ".raw.indels"
     callIndels.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
     callIndels.genotyping_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
-   // callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    // callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
     callIndels.rodBind :+= RodBind("alleles", "VCF", chunkAlleles)
     callIndels.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
     //callIndels.A ++= List("TechnologyComposition")
     callIndels.sites_only = false
 
-//    callIndels.BTI = "alleles"
+    //    callIndels.BTI = "alleles"
     callIndels.ignoreSNPAlleles = true
     // callIndels.nt=Some(8)
   }
@@ -93,6 +93,7 @@ class Phase1ProjectConsensus extends QScript {
     val indelChrVCF = new File(qscript.outputDir + "/calls/" + "combined.phase1.chr" + chr + ".raw.indels.vcf")
     indelCombine.out = indelChrVCF
     indelCombine.intervalsString :+= chr
+    indelCombine.jobName = qscript.outputDir + "/calls/" + "combined.phase1.chr" + chr + ".raw.indels"
   }
 
   def script = {
@@ -105,7 +106,7 @@ class Phase1ProjectConsensus extends QScript {
       val chrObject = new Chromosome(chr)
       var basesPerSubJob: Int = 3000000/qscript.subJobsPerJob
 
-       val lastBase: Int = qscript.chromosomeLength(chr - 1)
+      val lastBase: Int = qscript.chromosomeLength(chr - 1)
       var start: Int = 1
       var stop: Int = start - 1 + basesPerSubJob
       if( stop > lastBase ) { stop = lastBase }
@@ -113,7 +114,7 @@ class Phase1ProjectConsensus extends QScript {
       while( subJobNumber < (lastBase.toFloat / basesPerSubJob.toFloat) + 1.0) {
         if( chr != 23 ) {
           if (qscript.createTargets) {
-           createAlleleTarget("%d:%d-%d".format(chr, start, stop), subJobNumber, chr, chrObject)
+            createAlleleTarget("%d:%d-%d".format(chr, start, stop), subJobNumber, chr, chrObject)
           }
 
           callThisChunk("%d:%d-%d".format(chr, start, stop), subJobNumber, chr, chrObject)
@@ -121,7 +122,7 @@ class Phase1ProjectConsensus extends QScript {
         }
         else {
           if (qscript.createTargets) {
-           createAlleleTarget("X:%d-%d".format(start, stop), subJobNumber, chr, chrObject)
+            createAlleleTarget("X:%d-%d".format(start, stop), subJobNumber, chr, chrObject)
           }
           callThisChunk("X:%d-%d".format(start, stop), subJobNumber, chr, chrObject)
 
@@ -186,12 +187,12 @@ class Phase1ProjectConsensus extends QScript {
     indelCombine.priority = "AFR.admix,AMR.admix,EUR.admix,ASN.admix,AFR,AMR,EUR,ASN" //ALL,
     indelCombine.sites_only = true
 
-   //indelCombine.priority = "AFR,AMR,EUR,ASN" //ALL,
+    //indelCombine.priority = "AFR,AMR,EUR,ASN" //ALL,
 
 
     for( population <- qscript.populations ) {
       val baseTmpName: String = qscript.outputTmpDir + "/calls/chr" + chr + "/" + population + ".phase1.chr" + chr + "." + jobNumber.toString + "."
- //     val cleanedBam = new File(baseTmpName + "cleaned.bam")
+      //     val cleanedBam = new File(baseTmpName + "cleaned.bam")
       val cleanedBam = new File("/humgen/1kg/phase1_cleaned_bams/bams/chr" + chr + "/" + population + ".phase1.chr"+chr + "." +jobNumber.toString+".cleaned.bam")
 
       for( a <- analysisPanels ) {
