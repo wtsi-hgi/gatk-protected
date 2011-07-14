@@ -23,8 +23,28 @@ trim_to_95_pct <- function(data,complete_column,sampled_column) {
   return(subset(data,sampled_column>=min&sampled_column<=max))
 }
 
+create_base_plot <- function(title,reference_dataset,new_dataset,column) {
+  # Create the basic plot with reference data
+  p <- ggplot(reference_dataset,aes_string(x='sample',y=column))
+  p <- p + opts(title=title,axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank())
+  p <- p + xlab('Sample (ordered by sequencing date)')
+
+  # Add in the new points and color them red.
+  p <- p + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100))
+  p <- p + geom_point(data=new_dataset,aes_string(x='sample',y=column),color='red')
+
+  # Lines for the mean,+/- one sigma,+/- two sigma
+  mean <- mean(column,na.rm=T)
+  sd <- sd(column,na.rm=T)
+  text=c('-2*sigma','-1*sigma','mean','1*sigma','2*sigma')
+  value=c(mean-2*sd,mean-1*sd,mean,mean+1*sd,mean+2*sd)
+  p <- p + geom_hline(yintercept=value,color='blue',alpha=I(1/10))
+  p <- p + geom_text(aes(x,y,label=label),data=data.frame(x=levels(complete$sample)[1],y=value,label=text),hjust=0,vjust=0,color='blue',size=2)
+
+  return(p)
+}
+
 add_distribution <- function(plot,column) {
-  confidence_interval <- t.test(column)$conf.int
   mean <- mean(column,na.rm=T)
   sd <- sd(column,na.rm=T)
   text=c('-2*sigma','-1*sigma','mean','1*sigma','2*sigma')
@@ -45,7 +65,7 @@ number_of_months <- function(date,reference) {
 complete <- read.table(reference_dataset,header=T)
 complete <- cbind(complete,good=F)
 complete <- data.frame(complete,months_to_current_project=number_of_months(as.Date(complete$Last_Sequenced_WR_Created_Date),min(as.Date(data$Last_Sequenced_WR_Created_Date),na.rm=T)))
-complete <- subset(complete,months_to_current_project>=-6)
+complete <- subset(complete,months_to_current_project>=-12)
 
 # provide a reordering of the samples based on Last_Sequenced_WR
 samples <- unique(rbind(data.frame(sample=paste(as.character(complete$sample),as.character(complete$Last_Sequenced_WR_Created_Date)),Last_Sequenced_WR_Created_Date=complete$Last_Sequenced_WR_Created_Date),
@@ -88,51 +108,40 @@ qplot(sample,FINGERPRINT_LODS,data=fingerprint_lods,geom="boxplot",outlier.size=
 
 formatting = opts(axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank())
 
-p <- ggplot(novel_sampled,aes(sample,PCT_SELECTED_BASES)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,PCT_SELECTED_BASES),color='red') + opts(title='% Selected Bases per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$PCT_SELECTED_BASES)
+p <- create_base_plot('% Selected Bases per Sample',novel_sampled,data,'PCT_SELECTED_BASES')
 p
 
-p <- ggplot(novel_sampled,aes(sample,MEAN_TARGET_COVERAGE)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,MEAN_TARGET_COVERAGE),color='red') + opts(title='Mean Target Coverage per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$MEAN_TARGET_COVERAGE)
+p <- create_base_plot('Mean Target Coverage per Sample',novel_sampled,data,'MEAN_TARGET_COVERAGE')
 p
 
-p <- ggplot(novel_sampled,aes(sample,ZERO_CVG_TARGETS_PCT)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,ZERO_CVG_TARGETS_PCT),color='red') + opts(title='% of Targets with <2x Coverage per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$ZERO_CVG_TARGETS_PCT)
+p <- create_base_plot('% of Targets with <2x Coverage per Sample',novel_sampled,data,'ZERO_CVG_TARGETS_PCT')
 p
 
-p <- ggplot(novel_sampled,aes(sample,PF_INDEL_RATE)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,PF_INDEL_RATE),color='red') + opts(title='Indels per PF Read by Smaple') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$PF_INDEL_RATE)
+p <- create_base_plot('# of Indels per PF Read by Sample',novel_sampled,data,'PF_INDEL_RATE')
 p
 
-p <- ggplot(novel_sampled,aes(sample,PCT_TARGET_BASES_20X)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,PCT_TARGET_BASES_20X),color='red') + opts(title='% Target Bases Achieving >20x Coverage per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$PCT_TARGET_BASES_20X)
+p <- create_base_plot('% Target Bases Achieving >20x Coverage per Sample',novel_sampled,data,'PCT_TARGET_BASES_20X')
 p
 
-p <- ggplot(novel_sampled,aes(sample,PCT_PF_READS)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,PCT_PF_READS),color='red') + opts(title='% PF Reads Aligned per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$PCT_PF_READS)
+p <- create_base_plot('% PF Reads Aligned per Sample',novel_sampled,data,'PCT_PF_READS')
 p
 
-p <- ggplot(novel_sampled,aes(sample,PF_HQ_ERROR_RATE)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,PF_HQ_ERROR_RATE),color='red') + opts(title='% HQ Bases mismatching the Reference per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$PF_HQ_ERROR_RATE)
+p <- create_base_plot('% HQ Bases mismatching the Reference per Sample',novel_sampled,data,'PF_HQ_ERROR_RATE')
 p
 
-p <- ggplot(novel_sampled,aes(sample,MEAN_READ_LENGTH)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100))+ geom_point(data=data,aes(sample,MEAN_READ_LENGTH),color='red') + opts(title='Mean Read Length per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$MEAN_READ_LENGTH)
+p <- create_base_plot('Mean Read Length per Sample',novel_sampled,data,'MEAN_READ_LENGTH')
 p
 
-p <- ggplot(novel_sampled,aes(sample,BAD_CYCLES)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,BAD_CYCLES),color='red') + opts(title='# Bad Cycles per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$BAD_CYCLES)
+p <- create_base_plot('# Bad Cycles per Sample',novel_sampled,data,'BAD_CYCLES')
 p
 
-p <- ggplot(novel_sampled,aes(sample,STRAND_BALANCE)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,STRAND_BALANCE),color='red') + opts(title='% PF Reads Aligned to the + Strand per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$STRAND_BALANCE)
+p <- create_base_plot('% PF Reads Aligned to the + Strand per Sample',novel_sampled,data,'STRAND_BALANCE')
 p
 
-p <- ggplot(novel_sampled,aes(sample,TOTAL_SNPS)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,TOTAL_SNPS),color='red') + opts(title='# SNPs called per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$TOTAL_SNPS)
+p <- create_base_plot('# SNPs called per Sample',novel_sampled,data,'TOTAL_SNPS')
 p
 
-pct_dbsnp_scatter <- ggplot(novel_sampled,aes(sample,PCT_DBSNP)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,PCT_DBSNP),color='red') + opts(title='% SNPs in dbSNP per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
+pct_dbsnp_scatter <- create_base_plot('% SNPs in dbSNP per Sample',novel_sampled,data,'PCT_DBSNP')
 pct_dbsnp_scatter <- add_distribution(p,complete$PCT_DBSNP)
 
 pct_dbsnp_merged <- rbind(data.frame(sample=novel_sampled$sample,PCT_DBSNP=novel_sampled$PCT_DBSNP,type='reference'),data.frame(sample=data$sample,PCT_DBSNP=data$PCT_DBSNP,type='new'))
@@ -161,20 +170,16 @@ ggplot(median_insert_size,aes(sample,MEDIAN_INSERT_SIZE,color=data_type)) + geom
 #			       data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='new'))
 #ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE,color=data_type,alpha=I(1/10))) + geom_point() + geom_point(data=median_insert_size_new,aes(sample,MEDIAN_INSERT_SIZE),color='red') + facet_grid(insert_type ~ .)
 
-p <- ggplot(novel_sampled,aes(sample,PCT_CHIMERAS)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,PCT_CHIMERAS),color='red') + opts(title='% Chimera Read Pairs per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$PCT_CHIMERAS)
+p <- create_base_plot('% Chimera Read Pairs per Sample',novel_sampled,data,'PCT_CHIMERAS')
 p
 
-p <- ggplot(novel_sampled,aes(sample,PCT_ADAPTER)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,PCT_ADAPTER),color='red') + opts(title='% Unaligned Reads Matching an Adapter Sequence per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$PCT_ADAPTER)
+p <- create_base_plot('% Unaligned Reads Matching an Adapter Sequence per Sample',novel_sampled,data,'PCT_ADAPTER')
 p
 
-p <- ggplot(novel_sampled,aes(sample,NOVEL_SNPS)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,NOVEL_SNPS),color='red') + opts(title='# Novel SNPs called per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$NOVEL_SNPS)
+p <- create_base_plot('# Novel SNPs called per Sample',novel_sampled,data,'NOVEL_SNPS')
 p
 
-p <- ggplot(novel_sampled,aes(sample,DBSNP_TITV)) + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100)) + geom_point(data=data,aes(sample,DBSNP_TITV),color='red') + opts(title='TiTv of SNPs in dbSNP per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
-p <- add_distribution(p,complete$DBSNP_TITV)
+p <- create_base_plot('TiTv of SNPs in dbSNP per Sample',novel_sampled,data,'DBSNP_TITV')
 p
 
 if(onCMDLine) {
