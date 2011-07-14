@@ -30,7 +30,7 @@ create_base_plot <- function(title,reference_dataset,new_dataset,column_name) {
   p <- p + xlab('Sample (ordered by sequencing date)')
 
   # Add in the new points and color them red.
-  p <- p + geom_point(alpha=I(1/10)) + geom_rug(aes(x=NULL),alpha=I(1/100))
+  p <- p + geom_point(alpha=0.1) + geom_rug(aes(x=NULL),alpha=0.01)
   p <- p + geom_point(data=new_dataset,aes_string(x='sample',y=column_name),color='red')
 
   # Lines for the mean,+/- one sigma,+/- two sigma
@@ -38,7 +38,7 @@ create_base_plot <- function(title,reference_dataset,new_dataset,column_name) {
   sd <- sd(complete[,column_name],na.rm=T)
   text=c('-2*sigma','-1*sigma','mean','1*sigma','2*sigma')
   value=c(mean-2*sd,mean-1*sd,mean,mean+1*sd,mean+2*sd)
-  p <- p + geom_hline(yintercept=value,color='blue',alpha=I(1/10))
+  p <- p + geom_hline(yintercept=value,color='blue',alpha=0.1)
   p <- p + geom_text(aes(x,y,label=label),data=data.frame(x=levels(complete$sample)[1],y=value,label=text),hjust=0,vjust=0,color='blue',size=2)
 
   return(p)
@@ -47,6 +47,7 @@ create_base_plot <- function(title,reference_dataset,new_dataset,column_name) {
 create_density_plot <- function(reference_dataset,new_dataset,column_name) {
   merged_dataset <- rbind(data.frame(sample=reference_dataset$sample,data=reference_dataset[,column_name],type='reference'),data.frame(sample=new_dataset$sample,data=new_dataset[,column_name],type='new'))
   density_plot <- ggplot(merged_dataset,aes_string(x='data',y='..density..',fill='type')) + geom_density() + ylab(column_name)
+  density_plot <- density_plot + scale_fill_manual(values=c(alpha('black',0.1),alpha('red',1.0)))
   return(density_plot)
 }
 
@@ -130,9 +131,9 @@ create_stock_plots('% PF Reads Aligned per Sample',novel_sampled,data,'PCT_PF_RE
 
 create_stock_plots('% HQ Bases mismatching the Reference per Sample',novel_sampled,data,'PF_HQ_ERROR_RATE')
 
-create_stock_plots('Mean Read Length per Sample',novel_sampled,data,'MEAN_READ_LENGTH')
+create_base_plot('Mean Read Length per Sample',novel_sampled,data,'MEAN_READ_LENGTH')
 
-create_stock_plots('# Bad Cycles per Sample',novel_sampled,data,'BAD_CYCLES')
+create_base_plot('# Bad Cycles per Sample',novel_sampled,data,'BAD_CYCLES')
 
 create_stock_plots('% PF Reads Aligned to the + Strand per Sample',novel_sampled,data,'STRAND_BALANCE')
 
@@ -140,14 +141,16 @@ create_stock_plots('# SNPs called per Sample',novel_sampled,data,'TOTAL_SNPS')
 
 create_stock_plots('% SNPs in dbSNP per Sample',novel_sampled,data,'PCT_DBSNP')
 
-
 median_insert_size = rbind(data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='reference'),
 		           data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='new'),
 			   data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='reference'),
 			   data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='new'),
 			   data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='reference'),
 			   data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='new'))
-ggplot(median_insert_size,aes(sample,MEDIAN_INSERT_SIZE,color=data_type)) + geom_point() + geom_rug(aes(x=NULL),alpha=I(1/100)) + facet_grid(insert_type ~ .) + opts(title='Median Insert Size per Sample') + formatting + xlab('Sample (ordered by sequencing date)')
+p <- ggplot(median_insert_size,aes(sample,MEDIAN_INSERT_SIZE,color=data_type)) + geom_point() + geom_rug(aes(x=NULL),alpha=0.01) + facet_grid(insert_type ~ .) + scale_color_manual(values=c(alpha('black',0.1),alpha('red',1.0)))
+p <- p + opts(title='Median Insert Size per Sample',axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank()) 
+p <- p + xlab('Sample (ordered by sequencing date)')
+p
 
 #median_insert_size_ref = rbind(data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='reference'),
 #			       data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='reference'),
@@ -155,7 +158,7 @@ ggplot(median_insert_size,aes(sample,MEDIAN_INSERT_SIZE,color=data_type)) + geom
 #median_insert_size_new = rbind(data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='new'),
 #			       data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='new'),
 #			       data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='new'))
-#ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE,color=data_type,alpha=I(1/10))) + geom_point() + geom_point(data=median_insert_size_new,aes(sample,MEDIAN_INSERT_SIZE),color='red') + facet_grid(insert_type ~ .)
+#ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE,color=data_type,alpha=0.1)) + geom_point() + geom_point(data=median_insert_size_new,aes(sample,MEDIAN_INSERT_SIZE),color='red') + facet_grid(insert_type ~ .)
 
 create_stock_plots('% Chimera Read Pairs per Sample',novel_sampled,data,'PCT_CHIMERAS')
 
