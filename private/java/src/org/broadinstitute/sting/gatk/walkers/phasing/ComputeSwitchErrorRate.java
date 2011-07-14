@@ -73,7 +73,7 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
                 Genotype evalG = eval.getGenotype("NA12878");
                 Genotype compG = comp.getGenotype("NA12878");
 
-                if (!eval.isFiltered() && evalG.isHet() && !comp.isFiltered() && compG.isHet()) {
+                if (!eval.isFiltered() && evalG.isHet() && evalG.isPhased() && !comp.isFiltered() && compG.isHet() && compG.isPhased()) {
                     markersSeen++;
 
                     GATKReportTable genotypePhaseMatches = report.getTable("GenotypeMatches");
