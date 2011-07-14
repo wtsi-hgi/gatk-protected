@@ -44,6 +44,24 @@ create_base_plot <- function(title,reference_dataset,new_dataset,column_name) {
   return(p)
 }
 
+create_density_plot <- function(reference_dataset,new_dataset,column_name) {
+  merged_dataset <- rbind(data.frame(sample=reference_dataset$sample,data=reference_dataset[,column_name],type='reference'),data.frame(sample=new_dataset$sample,data=new_dataset[,column_name],type='new'))
+  density_plot <- ggplot(merged_dataset,aes_string(x='data',y='..density..',fill='type')) + geom_density() + ylab(column_name)
+  return(density_plot)
+}
+
+create_stock_plots <- function(title,reference_dataset,new_dataset,column_name) {
+  base_plot <- create_base_plot(title,reference_dataset,new_dataset,column_name)
+  density_plot <- create_density_plot(reference_dataset,new_dataset,column_name)
+
+  layout <- grid.layout(nrow=2,ncol=1,heights=c(2,1))
+  grid.newpage()
+  pushViewport(viewport(layout=layout))
+  subplot <- function(x) viewport(layout.pos.row=x,layout.pos.col=1)
+  print(base_plot,vp=subplot(1))
+  print(density_plot,vp=subplot(2))
+}
+
 # Return the number of months in the difference date-reference
 number_of_months <- function(date,reference) {
   date_posix <- as.POSIXlt(date)
@@ -98,50 +116,30 @@ qplot(sample,FINGERPRINT_LODS,data=fingerprint_lods,geom="boxplot",outlier.size=
 
 formatting = opts(axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank())
 
-p <- create_base_plot('% Selected Bases per Sample',novel_sampled,data,'PCT_SELECTED_BASES')
-p
+create_stock_plots('% Selected Bases per Sample',novel_sampled,data,'PCT_SELECTED_BASES')
 
-p <- create_base_plot('Mean Target Coverage per Sample',novel_sampled,data,'MEAN_TARGET_COVERAGE')
-p
+create_stock_plots('Mean Target Coverage per Sample',novel_sampled,data,'MEAN_TARGET_COVERAGE')
 
-p <- create_base_plot('% of Targets with <2x Coverage per Sample',novel_sampled,data,'ZERO_CVG_TARGETS_PCT')
-p
+create_stock_plots('% of Targets with <2x Coverage per Sample',novel_sampled,data,'ZERO_CVG_TARGETS_PCT')
 
-p <- create_base_plot('# of Indels per PF Read by Sample',novel_sampled,data,'PF_INDEL_RATE')
-p
+create_stock_plots('# of Indels per PF Read by Sample',novel_sampled,data,'PF_INDEL_RATE')
 
-p <- create_base_plot('% Target Bases Achieving >20x Coverage per Sample',novel_sampled,data,'PCT_TARGET_BASES_20X')
-p
+create_stock_plots('% Target Bases Achieving >20x Coverage per Sample',novel_sampled,data,'PCT_TARGET_BASES_20X')
 
-p <- create_base_plot('% PF Reads Aligned per Sample',novel_sampled,data,'PCT_PF_READS')
-p
+create_stock_plots('% PF Reads Aligned per Sample',novel_sampled,data,'PCT_PF_READS')
 
-p <- create_base_plot('% HQ Bases mismatching the Reference per Sample',novel_sampled,data,'PF_HQ_ERROR_RATE')
-p
+create_stock_plots('% HQ Bases mismatching the Reference per Sample',novel_sampled,data,'PF_HQ_ERROR_RATE')
 
-p <- create_base_plot('Mean Read Length per Sample',novel_sampled,data,'MEAN_READ_LENGTH')
-p
+create_stock_plots('Mean Read Length per Sample',novel_sampled,data,'MEAN_READ_LENGTH')
 
-p <- create_base_plot('# Bad Cycles per Sample',novel_sampled,data,'BAD_CYCLES')
-p
+create_stock_plots('# Bad Cycles per Sample',novel_sampled,data,'BAD_CYCLES')
 
-p <- create_base_plot('% PF Reads Aligned to the + Strand per Sample',novel_sampled,data,'STRAND_BALANCE')
-p
+create_stock_plots('% PF Reads Aligned to the + Strand per Sample',novel_sampled,data,'STRAND_BALANCE')
 
-p <- create_base_plot('# SNPs called per Sample',novel_sampled,data,'TOTAL_SNPS')
-p
+create_stock_plots('# SNPs called per Sample',novel_sampled,data,'TOTAL_SNPS')
 
-pct_dbsnp_scatter <- create_base_plot('% SNPs in dbSNP per Sample',novel_sampled,data,'PCT_DBSNP')
+create_stock_plots('% SNPs in dbSNP per Sample',novel_sampled,data,'PCT_DBSNP')
 
-pct_dbsnp_merged <- rbind(data.frame(sample=novel_sampled$sample,PCT_DBSNP=novel_sampled$PCT_DBSNP,type='reference'),data.frame(sample=data$sample,PCT_DBSNP=data$PCT_DBSNP,type='new'))
-pct_dbsnp_density <- qplot(PCT_DBSNP,data=pct_dbsnp_merged,geom="density",fill=type) + opts(title='% SNPs in dbSNP per Sample')
-
-layout <- grid.layout(nrow=2,ncol=1,heights=c(2,1))
-grid.newpage()
-pushViewport(viewport(layout=layout))
-subplot <- function(x) viewport(layout.pos.row=x,layout.pos.col=1)
-print(pct_dbsnp_scatter,vp=subplot(1))
-print(pct_dbsnp_density,vp=subplot(2))
 
 median_insert_size = rbind(data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='reference'),
 		           data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='new'),
@@ -159,17 +157,13 @@ ggplot(median_insert_size,aes(sample,MEDIAN_INSERT_SIZE,color=data_type)) + geom
 #			       data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='new'))
 #ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE,color=data_type,alpha=I(1/10))) + geom_point() + geom_point(data=median_insert_size_new,aes(sample,MEDIAN_INSERT_SIZE),color='red') + facet_grid(insert_type ~ .)
 
-p <- create_base_plot('% Chimera Read Pairs per Sample',novel_sampled,data,'PCT_CHIMERAS')
-p
+create_stock_plots('% Chimera Read Pairs per Sample',novel_sampled,data,'PCT_CHIMERAS')
 
-p <- create_base_plot('% Unaligned Reads Matching an Adapter Sequence per Sample',novel_sampled,data,'PCT_ADAPTER')
-p
+create_stock_plots('% Unaligned Reads Matching an Adapter Sequence per Sample',novel_sampled,data,'PCT_ADAPTER')
 
-p <- create_base_plot('# Novel SNPs called per Sample',novel_sampled,data,'NOVEL_SNPS')
-p
+create_stock_plots('# Novel SNPs called per Sample',novel_sampled,data,'NOVEL_SNPS')
 
-p <- create_base_plot('TiTv of SNPs in dbSNP per Sample',novel_sampled,data,'DBSNP_TITV')
-p
+create_stock_plots('TiTv of SNPs in dbSNP per Sample',novel_sampled,data,'DBSNP_TITV')
 
 if(onCMDLine) {
     dev.off()
