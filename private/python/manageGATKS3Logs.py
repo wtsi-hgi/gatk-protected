@@ -58,8 +58,8 @@ def grouper(n, iterable, fillvalue=None):
 def getFilesInBucket(args, delete=False):
     lsFile, logFile = args
     logLines = [line.split() for line in open(logFile)]
-    alreadyGot = [parts[1] for parts in logLines if parts[0] == "get"]
-    alreadyDel = [parts[1] for parts in logLines if parts[0] == "del"]
+    alreadyGot = set([parts[1] for parts in logLines if parts[0] == "get"])
+    alreadyDel = set([parts[1] for parts in logLines if parts[0] == "del"])
     print 'alreadyGot', len(alreadyGot)
     print 'alreadyDel', len(alreadyDel)
     log = open(logFile, 'a')
@@ -71,8 +71,13 @@ def getFilesInBucket(args, delete=False):
 
     def filterExistingFiles(files):
         def alreadyExists(file):
-            destFile = os.path.join(OPTIONS.DIR, file.replace(s3bucket() + "/", ""))
-            return file in alreadyGot or OPTIONS.FromScratch or (OPTIONS.checkExistsOnDisk and os.path.exists(destFile))
+            if file in alreadyGot or OPTIONS.FromScratch: 
+                return True
+            elif OPTIONS.checkExistsOnDisk:
+                destFile = os.path.join(OPTIONS.DIR, file.replace(s3bucket() + "/", ""))
+                return os.path.exists(destFile)
+            else:
+                return False
         return filter(lambda x: not alreadyExists(x), files)
 
     def processGroup(filesInGroupRaw):
@@ -82,31 +87,17 @@ def getFilesInBucket(args, delete=False):
         print 'to get:', len(filesToGet), 'files'
         if filesToGet != []:
             destDir = OPTIONS.DIR
-            print 'Getting files', filesToGet, 'to', destDir
-            #execS3Command(["get", "--force"] + filesToGet + [destDir])
-            parallelS3Get(filesToGet, destDir)
+            if OPTIONS.verbose: print 'Getting files', filesToGet, 'to', destDir
+            execS3Command(["get", "--force"] + filesToGet + [destDir])
             writeLog('get', alreadyGot, filesToGet)
         if delete:
             filesToDel = [file for file in filesInGroup if file not in alreadyDel]
-            print 'Deleting remotes', filesToDel
+            if OPTIONS.verbose: print 'Deleting remotes', filesToDel
             execS3Command(["del"] + filesToDel) 
             writeLog('del', alreadyDel, filesToDel)
         return 'Complete'
 
     print map( processGroup, getFilesFromS3LSByGroup(lsFile) )
-
-def parallelS3Get(filesToGet, destDir):
-    print 'FilesToGet', len(filesToGet)
-    pool = multiprocessing.Pool(processes=OPTIONS.N_PARALLEL_PROCESSES)
-    execS3Command(["get", "--force"] + filesToGet + [destDir])
-    print list(pool.imap_unordered( s3Get, [(fileToGet, destDir) for fileToGet in filesToGet]), 50)
-
-def s3Get(args):
-    fileToGet, destDir = args
-    print('parent process:', os.getppid())
-    print('process id:', os.getpid())
-    execS3Command(["get", "--force", fileToGet, destDir])
-    return 'done'
             
 # Create the mode map
 MODES["upload"] = putFilesToBucket
@@ -138,6 +129,9 @@ if __name__ == "__main__":
     parser.add_option("", "--dryRun", dest="dryRun",
                         action='store_true', default=False,
                         help="If provided, we will not actually execute any s3 commands")
+    parser.add_option("-v", "--verbose", dest="verbose",
+                        action='store_true', default=False,
+                        help="If provided, will print debugging info")
     parser.add_option("-p", "--parallel", dest="N_PARALLEL_PROCESSES",
                         type='int', default=2,
                         help="Number of parallel gets to execute at the same time")
