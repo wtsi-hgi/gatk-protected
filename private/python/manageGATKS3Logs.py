@@ -3,7 +3,8 @@ import sys
 from optparse import OptionParser
 import subprocess
 from itertools import *
-from multiprocessing import Pool
+import multiprocessing
+import time
 
 # 
 #
@@ -72,8 +73,8 @@ def getFilesInBucket(args, delete=False):
             destFile = os.path.join(OPTIONS.DIR, file.replace(s3bucket() + "/", ""))
             return file in alreadyGot or OPTIONS.FromScratch or (OPTIONS.checkExistsOnDisk and os.path.exists(destFile))
         return filter(lambda x: not alreadyExists(x), files)
-     
-    for filesInGroupRaw in getFilesFromS3LSByGroup(lsFile):
+
+    def processGroup(filesInGroupRaw):
         filesInGroup = filter(lambda x: x != None, list(filesInGroupRaw))
         print '\ngroup:', len(filesInGroup), 'files'
         filesToGet = filterExistingFiles(filesInGroup)
@@ -81,13 +82,30 @@ def getFilesInBucket(args, delete=False):
         if filesToGet != []:
             destDir = OPTIONS.DIR
             print 'Getting files', filesToGet, 'to', destDir
-            execS3Command(["get", "--force"] + filesToGet + [destDir])
+            #execS3Command(["get", "--force"] + filesToGet + [destDir])
+            parallelS3Get(filesToGet, destDir)
             writeLog('get', alreadyGot, filesToGet)
         if delete:
             filesToDel = [file for file in filesInGroup if file not in alreadyDel]
             print 'Deleting remotes', filesToDel
             execS3Command(["del"] + filesToDel) 
             writeLog('del', alreadyDel, filesToDel)
+        return 'Complete'
+
+    print map( processGroup, getFilesFromS3LSByGroup(lsFile) )
+
+def parallelS3Get(filesToGet, destDir):
+    print 'FilesToGet', len(filesToGet)
+    pool = multiprocessing.Pool(processes=OPTIONS.N_PARALLEL_PROCESSES)
+    execS3Command(["get", "--force"] + filesToGet + [destDir])
+    print list(pool.imap_unordered( s3Get, [(fileToGet, destDir) for fileToGet in filesToGet]), 50)
+
+def s3Get(args):
+    fileToGet, destDir = args
+    print('parent process:', os.getppid())
+    print('process id:', os.getpid())
+    execS3Command(["get", "--force", fileToGet, destDir])
+    return 'done'
             
 # Create the mode map
 MODES["upload"] = putFilesToBucket
@@ -119,6 +137,9 @@ if __name__ == "__main__":
     parser.add_option("", "--dryRun", dest="dryRun",
                         action='store_true', default=False,
                         help="If provided, we will not actually execute any s3 commands")
+    parser.add_option("-p", "--parallel", dest="N_PARALLEL_PROCESSES",
+                        type='int', default=2,
+                        help="Number of parallel gets to execute at the same time")
                         
     (OPTIONS, args) = parser.parse_args()
     if len(args) < 1:
