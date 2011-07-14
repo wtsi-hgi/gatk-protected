@@ -2,6 +2,10 @@ import os.path
 import sys
 from optparse import OptionParser
 import subprocess
+from itertools import *
+import multiprocessing
+import time
+import Queue
 
 # 
 #
@@ -21,9 +25,9 @@ def s3bucket():
 def execS3Command(args, stdout = None):
     """Executes the S3cmd command, putting results into stdout, if provided"""
     executionString = " ".join([OPTIONS.S3CMD] + args)
-    # Actually execute the command if we're not just in debugging output mode
-    #print 'Executing', executionString.split()
-    #status = os.system(executionString)
+    if OPTIONS.dryRun:
+        if OPTIONS.verbose: print 'DRY-RUN:', executionString
+        return
     try:
         retcode = subprocess.call(executionString, shell=True, stdout=stdout)
         if retcode < 0:
@@ -40,16 +44,118 @@ def lsBucket(args):
     print 'ls:', args[0]
     for line in open(args[0]): print line,
 
+def getFilesFromS3LSByGroup(file):
+    def fileStream():
+        for line in open(file):
+            yield line.split()[3]
+    return grouper(OPTIONS.GROUP_SIZE, fileStream())
+            
+def grouper(n, iterable, fillvalue=None):
+    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return izip_longest(fillvalue=fillvalue, *args)    
+
+class GetWorker(multiprocessing.Process):
+ 
+    def __init__(self, work_queue, result_queue, delete, alreadyGot, alreadyDel):
+        # base class initialization
+        multiprocessing.Process.__init__(self)
+ 
+        # job management stuff
+        self.work_queue = work_queue
+        self.result_queue = result_queue
+        self.kill_received = False
+        self.delete = delete
+        self.alreadyGot = alreadyGot
+        self.alreadyDel = alreadyDel
+
+    def filterExistingFiles(self, files):
+        def alreadyExists(file):
+            if file in self.alreadyGot or OPTIONS.FromScratch: 
+                return True
+            elif OPTIONS.checkExistsOnDisk:
+                destFile = os.path.join(OPTIONS.DIR, file.replace(s3bucket() + "/", ""))
+                return os.path.exists(destFile)
+            else:
+                return False
+        return filter(lambda x: not alreadyExists(x), files)
+        
+    def processGroup(self, filesInGroupRaw):
+        print 'process id:', os.getpid()
+        filesInGroup = filter(lambda x: x != None, list(filesInGroupRaw))
+        print '\ngroup:', len(filesInGroup), 'files'
+        filesToGet = self.filterExistingFiles(filesInGroup)
+        filesToDel = [] # by default we aren't deleting anything
+        print 'to get:', len(filesToGet), 'files'
+        if filesToGet != []:
+            destDir = OPTIONS.DIR
+            if OPTIONS.verbose: print 'Getting files', filesToGet, 'to', destDir
+            execS3Command(["get", "--force"] + filesToGet + [destDir])
+        if self.delete:
+            filesToDel = [file for file in filesInGroup if file not in alreadyDel]
+            if OPTIONS.verbose: print 'Deleting remotes', filesToDel
+            execS3Command(["del"] + filesToDel) 
+        return os.getpid(), filesToGet, filesToDel
+ 
+    def run(self):
+        while not self.kill_received:
+ 
+            # get a task
+            try:
+                filesInGroup = self.work_queue.get()
+                result = self.processGroup(filesInGroup)
+            except Queue.Empty:
+                print 'Stopping run()'
+                break
+ 
+            # the actual processing
+            self.result_queue.put(result)
+
 def getFilesInBucket(args, delete=False):
-    for line in open(args[0]):
-        file = line.split()[3]
-        destFile = os.path.join(OPTIONS.DIR, file.replace(s3bucket() + "/", ""))
-        if not os.path.exists(destFile) or OPTIONS.FromScratch:
-            print 'Getting file', file, 'to', destFile
-            execS3Command(["get", "--force", file, destFile]) 
-        if delete:
-            print 'Deleting remote', file
-            execS3Command(["del", file]) 
+    lsFile, logFile = args
+    logLines = [line.split() for line in open(logFile)]
+    alreadyGot = set([parts[1] for parts in logLines if parts[0] == "get"])
+    alreadyDel = set([parts[1] for parts in logLines if parts[0] == "del"])
+    print 'alreadyGot', len(alreadyGot)
+    print 'alreadyDel', len(alreadyDel)
+
+    # Logging progress to file        
+    log = open(logFile, 'a')
+    def writeLog(action, skipSet, files):
+        if not OPTIONS.dryRun:
+            for file in files: 
+                if file not in skipSet: 
+                    print >> log, action, file
+          
+    # parallel processing
+    # load up work queue
+    work_queue = multiprocessing.Queue()
+    jobs = list(getFilesFromS3LSByGroup(lsFile))
+    for filesGroup in jobs:
+        work_queue.put(filesGroup)
+    print 'Number of work units', len(jobs)
+ 
+    # create a queue to pass to workers to store the results
+    result_queue = multiprocessing.Queue()
+ 
+    # spawn workers
+    for i in range(OPTIONS.N_PARALLEL_PROCESSES):
+        worker = GetWorker(work_queue, result_queue, delete, alreadyGot, alreadyDel)
+        print 'Starting worker', worker
+        worker.start()
+ 
+    # collect the results off the queue
+    results = []
+    while len(results) < len(jobs):
+        print 'Going for result_queue'
+        pid, filesGot, filesDel = result_queue.get()
+        results.append([filesGot, filesDel])
+        print '\nPID          ', pid
+        print 'Got files    ', len(filesGot)
+        print 'Deleted files', len(filesDel)
+        writeLog('get', alreadyGot, filesGot)
+        writeLog('del', alreadyDel, filesDel)
+        
             
 # Create the mode map
 MODES["upload"] = putFilesToBucket
@@ -69,9 +175,24 @@ if __name__ == "__main__":
     parser.add_option("-s", "--s3cmd", dest="S3CMD",
                         type='string', default="/Users/depristo/Desktop/broadLocal/s3/s3cmd-1.0.1/s3cmd",
                         help="Path to s3cmd executable")
+    parser.add_option("-g", "--groupSize", dest="GROUP_SIZE",
+                        type='int', default=100,
+                        help="Number of elements to get at the same time")
     parser.add_option("-r", "--fromScratch", dest="FromScratch",
                         action='store_true', default=False,
                         help="If provided, we will redownload files already present locally")
+    parser.add_option("", "--checkExistsOnDisk", dest="checkExistsOnDisk",
+                        action='store_true', default=False,
+                        help="If provided, we will check the file system for a file before we download it")
+    parser.add_option("", "--dryRun", dest="dryRun",
+                        action='store_true', default=False,
+                        help="If provided, we will not actually execute any s3 commands")
+    parser.add_option("-v", "--verbose", dest="verbose",
+                        action='store_true', default=False,
+                        help="If provided, will print debugging info")
+    parser.add_option("-p", "--parallel", dest="N_PARALLEL_PROCESSES",
+                        type='int', default=2,
+                        help="Number of parallel gets to execute at the same time")
                         
     (OPTIONS, args) = parser.parse_args()
     if len(args) < 1:
