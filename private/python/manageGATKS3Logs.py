@@ -3,6 +3,7 @@ import sys
 from optparse import OptionParser
 import subprocess
 from itertools import *
+from multiprocessing import Pool
 
 # 
 #
@@ -54,15 +55,25 @@ def grouper(n, iterable, fillvalue=None):
 
 # TODO -- get by groups
 def getFilesInBucket(args, delete=False):
+    log, alreadyGot, alreadyDeleted = None, set(), set()
+    if OPTIONS.progressLog != None:
+        logLines = [line.split() for line in open(OPTIONS.progressLog)]
+        alreadyGot = [parts[1] for parts in logLines if parts[0] == "get"]
+        alreadyDel = [parts[1] for parts in logLines if parts[0] == "del"]
+        print alreadyGot, alreadyDel
+        log = open(OPTIONS.progressLog, 'a')
+
+    def writeLog(action, skipSet, files):
+        if log != None: 
+            for file in files: 
+                if file not in skipSet: 
+                    print >> log, action, file
+
     def filterExistingFiles(files):
         def alreadyExists(file):
             destFile = os.path.join(OPTIONS.DIR, file.replace(s3bucket() + "/", ""))
-            return os.path.exists(destFile) or OPTIONS.FromScratch
+            return file in alreadyGot or OPTIONS.FromScratch or os.path.exists(destFile)
         return filter(lambda x: not alreadyExists(x), files)
-     
-    log = None
-    if OPTIONS.progressLog != None:
-        log = open(OPTIONS.progressLog, 'w')
      
     for filesInGroupRaw in getFilesFromS3LSByGroup(args[0]):
         filesInGroup = filter(lambda x: x != None, list(filesInGroupRaw))
@@ -73,13 +84,12 @@ def getFilesInBucket(args, delete=False):
             destDir = OPTIONS.DIR
             print 'Getting files', filesToGet, 'to', destDir
             execS3Command(["get", "--force"] + filesToGet + [destDir])
-        if log != None: 
-            for file in filesInGroup: print >> log, 'get', file
+            writeLog('get', alreadyGot, filesToGet)
         if delete:
-            print 'Deleting remotes', filesInGroup
-            execS3Command(["del"] + filesInGroup) 
-            if log != None: 
-                for file in filesInGroup: print >> log, 'del', file
+            filesToDel = [file for file in filesInGroup if file not in alreadyDel]
+            print 'Deleting remotes', filesToDel
+            execS3Command(["del"] + filesToDel) 
+            writeLog('del', alreadyDel, filesToDel)
             
 # Create the mode map
 MODES["upload"] = putFilesToBucket
