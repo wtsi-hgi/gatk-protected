@@ -5,6 +5,7 @@ import subprocess
 from itertools import *
 import multiprocessing
 import time
+import Queue
 
 # 
 #
@@ -25,7 +26,7 @@ def execS3Command(args, stdout = None):
     """Executes the S3cmd command, putting results into stdout, if provided"""
     executionString = " ".join([OPTIONS.S3CMD] + args)
     if OPTIONS.dryRun:
-        print 'DRY-RUN:', executionString
+        if OPTIONS.verbose: print 'DRY-RUN:', executionString
         return
     try:
         retcode = subprocess.call(executionString, shell=True, stdout=stdout)
@@ -54,24 +55,23 @@ def grouper(n, iterable, fillvalue=None):
     args = [iter(iterable)] * n
     return izip_longest(fillvalue=fillvalue, *args)    
 
-# TODO -- get by groups
-def getFilesInBucket(args, delete=False):
-    lsFile, logFile = args
-    logLines = [line.split() for line in open(logFile)]
-    alreadyGot = set([parts[1] for parts in logLines if parts[0] == "get"])
-    alreadyDel = set([parts[1] for parts in logLines if parts[0] == "del"])
-    print 'alreadyGot', len(alreadyGot)
-    print 'alreadyDel', len(alreadyDel)
-    log = open(logFile, 'a')
+class GetWorker(multiprocessing.Process):
+ 
+    def __init__(self, work_queue, result_queue, delete, alreadyGot, alreadyDel):
+        # base class initialization
+        multiprocessing.Process.__init__(self)
+ 
+        # job management stuff
+        self.work_queue = work_queue
+        self.result_queue = result_queue
+        self.kill_received = False
+        self.delete = delete
+        self.alreadyGot = alreadyGot
+        self.alreadyDel = alreadyDel
 
-    def writeLog(action, skipSet, files):
-        for file in files: 
-            if file not in skipSet: 
-                print >> log, action, file
-
-    def filterExistingFiles(files):
+    def filterExistingFiles(self, files):
         def alreadyExists(file):
-            if file in alreadyGot or OPTIONS.FromScratch: 
+            if file in self.alreadyGot or OPTIONS.FromScratch: 
                 return True
             elif OPTIONS.checkExistsOnDisk:
                 destFile = os.path.join(OPTIONS.DIR, file.replace(s3bucket() + "/", ""))
@@ -79,25 +79,83 @@ def getFilesInBucket(args, delete=False):
             else:
                 return False
         return filter(lambda x: not alreadyExists(x), files)
-
-    def processGroup(filesInGroupRaw):
+        
+    def processGroup(self, filesInGroupRaw):
+        print 'process id:', os.getpid()
         filesInGroup = filter(lambda x: x != None, list(filesInGroupRaw))
         print '\ngroup:', len(filesInGroup), 'files'
-        filesToGet = filterExistingFiles(filesInGroup)
+        filesToGet = self.filterExistingFiles(filesInGroup)
+        filesToDel = [] # by default we aren't deleting anything
         print 'to get:', len(filesToGet), 'files'
         if filesToGet != []:
             destDir = OPTIONS.DIR
             if OPTIONS.verbose: print 'Getting files', filesToGet, 'to', destDir
             execS3Command(["get", "--force"] + filesToGet + [destDir])
-            writeLog('get', alreadyGot, filesToGet)
-        if delete:
+        if self.delete:
             filesToDel = [file for file in filesInGroup if file not in alreadyDel]
             if OPTIONS.verbose: print 'Deleting remotes', filesToDel
             execS3Command(["del"] + filesToDel) 
-            writeLog('del', alreadyDel, filesToDel)
-        return 'Complete'
+        return os.getpid(), filesToGet, filesToDel
+ 
+    def run(self):
+        while not self.kill_received:
+ 
+            # get a task
+            try:
+                filesInGroup = self.work_queue.get()
+                result = self.processGroup(filesInGroup)
+            except Queue.Empty:
+                print 'Stopping run()'
+                break
+ 
+            # the actual processing
+            self.result_queue.put(result)
 
-    print map( processGroup, getFilesFromS3LSByGroup(lsFile) )
+def getFilesInBucket(args, delete=False):
+    lsFile, logFile = args
+    logLines = [line.split() for line in open(logFile)]
+    alreadyGot = set([parts[1] for parts in logLines if parts[0] == "get"])
+    alreadyDel = set([parts[1] for parts in logLines if parts[0] == "del"])
+    print 'alreadyGot', len(alreadyGot)
+    print 'alreadyDel', len(alreadyDel)
+
+    # Logging progress to file        
+    log = open(logFile, 'a')
+    def writeLog(action, skipSet, files):
+        if not OPTIONS.dryRun:
+            for file in files: 
+                if file not in skipSet: 
+                    print >> log, action, file
+          
+    # parallel processing
+    # load up work queue
+    work_queue = multiprocessing.Queue()
+    jobs = list(getFilesFromS3LSByGroup(lsFile))
+    for filesGroup in jobs:
+        work_queue.put(filesGroup)
+    print 'Number of work units', len(jobs)
+ 
+    # create a queue to pass to workers to store the results
+    result_queue = multiprocessing.Queue()
+ 
+    # spawn workers
+    for i in range(OPTIONS.N_PARALLEL_PROCESSES):
+        worker = GetWorker(work_queue, result_queue, delete, alreadyGot, alreadyDel)
+        print 'Starting worker', worker
+        worker.start()
+ 
+    # collect the results off the queue
+    results = []
+    while len(results) < len(jobs):
+        print 'Going for result_queue'
+        pid, filesGot, filesDel = result_queue.get()
+        results.append([filesGot, filesDel])
+        print '\nPID          ', pid
+        print 'Got files    ', len(filesGot)
+        print 'Deleted files', len(filesDel)
+        writeLog('get', alreadyGot, filesGot)
+        writeLog('del', alreadyDel, filesDel)
+        
             
 # Create the mode map
 MODES["upload"] = putFilesToBucket
