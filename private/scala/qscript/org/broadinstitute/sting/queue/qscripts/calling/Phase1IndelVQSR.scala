@@ -96,9 +96,9 @@ class Phase1IndelVQSR extends QScript {
   trait CommandLineGATKArgs extends CommandLineGATK {
     this.jarFile = qscript.gatkJarFile
     this.reference_sequence = qscript.referenceFile
-    this.memoryLimit = Some(2)
+    this.memoryLimit = Some(4)
     // this.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
-    this.jobQueue = "hour"
+    this.jobQueue = "gsa"
     this.intervalsString = List(TARGET_INTERVAL);
 
   }
