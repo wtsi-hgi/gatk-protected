@@ -7,11 +7,12 @@ if ( onCMDLine ) {
   outputPDF = args[2]
 } else {
   reference_dataset = '/Users/mhanna/src/StingUnstable/private/R/preqc.database'
-  inputTSV = 'GoT2D_exomes_batch_005_per_sample_metrics.tsv'
-  outputPDF = 'T2D.pdf'
+  inputTSV = 'Diamond_BlackFan_Anemia_07112011_per_sample_metrics.tsv'
+  outputPDF = 'Diamond_BlackFan_Anemia_07112011.pdf'
 }
 
 require('ggplot2')
+require('gplots')
 
 data <- read.table(inputTSV,header=T)
 
@@ -45,9 +46,10 @@ create_base_plot <- function(title,reference_dataset,new_dataset,column_name) {
 }
 
 create_density_plot <- function(reference_dataset,new_dataset,column_name) {
-  merged_dataset <- rbind(data.frame(sample=reference_dataset$sample,data=reference_dataset[,column_name],type='reference'),data.frame(sample=new_dataset$sample,data=new_dataset[,column_name],type='new'))
-  density_plot <- ggplot(merged_dataset,aes_string(x='data',y='..density..',fill='type')) + geom_density() + ylab(column_name)
-  density_plot <- density_plot + scale_fill_manual(values=c(alpha('black',0.1),alpha('red',1.0)))
+  merged_dataset <- rbind(data.frame(sample=reference_dataset$sample,data=reference_dataset[,column_name],type='reference'),data.frame(sample=new_dataset$sample,data=new_dataset[,column_name],type=new_dataset$INITIATIVE))
+  density_plot <- ggplot(merged_dataset,aes_string(x='data',y='..density..',fill='type')) + geom_density(na.rm=T) + ylab(column_name)
+  density_plot <- density_plot + scale_fill_manual(values=c(alpha('black',0.1),alpha('red',0.5))) 
+  density_plot <- density_plot + xlab(NULL) + ylab(NULL) + opts(legend.text=theme_text(size=6)) + labs(x=NULL,y=NULL)
   return(density_plot)
 }
 
@@ -97,6 +99,26 @@ novel_sampled <- trim_to_95_pct(novel_sampled,complete$STRAND_BALANCE,novel_samp
 novel_sampled <- trim_to_95_pct(novel_sampled,complete$PCT_CHIMERAS,novel_sampled$PCT_CHIMERAS)
 novel_sampled <- trim_to_95_pct(novel_sampled,complete$PCT_ADAPTER,novel_sampled$PCT_ADAPTER)
 
+# Write to PDF as necessary.
+if(onCMDLine) {
+    pdf(outputPDF)
+}
+
+# Specify a project header.
+initiative <- as.character(unique(data$INITIATIVE))
+num_samples <- length(unique(data$sample))
+intervals <- as.character(unique(data$BAIT_SET))
+total_reads <- sum(as.numeric(data$TOTAL_READS))
+total_pf_reads <- sum(as.numeric(data$PF_READS))
+total_pf_aligned_reads <- sum(as.numeric(data$PF_READS_ALIGNED))
+
+num_reference_samples <- length(unique(complete$sample))
+num_curated_reference_samples <- length(unique(novel_sampled$sample))
+
+summary <- data.frame(keys=c('Initiative:','Number of Samples:','Intervals:','Total Reads:','PF Reads:','PF Reads Aligned:','','Number of Samples in Reference Database:','Number of Samples in + Curated Database:'),values=c(initiative,num_samples,intervals,total_reads,total_pf_reads,total_pf_aligned_reads,'',num_reference_samples,num_curated_reference_samples))
+textplot(summary,show.rownames=F,show.colnames=F,valign=c("top"))
+title('Project Summary Metrics')
+
 samples = c()
 fingerprint_lod_values = c()
 fingerprint_lod_median = c()
@@ -108,10 +130,6 @@ for(i in 1:nrow(data)) {
 }
 fingerprint_lods = data.frame(sample=samples,median=fingerprint_lod_median,FINGERPRINT_LODS=fingerprint_lod_values)
 fingerprint_lods$sample = factor(fingerprint_lods$sample,levels=unique(fingerprint_lods$sample[order(fingerprint_lods$median)]))
-
-if(onCMDLine) {
-    pdf(outputPDF)
-}
 
 qplot(sample,FINGERPRINT_LODS,data=fingerprint_lods,geom="boxplot",outlier.size=0,main='Fingerprint LOD Scores By Sample') + opts(axis.text.x = theme_text(angle = 90,size=7)) + xlab('Sample') + ylab('LOD Score Distribution')
 

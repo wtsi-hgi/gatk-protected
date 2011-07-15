@@ -20,6 +20,7 @@ from net.sf.picard.analysis import AlignmentSummaryMetrics,InsertSizeMetrics
 from net.sf.picard.analysis.directed import HsMetrics
 from net.sf.picard.io import IoUtil
 from net.sf.picard.metrics import MetricsFile
+from net.sf.picard.util import TabbedTextFileWithHeaderParser
 
 import generate_preqc_database
 
@@ -74,7 +75,10 @@ sample_summary_metrics_types = [ (HsMetrics,'hybrid_selection_metrics',None,None
 
 def get_full_metrics_fields():
     sample_summary_metrics_fields = []
-    headers = ['FINGERPRINT_LODS','HAPLOTYPES_CONFIDENTLY_MATCHING']
+    # Add the initiative name from analysis_files.txt
+    headers = ['INITIATIVE']
+    # Add in the fingerprint lods.
+    headers += ['FINGERPRINT_LODS','HAPLOTYPES_CONFIDENTLY_MATCHING']
     for metric_type in sample_summary_metrics_types:
         metric_class = metric_type[0]
         metric_suffix = metric_type[3]
@@ -85,6 +89,17 @@ def get_full_metrics_fields():
     return headers + sample_summary_metrics_fields
 
 def get_full_metrics(sample,basepath):
+    data = []
+
+    # Load in the initiative from analysis_files.txt. I believe this data is lane-level, so we grab only the first row for the initiative data.
+    initiative = 'NA'
+    analysis_file_reader = TabbedTextFileWithHeaderParser(File(os.path.dirname(basepath)+'/analysis_files.txt'))
+    for row in analysis_file_reader:
+        initiative = '"%s"'%row.getField('INITIATIVE')
+        break
+
+    data += [initiative]
+
     fingerprinting_summary_metrics = get_all_metrics('%s.%s' % (basepath,'fingerprinting_summary_metrics'))
     
     if fingerprinting_summary_metrics != None:
@@ -94,7 +109,7 @@ def get_full_metrics(sample,basepath):
         haplotypes_confidently_matching = []
         fingerprint_lods = []
         
-    data = ['c('+string.join(fingerprint_lods,',')+')','c('+string.join(haplotypes_confidently_matching,',')+')']
+    data += ['c('+string.join(fingerprint_lods,',')+')','c('+string.join(haplotypes_confidently_matching,',')+')']
 
     for metrics_type,metrics_extension,metrics_filter,metrics_suffix in sample_summary_metrics_types:
         metrics_pathname = '%s.%s' % (basepath,metrics_extension)
