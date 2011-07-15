@@ -67,24 +67,24 @@ class Phase1IndelVQSR extends QScript {
 
 
   val VARIANT_TYPES: List[String] = List("indels", "snps")
-
+      /*
   val VARIANT_TYPE_VT: Map[String, List[org.broad.tribble.util.variantcontext.VariantContext.Type]] = Map(
     "indels" -> List(org.broad.tribble.util.variantcontext.VariantContext.Type.INDEL, org.broad.tribble.util.variantcontext.VariantContext.Type.MIXED, org.broad.tribble.util.variantcontext.VariantContext.Type.NO_VARIATION),
     "snps" -> List(org.broad.tribble.util.variantcontext.VariantContext.Type.SNP, org.broad.tribble.util.variantcontext.VariantContext.Type.NO_VARIATION)
   )
-
+         */
   val SITES_DIR: String = "sitesFiles"
 
   // path to b37 DBSNP
   val MY_DBSNP: File = new File("/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/dbSNP/dbsnp_129_b37.leftAligned.vcf")
   val dindelCalls: String = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Unvalidated/AFR+EUR+ASN+1KG.dindel_august_release_merged_pilot1.20110126.sites.vcf"
 
+  val DINDEL:String = "/humgen/gsa-hpprojects/dev/delangel/Phase1Calls/officialCalls/ALL.wgs.dindel.20101123.leftAlignedPassingIndels.sites.vcf"
+  val BI:String ="/humgen/gsa-hpprojects/dev/delangel/Phase1Calls/officialCalls/ALL.wgs.broad.20101123.leftAlignedPassingIndels.sites.vcf"
+  val SI:String ="/humgen/gsa-hpprojects/dev/delangel/Phase1Calls/officialCalls/ALL.SI.20101123.LeftAlignedPassingIndels.sites.vcf"
+  val OX:String ="/humgen/gsa-hpprojects/dev/delangel/Phase1Calls/officialCalls/ALL.wg.oxford.20101123.leftAlignedPassingIndelsCollapsed.sites.vcf "
+  val BC:String ="/humgen/gsa-hpprojects/dev/delangel/Phase1Calls/officialCalls/ALL.wg.bc.20101123.leftAlignedPassingIndelsCollapsed.sites.vcf"
 
-  val DINDEL: String =  "/humgen/gsa-scr1/delangel/officialCalls/20110201_chr20_phase1_indels/dindel/20110208.chr20.dindel2.ALL.sites.fixed.vcf"
-  val SI: String =  "/humgen/gsa-scr1/delangel/officialCalls/20101123.chr20.si.v2.combined.sites.leftAligned.vcf"
-  val BI: String =   "/humgen/1kg/processing/official_release/phase1/ALL.wgs.broad.20101123.indels.sites.vcf"
-  val BC: String =   "/humgen/gsa-scr1/delangel/officialCalls/20110201_chr20_phase1_indels/ALL.chr20.bc.20101123.indels.sites.leftAligned.vcf"
-  val OX: String =  "/humgen/gsa-scr1/delangel/otherIndelCallerAnalysis/ALL.chr20.Oxford.20110407.indels.genotypes.sites.vcf"
 
   var COMPS: List[Comp] = Nil
   def addComp(comp: Comp) { COMPS = comp :: COMPS }
@@ -187,7 +187,7 @@ class Phase1IndelVQSR extends QScript {
     add(vr)
 
     val VE = new MyEval()
-    VE.VT = VARIANT_TYPE_VT("indels")
+   // VE.VT = VARIANT_TYPE_VT("indels")
     VE.o = new File(OUT_DIR+"/"+ runName + ".eval")
 
     for (tas: String <- tranches) {
