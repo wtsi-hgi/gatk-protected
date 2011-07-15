@@ -67,6 +67,9 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Argument(fullName = "maxReadsAtVariableSites", shortName = "mravs", doc = "", required = false)
     protected int maxReadsAtVariableSites = 500;
 
+    @Argument(fullName = "ReadQualityEquivalent", shortName = "QE", doc = "", required = false)
+    protected int QUALITY_EQUIVALENT = 20;
+
     protected int totalReads = 0;
     int nCompressedReads = 0;
 

@@ -7,19 +7,7 @@ import org.broadinstitute.sting.utils.baq.BAQ
 
 class ReducedBAMEvaluation extends QScript {
 
-  val CS = 0 to 10
 
-  //Makes the file name sorting less confusing "CS-9" -> "CS-09"
-  def toStringLength(num: Int): String = {
-    val length = CS.max.toString().length()
-    var Num = num.toString()
-    if (Num.length() >= length)
-      Num
-    else {
-      while(Num.length() < length) { Num = "0" + Num }
-      Num
-    }
-  }
 
   @Argument(shortName = "R", doc="ref", required=false)
   var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
@@ -30,14 +18,23 @@ class ReducedBAMEvaluation extends QScript {
   @Argument(shortName = "reduceIntervals", doc="Interval to reduce at", required=false)
   val REDUCE_INTERVAL: String = null;
 
-  @Argument(shortName = "callingIntervals", doc="intervals", required=false)
-  val CALLING_INTERVAL: String = null;
+  //@Argument(shortName = "callingIntervals", doc="intervals", required=false)
+  val CALLING_INTERVAL: String = REDUCE_INTERVAL;
 
   @Argument(shortName = "dcov", doc="dcov", required=false)
   val DCOV: Int = 250;
 
   @Argument(shortName = "minimalVCF", doc="", required=false)
   val minimalVCF: Boolean = false;
+
+  @Argument(shortName = "CS", doc = "ContextSize", required = false)
+  val CS: String = "6-6";
+
+  @Argument(shortName = "MRAV", doc = "MaximumReadsAtVariableSite", required = false)
+  val MRAV: String = "30-30";
+
+  @Argument(shortName = "MBRC", doc = "MinimumBasepairsForRunningConsensus", required = false)
+  val MBRC: String = "50-50";
 
   val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_132.b37.vcf")
 
@@ -47,9 +44,65 @@ class ReducedBAMEvaluation extends QScript {
     this.memoryLimit = 4
   }
 
+  //Makes the file name sorting less confusing "CS-9" -> "CS-09"
+  def toStringLength(list: List[Int], num: Int): String = {
+    val length = list.max.toString().length()
+    var Num = num.toString
+    if (Num.length() >= length)
+      Num
+    else {
+      while(Num.length() < length) { Num = "0" + Num }
+      Num
+    }
+  }
+
   trait CoFoJa extends JavaCommandLineFunction {
     override def javaOpts = super.javaOpts //  + " -javaagent:lib/cofoja.jar"
   }
+
+  //Convert CS, MRAV, MBRC to lists
+  object Int {
+  def unapply(s : String) : Option[Int] = try {
+    Some(s.toInt)
+  } catch {
+    case _ : java.lang.NumberFormatException => None
+  }
+}
+
+  def getValue(s: String): Int = s match {
+    case Int(x) => x
+    case _ => error("String conversion FAILED! : Not a number!")
+  }
+
+  /* todo: allow user to type 7-8,10,11-12. SiIngle value w/o range is not working */
+  // Take out commas to make individual elements and convert dashes to there respective ranges
+  def breakUpString(string: String): List[Int] = {
+    var result: List[Int] = List();
+    //if (string.matches("[0-9,-]"))
+    val splitString = string.split(',')
+    println(splitString)
+    for{
+      num <- splitString
+    } yield {
+      println(num)
+      if ( ! num.contains('-')) {
+        println (getValue(num))
+        getValue(num)
+      }
+      if ( num.contains('-') ) {
+        val range = num.split('-')
+        val low: Int = getValue(range(0))
+        val hi: Int = getValue(range(1))
+        val newRange = (low to hi).toList
+        result = List(result, newRange).flatMap ( x => x )
+      }
+    }
+    result
+  }
+
+  val cs = breakUpString(CS)
+  val mrav = breakUpString(MRAV)
+  val mbrc = breakUpString(MBRC)
 
   def script = {
 
@@ -58,15 +111,18 @@ class ReducedBAMEvaluation extends QScript {
     add(SliceBAM(bam, sliceBAM))
     callAndEvaluateBAM(sliceBAM, sliceVCF)
 
-    for {i <- CS}
-      yield {
-    val header = ".CS-" + toStringLength(i)
+    for {
+      a <- cs
+      b <- mrav
+      c <- mbrc
+    } yield {
+    val header = ".CS-" + toStringLength(cs, a) + ".mrav-" + toStringLength(mrav, b) + ".mbrc-" + toStringLength(mbrc, c)
     val reduceBAM = swapExt(bam, ".bam", header + ".reduced.bam")
     val reduceVCF = swapExt(reduceBAM,".bam",".filtered.vcf")
     val combineVCF = swapExt(reduceVCF, ".bam", ".filtered.combined.vcf")
 
     // Generate the new BAMs
-    add(ReduceBAM(bam, reduceBAM, i))
+    add(ReduceBAM(bam, reduceBAM, a, b, c ))
 
     // Call SNPs, filter and get variant eval report
     callAndEvaluateBAM(reduceBAM, reduceVCF)
@@ -83,13 +139,13 @@ class ReducedBAMEvaluation extends QScript {
 
   }
 
-  case class ReduceBAM(bam: File, outVCF: File, a: Int) extends ReduceReads with UNIVERSAL_GATK_ARGS with CoFoJa {
+  case class ReduceBAM(bam: File, outVCF: File, a: Int, b: Int, c: Int) extends ReduceReads with UNIVERSAL_GATK_ARGS with CoFoJa {
     this.memoryLimit = 3
     this.input_file = List(bam)
     this.o = outVCF
     this.CS = a   // Best value 5
-    this.mravs = 50     //Best 30
-    this.mbrc = 10000
+    this.mravs = b     //Best 30
+    this.mbrc = c
     this.baq = BAQ.CalculationMode.OFF
 
     if ( REDUCE_INTERVAL != null )
@@ -105,9 +161,6 @@ class ReducedBAMEvaluation extends QScript {
       this.intervalsString = List(REDUCE_INTERVAL);
   }
 
-  val a = 9
-
-
   case class combine (reducedBAMVCF: File, fullBAMVCF: File, outVCF: File) extends CombineVariants with UNIVERSAL_GATK_ARGS {
     this.rodBind :+= RodBind("fullBAM", "VCF", fullBAMVCF)
     this.rodBind :+= RodBind("reducedBAM", "VCF", reducedBAMVCF)
@@ -117,18 +170,21 @@ class ReducedBAMEvaluation extends QScript {
   }
 
   def callAndEvaluateBAM(inBAM: File, outVCF: File) {
-    val rawVCF   = swapExt(inBAM, ".bam", ".vcf")
-    val recalVCF = swapExt(inBAM, ".bam", ".recalibrated.vcf")
-    val recal    = swapExt(inBAM, ".bam", ".recal")
-    val tranches = swapExt(inBAM, ".bam", ".tranches")
+    val vcf = swapExt(inBAM, ".bam", ".vcf")
 
-    add(Call(inBAM, rawVCF),
-        VQSR(rawVCF, recal, tranches),
-        applyVQSR(rawVCF, recal, tranches, recalVCF),
-        Eval(recalVCF)
-//        DiffableTable(rawVCF),   // for convenient diffing
-//        DiffableTable(recalVCF)  // for convenient diffing
-    )
+    val filterSNPs = new VariantFiltration with UNIVERSAL_GATK_ARGS
+    filterSNPs.variantVCF = vcf
+    filterSNPs.filterName = List("SNP_SB", "SNP_QD", "SNP_HRun")
+    filterSNPs.filterExpression = List("\"SB>=0.10\"", "\"QD<5.0\"", "\"HRun>=4\"")
+    filterSNPs.clusterWindowSize = 10
+    filterSNPs.clusterSize = 3
+    filterSNPs.out = outVCF
+
+    add(Call(inBAM, vcf),
+        filterSNPs,
+        Eval(filterSNPs.out),          // create a variant eval for us
+        DiffableTable(vcf),            // for convenient diffing
+        DiffableTable(filterSNPs.out)) // for convenient diffing
   }
 
   case class Eval(@Input vcf: File) extends VariantEval with UNIVERSAL_GATK_ARGS {
@@ -162,43 +218,6 @@ class ReducedBAMEvaluation extends QScript {
       this.intervalsString = List(CALLING_INTERVAL)
     }
   }
-
-  // 3.) Variant Quality Score Recalibration - Generate Recalibration table
-  case class VQSR(inVCF: File, outRecal: File, outTranches: File) extends VariantRecalibrator with UNIVERSAL_GATK_ARGS {
-    val hapmap_b37 = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/HapMap/3.3/sites_r27_nr.b37_fwd.vcf"
-    val dbSNP_b37 = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/dbSNP/dbsnp_132_b37.leftAligned.vcf"
-    val omni_b37 = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Omni2.5_chip/Omni25_sites_1525_samples.b37.vcf"
-
-    this.intervalsString ++= List(CALLING_INTERVAL)
-    this.rodBind :+= RodBind("input", "VCF", inVCF)
-    this.rodBind :+= RodBind("hapmap", "VCF", hapmap_b37, "known=false,training=true,truth=true,prior=15.0")
-    this.rodBind :+= RodBind("omni", "VCF", omni_b37, "known=false,training=true,truth=false,prior=12.0")
-    this.rodBind :+= RodBind("dbsnp", "VCF", dbSNP_b37, "known=true,training=false,truth=false,prior=4.0")
-    this.use_annotation ++= List("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "MQ", "FS", "DP")
-    this.tranches_file = outTranches
-    this.recal_file = outRecal
-    this.allPoly = true
-    this.tranche ++= List("100.0", "99.9", "99.5", "99.3", "99.0", "98.9", "98.8", "98.5", "98.4", "98.3", "98.2", "98.1", "98.0", "97.9", "97.8", "97.5", "97.0", "95.0", "90.0")
-    this.analysisName = outTranches + "_VQSR"
-    this.jobName =  outTranches + ".VQSR"
-    this.mG = 5
-    this.std = 14
-    this.percentBad = 0.04
-    this.nt = 5
-}
-
-  // 4.) Apply the recalibration table to the appropriate tranches
-  case class applyVQSR (inVCF: File, inRecal: File, inTranches: File, outVCF: File) extends ApplyRecalibration with UNIVERSAL_GATK_ARGS {
-    this.intervalsString ++= List(CALLING_INTERVAL)
-    this.rodBind :+= RodBind("input", "VCF", inVCF )
-    this.tranches_file = inTranches
-    this.recal_file = inRecal
-    this.ts_filter_level = 99.0
-    this.out = outVCF
-    this.analysisName = outVCF + "_AVQSR"
-    this.jobName =  outVCF + ".applyVQSR"
-  }
-
 
   case class DiffableTable(@Input vcf: File) extends CommandLineFunction {
     @Output var out: File = swapExt(vcf,".vcf",".table")
