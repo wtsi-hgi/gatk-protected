@@ -235,7 +235,7 @@ class Phase1IndelVQSR extends QScript {
     ve2.rodBind :+= RodBind("comp_bi", "VCF", qscript.BI)
     ve2.rodBind :+= RodBind("comp_ox", "VCF", qscript.OX)
     ve2.rodBind :+= RodBind("comp_2of5", "VCF", "/humgen/gsa-scr1/delangel/otherIndelCallerAnalysis/ALL.indels.2of5.chr20.vcf")
-    ve2.VT = VARIANT_TYPE_VT("indels")
+    //ve2.VT = VARIANT_TYPE_VT("indels")
     ve2.o = new File(OUT_DIR+"/"+ runName + ".comps.eval")
     add(ve2)
   }
