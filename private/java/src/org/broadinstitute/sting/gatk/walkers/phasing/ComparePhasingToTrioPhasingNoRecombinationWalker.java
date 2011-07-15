@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.phasing;
 
+import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -44,6 +45,7 @@ import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -76,9 +78,10 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
     @Argument(fullName = "diffTrioAndPhasingTracks", shortName = "diffTrioAndPhasingTracks", doc = "File to which comparisons of phasing information in 'trio' and 'phasing' tracks should be written", required = false)
     protected PrintStream diffTrioAndPhasingTracks = null;
 
-    private CompareTrioAndPhasingTracks diffTrioAndPhasingCounts = null;
+    @Argument(fullName = "phasingSample", shortName = "phasingSample", doc = "Name of child sample", required = false)
+    protected String phasingSample = null;
 
-    private String phasingSample = null;
+    private CompareTrioAndPhasingTracks diffTrioAndPhasingCounts = null;
 
     private enum TrioStatus {
         PRESENT, MISSING, TRIPLE_HET
@@ -142,17 +145,15 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
         if (phasingVc == null || phasingVc.isFiltered())
             return result;
 
-        Map<String, Genotype> phasingSampleToGt = phasingVc.getGenotypes();
-        if (phasingSampleToGt.size() != 1)
-            throw new UserException("Must provide EXACTLY one sample in " + PHASING_ROD_NAME + " track!");
-        Map.Entry<String, Genotype> phasingSampGt = phasingSampleToGt.entrySet().iterator().next();
-        String sample = phasingSampGt.getKey();
-        if (phasingSample == null)
-            phasingSample = sample;
-        if (!sample.equals(phasingSample))
-            throw new UserException("Must provide EXACTLY one sample!");
-        Genotype curPhasingGt = phasingSampGt.getValue();
-        if (!curPhasingGt.isHet())
+        if (phasingSample == null) {
+            Map<String, Genotype> phasingSampleToGt = phasingVc.getGenotypes();
+            if (phasingSampleToGt.size() != 1)
+                throw new UserException("Must provide EXACTLY one sample in " + PHASING_ROD_NAME + " track!");
+            phasingSample = phasingSampleToGt.entrySet().iterator().next().getKey();
+        }
+
+        Genotype curPhasingGt = phasingVc.getGenotype(phasingSample);
+        if (curPhasingGt == null || !curPhasingGt.isHet()) // can ignore this missing/irrelevant genotype
             return result;
 
         VariantContext curTrioVc = tracker.getVariantContext(ref, TRIO_ROD_NAME, curLoc);
@@ -163,7 +164,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
             sampleCurGtInTrio = curTrioVc.getGenotype(phasingSample);
 
             if (curTrioVc.getNSamples() > NUM_IN_TRIO || sampleCurGtInTrio == null)
-                throw new UserException("Must provide trio data for sample: " + phasingSample);
+                throw new UserException("Must provide " + TRIO_ROD_NAME + " track data for sample: " + phasingSample);
 
             if (!curPhasingGt.sameGenotype(sampleCurGtInTrio)) {
                 logger.warn("Locus " + curLoc + " breaks phase, since " + PHASING_ROD_NAME + " and " + TRIO_ROD_NAME + " tracks have different genotypes for " + phasingSample + "!");
@@ -173,8 +174,6 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
         }
 
         // Now, we have a [trio-consistent] het genotype that may be phased or not [and we want to know if it could be phased based on trio information]:
-        int processed = 1;
-
         TrioStatus currentTrioStatus = TrioStatus.MISSING;
         if (useTrioVc && curTrioVc.getNSamples() == NUM_IN_TRIO) {
             boolean allHet = true;
@@ -282,7 +281,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
                         else if (prevOtherAlleles.contains(prevAllele))
                             prevAlleleToParent.put(prevAllele, prevOtherIndex);
                         else {
-                            logger.warn("CANNOT phase, due to inconsistent inheritance of alleles!");
+                            logger.warn("CANNOT trio phase, due to inconsistent inheritance of alleles at: " + VariantContextUtils.getLocation(getToolkit().getGenomeLocParser(), prevTrioVc));
                             phased = false;
                             break;
                         }
@@ -295,7 +294,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
                         else if (curOtherAlleles.contains(curAllele))
                             parentToCurAllele.put(curOtherIndex, curAllele);
                         else {
-                            logger.warn("CANNOT phase, due to inconsistent inheritance of alleles!");
+                            logger.warn("CANNOT trio phase, due to inconsistent inheritance of alleles at: " + curLoc);
                             phased = false;
                             break;
                         }
@@ -340,7 +339,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
                         }
 
                         if (useTrioPhase) { // trio phasing adds PREVIOUSLY UNKNOWN phase information:
-                            Map<String, Genotype> genotypes = new HashMap<String, Genotype>();
+                            Map<String, Genotype> genotypes = phasingVc.getGenotypes();
                             genotypes.put(phasingSample, phasedGt);
 
                             phasingVc = VariantContext.modifyGenotypes(phasingVc, genotypes);
