@@ -175,20 +175,8 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
 
         // Now, we have a [trio-consistent] het genotype that may be phased or not [and we want to know if it could be phased based on trio information]:
         TrioStatus currentTrioStatus = TrioStatus.MISSING;
-        if (useTrioVc && curTrioVc.getNSamples() == NUM_IN_TRIO) {
-            boolean allHet = true;
-            for (int i = 0; i < NUM_IN_TRIO; i++) {
-                if (!curTrioVc.getGenotype(i).isHet()) {
-                    allHet = false;
-                    break;
-                }
-            }
-
-            if (allHet)
-                currentTrioStatus = TrioStatus.TRIPLE_HET;
-            else
-                currentTrioStatus = TrioStatus.PRESENT;
-        }
+        if (useTrioVc)
+            currentTrioStatus = determineTrioStatus(curTrioVc);
 
         if (prevLoc != null && curLoc.onSameContig(prevLoc)) {
             String trioPhaseStatus;
@@ -376,6 +364,22 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
         prevPhasingGt = curPhasingGt;
 
         return result;
+    }
+
+    private static TrioStatus determineTrioStatus(VariantContext trioVc) {
+        if (trioVc.getNSamples() != NUM_IN_TRIO)
+            return TrioStatus.MISSING;
+
+        for (int i = 0; i < NUM_IN_TRIO; i++) {
+            Genotype gtI = trioVc.getGenotype(i);
+            if (gtI.isNoCall() || gtI.isFiltered())
+                return TrioStatus.MISSING;
+
+            if (!gtI.isHet())
+                return TrioStatus.PRESENT;
+        }
+
+        return TrioStatus.TRIPLE_HET;
     }
 
     public CompareToTrioPhasingStats reduce(CompareResult addIn, CompareToTrioPhasingStats runningCount) {
