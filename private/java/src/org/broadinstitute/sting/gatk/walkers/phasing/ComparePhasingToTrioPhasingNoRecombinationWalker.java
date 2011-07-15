@@ -24,7 +24,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.phasing;
 
-import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -53,7 +52,7 @@ import java.util.*;
 import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFromRods;
 
 /**
- * Walks along all variant ROD loci and verifies the phasing from the reads for user-defined pairs of sites.
+ * Walks along all variant ROD loci and compares the phasing between RBP and trio phasing.
  */
 @Allows(value = {DataSource.REFERENCE})
 @Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = ComparePhasingToTrioPhasingNoRecombinationWalker.TRIO_ROD_NAME, type = ReferenceOrderedDatum.class), @RMD(name = ComparePhasingToTrioPhasingNoRecombinationWalker.PHASING_ROD_NAME, type = ReferenceOrderedDatum.class)})
