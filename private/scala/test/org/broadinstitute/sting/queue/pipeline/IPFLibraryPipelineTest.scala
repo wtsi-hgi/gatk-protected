@@ -4,13 +4,14 @@ import org.testng.annotations.Test
 import org.broadinstitute.sting.BaseTest
 
 class IPFLibraryPipelineTest {
+  val dir = "private/scala/qscript/org/broadinstitute/sting/queue/qscripts/inProcessFunctions/"
 
   @Test
   def testVCFExtractSites {
     var testOut = "vcfes.vcf"
     val spec = new PipelineTestSpec
     spec.name = "vcfExtractSites"
-    spec.args = "-S private/scala/qscript/QTools.q -T VCFExtractSites -ivcf %s -out %s".format(
+    spec.args = "-S " + dir + "QTools.q -T VCFExtractSites -ivcf %s -out %s".format(
       BaseTest.validationDataLocation + "omni_1212.subset.b37.vcf", testOut
     )
     spec.fileMD5s += testOut -> "4f496b8cf90302428a9edda486a337f4"
@@ -22,7 +23,7 @@ class IPFLibraryPipelineTest {
     var testOut = "vcf.extract.samples.vcf"
     val spec = new PipelineTestSpec
     spec.name = "vcfExtractSamples"
-    spec.args = "-S private/scala/qscript/QTools.q -T VCFExtractSamples -ivcf %s -out %s -sm HG00107,HG00500,NA18501,NA18942".format(
+    spec.args = "-S " + dir + "QTools.q -T VCFExtractSamples -ivcf %s -out %s -sm HG00107,HG00500,NA18501,NA18942".format(
       BaseTest.validationDataLocation + "omni_1212.subset.b37.vcf", testOut
     )
 
@@ -34,7 +35,7 @@ class IPFLibraryPipelineTest {
     var testOut = "vcf.extract.intervals.list"
     val spec = new PipelineTestSpec
     spec.name = "vcfExtractIntervals"
-    spec.args = "-S private/scala/qscript/QTools.q -T VCFExtractIntervals -ivcf %s -out %s".format(
+    spec.args = "-S " + dir + "QTools.q -T VCFExtractIntervals -ivcf %s -out %s".format(
       BaseTest.validationDataLocation + "omni_1212.subset.b37.vcf", testOut
     )
 
@@ -49,7 +50,7 @@ class IPFLibraryPipelineTest {
     val int1 = BaseTest.validationDataLocation + "omni.subset.interleaved.1.vcf"
     val int2 = BaseTest.validationDataLocation + "omni.subset.interleaved.2.vcf"
     spec.name = "vcfSimpleMerge"
-    spec.args = "-S private/scala/qscript/QTools.q -T VCFSimpleMerge -vcfs %s,%s -out %s -ref %s".format(
+    spec.args = "-S " + dir + "QTools.q -T VCFSimpleMerge -vcfs %s,%s -out %s -ref %s".format(
       int1,int2,testOut,BaseTest.b37KGReference
     )
 
@@ -62,7 +63,7 @@ class IPFLibraryPipelineTest {
     val spec = new PipelineTestSpec
     val unsorted = BaseTest.validationDataLocation + "omni.pos_sorted.vcf"
     spec.name = "sortByRef"
-    spec.args = "-S private/scala/qscript/QTools.q -T SortByRef -ivcf %s -out %s -ref %s".format(
+    spec.args = "-S  " + dir + "QTools.q -T SortByRef -ivcf %s -out %s -ref %s".format(
       unsorted, testOut, BaseTest.b37KGReference
     )
 
