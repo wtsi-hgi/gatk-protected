@@ -24,7 +24,7 @@ public class MissingGenotypeError extends RodWalker<Integer, Integer> {
         if (tracker != null) {
             Collection<VariantContext> truthVCs = tracker.getVariantContexts(ref, "truth", null, context.getLocation(), true, true);
             Collection<VariantContext> missingVCs = tracker.getVariantContexts(ref, "missing", null, context.getLocation(), true, true);
-            Collection<VariantContext> completeVCs = tracker.getVariantContexts(ref, "missing", null, context.getLocation(), true, true);
+            Collection<VariantContext> completeVCs = tracker.getVariantContexts(ref, "complete", null, context.getLocation(), true, true);
 
             VariantContext truthVC = truthVCs.iterator().next();
             VariantContext missingVC = missingVCs.iterator().next();
