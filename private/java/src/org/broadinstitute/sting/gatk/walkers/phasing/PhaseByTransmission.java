@@ -41,6 +41,9 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
 
     private ArrayList<VariantContext> rbpCache = new ArrayList<VariantContext>();
     private ArrayList<VariantContext> pvcCache = new ArrayList<VariantContext>();
+    private int phaseError = 0;
+    private int phaseCorrect = 0;
+    private int phaseTotal = 0;
 
     private String SAMPLE_NAME_MOM;
     private String SAMPLE_NAME_DAD;
@@ -342,8 +345,6 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
                 Genotype rbpGenotype = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD);
                 Genotype pvcGenotype = pvcList.get(i).getGenotype(SAMPLE_NAME_CHILD);
 
-                //System.out.printf("[DEBUG] %s %s %b%n", rbpGenotype, pvcGenotype, rbpGenotype.sameGenotype(pvcGenotype, false));
-
                 if (rbpGenotype.isHet()) {
                     if (rbpGenotype.sameGenotype(pvcGenotype, false)) {
                         correctOrientation++;
@@ -363,8 +364,6 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
         } else {
             isAmbiguous = true;
         }
-
-        //System.out.printf("[DEBUG] isFlipped: %b, isAmbiguous: %b, numCorrect: %d, numIncorrect: %d%n", isFlipped, isAmbiguous, correctOrientation, incorrectOrientation);
 
         if (!isAmbiguous) {
             for (int i = 0; i < rbpList.size(); i++) {
@@ -391,7 +390,6 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
                         }
 
                         child = new Genotype(SAMPLE_NAME_CHILD, revAlleles, child.getNegLog10PError(), child.getFilters(), child.getAttributes(), true);
-
                     }
 
                     List<Genotype> finalGenotypes = new ArrayList<Genotype>();
@@ -408,6 +406,28 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
             }
         } else {
             orientedVCs = pvcList;
+        }
+
+        for (int i = 0; i < rbpList.size(); i++) {
+            Genotype rbpChild = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD);
+            Genotype pvcChild = pvcList.get(i).getGenotype(SAMPLE_NAME_CHILD);
+
+            if (rbpChild.isPhased() && rbpChild.sameGenotype(pvcChild, true)) {
+                if (isAmbiguous && !rbpChild.sameGenotype(pvcChild, false)) {
+                    System.out.printf("%s:%d : rbpChild=%s pvcChild=%s%n", rbpList.get(i).getChr(), rbpList.get(i).getStart(), rbpChild.toBriefString(), pvcChild.toBriefString());
+                    phaseError++;
+                } else {
+                    if (rbpChild.sameGenotype(pvcChild, false)) {
+                        if (!isFlipped) {
+                            phaseCorrect++;
+                        } else {
+                            phaseError++;
+                        }
+                    }
+                }
+
+                phaseTotal++;
+            }
         }
 
         return orientedVCs;
@@ -429,10 +449,8 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
             for (VariantContext vc : vcs) {
                 VariantContext phasedVC = phaseTrioGenotypes(vc);
 
-                //if (vc.isFiltered() || vc.getGenotype(SAMPLE_NAME_CHILD).isPhased()) {
-                    rbpCache.add(vc);
-                    pvcCache.add(phasedVC);
-                //}
+                rbpCache.add(vc);
+                pvcCache.add(phasedVC);
 
                 if (!vc.isFiltered() && !vc.getGenotype(SAMPLE_NAME_CHILD).isPhased()) {
                     ArrayList<VariantContext> reoCache = reorientHaplotypes(rbpCache, pvcCache);
@@ -478,5 +496,13 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
         for (VariantContext reo : reoCache) {
             vcfWriter.add(reo, reo.getReference().getBases()[0]);
         }
+
+        System.out.printf("total: %d, correct: %d (%f), incorrect: %d (%f)%n",
+                          phaseTotal,
+                          phaseCorrect,
+                          (double) phaseCorrect / (double) phaseTotal,
+                          phaseError,
+                          (double) phaseError / (double) phaseTotal
+        );
     }
 }
