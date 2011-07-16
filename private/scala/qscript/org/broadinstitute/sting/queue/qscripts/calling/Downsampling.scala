@@ -13,7 +13,7 @@ import scala.io.Source._
  */
 
 
-class downsampling extends QScript {
+class Downsampling extends QScript {
 
   @Input(doc="path to GenomeAnalysisTK.jar", shortName="gatk", required=true)
   var GATKjar: File = _
@@ -62,7 +62,7 @@ class downsampling extends QScript {
   val queueLogDir: String = ".qlog/"
   val outFile: String = "cov.out"
   val fullCoverageVCF = new File("/humgen/gsa-hpprojects/dev/carneiro/downsampling/analysis/fullcov/fullcov.F1.filtered.vcf")
-  val trancheTarget = "99.0"
+  val trancheTarget = 99.0
 
   def script = {
     val nIntervals = math.min(200, countLines(targetIntervals))
@@ -139,7 +139,7 @@ class downsampling extends QScript {
     this.recal_file = outFile
     this.allPoly = true
     this.tranche ++= List("100.0", "99.9", "99.5", "99.3", "99.0", "98.9", "98.8", "98.5", "98.4", "98.3", "98.2", "98.1", "98.0", "97.9", "97.8", "97.5", "97.0", "95.0", "90.0")
-    this.analysisName = t.name + "_VQSR"
+    this.analysisName = inFile + "_VQSR"
     this.jobName =  queueLogDir + outFile
   }
 
@@ -148,7 +148,7 @@ class downsampling extends QScript {
     this.rodBind :+= RodBind("input", "VCF", inFile)
     this.tranches_file = tranchesFile
     this.recal_file = inFile
-    this.ts_filter_level = trancheTarget
+    this.ts_filter_level = Some(trancheTarget)
     this.out = outFile
     this.analysisName = outFile + "_AVQSR"
     this.jobName =  queueLogDir + outFile

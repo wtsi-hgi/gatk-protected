@@ -1,3 +1,5 @@
+package org.broadinstitute.sting.gatk.walkers.phasing.Haplotypes;
+
 /*
  * Copyright (c) 2010, The Broad Institute
  *
@@ -22,74 +24,39 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.gatk.walkers.phasing;
-
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.phasing.ReadBackedPhasingWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
-import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFromRods;
-
-/**
- * Walks along all variant ROD loci and uses the phase information to divide up the genome into phased segments.
- */
-@Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE})
-
-public class CalcFullHaplotypesWalker extends RodWalker<Integer, Integer> {
+public class HaplotypeTracker {
     private Map<String, Haplotype> waitingHaplotypes = null;
+    private boolean requirePQ;
+    private GenomeAnalysisEngine toolKit = null;
 
-    @Output(doc = "File to which results should be written", required = true)
-    protected PrintStream out;
-
-    @Argument(doc = "sample to emit", required = false)
-    protected String sample = null;
-
-    @Argument(doc = "only include physically-phased results", required = false)
-    protected boolean requirePQ = false;
-
-    public void initialize() {
+    public HaplotypeTracker(Collection<String> samples, boolean requirePQ, GenomeAnalysisEngine toolKit, PrintStream out) {
         this.waitingHaplotypes = new HashMap<String, Haplotype>();
-
-        Map<String, VCFHeader> rodNameToHeader = getVCFHeadersFromRods(getToolkit(), null);
-        for (VCFHeader header : rodNameToHeader.values()) {
-            for (String sample : header.getGenotypeSamples())
-                waitingHaplotypes.put(sample, null);
+        for (String sample : samples) {
+            waitingHaplotypes.put(sample, null);
         }
+
+        this.requirePQ = requirePQ;
+        this.toolKit = toolKit;
+        Haplotype.out = out;
     }
 
-    public boolean generateExtendedEvents() {
-        return false;
-    }
-
-    public Integer reduceInit() {
-        return 0;
-    }
-
-    /**
-     * @param tracker the meta-data tracker
-     * @param ref     the reference base
-     * @param context the context for the given locus
-     * @return statistics of and list of all phased VariantContexts and their base pileup that have gone out of cacheWindow range.
-     */
-    public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        if (tracker == null)
-            return null;
-
+    public void trackSite(RefMetaDataTracker tracker, ReferenceContext ref) {
         GenomeLoc curLocus = ref.getLocus();
-        outputDoneHaplotypes(curLocus);
+        finalizeDoneHaplotypes(curLocus);
 
         int curPosition = curLocus.getStop();
         int prevPosition = curPosition - 1;
@@ -101,8 +68,8 @@ public class CalcFullHaplotypesWalker extends RodWalker<Integer, Integer> {
             if (waitingHaplotype == null) {// changed to a new contig:
                 // Set the new haplotype to extend from [1, prevPosition]
                 if (prevPosition >= 1) {
-                    GenomeLoc startInterval = getToolkit().getGenomeLocParser().createGenomeLoc(curLocus.getContig(), 1, prevPosition);
-                    waitingHaplotype = new Haplotype(startInterval, sampleHapEntry.getKey());
+                    GenomeLoc startInterval = toolKit.getGenomeLocParser().createGenomeLoc(curLocus.getContig(), 1, prevPosition);
+                    waitingHaplotype = new Haplotype(startInterval, sampleHapEntry.getKey(), toolKit.getGenomeLocParser());
                     sampleHapEntry.setValue(waitingHaplotype);
                 }
             }
@@ -110,16 +77,15 @@ public class CalcFullHaplotypesWalker extends RodWalker<Integer, Integer> {
                 waitingHaplotype.extend(prevPosition);
         }
 
-        Collection<VariantContext> vcs = tracker.getAllVariantContexts(ref, context.getLocation());
+        Collection<VariantContext> vcs = tracker.getAllVariantContexts(ref, curLocus);
         for (VariantContext vc : vcs) {
             if (vc.isFiltered())
                 continue;
 
-            if (sample != null)
-                vc = vc.subContextFromGenotypes(vc.getGenotype(sample));
-
             for (Map.Entry<String, Genotype> sampleGtEntry : vc.getGenotypes().entrySet()) {
                 String sample = sampleGtEntry.getKey();
+                if (waitingHaplotypes.get(sample) == null) // an irrelevant sample
+                    continue;
                 Genotype gt = sampleGtEntry.getValue();
 
                 if (gt.isHet()) {
@@ -129,32 +95,23 @@ public class CalcFullHaplotypesWalker extends RodWalker<Integer, Integer> {
 
                     // Terminate the haplotype before here:
                     if (!gt.isPhased() || (requirePQ && !gt.hasAttribute(ReadBackedPhasingWalker.PQ_KEY))) {
-                        outputHaplotype(sampleHap);
+                        sampleHap.finalizeHaplotype();
 
                         // Start a new haplotype from the current position:
-                        sampleHap = new Haplotype(curLocus, sample);
+                        sampleHap = new Haplotype(curLocus, sample, toolKit.getGenomeLocParser());
                         waitingHaplotypes.put(sample, sampleHap);
                     }
                     else {
                         sampleHap.extend(curPosition);
                     }
 
-                    sampleHap.incrementHetCount();
+                    sampleHap.addPhasedHet(gt);
                 }
             }
         }
-
-        return 1;
     }
 
-    public Integer reduce(Integer addIn, Integer runningCount) {
-        if (addIn == null)
-            addIn = 0;
-
-        return runningCount + addIn;
-    }
-
-    private void outputDoneHaplotypes(GenomeLoc curLocus) {
+    private void finalizeDoneHaplotypes(GenomeLoc curLocus) {
         for (Map.Entry<String, Haplotype> sampleHapEntry : waitingHaplotypes.entrySet()) {
             Haplotype waitingHaplotype = sampleHapEntry.getValue();
 
@@ -165,51 +122,17 @@ public class CalcFullHaplotypesWalker extends RodWalker<Integer, Integer> {
                     // Set the output haplotype to terminate at the end of its contig:
                     int contigLength = getContigLength(waitingHaplotype.interval.getContig());
                     waitingHaplotype.extend(contigLength);
-                    outputHaplotype(waitingHaplotype);
+                    waitingHaplotype.finalizeHaplotype();
                 }
             }
         }
     }
 
     private int getContigLength(String contig) {
-        return getToolkit().getGenomeLocParser().getContigInfo(contig).getSequenceLength();
+        return toolKit.getGenomeLocParser().getContigInfo(contig).getSequenceLength();
     }
 
-    private void outputHaplotype(Haplotype h) {
-        out.println(h);
-    }
-
-    /**
-     * @param result the number of reads and VariantContexts seen.
-     */
-    public void onTraversalDone(Integer result) {
-        outputDoneHaplotypes(null);
-
-        System.out.println("map was called " + result + " times.");
-    }
-
-    private class Haplotype {
-        public GenomeLoc interval;
-        public String sample;
-        public int hetCount;
-
-        public Haplotype(GenomeLoc interval, String sample) {
-            this.interval = interval;
-            this.sample = sample;
-            this.hetCount = 0;
-        }
-
-        public void extend(int stop) {
-            if (stop > interval.getStop())
-                interval = getToolkit().getGenomeLocParser().createGenomeLoc(interval.getContig(), interval.getStart(), stop);
-        }
-
-        public void incrementHetCount() {
-            hetCount++;
-        }
-
-        public String toString() {
-            return sample + "\t" + interval.toString() + "\t" + interval.size() + "\t" + hetCount;
-        }
+    public void finalizeAllHaplotypes() {
+        finalizeDoneHaplotypes(null);
     }
 }
