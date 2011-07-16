@@ -8,7 +8,7 @@ import collection.JavaConversions._
 import org.broadinstitute.sting.utils.yaml.YamlUtils
 //import org.broadinstitute.sting.utils.report.VE2ReportFactory.VE2TemplateType
 
-class Phase1ProjectConsensus extends QScript {
+class Phase1IndelProjectConsensus extends QScript {
   qscript =>
 
   @Input(doc="path to GATK jar", shortName="gatk", required=true)
@@ -94,6 +94,7 @@ class Phase1ProjectConsensus extends QScript {
     indelCombine.out = indelChrVCF
     indelCombine.intervalsString :+= chr
     indelCombine.jobName = qscript.outputDir + "/calls/" + "combined.phase1.chr" + chr + ".raw.indels"
+    indelCombine.memoryLimit = Some(4)
   }
 
   def script = {
