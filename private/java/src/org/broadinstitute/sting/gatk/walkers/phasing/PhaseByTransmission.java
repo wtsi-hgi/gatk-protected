@@ -39,12 +39,6 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
     @Output
     protected VCFWriter vcfWriter = null;
 
-    private ArrayList<VariantContext> rbpCache = new ArrayList<VariantContext>();
-    private ArrayList<VariantContext> pvcCache = new ArrayList<VariantContext>();
-    private int phaseError = 0;
-    private int phaseCorrect = 0;
-    private int phaseTotal = 0;
-
     private String SAMPLE_NAME_MOM;
     private String SAMPLE_NAME_DAD;
     private String SAMPLE_NAME_CHILD;
@@ -93,9 +87,13 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
 
         Set<VCFHeaderLine> headerLines = new HashSet<VCFHeaderLine>();
         headerLines.addAll(VCFUtils.getHeaderFields(this.getToolkit()));
-        headerLines.add(new VCFFilterHeaderLine(AMBIGUOUS_ALLELE_ORIGIN_FILTER_NAME, "The parental origin of each of the child's allele cannot be determined (ie everyone is heterozygous)"));
-        headerLines.add(new VCFFilterHeaderLine(INSUFFICIENT_DATA_FILTER_NAME, "The phase of the child's genotype cannot be determined (ie someone is a no-call)"));
-        headerLines.add(new VCFFilterHeaderLine(MENDELIAN_VIOLATION_FILTER_NAME, "No combination of the parents' alleles can yield the child's genotype (ie a possible Mendelian violation)"));
+
+        if (!noFilters) {
+            headerLines.add(new VCFFilterHeaderLine(AMBIGUOUS_ALLELE_ORIGIN_FILTER_NAME, "The parental origin of each of the child's allele cannot be determined (ie everyone is heterozygous)"));
+            headerLines.add(new VCFFilterHeaderLine(INSUFFICIENT_DATA_FILTER_NAME, "The phase of the child's genotype cannot be determined (ie someone is a no-call)"));
+            headerLines.add(new VCFFilterHeaderLine(MENDELIAN_VIOLATION_FILTER_NAME, "No combination of the parents' alleles can yield the child's genotype (ie a possible Mendelian violation)"));
+        }
+
         headerLines.add(new VCFInfoHeaderLine(TRANSMISSION_PROBABILITY_TAG_NAME, 1, VCFHeaderLineType.Float, "Probability that the phase is correct given that the genotypes are correct"));
         vcfWriter.writeHeader(new VCFHeader(headerLines, samples));
     }
@@ -246,21 +244,6 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
 
             double norm = 0.0;
 
-            /*
-            GATKReport report = new GATKReport();
-            report.addTable("TransmissionProbability", "Reports various quantities used to compute transmission probability");
-
-            GATKReportTable table = report.getTable("TransmissionProbability");
-            table.addPrimaryKey("config", false);
-            table.addColumn("mom", "unknown");
-            table.addColumn("momProbability", "unknown");
-            table.addColumn("dad", "unknown");
-            table.addColumn("dadProbability", "unknown");
-            table.addColumn("child", "unknown");
-            table.addColumn("childProbability", "unknown");
-            table.addColumn("configLikelihood", "unknown");
-            */
-
             for (Genotype momGenotype : possibleMomGenotypes) {
                 for (Genotype dadGenotype : possibleDadGenotypes) {
                     for (Genotype childGenotype : possibleChildGenotypes) {
@@ -275,44 +258,9 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
                             bestDadGenotype = dadGenotype;
                             bestChildGenotype = childGenotype;
                         }
-
-                        /*
-                        String config = momGenotype.toString() + dadGenotype.toString() + childGenotype.toString();
-
-                        double[] momLikelihoods = MathUtils.normalizeFromLog10(momGenotype.getLikelihoods().getAsVector());
-                        double momProbability = momLikelihoods[momGenotype.getType().ordinal() - 1];
-
-                        table.set(config, "mom", momGenotype.toString());
-                        table.set(config, "momProbability", momProbability);
-
-                        double[] dadLikelihoods = MathUtils.normalizeFromLog10(dadGenotype.getLikelihoods().getAsVector());
-                        double dadProbability = dadLikelihoods[dadGenotype.getType().ordinal() - 1];
-
-                        table.set(config, "dad", dadGenotype.toString());
-                        table.set(config, "dadProbability", dadProbability);
-
-                        double[] childLikelihoods = MathUtils.normalizeFromLog10(childGenotype.getLikelihoods().getAsVector());
-                        double childProbability = childLikelihoods[childGenotype.getType().ordinal() - 1];
-
-                        table.set(config, "child", childGenotype.toString());
-                        table.set(config, "childProbability", childProbability);
-
-                        table.set(config, "configLikelihood", prior*configurationLikelihood);
-                        */
                     }
                 }
             }
-
-            /*
-            if (!mom.sameGenotype(bestMomGenotype) || !dad.sameGenotype(bestDadGenotype) || !child.sameGenotype(bestChildGenotype)) {
-                System.out.println("Found a better genotype configuration!");
-                table.write(System.out);
-                System.out.println(mom.toBriefString() + " " + dad.toBriefString() + " " + child.toBriefString());
-                System.out.println(bestMomGenotype.toBriefString() + " " + bestDadGenotype.toBriefString() + " " + bestChildGenotype.toBriefString());
-                System.out.println(bestPrior*bestConfigurationLikelihood / norm);
-                System.out.println("");
-            }
-            */
 
             if (isMendelianViolation(vc.getReference(), vc.getAlternateAllele(0), bestMomGenotype, bestDadGenotype, bestChildGenotype)) {
                 filters.add(MENDELIAN_VIOLATION_FILTER_NAME);
@@ -326,111 +274,6 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
         }
 
         return new VariantContext(SOURCE_NAME, vc.getChr(), vc.getStart(), vc.getStart(), vc.getAlleles(), finalGenotypes, vc.getNegLog10PError(), noFilters ? vc.getFilters() : filters, attributes);
-    }
-
-    private ArrayList<VariantContext> reorientHaplotypes(ArrayList<VariantContext> rbpList, ArrayList<VariantContext> pvcList) {
-        ArrayList<VariantContext> orientedVCs = new ArrayList<VariantContext>();
-
-        int correctOrientation = 0;
-        int incorrectOrientation = 0;
-        for (int i = 0; i < rbpList.size(); i++) {
-            boolean isTripleHet = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD).isHet() &&
-                                  rbpList.get(i).getGenotype(SAMPLE_NAME_MOM).isHet() &&
-                                  rbpList.get(i).getGenotype(SAMPLE_NAME_DAD).isHet();
-            boolean isMissingData = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD).isCalled() &&
-                                    (rbpList.get(i).getGenotype(SAMPLE_NAME_MOM).isNoCall() ||
-                                     rbpList.get(i).getGenotype(SAMPLE_NAME_DAD).isNoCall());
-
-            if (!isTripleHet && !isMissingData) {
-                Genotype rbpGenotype = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD);
-                Genotype pvcGenotype = pvcList.get(i).getGenotype(SAMPLE_NAME_CHILD);
-
-                if (rbpGenotype.isHet()) {
-                    if (rbpGenotype.sameGenotype(pvcGenotype, false)) {
-                        correctOrientation++;
-                    } else {
-                        incorrectOrientation++;
-                    }
-                }
-            }
-        }
-
-        boolean isFlipped = false;
-        boolean isAmbiguous = false;
-        if (correctOrientation == 0 && incorrectOrientation != 0) {
-            isFlipped = true;
-        } else if (correctOrientation != 0 && incorrectOrientation == 0) {
-            isFlipped = false;
-        } else {
-            isAmbiguous = true;
-        }
-
-        if (!isAmbiguous) {
-            for (int i = 0; i < rbpList.size(); i++) {
-                boolean isTripleHet = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD).isHet() &&
-                                      rbpList.get(i).getGenotype(SAMPLE_NAME_MOM).isHet() &&
-                                      rbpList.get(i).getGenotype(SAMPLE_NAME_DAD).isHet();
-                boolean isMissingData = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD).isCalled() &&
-                                        (rbpList.get(i).getGenotype(SAMPLE_NAME_MOM).isNoCall() ||
-                                         rbpList.get(i).getGenotype(SAMPLE_NAME_DAD).isNoCall());
-
-                if (!isTripleHet && !isMissingData) {
-                    orientedVCs.add(pvcList.get(i));
-                } else {
-                    Genotype child = pvcList.get(i).getGenotype(SAMPLE_NAME_CHILD);
-                    Genotype mom = pvcList.get(i).getGenotype(SAMPLE_NAME_MOM);
-                    Genotype dad = pvcList.get(i).getGenotype(SAMPLE_NAME_DAD);
-
-                    if (isFlipped) {
-                        List<Allele> alleles = child.getAlleles();
-                        List<Allele> revAlleles = new ArrayList<Allele>();
-
-                        for (int j = alleles.size() - 1; j >= 0; j--) {
-                            revAlleles.add(alleles.get(j));
-                        }
-
-                        child = new Genotype(SAMPLE_NAME_CHILD, revAlleles, child.getNegLog10PError(), child.getFilters(), child.getAttributes(), true);
-                    }
-
-                    List<Genotype> finalGenotypes = new ArrayList<Genotype>();
-                    finalGenotypes.add(child);
-                    finalGenotypes.add(mom);
-                    finalGenotypes.add(dad);
-
-                    VariantContext rbpVC = rbpList.get(i);
-                    VariantContext vc = pvcList.get(i);
-                    VariantContext newVC = new VariantContext(SOURCE_NAME, vc.getChr(), vc.getStart(), vc.getStart(), vc.getAlleles(), finalGenotypes, vc.getNegLog10PError(), rbpVC.getFilters(), vc.getAttributes());
-
-                    orientedVCs.add(newVC);
-                }
-            }
-        } else {
-            orientedVCs = pvcList;
-        }
-
-        for (int i = 0; i < rbpList.size(); i++) {
-            Genotype rbpChild = rbpList.get(i).getGenotype(SAMPLE_NAME_CHILD);
-            Genotype pvcChild = pvcList.get(i).getGenotype(SAMPLE_NAME_CHILD);
-
-            if (rbpChild.isPhased() && rbpChild.sameGenotype(pvcChild, true)) {
-                if (isAmbiguous && !rbpChild.sameGenotype(pvcChild, false)) {
-                    System.out.printf("%s:%d : rbpChild=%s pvcChild=%s%n", rbpList.get(i).getChr(), rbpList.get(i).getStart(), rbpChild.toBriefString(), pvcChild.toBriefString());
-                    phaseError++;
-                } else {
-                    if (rbpChild.sameGenotype(pvcChild, false)) {
-                        if (!isFlipped) {
-                            phaseCorrect++;
-                        } else {
-                            phaseError++;
-                        }
-                    }
-                }
-
-                phaseTotal++;
-            }
-        }
-
-        return orientedVCs;
     }
 
     /**
@@ -447,21 +290,7 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
             Collection<VariantContext> vcs = tracker.getVariantContexts(ref, ROD_NAME, null, context.getLocation(), true, true);
 
             for (VariantContext vc : vcs) {
-                VariantContext phasedVC = phaseTrioGenotypes(vc);
-
-                rbpCache.add(vc);
-                pvcCache.add(phasedVC);
-
-                if (!vc.isFiltered() && !vc.getGenotype(SAMPLE_NAME_CHILD).isPhased()) {
-                    ArrayList<VariantContext> reoCache = reorientHaplotypes(rbpCache, pvcCache);
-
-                    for (VariantContext reo : reoCache) {
-                        vcfWriter.add(reo, reo.getReference().getBases()[0]);
-                    }
-
-                    rbpCache.clear();
-                    pvcCache.clear();
-                }
+                vcfWriter.add(phaseTrioGenotypes(vc), ref.getBase());
             }
         }
 
@@ -488,21 +317,5 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
     @Override
     public Integer reduce(Integer value, Integer sum) {
         return null;
-    }
-
-    public void onTraversalDone(Integer sum) {
-        ArrayList<VariantContext> reoCache = reorientHaplotypes(rbpCache, pvcCache);
-
-        for (VariantContext reo : reoCache) {
-            vcfWriter.add(reo, reo.getReference().getBases()[0]);
-        }
-
-        System.out.printf("total: %d, correct: %d (%f), incorrect: %d (%f)%n",
-                          phaseTotal,
-                          phaseCorrect,
-                          (double) phaseCorrect / (double) phaseTotal,
-                          phaseError,
-                          (double) phaseError / (double) phaseTotal
-        );
     }
 }
