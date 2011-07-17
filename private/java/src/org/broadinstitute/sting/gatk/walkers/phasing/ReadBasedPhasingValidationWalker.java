@@ -32,11 +32,10 @@ import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.filters.ZeroMappingQualityReadFilter;
+import org.broadinstitute.sting.gatk.filters.MappingQualityZeroReadFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
 import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.gatk.walkers.phasing.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -53,7 +52,7 @@ import java.util.*;
 @Requires(value = {DataSource.READS, DataSource.REFERENCE}, referenceMetaData = @RMD(name = "variant", type = ReferenceOrderedDatum.class))
 @By(DataSource.READS)
 
-@ReadFilters({ZeroMappingQualityReadFilter.class})
+@ReadFilters({MappingQualityZeroReadFilter.class})
 // Filter out all reads with zero mapping quality
 
 public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer> {

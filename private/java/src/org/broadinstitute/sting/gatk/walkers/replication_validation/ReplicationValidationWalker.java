@@ -15,6 +15,7 @@ import org.broadinstitute.sting.utils.MathUtils;
 import java.io.PrintStream;
 
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
+import org.jgrapht.util.MathUtil;
 
 import java.util.*;
 
@@ -122,8 +123,8 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
     /**
      * Returns the number of mismatching bases in a pileup
      * @param data the bases of a pileup
-     * @param refBases the reference sample base to compare to
-     * @return number of bases in data that are different from refBase
+     * @param refBases the true bases to compare to
+     * @return number of bases in data that are different from all refBases
      */
     private int getNumberOfMismatches (byte[] data, Collection<Byte> refBases) {
         int mismatches = 0;
@@ -134,6 +135,12 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
         return mismatches;
     }
 
+    /**
+     * Returns the number of mismatching bases in a pileup
+     * @param data the bases of a pileup
+     * @param refBase the true base to comare to
+     * @return number of bases in data that are different from refBase
+     */
     private int getNumberOfMismatches (byte[] data, Byte refBase) {
         ArrayList<Byte> refBases = new ArrayList<Byte>(1);
         refBases.add(refBase);
@@ -196,7 +203,7 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
 
         // if allele count is 0, the prior is one minus the sum of all other possibilities.
         double result = 0.0;
-        for (int i=1; i<=ac; i++)
+        for (int i=1; i<=maxAlleleCount; i++)
             result += THETA/i;
         return Math.log10(1-result);
     }
@@ -219,7 +226,7 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
      */
     private double[] getPoolACProbabilityDistribution (ReadBackedPileup pool, double[] errorModel, byte refBase) {
         double [] result = new double[maxAlleleCount+1];
-        int nAlleles = 2 * nSamples;
+        int nAlleles = ploidy * nSamples;
         for (int ac=0; ac<=maxAlleleCount; ac++) {
             double log10PAC = log10PriorAC(nAlleles, ac);
             int mismatches = getNumberOfMismatches(pool.getBases(), refBase);
@@ -241,12 +248,12 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
         return result;
     }
 
-
     public void initialize() {
 
         // Set the number of samples in the pools ( - reference sample)
         nSamples = getToolkit().getSAMFileSamples().size() - 1;
 
+        // If we ignore the lanes, then the Reference Sample will be included in the analysis
         if (DEBUG_IGNORE_LANES)
             nSamples++;
 
@@ -317,25 +324,25 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
                     double [] AC = getPoolACProbabilityDistribution(poolPileup, errorModel, ref.getBase());
 
                     // Debug AC distribution
-                    if (referenceSamplePileup.getBases().length > 50) {
-                        System.out.println("\n\n" + "[" + ref.getLocus() + "] " + laneID + " - " + pool +
-                                "\nNumber of Samples: " + nSamples +
-                                "\nRefSample Size: " + referenceSamplePileup.getBases().length +
-                                "\nRefSample AAs: " + getNumberOfMismatches(referenceSamplePileup.getBases(), trueReferenceBases) +
-                                "\nPool Size: " + poolPileup.size() +
-                                "\nPool AAs: " + getNumberOfMismatches(poolPileup.getBases(), ref.getBase()) +
-                                "\nPool AF: " + (double) getNumberOfMismatches(poolPileup.getBases(), ref.getBase())/poolPileup.size());
+                    System.out.println("\n\n" + "[" + ref.getLocus() + "] " + laneID + " - " + pool +
+                            "\nNumber of Samples: " + nSamples +
+                            "\nRefSample Size: " + referenceSamplePileup.getBases().length +
+                            "\nRefSample AAs: " + getNumberOfMismatches(referenceSamplePileup.getBases(), trueReferenceBases) +
+                            "\nRefQ: " + MathUtils.maxElementIndex(errorModel) +
+                            "\nPool Size: " + poolPileup.size() +
+                            "\nPool AAs: " + getNumberOfMismatches(poolPileup.getBases(), ref.getBase()) +
+                            "\nPool AF: " + (double) getNumberOfMismatches(poolPileup.getBases(), ref.getBase())/poolPileup.size() +
+                            "\nPool AC: " + MathUtils.maxElementIndex(AC));
 
-                        System.out.println("\nError Model: ");
-                        for (double v : errorModel)
-                            System.out.print(v + ", ");
-                        System.out.println("\n");
+                    System.out.println("\nError Model: ");
+                    for (double v : errorModel)
+                        System.out.print(v + ", ");
+                    System.out.println("\n");
 
-                        System.out.println("AC Distribution: ");
-                        for (double v : AC)
-                            System.out.print(v + ", ");
-                        System.out.println();
-                    }
+                    System.out.println("AC Distribution: ");
+                    for (double v : AC)
+                        System.out.print(v + ", ");
+                    System.out.println();
 
                     if (DEBUG_IGNORE_LANES) break;
                 }
