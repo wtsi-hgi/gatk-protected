@@ -17,7 +17,7 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
 import java.util.*;
 
-public class MergeReadBackedAndTransmissionPhasedVariants extends RodWalker<Integer, Integer> {
+public class MergeAndMatchHaplotypes extends RodWalker<Integer, Integer> {
     @Output
     protected VCFWriter vcfWriter = null;
 
