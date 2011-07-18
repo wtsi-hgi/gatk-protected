@@ -89,6 +89,7 @@ data$sample <- factor(paste(data$sample,data$Last_Sequenced_WR_Created_Date),lev
 
 #novel <- subset(complete,exon_intervals == "whole_exome_agilent_1.1_refseq_plus_3_boosters"&Novelty=="novel"&FunctionalClass=="all")
 novel_sampled <- subset(complete,Novelty=="novel"&FunctionalClass=="all")
+novel_sampled <- novel_sampled[novel_sampled$BAIT_SET %in% data$BAIT_SET,]
 violations <- trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
 violations <- violations + trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
 violations <- violations + trim_to_95_pct(novel_sampled$MEAN_TARGET_COVERAGE)
@@ -181,7 +182,7 @@ p
 #median_insert_size_new = rbind(data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='new'),
 #			       data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='new'),
 #			       data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='new'))
-#ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE,color=data_type,alpha=0.1)) + geom_point() + geom_point(data=median_insert_size_new,aes(sample,MEDIAN_INSERT_SIZE),color='red') + facet_grid(insert_type ~ .)
+#ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE,color=data_type,alpha=0.1)) + geom_point() + geom_text(data=median_insert_size_new,aes(sample,MEDIAN_INSERT_SIZE),color='red',size=2) + facet_grid(insert_type ~ .)
 
 create_stock_plots('% Chimera Read Pairs per Sample',novel_sampled,data,'PCT_CHIMERAS')
 
