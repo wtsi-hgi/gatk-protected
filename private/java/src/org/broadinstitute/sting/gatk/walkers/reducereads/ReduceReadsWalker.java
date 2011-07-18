@@ -30,8 +30,13 @@ import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
+import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckReadFilter;
+import org.broadinstitute.sting.gatk.filters.NotPrimaryAlignmentReadFilter;
+import org.broadinstitute.sting.gatk.filters.UnmappedReadFilter;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 
 import java.io.PrintStream;
@@ -42,6 +47,8 @@ import java.util.Set;
  * User: depristo
  * Date: April 7, 2011
  */
+
+@ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentReadFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckReadFilter.class})
 public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompressor> {
     @Output
     protected StingSAMFileWriter out;
