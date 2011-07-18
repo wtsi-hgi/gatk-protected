@@ -349,7 +349,7 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
                             "\nPool MMs: " + getNumberOfMismatches(poolPileup.getBases(), ref.getBase()) +
                             "\nPool AF: " + (double) getNumberOfMismatches(poolPileup.getBases(), ref.getBase())/poolPileup.size() +
                             "\nTrutn AN: " + truthContext.getAttribute("AN") +
-                            "\nPool AC / Truth AC: " + MathUtils.maxElementIndex(AC) + " / " + truthContext.getAttribute("AC"));
+                            "\nPool AC / Truth AC: " + MathUtils.maxElementIndex(AC) + " / " + truthContext.getAttribute("AC") + " / " + truthContext.isFiltered());
 
                     System.out.println("\nError Model: ");
                     for (double v : errorModel)
