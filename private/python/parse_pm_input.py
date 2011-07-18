@@ -18,6 +18,8 @@ from net.sf.picard.io import IoUtil
 
 import re,os,string,sys
 
+import generate_per_sample_metrics
+
 base_path = '/seq/picard_aggregation/%s/%s'
 
 def excel_generator(filename):
@@ -90,22 +92,7 @@ def project_file_reader(filename):
                 continue
         project = entries[project_column]
         sample = entries[sample_column]
-
-        sample_path = base_path % (project,IoUtil.makeFileNameSafe(sample))
-        if not os.path.exists(sample_path):
-            print >> sys.stderr, 'WARNING: Unable to find home for data with project = %s, sample = %s; path %s not found' % (project,sample,sample_path)
-            continue
-        versions = []
-        for version_path in os.listdir(sample_path):
-            if version_path[0] != 'v':
-                continue
-                print >> sys.stderr, 'WARNING: Encountered a path name that cannot be parsed: ',version_path
-                sys.exit(1)
-            versions.append(int(version_path[1:]))
-        if len(versions) != 0:
-            latest_version = sorted(versions)[-1]
-        else:
-            latest_version = None
+        latest_version = generate_per_sample_metrics.find_latest_version(project,sample)
         
         yield project,sample,latest_version
 
