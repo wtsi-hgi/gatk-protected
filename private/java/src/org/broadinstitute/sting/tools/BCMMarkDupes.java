@@ -1,8 +1,10 @@
 package org.broadinstitute.sting.tools;
 
 import net.sf.samtools.*;
-import java.io.*;
-import java.util.*;
+
+import java.io.File;
+import java.util.Hashtable;
+import java.util.Iterator;
 
 
 /**

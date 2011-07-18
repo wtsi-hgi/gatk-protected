@@ -1,17 +1,12 @@
 package org.broadinstitute.sting.tools;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.io.File;
-
+import net.sf.picard.cmdline.CommandLineProgram;
+import net.sf.picard.cmdline.Option;
+import net.sf.picard.cmdline.Usage;
 import net.sf.samtools.*;
 
-import net.sf.picard.cmdline.CommandLineProgram;
-import net.sf.picard.cmdline.Usage;
-import net.sf.picard.cmdline.Option;
+import java.io.File;
+import java.util.*;
 
 public class SplitReads extends CommandLineProgram {
     @Usage(programVersion="1.0") public String USAGE = "Splits reads: extracts sub-sequences of the specified length(s) from left "+
