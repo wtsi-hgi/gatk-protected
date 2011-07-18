@@ -32,10 +32,10 @@ create_base_plot <- function(title,reference_dataset,new_dataset,column_name) {
   p <- ggplot(reference_dataset,aes_string(x='sample',y=column_name))
   p <- p + opts(title=title,axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank())
   p <- p + xlab('Sample (ordered by sequencing date)')
+  p <- p + geom_point(alpha=0.1) + geom_rug(aes(x=NULL),alpha=0.01)
 
   # Add in the new points and color them red.
-  p <- p + geom_point(alpha=0.1) + geom_rug(aes(x=NULL),alpha=0.01)
-  p <- p + geom_point(data=new_dataset,aes_string(x='sample',y=column_name),color='red')
+  p <- p + geom_text(data=new_dataset,aes_string(x='sample',y=column_name,label='sample'),color='red',size=2)
 
   # Lines for the mean,+/- one sigma,+/- two sigma
   mean <- mean(complete[,column_name],na.rm=T)

@@ -154,7 +154,7 @@ def find_latest_version(project_id,sample_id):
     base_path = '/seq/picard_aggregation/%s/%s'
     sample_path = base_path % (project_id,IoUtil.makeFileNameSafe(sample_id))
     if not os.path.exists(sample_path):
-        print >> sys.stderr, 'WARNING: Unable to find home for data with project = %s, sample = %s; path %s not found' % (project,sample,sample_path)
+        print >> sys.stderr, 'WARNING: Unable to find home for data with project = %s, sample = %s; path %s not found' % (project_id,sample_id,sample_path)
         return None,None,None
     versions = []
     for version_path in os.listdir(sample_path):
@@ -183,10 +183,8 @@ def main():
     filename = sys.argv[1]
     extension = os.path.splitext(filename)[1]
     if extension == '.tsv':
-        print 'creating tsv generator'
         generator = tsv_generator(filename)
     else:
-        print 'creating bam list generator'
         generator = bam_list_generator(filename)
 
     header = ['sample']
