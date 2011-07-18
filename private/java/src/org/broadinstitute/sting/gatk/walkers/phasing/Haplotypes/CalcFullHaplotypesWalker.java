@@ -24,17 +24,22 @@
 
 package org.broadinstitute.sting.gatk.walkers.phasing.Haplotypes;
 
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.*;
+import org.broadinstitute.sting.gatk.walkers.Allows;
+import org.broadinstitute.sting.gatk.walkers.DataSource;
+import org.broadinstitute.sting.gatk.walkers.Requires;
+import org.broadinstitute.sting.gatk.walkers.RodWalker;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 
 import java.io.PrintStream;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFromRods;
 

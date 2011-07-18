@@ -25,10 +25,10 @@
 
 package org.broadinstitute.sting.utils;
 
-import net.sf.samtools.SAMRecord;
 import net.sf.samtools.CigarElement;
-import org.broadinstitute.sting.utils.sam.AlignmentUtils;
+import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 
 /**
  * Created by IntelliJ IDEA.

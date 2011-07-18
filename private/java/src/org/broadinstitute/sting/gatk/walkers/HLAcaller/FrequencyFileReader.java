@@ -1,6 +1,9 @@
 package org.broadinstitute.sting.gatk.walkers.HLAcaller;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.util.Hashtable;
 /**
  * File reader used by other Walkers to read HLA allele frequencies.

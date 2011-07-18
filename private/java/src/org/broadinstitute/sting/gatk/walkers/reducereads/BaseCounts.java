@@ -1,7 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import org.broadinstitute.sting.utils.BaseUtils;
-import com.google.java.contract.*;
+import com.google.java.contract.Ensures;
 
 import java.util.EnumMap;
 import java.util.Map;

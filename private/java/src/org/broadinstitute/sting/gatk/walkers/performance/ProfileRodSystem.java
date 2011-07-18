@@ -24,11 +24,8 @@
 
 package org.broadinstitute.sting.gatk.walkers.performance;
 
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broad.tribble.util.ParsingUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
 import org.broad.tribble.readers.AsciiLineReader;
+import org.broad.tribble.util.ParsingUtils;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -38,11 +35,14 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
-import java.io.PrintStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.util.*;
+import java.io.PrintStream;
+import java.util.List;
 
 /**
  * Emits specific fields as dictated by the user from one or more VCF files.

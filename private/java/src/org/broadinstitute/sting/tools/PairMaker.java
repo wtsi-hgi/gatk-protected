@@ -26,17 +26,16 @@
 package org.broadinstitute.sting.tools;
 
 import net.sf.picard.cmdline.CommandLineProgram;
-import net.sf.picard.cmdline.Usage;
 import net.sf.picard.cmdline.Option;
+import net.sf.picard.cmdline.Usage;
 import net.sf.samtools.*;
-
-import java.io.File;
-import java.util.List;
-import java.util.ArrayList;
-
+import org.broadinstitute.sting.utils.ParallelSAMIterator;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
-import org.broadinstitute.sting.utils.ParallelSAMIterator;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by IntelliJ IDEA.
