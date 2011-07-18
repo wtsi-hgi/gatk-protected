@@ -35,6 +35,7 @@ import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.phasing.AnnotateTrioPhasingInheritanceNoRecombinationWalker;
+import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -61,7 +62,12 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
     @Argument(doc = "sample to emit", required = false)
     protected String sample = null;
 
+    private boolean prevHadInheritanceInfo;
+    private GenomeLoc prevLoc;
+
     public void initialize() {
+        this.prevHadInheritanceInfo = true;
+        this.prevLoc = null;
     }
 
     public boolean generateExtendedEvents() {
@@ -82,7 +88,11 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
         if (tracker == null)
             return null;
 
-        Collection<VariantContext> vcs = tracker.getAllVariantContexts(ref, ref.getLocus());
+        GenomeLoc curLocus = ref.getLocus();
+        if (prevLoc == null || prevLoc.compareContigs(curLocus) != 0)
+            prevHadInheritanceInfo = true;
+
+        Collection<VariantContext> vcs = tracker.getAllVariantContexts(ref, curLocus);
         for (VariantContext vc : vcs) {
             if (vc.isFiltered())
                 continue;
@@ -92,9 +102,8 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
                 continue;
 
             String inheritance = gt.getAttributeAsStringNoException(AnnotateTrioPhasingInheritanceNoRecombinationWalker.INHERITANCE_KEY);
-            if (!gt.isPhased() && inheritance == null) {
+            if (!gt.isPhased() && (inheritance == null || !prevHadInheritanceInfo))
                 out.println("PHASE_BREAK");
-            }
 
             String[] sources;
             if (inheritance != null) {
@@ -107,13 +116,16 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
                 }
             }
 
-            out.print(ref.getLocus());
+            out.print(curLocus);
             int ind = 0;
             for (Allele all : gt.getAlleles()) {
                 out.print("\t" + sources[ind] + ": " + (all.isReference() ? 0 : 1));
                 ind++;
             }
             out.println();
+
+            prevHadInheritanceInfo = (inheritance != null);
+            prevLoc = curLocus;
         }
 
         return 1;
