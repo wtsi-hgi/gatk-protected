@@ -11,7 +11,7 @@ setenv SUMMARY_DIR $DIR/summaries
 setenv DATE `date +"%m_%d_%Y"`
 setenv ARCHIVE $ARCHIVE_DIR/$DATE
 setenv SUMMARY $SUMMARY_DIR/$DATE
-setenv GATK ~/dev/GenomeAnalysisTK/trunk
+setenv GATK ~/dev/GenomeAnalysisTK/unstable/private
 setenv GATK_RELEASE_VERSION `ls -l /humgen/gsa-hpprojects/GATK/bin/current | sed 's/.*GenomeAnalysisTK-\([0-9]*\.[0-9]*-\).*/\1/'`
 setenv REPORT_TXT $DIR/report.txt
 
