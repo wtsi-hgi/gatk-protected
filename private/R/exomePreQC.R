@@ -2,11 +2,11 @@ args = commandArgs(TRUE)
 onCMDLine = ! is.na(args[1])
 
 if ( onCMDLine ) {
-  reference_dataset = '/Users/mhanna/src/StingUnstable/private/R/preqc.database'
+  reference_dataset = '/humgen/gsa-scr1/GATK_Data/preqc.database'
   inputTSV = args[1]
   outputPDF = args[2]
 } else {
-  reference_dataset = '/Users/mhanna/src/StingUnstable/private/R/preqc.database'
+  reference_dataset = '/humgen/gsa-scr1/GATK_Data/preqc.database'
   inputTSV = 'Diamond_BlackFan_Anemia_07112011_per_sample_metrics.tsv'
   outputPDF = 'Diamond_BlackFan_Anemia_07112011.pdf'
 }
@@ -16,12 +16,15 @@ require('gplots')
 
 data <- read.table(inputTSV,header=T)
 
-trim_to_95_pct <- function(data,complete_column,sampled_column) {
-  mean <- mean(complete_column,na.rm=T)
-  sd <- sd(complete_column,na.rm=T)
+trim_to_95_pct <- function(column) {
+  mean <- mean(column,na.rm=T)
+  sd <- sd(column,na.rm=T)
   min <- mean - 2*sd
   max <- mean + 2*sd
-  return(subset(data,sampled_column>=min&sampled_column<=max))
+  not_within_bounds <- function(value) {
+    return(as.numeric(value<=min|value>=max))
+  }
+  return(sapply(column,not_within_bounds))
 }
 
 create_base_plot <- function(title,reference_dataset,new_dataset,column_name) {
@@ -86,18 +89,20 @@ data$sample <- factor(paste(data$sample,data$Last_Sequenced_WR_Created_Date),lev
 
 #novel <- subset(complete,exon_intervals == "whole_exome_agilent_1.1_refseq_plus_3_boosters"&Novelty=="novel"&FunctionalClass=="all")
 novel_sampled <- subset(complete,Novelty=="novel"&FunctionalClass=="all")
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$PCT_SELECTED_BASES,novel_sampled$PCT_SELECTED_BASES)
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$MEAN_TARGET_COVERAGE,novel_sampled$MEAN_TARGET_COVERAGE)
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$ZERO_CVG_TARGETS_PCT,novel_sampled$ZERO_CVG_TARGETS_PCT)
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$PCT_TARGET_BASES_20X,novel_sampled$PCT_TARGET_BASES_20X)
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$PCT_PF_READS,novel_sampled$PCT_PF_READS)
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$PF_HQ_ERROR_RATE,novel_sampled$PF_HQ_ERROR_RATE)
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$PF_INDEL_RATE,novel_sampled$PF_INDEL_RATE)
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$MEAN_READ_LENGTH,novel_sampled$MEAN_READ_LENGTH)
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$BAD_CYCLES,novel_sampled$BAD_CYCLES)
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$STRAND_BALANCE,novel_sampled$STRAND_BALANCE)
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$PCT_CHIMERAS,novel_sampled$PCT_CHIMERAS)
-novel_sampled <- trim_to_95_pct(novel_sampled,complete$PCT_ADAPTER,novel_sampled$PCT_ADAPTER)
+violations <- trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
+violations <- violations + trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
+violations <- violations + trim_to_95_pct(novel_sampled$MEAN_TARGET_COVERAGE)
+violations <- violations + trim_to_95_pct(novel_sampled$ZERO_CVG_TARGETS_PCT)
+violations <- violations + trim_to_95_pct(novel_sampled$PCT_TARGET_BASES_20X)
+violations <- violations + trim_to_95_pct(novel_sampled$PCT_PF_READS)
+violations <- violations + trim_to_95_pct(novel_sampled$PF_HQ_ERROR_RATE)
+violations <- violations + trim_to_95_pct(novel_sampled$PF_INDEL_RATE)
+violations <- violations + trim_to_95_pct(novel_sampled$MEAN_READ_LENGTH)
+violations <- violations + trim_to_95_pct(novel_sampled$BAD_CYCLES)
+violations <- violations + trim_to_95_pct(novel_sampled$STRAND_BALANCE)
+violations <- violations + trim_to_95_pct(novel_sampled$PCT_CHIMERAS)
+violations <- violations + trim_to_95_pct(novel_sampled$PCT_ADAPTER)
+novel_sampled <- subset(data.frame(novel_sampled,violations=violations),violations==0)	
 
 # Write to PDF as necessary.
 if(onCMDLine) {

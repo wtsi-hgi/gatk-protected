@@ -1,13 +1,13 @@
 #
 # To run:
 #   /humgen/gsa-hpprojects/software/bin/jython2.5.2/jython \
-#     -J-classpath $STING_HOME/lib/poi-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-schemas-3.8-beta3.jar:$STING_HOME/lib/xmlbeans-2.3.0.jar:$STING_HOME/lib/dom4j-1.6.1.jar:$STING_HOME/lib/sam-1.47.869.jar:$STING_HOME/lib/picard-1.47.869.jar:$STING_HOME/lib/picard-private-parts-1941.jar:$STING_HOME/dist/GenomeAnalysisTK.jar:$STING_HOME/ojdbc6-11.2.0.1.0.jar \
+#     -J-classpath $STING_HOME/lib/poi-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-schemas-3.8-beta3.jar:$STING_HOME/lib/xmlbeans-2.3.0.jar:$STING_HOME/lib/dom4j-1.6.1.jar:$STING_HOME/lib/sam-1.48.889.jar:$STING_HOME/lib/picard-1.48.889.jar:$STING_HOME/lib/picard-private-parts-1954.jar:$STING_HOME/dist/GenomeAnalysisTK.jar:$STING_HOME/ojdbc6-11.2.0.1.0.jar \
 #     generate_preqc_database.py <input file>
 #
 import os,string,sys
 
 from parse_pm_input import project_file_reader
-from generate_per_sample_metrics import get_full_metrics_fields,get_full_metrics
+import generate_per_sample_metrics
 
 from java.io import File
 from java.lang import Class,Exception
@@ -80,7 +80,7 @@ def main():
     variant_eval_base = sys.argv[2]
 
     # print out headers
-    print string.join(['project','squid','sample']+count_variants_columns+titv_variant_evaluator_columns+get_full_metrics_fields()+['Last_Sequenced_WR','Last_Sequenced_WR_Created_Date'],'\t')
+    print string.join(['project','squid','sample']+count_variants_columns+titv_variant_evaluator_columns+generate_per_sample_metrics.get_full_metrics_fields()+['Last_Sequenced_WR','Last_Sequenced_WR_Created_Date'],'\t')
 
     for project,squid,sample,latest_version in generate_project_files_from_filtered_annotated_vcfs(vcf_list):
         print >> sys.stderr, 'processing project = %s, squid id = %s, sample = %s'%(project,squid,sample)
@@ -98,7 +98,7 @@ def main():
                 columns = [project,squid,sample]
                 columns.extend([report_parser.getValue('CountVariants',['dbsnp','eval',functional_class,novelty,sample],column) for column in count_variants_columns])
                 columns.extend([report_parser.getValue('TiTvVariantEvaluator',['dbsnp','eval',functional_class,novelty,sample],column) for column in titv_variant_evaluator_columns])
-                columns.extend(get_full_metrics(sample,'/seq/picard_aggregation/%s/%s/v%s/%s'%(squid,sample,latest_version,sample)))
+                columns.extend(generate_per_sample_metrics.get_full_metrics(sample,'/seq/picard_aggregation/%s/%s/v%s/%s'%(squid,sample,latest_version,sample)))
                 columns.extend([last_sequenced_wr,last_sequenced_wr_created_date])
                 # replace any Nones in the columns with the text 'NA'
                 columns = [column if column != None else 'NA' for column in columns]
