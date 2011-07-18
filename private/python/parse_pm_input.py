@@ -2,16 +2,23 @@
 # Generates BAM lists from Excel and TSV files provided by project managers.  Suitable for input into the pre-QC metrics generation
 # script.
 #
-# To run:
+# To output a BAM list:
 #   /humgen/gsa-hpprojects/software/bin/jython2.5.2/jython \
 #     -J-classpath $STING_HOME/lib/poi-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-schemas-3.8-beta3.jar:$STING_HOME/lib/xmlbeans-2.3.0.jar:$STING_HOME/lib/dom4j-1.6.1.jar:$STING_HOME/lib/picard-1.48.889.jar:$STING_HOME/dist/GenomeAnalysisTK.jar \
-#     parse_pm_input.py <input file.{xls|xlsx|txt|tsv}> > <bam.list>
+#     parse_pm_input.py <input file.{xls|xlsx|txt|tsv}> true > <bam.list>
+#
+# To output a squid\tsample-formatted tsv
+#   /humgen/gsa-hpprojects/software/bin/jython2.5.2/jython \
+#     -J-classpath $STING_HOME/lib/poi-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-3.8-beta3.jar:$STING_HOME/lib/poi-ooxml-schemas-3.8-beta3.jar:$STING_HOME/lib/xmlbeans-2.3.0.jar:$STING_HOME/lib/dom4j-1.6.1.jar:$STING_HOME/lib/picard-1.48.889.jar:$STING_HOME/dist/GenomeAnalysisTK.jar \
+#     parse_pm_input.py <input file.{xls|xlsx|txt|tsv}> false > <samples.tsv>
 #
 from java.io import FileInputStream
 
 from net.sf.picard.io import IoUtil
 
-import re,os,sys
+import re,os,string,sys
+
+import generate_per_sample_metrics
 
 base_path = '/seq/picard_aggregation/%s/%s'
 
@@ -85,42 +92,32 @@ def project_file_reader(filename):
                 continue
         project = entries[project_column]
         sample = entries[sample_column]
-
-        sample_path = base_path % (project,IoUtil.makeFileNameSafe(sample))
-        if not os.path.exists(sample_path):
-            print >> sys.stderr, 'WARNING: Unable to find home for data with project = %s, sample = %s; path %s not found' % (project,sample,sample_path)
-            continue
-        versions = []
-        for version_path in os.listdir(sample_path):
-            if version_path[0] != 'v':
-                continue
-                print >> sys.stderr, 'WARNING: Encountered a path name that cannot be parsed: ',version_path
-                sys.exit(1)
-            versions.append(int(version_path[1:]))
-        if len(versions) != 0:
-            latest_version = sorted(versions)[-1]
-        else:
-            latest_version = None
+        latest_version = generate_per_sample_metrics.find_latest_version(project,sample)
         
         yield project,sample,latest_version
 
 def main():
-    if len(sys.argv) != 2:
-        print 'USAGE: %s <input file.{xls|xlsx|tsv|txt}>'
+    if len(sys.argv) != 3:
+        print 'USAGE: %s <input file.{xls|xlsx|tsv|txt}> <output as bam list>'
         sys.exit(1)
     if not os.path.exists(sys.argv[1]):
         print 'Input file %s not found' % sys.argv[1]
         sys.exit(1)
 
     input_filename = sys.argv[1]
+    output_as_bam_list = sys.argv[2].lower() == 'true'
 
     for project,sample,latest_version in project_file_reader(input_filename):
-        sample_filename = IoUtil.makeFileNameSafe(sample)
+        sample_filename = IoUtil.makeFileNameSafe(sample)        
         bam_file = '%s/v%d/%s.bam' % (base_path%(project,sample_filename),latest_version,sample_filename)
         if not os.path.exists(bam_file):
             print 'Malformed file: tried to find %s, but no such path exists' % bam_file
             sys.exit(1)
-        print bam_file
+
+        if output_as_bam_list:
+            print bam_file
+        else:
+            print string.join([project,sample],'\t')
 
 if __name__ == "__main__":
     main()
