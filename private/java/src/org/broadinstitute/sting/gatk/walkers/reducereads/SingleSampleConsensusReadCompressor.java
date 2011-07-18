@@ -72,6 +72,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     final int readContextSize;
     final int targetDepthAtVariableSites;
     final int minBpForRunningConsensus;
+    final int QualityEquivalent;
     int retryTimer = 0;
     int consensusCounter = 0;
 
@@ -85,13 +86,17 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
                                                final int readContextSize,
                                                final GenomeLocParser glParser,
                                                final int minBpForRunningConsensus,
-                                               final int targetDepthAtVariableSites) {
+                                               final int targetDepthAtVariableSites,
+                                               final int qualityEquivalent,
+                                               final int minMapQuality) {
         this.readContextSize = readContextSize;
         this.glParser = glParser;
         this.minBpForRunningConsensus = minBpForRunningConsensus;
         this.targetDepthAtVariableSites = targetDepthAtVariableSites;
         this.reducedReadGroup = createReducedReadGroup(sampleName);
+        this.QualityEquivalent = qualityEquivalent;
     }
+    // TODO Implement min mapping quality
 
     /**
      * Helper function to create a read group for these reduced reads
@@ -392,8 +397,6 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     // Returns the consensus read given the sites of overlap and the span
     private List<SAMRecord> conservedSpanReads(List<ConsensusSite> sites, ConsensusSpan span) {
 
-        int QE  = 20; //Minimum quality for equivalents
-
         byte[] bases = new byte[span.size()];
         byte[] quals = new byte[span.size()];
 
@@ -406,10 +409,13 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
             if ( site.getMarkedType() == ConsensusSpan.Type.VARIABLE )
                 throw new ReviewedStingException("Variable site included in consensus: " + site);
             int count = 0;
+            if ( site.position == 10913951)
+                logger.warn("Are we adding two extra?");
             for ( PileupElement p : site.overlappingReads) {
+
                 rms += Math.pow(p.getMappingQual(), 2); //Add up squares
                 n++;
-                if ((p.getBase() == site.counts.baseWithMostCounts()) && (p.getQual() >= QE ))//  Minimum Read qual
+                if ((p.getBase() == site.counts.baseWithMostCounts()) && (p.getQual() >= QualityEquivalent ))//  Minimum Read qual
                     count++;
             }
             //final int count = site.counts.countOfMostCommonBase();
@@ -430,7 +436,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         SAMRecord consensus = new SAMRecord(header);
         consensus.setAttribute("RG", reducedReadGroup.getId());
         consensus.setAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG, Integer.valueOf(REDUCED_READ_BASE_QUALITY)); //Also problems: Should it be avg
-        consensus.setAttribute("QE", QE);    // Qual equivs
+        consensus.setAttribute("QE", QualityEquivalent);    // Qual equivs
         consensus.setReferenceName(contig);
         consensus.setReadName(String.format("%s.read.%d", reducedReadGroup.getId(), consensusCounter++));
         consensus.setReadPairedFlag(false);
@@ -439,7 +445,8 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         consensus.setAlignmentStart(span.getGenomeStart());
         consensus.setReadBases(bases);
         consensus.setBaseQualities(quals);
-        consensus.setMappingQuality((int)rms);  // Problem?
+        consensus.setMappingQuality((int)rms);  // MQ is root mean square of all reads (weighted by length
+        // TODO speed up RMS calcs by consolidating reads
 
 //        if ( INVERT && PRINT_CONSENSUS_READS )
 //            for ( SAMRecord read : consensusReads )
