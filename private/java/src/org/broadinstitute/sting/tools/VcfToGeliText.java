@@ -1,11 +1,12 @@
 package org.broadinstitute.sting.tools;
 
 import net.sf.picard.cmdline.CommandLineProgram;
-import net.sf.picard.cmdline.Usage;
 import net.sf.picard.cmdline.Option;
+import net.sf.picard.cmdline.Usage;
 
 import java.io.*;
-import java.util.*;
+import java.util.HashMap;
+import java.util.StringTokenizer;
 
 public class VcfToGeliText extends CommandLineProgram {
     @Usage(programVersion="1.0") public String USAGE = "Converts VCF files to simple Geli text files.";

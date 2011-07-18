@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import com.google.java.contract.*;
+import com.google.java.contract.Ensures;
+import com.google.java.contract.Requires;
 import net.sf.samtools.SAMRecord;
 
 /*

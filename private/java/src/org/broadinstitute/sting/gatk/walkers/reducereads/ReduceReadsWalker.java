@@ -33,11 +33,8 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
 
-import java.io.*;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.io.PrintStream;
 import java.util.Set;
 
 /**
