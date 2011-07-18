@@ -26,16 +26,12 @@
 package org.broadinstitute.sting.utils;
 
 import org.broadinstitute.sting.utils.collections.PrimitivePair;
-import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.Utils;
 
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-
-import net.sf.samtools.util.StringUtil;
+import java.util.List;
 
 /**
  * Created by IntelliJ IDEA.

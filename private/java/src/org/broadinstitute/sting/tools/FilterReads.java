@@ -1,17 +1,14 @@
 package org.broadinstitute.sting.tools;
 
 import net.sf.picard.cmdline.CommandLineProgram;
-import net.sf.picard.cmdline.Usage;
 import net.sf.picard.cmdline.Option;
+import net.sf.picard.cmdline.Usage;
 import net.sf.samtools.SAMFileReader;
 import net.sf.samtools.SAMFileWriter;
 import net.sf.samtools.SAMFileWriterFactory;
 import net.sf.samtools.SAMRecord;
 
 import java.io.File;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Collections;
 
 /**
  * Created by IntelliJ IDEA.

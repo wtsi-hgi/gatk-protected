@@ -1,20 +1,19 @@
 package org.broadinstitute.sting.gatk.walkers.phasing;
 
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
+import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
 import java.util.*;
 
@@ -80,16 +79,20 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
                                     "mother, the father, and the child");
         }
 
-        Set<String> samples = new HashSet<String>();
+        Set<String> samples = new TreeSet<String>();
         samples.add(SAMPLE_NAME_MOM);
         samples.add(SAMPLE_NAME_DAD);
         samples.add(SAMPLE_NAME_CHILD);
 
         Set<VCFHeaderLine> headerLines = new HashSet<VCFHeaderLine>();
         headerLines.addAll(VCFUtils.getHeaderFields(this.getToolkit()));
-        headerLines.add(new VCFFilterHeaderLine(AMBIGUOUS_ALLELE_ORIGIN_FILTER_NAME, "The parental origin of each of the child's allele cannot be determined (ie everyone is heterozygous)"));
-        headerLines.add(new VCFFilterHeaderLine(INSUFFICIENT_DATA_FILTER_NAME, "The phase of the child's genotype cannot be determined (ie someone is a no-call)"));
-        headerLines.add(new VCFFilterHeaderLine(MENDELIAN_VIOLATION_FILTER_NAME, "No combination of the parents' alleles can yield the child's genotype (ie a possible Mendelian violation)"));
+
+        if (!noFilters) {
+            headerLines.add(new VCFFilterHeaderLine(AMBIGUOUS_ALLELE_ORIGIN_FILTER_NAME, "The parental origin of each of the child's allele cannot be determined (ie everyone is heterozygous)"));
+            headerLines.add(new VCFFilterHeaderLine(INSUFFICIENT_DATA_FILTER_NAME, "The phase of the child's genotype cannot be determined (ie someone is a no-call)"));
+            headerLines.add(new VCFFilterHeaderLine(MENDELIAN_VIOLATION_FILTER_NAME, "No combination of the parents' alleles can yield the child's genotype (ie a possible Mendelian violation)"));
+        }
+
         headerLines.add(new VCFInfoHeaderLine(TRANSMISSION_PROBABILITY_TAG_NAME, 1, VCFHeaderLineType.Float, "Probability that the phase is correct given that the genotypes are correct"));
         vcfWriter.writeHeader(new VCFHeader(headerLines, samples));
     }
@@ -240,21 +243,6 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
 
             double norm = 0.0;
 
-            /*
-            GATKReport report = new GATKReport();
-            report.addTable("TransmissionProbability", "Reports various quantities used to compute transmission probability");
-
-            GATKReportTable table = report.getTable("TransmissionProbability");
-            table.addPrimaryKey("config", false);
-            table.addColumn("mom", "unknown");
-            table.addColumn("momProbability", "unknown");
-            table.addColumn("dad", "unknown");
-            table.addColumn("dadProbability", "unknown");
-            table.addColumn("child", "unknown");
-            table.addColumn("childProbability", "unknown");
-            table.addColumn("configLikelihood", "unknown");
-            */
-
             for (Genotype momGenotype : possibleMomGenotypes) {
                 for (Genotype dadGenotype : possibleDadGenotypes) {
                     for (Genotype childGenotype : possibleChildGenotypes) {
@@ -269,44 +257,9 @@ public class PhaseByTransmission extends RodWalker<Integer, Integer> {
                             bestDadGenotype = dadGenotype;
                             bestChildGenotype = childGenotype;
                         }
-
-                        /*
-                        String config = momGenotype.toString() + dadGenotype.toString() + childGenotype.toString();
-
-                        double[] momLikelihoods = MathUtils.normalizeFromLog10(momGenotype.getLikelihoods().getAsVector());
-                        double momProbability = momLikelihoods[momGenotype.getType().ordinal() - 1];
-
-                        table.set(config, "mom", momGenotype.toString());
-                        table.set(config, "momProbability", momProbability);
-
-                        double[] dadLikelihoods = MathUtils.normalizeFromLog10(dadGenotype.getLikelihoods().getAsVector());
-                        double dadProbability = dadLikelihoods[dadGenotype.getType().ordinal() - 1];
-
-                        table.set(config, "dad", dadGenotype.toString());
-                        table.set(config, "dadProbability", dadProbability);
-
-                        double[] childLikelihoods = MathUtils.normalizeFromLog10(childGenotype.getLikelihoods().getAsVector());
-                        double childProbability = childLikelihoods[childGenotype.getType().ordinal() - 1];
-
-                        table.set(config, "child", childGenotype.toString());
-                        table.set(config, "childProbability", childProbability);
-
-                        table.set(config, "configLikelihood", prior*configurationLikelihood);
-                        */
                     }
                 }
             }
-
-            /*
-            if (!mom.sameGenotype(bestMomGenotype) || !dad.sameGenotype(bestDadGenotype) || !child.sameGenotype(bestChildGenotype)) {
-                System.out.println("Found a better genotype configuration!");
-                table.write(System.out);
-                System.out.println(mom.toBriefString() + " " + dad.toBriefString() + " " + child.toBriefString());
-                System.out.println(bestMomGenotype.toBriefString() + " " + bestDadGenotype.toBriefString() + " " + bestChildGenotype.toBriefString());
-                System.out.println(bestPrior*bestConfigurationLikelihood / norm);
-                System.out.println("");
-            }
-            */
 
             if (isMendelianViolation(vc.getReference(), vc.getAlternateAllele(0), bestMomGenotype, bestDadGenotype, bestChildGenotype)) {
                 filters.add(MENDELIAN_VIOLATION_FILTER_NAME);

@@ -24,7 +24,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.simulatereads;
 
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -34,9 +33,11 @@ import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.variantutils.VariantsToTable;
 import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Emits specific fields as dictated by the user from one or more VCF files.
