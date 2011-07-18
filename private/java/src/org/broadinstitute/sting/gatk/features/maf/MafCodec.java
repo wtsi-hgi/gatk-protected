@@ -25,17 +25,15 @@
 
 package org.broadinstitute.sting.gatk.features.maf;
 
-import org.broad.tribble.FeatureCodec;
-import org.broad.tribble.Feature;
-import org.broad.tribble.TribbleException;
-import org.broad.tribble.readers.LineReader;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broad.tribble.Feature;
+import org.broad.tribble.FeatureCodec;
+import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 
-import java.io.IOException;
-import java.util.*;
 import java.lang.reflect.Field;
+import java.util.*;
 
 /**
  * Created by IntelliJ IDEA.

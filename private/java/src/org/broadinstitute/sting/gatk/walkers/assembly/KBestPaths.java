@@ -2,7 +2,10 @@ package org.broadinstitute.sting.gatk.walkers.assembly;
 
 import org.jgrapht.graph.DefaultDirectedGraph;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.PriorityQueue;
 
 /**
  * Created by IntelliJ IDEA.

@@ -1,7 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
 import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.ArgumentCollection;
 
 import java.io.File;
 import java.util.List;

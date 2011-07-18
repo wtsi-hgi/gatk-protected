@@ -1,6 +1,5 @@
 package org.broadinstitute.sting.gatk.walkers.replication_validation;
 
-import org.broadinstitute.sting.utils.variantcontext.*;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
@@ -11,12 +10,12 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
-
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.jgrapht.util.MathUtil;
-
 import java.util.*;
 
 /**

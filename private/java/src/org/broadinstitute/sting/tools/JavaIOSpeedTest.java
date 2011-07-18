@@ -1,17 +1,11 @@
 package org.broadinstitute.sting.tools;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileReader;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.util.Date;
-import java.util.zip.GZIPInputStream;
-
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.CommandLineProgram;
+
+import java.io.*;
+import java.util.Date;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Used to test how long it takes to read through a text files and gzipped files.

@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.assembly;
 
-import java.util.*;
+import java.util.Arrays;
 
 /**
  * Created by IntelliJ IDEA.
