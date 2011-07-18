@@ -23,7 +23,7 @@ import generate_per_sample_metrics
 base_path = '/seq/picard_aggregation/%s/%s'
 
 def excel_generator(filename):
-    from org.apache.poi.ss.usermodel import Row,Sheet,Workbook,WorkbookFactory
+    from org.apache.poi.ss.usermodel import Cell,Row,Sheet,Workbook,WorkbookFactory
     wb = WorkbookFactory.create(FileInputStream(filename));
     for sheet_number in range(wb.getNumberOfSheets()):
         project_column = None
@@ -43,7 +43,13 @@ def excel_generator(filename):
         if project_column != None and sample_column != None:
             for row_number in range(1,sheet.getLastRowNum()+1):
                 project = sheet.getRow(row_number).getCell(project_column).getStringCellValue()
-                sample = sheet.getRow(row_number).getCell(sample_column).getStringCellValue()
+                if sheet.getRow(row_number).getCell(sample_column).getCellType() == Cell.CELL_TYPE_STRING:
+                    sample = sheet.getRow(row_number).getCell(sample_column).getStringCellValue()
+                elif sheet.getRow(row_number).getCell(sample_column).getCellType() == Cell.CELL_TYPE_NUMERIC:
+                    sample = str(int(sheet.getRow(row_number).getCell(sample_column).getNumericCellValue()))
+                else:
+                    print >> sys.stderr, "Unable to parse sample column %d; row is of indecipherable type %s"%(sample_column,sheet.getRow(row_number).getCell(sample_column).getCellType())
+                    continue
                 yield project,sample
             return
 
