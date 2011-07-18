@@ -25,25 +25,26 @@
 
 package org.broadinstitute.sting.gatk.walkers.contamination;
 
-import org.broadinstitute.sting.gatk.walkers.LocusWalker;
-import org.broadinstitute.sting.gatk.walkers.genotyper.*;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
+import cern.jet.stat.Probability;
+import net.sf.samtools.SAMReadGroupRecord;
+import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.LocusWalker;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
+import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
+import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.NamedTable;
-import net.sf.samtools.SAMRecord;
-import net.sf.samtools.SAMReadGroupRecord;
+import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 
-import cern.jet.stat.Probability;
-
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.io.PrintStream;
 
 /**
  * FindContaminatingReadGroupsWalker lists read groups in a single-sample BAM file that appear

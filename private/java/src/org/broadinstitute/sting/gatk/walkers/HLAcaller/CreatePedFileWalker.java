@@ -26,16 +26,18 @@
 package org.broadinstitute.sting.gatk.walkers.HLAcaller;
 
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.DataSource;
+import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.gatk.walkers.Requires;
 
-import java.util.ArrayList;
-import java.util.Hashtable;
-import java.util.Enumeration;
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.Hashtable;
 
 /**
  * Creates a ped file of SNPs and amino acids coded as SNPs given an input ped file with 4-digit HLA alleles. Usage: java -jar GenomeAnalysisTK.jar -T CreatePedFile --allelesFile INPUT.ped -R /broad/1KG/reference/human_b36_both.fasta -I /humgen/gsa-sc\

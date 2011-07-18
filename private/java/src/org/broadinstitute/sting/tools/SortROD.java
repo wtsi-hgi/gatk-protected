@@ -25,27 +25,28 @@
 
 package org.broadinstitute.sting.tools;
 
-import org.apache.log4j.BasicConfigurator;
-import org.broad.tribble.FeatureCodec;
-import org.broad.tribble.Feature;
-import org.broadinstitute.sting.utils.codecs.completegenomics.CGVarCodec;
-import org.broad.tribble.readers.AsciiLineReader;
-import org.broadinstitute.sting.utils.codecs.soapsnp.SoapSNPCodec;
-import org.broad.tribble.gelitext.GeliTextCodec;
-import org.broad.tribble.dbsnp.DbSNPCodec;
-import org.broad.tribble.bed.BEDCodec;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
-import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.gatk.features.maf.MafCodec;
-
-import java.io.*;
-import java.util.*;
-
-import net.sf.samtools.util.SortingCollection;
 import net.sf.picard.reference.ReferenceSequenceFile;
 import net.sf.picard.reference.ReferenceSequenceFileFactory;
+import net.sf.samtools.util.SortingCollection;
+import org.apache.log4j.BasicConfigurator;
+import org.broad.tribble.Feature;
+import org.broad.tribble.FeatureCodec;
+import org.broad.tribble.bed.BEDCodec;
+import org.broad.tribble.dbsnp.DbSNPCodec;
+import org.broad.tribble.gelitext.GeliTextCodec;
+import org.broad.tribble.readers.AsciiLineReader;
+import org.broadinstitute.sting.gatk.features.maf.MafCodec;
+import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.codecs.completegenomics.CGVarCodec;
+import org.broadinstitute.sting.utils.codecs.soapsnp.SoapSNPCodec;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
+import org.broadinstitute.sting.utils.exceptions.StingException;
+
+import java.io.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * Created by IntelliJ IDEA.

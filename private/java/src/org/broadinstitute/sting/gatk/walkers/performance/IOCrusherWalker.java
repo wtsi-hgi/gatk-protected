@@ -25,14 +25,14 @@
 
 package org.broadinstitute.sting.gatk.walkers.performance;
 
+import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMFileWriter;
+import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
-import net.sf.samtools.SAMRecord;
-import net.sf.samtools.SAMFileWriter;
-import net.sf.samtools.SAMFileHeader;
 
 import java.util.ArrayList;
 

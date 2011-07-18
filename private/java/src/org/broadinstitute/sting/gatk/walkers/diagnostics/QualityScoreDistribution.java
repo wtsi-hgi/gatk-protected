@@ -25,20 +25,18 @@
 
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
-import org.broadinstitute.sting.gatk.walkers.LocusWalker;
-import org.broadinstitute.sting.gatk.walkers.Reference;
-import org.broadinstitute.sting.gatk.walkers.Window;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.QualityUtils;
 import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.LocusWalker;
+import org.broadinstitute.sting.utils.QualityUtils;
 
-import java.util.*;
 import java.io.PrintStream;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Compute quality score distribution

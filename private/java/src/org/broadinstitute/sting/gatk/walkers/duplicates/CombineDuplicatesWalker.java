@@ -25,20 +25,19 @@
 
 package org.broadinstitute.sting.gatk.walkers.duplicates;
 
+import net.sf.samtools.SAMFileWriter;
+import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.walkers.DuplicateWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.duplicates.DupUtils;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
 
+import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.ArrayList;
-import java.io.PrintStream;
-
-import net.sf.samtools.SAMRecord;
-import net.sf.samtools.SAMFileWriter;
 
 /**
  * Process the input bam file, optionally emitting all the unique reads found, and emitting the combined duplicate reads to

@@ -27,9 +27,9 @@ package org.broadinstitute.sting.utils;
 
 import org.broadinstitute.sting.utils.exceptions.StingException;
 
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 public class AlignmentList implements Iterable<AlignmentInfo> {
         private int best_mm = 1000000000;
