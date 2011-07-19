@@ -45,7 +45,6 @@ public class PicardAggregationUtilsUnitTest {
         latestVersion = PicardAggregationUtils.getLatestVersion(PROJECT, SAMPLE);
         System.out.println(String.format("Latest version for %s %s is %d", PROJECT, SAMPLE, latestVersion));
         Assert.assertTrue(latestVersion > 0);
-        Assert.assertEquals(PicardAggregationUtils.getLatestVersion(PROJECT, SAMPLE, latestVersion), latestVersion);
     }
 
     @Test(dependsOnMethods = "testGetLatestVersion")
@@ -81,10 +80,6 @@ public class PicardAggregationUtilsUnitTest {
     @Test
     public void testLatestVersionMissing() {
         Assert.assertEquals(PicardAggregationUtils.getLatestVersion(MISSING_PROJECT, MISSING_SAMPLE), 0);
-        Assert.assertEquals(PicardAggregationUtils.getLatestVersion(MISSING_PROJECT, MISSING_SAMPLE, -1), -1);
-        Assert.assertEquals(PicardAggregationUtils.getLatestVersion(MISSING_PROJECT, MISSING_SAMPLE, 0), 0);
-        Assert.assertEquals(PicardAggregationUtils.getLatestVersion(MISSING_PROJECT, MISSING_SAMPLE, 1), 1);
-        Assert.assertEquals(PicardAggregationUtils.getLatestVersion(MISSING_PROJECT, MISSING_SAMPLE, 2), 2);
     }
 
     @Test
