@@ -1,3 +1,11 @@
+#
+# Requirements:
+#   Access to the reference data in the exomePreQC database, available in /humgen/gsa-scr1/GATK_Data.
+#   A tsv file generated for the current project via $STING_HOME/private/python/generate_per_sample_metrics.py.
+#
+# To run:
+#   Rscript exomePreQC.R <input tsv> <output pdf>
+#
 args = commandArgs(TRUE)
 onCMDLine = ! is.na(args[1])
 
@@ -27,23 +35,25 @@ trim_to_95_pct <- function(column) {
   return(sapply(column,not_within_bounds))
 }
 
-create_base_plot <- function(title,reference_dataset,new_dataset,column_name) {
+create_base_plot <- function(title,reference_dataset,new_dataset,column_name,include_sigmas=T) {
   # Create the basic plot with reference data
   p <- ggplot(reference_dataset,aes_string(x='sample',y=column_name))
   p <- p + opts(title=title,axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank())
   p <- p + xlab('Sample (ordered by sequencing date)')
+  p <- p + geom_point(alpha=0.1) + geom_rug(aes(x=NULL),alpha=0.01)
 
   # Add in the new points and color them red.
-  p <- p + geom_point(alpha=0.1) + geom_rug(aes(x=NULL),alpha=0.01)
-  p <- p + geom_point(data=new_dataset,aes_string(x='sample',y=column_name),color='red')
+  p <- p + geom_text(data=new_dataset,aes_string(x='sample',y=column_name,label='sample'),color='red',size=2)
 
-  # Lines for the mean,+/- one sigma,+/- two sigma
-  mean <- mean(complete[,column_name],na.rm=T)
-  sd <- sd(complete[,column_name],na.rm=T)
-  text=c('-2*sigma','-1*sigma','mean','1*sigma','2*sigma')
-  value=c(mean-2*sd,mean-1*sd,mean,mean+1*sd,mean+2*sd)
-  p <- p + geom_hline(yintercept=value,color='blue',alpha=0.1)
-  p <- p + geom_text(aes(x,y,label=label),data=data.frame(x=levels(complete$sample)[1],y=value,label=text),hjust=0,vjust=0,color='blue',size=2)
+  if(include_sigmas) {
+    # Lines for the mean,+/- one sigma,+/- two sigma
+    mean <- mean(complete[,column_name],na.rm=T)
+    sd <- sd(complete[,column_name],na.rm=T)
+    text=c('-2*sigma','-1*sigma','mean','1*sigma','2*sigma')
+    value=c(mean-2*sd,mean-1*sd,mean,mean+1*sd,mean+2*sd)
+    p <- p + geom_hline(yintercept=value,color='blue',alpha=0.1)
+    p <- p + geom_text(aes(x,y,label=label),data=data.frame(x=levels(samples$sample)[1],y=value,label=text),hjust=0,vjust=0,color='blue',size=2)
+  }
 
   return(p)
 }
@@ -81,14 +91,9 @@ complete <- cbind(complete,good=F)
 complete <- data.frame(complete,months_to_current_project=number_of_months(as.Date(complete$Last_Sequenced_WR_Created_Date),min(as.Date(data$Last_Sequenced_WR_Created_Date),na.rm=T)))
 complete <- subset(complete,months_to_current_project>=-12)
 
-# provide a reordering of the samples based on Last_Sequenced_WR
-samples <- unique(rbind(data.frame(sample=paste(as.character(complete$sample),as.character(complete$Last_Sequenced_WR_Created_Date)),Last_Sequenced_WR_Created_Date=complete$Last_Sequenced_WR_Created_Date),
-			data.frame(sample=paste(as.character(data$sample),as.character(data$Last_Sequenced_WR_Created_Date)),Last_Sequenced_WR_Created_Date=data$Last_Sequenced_WR_Created_Date)))
-complete$sample <- factor(paste(complete$sample,complete$Last_Sequenced_WR_Created_Date),levels=samples$sample[order(samples$Last_Sequenced_WR)])
-data$sample <- factor(paste(data$sample,data$Last_Sequenced_WR_Created_Date),levels=samples$sample[order(samples$Last_Sequenced_WR,samples$sample)])
-
 #novel <- subset(complete,exon_intervals == "whole_exome_agilent_1.1_refseq_plus_3_boosters"&Novelty=="novel"&FunctionalClass=="all")
 novel_sampled <- subset(complete,Novelty=="novel"&FunctionalClass=="all")
+novel_sampled <- novel_sampled[novel_sampled$BAIT_SET %in% data$BAIT_SET,]
 violations <- trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
 violations <- violations + trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
 violations <- violations + trim_to_95_pct(novel_sampled$MEAN_TARGET_COVERAGE)
@@ -103,6 +108,12 @@ violations <- violations + trim_to_95_pct(novel_sampled$STRAND_BALANCE)
 violations <- violations + trim_to_95_pct(novel_sampled$PCT_CHIMERAS)
 violations <- violations + trim_to_95_pct(novel_sampled$PCT_ADAPTER)
 novel_sampled <- subset(data.frame(novel_sampled,violations=violations),violations==0)	
+
+# provide a reordering of the samples based on Last_Sequenced_WR
+samples <- unique(rbind(data.frame(sample=paste(as.character(novel_sampled$sample),as.character(novel_sampled$Last_Sequenced_WR_Created_Date)),Last_Sequenced_WR_Created_Date=novel_sampled$Last_Sequenced_WR_Created_Date),
+			data.frame(sample=paste(as.character(data$sample),as.character(data$Last_Sequenced_WR_Created_Date)),Last_Sequenced_WR_Created_Date=data$Last_Sequenced_WR_Created_Date)))
+novel_sampled$sample <- factor(paste(novel_sampled$sample,novel_sampled$Last_Sequenced_WR_Created_Date),levels=samples$sample[order(samples$Last_Sequenced_WR)])
+data$sample <- factor(paste(data$sample,data$Last_Sequenced_WR_Created_Date),levels=samples$sample[order(samples$Last_Sequenced_WR,samples$sample)])
 
 # Write to PDF as necessary.
 if(onCMDLine) {
@@ -164,24 +175,20 @@ create_stock_plots('# SNPs called per Sample',novel_sampled,data,'TOTAL_SNPS')
 
 create_stock_plots('% SNPs in dbSNP per Sample',novel_sampled,data,'PCT_DBSNP')
 
-median_insert_size = rbind(data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='reference'),
-		           data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='new'),
-			   data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='reference'),
-			   data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='new'),
-			   data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='reference'),
-			   data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='new'))
-p <- ggplot(median_insert_size,aes(sample,MEDIAN_INSERT_SIZE,color=data_type)) + geom_point() + geom_rug(aes(x=NULL),alpha=0.01) + facet_grid(insert_type ~ .) + scale_color_manual(values=c(alpha('black',0.1),alpha('red',1.0)))
-p <- p + opts(title='Median Insert Size per Sample',axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank()) 
-p <- p + xlab('Sample (ordered by sequencing date)')
-p
+median_insert_size_ref <- rbind(data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_RF,insert_type='RF'),		           
+			        data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_FR,insert_type='FR'),
+			        data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM'))
+median_insert_size_new <- rbind(data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF'),
+			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR'),
+			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM'))
+create_base_plot('Median Insert Size per Sample',median_insert_size_ref,median_insert_size_new,'MEDIAN_INSERT_SIZE',include_sigmas=F) + facet_grid(insert_type ~ .)
 
-#median_insert_size_ref = rbind(data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='reference'),
-#			       data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='reference'),
-#			       data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='reference'))
-#median_insert_size_new = rbind(data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='new'),
-#			       data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='new'),
-#			       data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='new'))
-#ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE,color=data_type,alpha=0.1)) + geom_point() + geom_point(data=median_insert_size_new,aes(sample,MEDIAN_INSERT_SIZE),color='red') + facet_grid(insert_type ~ .)
+#p <- ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE)) + geom_point(color='black',alpha=0.1) + geom_rug(aes(x=NULL),alpha=0.01) + geom_text(data=median_insert_size_new,aes(x=sample,y=MEDIAN_INSERT_SIZE,label=sample),color='red',size=2) + facet_grid(insert_type ~ .)
+#p <- p + opts(title='Median Insert Size per Sample',axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank()) 
+#p <- p + xlab('Sample (ordered by sequencing date)')
+#p
+
+#p <- ggplot(median_insert_size,aes(sample,MEDIAN_INSERT_SIZE,color=data_type)) + geom_point() + geom_rug(aes(x=NULL),alpha=0.01) + facet_grid(insert_type ~ .) + scale_color_manual(values=c(alpha('black',0.1),alpha('red',1.0)))
 
 create_stock_plots('% Chimera Read Pairs per Sample',novel_sampled,data,'PCT_CHIMERAS')
 

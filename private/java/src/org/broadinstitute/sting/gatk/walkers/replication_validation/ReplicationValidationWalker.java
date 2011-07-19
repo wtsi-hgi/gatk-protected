@@ -1,5 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.replication_validation;
 
+import com.google.java.contract.Ensures;
+import com.google.java.contract.Requires;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
@@ -191,11 +193,10 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
      * The prior probability of an allele count being observed based solely on the human heterozygozity rate
      * and the number of samples
      *
-     * @param nChromosomes number of chromosomes
      * @param ac given allele count
      * @return the prior probability of ac
      */
-    private double log10PriorAC(int nChromosomes, int ac) {
+    private double log10PriorAC(int ac) {
         // prior probability for a given allele count is THETA/AC.
         if (ac > 0)
             return Math.log10(THETA/ac);
@@ -225,26 +226,40 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
      */
     private double[] getPoolACProbabilityDistribution (ReadBackedPileup pool, double[] errorModel, byte refBase) {
         double [] result = new double[maxAlleleCount+1];
-        int nAlleles = ploidy * nSamples;
-        for (int ac=0; ac<=maxAlleleCount; ac++) {
-            double log10PAC = log10PriorAC(nAlleles, ac);
-            int mismatches = getNumberOfMismatches(pool.getBases(), refBase);
-            int matches = pool.size();
-            double p = ac / nAlleles;
-            double q = 1 - p;
+        int mismatches = getNumberOfMismatches(pool.getBases(), refBase);
+        int matches = pool.size() - mismatches;
 
-            // for each quality probability in the model, calculate the probability of the allele count = ac
-            // we skip Q0 because it's meaningless.
-            double [] acc = new double[maxQualityScore]; // we're skipping Q0 so we don't need maxQualityScore + 1 here.
-            for (byte i = 1; i <= maxQualityScore; i++) {
-                double e = MathUtils.phredScaleToProbability(i);
-                double x = Math.log10(q * (1-e) + p * e);
-                double y = Math.log10(q * e + p * (1-e));
-                acc[i-1] = errorModel[i] + matches * x + mismatches * y;
-            }
-            result[ac] = log10PAC + MathUtils.log10sumLog10(acc);
+        for (int ac=0; ac<=maxAlleleCount; ac++) {
+            result[ac] = log10pOfAC(ac, errorModel, matches, mismatches);
         }
+
         return result;
+    }
+
+    @Requires({"ac>=0", "errorModel != null", "matches >= 0", "mismatches >= 0" })
+    @Ensures({"result <= 0", "! Double.isInfinite(result)", "! Double.isNaN(result)"})
+    private double log10pOfAC(int ac, double[] errorModel, int matches, int mismatches) {
+        double log10PAC = log10PriorAC(ac);
+
+        // for each quality probability in the model, calculate the probability of the allele count = ac
+        // we skip Q0 because it's meaningless.
+        double [] acc = new double[maxQualityScore]; // we're skipping Q0 so we don't need maxQualityScore + 1 here.
+        for (int i = 0; i < maxQualityScore; i++) {
+            final int qual = i + 1;
+            acc[i] = log10pOfACGivenQual(ac, qual, errorModel, matches, mismatches);
+        }
+        return log10PAC + MathUtils.log10sumLog10(acc);
+    }
+
+    @Requires({"ac>=0", "qual>0", "errorModel != null && qual < errorModel.length", "matches >= 0", "mismatches >= 0" })
+    @Ensures({"result <= 0", "! Double.isInfinite(result)", "! Double.isNaN(result)"})
+    private double log10pOfACGivenQual(int ac, int qual, double[] errorModel, int matches, int mismatches) {
+        double p = (double) ac / maxAlleleCount;
+        double q = 1 - p;
+        double e = MathUtils.phredScaleToProbability((byte)qual);
+        double x = Math.log10(q * (1-e) + p * e);
+        double y = Math.log10(q * e + p * (1-e));
+        return errorModel[qual] + matches * x + mismatches * y;
     }
 
     public void initialize() {
@@ -271,20 +286,22 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
                 foundReferenceROD = true;
             }
             if (rod.getName().equals(TRUTH_ROD_NAME)) {
-                foundReferenceROD = true;
+                foundTruthROD = true;
             }
         }
         if (!foundReferenceROD) {
             throw new IllegalArgumentException("You haven't provided a reference ROD. Note that the reference ROD must be labeled " + REFERENCE_ROD_NAME + ".");
         }
         USE_TRUTH_ROD = foundTruthROD;
-
     }
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
 
         // Get reference base from VCF or Reference
         VariantContext referenceSampleContext = tracker.getVariantContext(ref, REFERENCE_ROD_NAME, context.getLocation());
+
+        VariantContext truthContext = tracker.getVariantContext(ref, TRUTH_ROD_NAME, context.getLocation());
+
         Collection<Byte> trueReferenceBases = getTrueBases(referenceSampleContext, ref);
 
         // If there is no true reference base in this locus, skip it.
@@ -326,12 +343,13 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
                     System.out.println("\n\n" + "[" + ref.getLocus() + "] " + laneID + " - " + pool +
                             "\nNumber of Samples: " + nSamples +
                             "\nRefSample Size: " + referenceSamplePileup.getBases().length +
-                            "\nRefSample AAs: " + getNumberOfMismatches(referenceSamplePileup.getBases(), trueReferenceBases) +
+                            "\nRefSample MMs: " + getNumberOfMismatches(referenceSamplePileup.getBases(), trueReferenceBases) +
                             "\nRefQ: " + MathUtils.maxElementIndex(errorModel) +
                             "\nPool Size: " + poolPileup.size() +
-                            "\nPool AAs: " + getNumberOfMismatches(poolPileup.getBases(), ref.getBase()) +
+                            "\nPool MMs: " + getNumberOfMismatches(poolPileup.getBases(), ref.getBase()) +
                             "\nPool AF: " + (double) getNumberOfMismatches(poolPileup.getBases(), ref.getBase())/poolPileup.size() +
-                            "\nPool AC: " + MathUtils.maxElementIndex(AC));
+                            "\nTrutn AN: " + truthContext.getAttribute("AN") +
+                            "\nPool AC / Truth AC: " + MathUtils.maxElementIndex(AC) + " / " + truthContext.getAttribute("AC") + " / " + truthContext.isFiltered());
 
                     System.out.println("\nError Model: ");
                     for (double v : errorModel)

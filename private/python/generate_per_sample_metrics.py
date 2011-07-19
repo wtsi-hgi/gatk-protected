@@ -124,7 +124,49 @@ def get_full_metrics(sample,basepath):
             data.extend([str(getattr(metrics, metrics_field_name)) for metrics_field_name in get_sample_summary_metrics_fields(metrics_type)])
         else:
             data.extend(['NA' for metrics_field_name in get_sample_summary_metrics_fields(metrics_type)])
-    return data    
+    return data
+
+def bam_list_generator(bam_list_filename):
+    # get a representative BAM file for each sample, to use as a base path.  Note that this assumes every sample corresponds to the same base path.
+    bam_list = open(bam_list_filename,'r')
+    for bam_filename in bam_list:
+        bam_filename = bam_filename.strip()
+        if bam_filename == '':
+            continue
+        bam_filename_tokens = bam_filename.split('/')
+        project_id = bam_filename_tokens[-4]
+        sample_id = bam_filename_tokens[-3]
+        yield project_id,sample_id
+    bam_list.close()
+
+def tsv_generator(tsv_filename):
+    tsv = open(tsv_filename,'r')
+    for tsv_entry in tsv:
+        tsv_entry = tsv_entry.strip()
+        if len(tsv_entry) == 0:
+            continue
+        project_id = tsv_entry.split('\t')[0]
+        sample_id = tsv_entry.split('\t')[1]
+        yield project_id,sample_id
+    tsv.close()
+
+def find_latest_version(project_id,sample_id):
+    base_path = '/seq/picard_aggregation/%s/%s'
+    sample_path = base_path % (project_id,IoUtil.makeFileNameSafe(sample_id))
+    if not os.path.exists(sample_path):
+        print >> sys.stderr, 'WARNING: Unable to find home for data with project = %s, sample = %s; path %s not found' % (project_id,sample_id,sample_path)
+        return None,None,None
+    versions = []
+    for version_path in os.listdir(sample_path):
+        version_path = version_path.strip()
+        if version_path[0] != 'v':
+            continue
+        versions.append(int(version_path[1:]))
+    if len(versions) != 0:
+        latest_version = sorted(versions)[-1]
+    else:
+        latest_version = None        
+    return latest_version
 
 def main():
     include_sequence_date = False
@@ -138,7 +180,12 @@ def main():
         if sys.argv[2].lower() == 'true':
             include_sequence_date = True
 
-    bam_list_filename = sys.argv[1]
+    filename = sys.argv[1]
+    extension = os.path.splitext(filename)[1]
+    if extension == '.tsv':
+        generator = tsv_generator(filename)
+    else:
+        generator = bam_list_generator(filename)
 
     header = ['sample']
     header.extend(get_full_metrics_fields())
@@ -146,31 +193,22 @@ def main():
         header.extend(['Last_Sequenced_WR','Last_Sequenced_WR_Created_Date'])
     print string.join(header,'\t')
 
-    # get a representative BAM file for each sample, to use as a base path.  Note that this assumes every sample corresponds to the same base path.
-    bam_list = open(bam_list_filename,'r')
     samples = dict()
 
-    for bam_filename in bam_list:
-        bam_filename = bam_filename.strip()
-        if bam_filename == '':
+    # get a representative BAM file for each sample, to use as a base path.  Note that this assumes every sample corresponds to the same base path.
+    for project_id,sample_id in generator:
+        print >> sys.stderr,'Processing project %s, sample %s'%(project_id,sample_id)
+        sample_id_encoded = IoUtil.makeFileNameSafe(sample_id)
+        latest_version = find_latest_version(project_id,sample_id)
+        if not latest_version:
+            print >> sys.stderr,'Unable to find proper version directory for project = %s, sample = %s'%(project_id,sample_id)
             continue
-        bam_filename_tokens = bam_filename.split('/')
-        project_id = bam_filename_tokens[-4]
-        sample_id = bam_filename_tokens[-3]
-        # Temporary hack to get through today: we currently do NOT have a way to go from a BAM list back to a sample id.
-        if sample_id == 'C_III-3_A':
-            sample_id = 'C III-3_A'
-        samples[sample_id] = bam_filename
-    bam_list.close()
-
-    for sample_id,filename in samples.items():
-        basepath = filename[:filename.rindex('.bam')]
+        base_path = '/seq/picard_aggregation/%s/%s/v%d/%s' % (project_id,sample_id_encoded,latest_version,sample_id_encoded)
         # Be certain to quote the metrics to ensure that spaces are properly handled by R.
         metrics = ['"%s"'%sample_id]
-        metrics += get_full_metrics(sample_id,basepath)
+        metrics += get_full_metrics(sample_id,base_path)
         if include_sequence_date:
             metrics += generate_preqc_database.load_dates_from_database(project_id,sample_id)
-        print >> sys.stderr, 'Processing',filename
         print string.join(metrics,'\t')
 
 if __name__ == "__main__":
