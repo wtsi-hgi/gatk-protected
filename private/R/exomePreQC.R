@@ -1,3 +1,11 @@
+#
+# Requirements:
+#   Access to the reference data in the exomePreQC database, available in /humgen/gsa-scr1/GATK_Data.
+#   A tsv file generated for the current project via $STING_HOME/private/python/generate_per_sample_metrics.py.
+#
+# To run:
+#   Rscript exomePreQC.R <input tsv> <output pdf>
+#
 args = commandArgs(TRUE)
 onCMDLine = ! is.na(args[1])
 
@@ -81,12 +89,6 @@ complete <- cbind(complete,good=F)
 complete <- data.frame(complete,months_to_current_project=number_of_months(as.Date(complete$Last_Sequenced_WR_Created_Date),min(as.Date(data$Last_Sequenced_WR_Created_Date),na.rm=T)))
 complete <- subset(complete,months_to_current_project>=-12)
 
-# provide a reordering of the samples based on Last_Sequenced_WR
-samples <- unique(rbind(data.frame(sample=paste(as.character(complete$sample),as.character(complete$Last_Sequenced_WR_Created_Date)),Last_Sequenced_WR_Created_Date=complete$Last_Sequenced_WR_Created_Date),
-			data.frame(sample=paste(as.character(data$sample),as.character(data$Last_Sequenced_WR_Created_Date)),Last_Sequenced_WR_Created_Date=data$Last_Sequenced_WR_Created_Date)))
-complete$sample <- factor(paste(complete$sample,complete$Last_Sequenced_WR_Created_Date),levels=samples$sample[order(samples$Last_Sequenced_WR)])
-data$sample <- factor(paste(data$sample,data$Last_Sequenced_WR_Created_Date),levels=samples$sample[order(samples$Last_Sequenced_WR,samples$sample)])
-
 #novel <- subset(complete,exon_intervals == "whole_exome_agilent_1.1_refseq_plus_3_boosters"&Novelty=="novel"&FunctionalClass=="all")
 novel_sampled <- subset(complete,Novelty=="novel"&FunctionalClass=="all")
 novel_sampled <- novel_sampled[novel_sampled$BAIT_SET %in% data$BAIT_SET,]
@@ -104,6 +106,12 @@ violations <- violations + trim_to_95_pct(novel_sampled$STRAND_BALANCE)
 violations <- violations + trim_to_95_pct(novel_sampled$PCT_CHIMERAS)
 violations <- violations + trim_to_95_pct(novel_sampled$PCT_ADAPTER)
 novel_sampled <- subset(data.frame(novel_sampled,violations=violations),violations==0)	
+
+# provide a reordering of the samples based on Last_Sequenced_WR
+samples <- unique(rbind(data.frame(sample=paste(as.character(novel_sampled$sample),as.character(novel_sampled$Last_Sequenced_WR_Created_Date)),Last_Sequenced_WR_Created_Date=novel_sampled$Last_Sequenced_WR_Created_Date),
+			data.frame(sample=paste(as.character(data$sample),as.character(data$Last_Sequenced_WR_Created_Date)),Last_Sequenced_WR_Created_Date=data$Last_Sequenced_WR_Created_Date)))
+novel_sampled$sample <- factor(paste(novel_sampled$sample,novel_sampled$Last_Sequenced_WR_Created_Date),levels=samples$sample[order(samples$Last_Sequenced_WR)])
+data$sample <- factor(paste(data$sample,data$Last_Sequenced_WR_Created_Date),levels=samples$sample[order(samples$Last_Sequenced_WR,samples$sample)])
 
 # Write to PDF as necessary.
 if(onCMDLine) {
