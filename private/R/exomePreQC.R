@@ -173,24 +173,18 @@ create_stock_plots('# SNPs called per Sample',novel_sampled,data,'TOTAL_SNPS')
 
 create_stock_plots('% SNPs in dbSNP per Sample',novel_sampled,data,'PCT_DBSNP')
 
-median_insert_size = rbind(data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='reference'),
-		           data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='new'),
-			   data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='reference'),
-			   data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='new'),
-			   data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='reference'),
-			   data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='new'))
-p <- ggplot(median_insert_size,aes(sample,MEDIAN_INSERT_SIZE,color=data_type)) + geom_point() + geom_rug(aes(x=NULL),alpha=0.01) + facet_grid(insert_type ~ .) + scale_color_manual(values=c(alpha('black',0.1),alpha('red',1.0)))
+median_insert_size_ref <- rbind(data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_RF,insert_type='RF'),		           
+			        data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_FR,insert_type='FR'),
+			        data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM'))
+median_insert_size_new <- rbind(data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF'),
+			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR'),
+			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM'))
+p <- ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE)) + geom_point(color='black',alpha=0.1) + geom_rug(aes(x=NULL),alpha=0.01) + geom_text(data=median_insert_size_new,aes(x=sample,y=MEDIAN_INSERT_SIZE,label=sample),color='red',size=2) + facet_grid(insert_type ~ .)
 p <- p + opts(title='Median Insert Size per Sample',axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank()) 
 p <- p + xlab('Sample (ordered by sequencing date)')
 p
 
-#median_insert_size_ref = rbind(data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='reference'),
-#			       data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='reference'),
-#			       data.frame(sample=novel_sampled$sample,MEDIAN_INSERT_SIZE=novel_sampled$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='reference'))
-#median_insert_size_new = rbind(data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF',data_type='new'),
-#			       data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR',data_type='new'),
-#			       data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM',data_type='new'))
-#ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE,color=data_type,alpha=0.1)) + geom_point() + geom_text(data=median_insert_size_new,aes(sample,MEDIAN_INSERT_SIZE),color='red',size=2) + facet_grid(insert_type ~ .)
+#p <- ggplot(median_insert_size,aes(sample,MEDIAN_INSERT_SIZE,color=data_type)) + geom_point() + geom_rug(aes(x=NULL),alpha=0.01) + facet_grid(insert_type ~ .) + scale_color_manual(values=c(alpha('black',0.1),alpha('red',1.0)))
 
 create_stock_plots('% Chimera Read Pairs per Sample',novel_sampled,data,'PCT_CHIMERAS')
 
