@@ -35,7 +35,7 @@ trim_to_95_pct <- function(column) {
   return(sapply(column,not_within_bounds))
 }
 
-create_base_plot <- function(title,reference_dataset,new_dataset,column_name) {
+create_base_plot <- function(title,reference_dataset,new_dataset,column_name,include_sigmas=T) {
   # Create the basic plot with reference data
   p <- ggplot(reference_dataset,aes_string(x='sample',y=column_name))
   p <- p + opts(title=title,axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank())
@@ -45,13 +45,15 @@ create_base_plot <- function(title,reference_dataset,new_dataset,column_name) {
   # Add in the new points and color them red.
   p <- p + geom_text(data=new_dataset,aes_string(x='sample',y=column_name,label='sample'),color='red',size=2)
 
-  # Lines for the mean,+/- one sigma,+/- two sigma
-  mean <- mean(complete[,column_name],na.rm=T)
-  sd <- sd(complete[,column_name],na.rm=T)
-  text=c('-2*sigma','-1*sigma','mean','1*sigma','2*sigma')
-  value=c(mean-2*sd,mean-1*sd,mean,mean+1*sd,mean+2*sd)
-  p <- p + geom_hline(yintercept=value,color='blue',alpha=0.1)
-  p <- p + geom_text(aes(x,y,label=label),data=data.frame(x=levels(complete$sample)[1],y=value,label=text),hjust=0,vjust=0,color='blue',size=2)
+  if(include_sigmas) {
+    # Lines for the mean,+/- one sigma,+/- two sigma
+    mean <- mean(complete[,column_name],na.rm=T)
+    sd <- sd(complete[,column_name],na.rm=T)
+    text=c('-2*sigma','-1*sigma','mean','1*sigma','2*sigma')
+    value=c(mean-2*sd,mean-1*sd,mean,mean+1*sd,mean+2*sd)
+    p <- p + geom_hline(yintercept=value,color='blue',alpha=0.1)
+    p <- p + geom_text(aes(x,y,label=label),data=data.frame(x=levels(samples$sample)[1],y=value,label=text),hjust=0,vjust=0,color='blue',size=2)
+  }
 
   return(p)
 }
@@ -179,10 +181,12 @@ median_insert_size_ref <- rbind(data.frame(sample=novel_sampled$sample,MEDIAN_IN
 median_insert_size_new <- rbind(data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF'),
 			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR'),
 			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM'))
-p <- ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE)) + geom_point(color='black',alpha=0.1) + geom_rug(aes(x=NULL),alpha=0.01) + geom_text(data=median_insert_size_new,aes(x=sample,y=MEDIAN_INSERT_SIZE,label=sample),color='red',size=2) + facet_grid(insert_type ~ .)
-p <- p + opts(title='Median Insert Size per Sample',axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank()) 
-p <- p + xlab('Sample (ordered by sequencing date)')
-p
+create_base_plot('Median Insert Size per Sample',median_insert_size_ref,median_insert_size_new,'MEDIAN_INSERT_SIZE',include_sigmas=F) + facet_grid(insert_type ~ .)
+
+#p <- ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE)) + geom_point(color='black',alpha=0.1) + geom_rug(aes(x=NULL),alpha=0.01) + geom_text(data=median_insert_size_new,aes(x=sample,y=MEDIAN_INSERT_SIZE,label=sample),color='red',size=2) + facet_grid(insert_type ~ .)
+#p <- p + opts(title='Median Insert Size per Sample',axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank()) 
+#p <- p + xlab('Sample (ordered by sequencing date)')
+#p
 
 #p <- ggplot(median_insert_size,aes(sample,MEDIAN_INSERT_SIZE,color=data_type)) + geom_point() + geom_rug(aes(x=NULL),alpha=0.01) + facet_grid(insert_type ~ .) + scale_color_manual(values=c(alpha('black',0.1),alpha('red',1.0)))
 
