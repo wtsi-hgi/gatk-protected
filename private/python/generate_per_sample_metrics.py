@@ -1,9 +1,15 @@
 #
 # Reads in selected Picard metrics, generating an R-compatible TSV suitable for pre-QC analysis.
 #
-# To run:
+# There are two run modes: one pulls in timestamps using the sequencing database, one skips those two columns.
+#   To load info from the sequencing database, use IntelliJ to connect to the database, thereby downloading its Oracle connection jar into $STING_HOME.  Then run:
 #   /humgen/gsa-hpprojects/software/bin/jython2.5.2/jython \
-#     -J-classpath $STING_HOME/dist/sam-1.47.869.jar:$STING_HOME/dist/picard-1.47.869.jar:$STING_HOME/dist/picard-private-parts-1941.jar \
+#     -J-classpath $STING_HOME/dist/sam-1.48.889.jar:$STING_HOME/dist/picard-1.48.889.jar:$STING_HOME/dist/picard-private-parts-1954.jar:$STING_HOME/ojdbc6-11.2.0.1.0.jar \
+#     $STING_HOME/private/python/generate_per_sample_metrics.py <bam.list> true > <output_metrics_file.tsv>
+#
+#  To skip the sequencing database, use the following command:
+#   /humgen/gsa-hpprojects/software/bin/jython2.5.2/jython \
+#     -J-classpath $STING_HOME/dist/sam-1.48.889.jar:$STING_HOME/dist/picard-1.48.889.jar:$STING_HOME/dist/picard-private-parts-1954.jar \
 #     $STING_HOME/private/python/generate_per_sample_metrics.py <bam.list> > <output_metrics_file.tsv>
 #
 # To add a new metric:
@@ -18,7 +24,11 @@ from java.io import File,FileReader
 from edu.mit.broad.picard.genotype.concordance import DbSnpMatchMetrics
 from net.sf.picard.analysis import AlignmentSummaryMetrics,InsertSizeMetrics
 from net.sf.picard.analysis.directed import HsMetrics
+from net.sf.picard.io import IoUtil
 from net.sf.picard.metrics import MetricsFile
+from net.sf.picard.util import TabbedTextFileWithHeaderParser
+
+import generate_preqc_database
 
 import os,string,sys
 
@@ -71,7 +81,10 @@ sample_summary_metrics_types = [ (HsMetrics,'hybrid_selection_metrics',None,None
 
 def get_full_metrics_fields():
     sample_summary_metrics_fields = []
-    headers = ['FINGERPRINT_LODS','HAPLOTYPES_CONFIDENTLY_MATCHING']
+    # Add the initiative name from analysis_files.txt
+    headers = ['INITIATIVE']
+    # Add in the fingerprint lods.
+    headers += ['FINGERPRINT_LODS','HAPLOTYPES_CONFIDENTLY_MATCHING']
     for metric_type in sample_summary_metrics_types:
         metric_class = metric_type[0]
         metric_suffix = metric_type[3]
@@ -82,6 +95,17 @@ def get_full_metrics_fields():
     return headers + sample_summary_metrics_fields
 
 def get_full_metrics(sample,basepath):
+    data = []
+
+    # Load in the initiative from analysis_files.txt. I believe this data is lane-level, so we grab only the first row for the initiative data.
+    initiative = 'NA'
+    analysis_file_reader = TabbedTextFileWithHeaderParser(File(os.path.dirname(basepath)+'/analysis_files.txt'))
+    for row in analysis_file_reader:
+        initiative = '"%s"'%row.getField('INITIATIVE')
+        break
+
+    data += [initiative]
+
     fingerprinting_summary_metrics = get_all_metrics('%s.%s' % (basepath,'fingerprinting_summary_metrics'))
     
     if fingerprinting_summary_metrics != None:
@@ -91,7 +115,7 @@ def get_full_metrics(sample,basepath):
         haplotypes_confidently_matching = []
         fingerprint_lods = []
         
-    data = ['c('+string.join(fingerprint_lods,',')+')','c('+string.join(haplotypes_confidently_matching,',')+')']
+    data += ['c('+string.join(fingerprint_lods,',')+')','c('+string.join(haplotypes_confidently_matching,',')+')']
 
     for metrics_type,metrics_extension,metrics_filter,metrics_suffix in sample_summary_metrics_types:
         metrics_pathname = '%s.%s' % (basepath,metrics_extension)
@@ -103,18 +127,23 @@ def get_full_metrics(sample,basepath):
     return data    
 
 def main():
-    if len(sys.argv) != 2:
-        print 'USAGE: %s <bam files.list>'
+    include_sequence_date = False
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
+        print >> sys.stderr, 'USAGE: %s <bam files.list> {include sequence date}'
         sys.exit(1)
     if not os.path.exists(sys.argv[1]):
-        print 'BAM list %s not found' % sys.argv[1]
+        print >> sys.stderr, 'BAM list %s not found' % sys.argv[1]
         sys.exit(1)
+    if len(sys.argv) == 3:
+        if sys.argv[2].lower() == 'true':
+            include_sequence_date = True
 
     bam_list_filename = sys.argv[1]
 
     header = ['sample']
-    for metric_type in sample_summary_metrics_types:
-        header.extend(get_sample_summary_metrics_fields(metric_type[0]))
+    header.extend(get_full_metrics_fields())
+    if include_sequence_date:
+        header.extend(['Last_Sequenced_WR','Last_Sequenced_WR_Created_Date'])
     print string.join(header,'\t')
 
     # get a representative BAM file for each sample, to use as a base path.  Note that this assumes every sample corresponds to the same base path.
@@ -126,13 +155,23 @@ def main():
         if bam_filename == '':
             continue
         bam_filename_tokens = bam_filename.split('/')
-        sample_id = bam_filename_tokens[len(bam_filename_tokens)-3]
+        project_id = bam_filename_tokens[-4]
+        sample_id = bam_filename_tokens[-3]
+        # Temporary hack to get through today: we currently do NOT have a way to go from a BAM list back to a sample id.
+        if sample_id == 'C_III-3_A':
+            sample_id = 'C III-3_A'
         samples[sample_id] = bam_filename
     bam_list.close()
 
     for sample_id,filename in samples.items():
         basepath = filename[:filename.rindex('.bam')]
-        print string.join([sample_id]+get_full_metrics(sample_id,basepath),'\t')
+        # Be certain to quote the metrics to ensure that spaces are properly handled by R.
+        metrics = ['"%s"'%sample_id]
+        metrics += get_full_metrics(sample_id,basepath)
+        if include_sequence_date:
+            metrics += generate_preqc_database.load_dates_from_database(project_id,sample_id)
+        print >> sys.stderr, 'Processing',filename
+        print string.join(metrics,'\t')
 
 if __name__ == "__main__":
     main()

@@ -26,15 +26,17 @@
 package org.broadinstitute.sting.gatk.walkers.HLAcaller;
 
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.DataSource;
+import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.gatk.walkers.Requires;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Hashtable;
-import java.io.PrintStream;
 
 /**
  * Finds the most similar HLA allele for each read (helps detect misalignments). Usage: java -jar GenomeAnalysisTK.jar -T FindClosestHLA -I INPUT.bam -R /broad/1KG/reference/human_b36_both.fasta -L INPUT.interval | grep -v INFO | sort -k1 > OUTPUT

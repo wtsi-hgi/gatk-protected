@@ -9,10 +9,11 @@ import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
 import org.broadinstitute.sting.gatk.walkers.Reference;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.Window;
-import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
@@ -101,7 +102,7 @@ public class TableToVCF extends RodWalker<VariantContext,Integer> {
             }
             ref = Allele.create(refBase,true);
             alt = Allele.create(Allele.NULL_ALLELE_STRING,false);
-            end = featureLoc.getStart()+size;
+            end = featureLoc.getStart()+size    ;
         } else if ( type.equals(VariantType.INSERTION) ) {
             alt = Allele.create(features.get(3).getBytes());
             ref = Allele.create(Allele.NULL_ALLELE_STRING,true);

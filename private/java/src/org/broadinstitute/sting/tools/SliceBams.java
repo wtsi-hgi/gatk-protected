@@ -26,14 +26,11 @@ package org.broadinstitute.sting.tools;
 import net.sf.picard.PicardException;
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
-import net.sf.picard.cmdline.StandardOptionDefinitions;
 import net.sf.picard.cmdline.Usage;
 import net.sf.picard.io.IoUtil;
-import net.sf.picard.sam.MergingSamRecordIterator;
 import net.sf.picard.sam.SamFileHeaderMerger;
 import net.sf.picard.util.Log;
 import net.sf.samtools.*;
-import net.sf.samtools.util.BlockCompressedOutputStream;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.sam.SimplifyingSAMFileWriter;
@@ -44,9 +41,6 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Reads a list of BAM files and slices all of them into a single merged BAM file

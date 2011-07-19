@@ -2,8 +2,9 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
-import net.sf.samtools.*;
-import org.apache.commons.math.stat.descriptive.summary.Sum;
+import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMReadGroupRecord;
+import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.utils.BaseUtils;
@@ -15,10 +16,8 @@ import org.broadinstitute.sting.utils.clipreads.ClippingRepresentation;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
-import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 
-import java.io.PrintStream;
 import java.util.*;
 
 /*
@@ -70,11 +69,13 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     Queue<SAMRecord> waitingReads = new LinkedList<SAMRecord>();
 
     final int readContextSize;
-    final int targetDepthAtVariableSites;
+    final int AverageDepthAtVariableSites;
     final int minBpForRunningConsensus;
     final int QualityEquivalent;
+    final int minMapQuality;
     int retryTimer = 0;
     int consensusCounter = 0;
+    int rms = 0;
 
     final SAMReadGroupRecord reducedReadGroup;
     String contig = null;
@@ -86,17 +87,17 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
                                                final int readContextSize,
                                                final GenomeLocParser glParser,
                                                final int minBpForRunningConsensus,
-                                               final int targetDepthAtVariableSites,
+                                               final int AverageDepthAtVariableSites,
                                                final int qualityEquivalent,
                                                final int minMapQuality) {
         this.readContextSize = readContextSize;
         this.glParser = glParser;
         this.minBpForRunningConsensus = minBpForRunningConsensus;
-        this.targetDepthAtVariableSites = targetDepthAtVariableSites;
+        this.AverageDepthAtVariableSites = AverageDepthAtVariableSites;
         this.reducedReadGroup = createReducedReadGroup(sampleName);
         this.QualityEquivalent = qualityEquivalent;
+        this.minMapQuality = minMapQuality;
     }
-    // TODO Implement min mapping quality
 
     /**
      * Helper function to create a read group for these reduced reads
@@ -147,8 +148,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
             retryTimer--;
         }
 
-        if ( ! read.getDuplicateReadFlag() && ! read.getNotPrimaryAlignmentFlag() && ! read.getReadUnmappedFlag() )
-            waitingReads.add(read);
+        waitingReads.add(read);
 
         return result;
     }
@@ -164,7 +164,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     //
     // ------------------------------------------------------------------------------------------
 
-    // Determines whether consensus size is above mbrc
+    // Determines whether consensus size is above MBRC
     private boolean chunkReadyForConsensus(SAMRecord read) {
         if ( ! waitingReads.isEmpty() ) {
             SAMRecord firstRead = waitingReads.iterator().next();
@@ -336,19 +336,37 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         return consensusSites;
     }
 
-    // Decides how to treats each read
+    // Decides how to treat each read
     private List<SAMRecord> consensusReadsFromSitesAndSpans(List<ConsensusSite> sites, List<ConsensusSpan> spans) {
         List<SAMRecord> reads = new ArrayList<SAMRecord>();
 
         for ( ConsensusSpan span : spans ) {
             //logger.info("Span is " + span);
-            if ( span.isConserved() )
+            if ( span.isConserved() ) {
+                processReads();
                 reads.addAll(conservedSpanReads(sites, span));
+            }
             else
                 reads.addAll(downsample(variableSpanReads(sites, span), span));
         }
 
         return reads;
+    }
+
+    private void processReads() {
+
+        long sum = 0;
+        Queue<SAMRecord> temp = new LinkedList<SAMRecord>();
+        while ( ! waitingReads.isEmpty() ) {
+            SAMRecord read = waitingReads.remove();
+            if ( read.getMappingQuality() >= minMapQuality )  {
+                temp.add(read);
+                sum += Math.pow( read.getMappingQuality() , 2 );
+            }
+        }
+        waitingReads.addAll(temp);
+        int n = waitingReads.size();
+        rms = (int)Math.sqrt( sum / n );
     }
 
     /**
@@ -364,7 +382,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     // Randomly reduce reads some how?
     private Collection<SAMRecord> downsample(Collection<SAMRecord> reads, ConsensusSpan span) {
         // ideally, we would have exactly span bp at target depth, x2 for the directionality of reads
-        int idealBPinSpan = span.size() * targetDepthAtVariableSites * 2;
+        int idealBPinSpan = span.size() * AverageDepthAtVariableSites * 2;
         int rawBPinSpan = readsBP(reads);
 
         // The chance we want to keep a particular bp is ideal / actual
@@ -372,7 +390,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
         if ( pKeepPerBP >= 1.0 ) { // not enough coverage
             return reads;
-        } else { // we don'need to downsample
+        } else { // we don't need to downsample
             List<SAMRecord> downsampled = new ArrayList<SAMRecord>();
             for ( SAMRecord read : reads ) {
                 // should this be proportional to read length?
@@ -383,7 +401,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
             }
 
             logger.info(String.format("targetDepth=%d, idealBP=%d, rawBP=%d, pKeepPerBP=%.2e, nRawReads=%d, nKeptReads=%d, keptBP=%d",
-                    targetDepthAtVariableSites, idealBPinSpan, rawBPinSpan, pKeepPerBP, reads.size(), downsampled.size(), readsBP(downsampled)));
+                    AverageDepthAtVariableSites, idealBPinSpan, rawBPinSpan, pKeepPerBP, reads.size(), downsampled.size(), readsBP(downsampled)));
             return downsampled;
         }
     }
@@ -400,22 +418,14 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         byte[] bases = new byte[span.size()];
         byte[] quals = new byte[span.size()];
 
-        double rms = 0;
-        int n = 0; //count for RMS
-
         for ( int i = 0; i < span.size(); i++ ) {
             int refI = i + span.getOffsetFromStartOfSites();
             ConsensusSite site = sites.get(refI); // converts span index to sites index
             if ( site.getMarkedType() == ConsensusSpan.Type.VARIABLE )
                 throw new ReviewedStingException("Variable site included in consensus: " + site);
             int count = 0;
-            if ( site.position == 10913951)
-                logger.warn("Are we adding two extra?");
             for ( PileupElement p : site.overlappingReads) {
-
-                rms += Math.pow(p.getMappingQual(), 2); //Add up squares
-                n++;
-                if ((p.getBase() == site.counts.baseWithMostCounts()) && (p.getQual() >= QualityEquivalent ))//  Minimum Read qual
+                if ((p.getBase() == site.counts.baseWithMostCounts()) && (p.getQual() >= QualityEquivalent )) // Minimum Read qual
                     count++;
             }
             //final int count = site.counts.countOfMostCommonBase();
@@ -430,8 +440,6 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
             quals[i] = QualityUtils.boundQual(count, (byte)64);   //fake quality score here
         }
 
-        rms = Math.sqrt(rms / n);   // Calc RMS
-
         //read header stuff
         SAMRecord consensus = new SAMRecord(header);
         consensus.setAttribute("RG", reducedReadGroup.getId());
@@ -445,8 +453,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         consensus.setAlignmentStart(span.getGenomeStart());
         consensus.setReadBases(bases);
         consensus.setBaseQualities(quals);
-        consensus.setMappingQuality((int)rms);  // MQ is root mean square of all reads (weighted by length
-        // TODO speed up RMS calcs by consolidating reads
+        consensus.setMappingQuality(rms);  // MQ is root mean square of all reads
 
 //        if ( INVERT && PRINT_CONSENSUS_READS )
 //            for ( SAMRecord read : consensusReads )

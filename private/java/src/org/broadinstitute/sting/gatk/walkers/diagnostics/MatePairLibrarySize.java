@@ -1,17 +1,18 @@
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
-import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.commandline.Argument;
-import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMReadGroupRecord;
+import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 
-import java.util.*;
 import java.io.File;
-import java.io.PrintWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Arrays;
+import java.util.HashMap;
 
 /**
  * For each sequencing library, outputs the distribution of mate pair sizes

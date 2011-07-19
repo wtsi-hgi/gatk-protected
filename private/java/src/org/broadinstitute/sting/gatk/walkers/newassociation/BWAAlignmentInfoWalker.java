@@ -4,7 +4,6 @@ import net.sf.picard.reference.ReferenceSequenceFileFactory;
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMSequenceDictionary;
-import org.broadinstitute.sting.alignment.Alignment;
 import org.broadinstitute.sting.alignment.bwa.BWAConfiguration;
 import org.broadinstitute.sting.alignment.bwa.BWTFiles;
 import org.broadinstitute.sting.alignment.bwa.c.BWACAligner;
@@ -44,7 +43,7 @@ public class BWAAlignmentInfoWalker extends ReadWalker<Integer,Integer> {
         BWTFiles bwtFiles = new BWTFiles(targetReferenceFile.getAbsolutePath());
         BWAConfiguration configuration = new BWAConfiguration();
         aligner = new BWACAligner(bwtFiles,configuration);
-            header = getToolkit().getSAMFileHeader().clone();
+        header = getToolkit().getSAMFileHeader().clone();
         SAMSequenceDictionary referenceDictionary =
                 ReferenceSequenceFileFactory.getReferenceSequenceFile(targetReferenceFile).getSequenceDictionary();
         header.setSequenceDictionary(referenceDictionary);
