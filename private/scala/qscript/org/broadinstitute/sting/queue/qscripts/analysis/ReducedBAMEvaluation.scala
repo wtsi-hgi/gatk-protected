@@ -118,13 +118,14 @@ class ReducedBAMEvaluation extends QScript {
 
   def callAndEvaluateBAM(inBAM: File, outVCF: File) {
     val rawVCF   = swapExt(inBAM, ".bam", ".vcf")
-    val recalVCF = swapExt(inBAM, ".bam", ".recalibrated.vcf")
+    val recalVCF = swapExt(inBAM, ".bam", ".filtered.vcf")
     val recal    = swapExt(inBAM, ".bam", ".recal")
     val tranches = swapExt(inBAM, ".bam", ".tranches")
 
     add(Call(inBAM, rawVCF),
-        VQSR(rawVCF, recal, tranches),
-        applyVQSR(rawVCF, recal, tranches, recalVCF),
+        HardFilter(rawVCF, recalVCF),
+//        VQSR(rawVCF, recal, tranches),
+//        applyVQSR(rawVCF, recal, tranches, recalVCF),
         Eval(recalVCF)
 //        DiffableTable(rawVCF),   // for convenient diffing
 //        DiffableTable(recalVCF)  // for convenient diffing
@@ -163,7 +164,15 @@ class ReducedBAMEvaluation extends QScript {
     }
   }
 
-  // 3.) Variant Quality Score Recalibration - Generate Recalibration table
+  case class HardFilter (inVCF: File, outVCF: File) extends VariantFiltration with UNIVERSAL_GATK_ARGS {
+    this.variantVCF = inVCF
+    this.filterName = List("SNP_SB", "SNP_QD", "SNP_HRun")
+    this.filterExpression = List("\"SB>=0.10\"", "\"QD<5.0\"", "\"HRun>=4\"")
+    this.clusterWindowSize = 10
+    this.clusterSize = 3
+    this.out = outVCF
+  }
+
   case class VQSR(inVCF: File, outRecal: File, outTranches: File) extends VariantRecalibrator with UNIVERSAL_GATK_ARGS {
     val hapmap_b37 = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/HapMap/3.3/sites_r27_nr.b37_fwd.vcf"
     val dbSNP_b37 = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/dbSNP/dbsnp_132_b37.leftAligned.vcf"

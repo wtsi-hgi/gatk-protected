@@ -1,6 +1,5 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**

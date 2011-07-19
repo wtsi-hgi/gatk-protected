@@ -26,17 +26,17 @@
 package org.broadinstitute.sting.gatk.walkers.duplicates;
 
 import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.walkers.DuplicateWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
 
+import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.ArrayList;
-import java.io.PrintStream;
 
 /**
  * a class to store the traversal information we pass around

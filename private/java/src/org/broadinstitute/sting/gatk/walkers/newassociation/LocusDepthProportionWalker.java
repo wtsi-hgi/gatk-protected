@@ -2,18 +2,16 @@ package org.broadinstitute.sting.gatk.walkers.newassociation;
 
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.sample.Sample;
-import org.broadinstitute.sting.gatk.executive.TreeReducer;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
-import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 
 import java.io.PrintStream;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Created by IntelliJ IDEA.

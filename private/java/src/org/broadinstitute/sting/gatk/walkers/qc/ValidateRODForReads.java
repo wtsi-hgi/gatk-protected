@@ -1,19 +1,18 @@
 package org.broadinstitute.sting.gatk.walkers.qc;
 
 import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.commandline.Output;
 
+import java.io.PrintStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.io.PrintStream;
 
 /**
  * validate the rods for reads

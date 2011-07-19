@@ -18,6 +18,7 @@ import Queue
 #
 
 MODES = dict()
+DEVNULL = open("/dev/null", 'w')
 
 def s3bucket():
     return "s3://" + OPTIONS.bucket
@@ -40,9 +41,10 @@ def putFilesToBucket(args):
 
 def lsBucket(args):
     print 'Logging ls to', args[0]
-    execS3Command(["ls", s3bucket()], stdout=open(args[0], 'w')) 
-    print 'ls:', args[0]
-    for line in open(args[0]): print line,
+    execS3Command(["ls", s3bucket()], stdout=open(args[0], 'w'))
+    if OPTIONS.verbose:
+        print 'ls:', args[0]
+        for line in open(args[0]): print line,
 
 def getFilesFromS3LSByGroup(file):
     def fileStream():
@@ -56,7 +58,8 @@ def grouper(n, iterable, fillvalue=None):
     return izip_longest(fillvalue=fillvalue, *args)    
 
 class GetWorker(multiprocessing.Process):
- 
+    MAX_BLOCKING_TIME = 60 # seconds
+    
     def __init__(self, work_queue, result_queue, delete, alreadyGot, alreadyDel):
         # base class initialization
         multiprocessing.Process.__init__(self)
@@ -79,30 +82,36 @@ class GetWorker(multiprocessing.Process):
             else:
                 return False
         return filter(lambda x: not alreadyExists(x), files)
+
+    def getOutStream(self):
+        if OPTIONS.verbose:
+            return sys.stdout
+        else:
+            return DEVNULL
         
     def processGroup(self, filesInGroupRaw):
-        print 'process id:', os.getpid()
+        outstream = self.getOutStream()
+        if OPTIONS.debug: print 'process id:', os.getpid()
         filesInGroup = filter(lambda x: x != None, list(filesInGroupRaw))
-        print '\ngroup:', len(filesInGroup), 'files'
+        if OPTIONS.debug: print '\ngroup:', len(filesInGroup), 'files'
         filesToGet = self.filterExistingFiles(filesInGroup)
         filesToDel = [] # by default we aren't deleting anything
-        print 'to get:', len(filesToGet), 'files'
+        if OPTIONS.debug: print 'to get:', len(filesToGet), 'files'
         if filesToGet != []:
             destDir = OPTIONS.DIR
-            if OPTIONS.verbose: print 'Getting files', filesToGet, 'to', destDir
-            execS3Command(["get", "--force"] + filesToGet + [destDir])
+            if OPTIONS.debug: print 'Getting files', filesToGet, 'to', destDir
+            execS3Command(["get", "--force"] + filesToGet + [destDir], stdout=outstream)
         if self.delete:
-            filesToDel = [file for file in filesInGroup if file not in alreadyDel]
-            if OPTIONS.verbose: print 'Deleting remotes', filesToDel
-            execS3Command(["del"] + filesToDel) 
+            filesToDel = [file for file in filesInGroup if file not in self.alreadyDel]
+            if OPTIONS.debug: print 'Deleting remotes', filesToDel
+            execS3Command(["del"] + filesToDel, stdout=outstream ) 
         return os.getpid(), filesToGet, filesToDel
  
     def run(self):
-        while not self.kill_received:
- 
+        while not self.kill_received and not self.work_queue.empty():
             # get a task
             try:
-                filesInGroup = self.work_queue.get()
+                filesInGroup = self.work_queue.get(True, self.MAX_BLOCKING_TIME)
                 result = self.processGroup(filesInGroup)
             except Queue.Empty:
                 print 'Stopping run()'
@@ -113,7 +122,13 @@ class GetWorker(multiprocessing.Process):
 
 def getFilesInBucket(args, delete=False):
     lsFile, logFile = args
-    logLines = [line.split() for line in open(logFile)]
+    
+    # load up the sets of already downloaded and deleted
+    if os.path.exists(logFile):
+        #
+        logLines = [line.split() for line in open(logFile)]
+    else:
+        logLines = []
     alreadyGot = set([parts[1] for parts in logLines if parts[0] == "get"])
     alreadyDel = set([parts[1] for parts in logLines if parts[0] == "del"])
     print 'alreadyGot', len(alreadyGot)
@@ -130,9 +145,11 @@ def getFilesInBucket(args, delete=False):
     # parallel processing
     # load up work queue
     work_queue = multiprocessing.Queue()
+    nFilesToProcess = 0
     jobs = list(getFilesFromS3LSByGroup(lsFile))
     for filesGroup in jobs:
         work_queue.put(filesGroup)
+        nFilesToProcess += len(filter(lambda x: x != None, filesGroup))
     print 'Number of work units', len(jobs)
  
     # create a queue to pass to workers to store the results
@@ -141,20 +158,26 @@ def getFilesInBucket(args, delete=False):
     # spawn workers
     for i in range(OPTIONS.N_PARALLEL_PROCESSES):
         worker = GetWorker(work_queue, result_queue, delete, alreadyGot, alreadyDel)
-        print 'Starting worker', worker
+        if OPTIONS.debug: print 'Starting worker', worker
         worker.start()
  
     # collect the results off the queue
     results = []
+    nGot, nDel = 0, 0
     while len(results) < len(jobs):
-        print 'Going for result_queue'
         pid, filesGot, filesDel = result_queue.get()
         results.append([filesGot, filesDel])
-        print '\nPID          ', pid
-        print 'Got files    ', len(filesGot)
-        print 'Deleted files', len(filesDel)
+        if OPTIONS.debug:
+            print '\nPID          ', pid
         writeLog('get', alreadyGot, filesGot)
         writeLog('del', alreadyDel, filesDel)
+        nGot = nGot + len(filesGot)
+        nDel = nDel + len(filesDel)
+        print 'Total %d got, %d deleted of %d overall. This work unit got %d files, deleted %d files in group' % (nGot, nDel, nFilesToProcess, len(filesGot), len(filesDel))
+
+    print '\nDownloading complete'
+    print 'No. files downloaded   :', nGot
+    print 'No. files deleted at S3:', nDel
         
             
 # Create the mode map
@@ -188,6 +211,9 @@ if __name__ == "__main__":
                         action='store_true', default=False,
                         help="If provided, we will not actually execute any s3 commands")
     parser.add_option("-v", "--verbose", dest="verbose",
+                        action='store_true', default=False,
+                        help="If provided, will print verbose info about activities")
+    parser.add_option("", "--debug", dest="debug",
                         action='store_true', default=False,
                         help="If provided, will print debugging info")
     parser.add_option("-p", "--parallel", dest="N_PARALLEL_PROCESSES",
