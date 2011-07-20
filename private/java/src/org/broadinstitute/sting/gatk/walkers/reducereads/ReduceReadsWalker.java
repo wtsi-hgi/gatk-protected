@@ -53,7 +53,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Output
     protected StingSAMFileWriter out;
 
-    @Output(fullName="bedOut", shortName = "bedOut", doc="BED output", required = false)
+    @Output(fullName="bed––Out", shortName = "bedOut", doc="BED output", required = false)
     protected PrintStream bedOut = null;
 
     @Argument(fullName = "contextSize", shortName = "CS", doc = "", required = false)
@@ -65,11 +65,17 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Argument(fullName = "useRead", shortName = "UR", doc = "", required = false)
     protected Set<String> readNamesToUse;
 
-    @Argument(fullName = "minBpForRunningConsensus", shortName = "mbrc", doc = "", required = false)
+    @Argument(fullName = "minBpForRunningConsensus", shortName = "MBRC", doc = "", required = false)
     protected int minBpForRunningConsensus = 1000;
 
-    @Argument(fullName = "maxReadsAtVariableSites", shortName = "mravs", doc = "", required = false)
-    protected int maxReadsAtVariableSites = 500;
+    @Argument(fullName = "AverageDepthAtVariableSites", shortName = "ADAV", doc = "", required = false)
+    protected int AverageDepthAtVariableSites = 500;
+
+    @Argument(fullName = "ReadQualityEquivalent", shortName = "QE", doc = "", required = false)
+    protected int QUALITY_EQUIVALENT = 20;
+
+    @Argument(fullName = "MinimumMappingQuality", shortName = "MM", doc = "", required = false)
+    protected int MIN_MAPPING_QUALITY = 20;
 
     protected int totalReads = 0;
     int nCompressedReads = 0;
@@ -82,7 +88,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
         compressor = new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(),
                 contextSize, getToolkit().getGenomeLocParser(),
-                minBpForRunningConsensus, maxReadsAtVariableSites);
+                minBpForRunningConsensus, AverageDepthAtVariableSites, QUALITY_EQUIVALENT, MIN_MAPPING_QUALITY);
 
         out.setPresorted(false);
 
@@ -116,7 +122,6 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         if ( readNamesToUse == null || readNamesToUse.contains(read.getReadName()) ) {
             if ( INCLUDE_RAW_READS )
                 out.addAlignment(read);
-
             // write out compressed reads as they become available
             for ( SAMRecord consensusRead : comp.addAlignment(read) ) {
                 out.addAlignment(consensusRead);

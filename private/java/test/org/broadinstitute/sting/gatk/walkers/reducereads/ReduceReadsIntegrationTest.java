@@ -24,12 +24,12 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
 
     @Test()
     public void testReduceReads50MaxReads() {
-        RRTest(" -mravs 50", "");
+        RRTest(" -ADAV 50", "");
     }
 
     @Test()
     public void testReduceReadsMinBasesForConsensus10000() {
-        RRTest(" -mbrc 10000", "");
+        RRTest(" -MBRC 10000", "");
     }
 
 }

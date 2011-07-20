@@ -32,20 +32,22 @@ import org.broadinstitute.sting.pipeline.{PicardAggregationUtils, Pipeline, Pipe
 
 object K1gPipelineTest extends BaseTest with Logging {
 
-  case class K1gBam(squidId: String, sampleId: String, version: Int)
+  case class K1gBam(project: String, sample: String) {
+    override val toString = project + "/" + sample
+  }
 
   /** 1000G BAMs used for validation */
   val k1gBams = List(
-    new K1gBam("C474", "NA19651", 2),
-    new K1gBam("C474", "NA19655", 2),
-    new K1gBam("C474", "NA19669", 2),
-    new K1gBam("C454", "NA19834", 2),
-    new K1gBam("C460", "HG01440", 2),
-    new K1gBam("C456", "NA12342", 2),
-    new K1gBam("C456", "NA12748", 2),
-    new K1gBam("C474", "NA19649", 2),
-    new K1gBam("C474", "NA19652", 2),
-    new K1gBam("C474", "NA19654", 2))
+    new K1gBam("C474", "NA19651"),
+    new K1gBam("C474", "NA19655"),
+    new K1gBam("C474", "NA19669"),
+    new K1gBam("C454", "NA19834"),
+    new K1gBam("C460", "HG01440"),
+    new K1gBam("C456", "NA12342"),
+    new K1gBam("C456", "NA12748"),
+    new K1gBam("C474", "NA19649"),
+    new K1gBam("C474", "NA19652"),
+    new K1gBam("C474", "NA19654"))
 
   validateK1gBams()
 
@@ -87,23 +89,23 @@ object K1gPipelineTest extends BaseTest with Logging {
    */
   def createK1gSample(idPrefix: String, k1gBam: K1gBam) = {
     val sample = new PipelineSample
-    sample.setId(idPrefix + "_" + k1gBam.sampleId)
+    sample.setId(idPrefix + "_" + k1gBam.sample)
     sample.setBamFiles(Map("cleaned" -> getPicardBam(k1gBam)))
     sample
   }
 
    /**
-   * Throws an exception if any of the 1000G bams do not exist and warns if they are out of date.
+   * Throws an exception if any of the 1000G bams do not exist.
    */
   private def validateK1gBams() {
-    var missingBams = List.empty[File]
+    var missingBams: List[String] = Nil
     for (k1gBam <- k1gBams) {
-      val latest = getLatestVersion(k1gBam)
-      val bam = getPicardBam(k1gBam)
-      if (k1gBam.version != latest)
-        logger.warn("1000G bam is not the latest version %d: %s".format(latest, k1gBam))
-      if (!bam.exists)
-        missingBams :+= bam
+      try {
+        getPicardBam(k1gBam)
+      } catch {
+        case e: FileNotFoundException =>
+          missingBams :+= k1gBam.toString
+      }
     }
     if (missingBams.size > 0) {
       val nl = "%n".format()
@@ -112,8 +114,5 @@ object K1gPipelineTest extends BaseTest with Logging {
   }
 
   private def getPicardBam(k1gBam: K1gBam): File =
-    new File(PicardAggregationUtils.getSampleBam(k1gBam.squidId, k1gBam.sampleId, k1gBam.version))
-
-  private def getLatestVersion(k1gBam: K1gBam): Int =
-    PicardAggregationUtils.getLatestVersion(k1gBam.squidId, k1gBam.sampleId, k1gBam.version)
+    new File(PicardAggregationUtils.getSampleBam(k1gBam.project, k1gBam.sample))
 }
