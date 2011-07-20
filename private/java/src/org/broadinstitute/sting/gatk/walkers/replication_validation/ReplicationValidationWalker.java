@@ -31,7 +31,6 @@ import java.util.*;
  */
 public class ReplicationValidationWalker extends LocusWalker<Integer, Long> implements TreeReducible<Long> {
 
-
     @Argument(shortName="refsample", fullName="reference_sample_name", doc="Reference sample name.", required=true)
     String referenceSampleName;
 
@@ -339,27 +338,32 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
 
                     double [] AC = getPoolACProbabilityDistribution(poolPileup, errorModel, ref.getBase());
 
-                    // Debug AC distribution
-                    System.out.println("\n\n" + "[" + ref.getLocus() + "] " + laneID + " - " + pool +
-                            "\nNumber of Samples: " + nSamples +
-                            "\nRefSample Size: " + referenceSamplePileup.getBases().length +
-                            "\nRefSample MMs: " + getNumberOfMismatches(referenceSamplePileup.getBases(), trueReferenceBases) +
-                            "\nRefQ: " + MathUtils.maxElementIndex(errorModel) +
-                            "\nPool Size: " + poolPileup.size() +
-                            "\nPool MMs: " + getNumberOfMismatches(poolPileup.getBases(), ref.getBase()) +
-                            "\nPool AF: " + (double) getNumberOfMismatches(poolPileup.getBases(), ref.getBase())/poolPileup.size() +
-                            "\nTrutn AN: " + truthContext.getAttribute("AN") +
-                            "\nPool AC / Truth AC: " + MathUtils.maxElementIndex(AC) + " / " + truthContext.getAttribute("AC") + " / " + truthContext.isFiltered());
+                    final String refStatus = truthContext.getGenotype(referenceSampleName).isHet() ? "het" : "hom";
+                    final String calledStatus = truthContext.isFiltered() ? "filtered" : "called";
+                    System.out.println("Graph:" + "\t" + ref.getLocus() + "\t" + MathUtils.maxElementIndex(AC) + "\t" + truthContext.getAttribute("AC") + "\t" + calledStatus + "\t" + refStatus);
 
-                    System.out.println("\nError Model: ");
-                    for (double v : errorModel)
-                        System.out.print(v + ", ");
-                    System.out.println("\n");
 
-                    System.out.println("AC Distribution: ");
-                    for (double v : AC)
-                        System.out.print(v + ", ");
-                    System.out.println();
+//                    // Debug AC distribution
+//                    System.out.println("\n\n" + "[" + ref.getLocus() + "] " + laneID + " - " + pool +
+//                            "\nNumber of Samples: " + nSamples +
+//                            "\nRefSample Size: " + referenceSamplePileup.getBases().length +
+//                            "\nRefSample MMs: " + getNumberOfMismatches(referenceSamplePileup.getBases(), trueReferenceBases) +
+//                            "\nRefQ: " + MathUtils.maxElementIndex(errorModel) +
+//                            "\nPool Size: " + poolPileup.size() +
+//                            "\nPool MMs: " + getNumberOfMismatches(poolPileup.getBases(), ref.getBase()) +
+//                            "\nPool AF: " + (double) getNumberOfMismatches(poolPileup.getBases(), ref.getBase())/poolPileup.size() +
+//                            "\nTrutn AN: " + truthContext.getAttribute("AN") +
+//                            "\nPool AC / Truth AC: " + MathUtils.maxElementIndex(AC) + " / " + truthContext.getAttribute("AC") + " / " + truthContext.isFiltered());
+//
+//                    System.out.println("\nError Model: ");
+//                    for (double v : errorModel)
+//                        System.out.print(v + ", ");
+//                    System.out.println("\n");
+//
+//                    System.out.println("AC Distribution: ");
+//                    for (double v : AC)
+//                        System.out.print(v + ", ");
+//                    System.out.println();
 
                     if (DEBUG_IGNORE_LANES) break;
                 }

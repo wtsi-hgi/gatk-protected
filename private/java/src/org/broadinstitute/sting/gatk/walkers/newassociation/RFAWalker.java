@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
+import cern.jet.math.Arithmetic;
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
@@ -216,7 +217,9 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
             Pair<List<String>,List<String>> caseControlAffected = getAffectedSamples(window,agIdx,fixedDelta);
             List<String> cases = caseControlAffected.getFirst();
             List<String> controls = caseControlAffected.getSecond();
-            double caseP = MathUtils.binomialProbability(cases.size()+controls.size(),cases.size(),((double) nCase)/(nCase+nControl));
+            // please remind me to flog myself for ever using a binomial test here.
+            //double caseP = MathUtils.binomialProbability(cases.size()+controls.size(),cases.size(),((double) nCase)/(nCase+nControl));
+            double caseP = computePValue(new int[][] { new int[] {cases.size(),controls.size()}, new int[] {nCase-cases.size(),nControl-controls.size()} });
             logger.debug(String.format("NCa:%d NCo:%d CaS:%d CoS:%d, P:%f%n",nCase,nControl,cases.size(),controls.size(),caseP));
             out.printf("\t%.2e\t%d:%d\t%.2e\t%s;%s",fixedDelta,cases.size(),controls.size(), caseP,Utils.join(",",cases),Utils.join(",",controls));
 
@@ -341,5 +344,42 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
             buf.append("-p");
         }
         out.printf("track type=bedTable %s%n",buf);
+    }
+
+    private static double computePValue(int[][] table) {
+
+        int[] rowSums = { sumRow(table, 0), sumRow(table, 1) };
+        int[] colSums = { sumColumn(table, 0), sumColumn(table, 1) };
+        int N = rowSums[0] + rowSums[1];
+
+        // calculate in log space so we don't die with high numbers
+        double pCutoff = Arithmetic.logFactorial(rowSums[0])
+                         + Arithmetic.logFactorial(rowSums[1])
+                         + Arithmetic.logFactorial(colSums[0])
+                         + Arithmetic.logFactorial(colSums[1])
+                         - Arithmetic.logFactorial(table[0][0])
+                         - Arithmetic.logFactorial(table[0][1])
+                         - Arithmetic.logFactorial(table[1][0])
+                         - Arithmetic.logFactorial(table[1][1])
+                         - Arithmetic.logFactorial(N);
+        return Math.exp(pCutoff);
+    }
+
+    private static int sumRow(int[][] table, int column) {
+        int sum = 0;
+        for (int r = 0; r < table.length; r++) {
+            sum += table[r][column];
+        }
+
+        return sum;
+    }
+
+    private static int sumColumn(int[][] table, int row) {
+        int sum = 0;
+        for (int c = 0; c < table[row].length; c++) {
+            sum += table[row][c];
+        }
+
+        return sum;
     }
 }
