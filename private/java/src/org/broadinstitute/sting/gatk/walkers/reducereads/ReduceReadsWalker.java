@@ -53,7 +53,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Output
     protected StingSAMFileWriter out;
 
-    @Output(fullName="bed––Out", shortName = "bedOut", doc="BED output", required = false)
+    @Output(fullName="bedOut", shortName = "bedOut", doc="BED output", required = false)
     protected PrintStream bedOut = null;
 
     @Argument(fullName = "contextSize", shortName = "CS", doc = "", required = false)
