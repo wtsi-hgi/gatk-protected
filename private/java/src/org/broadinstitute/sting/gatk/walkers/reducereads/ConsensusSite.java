@@ -1,14 +1,11 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.LinkedList;
 
 /*
  * Copyright (c) 2009 The Broad Institute

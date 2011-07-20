@@ -1,13 +1,13 @@
 package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
 import net.sf.samtools.SAMRecord;
-
-//g import org.broadinstitute.sting.gatk.walkers.recalibration.RecalibrationArgumentCollection;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 
 import java.util.Arrays;
 import java.util.List;
+
+//g import org.broadinstitute.sting.gatk.walkers.recalibration.RecalibrationArgumentCollection;
 
 /*
  * Copyright (c) 2009 The Broad Institute

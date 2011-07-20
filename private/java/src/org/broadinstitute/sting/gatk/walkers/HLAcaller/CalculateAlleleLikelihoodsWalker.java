@@ -26,18 +26,16 @@
 package org.broadinstitute.sting.gatk.walkers.HLAcaller;
 
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.DataSource;
+import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.gatk.walkers.Requires;
 
-import java.util.ArrayList;
-import java.util.Hashtable;
-import java.util.Enumeration;
-import java.util.Vector;
-import java.util.Collections;
 import java.io.PrintStream;
+import java.util.*;
 
 /**
  * Calculates likelihood of observing the data given pairs of HLA alleles. NOTE: run CalculateBaseLikelihoods first! Usage: java -jar GenomeAnalysisTK.jar -T CalculateAlleleLikelihoods -I /humgen/gsa-scr1/GSA/sjia/454_HLA/HLA/HLA.nuc.imputed.4digit.bam -R /broad/1KG/reference/human_b36_both.fasta -L /humgen/gsa-scr1/GSA/sjia/454_HLA/HAPMAP270/HLA_exons.interval -bl INPUT.baselikelihoods -eth\
