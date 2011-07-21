@@ -62,6 +62,7 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
     public void printHaplotypeMetrics(ArrayList<VariantContext> rbpHaplotype, ArrayList<VariantContext> beagleHaplotype, String sample) {
         int haplotypeLength = rbpHaplotype.size();
         int genotypeMatches = 0;
+        int genotypesWithPQ = 0;
         double minPQ = Double.MAX_VALUE;
         double maxPQ = Double.MIN_VALUE;
         double sumPQ = 0.0;
@@ -69,13 +70,13 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
         double pctHaplotypeIdentity = 0.0;
 
         for (VariantContext vc : rbpHaplotype) {
-            double PQ = vc.getGenotype(sample).getAttributeAsDouble("PQ");
+            if (vc.getGenotype(sample).hasAttribute("PQ")) {
+                double PQ = vc.getGenotype(sample).getAttributeAsDouble("PQ");
 
-            if (PQ < minPQ) { minPQ = PQ; }
-            if (PQ > maxPQ) { maxPQ = PQ; }
-            sumPQ += PQ;
-
-            haplotypeLength++;
+                if (PQ < minPQ) { minPQ = PQ; }
+                if (PQ > maxPQ) { maxPQ = PQ; }
+                sumPQ += PQ;
+            }
         }
 
         for (int i = 0; i < rbpHaplotype.size(); i++) {
@@ -89,10 +90,11 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
 
         meanPQ = sumPQ / (double) haplotypeLength;
 
-        out.printf("minPQ= %.2f maxPQ= %.2f meanPQ= %.2f haplotypeLength= %d genotypeMatches= %d haplotypeIdentity= %.2f",
+        out.printf("minPQ= %.2f maxPQ= %.2f meanPQ= %.2f genotypesWithPQ= %d haplotypeLength= %d genotypeMatches= %d haplotypeIdentity= %.2f",
                 minPQ,
                 maxPQ,
                 meanPQ,
+                genotypesWithPQ,
                 haplotypeLength,
                 genotypeMatches,
                 pctHaplotypeIdentity
