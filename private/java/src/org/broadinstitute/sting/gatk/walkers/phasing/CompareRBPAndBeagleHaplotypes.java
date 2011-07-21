@@ -126,7 +126,7 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
                     beagleHaplotype.clear();
                 }
 
-                if (!(rbpg.isHom() && beagleg.isHom() && rbpg.sameGenotype(beagleg))) {
+                if (!(rbpg.isHom() && beagleg.isHom() && rbpg.sameGenotype(beagleg)) && rbpg.hasAttribute("PQ")) {
                     rbpHaplotype.add(rbp);
                     beagleHaplotype.add(beagle);
                 }
