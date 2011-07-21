@@ -64,8 +64,8 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
             int haplotypeLength = rbpHaplotype.size();
             int genotypeMatches = 0;
             int genotypesWithPQ = 0;
-            double minPQ = Double.MAX_VALUE;
-            double maxPQ = Double.MIN_VALUE;
+            double minPQ = 10000.0;
+            double maxPQ = -10000.0;
             double sumPQ = 0.0;
             double meanPQ = 0.0;
             double pctHaplotypeIdentity = 0.0;
