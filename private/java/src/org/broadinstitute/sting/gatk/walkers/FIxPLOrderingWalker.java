@@ -35,7 +35,6 @@ public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
         Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
         TreeSet<String> vcfSamples = new TreeSet<String>(SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE));
         Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), logger);
-        headerLines.add(new VCFHeaderLine("source", "SelectVariants"));
 
          vcfWriter.writeHeader(new VCFHeader(headerLines, vcfSamples));
 
@@ -69,9 +68,11 @@ public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
 
     private VariantContext modifyGLs(VariantContext vc) {
         int numAlleles = vc.getNAlleles();
-        Map<String,Genotype> genotypes = vc.getGenotypes();
+        Map<String,Genotype> genotypes = new HashMap<String,Genotype> (vc.getGenotypes());
         for (String sample: genotypes.keySet()) {
             Genotype g = genotypes.get(sample);
+            if (!g.hasLikelihoods())
+                continue;
             GenotypeLikelihoods gls =  g.getLikelihoods();
             double[] glvec = gls.getAsVector();
             double[][] glmatrix = new double[numAlleles][numAlleles];
@@ -91,7 +92,7 @@ public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
                     glvec[k++] = glmatrix[i][j];
                 }
             }
-            Map<String, Object> attributes =g.getAttributes();
+            HashMap<String,Object> attributes = new HashMap<String,Object>(g.getAttributes());
             //GenotypeLikelihoods likelihoods = new GenotypeLikelihoods(GL.getLikelihoods());
             GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(glvec);
             attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, likelihoods);
