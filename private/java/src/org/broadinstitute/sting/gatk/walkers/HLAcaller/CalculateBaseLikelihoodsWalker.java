@@ -26,23 +26,20 @@
 package org.broadinstitute.sting.gatk.walkers.HLAcaller;
 
 import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
-import org.broadinstitute.sting.gatk.walkers.genotyper.*;
+import org.broadinstitute.sting.gatk.walkers.genotyper.DiploidSNPGenotypeLikelihoods;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.genotype.DiploidGenotype;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.utils.pileup.FragmentPileup;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
 import java.io.PrintStream;
+import java.util.ArrayList;
 
 /**
  * Calculates the probability of observing data for each genotype at every position. NOTE: run FindClosestAllele first to create .filter file. Usage: java -jar GenomeAnalysisTK.jar -T CalculateBaseLikelihoods -I INPUT.bam -R /broad/1KG/reference/human_b36_both.fasta -L /humgen/gsa-scr1/GSA/sjia/454_HLA/HAPMAP270/HLA_exons.interval [-filter INPUT.filter -minAllowedMismatches 7] | grep -v "INFO" | grep -v "MISALIGNED" > OUTPUT.baselikelihoods

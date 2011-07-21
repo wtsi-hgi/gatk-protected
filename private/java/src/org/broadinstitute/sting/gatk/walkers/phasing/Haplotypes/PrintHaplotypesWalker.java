@@ -26,7 +26,6 @@ package org.broadinstitute.sting.gatk.walkers.phasing.Haplotypes;
 
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -35,18 +34,13 @@ import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.phasing.AnnotateTrioPhasingInheritanceNoRecombinationWalker;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
-import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFromRods;
 
 /**
  * Walks along all variant ROD loci and uses the phase information to divide up the genome into phased segments.
@@ -61,7 +55,12 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
     @Argument(doc = "sample to emit", required = false)
     protected String sample = null;
 
+    private boolean prevHadInheritanceInfo;
+    private GenomeLoc prevLoc;
+
     public void initialize() {
+        this.prevHadInheritanceInfo = true;
+        this.prevLoc = null;
     }
 
     public boolean generateExtendedEvents() {
@@ -82,7 +81,11 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
         if (tracker == null)
             return null;
 
-        Collection<VariantContext> vcs = tracker.getAllVariantContexts(ref, ref.getLocus());
+        GenomeLoc curLocus = ref.getLocus();
+        if (prevLoc == null || prevLoc.compareContigs(curLocus) != 0)
+            prevHadInheritanceInfo = true;
+
+        Collection<VariantContext> vcs = tracker.getAllVariantContexts(ref, curLocus);
         for (VariantContext vc : vcs) {
             if (vc.isFiltered())
                 continue;
@@ -92,9 +95,8 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
                 continue;
 
             String inheritance = gt.getAttributeAsStringNoException(AnnotateTrioPhasingInheritanceNoRecombinationWalker.INHERITANCE_KEY);
-            if (!gt.isPhased() && inheritance == null) {
+            if (!gt.isPhased() && (inheritance == null || !prevHadInheritanceInfo))
                 out.println("PHASE_BREAK");
-            }
 
             String[] sources;
             if (inheritance != null) {
@@ -107,13 +109,16 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
                 }
             }
 
-            out.print(ref.getLocus());
+            out.print(curLocus);
             int ind = 0;
             for (Allele all : gt.getAlleles()) {
                 out.print("\t" + sources[ind] + ": " + (all.isReference() ? 0 : 1));
                 ind++;
             }
             out.println();
+
+            prevHadInheritanceInfo = (inheritance != null);
+            prevLoc = curLocus;
         }
 
         return 1;

@@ -41,9 +41,10 @@ def putFilesToBucket(args):
 
 def lsBucket(args):
     print 'Logging ls to', args[0]
-    execS3Command(["ls", s3bucket()], stdout=open(args[0], 'w')) 
-    print 'ls:', args[0]
-    for line in open(args[0]): print line,
+    execS3Command(["ls", s3bucket()], stdout=open(args[0], 'w'))
+    if OPTIONS.verbose:
+        print 'ls:', args[0]
+        for line in open(args[0]): print line,
 
 def getFilesFromS3LSByGroup(file):
     def fileStream():

@@ -2,7 +2,6 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 

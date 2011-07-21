@@ -24,16 +24,16 @@
 
 package org.broadinstitute.sting.pipeline;
 
+import edu.mit.broad.picard.util.PicardAggregationFsUtil;
 import net.sf.picard.io.IoUtil;
-import org.apache.commons.io.filefilter.RegexFileFilter;
 
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileNotFoundException;
-import java.util.Arrays;
 
 public class PicardAggregationUtils {
-    public static final String PICARD_AGGREGATION_DIR = "/seq/picard_aggregation/";
+    private static final PicardAggregationFsUtil aggregationFsUtil = new PicardAggregationFsUtil();
+    public static final String PICARD_AGGREGATION_DIR = aggregationFsUtil.AGGREGATION_DIRECTORY.getAbsolutePath() + "/";
 
     /**
      * Returns the path to the sample BAM.
@@ -83,58 +83,37 @@ public class PicardAggregationUtils {
     }
 
     /**
-     * Returns the latest finished version directory.
-     * Because isilon metadata operations are relatively slow this method
-     * tries not to look for every possible versioned directory.
+     * Returns the latest finished version directory
      * @param project Project
      * @param sample Sample
-     * @return The highest finished version directory or 0 if a finished directory was not found.
-     */
-    public static int getLatestVersion(String project, String sample) {
-        return getLatestVersion(project, sample, 0);
-    }
-
-    /**
-     * Returns the latest finished version directory after startVersion.
-     * Because isilon metadata operations are relatively slow this method
-     * tries not to look for every possible versioned directory.
-     * @param project Project
-     * @param sample Sample
-     * @param startVersion minimum version to return
      * @return The highest finished version directory after startVersion
      */
-    public static int getLatestVersion(String project, String sample, int startVersion) {
-        int version = Math.max(0, startVersion);
-        boolean nextExists = true;
-        while (nextExists) {
-            nextExists = false;
-            for (int next = 3; next > 0; next--)
-                if (isFinished(project, sample, version + next)) {
-                    version += next;
-                    nextExists = true;
-                    break;
-                }
-        }
-        // Special case when the version is 0
-        // Because isilon storage takes a while to do meta data operations only look through every file if we have to.
-        if (version == 0) {
-            File sampleDir = new File(PICARD_AGGREGATION_DIR + project + "/" + sample);
-            if (sampleDir.exists()) {
-                FileFilter filter = new RegexFileFilter("v\\d+");
-                File[] files = sampleDir.listFiles(filter);
-                int[] versions = new int[files.length];
-                for (int i = 0; i < files.length; i++)
-                    versions[i] = Integer.parseInt(files[i].getName().substring(1));
-                Arrays.sort(versions);
-                for (int i = versions.length - 1; i >= 0; i--) {
-                    if (isFinished(project, sample, versions[i])) {
-                        version = versions[i];
-                        break;
-                    }
-                }
+    public static int getLatestVersion(String project, String sample) {
+        File sampleDirectory = new File(PICARD_AGGREGATION_DIR + project + "/" + IoUtil.makeFileNameSafe(sample));
+
+        if (!sampleDirectory.exists())
+            return 0;
+
+        final File[] versions = sampleDirectory.listFiles(new FileFilter() {
+            @Override public boolean accept(final File file) {
+                return file.getName().startsWith("v") && file.isDirectory();
+            }
+        });
+
+        int latestVersion = 0;
+        File latest = null;
+
+        for (final File f : versions) {
+            if (!aggregationFsUtil.isFinished(f)) continue;
+
+            final int v = Integer.parseInt(f.getName().substring(1));
+            if (latest == null || v > latestVersion) {
+                latestVersion = v;
+                latest = f;
             }
         }
-        return version == 0 ? startVersion : version;
+
+        return latestVersion;
     }
 
     /**
@@ -145,6 +124,6 @@ public class PicardAggregationUtils {
      * @return true if the project sample directory contains a finished.txt
      */
     public static boolean isFinished(String project, String sample, int version) {
-        return new File(getSampleDir(project, sample, version), "finished.txt").exists();
+        return aggregationFsUtil.isFinished(new File(getSampleDir(project, sample, version)));
     }
 }
