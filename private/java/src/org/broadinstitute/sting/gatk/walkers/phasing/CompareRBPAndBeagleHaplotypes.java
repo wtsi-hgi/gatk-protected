@@ -92,6 +92,7 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
             }
 
             meanPQ = sumPQ / (double) haplotypeLength;
+            pctHaplotypeIdentity = 100.0 * ((double) genotypeMatches) / ((double) haplotypeLength);
 
             out.printf("minPQ= %.2f maxPQ= %.2f meanPQ= %.2f genotypesWithPQ= %d haplotypeLength= %d genotypeMatches= %d haplotypeIdentity= %.2f%n",
                     minPQ,
