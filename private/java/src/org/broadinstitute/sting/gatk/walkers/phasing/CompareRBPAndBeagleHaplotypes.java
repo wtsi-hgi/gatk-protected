@@ -120,14 +120,14 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
                 Genotype beagleg = beagle.getGenotype(sample);
 
                 if (!rbpg.isPhased()) {
-                    //printHaplotypes(rbpHaplotype, beagleHaplotype, sample);
+                    printHaplotypes(rbpHaplotype, beagleHaplotype, sample);
                     printHaplotypeMetrics(rbpHaplotype, beagleHaplotype, sample);
 
                     rbpHaplotype.clear();
                     beagleHaplotype.clear();
                 }
 
-                if (!(rbpg.isHom() && beagleg.isHom() && rbpg.sameGenotype(beagleg)) && rbpg.hasAttribute("PQ")) {
+                if (!(rbpg.isHom() && beagleg.isHom() && rbpg.sameGenotype(beagleg)) && rbpg.hasAttribute("PQ") && rbpg.sameGenotype(beagleg)) {
                     rbpHaplotype.add(rbp);
                     beagleHaplotype.add(beagle);
                 }
