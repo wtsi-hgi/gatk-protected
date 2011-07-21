@@ -54,6 +54,7 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
             out.print(" " + allele2 + " ");
         }
         out.println();
+        out.println();
     }
 
     @Override
