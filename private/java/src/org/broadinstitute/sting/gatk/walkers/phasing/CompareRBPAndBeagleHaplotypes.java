@@ -59,6 +59,46 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
         }
     }
 
+    public void printHaplotypeMetrics(ArrayList<VariantContext> rbpHaplotype, ArrayList<VariantContext> beagleHaplotype, String sample) {
+        int haplotypeLength = rbpHaplotype.size();
+        int genotypeMatches = 0;
+        double minPQ = Double.MAX_VALUE;
+        double maxPQ = Double.MIN_VALUE;
+        double sumPQ = 0.0;
+        double meanPQ = 0.0;
+        double pctHaplotypeIdentity = 0.0;
+
+        for (VariantContext vc : rbpHaplotype) {
+            double PQ = vc.getGenotype(sample).getAttributeAsDouble("PQ");
+
+            if (PQ < minPQ) { minPQ = PQ; }
+            if (PQ > maxPQ) { maxPQ = PQ; }
+            sumPQ += PQ;
+
+            haplotypeLength++;
+        }
+
+        for (int i = 0; i < rbpHaplotype.size(); i++) {
+            Genotype rbpg = rbpHaplotype.get(i).getGenotype(sample);
+            Genotype beagleg = beagleHaplotype.get(i).getGenotype(sample);
+
+            if (rbpg.sameGenotype(beagleg, false)) {
+                genotypeMatches++;
+            }
+        }
+
+        meanPQ = sumPQ / (double) haplotypeLength;
+
+        out.printf("minPQ= %0.02f maxPQ= %0.02f meanPQ= %0.02f haplotypeLength= %0.02d genotypeMatches= %0.02d haplotypeIdentity= %0.02f",
+                minPQ,
+                maxPQ,
+                meanPQ,
+                haplotypeLength,
+                genotypeMatches,
+                pctHaplotypeIdentity
+        );
+    }
+
     @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker != null) {
@@ -74,6 +114,7 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
 
                 if (!rbpg.isPhased()) {
                     printHaplotypes(rbpHaplotype, beagleHaplotype, sample);
+                    printHaplotypeMetrics(rbpHaplotype, beagleHaplotype, sample);
 
                     rbpHaplotype.clear();
                     beagleHaplotype.clear();
