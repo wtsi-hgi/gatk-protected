@@ -70,6 +70,7 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
 
             if (rbp != null && beagle != null) {
                 Genotype rbpg = rbp.getGenotype(sample);
+                Genotype beagleg = beagle.getGenotype(sample);
 
                 if (!rbpg.isPhased()) {
                     printHaplotypes(rbpHaplotype, beagleHaplotype, sample);
@@ -78,8 +79,10 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
                     beagleHaplotype.clear();
                 }
 
-                rbpHaplotype.add(rbp);
-                beagleHaplotype.add(beagle);
+                if ((!rbpg.isHomRef() && !beagleg.isHomRef()) || (!rbpg.isHomVar() && !beagleg.isHomVar())) {
+                    rbpHaplotype.add(rbp);
+                    beagleHaplotype.add(beagle);
+                }
             }
         }
 
