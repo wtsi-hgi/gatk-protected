@@ -29,14 +29,14 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
             out.print("\n   rbp:");
             for (int i = 0; i < rbpHaplotype.size(); i++) {
                 Genotype rbpg = rbpHaplotype.get(i).getGenotype(sample);
-                Allele allele1 = rbpg.getAllele(0);
+                String allele1 = rbpg.getAllele(0).getBaseString();
                 out.print(" " + allele1 + " ");
             }
             out.println();
 
             for (int i = 0; i < rbpHaplotype.size(); i++) {
                 Genotype rbpg = rbpHaplotype.get(i).getGenotype(sample);
-                Allele allele2 = rbpg.getAlleles().size() == 1 ? rbpg.getAllele(0) : rbpg.getAllele(1);
+                String allele2 = rbpg.getAlleles().size() == 1 ? rbpg.getAllele(0).getBaseString() : rbpg.getAllele(1).getBaseString();
                 out.print(" " + allele2 + " ");
             }
             out.println();
@@ -44,14 +44,14 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
             out.print("\nbeagle:");
             for (int i = 0; i < beagleHaplotype.size(); i++) {
                 Genotype beagleg = beagleHaplotype.get(i).getGenotype(sample);
-                Allele allele1 = beagleg.getAllele(0);
+                String allele1 = beagleg.getAllele(0).getBaseString();
                 out.print(" " + allele1 + " ");
             }
             out.println();
 
             for (int i = 0; i < beagleHaplotype.size(); i++) {
                 Genotype beagleg = beagleHaplotype.get(i).getGenotype(sample);
-                Allele allele2 = beagleg.getAlleles().size() == 1 ? beagleg.getAllele(0) : beagleg.getAllele(1);
+                String allele2 = beagleg.getAlleles().size() == 1 ? beagleg.getAllele(0).getBaseString() : beagleg.getAllele(1).getBaseString();
                 out.print(" " + allele2 + " ");
             }
             out.println();
