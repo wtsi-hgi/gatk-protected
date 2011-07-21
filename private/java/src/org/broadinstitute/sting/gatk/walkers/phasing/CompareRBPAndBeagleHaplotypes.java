@@ -6,9 +6,11 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
+import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -69,9 +71,14 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
             double sumPQ = 0.0;
             double meanPQ = 0.0;
             double pctHaplotypeIdentity = 0.0;
+            GenomeLoc start = null;
 
             for (VariantContext vc : rbpHaplotype) {
                 if (vc.getGenotype(sample).hasAttribute("PQ")) {
+                    if (start == null) {
+                        start = VariantContextUtils.getLocation(this.getToolkit().getGenomeLocParser(), vc);
+
+                    }
                     double PQ = vc.getGenotype(sample).getAttributeAsDouble("PQ");
 
                     if (PQ < minPQ) { minPQ = PQ; }
@@ -94,7 +101,8 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
             meanPQ = sumPQ / (double) haplotypeLength;
             pctHaplotypeIdentity = 100.0 * ((double) genotypeMatches) / ((double) haplotypeLength);
 
-            out.printf("minPQ= %.2f maxPQ= %.2f meanPQ= %.2f genotypesWithPQ= %d haplotypeLength= %d genotypeMatches= %d haplotypeIdentity= %.2f%n",
+            out.printf("loc= %s minPQ= %.2f maxPQ= %.2f meanPQ= %.2f genotypesWithPQ= %d haplotypeLength= %d genotypeMatches= %d haplotypeIdentity= %.2f%n",
+                    start,
                     minPQ,
                     maxPQ,
                     meanPQ,
