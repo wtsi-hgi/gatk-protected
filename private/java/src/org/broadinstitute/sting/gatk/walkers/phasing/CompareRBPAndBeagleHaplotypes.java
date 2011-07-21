@@ -77,6 +77,8 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
                     if (PQ < minPQ) { minPQ = PQ; }
                     if (PQ > maxPQ) { maxPQ = PQ; }
                     sumPQ += PQ;
+
+                    genotypesWithPQ++;
                 }
             }
 
