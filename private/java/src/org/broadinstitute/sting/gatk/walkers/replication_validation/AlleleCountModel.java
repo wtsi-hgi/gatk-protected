@@ -11,9 +11,8 @@ import org.broadinstitute.sting.utils.MathUtils;
  * Time: 7:14 PM
  * To change this template use File | Settings | File Templates.
  */
-public class AlleleCountModel {
+public class AlleleCountModel extends ProbabilityModel {
     private int maxAlleleCount;
-    private double [] model;
 
     private final double THETA = 0.001; // Human heterozygozity rate
 
@@ -22,6 +21,19 @@ public class AlleleCountModel {
         this.maxAlleleCount = maxAlleleCount;
         model = calculateLog10ProbabilityDistribution(errorModel, matches, mismatches);
     }
+
+    public AlleleCountModel(AlleleCountModel acm) {
+        maxAlleleCount = acm.getMaxAlleleCount();
+        model = new double [maxAlleleCount+1];
+        for (int ac=0; ac<=maxAlleleCount; ac++) {
+            model[ac] = acm.getLog10ProbabilityGivenAC(ac);
+        }
+    }
+
+    public int getMaxAlleleCount() {
+        return maxAlleleCount;
+    }
+
 
     public void merge(AlleleCountModel mergeModel) {
         // I need to know which model is the largest so I can iterate on him (the j index) and guarantee that
@@ -46,17 +58,6 @@ public class AlleleCountModel {
         result[i] = MathUtils.log10sumLog10(sumTerms);
         }
         model = result;
-    }
-
-    public AlleleCountModel(AlleleCountModel acm) {
-        maxAlleleCount = acm.getMaxAlleleCount();
-        model = new double [maxAlleleCount+1];
-        for (int ac=0; ac<=maxAlleleCount; ac++) {
-            model[ac] = acm.getLog10ProbabilityGivenAC(ac);
-        }
-    }
-    public int getMaxAlleleCount() {
-        return maxAlleleCount;
     }
 
     @Requires({"ac>=0", "ac<=maxAlleleCount"})

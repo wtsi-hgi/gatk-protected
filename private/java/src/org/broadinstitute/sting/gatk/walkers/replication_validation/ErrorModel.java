@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.replication_validation;
 
+import cern.jet.stat.Probability;
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import org.broadinstitute.sting.utils.MathUtils;
@@ -16,8 +17,7 @@ import java.util.Collection;
  * This is a site based implementation of an Error Model. The error model is a probability
  * distribution for the site given the phred scaled quality.
  */
-public class ErrorModel {
-    private double [] model;
+public class ErrorModel extends ProbabilityModel {
     private byte maxQualityScore;
     private byte minQualityScore;
     private byte phredScaledPrior;

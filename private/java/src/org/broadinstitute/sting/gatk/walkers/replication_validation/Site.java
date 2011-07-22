@@ -20,7 +20,7 @@ public class Site {
     private AlleleCountModel alleleCountModel;
 
     public Site(ReadBackedPileup sitePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlelleCount) {
-        laneIDs = getLaneIDs(sitePileup.getReadGroups());
+        laneIDs = parseLaneIDs(sitePileup.getReadGroups());
         lanes = new HashSet<Lane>(laneIDs.size());
         for (String laneID : laneIDs) {
             lanes.add(new Lane(laneID, sitePileup.getPileupForLane(laneID), referenceSampleName, trueReferenceBases, referenceSequenceBase, minQualityScore, maxQualityScore, phredScaledPrior, maxAlelleCount));
@@ -56,7 +56,7 @@ public class Site {
      * @param readGroups readGroups A collection of read group strings (obtained from the alignment context pileup)
      * @return a collection of lane ids.
      */
-    private Set<String> getLaneIDs (Collection<String> readGroups) {
+    private Set<String> parseLaneIDs(Collection<String> readGroups) {
         HashSet<String> result = new HashSet<String>();
         for (String readGroup : readGroups) {
             result.add(getLaneIDFromReadGroupString(readGroup));
