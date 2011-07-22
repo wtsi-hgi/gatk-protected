@@ -50,7 +50,9 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
                         Matcher m = samplePattern.matcher(header[k+12]);
                         //m.group(0);
                        // String sample = header[k+12].replaceAll("\\w+_","");
-                        System.out.format("%s %s\n", header[k+12], m.group(0));
+                        if (m.matches())
+                            System.out.format("%s %s\n", header[k+12], m.group() );
+                        else System.out.println("mo");
                     }
                 }
 
