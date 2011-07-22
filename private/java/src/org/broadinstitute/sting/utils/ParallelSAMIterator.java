@@ -25,15 +25,14 @@
 
 package org.broadinstitute.sting.utils;
 
-import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMFileReader;
+import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.CloseableIterator;
-
-import java.util.List;
-import java.util.ArrayList;
-
-import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.gatk.iterators.PushbackIterator;
+import org.broadinstitute.sting.utils.collections.Pair;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Iterates synchronously over two SAM files. At each iteration returs alignments with the same read name (in the order

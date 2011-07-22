@@ -444,11 +444,12 @@ def decodeTime(time):
         return datetime.datetime.strptime(time.split()[0], "%Y/%m/%d")
     #return datetime.datetime.strptime(time, "%Y/%m/%d %H.%M.%S")
 
-def eltTagEquals(elt, tag, value):
+def eltTagEquals(elt, tag, value, startsWith = None):
     if elt == None:
         return False
     msgElt = elt.find(tag)
-    found = msgElt != None and msgElt.text == value
+    #print msgElt, msgElt.text, startsWith
+    found = msgElt != None and (msgElt.text == value or (startsWith == None or msgElt.text.startswith(startsWith)))
     #print 'finding', tag, 'in', elt, msgElt, msgElt.text, found
     return found
 
@@ -456,7 +457,7 @@ def passesFilters(elt):
     if OPTIONS.noDev and eltTagEquals(elt.find('argument-collection'),'phone-home-type','DEV'):
         #print 'skipping', elt
         return False
-    if OPTIONS.rev != None and not eltTagEquals(elt, 'svn-version', OPTIONS.rev):
+    if OPTIONS.rev != None and not eltTagEquals(elt, 'svn-version', None, startsWith=OPTIONS.rev):
         return False
     if OPTIONS.maxDays != None:
         now = datetime.datetime.today()

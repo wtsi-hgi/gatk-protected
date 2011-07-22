@@ -3,9 +3,13 @@ package org.broadinstitute.sting.gatk.walkers.assembly;
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMRecord;
-import org.jgrapht.graph.*;
+import org.jgrapht.graph.DefaultDirectedGraph;
+
 import java.io.PrintStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Created by IntelliJ IDEA.
