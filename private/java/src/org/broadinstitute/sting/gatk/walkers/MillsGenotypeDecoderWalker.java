@@ -36,7 +36,7 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
     private final String variantRodName = "sites";
 
     public void initialize() {
-       Pattern samplePattern = Pattern.compile(".*_(NA\\d+).*");
+       Pattern samplePattern = Pattern.compile("^\\w+_(NA\\d\\d\\d\\d\\d)");
 
         try {
             for ( final String line : new XReadLines( GT_FILE ) ) {
