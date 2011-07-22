@@ -31,11 +31,8 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
     @Argument(shortName="refsample", fullName="reference_sample_name", doc="Reference sample name.", required=true)
     String referenceSampleName;
 
-    @Argument(shortName="nchr", fullName="number_of_chromosomes", doc="Number of chromosomes per sample (in case you're not dealing with diploids). Default: 2.", required=false)
-    int ploidy = 2;
-
-    @Argument(shortName="maxac", fullName="max_allele_count", doc="Max number of alleles expected in a site. Smaller numbers process faster. Default: 2 * number of samples. ", required=false)
-    int overrideMaxAlleleCount = -1;
+    @Argument(shortName="sp", fullName="samples_per_pool", doc="Number of samples in each pool (must be the same for all pools).", required=true)
+    int nSamplesPerPool;
 
     @Argument(shortName="minqs", fullName="min_quality_score", doc="Min quality score to consider. Smaller numbers process faster. Default: Q1.", required=false)
     byte minQualityScore= 1;
@@ -49,9 +46,9 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
     @Argument(shortName="ef", fullName="exclude_filtered_reference_sites", doc="Don't include in the analysis sites where the reference sample VCF is filtered. Default: false.", required=false)
     boolean EXCLUDE_FILTERED_REFERENCE_SITES = false;
 
-    @Hidden
-    @Argument(shortName = "dl", doc="DEBUG ARGUMENT -- treats all reads as coming from the same lane", required=false)
-    boolean DEBUG_IGNORE_LANES = false;
+//    @Hidden
+//    @Argument(shortName = "dl", doc="DEBUG ARGUMENT -- treats all reads as coming from the same lane", required=false)
+//    boolean DEBUG_IGNORE_LANES = false;
 
     @Output(doc="Write output to this file instead of STDOUT")
     PrintStream out;
@@ -110,12 +107,8 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
         // Set the number of samples in the pools ( - reference sample)
         nSamples = getToolkit().getSAMFileSamples().size() - 1;
 
-        // If we ignore the lanes, then the Reference Sample will be included in the analysis
-        if (DEBUG_IGNORE_LANES)
-            nSamples++;
-
         // Set the max allele count (defines the size of the error model array)
-        maxAlleleCount = (overrideMaxAlleleCount > 0) ? overrideMaxAlleleCount : nSamples*ploidy;
+        maxAlleleCount = 2*nSamplesPerPool;
 
         // Look for the reference ROD and the optional truth ROD. If truth is provided, set the truth "test" mode ON.
         List<ReferenceOrderedDataSource> rods = getToolkit().getRodDataSources();
