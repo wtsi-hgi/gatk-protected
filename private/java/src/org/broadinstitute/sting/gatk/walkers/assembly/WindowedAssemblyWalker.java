@@ -26,19 +26,22 @@
 package org.broadinstitute.sting.gatk.walkers.assembly;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
-import net.sf.samtools.*;
+import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.utils.*;
+import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.GenomeLocSortedSet;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 
-import java.io.*;
-import java.util.*;
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Iterator;
 
 /**
  * Performs local assembly.  Not to be used yet.  Example: java -jar dist/GenomeAnalysisTK.jar -I /seq/picard_aggregation/EXT1/NA12878/v3/NA12878.bam -R /humgen/1kg/reference/human_g1k_v37.fasta -T WindowedAssembly -et NO_ET -o foo.out -B:variant,vcf AssemblyTestAlleles.vcf -BTI variant

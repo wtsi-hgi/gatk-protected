@@ -5,9 +5,9 @@ import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.simpleframework.xml.Element;
 import org.simpleframework.xml.Root;
 import org.simpleframework.xml.Serializer;
+import org.simpleframework.xml.core.Persister;
 import org.simpleframework.xml.stream.Format;
 import org.simpleframework.xml.stream.HyphenStyle;
-import org.simpleframework.xml.core.Persister;
 
 import java.io.File;
 

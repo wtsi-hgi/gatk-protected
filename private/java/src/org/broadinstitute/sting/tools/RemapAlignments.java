@@ -25,28 +25,23 @@
 
 package org.broadinstitute.sting.tools;
 
-import java.io.File;
-import java.util.Comparator;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.Iterator;
-import java.util.Map.Entry;
-
-import org.broadinstitute.sting.utils.GenomicMap;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.sam.AlignmentUtils;
-
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
 import net.sf.picard.cmdline.Usage;
 import net.sf.picard.reference.ReferenceSequenceFileWalker;
-import net.sf.samtools.SAMFileHeader;
-import net.sf.samtools.SAMFileReader;
-import net.sf.samtools.SAMFileWriter;
-import net.sf.samtools.SAMFileWriterFactory;
-import net.sf.samtools.SAMRecord;
+import net.sf.samtools.*;
 import net.sf.samtools.SAMFileHeader.SortOrder;
 import net.sf.samtools.SAMFileReader.ValidationStringency;
+import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.GenomicMap;
+import org.broadinstitute.sting.utils.sam.AlignmentUtils;
+
+import java.io.File;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeSet;
 
 
 public class RemapAlignments extends CommandLineProgram {
