@@ -6,14 +6,15 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.utils.MendelianViolation;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
+import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.Collection;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,26 +35,73 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
     private File GT_FILE = new File("");
 
     private final String variantRodName = "sites";
+    private TreeSet<String> samples = new TreeSet<String>();
+    private HashMap<String,HashMap<String,Integer>> recordData = new HashMap<String,HashMap<String,Integer>>();
 
     public void initialize() {
-       Pattern samplePattern = Pattern.compile("(NA\\d+)_");
+        Pattern samplePattern = Pattern.compile(".*_(NA\\d{5}).*");
+        Pattern recordPattern = Pattern.compile("^(\\d+)_.*");
 
+        String[] header;
+        ArrayList<String> sampleNames = new ArrayList<String>();
+        int numSamples = 0;
         try {
             for ( final String line : new XReadLines( GT_FILE ) ) {
                 if (line.startsWith("#")) // headers
                     continue;
                 if (line.startsWith("probe")) {
-                    String[] header = line.split("\t");
-                    int numSamples = header.length - 12;
+                   header = line.split("\t");
+                     numSamples = header.length - 12;
                     for (int k=0; k < numSamples; k++) {
                         // get sample name
-                        Matcher m = samplePattern.matcher(header[k+12]);
-                        //m.group(0);
-                       // String sample = header[k+12].replaceAll("\\w+_","");
-                        if (m.matches())
-                            System.out.format("%s %s\n", header[k+12], m.group() );
-                        else System.out.println("mo");
+                        String fullSampleID = header[k+12];
+                        Matcher m = samplePattern.matcher(fullSampleID);
+                        if (m.matches()) {
+                            String sample = m.group(1);
+
+                            if (!samples.contains(sample))
+                                samples.add((sample));
+
+                            // keep also ordered list of names corresponding one to one to columns
+                            sampleNames.add(sample);
+                        }
                     }
+                    final Set<VCFHeaderLine> hInfo = new HashSet<VCFHeaderLine>();
+                    hInfo.addAll(VCFUtils.getHeaderFields(getToolkit()));
+
+                    vcfWriter.writeHeader(new VCFHeader(hInfo, samples));
+
+                }  else {
+                    //decode a record in file
+                    String[] record = line.split("\t");
+                    Matcher m = recordPattern.matcher(record[0]);
+
+                    if (m.matches()) {
+                        String recordID = m.group(1);
+                        HashMap<String,Integer> gtMap = new HashMap<String,Integer>();
+                        //System.out.println(recordID);
+                        // For this Id, build a hashmap of the form Sample -> Genotype
+                        for (int k=0; k < sampleNames.size(); k++) {
+                            int gt = Integer.parseInt(record[k+12]);
+                            // how to handle duplicate samples? ie duplicate columns in file
+                            // get sample corresponding to this column
+                            String sample = sampleNames.get(k);
+
+                            if (gtMap.containsKey(sample)) {
+                                // we've already seen this sample: try to merge genotypes.
+                                Integer oldGT = gtMap.get(sample);
+                                if (oldGT == -1) // no-call
+                                    gtMap.put(sample,gt); // substitute no-call by new value
+
+                            }  else
+                                // new eample
+                                gtMap.put(sample,gt);
+                        }
+
+                        // genotype hash map build: now add map to record map
+                        recordData.put(recordID, gtMap);
+                    }
+
                 }
 
 
