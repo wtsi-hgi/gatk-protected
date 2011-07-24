@@ -91,7 +91,6 @@ complete <- cbind(complete,good=F)
 complete <- data.frame(complete,months_to_current_project=number_of_months(as.Date(complete$Last_Sequenced_WR_Created_Date),min(as.Date(data$Last_Sequenced_WR_Created_Date),na.rm=T)))
 complete <- subset(complete,months_to_current_project>=-12)
 
-#novel <- subset(complete,exon_intervals == "whole_exome_agilent_1.1_refseq_plus_3_boosters"&Novelty=="novel"&FunctionalClass=="all")
 novel_sampled <- subset(complete,Novelty=="novel"&FunctionalClass=="all")
 novel_sampled <- novel_sampled[novel_sampled$BAIT_SET %in% data$BAIT_SET,]
 violations <- trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
@@ -135,21 +134,19 @@ summary <- data.frame(keys=c('Initiative:','Number of Samples:','Intervals:','To
 textplot(summary,show.rownames=F,show.colnames=F,valign=c("top"))
 title('Project Summary Metrics')
 
-samples = c()
+fingerprint_samples = c()
 fingerprint_lod_values = c()
 fingerprint_lod_median = c()
 for(i in 1:nrow(data)) {
    fingerprint_lods_for_sample <- eval(parse(text=data$FINGERPRINT_LODS[i]))
-   samples <- c(samples,rep(data$sample[i],length(fingerprint_lods_for_sample)))
+   fingerprint_samples <- c(fingerprint_samples,rep(data$sample[i],length(fingerprint_lods_for_sample)))
    fingerprint_lod_values = c(fingerprint_lod_values,fingerprint_lods_for_sample)
    fingerprint_lod_median = c(fingerprint_lod_median,rep(median(fingerprint_lods_for_sample),length(fingerprint_lods_for_sample)))
 }
-fingerprint_lods = data.frame(sample=samples,median=fingerprint_lod_median,FINGERPRINT_LODS=fingerprint_lod_values)
+fingerprint_lods = data.frame(sample=fingerprint_samples,median=fingerprint_lod_median,FINGERPRINT_LODS=fingerprint_lod_values)
 fingerprint_lods$sample = factor(fingerprint_lods$sample,levels=unique(fingerprint_lods$sample[order(fingerprint_lods$median)]))
 
 qplot(sample,FINGERPRINT_LODS,data=fingerprint_lods,geom="boxplot",outlier.size=0,main='Fingerprint LOD Scores By Sample') + opts(axis.text.x = theme_text(angle = 90,size=7)) + xlab('Sample') + ylab('LOD Score Distribution')
-
-formatting = opts(axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank())
 
 create_stock_plots('% Selected Bases per Sample',novel_sampled,data,'PCT_SELECTED_BASES')
 
@@ -182,13 +179,6 @@ median_insert_size_new <- rbind(data.frame(sample=data$sample,MEDIAN_INSERT_SIZE
 			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR'),
 			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM'))
 create_base_plot('Median Insert Size per Sample',median_insert_size_ref,median_insert_size_new,'MEDIAN_INSERT_SIZE',include_sigmas=F) + facet_grid(insert_type ~ .)
-
-#p <- ggplot(median_insert_size_ref,aes(sample,MEDIAN_INSERT_SIZE)) + geom_point(color='black',alpha=0.1) + geom_rug(aes(x=NULL),alpha=0.01) + geom_text(data=median_insert_size_new,aes(x=sample,y=MEDIAN_INSERT_SIZE,label=sample),color='red',size=2) + facet_grid(insert_type ~ .)
-#p <- p + opts(title='Median Insert Size per Sample',axis.ticks=theme_blank(),axis.text.x=theme_blank(),panel.grid.major=theme_blank(),panel.background=theme_blank()) 
-#p <- p + xlab('Sample (ordered by sequencing date)')
-#p
-
-#p <- ggplot(median_insert_size,aes(sample,MEDIAN_INSERT_SIZE,color=data_type)) + geom_point() + geom_rug(aes(x=NULL),alpha=0.01) + facet_grid(insert_type ~ .) + scale_color_manual(values=c(alpha('black',0.1),alpha('red',1.0)))
 
 create_stock_plots('% Chimera Read Pairs per Sample',novel_sampled,data,'PCT_CHIMERAS')
 
