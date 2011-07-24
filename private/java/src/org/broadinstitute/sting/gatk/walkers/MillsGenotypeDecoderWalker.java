@@ -9,6 +9,7 @@ import org.broadinstitute.sting.utils.MendelianViolation;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
@@ -50,8 +51,8 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
                 if (line.startsWith("#")) // headers
                     continue;
                 if (line.startsWith("probe")) {
-                   header = line.split("\t");
-                     numSamples = header.length - 12;
+                    header = line.split("\t");
+                    numSamples = header.length - 12;
                     for (int k=0; k < numSamples; k++) {
                         // get sample name
                         String fullSampleID = header[k+12];
@@ -113,15 +114,55 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
     }
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-         if ( tracker == null )
-             return 0;
+        if ( tracker == null )
+            return 0;
 
-         Collection<VariantContext> vcs = tracker.getVariantContexts(ref, variantRodName, null, context.getLocation(), true, false);
+        Collection<VariantContext> vcs = tracker.getVariantContexts(ref, variantRodName, null, context.getLocation(), true, false);
 
-         if ( vcs == null || vcs.size() == 0) {
-             return 0;
-         }
-         return 1;
+        if ( vcs == null || vcs.size() == 0) {
+            return 0;
+        }
+
+        // get ID and see if we've seen the ID in genotype data
+        for (VariantContext vc: vcs) {
+            String id = vc.getID();
+            Set<Allele> alleles = vc.getAlleles();
+            if (recordData.containsKey(id)) {
+                HashMap<String,Integer> data =  recordData.get(id);
+                Map<String,Genotype> genotypes = new HashMap<String,Genotype> (vc.getGenotypes());
+
+                for (String sample : data.keySet()) {
+                    Allele a = null,b = null;
+                    Integer g =  data.get(sample) ;
+                    List<Allele> alleleList = new ArrayList<Allele>();
+
+                    switch(g) {
+                        case -1:
+                            a = b= Allele.NO_CALL;
+                            break;
+                        case 0:
+                            a = b= vc.getReference();
+
+                            break;
+                        case 1:
+                            a =  vc.getReference();
+                            b = vc.getAlternateAllele(0);
+                            break;
+                        case 2:
+                            a = b= vc.getAlternateAllele(0);
+                            break;
+                    }
+                    alleleList.add(a);
+                    alleleList.add(b);
+                    Genotype gt = new Genotype(sample,alleleList,0.0);
+                    genotypes.put(sample,gt);
+                }
+
+                VariantContext vcnew = new VariantContext("GMIlls",vc.getChr(), vc.getStart(), vc.getEnd(), vc.getAlleles(),  genotypes, 0.0, null, null) ;
+                vcfWriter.add(vcnew, ref.getBase());
+            }
+        }
+        return 1;
     }
 
     @Override
