@@ -97,9 +97,9 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
         report.addTable("SwitchMetrics", "Specifies metrics regarding the switches");
         GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
         switchMetrics.addPrimaryKey("sample");
-        switchMetrics.addColumn("markersSeen", "unknown");
-        switchMetrics.addColumn("numSwitches", "unknown");
-        switchMetrics.addColumn("switchErrorRate", "unknown");
+        switchMetrics.addColumn("markersSeen", 0);
+        switchMetrics.addColumn("numSwitches", 0);
+        switchMetrics.addColumn("switchErrorRate", 0);
         switchMetrics.addColumn("switchState", false, false);
 
 //        report.addTable("GenotypeMatches", "Specifies genotypes that match orientation with the truth table");
@@ -167,6 +167,7 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
 //                                numSwitches++;
 
                                 switchMetrics.increment(child, "numSwitches");
+                                switchMetrics.set(child, "switchState", ! (Boolean) switchMetrics.get(child, "switchState"));
                             }
                         }
                     }
