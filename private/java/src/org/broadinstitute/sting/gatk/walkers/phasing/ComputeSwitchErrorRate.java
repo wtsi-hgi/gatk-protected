@@ -103,7 +103,8 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
         switchMetrics.addColumn("numSwitches_wRBP", 0);
         switchMetrics.addColumn("switchErrorRate_woRBP", 0);
         switchMetrics.addColumn("switchErrorRate_wRBP", 0);
-        switchMetrics.addColumn("switchState", false, false);
+        switchMetrics.addColumn("switchState_woRBP", false, false);
+        switchMetrics.addColumn("switchState_wRBP", false, false);
 
 //        report.addTable("GenotypeMatches", "Specifies genotypes that match orientation with the truth table");
 //        GATKReportTable genotypePhaseMatches = report.getTable("GenotypeMatches");
