@@ -55,7 +55,6 @@ import java.util.TreeMap;
  * A walker to experiment with fishing for reads in the GATK.  Has very limited utility in its current state.
  *
  * @author mhanna
- * @version 0.1
  */
 public class TestReadFishingWalker extends ReadWalker<Integer,Long> {
     /**
