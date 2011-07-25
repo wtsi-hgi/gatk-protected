@@ -108,7 +108,7 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
 //        genotypePhaseMatches.addColumn("chrom", "unknown");
 //        genotypePhaseMatches.addColumn("start", "unknown");
 //        genotypePhaseMatches.addColumn("evalGenotype", "unknown");
-//        genotypePhaseMatches.addColumn("compGenotype", "unknown");
+//        genotypePhaseMatches.addColumn("truthGenotype", "unknown");
 //        genotypePhaseMatches.addColumn("match", "unknown");
     }
 
@@ -125,46 +125,41 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
         if (tracker != null) {
             Collection<VariantContext> evals = tracker.getVariantContexts(ref, "eval", null, ref.getLocus(), true, true);
             Collection<VariantContext> comps = tracker.getVariantContexts(ref, "comp", null, ref.getLocus(), true, true);
+            Collection<VariantContext> truths = tracker.getVariantContexts(ref, "truth", null, ref.getLocus(), true, true);
 
             VariantContext eval = evals.iterator().hasNext() ? evals.iterator().next() : null;
             VariantContext comp = comps.iterator().hasNext() ? comps.iterator().next() : null;
+            VariantContext truth = truths.iterator().hasNext() ? truths.iterator().next() : null;
 
-            if (eval != null && comp != null) {
+            if (eval != null && comp != null && truth != null) {
                 for (Trio trio : trios) {
                     String child = trio.getChild();
                     Genotype evalG = eval.getGenotype(child);
                     Genotype compG = comp.getGenotype(child);
+                    Genotype truthG = truth.getGenotype(child);
 
-                    if (!eval.isFiltered() && evalG.isHet() && evalG.isPhased() && !comp.isFiltered() && compG.isHet() && compG.isPhased()) {
+                    if (!eval.isFiltered() && evalG.isHet() && evalG.isPhased() && !truth.isFiltered() && truthG.isHet() && truthG.isPhased() && evalG.sameGenotype(compG)) {
                         GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
-
-//                        markersSeen++;
                         switchMetrics.increment(child, "markersSeen");
 
 //                        GATKReportTable genotypePhaseMatches = report.getTable("GenotypeMatches");
 //                        genotypePhaseMatches.set(ref.getLocus(), "chrom", ref.getLocus().getContig());
 //                        genotypePhaseMatches.set(ref.getLocus(), "start", ref.getLocus().getStart());
 //                        genotypePhaseMatches.set(ref.getLocus(), "evalGenotype", evalG.getGenotypeString());
-//                        genotypePhaseMatches.set(ref.getLocus(), "compGenotype", compG.getGenotypeString());
-//                        genotypePhaseMatches.set(ref.getLocus(), "match", evalG.sameGenotype(compG, false));
+//                        genotypePhaseMatches.set(ref.getLocus(), "truthGenotype", truthG.getGenotypeString());
+//                        genotypePhaseMatches.set(ref.getLocus(), "match", evalG.sameGenotype(truthG, false));
 
                         if ((Integer) switchMetrics.get(child, "markersSeen") == 1) {
-//                            switchState = isSwitched(evalG, compG);
-                            switchMetrics.set(child, "switchState", isSwitched(evalG, compG));
+                            switchMetrics.set(child, "switchState", isSwitched(evalG, truthG));
                         } else {
-//                            if (switchState == isSwitched(evalG, compG)) {
-                            if ((Boolean) switchMetrics.get(child, "switchState") == isSwitched(evalG, compG)) {
+                            if ((Boolean) switchMetrics.get(child, "switchState") == isSwitched(evalG, truthG)) {
 //                                chunkSize++;
-//                                switchMetrics.increment(trio.getChild(), "chunkSize");
                             } else {
 //                                GATKReportTable switchSites = report.getTable("SwitchSites");
 //                                switchSites.set(ref.getLocus(), "chrom", ref.getLocus().getContig());
 //                                switchSites.set(ref.getLocus(), "start", ref.getLocus().getStart());
 //                                switchSites.set(ref.getLocus(), "chunkSize", chunkSize);
-
-//                                toggleSwitchState();
 //                                chunkSize = 1;
-//                                numSwitches++;
 
                                 switchMetrics.increment(child, "numSwitches");
                                 switchMetrics.set(child, "switchState", ! (Boolean) switchMetrics.get(child, "switchState"));
