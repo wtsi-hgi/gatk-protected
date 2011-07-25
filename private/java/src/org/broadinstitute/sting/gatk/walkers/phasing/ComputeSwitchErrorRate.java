@@ -26,8 +26,6 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
     @Output
     public PrintStream out;
 
-    private int chunkSize = 1;
-
     private GATKReport report;
 
     private class Trio {
@@ -86,84 +84,44 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
         trios = getFamilySpecsFromCommandLineInput(familySpecs);
 
         report = new GATKReport();
-
-//        report.addTable("SwitchSites", "Specifies the genomic locations of the haplotype switches");
-//        GATKReportTable switchSites = report.getTable("SwitchSites");
-//        switchSites.addPrimaryKey("locus", false);
-//        switchSites.addColumn("chrom", "unknown");
-//        switchSites.addColumn("start", "unknown");
-//        switchSites.addColumn("chunkSize", "unknown");
-
         report.addTable("SwitchMetrics", "Specifies metrics regarding the switches");
         GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
         switchMetrics.addPrimaryKey("sample");
-        switchMetrics.addColumn("markersSeen_woRBP", 0);
-        switchMetrics.addColumn("markersSeen_wRBP", 0);
-        switchMetrics.addColumn("numSwitches_woRBP", 0);
-        switchMetrics.addColumn("numSwitches_wRBP", 0);
-        switchMetrics.addColumn("switchErrorRate_woRBP", 0);
-        switchMetrics.addColumn("switchErrorRate_wRBP", 0);
-        switchMetrics.addColumn("switchState_woRBP", false, false);
-        switchMetrics.addColumn("switchState_wRBP", false, false);
-
-//        report.addTable("GenotypeMatches", "Specifies genotypes that match orientation with the truth table");
-//        GATKReportTable genotypePhaseMatches = report.getTable("GenotypeMatches");
-//        genotypePhaseMatches.addPrimaryKey("locus", false);
-//        genotypePhaseMatches.addColumn("chrom", "unknown");
-//        genotypePhaseMatches.addColumn("start", "unknown");
-//        genotypePhaseMatches.addColumn("evalGenotype", "unknown");
-//        genotypePhaseMatches.addColumn("truthGenotype", "unknown");
-//        genotypePhaseMatches.addColumn("match", "unknown");
+        switchMetrics.addColumn("markersSeen", 0);
+        switchMetrics.addColumn("numSwitches", 0);
+        switchMetrics.addColumn("switchErrorRate", 0);
+        switchMetrics.addColumn("switchState", false, false);
     }
 
     private boolean isSwitched(Genotype a, Genotype b) {
         return !a.sameGenotype(b, false);
     }
 
-//    private void toggleSwitchState() {
-//        switchState = !switchState;
-//    }
-
     @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker != null) {
             Collection<VariantContext> evals = tracker.getVariantContexts(ref, "eval", null, ref.getLocus(), true, true);
-            Collection<VariantContext> comps = tracker.getVariantContexts(ref, "comp", null, ref.getLocus(), true, true);
             Collection<VariantContext> truths = tracker.getVariantContexts(ref, "truth", null, ref.getLocus(), true, true);
 
             VariantContext eval = evals.iterator().hasNext() ? evals.iterator().next() : null;
-            VariantContext comp = comps.iterator().hasNext() ? comps.iterator().next() : null;
             VariantContext truth = truths.iterator().hasNext() ? truths.iterator().next() : null;
 
-            if (eval != null && comp != null && truth != null) {
+            if (eval != null && truth != null) {
                 for (Trio trio : trios) {
                     String child = trio.getChild();
                     Genotype evalG = eval.getGenotype(child);
-                    Genotype compG = comp.getGenotype(child);
                     Genotype truthG = truth.getGenotype(child);
 
-                    if (!eval.isFiltered() && evalG.isHet() && evalG.isPhased() && !truth.isFiltered() && truthG.isHet() && truthG.isPhased() && evalG.sameGenotype(compG)) {
+                    if (!eval.isFiltered() && evalG.isHet() && evalG.isPhased() && !truth.isFiltered() && truthG.isHet() && truthG.isPhased()) {
                         GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
 
-                        switchMetrics.increment(child, "markersSeen_woRBP");
-                        if ((Integer) switchMetrics.get(child, "markersSeen_woRBP") == 1) {
-                            switchMetrics.set(child, "switchState_woRBP", isSwitched(compG, truthG));
+                        switchMetrics.increment(child, "markersSeen");
+                        if ((Integer) switchMetrics.get(child, "markersSeen") == 1) {
+                            switchMetrics.set(child, "switchState", isSwitched(evalG, truthG));
                         } else {
-                            if ((Boolean) switchMetrics.get(child, "switchState_woRBP") == isSwitched(compG, truthG)) {
-                            } else {
-                                switchMetrics.increment(child, "numSwitches_woRBP");
-                                switchMetrics.set(child, "switchState_woRBP", ! (Boolean) switchMetrics.get(child, "switchState_woRBP"));
-                            }
-                        }
-
-                        switchMetrics.increment(child, "markersSeen_wRBP");
-                        if ((Integer) switchMetrics.get(child, "markersSeen_wRBP") == 1) {
-                            switchMetrics.set(child, "switchState_wRBP", isSwitched(evalG, truthG));
-                        } else {
-                            if ((Boolean) switchMetrics.get(child, "switchState_wRBP") == isSwitched(evalG, truthG)) {
-                            } else {
-                                switchMetrics.increment(child, "numSwitches_wRBP");
-                                switchMetrics.set(child, "switchState_wRBP", ! (Boolean) switchMetrics.get(child, "switchState_woRBP"));
+                            if ((Boolean) switchMetrics.get(child, "switchState") != isSwitched(evalG, truthG)) {
+                                switchMetrics.increment(child, "numSwitches");
+                                switchMetrics.set(child, "switchState", ! (Boolean) switchMetrics.get(child, "switchState"));
                             }
                         }
                     }
@@ -188,8 +146,7 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
     public void onTraversalDone(Integer sum) {
         GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
 
-        switchMetrics.divideColumns("switchErrorRate_woRBP", "numSwitches_woRBP", "markersSeen_woRBP");
-        switchMetrics.divideColumns("switchErrorRate_wRBP", "numSwitches_wRBP", "markersSeen_wRBP");
+        switchMetrics.divideColumns("switchErrorRate", "numSwitches", "markersSeen");
 
         report.print(out);
     }
