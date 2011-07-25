@@ -18,11 +18,54 @@ import java.io.PrintStream;
 import java.util.*;
 
 /**
- * Created by IntelliJ IDEA.
- * User: carneiro
- * Date: 7/23/11
- * Time: 1:18 PM
- * To change this template use File | Settings | File Templates.
+ * <p>A read walker for contig statistics.</p>
+ *
+ * <h3>What you can do with ContigStats</h3>
+ *
+ *  <p>
+ *     ContigStats generates basic read mapping statistics per contig. It provides a table with the number of reads mapping to each contig,
+ *     the enrichment of each contig and the expected values for each contig.
+ *  </p>
+ *
+ *
+ * <h3>What you can't do with ContigStats</h3>
+ *  <p>
+ *      ContigStats doesn't provide you with any per-locus statistic like depth of coverage or variant information. It is a read level statistic for contigs.
+ *  </p>
+ *
+ * <h3>The Input</h3>
+ *  <p>
+ *      One or more bam files to read the reads from. All bam files will be merged and treated like one input. If you want to compare different bam files, run them separately.
+ *  </p>
+ *
+ * <h3>The Output</h3>
+ *  <p>
+ *      A table containing the following metrics for each contig:
+ *      <ul>
+ *          <li>Number of reads.</li>
+ *          <li>Expected number of reads given the size of the dataset.</li>
+ *          <li>Contig enrichment -- <i>how much sequencing yielded reads mapped to this contig</i>.</li>
+ *          <li>Expected contig enrichment given the size of the dataset.</li>
+ *      </ul>
+ *  </p>
+ *
+ *  <p>
+ *      Expected numbers are proportional to the size of the dataset and the size of each contig assuming untargetted sequencing.
+ *  </p>
+ *
+ * <h3>Examples</h3>
+ *  <pre>
+ *    java
+ *      -jar GenomeAnalysisTK.jar
+ *      -T ContigStats
+ *      -I mySequences.bam
+ *      -R myReference.fasta
+ *      -o mySequences.stats
+ *  </pre>
+ * </ol>
+ *
+ * @author Mauricio Carneiro
+ * @since 7/23/11
  */
 
 @ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentReadFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckReadFilter.class})
