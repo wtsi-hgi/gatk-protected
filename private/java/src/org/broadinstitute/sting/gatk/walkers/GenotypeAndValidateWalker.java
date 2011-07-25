@@ -56,7 +56,6 @@ import static org.broadinstitute.sting.utils.IndelUtils.isInsideExtendedIndel;
  *
  * @author carneiro
  * @since Mar 3, 2011
- * @help.summary Validates the calls on a ROD track using a BAM dataset.
  */
 
 @Requires(value={DataSource.READS, DataSource.REFERENCE},referenceMetaData=@RMD(name="alleles",type=VariantContext.class))
