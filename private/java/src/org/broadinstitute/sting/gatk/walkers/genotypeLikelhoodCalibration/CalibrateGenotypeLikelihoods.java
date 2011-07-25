@@ -53,7 +53,6 @@ import java.util.*;
  *
  * @author depristo
  * @since May, 2011
- * @help.summary Computes raw GL calibration data for read groups in BAMs against a comp VCF track of genotypes
  */
 
 @Requires(value={DataSource.READS, DataSource.REFERENCE},referenceMetaData=@RMD(name="alleles",type=VariantContext.class))

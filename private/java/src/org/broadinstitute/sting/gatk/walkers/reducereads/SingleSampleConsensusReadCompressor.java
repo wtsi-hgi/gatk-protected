@@ -48,7 +48,6 @@ import java.util.*;
 /**
  *
  * @author depristo
- * @version 0.1
  */
 public class SingleSampleConsensusReadCompressor implements ConsensusReadCompressor {
     protected static final Logger logger = Logger.getLogger(SingleSampleConsensusReadCompressor.class);

@@ -43,7 +43,6 @@ import java.util.Collection;
  * possibly be a valid version of the full pileup.
  *
  * @author mhanna
- * @version 0.1
  */
 public class DownsamplingValidationWalker extends LocusWalker<Integer,Long> {
     @Argument(fullName="max_expected_number_of_reads",shortName="menr",doc="The expected number of reads chosed by the downsampler.  Fewer than this number might be added to a given alignment start, but more than this should never be.",required=true)

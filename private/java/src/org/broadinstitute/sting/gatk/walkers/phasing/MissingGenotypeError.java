@@ -69,6 +69,6 @@ public class MissingGenotypeError extends RodWalker<Integer, Integer> {
     }
 
     public void onTraversalDone(Integer sum) {
-        out.printf("numMarkers=%d\tnumErrors=%d\tpctErrors=%f%n", numMarkers, numErrors, (double) numErrors / (double) numMarkers);
+        out.printf("numMarkers=%d\tnumErrors=%d\tpctErrors=%f%n", numMarkers, numErrors, 100.0 * ((double) numErrors / (double) numMarkers));
     }
 }
