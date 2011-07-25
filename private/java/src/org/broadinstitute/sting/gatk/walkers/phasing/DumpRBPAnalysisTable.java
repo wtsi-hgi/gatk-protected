@@ -143,77 +143,77 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
                 rbpTable.set(pk, "alt", truth.getAltAlleleWithHighestAlleleCount());
 
                 Genotype truthG = truth.getGenotype(SAMPLE);
-                rbpTable.addColumn("truth.GT", truthG.getGenotypeString(true));
-                rbpTable.addColumn("truth.AC", truth.getAttributeAsInt("AC", 0));
-                rbpTable.addColumn("truth.AN", truth.getAttributeAsInt("AN", 0));
-                rbpTable.addColumn("truth.AF", truth.getAttributeAsInt("AF", 0));
-                rbpTable.addColumn("truth.GQ", truthG.getAttributeAsDouble("GQ", 0.0));
-                rbpTable.addColumn("truth.DP", truthG.getAttributeAsInt("DP", 0));
-                rbpTable.addColumn("truth.TP", truthG.getAttributeAsDouble("TP", 0.0));
+                rbpTable.set(pk, "truth.GT", truthG.getGenotypeString(true));
+                rbpTable.set(pk, "truth.AC", truth.getAttributeAsInt("AC", 0));
+                rbpTable.set(pk, "truth.AN", truth.getAttributeAsInt("AN", 0));
+                rbpTable.set(pk, "truth.AF", truth.getAttributeAsInt("AF", 0));
+                rbpTable.set(pk, "truth.GQ", truthG.getAttributeAsDouble("GQ", 0.0));
+                rbpTable.set(pk, "truth.DP", truthG.getAttributeAsInt("DP", 0));
+                rbpTable.set(pk, "truth.TP", truthG.getAttributeAsDouble("TP", 0.0));
 
                 Genotype rbp00G = rbp00.getGenotype(SAMPLE);
-                rbpTable.addColumn("rbp00.GT", rbp00G.getGenotypeString(true));
-                rbpTable.addColumn("rbp00.AC", rbp00.getAttributeAsInt("AC", 0));
-                rbpTable.addColumn("rbp00.AN", rbp00.getAttributeAsInt("AN", 0));
-                rbpTable.addColumn("rbp00.AF", rbp00.getAttributeAsInt("AF", 0));
-                rbpTable.addColumn("rbp00.GQ", rbp00G.getAttributeAsDouble("GQ", 0.0));
-                rbpTable.addColumn("rbp00.DP", rbp00G.getAttributeAsInt("DP", 0));
-                rbpTable.addColumn("rbp00.PQ", rbp00G.getAttributeAsDouble("PQ", 0.0));
+                rbpTable.set(pk, "rbp00.GT", rbp00G.getGenotypeString(true));
+                rbpTable.set(pk, "rbp00.AC", rbp00.getAttributeAsInt("AC", 0));
+                rbpTable.set(pk, "rbp00.AN", rbp00.getAttributeAsInt("AN", 0));
+                rbpTable.set(pk, "rbp00.AF", rbp00.getAttributeAsInt("AF", 0));
+                rbpTable.set(pk, "rbp00.GQ", rbp00G.getAttributeAsDouble("GQ", 0.0));
+                rbpTable.set(pk, "rbp00.DP", rbp00G.getAttributeAsInt("DP", 0));
+                rbpTable.set(pk, "rbp00.PQ", rbp00G.getAttributeAsDouble("PQ", 0.0));
 
                 Genotype rbp01G = rbp01.getGenotype(SAMPLE);
-                rbpTable.addColumn("rbp01.GT", rbp01G.getGenotypeString(true));
-                rbpTable.addColumn("rbp01.AC", rbp01.getAttributeAsInt("AC", 0));
-                rbpTable.addColumn("rbp01.AN", rbp01.getAttributeAsInt("AN", 0));
-                rbpTable.addColumn("rbp01.AF", rbp01.getAttributeAsInt("AF", 0));
-                rbpTable.addColumn("rbp01.GQ", rbp01G.getAttributeAsDouble("GQ", 0.0));
-                rbpTable.addColumn("rbp01.DP", rbp01G.getAttributeAsInt("DP", 0));
-                rbpTable.addColumn("rbp01.PQ", rbp01G.getAttributeAsDouble("PQ", 0.0));
+                rbpTable.set(pk, "rbp01.GT", rbp01G.getGenotypeString(true));
+                rbpTable.set(pk, "rbp01.AC", rbp01.getAttributeAsInt("AC", 0));
+                rbpTable.set(pk, "rbp01.AN", rbp01.getAttributeAsInt("AN", 0));
+                rbpTable.set(pk, "rbp01.AF", rbp01.getAttributeAsInt("AF", 0));
+                rbpTable.set(pk, "rbp01.GQ", rbp01G.getAttributeAsDouble("GQ", 0.0));
+                rbpTable.set(pk, "rbp01.DP", rbp01G.getAttributeAsInt("DP", 0));
+                rbpTable.set(pk, "rbp01.PQ", rbp01G.getAttributeAsDouble("PQ", 0.0));
 
                 Genotype rbp10G = rbp10.getGenotype(SAMPLE);
-                rbpTable.addColumn("rbp10.GT", rbp10G.getGenotypeString(true));
-                rbpTable.addColumn("rbp10.AC", rbp10.getAttributeAsInt("AC", 0));
-                rbpTable.addColumn("rbp10.AN", rbp10.getAttributeAsInt("AN", 0));
-                rbpTable.addColumn("rbp10.AF", rbp10.getAttributeAsInt("AF", 0));
-                rbpTable.addColumn("rbp10.GQ", rbp10G.getAttributeAsDouble("GQ", 0.0));
-                rbpTable.addColumn("rbp10.DP", rbp10G.getAttributeAsInt("DP", 0));
-                rbpTable.addColumn("rbp10.PQ", rbp10G.getAttributeAsDouble("PQ", 0.0));
+                rbpTable.set(pk, "rbp10.GT", rbp10G.getGenotypeString(true));
+                rbpTable.set(pk, "rbp10.AC", rbp10.getAttributeAsInt("AC", 0));
+                rbpTable.set(pk, "rbp10.AN", rbp10.getAttributeAsInt("AN", 0));
+                rbpTable.set(pk, "rbp10.AF", rbp10.getAttributeAsInt("AF", 0));
+                rbpTable.set(pk, "rbp10.GQ", rbp10G.getAttributeAsDouble("GQ", 0.0));
+                rbpTable.set(pk, "rbp10.DP", rbp10G.getAttributeAsInt("DP", 0));
+                rbpTable.set(pk, "rbp10.PQ", rbp10G.getAttributeAsDouble("PQ", 0.0));
 
                 Genotype rbp11G = rbp11.getGenotype(SAMPLE);
-                rbpTable.addColumn("rbp00.GT", rbp11G.getGenotypeString(true));
-                rbpTable.addColumn("rbp00.AC", rbp11.getAttributeAsInt("AC", 0));
-                rbpTable.addColumn("rbp00.AN", rbp11.getAttributeAsInt("AN", 0));
-                rbpTable.addColumn("rbp00.AF", rbp11.getAttributeAsInt("AF", 0));
-                rbpTable.addColumn("rbp00.GQ", rbp11G.getAttributeAsDouble("GQ", 0.0));
-                rbpTable.addColumn("rbp00.DP", rbp11G.getAttributeAsInt("DP", 0));
-                rbpTable.addColumn("rbp00.PQ", rbp11G.getAttributeAsDouble("PQ", 0.0));
+                rbpTable.set(pk, "rbp00.GT", rbp11G.getGenotypeString(true));
+                rbpTable.set(pk, "rbp00.AC", rbp11.getAttributeAsInt("AC", 0));
+                rbpTable.set(pk, "rbp00.AN", rbp11.getAttributeAsInt("AN", 0));
+                rbpTable.set(pk, "rbp00.AF", rbp11.getAttributeAsInt("AF", 0));
+                rbpTable.set(pk, "rbp00.GQ", rbp11G.getAttributeAsDouble("GQ", 0.0));
+                rbpTable.set(pk, "rbp00.DP", rbp11G.getAttributeAsInt("DP", 0));
+                rbpTable.set(pk, "rbp00.PQ", rbp11G.getAttributeAsDouble("PQ", 0.0));
 
                 Genotype beagle00G = beagle00.getGenotype(SAMPLE);
-                rbpTable.addColumn("beagle00.GT", beagle00G.getGenotypeString(true));
-                rbpTable.addColumn("beagle00.AF", beagle00.getAttributeAsInt("AF", 0));
-                rbpTable.addColumn("beagle00.GA", beagle00G.getAttributeAsDouble("GA", 0.0));
-                rbpTable.addColumn("beagle00.AR2", beagle00G.getAttributeAsInt("AR2", 0));
-                rbpTable.addColumn("beagle00.DR2", beagle00G.getAttributeAsDouble("DR2", 0.0));
+                rbpTable.set(pk, "beagle00.GT", beagle00G.getGenotypeString(true));
+                rbpTable.set(pk, "beagle00.AF", beagle00.getAttributeAsInt("AF", 0));
+                rbpTable.set(pk, "beagle00.GA", beagle00G.getAttributeAsDouble("GA", 0.0));
+                rbpTable.set(pk, "beagle00.AR2", beagle00G.getAttributeAsInt("AR2", 0));
+                rbpTable.set(pk, "beagle00.DR2", beagle00G.getAttributeAsDouble("DR2", 0.0));
 
                 Genotype beagle01G = beagle01.getGenotype(SAMPLE);
-                rbpTable.addColumn("beagle01.GT", beagle01G.getGenotypeString(true));
-                rbpTable.addColumn("beagle01.AF", beagle01.getAttributeAsInt("AF", 0));
-                rbpTable.addColumn("beagle01.GA", beagle01G.getAttributeAsDouble("GA", 0.0));
-                rbpTable.addColumn("beagle01.AR2", beagle01G.getAttributeAsInt("AR2", 0));
-                rbpTable.addColumn("beagle01.DR2", beagle01G.getAttributeAsDouble("DR2", 0.0));
+                rbpTable.set(pk, "beagle01.GT", beagle01G.getGenotypeString(true));
+                rbpTable.set(pk, "beagle01.AF", beagle01.getAttributeAsInt("AF", 0));
+                rbpTable.set(pk, "beagle01.GA", beagle01G.getAttributeAsDouble("GA", 0.0));
+                rbpTable.set(pk, "beagle01.AR2", beagle01G.getAttributeAsInt("AR2", 0));
+                rbpTable.set(pk, "beagle01.DR2", beagle01G.getAttributeAsDouble("DR2", 0.0));
 
                 Genotype beagle10G = beagle10.getGenotype(SAMPLE);
-                rbpTable.addColumn("beagle10.GT", beagle10G.getGenotypeString(true));
-                rbpTable.addColumn("beagle10.AF", beagle10.getAttributeAsInt("AF", 0));
-                rbpTable.addColumn("beagle10.GA", beagle10G.getAttributeAsDouble("GA", 0.0));
-                rbpTable.addColumn("beagle10.AR2", beagle10G.getAttributeAsInt("AR2", 0));
-                rbpTable.addColumn("beagle10.DR2", beagle10G.getAttributeAsDouble("DR2", 0.0));
+                rbpTable.set(pk, "beagle10.GT", beagle10G.getGenotypeString(true));
+                rbpTable.set(pk, "beagle10.AF", beagle10.getAttributeAsInt("AF", 0));
+                rbpTable.set(pk, "beagle10.GA", beagle10G.getAttributeAsDouble("GA", 0.0));
+                rbpTable.set(pk, "beagle10.AR2", beagle10G.getAttributeAsInt("AR2", 0));
+                rbpTable.set(pk, "beagle10.DR2", beagle10G.getAttributeAsDouble("DR2", 0.0));
 
                 Genotype beagle11G = beagle11.getGenotype(SAMPLE);
-                rbpTable.addColumn("beagle00.GT", beagle11G.getGenotypeString(true));
-                rbpTable.addColumn("beagle00.AF", beagle11.getAttributeAsInt("AF", 0));
-                rbpTable.addColumn("beagle00.GQ", beagle11G.getAttributeAsDouble("GQ", 0.0));
-                rbpTable.addColumn("beagle00.AR2", beagle11G.getAttributeAsInt("AR2", 0));
-                rbpTable.addColumn("beagle00.DR2", beagle11G.getAttributeAsDouble("DR2", 0.0));
+                rbpTable.set(pk, "beagle00.GT", beagle11G.getGenotypeString(true));
+                rbpTable.set(pk, "beagle00.AF", beagle11.getAttributeAsInt("AF", 0));
+                rbpTable.set(pk, "beagle00.GQ", beagle11G.getAttributeAsDouble("GQ", 0.0));
+                rbpTable.set(pk, "beagle00.AR2", beagle11G.getAttributeAsInt("AR2", 0));
+                rbpTable.set(pk, "beagle00.DR2", beagle11G.getAttributeAsDouble("DR2", 0.0));
             }
         }
 
