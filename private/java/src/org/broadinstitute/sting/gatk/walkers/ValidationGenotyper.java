@@ -46,7 +46,6 @@ import java.util.TreeSet;
  *
  * @author rpoplin
  * @since Oct 20, 2010
- * @help.summary This is the validation genotyper. It is not ready to be used by anybody.
  */
 
 @Allows(value={DataSource.READS, DataSource.REFERENCE})

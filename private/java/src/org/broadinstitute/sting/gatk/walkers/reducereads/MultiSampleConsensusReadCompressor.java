@@ -38,7 +38,6 @@ import java.util.*;
 /**
  *
  * @author depristo
- * @version 0.1
  */
 public class MultiSampleConsensusReadCompressor implements ConsensusReadCompressor {
     protected static final Logger logger = Logger.getLogger(MultiSampleConsensusReadCompressor.class);
