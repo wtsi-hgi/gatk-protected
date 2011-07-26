@@ -133,7 +133,7 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
             Collection<VariantContext> beagle11s = tracker.getVariantContexts(ref, "beagle11s", null, ref.getLocus(), true, true);
             VariantContext beagle11 = beagle11s.iterator().hasNext() ? beagle11s.iterator().next() : null;
 
-            if (truth != null && rbp00 != null && rbp01 != null && rbp10 != null && rbp11 != null && beagle00 != null && beagle01 != null && beagle10 != null && beagle11 != null) {
+            //if (truth != null && rbp00 != null && rbp01 != null && rbp10 != null && rbp11 != null && beagle00 != null && beagle01 != null && beagle10 != null && beagle11 != null) {
                 GATKReportTable rbpTable = report.getTable(tableName);
                 GenomeLoc pk = ref.getLocus();
                 rbpTable.set(pk, "chr", ref.getLocus().getContig());
@@ -214,7 +214,7 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
                 rbpTable.set(pk, "beagle00.GQ", beagle11G.getAttributeAsDouble("GQ", 0.0));
                 rbpTable.set(pk, "beagle00.AR2", beagle11G.getAttributeAsInt("AR2", 0));
                 rbpTable.set(pk, "beagle00.DR2", beagle11G.getAttributeAsDouble("DR2", 0.0));
-            }
+            //}
         }
 
         return null;
