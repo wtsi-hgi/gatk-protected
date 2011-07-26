@@ -195,27 +195,27 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
 
                 rbpTable.set(pk, "beagle00.GT", beagle00G.isNoCall() ? "./." : beagle00G.getGenotypeString());
                 rbpTable.set(pk, "beagle00.AF", beagle00.getAttribute("AF", 0));
-                rbpTable.set(pk, "beagle00.GA", beagle00G.getAttribute("GA", 0.0));
-                rbpTable.set(pk, "beagle00.AR2", beagle00G.getAttribute("AR2", 0));
-                rbpTable.set(pk, "beagle00.DR2", beagle00G.getAttribute("DR2", 0.0));
+                rbpTable.set(pk, "beagle00.GA", beagle00.getAttribute("GA", 0.0));
+                rbpTable.set(pk, "beagle00.AR2", beagle00.getAttribute("AR2", 0));
+                rbpTable.set(pk, "beagle00.DR2", beagle00.getAttribute("DR2", 0.0));
 
                 rbpTable.set(pk, "beagle01.GT", beagle01G.isNoCall() ? "./." : beagle01G.getGenotypeString());
                 rbpTable.set(pk, "beagle01.AF", beagle01.getAttribute("AF", 0));
-                rbpTable.set(pk, "beagle01.GA", beagle01G.getAttribute("GA", 0.0));
-                rbpTable.set(pk, "beagle01.AR2", beagle01G.getAttribute("AR2", 0));
-                rbpTable.set(pk, "beagle01.DR2", beagle01G.getAttribute("DR2", 0.0));
+                rbpTable.set(pk, "beagle01.GA", beagle01.getAttribute("GA", 0.0));
+                rbpTable.set(pk, "beagle01.AR2", beagle01.getAttribute("AR2", 0));
+                rbpTable.set(pk, "beagle01.DR2", beagle01.getAttribute("DR2", 0.0));
 
                 rbpTable.set(pk, "beagle10.GT", beagle10G.isNoCall() ? "./." : beagle10G.getGenotypeString());
                 rbpTable.set(pk, "beagle10.AF", beagle10.getAttribute("AF", 0));
-                rbpTable.set(pk, "beagle10.GA", beagle10G.getAttribute("GA", 0.0));
-                rbpTable.set(pk, "beagle10.AR2", beagle10G.getAttribute("AR2", 0));
-                rbpTable.set(pk, "beagle10.DR2", beagle10G.getAttribute("DR2", 0.0));
+                rbpTable.set(pk, "beagle10.GA", beagle10.getAttribute("GA", 0.0));
+                rbpTable.set(pk, "beagle10.AR2", beagle10.getAttribute("AR2", 0));
+                rbpTable.set(pk, "beagle10.DR2", beagle10.getAttribute("DR2", 0.0));
 
                 rbpTable.set(pk, "beagle11.GT", beagle11G.isNoCall() ? "./." : beagle11G.getGenotypeString());
                 rbpTable.set(pk, "beagle11.AF", beagle11.getAttribute("AF", 0));
-                rbpTable.set(pk, "beagle11.GA", beagle11G.getAttribute("GA", 0.0));
-                rbpTable.set(pk, "beagle11.AR2", beagle11G.getAttribute("AR2", 0));
-                rbpTable.set(pk, "beagle11.DR2", beagle11G.getAttribute("DR2", 0.0));
+                rbpTable.set(pk, "beagle11.GA", beagle11.getAttribute("GA", 0.0));
+                rbpTable.set(pk, "beagle11.AR2", beagle11.getAttribute("AR2", 0));
+                rbpTable.set(pk, "beagle11.DR2", beagle11.getAttribute("DR2", 0.0));
             }
         }
 
