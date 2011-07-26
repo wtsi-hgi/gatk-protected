@@ -139,10 +139,10 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
                 GATKReportTable rbpTable = report.getTable(tableName);
                 GenomeLoc pk = ref.getLocus();
                 rbpTable.set(pk, "chr", ref.getLocus().getContig());
-                rbpTable.set(pk, "start", ref.getLocus().getContig());
+                rbpTable.set(pk, "start", ref.getLocus().getStart());
                 rbpTable.set(pk, "id", truth.getID());
-                rbpTable.set(pk, "ref", truth.getReference());
-                rbpTable.set(pk, "alt", truth.getAltAlleleWithHighestAlleleCount());
+                rbpTable.set(pk, "ref", truth.getReference().getBaseString());
+                rbpTable.set(pk, "alt", truth.getAltAlleleWithHighestAlleleCount().getBaseString());
 
                 Genotype truthG = truth.getGenotype(SAMPLE);
                 rbpTable.set(pk, "truth.GT", truthG.getGenotypeString(true));
@@ -163,7 +163,7 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
                 rbpTable.set(pk, "rbp00.PQ", rbp00G.getAttribute("PQ", 0.0));
 
                 Genotype rbp01G = rbp01.getGenotype(SAMPLE);
-                rbpTable.set(pk, "rbp01.GT", rbp01G.getGenotypeString(true));
+                rbpTable.set(pk, "rbp01.GT", rbp01G.getGenotypeString());
                 rbpTable.set(pk, "rbp01.AC", rbp01.getAttribute("AC", 0));
                 rbpTable.set(pk, "rbp01.AN", rbp01.getAttribute("AN", 0));
                 rbpTable.set(pk, "rbp01.AF", rbp01.getAttribute("AF", 0));
@@ -172,7 +172,7 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
                 rbpTable.set(pk, "rbp01.PQ", rbp01G.getAttribute("PQ", 0.0));
 
                 Genotype rbp10G = rbp10.getGenotype(SAMPLE);
-                rbpTable.set(pk, "rbp10.GT", rbp10G.getGenotypeString(true));
+                rbpTable.set(pk, "rbp10.GT", rbp10G.getGenotypeString());
                 rbpTable.set(pk, "rbp10.AC", rbp10.getAttribute("AC", 0));
                 rbpTable.set(pk, "rbp10.AN", rbp10.getAttribute("AN", 0));
                 rbpTable.set(pk, "rbp10.AF", rbp10.getAttribute("AF", 0));
@@ -181,7 +181,7 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
                 rbpTable.set(pk, "rbp10.PQ", rbp10G.getAttribute("PQ", 0.0));
 
                 Genotype rbp11G = rbp11.getGenotype(SAMPLE);
-                rbpTable.set(pk, "rbp11.GT", rbp11G.getGenotypeString(true));
+                rbpTable.set(pk, "rbp11.GT", rbp11G.getGenotypeString());
                 rbpTable.set(pk, "rbp11.AC", rbp11.getAttribute("AC", 0));
                 rbpTable.set(pk, "rbp11.AN", rbp11.getAttribute("AN", 0));
                 rbpTable.set(pk, "rbp11.AF", rbp11.getAttribute("AF", 0));
@@ -190,28 +190,28 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
                 rbpTable.set(pk, "rbp11.PQ", rbp11G.getAttribute("PQ", 0.0));
 
                 Genotype beagle00G = beagle00.getGenotype(SAMPLE);
-                rbpTable.set(pk, "beagle00.GT", beagle00G.getGenotypeString(true));
+                rbpTable.set(pk, "beagle00.GT", beagle00G.getGenotypeString());
                 rbpTable.set(pk, "beagle00.AF", beagle00.getAttribute("AF", 0));
                 rbpTable.set(pk, "beagle00.GA", beagle00G.getAttribute("GA", 0.0));
                 rbpTable.set(pk, "beagle00.AR2", beagle00G.getAttribute("AR2", 0));
                 rbpTable.set(pk, "beagle00.DR2", beagle00G.getAttribute("DR2", 0.0));
 
                 Genotype beagle01G = beagle01.getGenotype(SAMPLE);
-                rbpTable.set(pk, "beagle01.GT", beagle01G.getGenotypeString(true));
+                rbpTable.set(pk, "beagle01.GT", beagle01G.getGenotypeString());
                 rbpTable.set(pk, "beagle01.AF", beagle01.getAttribute("AF", 0));
                 rbpTable.set(pk, "beagle01.GA", beagle01G.getAttribute("GA", 0.0));
                 rbpTable.set(pk, "beagle01.AR2", beagle01G.getAttribute("AR2", 0));
                 rbpTable.set(pk, "beagle01.DR2", beagle01G.getAttribute("DR2", 0.0));
 
                 Genotype beagle10G = beagle10.getGenotype(SAMPLE);
-                rbpTable.set(pk, "beagle10.GT", beagle10G.getGenotypeString(true));
+                rbpTable.set(pk, "beagle10.GT", beagle10G.getGenotypeString());
                 rbpTable.set(pk, "beagle10.AF", beagle10.getAttribute("AF", 0));
                 rbpTable.set(pk, "beagle10.GA", beagle10G.getAttribute("GA", 0.0));
                 rbpTable.set(pk, "beagle10.AR2", beagle10G.getAttribute("AR2", 0));
                 rbpTable.set(pk, "beagle10.DR2", beagle10G.getAttribute("DR2", 0.0));
 
                 Genotype beagle11G = beagle11.getGenotype(SAMPLE);
-                rbpTable.set(pk, "beagle11.GT", beagle11G.getGenotypeString(true));
+                rbpTable.set(pk, "beagle11.GT", beagle11G.getGenotypeString());
                 rbpTable.set(pk, "beagle11.AF", beagle11.getAttribute("AF", 0));
                 rbpTable.set(pk, "beagle11.GA", beagle11G.getAttribute("GA", 0.0));
                 rbpTable.set(pk, "beagle11.AR2", beagle11G.getAttribute("AR2", 0));
