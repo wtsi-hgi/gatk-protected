@@ -43,6 +43,7 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
         rbpTable.addColumn("truth.GT", "unknown");
         rbpTable.addColumn("truth.AC", 0.0);
         rbpTable.addColumn("truth.AN", 0.0);
+        rbpTable.addColumn("truth.AF", 0.0);
         rbpTable.addColumn("truth.GQ", 0.0);
         rbpTable.addColumn("truth.DP", 0.0);
         rbpTable.addColumn("truth.TP", 0.0);
@@ -50,6 +51,7 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
         rbpTable.addColumn("rbp00.GT", "unknown");
         rbpTable.addColumn("rbp00.AC", 0.0);
         rbpTable.addColumn("rbp00.AN", 0.0);
+        rbpTable.addColumn("rbp00.AF", 0.0);
         rbpTable.addColumn("rbp00.GQ", 0.0);
         rbpTable.addColumn("rbp00.DP", 0.0);
         rbpTable.addColumn("rbp00.PQ", 0.0);
