@@ -55,7 +55,6 @@ import java.util.*;
  *      -R myReference.fasta
  *      -o mySequences.stats
  *  </pre>
- * </ol>
  *
  * @author Mauricio Carneiro
  * @since 7/23/11
