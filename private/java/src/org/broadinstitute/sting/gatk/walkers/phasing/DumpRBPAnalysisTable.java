@@ -181,13 +181,13 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
                 rbpTable.set(pk, "rbp10.PQ", rbp10G.getAttribute("PQ", 0.0));
 
                 Genotype rbp11G = rbp11.getGenotype(SAMPLE);
-                rbpTable.set(pk, "rbp00.GT", rbp11G.getGenotypeString(true));
-                rbpTable.set(pk, "rbp00.AC", rbp11.getAttribute("AC", 0));
-                rbpTable.set(pk, "rbp00.AN", rbp11.getAttribute("AN", 0));
-                rbpTable.set(pk, "rbp00.AF", rbp11.getAttribute("AF", 0));
-                rbpTable.set(pk, "rbp00.GQ", rbp11G.getAttribute("GQ", 0.0));
-                rbpTable.set(pk, "rbp00.DP", rbp11G.getAttribute("DP", 0));
-                rbpTable.set(pk, "rbp00.PQ", rbp11G.getAttribute("PQ", 0.0));
+                rbpTable.set(pk, "rbp11.GT", rbp11G.getGenotypeString(true));
+                rbpTable.set(pk, "rbp11.AC", rbp11.getAttribute("AC", 0));
+                rbpTable.set(pk, "rbp11.AN", rbp11.getAttribute("AN", 0));
+                rbpTable.set(pk, "rbp11.AF", rbp11.getAttribute("AF", 0));
+                rbpTable.set(pk, "rbp11.GQ", rbp11G.getAttribute("GQ", 0.0));
+                rbpTable.set(pk, "rbp11.DP", rbp11G.getAttribute("DP", 0));
+                rbpTable.set(pk, "rbp11.PQ", rbp11G.getAttribute("PQ", 0.0));
 
                 Genotype beagle00G = beagle00.getGenotype(SAMPLE);
                 rbpTable.set(pk, "beagle00.GT", beagle00G.getGenotypeString(true));
@@ -211,11 +211,11 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
                 rbpTable.set(pk, "beagle10.DR2", beagle10G.getAttribute("DR2", 0.0));
 
                 Genotype beagle11G = beagle11.getGenotype(SAMPLE);
-                rbpTable.set(pk, "beagle00.GT", beagle11G.getGenotypeString(true));
-                rbpTable.set(pk, "beagle00.AF", beagle11.getAttribute("AF", 0));
-                rbpTable.set(pk, "beagle00.GQ", beagle11G.getAttribute("GQ", 0.0));
-                rbpTable.set(pk, "beagle00.AR2", beagle11G.getAttribute("AR2", 0));
-                rbpTable.set(pk, "beagle00.DR2", beagle11G.getAttribute("DR2", 0.0));
+                rbpTable.set(pk, "beagle11.GT", beagle11G.getGenotypeString(true));
+                rbpTable.set(pk, "beagle11.AF", beagle11.getAttribute("AF", 0));
+                rbpTable.set(pk, "beagle11.GA", beagle11G.getAttribute("GA", 0.0));
+                rbpTable.set(pk, "beagle11.AR2", beagle11G.getAttribute("AR2", 0));
+                rbpTable.set(pk, "beagle11.DR2", beagle11G.getAttribute("DR2", 0.0));
             //}
         }
 
