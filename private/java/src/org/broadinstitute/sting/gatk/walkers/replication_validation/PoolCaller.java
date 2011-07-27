@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.replication_validation;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -19,12 +20,45 @@ import java.util.*;
  * Implementation of the replication and validation framework with reference based error model
  * for pooled sequencing.
  *
- * The input should be a BAM file with pooled sequencing data where each pool is represented by
- * samples with the same barcode.
+ *  <p>
+ *     [Long description of the walker]
+ *  </p>
  *
- * A reference sample name must be provided and it must be barcoded uniquely.
+ *
+ * <h2>Input</h2>
+ *  <p>
+ *      The input should be a BAM file with pooled sequencing data where each pool is represented by
+ *      samples with the same barcode. A reference sample name must be provided and it must be barcoded
+ *      uniquely.
+ *  </p>
+ *
+ * <h2>Output</h2>
+ *  <p>
+ *      A VCF file with the following annotations:
+ *      <ul>
+ *          <li>Likelihood that the site is not AC=0</li>
+ *          <li>site AC</li>
+ *          <li>each pool AC, 95% confidence interval for AC, likelihood</li>
+ *      </ul>
+ *  </p>
+ *
+ * <h2>Examples</h2>
+ *  <pre>
+ *    java
+ *      -javaagent:/home/unix/carneiro/src/gatk/repval/lib/cofoja-1.0-20110609.jar \
+ *      -jar GenomeAnalysisTK.jar
+ *      -T PoolCaller
+ *      -R reference.fasta \
+ *	    -I mySequences.bam \
+ *	    -B:reference,VCF /humgen/gsa-hpprojects/dev/carneiro/repval/data/reference_sample.vcf \
+ *	    -refsample NA12878
+ *  </pre>
+ *
+ * @author Mauricio Carneiro
+ * @since 5/4/11
  */
-public class ReplicationValidationWalker extends LocusWalker<Integer, Long> implements TreeReducible<Long> {
+
+public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReducible<Long> {
 
     @Argument(shortName="refsample", fullName="reference_sample_name", doc="Reference sample name.", required=true)
     String referenceSampleName;
@@ -44,9 +78,9 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
     @Argument(shortName="ef", fullName="exclude_filtered_reference_sites", doc="Don't include in the analysis sites where the reference sample VCF is filtered. Default: false.", required=false)
     boolean EXCLUDE_FILTERED_REFERENCE_SITES = false;
 
-//    @Hidden
-//    @Argument(shortName = "dl", doc="DEBUG ARGUMENT -- treats all reads as coming from the same lane", required=false)
-//    boolean DEBUG_IGNORE_LANES = false;
+    @Hidden
+    @Argument(shortName = "dl", doc="DEBUG ARGUMENT -- treats all reads as coming from the same lane", required=false)
+    boolean DEBUG_IGNORE_LANES = false;
 
     @Output(doc="Write output to this file instead of STDOUT")
     PrintStream out;
@@ -141,7 +175,7 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
             return 0;
 
         // Creates a site Object for this location
-        Site site = new Site(context.getBasePileup(), referenceSampleName, trueReferenceBases, ref.getBase(), minQualityScore, maxQualityScore, phredScaledPrior, maxAlleleCount);
+        Site site = new Site(new SiteParameters(context.getBasePileup(), referenceSampleName, trueReferenceBases, ref.getBase(), minQualityScore, maxQualityScore, phredScaledPrior, maxAlleleCount));
 
         // todo -- get site's alleleCountModel and write out VCF
 

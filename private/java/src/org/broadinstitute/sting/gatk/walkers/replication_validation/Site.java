@@ -19,11 +19,41 @@ public class Site {
     private Set<String> laneIDs;
     private AlleleCountModel alleleCountModel;
 
+    /**
+     * Special case constructor when site consists of only one pool
+     * @param laneID the lane id
+     * @param lane the lane object
+     */
+    public Site(String laneID, Lane lane) {
+        this.lanes = new HashSet<Lane>(1);
+        this.laneIDs = new HashSet<String>(1);
+        this.lanes.add(lane);
+        this.laneIDs.add(laneID);
+        alleleCountModel = new AlleleCountModel(lane.getAlleleCountModel());
+    }
+
+    /**
+     * General constructor for a Site object. It creates a site with all the lanes represented in it's pileup,
+     * the error model based on the reference sample pileup and calculates the allele count model for the entire
+     * lane.
+     * @param sitePileup
+     * @param referenceSampleName
+     * @param trueReferenceBases
+     * @param referenceSequenceBase
+     * @param minQualityScore
+     * @param maxQualityScore
+     * @param phredScaledPrior
+     * @param maxAlelleCount
+     */
+    @Deprecated
     public Site(ReadBackedPileup sitePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlelleCount) {
-        laneIDs = parseLaneIDs(sitePileup.getReadGroups());
+    }
+
+    public Site(SiteParameters p) {
+        laneIDs = parseLaneIDs(p.sitePileup.getReadGroups());
         lanes = new HashSet<Lane>(laneIDs.size());
         for (String laneID : laneIDs) {
-            lanes.add(new Lane(laneID, sitePileup.getPileupForLane(laneID), referenceSampleName, trueReferenceBases, referenceSequenceBase, minQualityScore, maxQualityScore, phredScaledPrior, maxAlelleCount));
+            lanes.add(new Lane(new LaneParameters(laneID, p.sitePileup.getPileupForLane(laneID), p.referenceSampleName, p.trueReferenceBases, p.referenceSequenceBase, p.minQualityScore, p.maxQualityScore, p.phredScaledPrior, p.maxAlelleCount)));
         }
 
         for (Lane lane : lanes) {
@@ -35,6 +65,15 @@ public class Site {
         }
     }
 
+    /**
+     * Same as Site constructor but will create only one lane containing only one pool with all samples in the SAM record.
+     * Only for debug purposes.
+     */
+    public static Site debugSite(ReadBackedPileup sitePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlelleCount) {
+        String laneID = "1";
+        Lane lane = new Lane(new LaneParameters(laneID, sitePileup, referenceSampleName, trueReferenceBases, referenceSequenceBase, minQualityScore, maxQualityScore, phredScaledPrior, maxAlelleCount));
+        return new Site(laneID, lane);
+    }
     public Set<Lane> getLanes() {
         return lanes;
     }

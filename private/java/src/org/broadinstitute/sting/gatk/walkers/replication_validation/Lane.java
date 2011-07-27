@@ -27,16 +27,20 @@ public class Lane {
     private AlleleCountModel alleleCountModel;
 
 
+    @Deprecated
     public Lane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlleleCount) {
-        this.name = name;
-        referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSampleName(referenceSampleName), trueReferenceBases);
-        errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, referenceSample);
+    }
 
-        Collection<String> poolNames = lanePileup.getSampleNames();
-        poolNames.remove(referenceSampleName);
+    public Lane(LaneParameters p) {
+        name = p.name;
+        referenceSample = new ReferenceSample(p.referenceSampleName, p.lanePileup.getPileupForSampleName(p.referenceSampleName), p.trueReferenceBases);
+        errorModel = new ErrorModel(new ErrorModelParameters(p.minQualityScore, p.maxQualityScore, p.phredScaledPrior, referenceSample));
+
+        Collection<String> poolNames = p.lanePileup.getSampleNames();
+        poolNames.remove(p.referenceSampleName);
         pools = new LinkedList<Pool>();
         for (String poolName : poolNames) {
-            pools.add(new Pool(poolName, lanePileup.getPileupForSampleName(poolName), errorModel, referenceSequenceBase, maxAlleleCount));
+            pools.add(new Pool(new PoolParameters(poolName, p.lanePileup.getPileupForSampleName(poolName), errorModel, p.referenceSequenceBase, p.maxAlleleCount)));
         }
 
         for (Pool pool : pools) {

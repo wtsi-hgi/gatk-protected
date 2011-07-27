@@ -24,30 +24,21 @@ public class Pool {
     private int mismatches;
 
 
+    @Deprecated
     public Pool(String name, ReadBackedPileup pileup, ErrorModel errorModel, byte referenceSequenceBase, int maxAlleleCount) {
-        this.name = name;
-        this.pileup = pileup;
-        this.maxAlleleCount = maxAlleleCount;
+        this(new PoolParameters(name, pileup, errorModel, referenceSequenceBase, maxAlleleCount));
+    }
+    public Pool(PoolParameters p) {
+        name = p.name;
+        pileup = p.pileup;
+        maxAlleleCount = p.maxAlleleCount;
 
         byte [] data = pileup.getBases();
         int coverage = data.length;
-        matches = MathUtils.countOccurrences(referenceSequenceBase, data);
+        matches = MathUtils.countOccurrences(p.referenceSequenceBase, data);
         mismatches = coverage - matches;
 
-        ACModel = new AlleleCountModel(maxAlleleCount, errorModel, matches, mismatches);
-    }
-
-    /**
-     * Makes a copy of a pool
-     * @param pool
-     */
-    public Pool(Pool pool) {
-        name = pool.name;
-        pileup = pool.pileup;
-        maxAlleleCount = pool.maxAlleleCount;
-        ACModel = pool.ACModel;
-        matches = pool.matches;
-        mismatches = pool.mismatches;
+        ACModel = new AlleleCountModel(new AlleleCountModelParameters(maxAlleleCount, p.errorModel, matches, mismatches));
     }
 
     /**
