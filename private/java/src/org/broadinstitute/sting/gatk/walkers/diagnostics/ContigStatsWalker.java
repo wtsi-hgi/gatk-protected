@@ -18,9 +18,7 @@ import java.io.PrintStream;
 import java.util.*;
 
 /**
- * <p>A read walker for contig statistics.</p>
- *
- * <h3>What you can do with ContigStats</h3>
+ * A read walker for contig statistics.
  *
  *  <p>
  *     ContigStats generates basic read mapping statistics per contig. It provides a table with the number of reads mapping to each contig,
@@ -28,17 +26,12 @@ import java.util.*;
  *  </p>
  *
  *
- * <h3>What you can't do with ContigStats</h3>
- *  <p>
- *      ContigStats doesn't provide you with any per-locus statistic like depth of coverage or variant information. It is a read level statistic for contigs.
- *  </p>
- *
- * <h3>The Input</h3>
+ * <h2>Input</h2>
  *  <p>
  *      One or more bam files to read the reads from. All bam files will be merged and treated like one input. If you want to compare different bam files, run them separately.
  *  </p>
  *
- * <h3>The Output</h3>
+ * <h2>Output</h2>
  *  <p>
  *      A table containing the following metrics for each contig:
  *      <ul>
@@ -53,7 +46,7 @@ import java.util.*;
  *      Expected numbers are proportional to the size of the dataset and the size of each contig assuming untargetted sequencing.
  *  </p>
  *
- * <h3>Examples</h3>
+ * <h2>Examples</h2>
  *  <pre>
  *    java
  *      -jar GenomeAnalysisTK.jar
@@ -62,7 +55,6 @@ import java.util.*;
  *      -R myReference.fasta
  *      -o mySequences.stats
  *  </pre>
- * </ol>
  *
  * @author Mauricio Carneiro
  * @since 7/23/11
