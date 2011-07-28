@@ -78,7 +78,7 @@ public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
         if (tracker == null)
             return null;
 
-        return new GeneNames().addGenes(tracker.getReferenceMetaData(REFSEQ_ROD_NAME));
+        return new GeneNames().addGenes(tracker.getValues(REFSEQ_ROD_NAME));
     }
 
     public GeneNames reduce(GeneNames add, GeneNames runningCount) {

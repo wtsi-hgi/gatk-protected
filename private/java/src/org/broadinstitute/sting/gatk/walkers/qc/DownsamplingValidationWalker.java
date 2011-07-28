@@ -50,7 +50,7 @@ public class DownsamplingValidationWalker extends LocusWalker<Integer,Long> {
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         ReadBackedPileup pileup = context.getBasePileup();
-        Collection<Object> allFeatures = tracker.getReferenceMetaData("reads");
+        Collection<Object> allFeatures = tracker.getValues("reads");
 
         Collection<SAMReadFeature> unsampledReadsStartingAtThisLocus = new ArrayList<SAMReadFeature>();
         for(Object featureCandidate: allFeatures) {

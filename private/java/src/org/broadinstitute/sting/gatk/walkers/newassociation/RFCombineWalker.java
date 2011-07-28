@@ -65,7 +65,7 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
         List<String> eventBySample = new ArrayList<String>();
 
         for ( String rodName : order ) {
-            List<Object> namedMD = tracker.getReferenceMetaData(rodName,true);
+            List<Object> namedMD = tracker.getValues(rodName);
             TableFeature feature = null;
             if ( namedMD.size() > 0 ) {
                 feature = namedMD.get(0) instanceof TableFeature ? (TableFeature) namedMD.get(0) : null;

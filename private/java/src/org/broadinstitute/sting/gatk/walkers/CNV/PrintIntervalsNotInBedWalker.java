@@ -76,7 +76,7 @@ public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {
         int curPos = curLoc.getStart();
         int printed = 0;
 
-        List<GATKFeature> intervals = tracker.getGATKFeatureMetaData(INTERVALS_ROD_NAME, true);
+        List<Object> intervals = tracker.getValues(INTERVALS_ROD_NAME);
         if (intervals.isEmpty()) {
             if (waitingInterval != null && curLoc.compareContigs(waitingInterval) == 0 && curPos == waitingInterval.getStop() + 1) {
                 waitingInterval = getToolkit().getGenomeLocParser().setStop(waitingInterval, curPos);

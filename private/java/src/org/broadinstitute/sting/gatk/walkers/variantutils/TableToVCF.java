@@ -1,6 +1,8 @@
 package org.broadinstitute.sting.gatk.walkers.variantutils;
 
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -28,6 +30,8 @@ import java.util.*;
  */
 @Reference(window=@Window(start=-50,stop=50))
 public class TableToVCF extends RodWalker<VariantContext,Integer> {
+    @Input(shortName = "-t", fullName = "--table", doc = "The input table we will convert to VCF")
+    RodBinding table;
 
     //final private String CNV_HEADER = "HEADER,loc,size,type";
     /**
@@ -51,12 +55,11 @@ public class TableToVCF extends RodWalker<VariantContext,Integer> {
         if ( tracker == null ) { return null; }
 
         VariantContext vcToPrint = null;
-        for ( GATKFeature feature : tracker.getAllRods() ) {
-            TableFeature tFeature = (TableFeature) feature.getUnderlyingObject();
+        for ( TableFeature tFeature : table.getValues(tracker, TableFeature.class) ) {
             if ( ! Utils.join(",",tFeature.getHeader()).equals(VAR_HEADER) ) {
                 throw new UserException("Invalid Header Format");
             }
-            Pair<GenomeLoc,String> rep = new Pair<GenomeLoc,String>(tFeature.getLocation(),String.format("%s.%s",feature.getName(),Utils.join(",",tFeature.getAllValues())));
+            Pair<GenomeLoc,String> rep = new Pair<GenomeLoc,String>(tFeature.getLocation(),String.format("%s.%s",table.getVariableName(),Utils.join(",",tFeature.getAllValues())));
             if ( ! active.contains(rep) ) {
                 active.add(rep);
                 logger.debug(String.format("%s\t%s%n", rep.getFirst(), rep.getSecond()));

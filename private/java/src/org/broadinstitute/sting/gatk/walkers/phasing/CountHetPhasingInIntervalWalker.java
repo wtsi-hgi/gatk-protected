@@ -92,7 +92,7 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
 
         int processed = 1;
 
-        List<GATKFeature> interval = tracker.getGATKFeatureMetaData(INTERVALS_ROD_NAME, true);
+        List<GATKFeature> interval = tracker.getValuesAsGATKFeatures(INTERVALS_ROD_NAME);
         if (interval.size() != 1) {
             String error = "At " + ref.getLocus() + " : Must provide a track named '"+ INTERVALS_ROD_NAME  +"' with exactly ONE interval per locus in -L argument!";
             if (interval.size() < 1)

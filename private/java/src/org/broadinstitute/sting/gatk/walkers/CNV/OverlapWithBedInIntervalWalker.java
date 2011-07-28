@@ -75,7 +75,7 @@ public class OverlapWithBedInIntervalWalker extends RodWalker<CumulativeBaseOver
         if (tracker == null)
             return null;
 
-        return new CumulativeBaseOverlapCount().addIntervals(tracker.getGATKFeatureMetaData(INTERVALS_ROD_NAME, true));
+        return new CumulativeBaseOverlapCount().addIntervals(tracker.getValues(INTERVALS_ROD_NAME));
     }
 
     public CumulativeBaseOverlapCount reduce(CumulativeBaseOverlapCount add, CumulativeBaseOverlapCount runningCount) {
@@ -113,7 +113,7 @@ class CumulativeBaseOverlapCount {
         return this;
     }
 
-    public CumulativeBaseOverlapCount addIntervals(List<GATKFeature> interval) {
+    public CumulativeBaseOverlapCount addIntervals(List<Object> interval) {
         totalOverlapCount += interval.size();
 
         return this;

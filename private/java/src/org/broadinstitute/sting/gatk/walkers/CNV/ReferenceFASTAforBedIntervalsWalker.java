@@ -81,7 +81,7 @@ public class ReferenceFASTAforBedIntervalsWalker extends RodWalker<Integer, Inte
         int curPos = curLoc.getStart();
         int entries = 0;
 
-        List<GATKFeature> intervals = tracker.getGATKFeatureMetaData(INTERVALS_ROD_NAME, true);
+        List<GATKFeature> intervals = tracker.getValuesAsGATKFeatures(INTERVALS_ROD_NAME);
         for (GATKFeature interval : intervals) {
             GenomeLoc loc = interval.getLocation();
             /* TODO: note that an interval may actually start BEFORE here, but not be covered, but would need to cache the remappings

@@ -69,7 +69,7 @@ public class AssessMissingBroadCalls extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        List<Object> kgRods = tracker.getReferenceMetaData("1kg");
+        List<Object> kgRods = tracker.getValues("1kg");
         // ignore places where we don't have a variant
         if ( kgRods.size() == 0 )
             return 0;
@@ -77,7 +77,7 @@ public class AssessMissingBroadCalls extends RodWalker<Integer, Integer> {
         VariantContext vc = (VariantContext)kgRods.get(0);
         Map<String, Object> attrs = new HashMap<String, Object>(vc.getAttributes());
 
-        List<Object> biRods = tracker.getReferenceMetaData("broad");
+        List<Object> biRods = tracker.getValues("broad");
         if ( biRods.size() == 0 )
             attrs.put(status_key, "NotCalled");
         else {
