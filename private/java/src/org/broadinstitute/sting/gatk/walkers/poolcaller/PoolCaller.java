@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.replication_validation;
+package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Hidden;
@@ -9,11 +9,12 @@ import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
+import org.broadinstitute.sting.utils.SampleUtils;
+import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
-import java.io.PrintStream;
 import java.util.*;
 
 /**
@@ -60,6 +61,9 @@ import java.util.*;
 
 public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReducible<Long> {
 
+    @Output(doc="File to which variants should be written", required=true)
+    protected VCFWriter vcfWriter = null;
+
     @Argument(shortName="refsample", fullName="reference_sample_name", doc="Reference sample name.", required=true)
     String referenceSampleName;
 
@@ -75,6 +79,12 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
     @Argument(shortName="prior", fullName="site_quality_prior", doc="Phred-Scaled prior quality of the site. Default: Q20.", required=false)
     byte phredScaledPrior = 20;
 
+    @Argument(shortName = "min_call_conf", fullName = "min_confidence_threshold_for_calling", doc="The minimum phred-scaled confidence threshold at which variants not at 'trigger' track sites should be called.", required = false)
+    double minCallQual = 30.0;
+
+    @Argument(shortName = "min_call_power", fullName = "min_power_threshold_for_calling", doc="The minimum confidence in the error model to make a call. Number should be between 0 (no power requirement) and 1 (maximum power required).", required = false)
+    double minPower = 0.95;
+
     @Argument(shortName="ef", fullName="exclude_filtered_reference_sites", doc="Don't include in the analysis sites where the reference sample VCF is filtered. Default: false.", required=false)
     boolean EXCLUDE_FILTERED_REFERENCE_SITES = false;
 
@@ -82,8 +92,6 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
     @Argument(shortName = "dl", doc="DEBUG ARGUMENT -- treats all reads as coming from the same lane", required=false)
     boolean DEBUG_IGNORE_LANES = false;
 
-    @Output(doc="Write output to this file instead of STDOUT")
-    PrintStream out;
 
     int nSamples;
     int maxAlleleCount;
@@ -161,6 +169,23 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
             throw new IllegalArgumentException("You haven't provided a reference ROD. Note that the reference ROD must be labeled " + REFERENCE_ROD_NAME + ".");
         }
         USE_TRUTH_ROD = foundTruthROD;
+
+        // Initialize the VCF
+        Set<VCFHeaderLine> headerLines = new HashSet<VCFHeaderLine>();
+        headerLines.add(new VCFInfoHeaderLine("AC", 1, VCFHeaderLineType.Integer, "Allele count in the site, number of alternate alleles across all pools"));
+        headerLines.add(new VCFInfoHeaderLine("AF", 1, VCFHeaderLineType.Float, "Allele frequency in the site. Proportion of the alternate alleles across all pools"));
+        headerLines.add(new VCFInfoHeaderLine("AN", 1, VCFHeaderLineType.Integer, "Total number of alleles in the site. Total number of chromosomes represented on this site across all pools"));
+        headerLines.add(new VCFInfoHeaderLine("DP", 1, VCFHeaderLineType.Integer, "Total depth in the site. Sum of the depth of all pools"));
+        headerLines.add(new VCFInfoHeaderLine("MQ", 1, VCFHeaderLineType.Float, "RMS mapping quality of all reads in the site"));
+        headerLines.add(new VCFInfoHeaderLine("MQ0", 1, VCFHeaderLineType.Integer, "Total number of mapping quality zero reads in the site"));
+        headerLines.add(new VCFFormatHeaderLine("AD", VCFHeaderLineCount.UNBOUNDED, VCFHeaderLineType.Integer, "Allelic depths for the ref and alt alleles in the order listed"));
+        headerLines.add(new VCFFormatHeaderLine("DP", 1, VCFHeaderLineType.Integer, "Read Depth (only filtered reads used for calling)"));
+        headerLines.add(new VCFFormatHeaderLine("GQ", 1, VCFHeaderLineType.Float, "Genotype Quality"));
+        headerLines.add(new VCFFormatHeaderLine("AL", 3, VCFHeaderLineType.Integer, "Allele count likelihood and the 5% confidence interval"));
+        headerLines.add(new VCFFilterHeaderLine("lowQual", "Low quality"));
+        headerLines.add(new VCFFilterHeaderLine("lowConf", "Low confidence"));
+        headerLines.add(new VCFHeaderLine("PoolCaller", "todo -- add parameter list here"));
+        vcfWriter.writeHeader(new VCFHeader(headerLines, SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader())));
     }
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
@@ -175,10 +200,30 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
             return 0;
 
         // Creates a site Object for this location
-        Site site = new Site(new SiteParameters(context.getBasePileup(), referenceSampleName, trueReferenceBases, ref.getBase(), minQualityScore, maxQualityScore, phredScaledPrior, maxAlleleCount));
+        SiteParameters siteParameters = new SiteParameters(context.getBasePileup(),
+                                                referenceSampleName,
+                                                trueReferenceBases,
+                                                ref.getBase(),
+                                                minQualityScore,
+                                                maxQualityScore,
+                                                phredScaledPrior,
+                                                maxAlleleCount,
+                                                minCallQual,
+                                                minPower);
+        Site site = DEBUG_IGNORE_LANES ? Site.debugSite(siteParameters) : new Site(siteParameters);
 
-        // todo -- get site's alleleCountModel and write out VCF
+        VariantContext call = new VariantContext("PoolCaller",
+                                                  ref.getLocus().getContig(),
+                                                  ref.getLocus().getStart(),
+                                                  ref.getLocus().getStop(),
+                                                  site.getAlleles(),
+                                                  site.getGenotypes(),
+                                                  site.getNegLog10PError(),
+                                                  site.getFilters(),
+                                                  site.getAttributes());
 
+
+        vcfWriter.add(call, ref.getBase());
         return 1;
     }
 
@@ -195,7 +240,7 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
     }
 
     public void onTraversalDone( Long c ) {
-        out.println(c);
+
     }
 }
 

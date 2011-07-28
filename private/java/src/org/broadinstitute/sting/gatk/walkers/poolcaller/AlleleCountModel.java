@@ -1,23 +1,27 @@
-package org.broadinstitute.sting.gatk.walkers.replication_validation;
+package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import org.broadinstitute.sting.utils.MathUtils;
 
 /**
- * Created by IntelliJ IDEA.
- * User: carneiro
- * Date: 7/21/11
- * Time: 7:14 PM
- * To change this template use File | Settings | File Templates.
+ * The allele count model for the pool calling framework.
+ *
+ * @author carneiro
+ * @since 7/21/11
  */
 public class AlleleCountModel extends ProbabilityModel {
     private int maxAlleleCount;
+    private double minCallQuall;
+    private ErrorModel errorModel;
+    private double minPower;
 
     private final double THETA = 0.001; // Human heterozygozity rate
 
     public AlleleCountModel(AlleleCountModelParameters p) {
         maxAlleleCount = p.maxAlleleCount;
+        minCallQuall = p.minCallQual;
+        errorModel = p.errorModel;
         model = calculateLog10ProbabilityDistribution(p.errorModel, p.matches, p.mismatches);
     }
 
@@ -138,6 +142,54 @@ public class AlleleCountModel extends ProbabilityModel {
         double x = Math.log10(q * (1-e) + p * e);
         double y = Math.log10(q * e + p * (1-e));
         return errorModel.getErrorGivenQual(qual) + matches * x + mismatches * y;
+    }
+
+    /**
+     * Performs a quick check to see if the maximum likelihood is at AC == 0 and that
+     * it is above the calling threshold.
+     *
+     * @return true if the allele count is zero, false if AC > 0 or it is not confident enough to make any calls.
+     */
+    public boolean isACZero() {
+        return getMaximumLikelihoodIndex() == 0 && isConfidentlyCalled();
+    }
+
+    /**
+     * Determines whether or not this model has a maximum likelihood that passes the calling threshold
+     *
+     * @return true if the most likely AC passes the calling threshold.
+     */
+    public boolean isConfidentlyCalled() {
+        return MathUtils.log10ProbabilityToPhredScale(getMaximumLikelihood()) > minCallQuall;
+    }
+
+    /**
+     * The absolute value of the log10 likelihood of the call.
+     *   For AC==0 this is the likelihood that the call is AC=0.
+     *   For AC>0 this is the likelihood that the call is not AC=0.
+     *
+     * @return The absolute value of the log10 likelihood of the call.
+     */
+    public double getNegLog10PError() {
+        double result;
+        if (isACZero()) {
+            result = Math.abs(model[0]);
+        }
+        else {
+            double [] normalizedModel = MathUtils.normalizeFromLog10(model);
+            result = Math.abs(Math.log10(1 - normalizedModel[0]));
+        }
+        return result;
+    }
+
+    /**
+     * Only call if site quality > Q(1/2N) with 99% confidence (point where cumsum(site) > 0.99)
+     * @return
+     */
+    public boolean isErrorModelPowerfulEnough() {
+        int siteQ = (int) Math.ceil(1/maxAlleleCount);
+        double cumSum = errorModel.getCumulativeSum(siteQ);
+        return cumSum > minPower;
     }
 
 }

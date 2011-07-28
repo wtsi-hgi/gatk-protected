@@ -1,12 +1,8 @@
-package org.broadinstitute.sting.gatk.walkers.replication_validation;
+package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
-import cern.jet.stat.Probability;
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-
-import java.util.Collection;
 
 /**
  * Created by IntelliJ IDEA.
@@ -21,6 +17,7 @@ public class ErrorModel extends ProbabilityModel {
     private byte maxQualityScore;
     private byte minQualityScore;
     private byte phredScaledPrior;
+    private double minPower;
 
     /**
      * Calculates the probability of the data (reference sample reads) given the phred scaled site quality score.
@@ -31,6 +28,7 @@ public class ErrorModel extends ProbabilityModel {
         maxQualityScore = p.maxQualityScore;
         minQualityScore = p.minQualityScore;
         phredScaledPrior = p.phredScaledPrior;
+        minPower = p.minPower;
 
 
         model = new double[maxQualityScore-minQualityScore+1];
@@ -67,10 +65,6 @@ public class ErrorModel extends ProbabilityModel {
                 matches * Math.log10(1-probMismatch);
     }
 
-    public double[] getModel() {
-        return model;
-    }
-
     @Requires({"qual-minQualityScore <= maxQualityScore"})
     public double getErrorGivenQual (int qual) {
         int index = qual - minQualityScore;
@@ -84,14 +78,5 @@ public class ErrorModel extends ProbabilityModel {
     public byte getMinQualityScore() {
         return minQualityScore;
     }
-
-    public byte getPhredScaledPrior() {
-        return phredScaledPrior;
-    }
-
-    public int size() {
-        return model.length;
-    }
-
 
 }

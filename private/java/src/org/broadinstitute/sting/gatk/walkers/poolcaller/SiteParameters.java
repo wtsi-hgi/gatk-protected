@@ -1,33 +1,11 @@
-package org.broadinstitute.sting.gatk.walkers.replication_validation;
+package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 
 import java.util.Collection;
 
 /**
- * Short one line description of the walker.
- * <p/>
- * <p>
- * [Long description of the walker]
- * </p>
- * <p/>
- * <p/>
- * <h2>Input</h2>
- * <p>
- * [Description of the Input]
- * </p>
- * <p/>
- * <h2>Output</h2>
- * <p>
- * [Description of the Output]
- * </p>
- * <p/>
- * <h2>Examples</h2>
- * <pre>
- *    java
- *      -jar GenomeAnalysisTK.jar
- *      -T [walker name]
- *  </pre>
+ * A support class to facilitate future addition/removal of parameters to the Site class
  *
  * @author Mauricio Carneiro
  * @since 7/27/11
@@ -41,8 +19,10 @@ public class SiteParameters {
     public byte maxQualityScore;
     public byte phredScaledPrior;
     public int maxAlelleCount;
+    public double minCallQual;
+    public double minPower;
 
-    public SiteParameters(ReadBackedPileup sitePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlelleCount) {
+    public SiteParameters(ReadBackedPileup sitePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlelleCount, double minCallQual, double minPower) {
         this.sitePileup = sitePileup;
         this.referenceSampleName = referenceSampleName;
         this.trueReferenceBases = trueReferenceBases;
@@ -51,5 +31,7 @@ public class SiteParameters {
         this.maxQualityScore = maxQualityScore;
         this.phredScaledPrior = phredScaledPrior;
         this.maxAlelleCount = maxAlelleCount;
+        this.minCallQual = minCallQual;
+        this.minPower = minPower;
     }
 }

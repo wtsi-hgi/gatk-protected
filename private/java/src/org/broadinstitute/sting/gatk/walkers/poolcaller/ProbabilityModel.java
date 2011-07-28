@@ -1,4 +1,6 @@
-package org.broadinstitute.sting.gatk.walkers.replication_validation;
+package org.broadinstitute.sting.gatk.walkers.poolcaller;
+
+import org.broadinstitute.sting.utils.MathUtils;
 
 /**
  * Created by IntelliJ IDEA.
@@ -24,6 +26,23 @@ public class ProbabilityModel {
             result += String.format("%.4f", v);
         }
         return result + " )";
+    }
+
+    public int size() {
+        return model.length;
+    }
+
+    public double getCumulativeSum (int upTo) {
+        return MathUtils.log10CumulativeSumLog10(model, upTo);
+    }
+
+    public double getMaximumLikelihood() {
+        return MathUtils.arrayMax(model);
+    }
+
+    public int getMaximumLikelihoodIndex() {
+        return MathUtils.maxElementIndex(model);
+
     }
 
 }

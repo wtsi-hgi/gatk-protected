@@ -1,6 +1,5 @@
-package org.broadinstitute.sting.gatk.walkers.replication_validation;
+package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
-import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 
 import java.util.Collection;
@@ -24,15 +23,12 @@ public class ReferenceSample {
     private Collection<Byte> trueBases;
 
     /**
-     * Creates a reference sample object with a given error model
-     * @param name
-     * @param pileup
-     * @param trueBases
+     * Creates a reference sample object
      */
-    public ReferenceSample(String name, ReadBackedPileup pileup, Collection<Byte> trueBases) {
-        this.name = name;
-        this.pileup = pileup;
-        this.trueBases = trueBases;
+    public ReferenceSample(ReferenceSampleParameters p) {
+        name = p.name;
+        pileup = p.pileup;
+        trueBases = p.trueBases;
     }
 
     public String getName() {

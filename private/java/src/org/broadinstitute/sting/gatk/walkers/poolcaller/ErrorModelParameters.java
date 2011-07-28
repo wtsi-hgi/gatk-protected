@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.replication_validation;
+package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 /**
  * A support class to facilitate future addition/removal of parameters to the Error Model class
@@ -11,11 +11,13 @@ public class ErrorModelParameters {
     public byte minQualityScore;
     public byte phredScaledPrior;
     public ReferenceSample referenceSample;
+    public double minPower;
 
-    public ErrorModelParameters(byte maxQualityScore, byte minQualityScore, byte phredScaledPrior, ReferenceSample referenceSample) {
+    public ErrorModelParameters(byte maxQualityScore, byte minQualityScore, byte phredScaledPrior, ReferenceSample referenceSample, double minPower) {
         this.maxQualityScore = maxQualityScore;
         this.minQualityScore = minQualityScore;
         this.phredScaledPrior = phredScaledPrior;
         this.referenceSample = referenceSample;
+        this.minPower = minPower;
     }
 }

@@ -1,33 +1,11 @@
-package org.broadinstitute.sting.gatk.walkers.replication_validation;
+package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 
 import java.util.Collection;
 
 /**
- * Short one line description of the walker.
- * <p/>
- * <p>
- * [Long description of the walker]
- * </p>
- * <p/>
- * <p/>
- * <h2>Input</h2>
- * <p>
- * [Description of the Input]
- * </p>
- * <p/>
- * <h2>Output</h2>
- * <p>
- * [Description of the Output]
- * </p>
- * <p/>
- * <h2>Examples</h2>
- * <pre>
- *    java
- *      -jar GenomeAnalysisTK.jar
- *      -T [walker name]
- *  </pre>
+ * A support class to facilitate future addition/removal of parameters to the Lane class
  *
  * @author Mauricio Carneiro
  * @since 7/27/11
@@ -42,8 +20,10 @@ public class LaneParameters {
     public byte maxQualityScore;
     public byte phredScaledPrior;
     public int maxAlleleCount;
+    public double minCallQual;
+    public double minPower;
 
-    public LaneParameters(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlleleCount) {
+    public LaneParameters(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlleleCount, double minCallQual, double minPower) {
         this.name = name;
         this.lanePileup = lanePileup;
         this.referenceSampleName = referenceSampleName;
@@ -53,5 +33,7 @@ public class LaneParameters {
         this.maxQualityScore = maxQualityScore;
         this.phredScaledPrior = phredScaledPrior;
         this.maxAlleleCount = maxAlleleCount;
+        this.minCallQual = minCallQual;
+        this.minPower = minPower;
     }
 }
