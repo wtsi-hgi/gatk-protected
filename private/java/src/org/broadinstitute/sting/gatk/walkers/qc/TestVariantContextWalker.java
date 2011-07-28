@@ -72,7 +72,7 @@ public class TestVariantContextWalker extends RodWalker<Integer, Integer> {
             EnumSet<VariantContext.Type> allowedTypes = onlyOfThisType == null ? null : EnumSet.of(onlyOfThisType);
 
             int n = 0;
-            for (VariantContext vc : tracker.getAllVariantContexts(ref, context.getLocation(), onlyContextsStartinAtCurrentPosition, takeFirstOnly) ) {
+            for (VariantContext vc : tracker.getAllVariantContexts(context.getLocation(), onlyContextsStartinAtCurrentPosition, takeFirstOnly) ) {
                 if ( allowedTypes == null || allowedTypes.contains(vc.getType()) ) {
                     // we need to trigger decoding of the genotype string to pass integration tests
                     vc.getGenotypes();

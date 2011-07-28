@@ -49,11 +49,11 @@ public class AssessLikelihoodsAtTruth extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        VariantContext variant = tracker.getVariantContext(ref, "variant", context.getLocation(), true);
+        VariantContext variant = tracker.getVariantContext("variant", context.getLocation(), true);
         if ( variant == null )
             return 0;
 
-        VariantContext truth = tracker.getVariantContext(ref, "truth", context.getLocation(), true);
+        VariantContext truth = tracker.getVariantContext("truth", context.getLocation(), true);
         if ( truth == null )
             return 0;
 

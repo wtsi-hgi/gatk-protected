@@ -307,7 +307,7 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
 
         // Pull out data for this locus for all the input RODs and check if this is a known variant site in any of them
         boolean isKnownVariant = false;
-        for( final VariantContext vc : tracker.getAllVariantContexts(ref, context.getLocation(), false, false) ) {
+        for( final VariantContext vc : tracker.getAllVariantContexts(context.getLocation(), false, false) ) {
             if( vc != null ) {
                 isKnownVariant = true;
                 break;

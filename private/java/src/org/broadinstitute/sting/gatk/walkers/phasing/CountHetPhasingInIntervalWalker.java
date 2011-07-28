@@ -51,7 +51,7 @@ import java.util.*;
 // Filter out all reads with zero mapping quality
 
 public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer> {
-    private LinkedList<String> rodNames = null;
+    private String rodName = "variant";
 
     private GenomeLoc prevInterval = null;
 
@@ -66,9 +66,6 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
     public final static String INTERVALS_ROD_NAME = "intervals";
 
     public void initialize() {
-        rodNames = new LinkedList<String>();
-        rodNames.add("variant");
-
         intervalStats = new MultiSampleIntervalStats(perIntervalOut);
     }
 
@@ -110,7 +107,7 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
 
         boolean requireStartHere = true; // only see each VariantContext once
         boolean takeFirstOnly = false; // take as many entries as the VCF file has
-        for (VariantContext vc : tracker.getVariantContexts(ref, rodNames, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : tracker.getVariantContexts(rodName, context.getLocation(), requireStartHere, takeFirstOnly)) {
             Map<String, Genotype> sampToGenotypes = vc.getGenotypes();
             for (Map.Entry<String, Genotype> sampEntry : sampToGenotypes.entrySet()) {
                 Genotype gt = sampEntry.getValue();

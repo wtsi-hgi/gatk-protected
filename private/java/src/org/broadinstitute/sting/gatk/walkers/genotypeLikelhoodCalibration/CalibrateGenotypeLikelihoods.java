@@ -225,7 +225,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
      * @return
      */
     private Genotype getGenotype(RefMetaDataTracker tracker, ReferenceContext ref, String sample, String rod) {
-        for ( VariantContext vc : tracker.getVariantContexts(ref, rod, ref.getLocus(), true, false) ) {
+        for ( VariantContext vc : tracker.getVariantContexts(rod, ref.getLocus(), true, false) ) {
             if ( vc.isNotFiltered() && vc.hasGenotype(sample) )
                 return vc.getGenotype(sample);
             else

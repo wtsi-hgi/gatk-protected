@@ -31,7 +31,7 @@ import java.util.*;
 @Reference(window=@Window(start=-50,stop=50))
 public class TableToVCF extends RodWalker<VariantContext,Integer> {
     @Input(shortName = "-t", fullName = "--table", doc = "The input table we will convert to VCF")
-    RodBinding table;
+    RodBinding<TableFeature> table;
 
     //final private String CNV_HEADER = "HEADER,loc,size,type";
     /**
@@ -55,7 +55,7 @@ public class TableToVCF extends RodWalker<VariantContext,Integer> {
         if ( tracker == null ) { return null; }
 
         VariantContext vcToPrint = null;
-        for ( TableFeature tFeature : table.getValues(tracker, TableFeature.class) ) {
+        for ( TableFeature tFeature : table.getValues(tracker) ) {
             if ( ! Utils.join(",",tFeature.getHeader()).equals(VAR_HEADER) ) {
                 throw new UserException("Invalid Header Format");
             }

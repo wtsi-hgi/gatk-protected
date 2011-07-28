@@ -8,7 +8,6 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RMD;
 import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
-import org.broadinstitute.sting.utils.MendelianViolation;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
@@ -120,7 +119,7 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
         if ( tracker == null )
             return 0;
 
-        Collection<VariantContext> vcs = tracker.getVariantContexts(ref, variantRodName, context.getLocation(), true, false);
+        Collection<VariantContext> vcs = tracker.getVariantContexts(variantRodName, context.getLocation(), true, false);
 
         if ( vcs == null || vcs.size() == 0) {
             return 0;

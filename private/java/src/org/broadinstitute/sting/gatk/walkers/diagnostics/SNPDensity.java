@@ -36,7 +36,6 @@ import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
-import java.util.EnumSet;
 
 /**
  * Computes the density of SNPs passing and failing filters in intervals on the genome and emits a table for display
@@ -68,7 +67,7 @@ public class SNPDensity extends RefWalker<Pair<VariantContext, GenomeLoc>, SNPDe
     }
 
     public Pair<VariantContext, GenomeLoc> map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        VariantContext vc = tracker.getVariantContext(ref, "eval", context.getLocation(), false);
+        VariantContext vc = tracker.getVariantContext("eval", context.getLocation(), false);
         return new Pair<VariantContext, GenomeLoc>(vc, context.getLocation());
     }
 

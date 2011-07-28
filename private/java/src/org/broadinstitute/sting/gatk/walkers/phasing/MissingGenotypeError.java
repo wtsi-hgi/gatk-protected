@@ -4,7 +4,6 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -22,9 +21,9 @@ public class MissingGenotypeError extends RodWalker<Integer, Integer> {
     @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker != null) {
-            Collection<VariantContext> truthVCs = tracker.getVariantContexts(ref, "truth", context.getLocation(), true, true);
-            Collection<VariantContext> missingVCs = tracker.getVariantContexts(ref, "missing", context.getLocation(), true, true);
-            Collection<VariantContext> completeVCs = tracker.getVariantContexts(ref, "complete", context.getLocation(), true, true);
+            Collection<VariantContext> truthVCs = tracker.getVariantContexts("truth", context.getLocation(), true, true);
+            Collection<VariantContext> missingVCs = tracker.getVariantContexts("missing", context.getLocation(), true, true);
+            Collection<VariantContext> completeVCs = tracker.getVariantContexts("complete", context.getLocation(), true, true);
 
             VariantContext truthVC = truthVCs.iterator().next();
             VariantContext missingVC = missingVCs.iterator().next();

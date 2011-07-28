@@ -56,7 +56,8 @@ import java.util.*;
 // Filter out all reads with zero mapping quality
 
 public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer> {
-    private LinkedList<String> rodNames = null;
+    private String rodName = "variant";
+
 
     @Argument(fullName = "sitePairsFile", shortName = "sitePairsFile", doc = "File of pairs of variants for which phasing in ROD should be assessed using input reads", required = true)
     protected File sitePairsFile = null;
@@ -77,9 +78,6 @@ public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer
     }
 
     public void initialize() {
-        rodNames = new LinkedList<String>();
-        rodNames.add("variant");
-
         sitePairs = new TreeSet<SitePair>();
         GenomeLocParser locParser = getToolkit().getGenomeLocParser();
 
@@ -189,7 +187,7 @@ public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer
 
         boolean requireStartHere = true; // only see each VariantContext once
         boolean takeFirstOnly = true; // take only the first entry from the ROD file
-        for (VariantContext vc : tracker.getVariantContexts(ref, rodNames, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : tracker.getVariantContexts(rodName, context.getLocation(), requireStartHere, takeFirstOnly)) {
             if (vc.isFiltered() || !vc.isSNP())
                 continue;
 

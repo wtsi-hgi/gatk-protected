@@ -65,7 +65,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
         if ( tracker == null )
             return 0;
 
-        Collection<VariantContext> contexts = tracker.getVariantContexts(ref, INPUT_ROD_NAME, ref.getLocus(), true, false);
+        Collection<VariantContext> contexts = tracker.getVariantContexts(INPUT_ROD_NAME, ref.getLocus(), true, false);
 
         // for now, we don't support the mixed type
         if ( contexts.size() == 0 || contexts.size() > 2 )

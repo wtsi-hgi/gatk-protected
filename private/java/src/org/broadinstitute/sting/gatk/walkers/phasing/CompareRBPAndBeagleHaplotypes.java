@@ -7,7 +7,6 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
@@ -117,8 +116,8 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
     @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker != null) {
-            Collection<VariantContext> rbps = tracker.getVariantContexts(ref, "rbp", ref.getLocus(), true, true);
-            Collection<VariantContext> beagles = tracker.getVariantContexts(ref, "beagle", ref.getLocus(), true, true);
+            Collection<VariantContext> rbps = tracker.getVariantContexts("rbp", ref.getLocus(), true, true);
+            Collection<VariantContext> beagles = tracker.getVariantContexts("beagle", ref.getLocus(), true, true);
 
             VariantContext rbp = rbps.iterator().hasNext() ? rbps.iterator().next() : null;
             VariantContext beagle = beagles.iterator().hasNext() ? beagles.iterator().next() : null;
