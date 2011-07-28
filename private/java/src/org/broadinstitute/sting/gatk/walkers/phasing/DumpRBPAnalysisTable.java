@@ -132,39 +132,39 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
     @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker != null) {
-            Collection<VariantContext> truths = tracker.getVariantContexts(ref, "truth", null, ref.getLocus(), true, true);
+            Collection<VariantContext> truths = tracker.getVariantContexts(ref, "truth", ref.getLocus(), true, true);
             VariantContext truth = truths.iterator().hasNext() ? truths.iterator().next() : null;
             Genotype truthG = truth.getGenotype(SAMPLE);
 
-            Collection<VariantContext> rbp00s = tracker.getVariantContexts(ref, "rbp00s", null, ref.getLocus(), true, true);
+            Collection<VariantContext> rbp00s = tracker.getVariantContexts(ref, "rbp00s", ref.getLocus(), true, true);
             VariantContext rbp00 = rbp00s.iterator().hasNext() ? rbp00s.iterator().next() : null;
             Genotype rbp00G = rbp00.getGenotype(SAMPLE);
 
-            Collection<VariantContext> rbp01s = tracker.getVariantContexts(ref, "rbp01s", null, ref.getLocus(), true, true);
+            Collection<VariantContext> rbp01s = tracker.getVariantContexts(ref, "rbp01s", ref.getLocus(), true, true);
             VariantContext rbp01 = rbp01s.iterator().hasNext() ? rbp01s.iterator().next() : null;
             Genotype rbp01G = rbp01.getGenotype(SAMPLE);
 
-            Collection<VariantContext> rbp10s = tracker.getVariantContexts(ref, "rbp10s", null, ref.getLocus(), true, true);
+            Collection<VariantContext> rbp10s = tracker.getVariantContexts(ref, "rbp10s", ref.getLocus(), true, true);
             VariantContext rbp10 = rbp10s.iterator().hasNext() ? rbp10s.iterator().next() : null;
             Genotype rbp10G = rbp10.getGenotype(SAMPLE);
 
-            Collection<VariantContext> rbp11s = tracker.getVariantContexts(ref, "rbp11s", null, ref.getLocus(), true, true);
+            Collection<VariantContext> rbp11s = tracker.getVariantContexts(ref, "rbp11s", ref.getLocus(), true, true);
             VariantContext rbp11 = rbp11s.iterator().hasNext() ? rbp11s.iterator().next() : null;
             Genotype rbp11G = rbp11.getGenotype(SAMPLE);
 
-            Collection<VariantContext> beagle00s = tracker.getVariantContexts(ref, "beagle00s", null, ref.getLocus(), true, true);
+            Collection<VariantContext> beagle00s = tracker.getVariantContexts(ref, "beagle00s", ref.getLocus(), true, true);
             VariantContext beagle00 = beagle00s.iterator().hasNext() ? beagle00s.iterator().next() : null;
             Genotype beagle00G = beagle00.getGenotype(SAMPLE);
 
-            Collection<VariantContext> beagle01s = tracker.getVariantContexts(ref, "beagle01s", null, ref.getLocus(), true, true);
+            Collection<VariantContext> beagle01s = tracker.getVariantContexts(ref, "beagle01s", ref.getLocus(), true, true);
             VariantContext beagle01 = beagle01s.iterator().hasNext() ? beagle01s.iterator().next() : null;
             Genotype beagle01G = beagle01.getGenotype(SAMPLE);
 
-            Collection<VariantContext> beagle10s = tracker.getVariantContexts(ref, "beagle10s", null, ref.getLocus(), true, true);
+            Collection<VariantContext> beagle10s = tracker.getVariantContexts(ref, "beagle10s", ref.getLocus(), true, true);
             VariantContext beagle10 = beagle10s.iterator().hasNext() ? beagle10s.iterator().next() : null;
             Genotype beagle10G = beagle10.getGenotype(SAMPLE);
 
-            Collection<VariantContext> beagle11s = tracker.getVariantContexts(ref, "beagle11s", null, ref.getLocus(), true, true);
+            Collection<VariantContext> beagle11s = tracker.getVariantContexts(ref, "beagle11s", ref.getLocus(), true, true);
             VariantContext beagle11 = beagle11s.iterator().hasNext() ? beagle11s.iterator().next() : null;
             Genotype beagle11G = beagle11.getGenotype(SAMPLE);
 

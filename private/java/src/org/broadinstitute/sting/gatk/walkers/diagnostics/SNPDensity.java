@@ -68,7 +68,7 @@ public class SNPDensity extends RefWalker<Pair<VariantContext, GenomeLoc>, SNPDe
     }
 
     public Pair<VariantContext, GenomeLoc> map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        VariantContext vc = tracker.getVariantContext(ref, "eval", EnumSet.of(VariantContext.Type.SNP), context.getLocation(), false);
+        VariantContext vc = tracker.getVariantContext(ref, "eval", context.getLocation(), false);
         return new Pair<VariantContext, GenomeLoc>(vc, context.getLocation());
     }
 

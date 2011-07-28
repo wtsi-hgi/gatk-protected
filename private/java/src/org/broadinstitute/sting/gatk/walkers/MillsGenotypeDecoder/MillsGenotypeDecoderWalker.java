@@ -120,7 +120,7 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
         if ( tracker == null )
             return 0;
 
-        Collection<VariantContext> vcs = tracker.getVariantContexts(ref, variantRodName, null, context.getLocation(), true, false);
+        Collection<VariantContext> vcs = tracker.getVariantContexts(ref, variantRodName, context.getLocation(), true, false);
 
         if ( vcs == null || vcs.size() == 0) {
             return 0;

@@ -138,8 +138,8 @@ public class ValidationGenotyper extends LocusWalker<ValidationGenotyper.Counted
             return counter;
         }
 
-        VariantContext vcEval = tracker.getVariantContext(ref, evalNames.get(0), null, context.getLocation(), false);
-        VariantContext vcComp = tracker.getVariantContext(ref, compNames.get(0), null, context.getLocation(), false);
+        VariantContext vcEval = tracker.getVariantContext(ref, evalNames.get(0), context.getLocation(), false);
+        VariantContext vcComp = tracker.getVariantContext(ref, compNames.get(0), context.getLocation(), false);
 
         if( vcEval != null ) { vcEval = vcEval.subContextFromGenotypes( vcEval.getGenotypes(overlappingSamples).values() ); }
         if( vcComp != null ) { vcComp = vcComp.subContextFromGenotypes( vcComp.getGenotypes(overlappingSamples).values() ); }

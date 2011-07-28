@@ -100,8 +100,8 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
     @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker != null) {
-            Collection<VariantContext> evals = tracker.getVariantContexts(ref, "eval", null, ref.getLocus(), true, true);
-            Collection<VariantContext> truths = tracker.getVariantContexts(ref, "truth", null, ref.getLocus(), true, true);
+            Collection<VariantContext> evals = tracker.getVariantContexts(ref, "eval", ref.getLocus(), true, true);
+            Collection<VariantContext> truths = tracker.getVariantContexts(ref, "truth", ref.getLocus(), true, true);
 
             VariantContext eval = evals.iterator().hasNext() ? evals.iterator().next() : null;
             VariantContext truth = truths.iterator().hasNext() ? truths.iterator().next() : null;

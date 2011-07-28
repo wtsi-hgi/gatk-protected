@@ -77,8 +77,8 @@ public class AssessSnpsNearIndels extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        VariantContext snp = tracker.getVariantContext(ref, "snps", null, ref.getLocus(), true);
-        VariantContext indel = tracker.getVariantContext(ref, "indels", null, ref.getLocus(), true);
+        VariantContext snp = tracker.getVariantContext(ref, "snps", ref.getLocus(), true);
+        VariantContext indel = tracker.getVariantContext(ref, "indels", ref.getLocus(), true);
 
         // first add the snp if available
         if ( snp != null && !snp.isFiltered() ) {

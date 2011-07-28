@@ -189,7 +189,7 @@ public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer
 
         boolean requireStartHere = true; // only see each VariantContext once
         boolean takeFirstOnly = true; // take only the first entry from the ROD file
-        for (VariantContext vc : tracker.getVariantContexts(ref, rodNames, null, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : tracker.getVariantContexts(ref, rodNames, context.getLocation(), requireStartHere, takeFirstOnly)) {
             if (vc.isFiltered() || !vc.isSNP())
                 continue;
 

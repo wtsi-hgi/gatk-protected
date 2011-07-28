@@ -22,9 +22,9 @@ public class MissingGenotypeError extends RodWalker<Integer, Integer> {
     @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker != null) {
-            Collection<VariantContext> truthVCs = tracker.getVariantContexts(ref, "truth", null, context.getLocation(), true, true);
-            Collection<VariantContext> missingVCs = tracker.getVariantContexts(ref, "missing", null, context.getLocation(), true, true);
-            Collection<VariantContext> completeVCs = tracker.getVariantContexts(ref, "complete", null, context.getLocation(), true, true);
+            Collection<VariantContext> truthVCs = tracker.getVariantContexts(ref, "truth", context.getLocation(), true, true);
+            Collection<VariantContext> missingVCs = tracker.getVariantContexts(ref, "missing", context.getLocation(), true, true);
+            Collection<VariantContext> completeVCs = tracker.getVariantContexts(ref, "complete", context.getLocation(), true, true);
 
             VariantContext truthVC = truthVCs.iterator().next();
             VariantContext missingVC = missingVCs.iterator().next();

@@ -72,22 +72,23 @@ public class TestVariantContextWalker extends RodWalker<Integer, Integer> {
             EnumSet<VariantContext.Type> allowedTypes = onlyOfThisType == null ? null : EnumSet.of(onlyOfThisType);
 
             int n = 0;
-            for (VariantContext vc : tracker.getAllVariantContexts(ref, allowedTypes, context.getLocation(), onlyContextsStartinAtCurrentPosition, takeFirstOnly) ) {
+            for (VariantContext vc : tracker.getAllVariantContexts(ref, context.getLocation(), onlyContextsStartinAtCurrentPosition, takeFirstOnly) ) {
+                if ( allowedTypes == null || allowedTypes.contains(vc.getType()) ) {
+                    // we need to trigger decoding of the genotype string to pass integration tests
+                    vc.getGenotypes();
 
-                // we need to trigger decoding of the genotype string to pass integration tests
-                vc.getGenotypes();
+                    if ( writer != null && n == 0 ) {
+                        if ( ! wroteHeader ) {
+                            writer.writeHeader(VariantContextAdaptors.createVCFHeader(null, vc));
+                            wroteHeader = true;
+                        }
 
-                if ( writer != null && n == 0 ) {
-                    if ( ! wroteHeader ) {
-                        writer.writeHeader(VariantContextAdaptors.createVCFHeader(null, vc));
-                        wroteHeader = true;
+                        writer.add(vc, ref.getBase());
                     }
 
-                    writer.add(vc, ref.getBase());
+                    n++;
+                    if ( printContexts ) out.printf("       %s%n", vc);
                 }
-
-                n++;
-                if ( printContexts ) out.printf("       %s%n", vc);
             }
 
             if ( n > 0 && printContexts ) {
