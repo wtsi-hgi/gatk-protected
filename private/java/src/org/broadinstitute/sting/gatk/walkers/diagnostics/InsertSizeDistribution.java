@@ -25,12 +25,12 @@ public class InsertSizeDistribution extends ReadWalker<Integer, Integer> {
         table.addPrimaryKey("insertSize");
 
         for (SAMReadGroupRecord rg : this.getToolkit().getSAMFileHeader().getReadGroups()) {
-            table.addColumn(rg.getSample(), 0);
+            table.addColumn(rg.getId(), 0);
         }
     }
 
     public boolean filter(ReferenceContext ref, SAMRecord read) {
-        return (read.getReadPairedFlag() && read.getFirstOfPairFlag());
+        return (read.getReadPairedFlag() && read.getProperPairFlag() && read.getFirstOfPairFlag());
     }
 
     @Override
@@ -38,7 +38,7 @@ public class InsertSizeDistribution extends ReadWalker<Integer, Integer> {
         GATKReportTable table = report.getTable("InsertSizeDistribution");
 
         int insert = Math.abs(samRecord.getInferredInsertSize());
-        String sample = samRecord.getReadGroup().getSample();
+        String sample = samRecord.getReadGroup().getId();
 
         table.increment(insert, sample);
 

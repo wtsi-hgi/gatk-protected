@@ -21,7 +21,7 @@ public class AberrantInsertSize extends BinaryFeatureAggregator {
         max = col.highInsertSize;
     }
 
-    public Boolean extractFeature(SAMRecord rec) {
+    public boolean extractFeature(SAMRecord rec) {
         return rec.getAttribute("AI") != null ? (rec.getAttribute("AI").equals(1)) : (Math.abs(rec.getInferredInsertSize()) > max || Math.abs(rec.getInferredInsertSize()) < min);
     }
 

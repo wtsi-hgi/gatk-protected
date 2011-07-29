@@ -51,7 +51,7 @@ public class AddAberrantInsertTagFilter extends ReadFilter {
     }
 
     public boolean filterOut(SAMRecord read) {
-        if ( rgCuts != null && read.getReadPairedFlag() && ! read.getMateUnmappedFlag() ) {
+        if ( rgCuts != null && rgCuts.containsKey(read.getReadGroup().getId()) && read.getReadPairedFlag() && ! read.getMateUnmappedFlag() ) {
             int iSize = Math.abs(read.getInferredInsertSize());
             Pair<Integer,Integer> threshs = rgCuts.get(read.getReadGroup().getId());
             boolean isAb = iSize < threshs.first || iSize > threshs.second;
