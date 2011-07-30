@@ -55,7 +55,7 @@ public class TableToVCF extends RodWalker<VariantContext,Integer> {
         if ( tracker == null ) { return null; }
 
         VariantContext vcToPrint = null;
-        for ( TableFeature tFeature : table.getValues(tracker) ) {
+        for ( TableFeature tFeature : tracker.getValues(table) ) {
             if ( ! Utils.join(",",tFeature.getHeader()).equals(VAR_HEADER) ) {
                 throw new UserException("Invalid Header Format");
             }
