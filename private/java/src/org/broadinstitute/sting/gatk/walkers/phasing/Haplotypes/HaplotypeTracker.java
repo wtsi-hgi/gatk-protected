@@ -77,7 +77,7 @@ public class HaplotypeTracker {
                 waitingHaplotype.extend(prevPosition);
         }
 
-        Collection<VariantContext> vcs = tracker.getAllVariantContexts();
+        Collection<VariantContext> vcs = tracker.getValues(VariantContext.class);
         for (VariantContext vc : vcs) {
             if (vc.isFiltered())
                 continue;

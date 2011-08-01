@@ -105,9 +105,7 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
         if (isNewInterval)
             intervalStats.startNewInterval(curInterval);
 
-        boolean requireStartHere = true; // only see each VariantContext once
-        boolean takeFirstOnly = false; // take as many entries as the VCF file has
-        for (VariantContext vc : tracker.getVariantContexts(rodName, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : tracker.getValues(VariantContext.class, rodName, context.getLocation())) {
             Map<String, Genotype> sampToGenotypes = vc.getGenotypes();
             for (Map.Entry<String, Genotype> sampEntry : sampToGenotypes.entrySet()) {
                 Genotype gt = sampEntry.getValue();

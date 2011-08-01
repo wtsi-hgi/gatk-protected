@@ -133,7 +133,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        VariantContext vc = tracker.getVariantContext("rod", context.getLocation());
+        VariantContext vc = tracker.getFirstValue(VariantContext.class, "rod", context.getLocation());
         processOneVC(vc);
 
         return 0;

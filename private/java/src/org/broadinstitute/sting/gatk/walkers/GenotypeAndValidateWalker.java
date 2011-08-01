@@ -181,7 +181,7 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
         if( tracker == null )
             return counter;
 
-        VariantContext vcComp = tracker.getVariantContext(compName, context.getLocation(), false);
+        VariantContext vcComp = tracker.getFirstValue(VariantContext.class, compName);
         if( vcComp == null )
             return counter;
 

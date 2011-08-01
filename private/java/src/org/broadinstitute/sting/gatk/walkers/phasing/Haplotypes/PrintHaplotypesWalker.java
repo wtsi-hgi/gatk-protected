@@ -85,7 +85,7 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
         if (prevLoc == null || prevLoc.compareContigs(curLocus) != 0)
             prevHadInheritanceInfo = true;
 
-        Collection<VariantContext> vcs = tracker.getAllVariantContexts(curLocus);
+        Collection<VariantContext> vcs = tracker.getValues(VariantContext.class, curLocus);
         for (VariantContext vc : vcs) {
             if (vc.isFiltered())
                 continue;

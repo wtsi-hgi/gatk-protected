@@ -174,7 +174,7 @@ public class LocusMismatchWalker extends LocusWalker<String,Integer> implements 
     }
 
     private boolean notCoveredByVariations( RefMetaDataTracker tracker, ReferenceContext ref ) {
-        Collection<VariantContext> vcs = tracker.getAllVariantContexts();
+        Collection<VariantContext> vcs = tracker.getValues(VariantContext.class);
         // TODO: check this logic. I think it's the best approximation of what was here before, but it's a different system
         if (vcs != null && vcs.size() > 0 ) {
                 return false;

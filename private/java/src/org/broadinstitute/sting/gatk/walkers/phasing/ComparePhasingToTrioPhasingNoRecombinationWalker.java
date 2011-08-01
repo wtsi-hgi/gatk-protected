@@ -136,7 +136,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
             return null;
 
         GenomeLoc curLoc = ref.getLocus();
-        VariantContext phasingVc = tracker.getVariantContext(PHASING_ROD_NAME, curLoc);
+        VariantContext phasingVc = tracker.getFirstValue(VariantContext.class, PHASING_ROD_NAME, curLoc);
 
         CompareToTrioPhasingStats stats = new CompareToTrioPhasingStats();
         CompareResult result = new CompareResult(phasingVc, stats);
@@ -155,7 +155,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
         if (curPhasingGt == null || !curPhasingGt.isHet()) // can ignore this missing/irrelevant genotype
             return result;
 
-        VariantContext curTrioVc = tracker.getVariantContext(TRIO_ROD_NAME, curLoc);
+        VariantContext curTrioVc = tracker.getFirstValue(VariantContext.class, TRIO_ROD_NAME, curLoc);
         boolean useTrioVc = (curTrioVc != null && !curTrioVc.isFiltered());
 
         Genotype sampleCurGtInTrio = null;

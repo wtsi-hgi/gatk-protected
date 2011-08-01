@@ -38,7 +38,9 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.List;
 
 /**
  * Test routine for new VariantContext object
@@ -72,7 +74,13 @@ public class TestVariantContextWalker extends RodWalker<Integer, Integer> {
             EnumSet<VariantContext.Type> allowedTypes = onlyOfThisType == null ? null : EnumSet.of(onlyOfThisType);
 
             int n = 0;
-            for (VariantContext vc : tracker.getAllVariantContexts(context.getLocation(), onlyContextsStartinAtCurrentPosition, takeFirstOnly) ) {
+            List<VariantContext> contexts;
+            if ( onlyContextsStartinAtCurrentPosition )
+                contexts = tracker.getValues(VariantContext.class, context.getLocation());
+            else // ! onlyContextsStartinAtCurrentPosition
+                contexts = tracker.getValues(VariantContext.class);
+
+            for (VariantContext vc : contexts ) {
                 if ( allowedTypes == null || allowedTypes.contains(vc.getType()) ) {
                     // we need to trigger decoding of the genotype string to pass integration tests
                     vc.getGenotypes();
@@ -88,6 +96,8 @@ public class TestVariantContextWalker extends RodWalker<Integer, Integer> {
 
                     n++;
                     if ( printContexts ) out.printf("       %s%n", vc);
+
+                    if ( takeFirstOnly ) break;
                 }
             }
 

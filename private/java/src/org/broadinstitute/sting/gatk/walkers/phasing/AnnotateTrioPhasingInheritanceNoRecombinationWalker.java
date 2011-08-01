@@ -135,7 +135,7 @@ public class AnnotateTrioPhasingInheritanceNoRecombinationWalker extends RodWalk
             return null;
 
         GenomeLoc loc = ref.getLocus();
-        VariantContext trioVc = tracker.getVariantContext(TRIO_ROD_NAME, loc);
+        VariantContext trioVc = tracker.getFirstValue(VariantContext.class, TRIO_ROD_NAME, loc);
         if (trioVc == null)
             return null;
 

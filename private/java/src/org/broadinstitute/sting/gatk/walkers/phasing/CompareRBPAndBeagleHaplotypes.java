@@ -116,11 +116,8 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
     @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker != null) {
-            Collection<VariantContext> rbps = tracker.getVariantContexts("rbp", ref.getLocus(), true, true);
-            Collection<VariantContext> beagles = tracker.getVariantContexts("beagle", ref.getLocus(), true, true);
-
-            VariantContext rbp = rbps.iterator().hasNext() ? rbps.iterator().next() : null;
-            VariantContext beagle = beagles.iterator().hasNext() ? beagles.iterator().next() : null;
+            VariantContext rbp = tracker.getFirstValue(VariantContext.class, "rbp", ref.getLocus());
+            VariantContext beagle = tracker.getFirstValue(VariantContext.class, "beagle", ref.getLocus());
 
             if (rbp != null && beagle != null) {
                 Genotype rbpg = rbp.getGenotype(sample);

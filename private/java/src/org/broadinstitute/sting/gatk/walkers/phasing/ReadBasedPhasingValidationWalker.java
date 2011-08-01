@@ -185,9 +185,7 @@ public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer
         Set<Haplotype> calledHaplotypes = null;
         List<Haplotype> allPossibleHaplotypes = null;
 
-        boolean requireStartHere = true; // only see each VariantContext once
-        boolean takeFirstOnly = true; // take only the first entry from the ROD file
-        for (VariantContext vc : tracker.getVariantContexts(rodName, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : Arrays.asList(tracker.getFirstValue(VariantContext.class, rodName, context.getLocation()))) {
             if (vc.isFiltered() || !vc.isSNP())
                 continue;
 

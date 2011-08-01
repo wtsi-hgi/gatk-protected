@@ -297,9 +297,9 @@ public class ReplicationValidationWalker extends LocusWalker<Integer, Long> impl
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
 
         // Get reference base from VCF or Reference
-        VariantContext referenceSampleContext = tracker.getVariantContext(REFERENCE_ROD_NAME, context.getLocation());
+        VariantContext referenceSampleContext = tracker.getFirstValue(VariantContext.class, REFERENCE_ROD_NAME, context.getLocation());
 
-        VariantContext truthContext = tracker.getVariantContext(TRUTH_ROD_NAME, context.getLocation());
+        VariantContext truthContext = tracker.getFirstValue(VariantContext.class, TRUTH_ROD_NAME, context.getLocation());
 
         Collection<Byte> trueReferenceBases = getTrueBases(referenceSampleContext, ref);
 

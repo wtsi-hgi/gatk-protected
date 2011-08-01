@@ -95,9 +95,7 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
         logger.debug("REF:" + ref.getLocus());
         CNVstatistics stats = new CNVstatistics();
 
-        boolean requireStartHere = true; // only see each VariantContext once
-        boolean takeFirstOnly = false; // take as many entries as the VCF file has
-        for (VariantContext vc : tracker.getVariantContexts(rodName, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : tracker.getValues(VariantContext.class, rodName, context.getLocation())) {
             if (vc.isSymbolic() && vc.isBiallelic()) {
                 Allele altAll = vc.getAlternateAllele(0);
                 if (altAll.isSymbolic() && altAll.getDisplayString().equals(CNV_TAG)) {

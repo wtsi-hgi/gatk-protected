@@ -43,7 +43,7 @@ public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
          if ( tracker == null )
              return 0;
 
-         Collection<VariantContext> vcs = tracker.getVariantContexts(variantRodName, context.getLocation(), true, false);
+         Collection<VariantContext> vcs = tracker.getValues(VariantContext.class, variantRodName, context.getLocation());
 
          if ( vcs == null || vcs.size() == 0) {
              return 0;
