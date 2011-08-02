@@ -40,6 +40,10 @@ class Phase1IndelProjectConsensus extends QScript {
   @Input(doc="indel alleles", shortName="indelAlleles", required=false)
   var indelAlleles: String = "/humgen/1kg/processing/production_wgs_phase1/consensus/ALL.indels.combined.chr20.vcf"
 
+  @Input(doc="nt", shortName="nt", required=false)
+  var nt: Int = 1
+
+
   private val reference: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
   private val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/data/dbsnp_132_b37.leftAligned.vcf")
   private val dindelCalls: String = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Unvalidated/AFR+EUR+ASN+1KG.dindel_august_release_merged_pilot1.20110126.sites.vcf"
@@ -82,7 +86,7 @@ class Phase1IndelProjectConsensus extends QScript {
 
     //    callIndels.BTI = "alleles"
     callIndels.ignoreSNPAlleles = true
-    // callIndels.nt=Some(8)
+    callIndels.nt=Some(qscript.nt)
   }
 
   class Chromosome(val inputChr: Int) {

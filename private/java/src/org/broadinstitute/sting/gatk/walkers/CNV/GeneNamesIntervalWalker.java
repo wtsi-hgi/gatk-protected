@@ -28,7 +28,7 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.features.annotator.AnnotatorInputTableFeature;
+import org.broadinstitute.sting.gatk.refdata.features.refseq.RefSeqFeature;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.collections.Pair;
@@ -42,7 +42,7 @@ import java.util.Set;
  * Walks along reference and calculates the genes (from "refseq" ROD) for each interval.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = GeneNamesIntervalWalker.REFSEQ_ROD_NAME, type = AnnotatorInputTableFeature.class)})
+@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = GeneNamesIntervalWalker.REFSEQ_ROD_NAME, type = RefSeqFeature.class)})
 
 public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
     @Output
@@ -116,9 +116,17 @@ class GeneNames {
 
     public GeneNames addGenes(List<Object> refSeqRODs) {
         for (Object refSeqObject : refSeqRODs) {
-            AnnotatorInputTableFeature refSeqAnnotation = (AnnotatorInputTableFeature) refSeqObject;
-            if (refSeqAnnotation.containsColumnName(GeneNamesIntervalWalker.REFSEQ_NAME2))
-                geneNames.add(refSeqAnnotation.getColumnValue(GeneNamesIntervalWalker.REFSEQ_NAME2));
+            RefSeqFeature refSeqAnnotation = (RefSeqFeature) refSeqObject;
+
+            // TODO -- check me:
+            // TODO --  we no longer support the GenomicAnnotator and the related AnnotatorInputTableFeature; use RefSeqFeature instead.
+            // TODO --  did I do this correctly?
+            // old code:
+            //if (refSeqAnnotation.containsColumnName(GeneNamesIntervalWalker.REFSEQ_NAME2))
+            //    geneNames.add(refSeqAnnotation.getColumnValue(GeneNamesIntervalWalker.REFSEQ_NAME2));
+
+            if (refSeqAnnotation.getGeneName() != null)
+                geneNames.add(refSeqAnnotation.getGeneName());
         }
 
         return this;
