@@ -25,21 +25,21 @@
 
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
+import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.Reference;
 import org.broadinstitute.sting.gatk.walkers.Window;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.utils.BaseUtils;
-import net.sf.samtools.SAMRecord;
 
-import java.util.HashMap;
-import java.util.Arrays;
-import java.util.Hashtable;
 import java.io.PrintStream;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Hashtable;
 
 /**
  * Computes empirical base confusion matrix, and optionally computes

@@ -24,27 +24,25 @@
 
 package org.broadinstitute.sting.gatk.walkers.qc;
 
+import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.features.samread.SAMReadFeature;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.commandline.Argument;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Arrays;
-
-import net.sf.samtools.SAMRecord;
+import java.util.Collection;
 
 /**
  * Checks a given downsampled pileup against the full pileup to ensure that the downsampled pileup could
  * possibly be a valid version of the full pileup.
  *
  * @author mhanna
- * @version 0.1
  */
 public class DownsamplingValidationWalker extends LocusWalker<Integer,Long> {
     @Argument(fullName="max_expected_number_of_reads",shortName="menr",doc="The expected number of reads chosed by the downsampler.  Fewer than this number might be added to a given alignment start, but more than this should never be.",required=true)

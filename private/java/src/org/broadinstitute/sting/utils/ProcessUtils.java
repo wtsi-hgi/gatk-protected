@@ -25,9 +25,9 @@
 
 package org.broadinstitute.sting.utils;
 
+import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.text.XReadLines;
-import org.apache.log4j.Logger;
 
 /**
  * A set of utilities for managing external processes.

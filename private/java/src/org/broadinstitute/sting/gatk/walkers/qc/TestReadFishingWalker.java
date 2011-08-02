@@ -25,38 +25,36 @@
 
 package org.broadinstitute.sting.gatk.walkers.qc;
 
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import net.sf.picard.reference.IndexedFastaSequenceFile;
+import net.sf.picard.reference.ReferenceSequence;
+import net.sf.samtools.SAMRecord;
+import net.sf.samtools.util.StringUtil;
+import org.broadinstitute.sting.alignment.Alignment;
 import org.broadinstitute.sting.alignment.bwa.BWAAligner;
 import org.broadinstitute.sting.alignment.bwa.BWAConfiguration;
 import org.broadinstitute.sting.alignment.bwa.c.BWACAligner;
-import org.broadinstitute.sting.alignment.Alignment;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
-import net.sf.samtools.SAMRecord;
-import net.sf.samtools.util.StringUtil;
-import net.sf.picard.reference.ReferenceSequence;
-import net.sf.picard.reference.IndexedFastaSequenceFile;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Scanner;
-import java.util.TreeMap;
 import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
  * A walker to experiment with fishing for reads in the GATK.  Has very limited utility in its current state.
  *
  * @author mhanna
- * @version 0.1
  */
 public class TestReadFishingWalker extends ReadWalker<Integer,Long> {
     /**

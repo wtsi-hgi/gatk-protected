@@ -25,29 +25,15 @@
 
 package org.broadinstitute.sting.utils;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import net.sf.samtools.*;
-
 import org.broadinstitute.sting.gatk.iterators.PushbackIterator;
-import org.broadinstitute.sting.utils.*;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
-import org.broadinstitute.sting.utils.collections.Pair;
+
+import java.io.*;
+import java.util.*;
 
 public class GenomicMap implements Iterable<Map.Entry<String, Collection<GenomeLoc> > >{
 	
