@@ -142,16 +142,22 @@ class HybridSelectionPipeline extends QScript {
     combineSNPsIndels.jobOutputFile = combineSNPsIndels.out + ".out"
     add(combineSNPsIndels)
 
-    val annotate = new GenomicAnnotator with CommandLineGATKArgs with ExpandedIntervals
-    annotate.rodBind :+= RodBind("variant", "VCF", combineSNPsIndels.out)
-    annotate.rodBind :+= RodBind("refseq", "AnnotatorInputTable", qscript.pipeline.getProject.getRefseqTable)
-    annotate.rodToIntervalTrackName = "variant"
-    annotate.out = projectBase + ".vcf"
-    annotate.jobOutputFile = annotate.out + ".out"
-    add(annotate)
+    //
+    // TODO -- David will replace the Genomic Annotator with snpEff
+    //
+
+    //val annotate = new GenomicAnnotator with CommandLineGATKArgs with ExpandedIntervals
+    //annotate.rodBind :+= RodBind("variant", "VCF", combineSNPsIndels.out)
+    //annotate.rodBind :+= RodBind("refseq", "AnnotatorInputTable", qscript.pipeline.getProject.getRefseqTable)
+    //annotate.rodToIntervalTrackName = "variant"
+    //annotate.out = projectBase + ".vcf"
+    //annotate.jobOutputFile = annotate.out + ".out"
+    //add(annotate)
 
     val targetEval = new VariantEval with CommandLineGATKArgs
-    targetEval.rodBind :+= RodBind("eval", "VCF", annotate.out)
+    //targetEval.rodBind :+= RodBind("eval", "VCF", annotate.out)
+    targetEval.rodBind :+= RodBind("eval", "VCF", combineSNPsIndels.out)
+
     targetEval.rodBind :+= RodBind("dbsnp", qscript.pipeline.getProject.getEvalDbsnpType, qscript.pipeline.getProject.getEvalDbsnp)
     targetEval.doNotUseAllStandardStratifications = true
     targetEval.doNotUseAllStandardModules = true
