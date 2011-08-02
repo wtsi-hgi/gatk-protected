@@ -169,7 +169,8 @@ class HybridSelectionPipeline extends QScript {
 
     if (qscript.expandIntervals > 0) {
       val flanksEval = new VariantEval with CommandLineGATKArgs
-      flanksEval.rodBind :+= RodBind("eval", "VCF", annotate.out)
+      //flanksEval.rodBind :+= RodBind("eval", "VCF", annotate.out)
+      flanksEval.rodBind :+= RodBind("eval", "VCF", combineSNPsIndels.out)
       flanksEval.rodBind :+= RodBind("dbsnp", qscript.pipeline.getProject.getEvalDbsnpType, qscript.pipeline.getProject.getEvalDbsnp)
       flanksEval.intervals = List(flankIntervals)
       flanksEval.doNotUseAllStandardStratifications = true
