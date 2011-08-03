@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.phasing;
 
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -89,7 +90,7 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
 
         int processed = 1;
 
-        List<GATKFeature> interval = tracker.getValuesAsGATKFeatures(INTERVALS_ROD_NAME);
+        List<Feature> interval = tracker.getValues(Feature.class, INTERVALS_ROD_NAME);
         if (interval.size() != 1) {
             String error = "At " + ref.getLocus() + " : Must provide a track named '"+ INTERVALS_ROD_NAME  +"' with exactly ONE interval per locus in -L argument!";
             if (interval.size() < 1)
@@ -98,7 +99,7 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
                 logger.warn(error);
         }
         // Take the FIRST interval covering this locus, and WARN about multiple intervals (above):
-        GenomeLoc curInterval = interval.get(0).getLocation();
+        GenomeLoc curInterval = getToolkit().getGenomeLocParser().createGenomeLoc(interval.get(0));
         logger.debug("refLocus: " + ref.getLocus() + "\tcurInterval = " + curInterval);
 
         boolean isNewInterval = (prevInterval == null || !curInterval.equals(prevInterval));

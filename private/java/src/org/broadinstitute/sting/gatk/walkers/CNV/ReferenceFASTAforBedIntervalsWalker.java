@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.CNV;
 
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -81,9 +82,9 @@ public class ReferenceFASTAforBedIntervalsWalker extends RodWalker<Integer, Inte
         int curPos = curLoc.getStart();
         int entries = 0;
 
-        List<GATKFeature> intervals = tracker.getValuesAsGATKFeatures(INTERVALS_ROD_NAME);
-        for (GATKFeature interval : intervals) {
-            GenomeLoc loc = interval.getLocation();
+        List<Feature> intervals = tracker.getValues(Feature.class, INTERVALS_ROD_NAME);
+        for (Feature interval : intervals) {
+            GenomeLoc loc = getToolkit().getGenomeLocParser().createGenomeLoc(interval);
             /* TODO: note that an interval may actually start BEFORE here, but not be covered, but would need to cache the remappings
                of origLoc -> newLoc, and then setName(newLoc.toString()) */
 
