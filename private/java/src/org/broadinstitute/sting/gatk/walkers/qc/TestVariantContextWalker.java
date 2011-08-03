@@ -91,11 +91,11 @@ public class TestVariantContextWalker extends RodWalker<Integer, Integer> {
                             wroteHeader = true;
                         }
 
-                        writer.add(vc, ref.getBase());
+                        writer.add(vc);
                     }
 
-                    n++;
-                    if ( printContexts ) out.printf("       %s%n", vc);
+                    writer.add(vc);
+                }
 
                     if ( takeFirstOnly ) break;
                 }

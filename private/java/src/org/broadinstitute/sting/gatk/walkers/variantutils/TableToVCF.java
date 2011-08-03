@@ -76,7 +76,7 @@ public class TableToVCF extends RodWalker<VariantContext,Integer> {
         }
 
         active.removeAll(toRem);
-        vcfWriter.add(vcToPrint,ref.getBase());
+        vcfWriter.add(vcToPrint);
         return vcToPrint;
     }
 

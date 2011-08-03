@@ -104,7 +104,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
         vc = VariantContext.modifyGenotypes(vc, genotypes);
         if ( vc.isSNP() )
             vc = VariantContext.modifyLocation(vc, vc.getChr(), vc.getStart()+1, vc.getStart()+1);        
-        vcfWriter.add(vc, ref);
+        vcfWriter.add(vc);
     }
 
     public Integer reduceInit() {

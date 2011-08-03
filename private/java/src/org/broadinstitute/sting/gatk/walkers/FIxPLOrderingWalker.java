@@ -52,7 +52,7 @@ public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
          for (VariantContext vc : vcs) {
              if (vc.isIndel() && !vc.isBiallelic())
                  vc = modifyGLs(vc);
-             vcfWriter.add( vc, ref.getBase() );
+             vcfWriter.add(vc);
          }
         return 1;
     }

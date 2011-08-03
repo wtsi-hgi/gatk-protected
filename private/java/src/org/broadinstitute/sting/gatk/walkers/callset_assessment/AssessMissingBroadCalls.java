@@ -23,7 +23,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.walkers;
+package org.broadinstitute.sting.gatk.walkers.callset_assessment;
 
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -99,7 +99,7 @@ public class AssessMissingBroadCalls extends RodWalker<Integer, Integer> {
         }
 
         vc = VariantContext.modifyAttributes(vc, attrs);
-        writer.add(vc, ref.getBase());
+        writer.add(vc);
 
         return 1;
     }
