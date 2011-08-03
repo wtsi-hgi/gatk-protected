@@ -25,6 +25,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.callset_assessment;
 
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -69,7 +70,7 @@ public class AssessMissingBroadCalls extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        List<Object> kgRods = tracker.getValues("1kg");
+        List<Feature> kgRods = tracker.getValues(Feature.class, "1kg");
         // ignore places where we don't have a variant
         if ( kgRods.size() == 0 )
             return 0;
@@ -77,7 +78,7 @@ public class AssessMissingBroadCalls extends RodWalker<Integer, Integer> {
         VariantContext vc = (VariantContext)kgRods.get(0);
         Map<String, Object> attrs = new HashMap<String, Object>(vc.getAttributes());
 
-        List<Object> biRods = tracker.getValues("broad");
+        List<Feature> biRods = tracker.getValues(Feature.class, "broad");
         if ( biRods.size() == 0 )
             attrs.put(status_key, "NotCalled");
         else {

@@ -78,7 +78,7 @@ public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
         if (tracker == null)
             return null;
 
-        return new GeneNames().addGenes(tracker.getValues(REFSEQ_ROD_NAME));
+        return new GeneNames().addGenes(tracker.getValues(RefSeqFeature.class, REFSEQ_ROD_NAME));
     }
 
     public GeneNames reduce(GeneNames add, GeneNames runningCount) {
@@ -114,10 +114,8 @@ class GeneNames {
         return this;
     }
 
-    public GeneNames addGenes(List<Object> refSeqRODs) {
-        for (Object refSeqObject : refSeqRODs) {
-            RefSeqFeature refSeqAnnotation = (RefSeqFeature) refSeqObject;
-
+    public GeneNames addGenes(List<RefSeqFeature> refSeqRODs) {
+        for (RefSeqFeature refSeqAnnotation : refSeqRODs) {
             // TODO -- check me:
             // TODO --  we no longer support the GenomicAnnotator and the related AnnotatorInputTableFeature; use RefSeqFeature instead.
             // TODO --  did I do this correctly?

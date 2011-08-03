@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.CNV;
 
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -75,7 +76,7 @@ public class OverlapWithBedInIntervalWalker extends RodWalker<CumulativeBaseOver
         if (tracker == null)
             return null;
 
-        return new CumulativeBaseOverlapCount().addIntervals(tracker.getValues(INTERVALS_ROD_NAME));
+        return new CumulativeBaseOverlapCount().addIntervals(tracker.getValues(Feature.class, INTERVALS_ROD_NAME));
     }
 
     public CumulativeBaseOverlapCount reduce(CumulativeBaseOverlapCount add, CumulativeBaseOverlapCount runningCount) {
@@ -113,7 +114,7 @@ class CumulativeBaseOverlapCount {
         return this;
     }
 
-    public CumulativeBaseOverlapCount addIntervals(List<Object> interval) {
+    public CumulativeBaseOverlapCount addIntervals(List<Feature> interval) {
         totalOverlapCount += interval.size();
 
         return this;

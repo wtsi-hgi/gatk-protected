@@ -25,6 +25,7 @@
 package org.broadinstitute.sting.gatk.walkers.qc;
 
 import net.sf.samtools.SAMRecord;
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -50,7 +51,7 @@ public class DownsamplingValidationWalker extends LocusWalker<Integer,Long> {
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         ReadBackedPileup pileup = context.getBasePileup();
-        Collection<Object> allFeatures = tracker.getValues("reads");
+        Collection<Feature> allFeatures = tracker.getValues(Feature.class, "reads");
 
         Collection<SAMReadFeature> unsampledReadsStartingAtThisLocus = new ArrayList<SAMReadFeature>();
         for(Object featureCandidate: allFeatures) {

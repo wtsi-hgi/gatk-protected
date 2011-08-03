@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.CNV;
 
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -76,7 +77,7 @@ public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {
         int curPos = curLoc.getStart();
         int printed = 0;
 
-        List<Object> intervals = tracker.getValues(INTERVALS_ROD_NAME);
+        List<Feature> intervals = tracker.getValues(Feature.class, INTERVALS_ROD_NAME);
         if (intervals.isEmpty()) {
             if (waitingInterval != null && curLoc.compareContigs(waitingInterval) == 0 && curPos == waitingInterval.getStop() + 1) {
                 waitingInterval = getToolkit().getGenomeLocParser().setStop(waitingInterval, curPos);

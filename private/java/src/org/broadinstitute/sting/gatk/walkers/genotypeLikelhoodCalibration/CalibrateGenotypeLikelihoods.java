@@ -168,7 +168,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     //
     //---------------------------------------------------------------------------------------------------------------
     public Data map( RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context ) {
-        if ( tracker == null || tracker.getNumberOfTracksWithValue() == 0 )
+        if ( tracker == null || tracker.getNTracksWithBoundFeatures() == 0 )
             return Data.EMPTY_DATA;
 
         // Grabs a usable VariantContext from the Alleles ROD

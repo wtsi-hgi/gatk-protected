@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -65,7 +66,7 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
         List<String> eventBySample = new ArrayList<String>();
 
         for ( String rodName : order ) {
-            List<Object> namedMD = tracker.getValues(rodName);
+            List<Feature> namedMD = tracker.getValues(Feature.class, rodName);
             TableFeature feature = null;
             if ( namedMD.size() > 0 ) {
                 feature = namedMD.get(0) instanceof TableFeature ? (TableFeature) namedMD.get(0) : null;
