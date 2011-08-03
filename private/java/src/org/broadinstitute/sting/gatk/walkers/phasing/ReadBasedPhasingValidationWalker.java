@@ -49,7 +49,7 @@ import java.util.*;
  * Walks along all variant ROD loci and verifies the phasing from the reads for user-defined pairs of sites.
  */
 @Allows(value = {DataSource.READS, DataSource.REFERENCE})
-@Requires(value = {DataSource.READS, DataSource.REFERENCE}, referenceMetaData = @RMD(name = "variant", type = ReferenceOrderedDatum.class))
+@Requires(value = {DataSource.READS, DataSource.REFERENCE})
 @By(DataSource.READS)
 
 @ReadFilters({MappingQualityZeroReadFilter.class})

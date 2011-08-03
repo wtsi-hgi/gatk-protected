@@ -40,7 +40,7 @@ import java.util.List;
  * Walks along reference and prints intervals of sequence not covered in ANY interval in "intervals" ROD.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = PrintIntervalsNotInBedWalker.INTERVALS_ROD_NAME, type = ReferenceOrderedDatum.class)})
+@Requires(value = {DataSource.REFERENCE})
 @By(DataSource.REFERENCE) // So that we will actually enter loci with no ROD on them
 
 public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {

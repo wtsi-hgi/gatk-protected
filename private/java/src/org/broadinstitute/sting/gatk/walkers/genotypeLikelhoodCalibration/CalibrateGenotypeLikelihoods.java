@@ -55,7 +55,7 @@ import java.util.*;
  * @since May, 2011
  */
 
-@Requires(value={DataSource.READS, DataSource.REFERENCE},referenceMetaData=@RMD(name="alleles",type=VariantContext.class))
+@Requires(value={DataSource.READS, DataSource.REFERENCE})
 @Allows(value={DataSource.READS, DataSource.REFERENCE})
 
 // Ugly fix because RodWalkers don't have access to reads

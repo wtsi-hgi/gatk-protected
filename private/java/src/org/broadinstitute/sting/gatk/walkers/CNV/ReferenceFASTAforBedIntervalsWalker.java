@@ -43,7 +43,7 @@ import java.util.Map;
  * Walks along reference and prints the reference sequence (as FASTA) for the BED file intervals ("intervals" ROD).
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = ReferenceFASTAforBedIntervalsWalker.INTERVALS_ROD_NAME, type = ReferenceOrderedDatum.class)})
+@Requires(value = {DataSource.REFERENCE})
 
 public class ReferenceFASTAforBedIntervalsWalker extends RodWalker<Integer, Integer> {
     @Output

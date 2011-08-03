@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
  * Time: 3:14 PM
  * To change this template use File | Settings | File Templates.
  */
-@Requires(value={},referenceMetaData=@RMD(name="sites", type=VariantContext.class))
+@Requires(value={})
 
 public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
     @Output(doc="File to which variants should be written",required=true)

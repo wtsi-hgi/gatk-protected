@@ -42,7 +42,7 @@ import java.util.Set;
  * Walks along reference and calculates the genes (from "refseq" ROD) for each interval.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = GeneNamesIntervalWalker.REFSEQ_ROD_NAME, type = RefSeqFeature.class)})
+@Requires(value = {DataSource.REFERENCE})
 
 public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
     @Output

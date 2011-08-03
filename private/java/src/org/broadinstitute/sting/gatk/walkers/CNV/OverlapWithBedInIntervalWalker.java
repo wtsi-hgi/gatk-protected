@@ -41,7 +41,7 @@ import java.util.List;
  * Walks along reference and calculates the percent overlap with the BED file intervals for each -L interval.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = OverlapWithBedInIntervalWalker.INTERVALS_ROD_NAME, type = ReferenceOrderedDatum.class)})
+@Requires(value = {DataSource.REFERENCE})
 
 public class OverlapWithBedInIntervalWalker extends RodWalker<CumulativeBaseOverlapCount, CumulativeBaseOverlapCount> {
     @Output

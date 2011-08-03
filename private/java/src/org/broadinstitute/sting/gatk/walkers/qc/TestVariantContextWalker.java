@@ -94,9 +94,8 @@ public class TestVariantContextWalker extends RodWalker<Integer, Integer> {
                         writer.add(vc);
                     }
 
-                    writer.add(vc);
-                }
-
+                    n++;
+                    if ( printContexts ) out.printf("       %s%n", vc);
                     if ( takeFirstOnly ) break;
                 }
             }

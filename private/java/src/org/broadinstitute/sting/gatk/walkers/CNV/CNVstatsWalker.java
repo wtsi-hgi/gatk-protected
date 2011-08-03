@@ -45,7 +45,7 @@ import java.util.*;
  * Walks along all variant ROD loci, and tabulates the statistics of the CNVs detected.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = @RMD(name = "variant", type = ReferenceOrderedDatum.class))
+@Requires(value = {DataSource.REFERENCE})
 @By(DataSource.REFERENCE_ORDERED_DATA)
 
 public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {

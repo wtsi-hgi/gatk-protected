@@ -50,7 +50,7 @@ import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFr
  * Walks along all variant ROD loci and annotates inherited alleles .
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = AnnotateTrioPhasingInheritanceNoRecombinationWalker.TRIO_ROD_NAME, type = ReferenceOrderedDatum.class)})
+@Requires(value = {DataSource.REFERENCE})
 
 @ReadFilters({MappingQualityZeroReadFilter.class})
 // Filter out all reads with zero mapping quality

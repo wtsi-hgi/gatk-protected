@@ -43,7 +43,7 @@ import java.util.*;
 /**
  * Converts variants from the Complete Genomics VAR format to VCF format.
  */
-@Requires(value={},referenceMetaData=@RMD(name=CGVarToVCF.INPUT_ROD_NAME, type=VariantContext.class))
+@Requires(value={})
 @Reference(window=@Window(start=-40,stop=400))
 public class CGVarToVCF extends RodWalker<Integer, Integer> {
 

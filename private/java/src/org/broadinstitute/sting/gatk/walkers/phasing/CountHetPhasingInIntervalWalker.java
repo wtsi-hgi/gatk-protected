@@ -45,7 +45,7 @@ import java.util.*;
  * Walks along all variant ROD loci and verifies the phasing from the reads for user-defined pairs of sites.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = "variant", type = ReferenceOrderedDatum.class), @RMD(name = CountHetPhasingInIntervalWalker.INTERVALS_ROD_NAME, type = ReferenceOrderedDatum.class)})
+@Requires(value = {DataSource.REFERENCE})
 
 @ReadFilters({MappingQualityZeroReadFilter.class})
 // Filter out all reads with zero mapping quality
