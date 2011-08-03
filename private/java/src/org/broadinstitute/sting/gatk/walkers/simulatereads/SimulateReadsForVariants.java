@@ -232,7 +232,7 @@ public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
 
         // BED is zero based
         sitesWriter.printf("%s %d %d%n", ref.getLocus().getContig(), ref.getLocus().getStart()-1, ref.getLocus().getStart() );
-        variantsWriter.add(vc, ref.getBase());
+        variantsWriter.add(vc);
         for ( SAMRecord read : rbp.getReads() ) readWriter.addAlignment(read);
 
         parameters.incCount();

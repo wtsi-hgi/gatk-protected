@@ -162,7 +162,7 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
                 }
 
                 VariantContext vcnew = new VariantContext("GMIlls",vc.getChr(), vc.getStart(), vc.getEnd(), vc.getAlleles(),  genotypes, 0.0, null, null) ;
-                vcfWriter.add(vcnew, ref.getBase());
+                vcfWriter.add(vcnew);
             }
         }
         return 1;
