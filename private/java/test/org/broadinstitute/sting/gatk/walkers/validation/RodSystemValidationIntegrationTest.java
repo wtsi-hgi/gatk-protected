@@ -17,15 +17,6 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
             return "-T RodSystemValidation -o %s -R " + b36KGReference;
         }
 
-
-    @Test
-    public void testSimpleGeliPileup() {
-        WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " -B:eval,GeliText " + validationDataLocation + "ROD_validation/chr1.geli", 1,
-                Arrays.asList("832efb29a6d4e8dbae374d3eeee17d9d"));
-        executeTest("testSimpleGeliPileup", spec);
-    }
-
     @Test
     public void testSimpleVCFPileup() {
         WalkerTestSpec spec = new WalkerTestSpec(
