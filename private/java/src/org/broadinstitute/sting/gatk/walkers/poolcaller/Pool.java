@@ -28,8 +28,10 @@ public class Pool {
     private int mismatches;
     private byte referenceSequenceBase;
     private Set<Filters> filters;
+    private Map<String, Object> attributes;
     private boolean isConfidentlyCalled;
     private Integer calledAC;
+    private byte calledAllele;
     private double log10LikelihoodCall;
 
     public Pool(PoolParameters p) {
@@ -52,10 +54,13 @@ public class Pool {
             filters.add(Filters.LOW_QUAL);
         else if (!alleleCountModel.isErrorModelPowerfulEnough())
             filters.add(Filters.LOW_POWER);
-        else
+        else {
             calledAC = alleleCountModel.getMaximumLikelihoodIndex();
-
+            calledAllele = (calledAC == 0) ?  referenceSequenceBase : BaseUtils.baseIndexToSimpleBase(BaseUtils.mostFrequentBaseIndexNotRef(pileup.getBaseCounts(), referenceSequenceBase));
+        }
         log10LikelihoodCall = alleleCountModel.getMaximumLikelihood();
+
+        calculateAttributes();
     }
 
     /**
@@ -111,7 +116,7 @@ public class Pool {
      *
      */
     public boolean isRef() {
-        return isCalled() && calledAC == 0;
+        return BaseUtils.baseIndexToSimpleBase(MathUtils.maxElementIndex(pileup.getBaseCounts())) == referenceSequenceBase;
     }
 
     /**
@@ -125,8 +130,55 @@ public class Pool {
         return result;
     }
 
-    public boolean isConfidentlyCalled() {
-        return isConfidentlyCalled;
+    public Map<String, Object> getAttributes() {
+        return attributes;
+    }
+
+    private double calculateAlleleFrequency() {
+        byte [] bases = pileup.getBases();
+        return (double) MathUtils.countOccurrences(calledAllele, bases) / bases.length;
+    }
+
+    private int calculateAlleleDepth (byte allele) {
+        return MathUtils.countOccurrences(allele, pileup.getBases());
+    }
+
+    private List<Integer> calculateAllelicDepths() {
+        List<Integer> allelicDepths = new LinkedList<Integer>();
+        allelicDepths.add(calculateAlleleDepth(calledAllele));
+        allelicDepths.add(calculateAlleleDepth(referenceSequenceBase));
+        return allelicDepths;
+    }
+
+    private double calculateMappingQualityRMS() {
+        return MathUtils.rms(pileup.getMappingQuals());
+    }
+
+    private int calculateMappingQualityZero() {
+        return pileup.getNumberOfMappingQualityZeroReads();
+    }
+
+    private void calculateAttributes() {
+        attributes = new HashMap<String, Object>(11);
+        attributes.put("AC", calledAC);
+        attributes.put("AF", calculateAlleleFrequency());
+        attributes.put("DP", pileup.getBases().length);
+        attributes.put("AD", calculateAllelicDepths());
+        attributes.put("MQ", calculateMappingQualityRMS());
+        attributes.put("MQ0", calculateMappingQualityZero());
+
+/*
+        headerLines.add(new VCFInfoHeaderLine("AC", 1, VCFHeaderLineType.Integer, "Allele count in the site, number of alternate alleles across all pools"));
+        headerLines.add(new VCFInfoHeaderLine("AF", 1, VCFHeaderLineType.Float, "Allele frequency in the site. Proportion of the alternate alleles across all pools"));
+        headerLines.add(new VCFInfoHeaderLine("DP", 1, VCFHeaderLineType.Integer, "Total depth in the site. Sum of the depth of all pools"));
+        headerLines.add(new VCFInfoHeaderLine("MQ", 1, VCFHeaderLineType.Float, "RMS mapping quality of all reads in the site"));
+        headerLines.add(new VCFInfoHeaderLine("MQ0", 1, VCFHeaderLineType.Integer, "Total number of mapping quality zero reads in the site"));
+        headerLines.add(new VCFFormatHeaderLine("AD", VCFHeaderLineCount.UNBOUNDED, VCFHeaderLineType.Integer, "Allelic depths for the ref and alt alleles in the order listed"));
+        headerLines.add(new VCFFormatHeaderLine("DP", 1, VCFHeaderLineType.Integer, "Read Depth (only filtered reads used for calling)"));
+        headerLines.add(new VCFFormatHeaderLine("GQ", 1, VCFHeaderLineType.Float, "Genotype Quality"));
+        headerLines.add(new VCFFormatHeaderLine("AL", 3, VCFHeaderLineType.Integer, "Allele count likelihood and the 5% confidence interval"));
+
+*/
     }
 
     /**
@@ -140,13 +192,18 @@ public class Pool {
         byte base;
 
         // I don't need the reference base to be counted as we are looking for the most common alternate allele.
-        int [] baseCounts = pileup.getBaseCounts();
-        baseCounts[BaseUtils.simpleBaseToBaseIndex(referenceSequenceBase)] = -1;
+        if (isRef()) {
+            base = referenceSequenceBase;
+        }
+        else {
+            int [] baseCounts = pileup.getBaseCounts();
+            baseCounts[BaseUtils.simpleBaseToBaseIndex(referenceSequenceBase)] = -1;
+            base = BaseUtils.mostFrequentSimpleBase(baseCounts);
+        }
 
-        base = isRef() ? referenceSequenceBase : BaseUtils.mostFrequentSimpleBase(baseCounts);
         List<Allele> alleleList = new LinkedList<Allele>();
         alleleList.add(Allele.create(base, isRef()));
-        Genotype g = new Genotype(name, alleleList, log10LikelihoodCall);
+        Genotype g = new Genotype(name, alleleList, -log10LikelihoodCall);
         poolGenotype.put(name, g);
         return poolGenotype;
     }

@@ -182,8 +182,8 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         headerLines.add(new VCFFormatHeaderLine("DP", 1, VCFHeaderLineType.Integer, "Read Depth (only filtered reads used for calling)"));
         headerLines.add(new VCFFormatHeaderLine("GQ", 1, VCFHeaderLineType.Float, "Genotype Quality"));
         headerLines.add(new VCFFormatHeaderLine("AL", 3, VCFHeaderLineType.Integer, "Allele count likelihood and the 5% confidence interval"));
-        headerLines.add(new VCFFilterHeaderLine("lowQual", "Low quality"));
-        headerLines.add(new VCFFilterHeaderLine("lowConf", "Low confidence"));
+        headerLines.add(new VCFFilterHeaderLine(Filters.LOW_QUAL.toString(), "Low quality"));
+        headerLines.add(new VCFFilterHeaderLine(Filters.LOW_POWER.toString(), "Low confidence"));
         headerLines.add(new VCFHeaderLine("PoolCaller", "todo -- add parameter list here"));
         vcfWriter.writeHeader(new VCFHeader(headerLines, SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader())));
     }

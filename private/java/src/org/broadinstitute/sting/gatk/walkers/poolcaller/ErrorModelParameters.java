@@ -13,7 +13,7 @@ public class ErrorModelParameters {
     public ReferenceSample referenceSample;
     public double minPower;
 
-    public ErrorModelParameters(byte maxQualityScore, byte minQualityScore, byte phredScaledPrior, ReferenceSample referenceSample, double minPower) {
+    public ErrorModelParameters(byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, ReferenceSample referenceSample, double minPower) {
         this.maxQualityScore = maxQualityScore;
         this.minQualityScore = minQualityScore;
         this.phredScaledPrior = phredScaledPrior;

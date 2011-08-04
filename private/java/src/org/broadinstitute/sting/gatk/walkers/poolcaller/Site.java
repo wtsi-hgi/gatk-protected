@@ -6,10 +6,8 @@ import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.w3c.dom.Attr;
 
 import java.util.*;
-import java.util.jar.Attributes;
 
 /**
  * Created by IntelliJ IDEA.
@@ -27,7 +25,7 @@ public class Site {
     private byte referenceSequenceBase;
     private ReadBackedPileup pileup;
     private Set<String> filters;
-    private Map<String, ?> attributes;
+    private Map<String, Object> attributes;
 
 
 
@@ -58,7 +56,6 @@ public class Site {
                                                   p.minPower)));
         }
 
-        filters = new TreeSet<String>();
         for (Lane lane : lanes) {
             // make the first pool's alleleCountModel our base model and then "recursively" merge it with all the subsequent pools
             if (alleleCountModel == null)
@@ -68,6 +65,7 @@ public class Site {
 
             // Add all the filters from this lane
             filters.addAll(lane.getFilters());
+            attributes.putAll(lane.getAttributes());
         }
     }
 
@@ -77,15 +75,17 @@ public class Site {
      * @param laneID the lane id
      * @param lane the lane object
      */
-    private Site(String laneID, Lane lane, double minCallQual, byte referenceSequenceBase) {
+    private Site(String laneID, Lane lane, double minCallQual, byte referenceSequenceBase, ReadBackedPileup sitePileup) {
         this.lanes = new HashSet<Lane>(1);
         this.laneIDs = new HashSet<String>(1);
         this.lanes.add(lane);
         this.laneIDs.add(laneID);
+        this.pileup = sitePileup;
         this.minCallQual = minCallQual;
         this.referenceSequenceBase = referenceSequenceBase;
         alleleCountModel = new AlleleCountModel(lane.getAlleleCountModel());
         filters = lane.getFilters();
+        attributes.putAll(lane.getAttributes());
     }
 
     /**
@@ -93,8 +93,8 @@ public class Site {
      * Only for debug purposes.
      */
     public static Site debugSite(SiteParameters p) {
-        String laneID = "1";
-        Lane lane = new Lane(new LaneParameters(laneID,
+        String laneID = "LANE1";
+        Lane lane = Lane.debugLane(new LaneParameters(laneID,
                                                 p.sitePileup,
                                                 p.referenceSampleName,
                                                 p.trueReferenceBases,
@@ -106,19 +106,8 @@ public class Site {
                                                 p.minCallQual,
                                                 p.minPower));
 
-        return new Site(laneID, lane, p.minCallQual, p.referenceSequenceBase);
+        return new Site(laneID, lane, p.minCallQual, p.referenceSequenceBase, p.sitePileup);
     }
-
-    public Set<String> getFilters() {
-        return filters;
-    }
-
-    //todo -- implement attributes
-    public Map<String, ?> getAttributes() {
-       // return attributes;
-        return new HashMap<String, String>();
-    }
-
 
     /**
      * GATK Engine creates readgroups of the form XXX.Y.Z
@@ -156,16 +145,12 @@ public class Site {
 
     public Collection<Allele> getAlleles() {
         Set<Allele> alternateAlleles = new HashSet<Allele>();
-        if (alleleCountModel.isACZero()) {
-            alternateAlleles.add(Allele.create(referenceSequenceBase, true));
-        }
-        else if (alleleCountModel.isConfidentlyCalled()) {
+        alternateAlleles.add(Allele.create(referenceSequenceBase, true));
+        if (alleleCountModel.isConfidentlyCalled()) {
             int [] baseCounts = pileup.getBaseCounts();
-
             // if reference base is the most common, make it negative so we get the second most common.
-            if (BaseUtils.baseIndexToSimpleBase(MathUtils.maxElementIndex(baseCounts)) == referenceSequenceBase) {
-                baseCounts[BaseUtils.simpleBaseToBaseIndex(referenceSequenceBase)] = -1;
-            }
+            baseCounts[BaseUtils.simpleBaseToBaseIndex(referenceSequenceBase)] = -1;
+
             // add the most common alternate allele
             alternateAlleles.add(Allele.create(BaseUtils.baseIndexToSimpleBase(MathUtils.maxElementIndex(baseCounts)), false));
         }
@@ -185,4 +170,15 @@ public class Site {
         }
         return siteGenotypeMap;
     }
+
+    public Set<String> getFilters() {
+        return filters;
+    }
+
+    public Map<String, Object> getAttributes () {
+        return attributes;
+    }
+
+
+
 }

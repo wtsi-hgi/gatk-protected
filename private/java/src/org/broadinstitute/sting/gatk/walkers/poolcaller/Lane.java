@@ -20,6 +20,7 @@ public class Lane {
     private ErrorModel errorModel;
     private AlleleCountModel alleleCountModel;
     private Set<String> filters;
+    private Map<String, Object> attributes;
 
     public Lane(LaneParameters p) {
         name = p.name;
@@ -48,11 +49,37 @@ public class Lane {
 
             // add all filters from this pool
             filters.addAll(pool.getFilters());
+            attributes.putAll(pool.getAttributes());
         }
+    }
+
+    private Lane() {}
+
+
+    public static Lane debugLane(LaneParameters p) {
+        Lane lane = new Lane();
+        lane.name = p.name;
+        lane.referenceSample = new ReferenceSample(new ReferenceSampleParameters(p.referenceSampleName, p.lanePileup.getPileupForSampleName(p.referenceSampleName), p.trueReferenceBases));
+        lane.errorModel = new ErrorModel(new ErrorModelParameters(p.minQualityScore, p.maxQualityScore, p.phredScaledPrior, lane.referenceSample, p.minPower));
+
+        lane.pools = new LinkedList<Pool>();
+        lane.pools.add(new Pool(new PoolParameters("POOL1", p.lanePileup, lane.errorModel, p.referenceSequenceBase, p.maxAlleleCount, p.minCallQual)));
+
+        lane.filters = new TreeSet<String>();
+        for (Pool pool : lane.pools) {
+            lane.alleleCountModel = new AlleleCountModel(pool.getAlleleCountModel());
+            lane.filters.addAll(pool.getFilters());
+            lane.attributes.putAll(pool.getAttributes());
+        }
+        return lane;
     }
 
     public Set<String> getFilters() {
         return filters;
+    }
+
+    public Map<String, ?> getAttributes() {
+        return attributes;
     }
 
     public AlleleCountModel getAlleleCountModel() {

@@ -14,7 +14,6 @@ public class AlleleCountModel extends ProbabilityModel {
     private int maxAlleleCount;
     private double minCallQuall;
     private ErrorModel errorModel;
-    private double minPower;
 
     private final double THETA = 0.001; // Human heterozygozity rate
 
@@ -183,13 +182,11 @@ public class AlleleCountModel extends ProbabilityModel {
     }
 
     /**
-     * Only call if site quality > Q(1/2N) with 99% confidence (point where cumsum(site) > 0.99)
+     * Only call if site quality > Q(1/2N) with 99% confidence (point where cumsum(site) == log10(0.99))
      * @return
      */
     public boolean isErrorModelPowerfulEnough() {
-        int siteQ = (int) Math.ceil(1/maxAlleleCount);
-        double cumSum = errorModel.getCumulativeSum(siteQ);
-        return cumSum > minPower;
+        return errorModel.hasPowerForMaxAC(maxAlleleCount);
     }
 
 }

@@ -17,7 +17,7 @@ public class ErrorModel extends ProbabilityModel {
     private byte maxQualityScore;
     private byte minQualityScore;
     private byte phredScaledPrior;
-    private double minPower;
+    private double log10minPower;
 
     /**
      * Calculates the probability of the data (reference sample reads) given the phred scaled site quality score.
@@ -28,7 +28,7 @@ public class ErrorModel extends ProbabilityModel {
         maxQualityScore = p.maxQualityScore;
         minQualityScore = p.minQualityScore;
         phredScaledPrior = p.phredScaledPrior;
-        minPower = p.minPower;
+        log10minPower = Math.log10(p.minPower);
 
 
         model = new double[maxQualityScore-minQualityScore+1];
@@ -57,6 +57,7 @@ public class ErrorModel extends ProbabilityModel {
             "mismatches <= coverage"
     })
     @Ensures({"result <= 0", "! Double.isInfinite(result)", "! Double.isNaN(result)"})
+//todo -- memoize this function
     private double log10ProbabilitySiteGivenQual(byte q, int coverage, int matches, int mismatches) {
         double probMismatch = MathUtils.phredScaleToProbability(q);
         return MathUtils.phredScaleToLog10Probability(phredScaledPrior) +
@@ -79,4 +80,11 @@ public class ErrorModel extends ProbabilityModel {
         return minQualityScore;
     }
 
+@Requires({"maxAlleleCount >= 0"})
+//todo -- memoize this function
+    public boolean hasPowerForMaxAC (int maxAlleleCount) {
+        int siteQ = (int) Math.ceil(MathUtils.probabilityToPhredScale((double) 1/maxAlleleCount));
+        double log10CumSum = getCumulativeSum(siteQ);
+        return log10CumSum < log10minPower;
+    }
 }
