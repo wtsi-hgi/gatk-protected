@@ -53,7 +53,6 @@ import java.util.*;
  *
  * @author depristo
  * @since May, 2011
- * @help.summary Computes raw GL calibration data for read groups in BAMs against a comp VCF track of genotypes
  */
 
 @Requires(value={DataSource.READS, DataSource.REFERENCE},referenceMetaData=@RMD(name="alleles",type=VariantContext.class))
@@ -148,7 +147,6 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
         uac.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES;
         uac.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES;
-        uac.NO_SLOD = true;
         if (mbq >= 0) uac.MIN_BASE_QUALTY_SCORE = mbq;
         if (deletions >= 0) uac.MAX_DELETION_FRACTION = deletions;
         uac.STANDARD_CONFIDENCE_FOR_CALLING = callConf;

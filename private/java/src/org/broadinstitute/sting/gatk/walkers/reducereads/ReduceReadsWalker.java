@@ -30,8 +30,13 @@ import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
+import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckReadFilter;
+import org.broadinstitute.sting.gatk.filters.NotPrimaryAlignmentReadFilter;
+import org.broadinstitute.sting.gatk.filters.UnmappedReadFilter;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 
 import java.io.PrintStream;
@@ -42,6 +47,8 @@ import java.util.Set;
  * User: depristo
  * Date: April 7, 2011
  */
+
+@ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentReadFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckReadFilter.class})
 public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompressor> {
     @Output
     protected StingSAMFileWriter out;
@@ -58,11 +65,17 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Argument(fullName = "useRead", shortName = "UR", doc = "", required = false)
     protected Set<String> readNamesToUse;
 
-    @Argument(fullName = "minBpForRunningConsensus", shortName = "mbrc", doc = "", required = false)
+    @Argument(fullName = "minBpForRunningConsensus", shortName = "MBRC", doc = "", required = false)
     protected int minBpForRunningConsensus = 1000;
 
-    @Argument(fullName = "maxReadsAtVariableSites", shortName = "mravs", doc = "", required = false)
-    protected int maxReadsAtVariableSites = 500;
+    @Argument(fullName = "AverageDepthAtVariableSites", shortName = "ADAV", doc = "", required = false)
+    protected int AverageDepthAtVariableSites = 500;
+
+    @Argument(fullName = "ReadQualityEquivalent", shortName = "QE", doc = "", required = false)
+    protected int QUALITY_EQUIVALENT = 20;
+
+    @Argument(fullName = "MinimumMappingQuality", shortName = "MM", doc = "", required = false)
+    protected int MIN_MAPPING_QUALITY = 20;
 
     protected int totalReads = 0;
     int nCompressedReads = 0;
@@ -75,7 +88,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
         compressor = new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(),
                 contextSize, getToolkit().getGenomeLocParser(),
-                minBpForRunningConsensus, maxReadsAtVariableSites);
+                minBpForRunningConsensus, AverageDepthAtVariableSites, QUALITY_EQUIVALENT, MIN_MAPPING_QUALITY);
 
         out.setPresorted(false);
 
@@ -109,7 +122,6 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         if ( readNamesToUse == null || readNamesToUse.contains(read.getReadName()) ) {
             if ( INCLUDE_RAW_READS )
                 out.addAlignment(read);
-
             // write out compressed reads as they become available
             for ( SAMRecord consensusRead : comp.addAlignment(read) ) {
                 out.addAlignment(consensusRead);

@@ -56,7 +56,6 @@ import static org.broadinstitute.sting.utils.IndelUtils.isInsideExtendedIndel;
  *
  * @author carneiro
  * @since Mar 3, 2011
- * @help.summary Validates the calls on a ROD track using a BAM dataset.
  */
 
 @Requires(value={DataSource.READS, DataSource.REFERENCE},referenceMetaData=@RMD(name="alleles",type=VariantContext.class))
@@ -260,10 +259,10 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
             if (!vcComp.hasAttribute("callStatus")) {
                 MutableVariantContext mvc = new MutableVariantContext(vcComp);
                 mvc.putAttribute("callStatus", call.isCalledAlt(callConf) ? "ALT" : "REF" );
-                vcfWriter.add(mvc, ref.getBase());
+                vcfWriter.add(mvc);
             }
             else
-                vcfWriter.add(vcComp, ref.getBase());
+                vcfWriter.add(vcComp);
         }
         return counter;
     }

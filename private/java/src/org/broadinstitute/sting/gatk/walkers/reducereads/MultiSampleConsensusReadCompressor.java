@@ -38,7 +38,6 @@ import java.util.*;
 /**
  *
  * @author depristo
- * @version 0.1
  */
 public class MultiSampleConsensusReadCompressor implements ConsensusReadCompressor {
     protected static final Logger logger = Logger.getLogger(MultiSampleConsensusReadCompressor.class);
@@ -49,11 +48,13 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
                                               final int readContextSize,
                                               final GenomeLocParser glParser,
                                               final int minBpForRunningConsensus,
-                                              final int targetDepthAtVariableSites) {
+                                              final int AverageDepthAtVariableSites,
+                                              final int QualityEquivalent,
+                                              final int minMapQuality) {
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
                     new SingleSampleConsensusReadCompressor(name, readContextSize,
-                            glParser, minBpForRunningConsensus, targetDepthAtVariableSites));
+                            glParser, minBpForRunningConsensus, AverageDepthAtVariableSites, QualityEquivalent, minMapQuality));
             // todo -- argument for minConsensusSize
         }
     }
