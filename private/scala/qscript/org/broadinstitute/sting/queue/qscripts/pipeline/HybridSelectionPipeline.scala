@@ -102,20 +102,20 @@ class HybridSelectionPipeline extends QScript {
 
     val selectSNPs = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
     selectSNPs.selectSNPs = true
-    selectSNPs.rodBind :+= RodBind("variant", "VCF", call.out)
+    selectSNPs.variants = call.out
     selectSNPs.out = projectBase + ".snps.unfiltered.vcf"
     selectSNPs.jobOutputFile = selectSNPs.out + ".out"
     add(selectSNPs)
 
     val selectIndels = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
     selectIndels.selectIndels = true
-    selectIndels.rodBind :+= RodBind("variant", "VCF", call.out)
+    selectIndels.variants = call.out
     selectIndels.out = projectBase + ".indels.unfiltered.vcf"
     selectIndels.jobOutputFile = selectIndels.out + ".out"
     add(selectIndels)
 
     val filterSNPs = new VariantFiltration with CommandLineGATKArgs with ExpandedIntervals
-    filterSNPs.variantVCF = selectSNPs.out
+    filterSNPs.variants = selectSNPs.out
     filterSNPs.filterName = List("SNP_SB", "SNP_QD", "SNP_HRun")
     filterSNPs.filterExpression = List("\"SB>=0.10\"", "\"QD<5.0\"", "\"HRun>=4\"")
     filterSNPs.clusterWindowSize = 10
@@ -125,7 +125,7 @@ class HybridSelectionPipeline extends QScript {
     add(filterSNPs)
 
     val filterIndels = new VariantFiltration with CommandLineGATKArgs with ExpandedIntervals
-    filterIndels.variantVCF = selectIndels.out
+    filterIndels.variants = selectIndels.out
     filterIndels.filterName = List("Indel_QUAL", "Indel_SB", "Indel_QD")
     filterIndels.filterExpression = List("\"QUAL<30.0\"", "\"SB>-1.0\"", "\"QD<2.0\"")
     filterIndels.out = projectBase + ".indels.filtered.vcf"
