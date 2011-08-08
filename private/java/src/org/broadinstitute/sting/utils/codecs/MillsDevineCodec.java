@@ -158,7 +158,9 @@ public class MillsDevineCodec implements FeatureCodec {
         attrs.put("IS_VALIDATED",IS_VALIDATED);
 
         // create a new feature given the array
-        VariantContext vc =  new VariantContext("Mills", CHR, start, end, alleles, VariantContext.NO_NEG_LOG_10PERROR, null, attrs);
+//        VariantContext vcCall = new VariantContext("UG_call", loc.getContig(), loc.getStart(), endLoc,
+   //             myAlleles, genotypes, phredScaledConfidence/10.0, passesCallThreshold(phredScaledConfidence) ? null : filter, attributes, refContext.getBase());
+        VariantContext vc =  new VariantContext("Mills", CHR, start, end, alleles,null, VariantContext.NO_NEG_LOG_10PERROR, null, attrs,"N".getBytes()[0]);
 	    //System.out.println(vc.toString());
 	/*        if(array[1].equals("3") ) {
 	    System.out.format("%s %s %s\n",CHR,START,REF_TYPE);

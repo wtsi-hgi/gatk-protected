@@ -1,12 +1,8 @@
 package org.broadinstitute.sting.queue.qscripts.calling
 
-import collection.SeqLike._
-import management.CompilationMXBean
 import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.IndelStatistics
 import org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.gatk.RodBind._
-import org.broadinstitute.sting.queue.extensions.samtools.SamtoolsIndexFunction
 import org.broadinstitute.sting.queue.QScript
 import org.apache.commons.io.FilenameUtils
 import scala.Some
@@ -52,10 +48,10 @@ class Phase1IndelVQSR extends QScript {
   val EVAL_STANDARD_1000G_CALLS: Boolean = true
 
   @Argument(shortName = "numG", doc="If provided, we'll include some standard 1000G data for evaluation", required=false)
-  val numG: Int = 8
+  val numG: Int = 10
 
   @Argument(shortName = "pctBad", doc="If provided, we'll include some standard 1000G data for evaluation", required=false)
-  val pctBad: Double = 0.02
+  val pctBad: Double = 0.03
 
   @Argument(shortName = "runName", doc="Run Name", required=false)
   val runName:String = "mills100"
@@ -100,7 +96,7 @@ class Phase1IndelVQSR extends QScript {
   trait CommandLineGATKArgs extends CommandLineGATK {
     this.jarFile = qscript.gatkJarFile
     this.reference_sequence = qscript.referenceFile
-    this.memoryLimit = Some(2)
+    this.memoryLimit = Some(32)
     // this.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
     this.jobQueue = "gsa"
     if (qscript.doOnlyChr1)
@@ -151,7 +147,7 @@ class Phase1IndelVQSR extends QScript {
     initializeStandardDataFiles();
 
     var ts:Double = 0.0
-    var tranches =  List("99.9","99.0","98.0","97.0","96.0","95.0","92.0","90.0","85.0","80.0","70.0")
+    var tranches =  List("100.0","99.9","99.0","98.0","97.0","96.0","95.0","92.0","90.0","85.0")
 
     var numG:Int = qscript.numG
     var pctBad:Double = qscript.pctBad
@@ -193,16 +189,16 @@ class Phase1IndelVQSR extends QScript {
     vr.tranchesFile = tranchesFile
     vr.recalFile = recalFile
     vr.rscriptFile = rscriptFile
-//    vr.an = List("QD","FS","HaplotypeScore","ReadPosRankSum","InbreedingCoeff","SB","")
+
     vr.an = List("QD","FS","HaplotypeScore","ReadPosRankSum","InbreedingCoeff")
     vr.maxGaussians = Some(numG)
     vr.tranche = tranches
-    vr.nt = Some(8)
+    vr.nt = Some(12)
     vr.percentBad = Some(pctBad)
-    vr.std = Some(12.0)
+    vr.std = Some(14.0)
     vr.jobName = qscript.baseDir +"/tmp/%s.vr".format(runName)
-    vr.memoryLimit = Some(4)
-    //vr.ignore_filter = List("LowQual")
+    vr.memoryLimit = Some(32)
+    vr.projectConsensus = true
     add(vr)
 
     val VE = new MyEval()
@@ -274,7 +270,7 @@ class Phase1IndelVQSR extends QScript {
    */
   class MyEval() extends VariantEval with CommandLineGATKArgs {
     this.noST = true
-    this.nt = Some(8)
+    this.nt = Some(12)
     this.evalModule :+= "ValidationReport"
     //this.evalModule :+= "IndelMetricsByAC"
     //this.evalModule :+= "IndelStatistics"
