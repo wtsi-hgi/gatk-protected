@@ -20,7 +20,7 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
     @Test
     public void testSimpleVCFPileup() {
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " -B:eval " + validationDataLocation + "MultiSample.vcf", 1,
+                baseTestString1KG() + " -B:eval,VCF3 " + validationDataLocation + "MultiSample.vcf", 1,
                 Arrays.asList("ad5c01ab5c65877913e885fdb854275c"));
         executeTest("testSimpleVCFPileup", spec);
     }
@@ -31,7 +31,7 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
         if (vcf.exists()) vcf.delete();
 
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " -B:eval " + validationDataLocation + "justHeader.vcf", 1,
+                baseTestString1KG() + " -B:eval,VCF3 " + validationDataLocation + "justHeader.vcf", 1,
                 Arrays.asList("579456b4da3498e80c42483abbdf5926"));
         executeTest("testEmptyVCF", spec);
     }
@@ -40,8 +40,8 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
     @Test
     public void testComplexVCFPileup() {
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " -B:eval " + validationDataLocation + "MultiSample.vcf" +
-                " -B:eval2" + validationDataLocation + "NA12878.chr1_10mb_11mb.slx.indels.vcf4"
+                baseTestString1KG() + " -B:eval,VCF3 " + validationDataLocation + "MultiSample.vcf" +
+                " -B:eval2,VCF " + validationDataLocation + "NA12878.chr1_10mb_11mb.slx.indels.vcf4"
                 , 1,
                 Arrays.asList("3cabed3262b4474a6316117a13b57edf"));
         executeTest("testComplexVCFPileup", spec);
@@ -50,8 +50,8 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
     @Test
     public void testBTIWithROD() {
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " -B:eval " + validationDataLocation + "MultiSample.vcf" +
-                " -B:eval2" + validationDataLocation + "NA12878.chr1_10mb_11mb.slx.indels.vcf4" + " -BTI eval"
+                baseTestString1KG() + " -B:eval,VCF3 " + validationDataLocation + "MultiSample.vcf" +
+                " -B:eval2,VCF " + validationDataLocation + "NA12878.chr1_10mb_11mb.slx.indels.vcf4" + " -BTI eval"
                 , 1,
                 Arrays.asList("12876c0980f6cfeae71386e145ac5c82"));
         executeTest("testBTIWithROD", spec);
@@ -60,9 +60,9 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
     @Test
     public void testLargeComplexVCFPileup() {
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " -B:eval " + validationDataLocation + "MultiSample.vcf" +
-                " -B:eval2 " + validationDataLocation + "CEU_hapmap_nogt_23.vcf" +
-                " -B:eval3 " + validationDataLocation + "CEU_hapmap_nogt_23.vcf" +
+                baseTestString1KG() + " -B:eval,VCF3 " + validationDataLocation + "MultiSample.vcf" +
+                " -B:eval2,VCF3 " + validationDataLocation + "CEU_hapmap_nogt_23.vcf" +
+                " -B:eval3,VCF3 " + validationDataLocation + "CEU_hapmap_nogt_23.vcf" +
                 " -L 1 -L 2 -L 20"
                 , 1,
                 Arrays.asList("78c4d651d6c0a04b64ccee1dd9d036b9"));
@@ -73,8 +73,8 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
     public void testBlockZippedVrsUnzippedVCF1() {
         final String vcfName = validationDataLocation + "bgzipped_vcfs/vcfexample.vcf";
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " -B:eval" + vcfName +
-                " -B:eval2 " + vcfName + ".gz" +
+                baseTestString1KG() + " -B:eval,VCF " + vcfName +
+                " -B:eval2,VCF3 " + vcfName + ".gz" +
                 " --PerLocusEqual"
                 , 1,
                 Arrays.asList("ab3da32eae65e8c15a9f4a787a190a37"));
