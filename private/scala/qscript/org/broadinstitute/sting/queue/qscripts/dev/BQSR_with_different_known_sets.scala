@@ -41,12 +41,14 @@ class BQSR_with_different_known_sets extends QScript {
 
   def doWork(prefix: String, dbSNP: File, KG: File) {
     val high = new File(devDir + prefix + ".highQual.recal")
+    val newBam = new File(devDir + prefix + ".highQual.bam")
     add(new cov(highQualBam, high, dbSNP, KG))
-    add(new recal(highQualBam, high, new File(devDir + prefix + ".highQual.bam")))
+    add(new recal(highQualBam, high, newBam))
+    add(new cov(newBam, new File(devDir + prefix + ".highQual.recal2"), dbSNP, KG))
 
-    val low = new File(devDir + prefix + ".lowQual.recal")
-    add(new cov(lowQualBam, low, dbSNP, KG))
-    add(new recal(lowQualBam, low, new File(devDir + prefix + ".lowQual.bam")))
+    //val low = new File(devDir + prefix + ".lowQual.recal")
+    //add(new cov(lowQualBam, low, dbSNP, KG))
+    //add(new recal(lowQualBam, low, new File(devDir + prefix + ".lowQual.bam")))
   }
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
