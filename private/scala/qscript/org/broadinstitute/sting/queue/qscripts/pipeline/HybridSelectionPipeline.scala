@@ -133,8 +133,8 @@ class HybridSelectionPipeline extends QScript {
     add(filterIndels)
 
     val combineSNPsIndels = new CombineVariants with CommandLineGATKArgs with ExpandedIntervals
-    combineSNPsIndels.rodBind :+= RodBind("indels", "VCF", filterIndels.out)
-    combineSNPsIndels.rodBind :+= RodBind("snps", "VCF", filterSNPs.out)
+    combineSNPsIndels.variants :+= TaggedFile(filterIndels.out, "indels")
+    combineSNPsIndels.variants :+= TaggedFile(filterSNPs.out, "snps")
     combineSNPsIndels.rod_priority_list = "indels,snps"
     combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     combineSNPsIndels.assumeIdenticalSamples = true
