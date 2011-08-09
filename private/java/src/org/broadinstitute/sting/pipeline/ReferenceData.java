@@ -61,8 +61,8 @@ public enum ReferenceData {
         } else if ("hg19".equals(name)) {
             this.reference = "/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta";
             this.refseq = REFSEQ_DIR + "refGene-big-table-hg19.txt";
-            dbsnps.put(129, DBSNP_DIR + "dbsnp_129_b37.vcf");
-            dbsnps.put(132, DBSNP_DIR + "dbsnp_132_b37.vcf");
+            dbsnps.put(129, DBSNP_DIR + "dbsnp_129_b37.leftAligned.vcf");
+            dbsnps.put(132, DBSNP_DIR + "dbsnp_132_b37.leftAligned.vcf");
         } else
             throw new UnsupportedOperationException("Unknown reference: " + name);
         this.dbsnps = Collections.unmodifiableMap(dbsnps);
