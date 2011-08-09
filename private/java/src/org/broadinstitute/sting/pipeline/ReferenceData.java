@@ -44,7 +44,7 @@ public enum ReferenceData {
     HG19("hg19");
 
     private static final String REFSEQ_DIR = "/humgen/gsa-hpprojects/GATK/data/Annotations/refseq/";
-    private static final String DBSNP_DIR = "/humgen/gsa-hpprojects/GATK/data/";
+    private static final String DBSNP_DIR = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/dbSNP/";
 
     private final String name;
     private final String reference;
