@@ -41,7 +41,6 @@ import java.io.PrintStream;
  * Computes the density of SNPs passing and failing filters in intervals on the genome and emits a table for display
  */
 @By(DataSource.REFERENCE)
-@Requires(value={})
 public class SNPDensity extends RefWalker<Pair<VariantContext, GenomeLoc>, SNPDensity.Counter> {
     @Output
     private PrintStream out;

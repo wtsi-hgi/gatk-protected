@@ -31,7 +31,6 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.Reference;
-import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.Window;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
@@ -47,7 +46,6 @@ import java.util.*;
  * Use -B:broad,vcf and -B:1kg,vcf
  */
 @Reference(window=@Window(start=-50,stop=50))
-@Requires(value={})
 public class AssessMissingBroadCalls extends RodWalker<Integer, Integer> {
 
     private static final String status_key = "BI_STATUS";
