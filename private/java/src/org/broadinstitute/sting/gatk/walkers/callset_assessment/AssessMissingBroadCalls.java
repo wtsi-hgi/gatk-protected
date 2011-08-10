@@ -25,13 +25,13 @@
 
 package org.broadinstitute.sting.gatk.walkers.callset_assessment;
 
-import org.broad.tribble.Feature;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.Reference;
-import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.Window;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
@@ -44,11 +44,16 @@ import java.util.*;
 
 /**
  * Assesses calls missing from the BI set that are made by all other centers.
- * Use -B:broad,vcf and -B:1kg,vcf
+ * Use --broad and --1kg
  */
 @Reference(window=@Window(start=-50,stop=50))
-@Requires(value={})
 public class AssessMissingBroadCalls extends RodWalker<Integer, Integer> {
+
+    @Input(fullName="broad", shortName = "broad", doc="Input VCF file for Broad calls", required=true)
+    public RodBinding<VariantContext> broadTrack;
+
+    @Input(fullName="1kg", shortName = "1kg", doc="Input VCF file for 1kg calls", required=true)
+    public RodBinding<VariantContext> kgTrack;
 
     private static final String status_key = "BI_STATUS";
     private static final String qual_key = "BI_QUAL";
@@ -70,19 +75,16 @@ public class AssessMissingBroadCalls extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        List<Feature> kgRods = tracker.getValues(Feature.class, "1kg");
-        // ignore places where we don't have a variant
-        if ( kgRods.size() == 0 )
+        VariantContext vc = tracker.getFirstValue(kgTrack, context.getLocation());
+        if ( vc == null )
             return 0;
 
-        VariantContext vc = (VariantContext)kgRods.get(0);
         Map<String, Object> attrs = new HashMap<String, Object>(vc.getAttributes());
 
-        List<Feature> biRods = tracker.getValues(Feature.class, "broad");
-        if ( biRods.size() == 0 )
+        VariantContext BIvc = tracker.getFirstValue(broadTrack, context.getLocation());
+        if ( BIvc == null )
             attrs.put(status_key, "NotCalled");
         else {
-            VariantContext BIvc = (VariantContext)biRods.get(0);
             // skip the site if we called it
             if ( !BIvc.isFiltered() )
                 return 0;

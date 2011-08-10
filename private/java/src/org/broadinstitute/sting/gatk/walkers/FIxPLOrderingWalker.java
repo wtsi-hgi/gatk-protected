@@ -20,7 +20,6 @@ import java.util.*;
  * Time: 10:31 AM
  * To change this template use File | Settings | File Templates.
  */
-@Requires(value={})
 public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
 
     @Output(doc="File to which variants should be written",required=true)

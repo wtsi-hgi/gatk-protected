@@ -29,7 +29,6 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.variantutils.VariantsToTable;
 import org.broadinstitute.sting.utils.Utils;
@@ -42,7 +41,6 @@ import java.util.List;
 /**
  * Emits specific fields as dictated by the user from one or more VCF files.
  */
-@Requires(value={})
 public class AssessSimulatedPerformance extends RodWalker<Integer, Integer> {
     @Output(doc="File to which results should be written",required=true)
     protected PrintStream out;

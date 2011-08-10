@@ -5,8 +5,6 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.RMD;
-import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -28,8 +26,6 @@ import java.util.regex.Pattern;
  * Time: 3:14 PM
  * To change this template use File | Settings | File Templates.
  */
-@Requires(value={})
-
 public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
     @Output(doc="File to which variants should be written",required=true)
     protected VCFWriter vcfWriter = null;

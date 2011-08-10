@@ -25,7 +25,9 @@
 
 package org.broadinstitute.sting.gatk.walkers.callset_assessment;
 
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -40,9 +42,15 @@ import java.util.ArrayList;
 
 /**
  * Assesses distance of SNP calls to nearest indel call in Exomes.
- * Use -B:snps,vcf and -B:indels,vcf
+ * Use --snps and --indels
  */
 public class AssessSnpsNearIndels extends RodWalker<Integer, Integer> {
+
+    @Input(fullName="snps", shortName = "snps", doc="Input VCF snps file", required=true)
+    public RodBinding<VariantContext> snpTrack;
+
+    @Input(fullName="indels", shortName = "indels", doc="Input VCF indels file", required=true)
+    public RodBinding<VariantContext> indelTrack;
 
     private class TiTv {
         int TiCount = 0, TvCount = 0;
@@ -77,8 +85,8 @@ public class AssessSnpsNearIndels extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        VariantContext snp = tracker.getFirstValue(VariantContext.class, "snps", ref.getLocus());
-        VariantContext indel = tracker.getFirstValue(VariantContext.class, "indels", ref.getLocus());
+        VariantContext snp = tracker.getFirstValue(snpTrack, context.getLocation());
+        VariantContext indel = tracker.getFirstValue(indelTrack, context.getLocation());
 
         // first add the snp if available
         if ( snp != null && !snp.isFiltered() ) {
@@ -130,7 +138,7 @@ public class AssessSnpsNearIndels extends RodWalker<Integer, Integer> {
         if ( previousDistance == -1 && nextDistance == -1 )
             return;
 
-        int distance = -1;
+        int distance;
         if ( previousDistance == -1 )
             distance = nextDistance;
         else if ( nextDistance == -1 )

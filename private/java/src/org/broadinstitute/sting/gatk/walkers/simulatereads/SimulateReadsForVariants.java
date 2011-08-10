@@ -38,7 +38,6 @@ import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RefWalker;
 import org.broadinstitute.sting.gatk.walkers.Reference;
-import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.Window;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
@@ -61,7 +60,6 @@ import java.util.*;
 /**
  * Generates simulated reads for variants
  */
-@Requires(value={})
 @Reference(window=@Window(start=-20,stop=20))
 public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
     @Argument(fullName = "vcf", shortName = "vcf", doc="Variants underlying the reads",required=true)

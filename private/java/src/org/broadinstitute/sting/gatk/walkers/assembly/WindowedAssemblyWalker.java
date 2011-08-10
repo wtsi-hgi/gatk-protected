@@ -44,7 +44,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 
 /**
- * Performs local assembly.  Not to be used yet.  Example: java -jar dist/GenomeAnalysisTK.jar -I /seq/picard_aggregation/EXT1/NA12878/v3/NA12878.bam -R /humgen/1kg/reference/human_g1k_v37.fasta -T WindowedAssembly -et NO_ET -o foo.out -B:variant,vcf AssemblyTestAlleles.vcf -BTI variant
+ * Performs local assembly.  Not to be used yet.  Example: java -jar dist/GenomeAnalysisTK.jar -I /seq/picard_aggregation/EXT1/NA12878/v3/NA12878.bam -R /humgen/1kg/reference/human_g1k_v37.fasta -T WindowedAssembly -et NO_ET -o foo.out -L locsFromRelevantVCF.intervals
  */
 public class WindowedAssemblyWalker extends ReadWalker<SAMRecord, Integer> {
 
