@@ -365,7 +365,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         }
         waitingReads.addAll(temp);
         int n = waitingReads.size();
-        rms = (int)Math.sqrt( sum / n );
+        rms = n > 0 ? (int)Math.sqrt( sum / n ) : 60;
     }
 
     /**
