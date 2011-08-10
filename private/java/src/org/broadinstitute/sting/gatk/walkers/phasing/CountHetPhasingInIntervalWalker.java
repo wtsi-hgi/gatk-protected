@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.phasing;
 
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -45,13 +46,13 @@ import java.util.*;
  * Walks along all variant ROD loci and verifies the phasing from the reads for user-defined pairs of sites.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = "variant", type = ReferenceOrderedDatum.class), @RMD(name = CountHetPhasingInIntervalWalker.INTERVALS_ROD_NAME, type = ReferenceOrderedDatum.class)})
+@Requires(value = {DataSource.REFERENCE})
 
 @ReadFilters({MappingQualityZeroReadFilter.class})
 // Filter out all reads with zero mapping quality
 
 public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer> {
-    private LinkedList<String> rodNames = null;
+    private String rodName = "variant";
 
     private GenomeLoc prevInterval = null;
 
@@ -66,9 +67,6 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
     public final static String INTERVALS_ROD_NAME = "intervals";
 
     public void initialize() {
-        rodNames = new LinkedList<String>();
-        rodNames.add("variant");
-
         intervalStats = new MultiSampleIntervalStats(perIntervalOut);
     }
 
@@ -92,7 +90,7 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
 
         int processed = 1;
 
-        List<GATKFeature> interval = tracker.getGATKFeatureMetaData(INTERVALS_ROD_NAME, true);
+        List<Feature> interval = tracker.getValues(Feature.class, INTERVALS_ROD_NAME);
         if (interval.size() != 1) {
             String error = "At " + ref.getLocus() + " : Must provide a track named '"+ INTERVALS_ROD_NAME  +"' with exactly ONE interval per locus in -L argument!";
             if (interval.size() < 1)
@@ -101,16 +99,14 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
                 logger.warn(error);
         }
         // Take the FIRST interval covering this locus, and WARN about multiple intervals (above):
-        GenomeLoc curInterval = interval.get(0).getLocation();
+        GenomeLoc curInterval = getToolkit().getGenomeLocParser().createGenomeLoc(interval.get(0));
         logger.debug("refLocus: " + ref.getLocus() + "\tcurInterval = " + curInterval);
 
         boolean isNewInterval = (prevInterval == null || !curInterval.equals(prevInterval));
         if (isNewInterval)
             intervalStats.startNewInterval(curInterval);
 
-        boolean requireStartHere = true; // only see each VariantContext once
-        boolean takeFirstOnly = false; // take as many entries as the VCF file has
-        for (VariantContext vc : tracker.getVariantContexts(ref, rodNames, null, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : tracker.getValues(VariantContext.class, rodName, context.getLocation())) {
             Map<String, Genotype> sampToGenotypes = vc.getGenotypes();
             for (Map.Entry<String, Genotype> sampEntry : sampToGenotypes.entrySet()) {
                 Genotype gt = sampEntry.getValue();

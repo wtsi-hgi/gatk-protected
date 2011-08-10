@@ -76,12 +76,12 @@ public class SnpCallRateByCoverageWalker extends LocusWalker<List<String>, Strin
         return (BaseUtils.simpleBaseToBaseIndex(ref.getBase()) != -1 &&
                 context.getBasePileup().size() != 0 &&
                 tracker != null &&
-                tracker.getAllVariantContexts(ref) != null
+                tracker.getValues(VariantContext.class) != null
         );
     }
 
     public List<String> map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        Collection<VariantContext> contexts = tracker.getAllVariantContexts(ref);
+        Collection<VariantContext> contexts = tracker.getValues(VariantContext.class);
 
         for (VariantContext vc : contexts) {
             if (vc.isVariant() && !vc.isFiltered()) {

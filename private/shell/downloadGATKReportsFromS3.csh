@@ -16,3 +16,7 @@ setenv LSFILE $ROOT/files_$DATE.ls
 $BASE ls $LSFILE
 $BASE move $LSFILE progress_$DATE.log
 
+python $GATK/private/python/analyzeRunReports.py archive $DIR -o $DIR.gz -D
+
+# if the dir is empty we proceed
+rmdir --ignore-fail-on-non-empty $DIR

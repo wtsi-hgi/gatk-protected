@@ -40,6 +40,10 @@ class Phase1IndelProjectConsensus extends QScript {
   @Input(doc="indel alleles", shortName="indelAlleles", required=false)
   var indelAlleles: String = "/humgen/1kg/processing/production_wgs_phase1/consensus/ALL.indels.combined.chr20.vcf"
 
+  @Input(doc="nt", shortName="nt", required=false)
+  var nt: Int = 1
+
+
   private val reference: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
   private val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/data/dbsnp_132_b37.leftAligned.vcf")
   private val dindelCalls: String = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Unvalidated/AFR+EUR+ASN+1KG.dindel_august_release_merged_pilot1.20110126.sites.vcf"
@@ -67,7 +71,7 @@ class Phase1IndelProjectConsensus extends QScript {
 
     val callIndels = new UnifiedGenotyper with CommandLineGATKArgs
     callIndels.out = rawVCFindels
-    callIndels.dcov = 20
+    callIndels.dcov = 50
     callIndels.stand_call_conf = 4.0
     callIndels.stand_emit_conf = 4.0
     callIndels.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
@@ -82,7 +86,7 @@ class Phase1IndelProjectConsensus extends QScript {
 
     //    callIndels.BTI = "alleles"
     callIndels.ignoreSNPAlleles = true
-    // callIndels.nt=Some(8)
+    callIndels.nt=Some(qscript.nt)
   }
 
   class Chromosome(val inputChr: Int) {
@@ -175,8 +179,8 @@ class Phase1IndelProjectConsensus extends QScript {
     val ASN = new AnalysisPanel("ASN", List("CHB","CHS","JPT"), jobNumber, subJobNumber, chr)
     val ALL = new AnalysisPanel("ALL", List("LWK","YRI","ASW","MXL","CLM","PUR","CEU","FIN","GBR","TSI","IBS","CHB","CHS","JPT"), jobNumber, subJobNumber, chr)
 
-    val analysisPanels = List(AFR, ASN, AMR, EUR, AFRadmix, ASNadmix, AMRadmix, EURadmix) //ALL
-    //val analysisPanels = List(AFR, ASN, AMR, EUR) //ALL
+    //val analysisPanels = List(AFR, ASN, AMR, EUR, AFRadmix, ASNadmix, AMRadmix, EURadmix) //ALL
+    val analysisPanels = List(AFR, ASN, AMR, EUR) //ALL
 
     val indelCombine = new CombineVariants with CommandLineGATKArgs
     val combinedIndelChunk = new File(qscript.outputDir + "/calls/chr" + chr + "/" + "combined.phase1.chr" + chr + "." + subJobNumber + ".raw.indels.vcf")
@@ -185,10 +189,10 @@ class Phase1IndelProjectConsensus extends QScript {
     indelCombine.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" + "combined.phase1.chr" + chr + "." + subJobNumber + ".raw.indels"
     indelCombine.intervalsString :+= interval
     indelCombine.mergeInfoWithMaxAC = true
-    indelCombine.priority = "AFR.admix,AMR.admix,EUR.admix,ASN.admix,AFR,AMR,EUR,ASN" //ALL,
-    indelCombine.sites_only = true
+    //indelCombine.priority = "AFR.admix,AMR.admix,EUR.admix,ASN.admix,AFR,AMR,EUR,ASN" //ALL,
+    indelCombine.sites_only = false
 
-    //indelCombine.priority = "AFR,AMR,EUR,ASN" //ALL,
+    indelCombine.priority = "AFR,AMR,EUR,ASN" //ALL,
 
 
     for( population <- qscript.populations ) {

@@ -28,7 +28,7 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.features.annotator.AnnotatorInputTableFeature;
+import org.broadinstitute.sting.gatk.refdata.features.refseq.RefSeqFeature;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.collections.Pair;
@@ -42,7 +42,7 @@ import java.util.Set;
  * Walks along reference and calculates the genes (from "refseq" ROD) for each interval.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = GeneNamesIntervalWalker.REFSEQ_ROD_NAME, type = AnnotatorInputTableFeature.class)})
+@Requires(value = {DataSource.REFERENCE})
 
 public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
     @Output
@@ -78,7 +78,7 @@ public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
         if (tracker == null)
             return null;
 
-        return new GeneNames().addGenes(tracker.getReferenceMetaData(REFSEQ_ROD_NAME));
+        return new GeneNames().addGenes(tracker.getValues(RefSeqFeature.class, REFSEQ_ROD_NAME));
     }
 
     public GeneNames reduce(GeneNames add, GeneNames runningCount) {
@@ -114,11 +114,17 @@ class GeneNames {
         return this;
     }
 
-    public GeneNames addGenes(List<Object> refSeqRODs) {
-        for (Object refSeqObject : refSeqRODs) {
-            AnnotatorInputTableFeature refSeqAnnotation = (AnnotatorInputTableFeature) refSeqObject;
-            if (refSeqAnnotation.containsColumnName(GeneNamesIntervalWalker.REFSEQ_NAME2))
-                geneNames.add(refSeqAnnotation.getColumnValue(GeneNamesIntervalWalker.REFSEQ_NAME2));
+    public GeneNames addGenes(List<RefSeqFeature> refSeqRODs) {
+        for (RefSeqFeature refSeqAnnotation : refSeqRODs) {
+            // TODO -- check me:
+            // TODO --  we no longer support the GenomicAnnotator and the related AnnotatorInputTableFeature; use RefSeqFeature instead.
+            // TODO --  did I do this correctly?
+            // old code:
+            //if (refSeqAnnotation.containsColumnName(GeneNamesIntervalWalker.REFSEQ_NAME2))
+            //    geneNames.add(refSeqAnnotation.getColumnValue(GeneNamesIntervalWalker.REFSEQ_NAME2));
+
+            if (refSeqAnnotation.getGeneName() != null)
+                geneNames.add(refSeqAnnotation.getGeneName());
         }
 
         return this;

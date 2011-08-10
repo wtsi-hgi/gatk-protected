@@ -85,7 +85,7 @@ public class PhasingEval extends RodWalker<Integer, Integer> {
         if (tracker == null) // RodWalkers can make funky map calls
             return 0;
 
-        Collection<VariantContext> vcs = tracker.getAllVariantContexts(ref, context.getLocation());
+        Collection<VariantContext> vcs = tracker.getValues(VariantContext.class);
         for (VariantContext vc : vcs) {
             if (sample != null)
                 vc = vc.subContextFromGenotypes(vc.getGenotype(sample));

@@ -1,18 +1,18 @@
 package org.broadinstitute.sting.gatk.walkers.qc;
 
 import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * validate the rods for reads
@@ -20,6 +20,9 @@ import java.util.Map;
 public class ValidateRODForReads extends ReadWalker<Integer, Integer> {
     // a mapping of the position to the count of rods
     HashMap<GenomeLoc, Integer> map = new LinkedHashMap<GenomeLoc, Integer>();
+
+    @Input(fullName = "variants", shortName = "V", doc="The VCF files to merge together", required=true)
+    public List<RodBinding<VariantContext>> variants;
 
     @Output
     private PrintStream out;

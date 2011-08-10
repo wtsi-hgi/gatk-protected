@@ -26,7 +26,10 @@
 package org.broadinstitute.sting.gatk.walkers.qc;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.arguments.DbsnpArgumentCollection;
+import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -38,7 +41,9 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.List;
 
 /**
  * Test routine for new VariantContext object
@@ -47,6 +52,9 @@ import java.util.EnumSet;
 public class TestVariantContextWalker extends RodWalker<Integer, Integer> {
     @Output
     PrintStream out;
+
+    @ArgumentCollection
+    protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
     @Argument(fullName="takeFirstOnly", doc="Only take the first second at a locus, as opposed to all", required=false)
     boolean takeFirstOnly = false;
@@ -72,22 +80,30 @@ public class TestVariantContextWalker extends RodWalker<Integer, Integer> {
             EnumSet<VariantContext.Type> allowedTypes = onlyOfThisType == null ? null : EnumSet.of(onlyOfThisType);
 
             int n = 0;
-            for (VariantContext vc : tracker.getAllVariantContexts(ref, allowedTypes, context.getLocation(), onlyContextsStartinAtCurrentPosition, takeFirstOnly) ) {
+            List<VariantContext> contexts;
+            if ( onlyContextsStartinAtCurrentPosition )
+                contexts = tracker.getValues(variantCollection.variants, context.getLocation());
+            else // ! onlyContextsStartinAtCurrentPosition
+                contexts = tracker.getValues(variantCollection.variants);
 
-                // we need to trigger decoding of the genotype string to pass integration tests
-                vc.getGenotypes();
+            for ( VariantContext vc : contexts ) {
+                if ( allowedTypes == null || allowedTypes.contains(vc.getType()) ) {
+                    // we need to trigger decoding of the genotype string to pass integration tests
+                    vc.getGenotypes();
 
-                if ( writer != null && n == 0 ) {
-                    if ( ! wroteHeader ) {
-                        writer.writeHeader(VariantContextAdaptors.createVCFHeader(null, vc));
-                        wroteHeader = true;
+                    if ( writer != null && n == 0 ) {
+                        if ( ! wroteHeader ) {
+                            writer.writeHeader(VariantContextAdaptors.createVCFHeader(null, vc));
+                            wroteHeader = true;
+                        }
+
+                        writer.add(vc);
                     }
 
-                    writer.add(vc, ref.getBase());
+                    n++;
+                    if ( printContexts ) out.printf("       %s%n", vc);
+                    if ( takeFirstOnly ) break;
                 }
-
-                n++;
-                if ( printContexts ) out.printf("       %s%n", vc);
             }
 
             if ( n > 0 && printContexts ) {

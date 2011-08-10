@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.CNV;
 
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -40,7 +41,7 @@ import java.util.List;
  * Walks along reference and prints intervals of sequence not covered in ANY interval in "intervals" ROD.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = PrintIntervalsNotInBedWalker.INTERVALS_ROD_NAME, type = ReferenceOrderedDatum.class)})
+@Requires(value = {DataSource.REFERENCE})
 @By(DataSource.REFERENCE) // So that we will actually enter loci with no ROD on them
 
 public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {
@@ -76,7 +77,7 @@ public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {
         int curPos = curLoc.getStart();
         int printed = 0;
 
-        List<GATKFeature> intervals = tracker.getGATKFeatureMetaData(INTERVALS_ROD_NAME, true);
+        List<Feature> intervals = tracker.getValues(Feature.class, INTERVALS_ROD_NAME);
         if (intervals.isEmpty()) {
             if (waitingInterval != null && curLoc.compareContigs(waitingInterval) == 0 && curPos == waitingInterval.getStop() + 1) {
                 waitingInterval = getToolkit().getGenomeLocParser().setStop(waitingInterval, curPos);

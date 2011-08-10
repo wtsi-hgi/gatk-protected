@@ -102,20 +102,20 @@ class HybridSelectionPipeline extends QScript {
 
     val selectSNPs = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
     selectSNPs.selectSNPs = true
-    selectSNPs.rodBind :+= RodBind("variant", "VCF", call.out)
+    selectSNPs.variant = call.out
     selectSNPs.out = projectBase + ".snps.unfiltered.vcf"
     selectSNPs.jobOutputFile = selectSNPs.out + ".out"
     add(selectSNPs)
 
     val selectIndels = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
     selectIndels.selectIndels = true
-    selectIndels.rodBind :+= RodBind("variant", "VCF", call.out)
+    selectIndels.variant = call.out
     selectIndels.out = projectBase + ".indels.unfiltered.vcf"
     selectIndels.jobOutputFile = selectIndels.out + ".out"
     add(selectIndels)
 
     val filterSNPs = new VariantFiltration with CommandLineGATKArgs with ExpandedIntervals
-    filterSNPs.variantVCF = selectSNPs.out
+    filterSNPs.variant = selectSNPs.out
     filterSNPs.filterName = List("SNP_SB", "SNP_QD", "SNP_HRun")
     filterSNPs.filterExpression = List("\"SB>=0.10\"", "\"QD<5.0\"", "\"HRun>=4\"")
     filterSNPs.clusterWindowSize = 10
@@ -125,7 +125,7 @@ class HybridSelectionPipeline extends QScript {
     add(filterSNPs)
 
     val filterIndels = new VariantFiltration with CommandLineGATKArgs with ExpandedIntervals
-    filterIndels.variantVCF = selectIndels.out
+    filterIndels.variant = selectIndels.out
     filterIndels.filterName = List("Indel_QUAL", "Indel_SB", "Indel_QD")
     filterIndels.filterExpression = List("\"QUAL<30.0\"", "\"SB>-1.0\"", "\"QD<2.0\"")
     filterIndels.out = projectBase + ".indels.filtered.vcf"
@@ -133,25 +133,31 @@ class HybridSelectionPipeline extends QScript {
     add(filterIndels)
 
     val combineSNPsIndels = new CombineVariants with CommandLineGATKArgs with ExpandedIntervals
-    combineSNPsIndels.rodBind :+= RodBind("indels", "VCF", filterIndels.out)
-    combineSNPsIndels.rodBind :+= RodBind("snps", "VCF", filterSNPs.out)
-    combineSNPsIndels.rod_priority_list = "indels,snps"
+    combineSNPsIndels.variant :+= TaggedFile(filterIndels.out, "indels")
+    combineSNPsIndels.variant :+= TaggedFile(filterSNPs.out, "snps")
+    //combineSNPsIndels.rod_priority_list = "indels,snps"
     combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     combineSNPsIndels.assumeIdenticalSamples = true
     combineSNPsIndels.out = projectBase + ".unannotated.vcf"
     combineSNPsIndels.jobOutputFile = combineSNPsIndels.out + ".out"
     add(combineSNPsIndels)
 
-    val annotate = new GenomicAnnotator with CommandLineGATKArgs with ExpandedIntervals
-    annotate.rodBind :+= RodBind("variant", "VCF", combineSNPsIndels.out)
-    annotate.rodBind :+= RodBind("refseq", "AnnotatorInputTable", qscript.pipeline.getProject.getRefseqTable)
-    annotate.rodToIntervalTrackName = "variant"
-    annotate.out = projectBase + ".vcf"
-    annotate.jobOutputFile = annotate.out + ".out"
-    add(annotate)
+    //
+    // TODO -- David will replace the Genomic Annotator with snpEff
+    //
+
+    //val annotate = new GenomicAnnotator with CommandLineGATKArgs with ExpandedIntervals
+    //annotate.rodBind :+= RodBind("variant", "VCF", combineSNPsIndels.out)
+    //annotate.rodBind :+= RodBind("refseq", "AnnotatorInputTable", qscript.pipeline.getProject.getRefseqTable)
+    //annotate.rodToIntervalTrackName = "variant"
+    //annotate.out = projectBase + ".vcf"
+    //annotate.jobOutputFile = annotate.out + ".out"
+    //add(annotate)
 
     val targetEval = new VariantEval with CommandLineGATKArgs
-    targetEval.rodBind :+= RodBind("eval", "VCF", annotate.out)
+    //targetEval.rodBind :+= RodBind("eval", "VCF", annotate.out)
+    targetEval.rodBind :+= RodBind("eval", "VCF", combineSNPsIndels.out)
+
     targetEval.rodBind :+= RodBind("dbsnp", qscript.pipeline.getProject.getEvalDbsnpType, qscript.pipeline.getProject.getEvalDbsnp)
     targetEval.doNotUseAllStandardStratifications = true
     targetEval.doNotUseAllStandardModules = true
@@ -163,7 +169,8 @@ class HybridSelectionPipeline extends QScript {
 
     if (qscript.expandIntervals > 0) {
       val flanksEval = new VariantEval with CommandLineGATKArgs
-      flanksEval.rodBind :+= RodBind("eval", "VCF", annotate.out)
+      //flanksEval.rodBind :+= RodBind("eval", "VCF", annotate.out)
+      flanksEval.rodBind :+= RodBind("eval", "VCF", combineSNPsIndels.out)
       flanksEval.rodBind :+= RodBind("dbsnp", qscript.pipeline.getProject.getEvalDbsnpType, qscript.pipeline.getProject.getEvalDbsnp)
       flanksEval.intervals = List(flankIntervals)
       flanksEval.doNotUseAllStandardStratifications = true

@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.CNV;
 
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -41,7 +42,7 @@ import java.util.List;
  * Walks along reference and calculates the percent overlap with the BED file intervals for each -L interval.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = OverlapWithBedInIntervalWalker.INTERVALS_ROD_NAME, type = ReferenceOrderedDatum.class)})
+@Requires(value = {DataSource.REFERENCE})
 
 public class OverlapWithBedInIntervalWalker extends RodWalker<CumulativeBaseOverlapCount, CumulativeBaseOverlapCount> {
     @Output
@@ -75,7 +76,7 @@ public class OverlapWithBedInIntervalWalker extends RodWalker<CumulativeBaseOver
         if (tracker == null)
             return null;
 
-        return new CumulativeBaseOverlapCount().addIntervals(tracker.getGATKFeatureMetaData(INTERVALS_ROD_NAME, true));
+        return new CumulativeBaseOverlapCount().addIntervals(tracker.getValues(Feature.class, INTERVALS_ROD_NAME));
     }
 
     public CumulativeBaseOverlapCount reduce(CumulativeBaseOverlapCount add, CumulativeBaseOverlapCount runningCount) {
@@ -113,7 +114,7 @@ class CumulativeBaseOverlapCount {
         return this;
     }
 
-    public CumulativeBaseOverlapCount addIntervals(List<GATKFeature> interval) {
+    public CumulativeBaseOverlapCount addIntervals(List<Feature> interval) {
         totalOverlapCount += interval.size();
 
         return this;

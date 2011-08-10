@@ -49,14 +49,15 @@ import java.util.*;
  * Walks along all variant ROD loci and verifies the phasing from the reads for user-defined pairs of sites.
  */
 @Allows(value = {DataSource.READS, DataSource.REFERENCE})
-@Requires(value = {DataSource.READS, DataSource.REFERENCE}, referenceMetaData = @RMD(name = "variant", type = ReferenceOrderedDatum.class))
+@Requires(value = {DataSource.READS, DataSource.REFERENCE})
 @By(DataSource.READS)
 
 @ReadFilters({MappingQualityZeroReadFilter.class})
 // Filter out all reads with zero mapping quality
 
 public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer> {
-    private LinkedList<String> rodNames = null;
+    private String rodName = "variant";
+
 
     @Argument(fullName = "sitePairsFile", shortName = "sitePairsFile", doc = "File of pairs of variants for which phasing in ROD should be assessed using input reads", required = true)
     protected File sitePairsFile = null;
@@ -77,9 +78,6 @@ public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer
     }
 
     public void initialize() {
-        rodNames = new LinkedList<String>();
-        rodNames.add("variant");
-
         sitePairs = new TreeSet<SitePair>();
         GenomeLocParser locParser = getToolkit().getGenomeLocParser();
 
@@ -187,9 +185,7 @@ public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer
         Set<Haplotype> calledHaplotypes = null;
         List<Haplotype> allPossibleHaplotypes = null;
 
-        boolean requireStartHere = true; // only see each VariantContext once
-        boolean takeFirstOnly = true; // take only the first entry from the ROD file
-        for (VariantContext vc : tracker.getVariantContexts(ref, rodNames, null, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : Arrays.asList(tracker.getFirstValue(VariantContext.class, rodName, context.getLocation()))) {
             if (vc.isFiltered() || !vc.isSNP())
                 continue;
 

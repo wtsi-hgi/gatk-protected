@@ -58,7 +58,7 @@ import static org.broadinstitute.sting.utils.IndelUtils.isInsideExtendedIndel;
  * @since Mar 3, 2011
  */
 
-@Requires(value={DataSource.READS, DataSource.REFERENCE},referenceMetaData=@RMD(name="alleles",type=VariantContext.class))
+@Requires(value={DataSource.READS, DataSource.REFERENCE})
 @Allows(value={DataSource.READS, DataSource.REFERENCE})
 
 // Ugly fix because RodWalkers don't have access to reads
@@ -181,7 +181,7 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
         if( tracker == null )
             return counter;
 
-        VariantContext vcComp = tracker.getVariantContext(ref, compName, null, context.getLocation(), false);
+        VariantContext vcComp = tracker.getFirstValue(VariantContext.class, compName);
         if( vcComp == null )
             return counter;
 
@@ -259,10 +259,10 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
             if (!vcComp.hasAttribute("callStatus")) {
                 MutableVariantContext mvc = new MutableVariantContext(vcComp);
                 mvc.putAttribute("callStatus", call.isCalledAlt(callConf) ? "ALT" : "REF" );
-                vcfWriter.add(mvc, ref.getBase());
+                vcfWriter.add(mvc);
             }
             else
-                vcfWriter.add(vcComp, ref.getBase());
+                vcfWriter.add(vcComp);
         }
         return counter;
     }

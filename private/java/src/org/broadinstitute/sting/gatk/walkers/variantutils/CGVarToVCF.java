@@ -43,7 +43,6 @@ import java.util.*;
 /**
  * Converts variants from the Complete Genomics VAR format to VCF format.
  */
-@Requires(value={},referenceMetaData=@RMD(name=CGVarToVCF.INPUT_ROD_NAME, type=VariantContext.class))
 @Reference(window=@Window(start=-40,stop=400))
 public class CGVarToVCF extends RodWalker<Integer, Integer> {
 
@@ -65,7 +64,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
         if ( tracker == null )
             return 0;
 
-        Collection<VariantContext> contexts = tracker.getVariantContexts(ref, INPUT_ROD_NAME, null, ref.getLocus(), true, false);
+        Collection<VariantContext> contexts = tracker.getValues(VariantContext.class, INPUT_ROD_NAME, ref.getLocus());
 
         // for now, we don't support the mixed type
         if ( contexts.size() == 0 || contexts.size() > 2 )
@@ -104,7 +103,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
         vc = VariantContext.modifyGenotypes(vc, genotypes);
         if ( vc.isSNP() )
             vc = VariantContext.modifyLocation(vc, vc.getChr(), vc.getStart()+1, vc.getStart()+1);        
-        vcfWriter.add(vc, ref);
+        vcfWriter.add(vc);
     }
 
     public Integer reduceInit() {

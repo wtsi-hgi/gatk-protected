@@ -5,10 +5,7 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.RMD;
-import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
-import org.broadinstitute.sting.utils.MendelianViolation;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
@@ -29,8 +26,6 @@ import java.util.regex.Pattern;
  * Time: 3:14 PM
  * To change this template use File | Settings | File Templates.
  */
-@Requires(value={},referenceMetaData=@RMD(name="sites", type=VariantContext.class))
-
 public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
     @Output(doc="File to which variants should be written",required=true)
     protected VCFWriter vcfWriter = null;
@@ -120,7 +115,7 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
         if ( tracker == null )
             return 0;
 
-        Collection<VariantContext> vcs = tracker.getVariantContexts(ref, variantRodName, null, context.getLocation(), true, false);
+        Collection<VariantContext> vcs = tracker.getValues(VariantContext.class, variantRodName, context.getLocation());
 
         if ( vcs == null || vcs.size() == 0) {
             return 0;
@@ -161,8 +156,8 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
                     genotypes.put(sample,gt);
                 }
 
-                VariantContext vcnew = new VariantContext("GMIlls",vc.getChr(), vc.getStart(), vc.getEnd(), vc.getAlleles(),  genotypes, 0.0, null, null) ;
-                vcfWriter.add(vcnew, ref.getBase());
+                VariantContext vcnew = new VariantContext("GMIlls",vc.getChr(), vc.getStart(), vc.getEnd(), vc.getAlleles(),  genotypes, 99.0, null, null) ;
+                vcfWriter.add(vcnew);
             }
         }
         return 1;

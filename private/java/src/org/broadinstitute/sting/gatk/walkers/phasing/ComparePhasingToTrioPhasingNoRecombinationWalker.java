@@ -55,7 +55,7 @@ import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFr
  * Walks along all variant ROD loci and compares the phasing between RBP and trio phasing.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = ComparePhasingToTrioPhasingNoRecombinationWalker.TRIO_ROD_NAME, type = ReferenceOrderedDatum.class), @RMD(name = ComparePhasingToTrioPhasingNoRecombinationWalker.PHASING_ROD_NAME, type = ReferenceOrderedDatum.class)})
+@Requires(value = {DataSource.REFERENCE})
 
 @ReadFilters({MappingQualityZeroReadFilter.class})
 // Filter out all reads with zero mapping quality
@@ -136,7 +136,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
             return null;
 
         GenomeLoc curLoc = ref.getLocus();
-        VariantContext phasingVc = tracker.getVariantContext(ref, PHASING_ROD_NAME, curLoc);
+        VariantContext phasingVc = tracker.getFirstValue(VariantContext.class, PHASING_ROD_NAME, curLoc);
 
         CompareToTrioPhasingStats stats = new CompareToTrioPhasingStats();
         CompareResult result = new CompareResult(phasingVc, stats);
@@ -155,7 +155,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
         if (curPhasingGt == null || !curPhasingGt.isHet()) // can ignore this missing/irrelevant genotype
             return result;
 
-        VariantContext curTrioVc = tracker.getVariantContext(ref, TRIO_ROD_NAME, curLoc);
+        VariantContext curTrioVc = tracker.getFirstValue(VariantContext.class, TRIO_ROD_NAME, curLoc);
         boolean useTrioVc = (curTrioVc != null && !curTrioVc.isFiltered());
 
         Genotype sampleCurGtInTrio = null;

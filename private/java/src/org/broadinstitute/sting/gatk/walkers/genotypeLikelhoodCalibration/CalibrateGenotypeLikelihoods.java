@@ -55,7 +55,7 @@ import java.util.*;
  * @since May, 2011
  */
 
-@Requires(value={DataSource.READS, DataSource.REFERENCE},referenceMetaData=@RMD(name="alleles",type=VariantContext.class))
+@Requires(value={DataSource.READS, DataSource.REFERENCE})
 @Allows(value={DataSource.READS, DataSource.REFERENCE})
 
 // Ugly fix because RodWalkers don't have access to reads
@@ -147,7 +147,6 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
         uac.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES;
         uac.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES;
-        uac.NO_SLOD = true;
         if (mbq >= 0) uac.MIN_BASE_QUALTY_SCORE = mbq;
         if (deletions >= 0) uac.MAX_DELETION_FRACTION = deletions;
         uac.STANDARD_CONFIDENCE_FOR_CALLING = callConf;
@@ -169,7 +168,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     //
     //---------------------------------------------------------------------------------------------------------------
     public Data map( RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context ) {
-        if ( tracker == null || tracker.getNBoundRodTracks() == 0 )
+        if ( tracker == null || tracker.getNTracksWithBoundFeatures() == 0 )
             return Data.EMPTY_DATA;
 
         // Grabs a usable VariantContext from the Alleles ROD
@@ -225,7 +224,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
      * @return
      */
     private Genotype getGenotype(RefMetaDataTracker tracker, ReferenceContext ref, String sample, String rod) {
-        for ( VariantContext vc : tracker.getVariantContexts(ref, rod, null, ref.getLocus(), true, false) ) {
+        for ( VariantContext vc : tracker.getValues(VariantContext.class, rod, ref.getLocus()) ) {
             if ( vc.isNotFiltered() && vc.hasGenotype(sample) )
                 return vc.getGenotype(sample);
             else

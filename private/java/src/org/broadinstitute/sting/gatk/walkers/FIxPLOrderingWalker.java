@@ -20,7 +20,6 @@ import java.util.*;
  * Time: 10:31 AM
  * To change this template use File | Settings | File Templates.
  */
-@Requires(value={},referenceMetaData=@RMD(name="variant", type=VariantContext.class))
 public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
 
     @Output(doc="File to which variants should be written",required=true)
@@ -43,7 +42,7 @@ public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
          if ( tracker == null )
              return 0;
 
-         Collection<VariantContext> vcs = tracker.getVariantContexts(ref, variantRodName, null, context.getLocation(), true, false);
+         Collection<VariantContext> vcs = tracker.getValues(VariantContext.class, variantRodName, context.getLocation());
 
          if ( vcs == null || vcs.size() == 0) {
              return 0;
@@ -52,7 +51,7 @@ public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
          for (VariantContext vc : vcs) {
              if (vc.isIndel() && !vc.isBiallelic())
                  vc = modifyGLs(vc);
-             vcfWriter.add( vc, ref.getBase() );
+             vcfWriter.add(vc);
          }
         return 1;
     }

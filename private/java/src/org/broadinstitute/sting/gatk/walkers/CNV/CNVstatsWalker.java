@@ -45,7 +45,7 @@ import java.util.*;
  * Walks along all variant ROD loci, and tabulates the statistics of the CNVs detected.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = @RMD(name = "variant", type = ReferenceOrderedDatum.class))
+@Requires(value = {DataSource.REFERENCE})
 @By(DataSource.REFERENCE_ORDERED_DATA)
 
 public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
@@ -59,7 +59,7 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
     @Argument(fullName = "minFracPassGt", shortName = "minFracPassGt", doc = "Minimum fraction of callable genotypes required to report any genotypes at all", required = false)
     private double minFracPassGt = 0.0;
 
-    private LinkedList<String> rodNames = null;
+    private String rodName = "variant";
 
     public static String CNV_TAG = "<CNV>";
     public static String CN_FIELD = "CN";
@@ -70,8 +70,6 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
     public static int DIPLOID = 2;
 
     public void initialize() {
-        rodNames = new LinkedList<String>();
-        rodNames.add("variant");
     }
 
     public boolean generateExtendedEvents() {
@@ -97,9 +95,7 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
         logger.debug("REF:" + ref.getLocus());
         CNVstatistics stats = new CNVstatistics();
 
-        boolean requireStartHere = true; // only see each VariantContext once
-        boolean takeFirstOnly = false; // take as many entries as the VCF file has
-        for (VariantContext vc : tracker.getVariantContexts(ref, rodNames, null, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : tracker.getValues(VariantContext.class, rodName, context.getLocation())) {
             if (vc.isSymbolic() && vc.isBiallelic()) {
                 Allele altAll = vc.getAlternateAllele(0);
                 if (altAll.isSymbolic() && altAll.getDisplayString().equals(CNV_TAG)) {

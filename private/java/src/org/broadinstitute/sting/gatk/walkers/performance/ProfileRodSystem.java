@@ -32,7 +32,6 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
@@ -47,7 +46,6 @@ import java.util.List;
 /**
  * Emits specific fields as dictated by the user from one or more VCF files.
  */
-@Requires(value={})
 public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     @Output(doc="File to which results should be written",required=true)
     protected PrintStream out;
@@ -133,7 +131,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        VariantContext vc = tracker.getVariantContext(ref, "rod", context.getLocation());
+        VariantContext vc = tracker.getFirstValue(VariantContext.class, "rod", context.getLocation());
         processOneVC(vc);
 
         return 0;
