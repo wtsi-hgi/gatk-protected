@@ -1,8 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Hidden;
-import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
@@ -64,6 +62,9 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
     @Output(doc="File to which variants should be written", required=true)
     protected VCFWriter vcfWriter = null;
 
+    @Input(fullName="reference_sample", shortName = "reference", doc="VCF file with the truth callset for the reference sample", required=true)
+    RodBinding<VariantContext> referenceSampleRod;
+
     @Argument(shortName="refsample", fullName="reference_sample_name", doc="Reference sample name.", required=true)
     String referenceSampleName;
 
@@ -95,11 +96,6 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
 
     int nSamples;
     int maxAlleleCount;
-    boolean USE_TRUTH_ROD;
-
-    final String REFERENCE_ROD_NAME = "reference";
-    final String TRUTH_ROD_NAME = "truth";
-
 
     /**
      * Returns the true bases for the reference sample in this locus. Homozygous loci will return one base
@@ -150,26 +146,6 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         // Set the max allele count (defines the size of the error model array)
         maxAlleleCount = 2*nSamplesPerPool;
 
-        // Look for the reference ROD and the optional truth ROD. If truth is provided, set the truth "test" mode ON.
-        List<ReferenceOrderedDataSource> rods = getToolkit().getRodDataSources();
-        if (rods.size() < 1) {
-            throw new IllegalArgumentException("You must provide a reference ROD.");
-        }
-        boolean foundReferenceROD = false;
-        boolean foundTruthROD = false;
-        for (ReferenceOrderedDataSource rod : rods) {
-            if (rod.getName().equals(REFERENCE_ROD_NAME)) {
-                foundReferenceROD = true;
-            }
-            if (rod.getName().equals(TRUTH_ROD_NAME)) {
-                foundTruthROD = true;
-            }
-        }
-        if (!foundReferenceROD) {
-            throw new IllegalArgumentException("You haven't provided a reference ROD. Note that the reference ROD must be labeled " + REFERENCE_ROD_NAME + ".");
-        }
-        USE_TRUTH_ROD = foundTruthROD;
-
         // Initialize the VCF
         Set<VCFHeaderLine> headerLines = new HashSet<VCFHeaderLine>();
         headerLines.add(new VCFInfoHeaderLine("AC", 1, VCFHeaderLineType.Integer, "Allele count in the site, number of alternate alleles across all pools"));
@@ -191,8 +167,7 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
 
         // Get reference base from VCF or Reference
-        VariantContext referenceSampleContext = tracker.getVariantContext(ref, REFERENCE_ROD_NAME, context.getLocation());
-        VariantContext truthContext = tracker.getVariantContext(ref, TRUTH_ROD_NAME, context.getLocation());
+        VariantContext referenceSampleContext = tracker.getFirstValue(referenceSampleRod, context.getLocation());
         Collection<Byte> trueReferenceBases = getTrueBases(referenceSampleContext, ref);
 
         // If there is no true reference base in this locus, skip it.
@@ -223,7 +198,7 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
                                                   site.getAttributes());
 
 
-        vcfWriter.add(call, ref.getBase());
+        vcfWriter.add(call);
         return 1;
     }
 
