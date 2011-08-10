@@ -65,11 +65,10 @@ public class Lane {
         lane.pools = new LinkedList<Pool>();
         lane.pools.add(new Pool(new PoolParameters("POOL1", p.lanePileup, lane.errorModel, p.referenceSequenceBase, p.maxAlleleCount, p.minCallQual)));
 
-        lane.filters = new TreeSet<String>();
         for (Pool pool : lane.pools) {
             lane.alleleCountModel = new AlleleCountModel(pool.getAlleleCountModel());
-            lane.filters.addAll(pool.getFilters());
-            lane.attributes.putAll(pool.getAttributes());
+            lane.filters = pool.getFilters();
+            lane.attributes = pool.getAttributes();
         }
         return lane;
     }
@@ -78,7 +77,7 @@ public class Lane {
         return filters;
     }
 
-    public Map<String, ?> getAttributes() {
+    public Map<String, Object> getAttributes() {
         return attributes;
     }
 

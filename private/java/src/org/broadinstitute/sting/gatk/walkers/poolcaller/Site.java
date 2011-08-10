@@ -85,7 +85,7 @@ public class Site {
         this.referenceSequenceBase = referenceSequenceBase;
         alleleCountModel = new AlleleCountModel(lane.getAlleleCountModel());
         filters = lane.getFilters();
-        attributes.putAll(lane.getAttributes());
+        attributes = lane.getAttributes();
     }
 
     /**
