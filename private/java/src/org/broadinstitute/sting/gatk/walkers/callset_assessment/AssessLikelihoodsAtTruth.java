@@ -25,6 +25,10 @@
 
 package org.broadinstitute.sting.gatk.walkers.callset_assessment;
 
+import org.broadinstitute.sting.commandline.ArgumentCollection;
+import org.broadinstitute.sting.commandline.Input;
+import org.broadinstitute.sting.commandline.RodBinding;
+import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -38,9 +42,15 @@ import java.util.Map;
 
 /**
  * Assesses GLs at truth sites.
- * Use -B:variant,vcf and -B:truth,vcf
+ * Use --variant and --truth
  */
 public class AssessLikelihoodsAtTruth extends RodWalker<Integer, Integer> {
+
+    @ArgumentCollection
+    protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
+
+    @Input(fullName="truth", shortName = "truth", doc="Input VCF truth file", required=true)
+    public RodBinding<VariantContext> truthTrack;
 
     private int[] nonErrors = new int[101];
     private int[] observations = new int[101];
@@ -49,11 +59,11 @@ public class AssessLikelihoodsAtTruth extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        VariantContext variant = tracker.getFirstValue(VariantContext.class, "variant", context.getLocation());
+        VariantContext variant = tracker.getFirstValue(variantCollection.variants, context.getLocation());
         if ( variant == null )
             return 0;
 
-        VariantContext truth = tracker.getFirstValue(VariantContext.class, "truth", context.getLocation());
+        VariantContext truth = tracker.getFirstValue(truthTrack, context.getLocation());
         if ( truth == null )
             return 0;
 
