@@ -25,13 +25,16 @@
 package org.broadinstitute.sting.gatk.walkers.CNV;
 
 import org.broad.tribble.Feature;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
-import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
-import org.broadinstitute.sting.gatk.walkers.*;
+import org.broadinstitute.sting.gatk.walkers.Allows;
+import org.broadinstitute.sting.gatk.walkers.DataSource;
+import org.broadinstitute.sting.gatk.walkers.Requires;
+import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.fasta.FastaSequence;
 import org.broadinstitute.sting.utils.GenomeLoc;
 
@@ -50,7 +53,8 @@ public class ReferenceFASTAforBedIntervalsWalker extends RodWalker<Integer, Inte
     @Output
     protected PrintStream out;
 
-    public final static String INTERVALS_ROD_NAME = "intervals";
+    @Input(fullName="intervalsROD", doc="Intervals to analyze", required=true)
+    public RodBinding<Feature> intervalsROD;
 
     private Map<GenomeLoc, FastaSequence> intervalSequences;
 
@@ -82,7 +86,7 @@ public class ReferenceFASTAforBedIntervalsWalker extends RodWalker<Integer, Inte
         int curPos = curLoc.getStart();
         int entries = 0;
 
-        List<Feature> intervals = tracker.getValues(Feature.class, INTERVALS_ROD_NAME);
+        List<Feature> intervals = tracker.getValues(intervalsROD);
         for (Feature interval : intervals) {
             GenomeLoc loc = getToolkit().getGenomeLocParser().createGenomeLoc(interval);
             /* TODO: note that an interval may actually start BEFORE here, but not be covered, but would need to cache the remappings

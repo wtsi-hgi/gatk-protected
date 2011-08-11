@@ -1,7 +1,9 @@
 package org.broadinstitute.sting.gatk.walkers.phasing;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -13,7 +15,6 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Collection;
 
 public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
     @Output
@@ -21,6 +22,12 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
 
     @Argument(fullName="sample", shortName="sn", doc="Sample to compare", required=false)
     public String sample;
+
+    @Input(fullName="rbp", doc="RBP VCF file", required=true)
+    public RodBinding<VariantContext> rbpVCF;
+
+    @Input(fullName="beagle", doc="Beagle VCF file", required=true)
+    public RodBinding<VariantContext> beagleVCF;
 
     private ArrayList<VariantContext> rbpHaplotype = new ArrayList<VariantContext>();
     private ArrayList<VariantContext> beagleHaplotype = new ArrayList<VariantContext>();
@@ -116,8 +123,8 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
     @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker != null) {
-            VariantContext rbp = tracker.getFirstValue(VariantContext.class, "rbp", ref.getLocus());
-            VariantContext beagle = tracker.getFirstValue(VariantContext.class, "beagle", ref.getLocus());
+            VariantContext rbp = tracker.getFirstValue(rbpVCF, ref.getLocus());
+            VariantContext beagle = tracker.getFirstValue(beagleVCF, ref.getLocus());
 
             if (rbp != null && beagle != null) {
                 Genotype rbpg = rbp.getGenotype(sample);

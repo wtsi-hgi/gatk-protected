@@ -1,7 +1,9 @@
 package org.broadinstitute.sting.gatk.walkers.phasing;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -16,7 +18,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
@@ -25,6 +26,12 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
 
     @Output
     public PrintStream out;
+
+    @Input(fullName="eval", doc="eval VCF file", required=true)
+    public RodBinding<VariantContext> evalVCF;
+
+    @Input(fullName="truth", doc="truth VCF file", required=true)
+    public RodBinding<VariantContext> truthVCF;
 
     private GATKReport report;
 
@@ -100,8 +107,8 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
     @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker != null) {
-            VariantContext eval = tracker.getFirstValue(VariantContext.class, "eval", ref.getLocus());
-            VariantContext truth = tracker.getFirstValue(VariantContext.class, "truth", ref.getLocus());
+            VariantContext eval = tracker.getFirstValue(evalVCF, ref.getLocus());
+            VariantContext truth = tracker.getFirstValue(truthVCF, ref.getLocus());
 
             if (eval != null && truth != null) {
                 for (Trio trio : trios) {

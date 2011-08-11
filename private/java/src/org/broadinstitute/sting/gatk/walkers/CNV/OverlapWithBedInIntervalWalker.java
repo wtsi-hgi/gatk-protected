@@ -25,13 +25,16 @@
 package org.broadinstitute.sting.gatk.walkers.CNV;
 
 import org.broad.tribble.Feature;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
-import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
-import org.broadinstitute.sting.gatk.walkers.*;
+import org.broadinstitute.sting.gatk.walkers.Allows;
+import org.broadinstitute.sting.gatk.walkers.DataSource;
+import org.broadinstitute.sting.gatk.walkers.Requires;
+import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.collections.Pair;
 
@@ -48,8 +51,8 @@ public class OverlapWithBedInIntervalWalker extends RodWalker<CumulativeBaseOver
     @Output
     protected PrintStream out;
 
-    public final static String INTERVALS_ROD_NAME = "intervals";
-
+    @Input(fullName="intervalsROD", doc="Intervals to analyze", required=true)
+    public RodBinding<Feature> intervalsROD;
 
     public boolean isReduceByInterval() {
         return true;
@@ -76,7 +79,7 @@ public class OverlapWithBedInIntervalWalker extends RodWalker<CumulativeBaseOver
         if (tracker == null)
             return null;
 
-        return new CumulativeBaseOverlapCount().addIntervals(tracker.getValues(Feature.class, INTERVALS_ROD_NAME));
+        return new CumulativeBaseOverlapCount().addIntervals(tracker.getValues(intervalsROD));
     }
 
     public CumulativeBaseOverlapCount reduce(CumulativeBaseOverlapCount add, CumulativeBaseOverlapCount runningCount) {

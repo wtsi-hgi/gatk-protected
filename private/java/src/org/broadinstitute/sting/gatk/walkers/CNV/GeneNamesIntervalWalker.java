@@ -24,7 +24,9 @@
 
 package org.broadinstitute.sting.gatk.walkers.CNV;
 
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -48,10 +50,8 @@ public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
     @Output
     protected PrintStream out;
 
-    public final static String REFSEQ_ROD_NAME = "refseq";
-
-    public final static String REFSEQ_NAME2 = "name2";
-
+    @Input(fullName="refseq", doc="Extract gene names from this RefSeq file", required=true)
+    public RodBinding<RefSeqFeature> refseq;
 
     public boolean isReduceByInterval() {
         return true;
@@ -78,7 +78,7 @@ public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
         if (tracker == null)
             return null;
 
-        return new GeneNames().addGenes(tracker.getValues(RefSeqFeature.class, REFSEQ_ROD_NAME));
+        return new GeneNames().addGenes(tracker.getValues(refseq, context.getLocation()));
     }
 
     public GeneNames reduce(GeneNames add, GeneNames runningCount) {
@@ -116,13 +116,6 @@ class GeneNames {
 
     public GeneNames addGenes(List<RefSeqFeature> refSeqRODs) {
         for (RefSeqFeature refSeqAnnotation : refSeqRODs) {
-            // TODO -- check me:
-            // TODO --  we no longer support the GenomicAnnotator and the related AnnotatorInputTableFeature; use RefSeqFeature instead.
-            // TODO --  did I do this correctly?
-            // old code:
-            //if (refSeqAnnotation.containsColumnName(GeneNamesIntervalWalker.REFSEQ_NAME2))
-            //    geneNames.add(refSeqAnnotation.getColumnValue(GeneNamesIntervalWalker.REFSEQ_NAME2));
-
             if (refSeqAnnotation.getGeneName() != null)
                 geneNames.add(refSeqAnnotation.getGeneName());
         }

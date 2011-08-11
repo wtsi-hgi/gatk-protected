@@ -52,7 +52,7 @@ class ScatteredFullVariantAnnotator extends QScript {
 
   class ScatteredFullVariantAnnotator() extends org.broadinstitute.sting.queue.extensions.gatk.VariantAnnotator with CommandLineGATKArgs {
     this.scatterCount = qscript.scatterCount
-    this.variantVCF = qscript.variantVCF
+    this.variant = qscript.variantVCF
     this.useAllAnnotations = true
     this.out = qscript.outputAnnotated
   }

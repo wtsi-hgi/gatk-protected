@@ -26,12 +26,13 @@ package org.broadinstitute.sting.gatk.walkers.phasing;
 
 import org.broad.tribble.readers.AsciiLineReader;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroReadFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
@@ -56,8 +57,8 @@ import java.util.*;
 // Filter out all reads with zero mapping quality
 
 public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer> {
-    private String rodName = "variant";
-
+    @Input(fullName="variant", shortName = "V", doc="Validate variants from this VCF file", required=true)
+    public RodBinding<VariantContext> variants;
 
     @Argument(fullName = "sitePairsFile", shortName = "sitePairsFile", doc = "File of pairs of variants for which phasing in ROD should be assessed using input reads", required = true)
     protected File sitePairsFile = null;
@@ -185,7 +186,7 @@ public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer
         Set<Haplotype> calledHaplotypes = null;
         List<Haplotype> allPossibleHaplotypes = null;
 
-        for (VariantContext vc : Arrays.asList(tracker.getFirstValue(VariantContext.class, rodName, context.getLocation()))) {
+        for (VariantContext vc : Arrays.asList(tracker.getFirstValue(variants, context.getLocation()))) {
             if (vc.isFiltered() || !vc.isSNP())
                 continue;
 

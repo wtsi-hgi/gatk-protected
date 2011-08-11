@@ -25,8 +25,10 @@
 package org.broadinstitute.sting.gatk.walkers.phasing.Haplotypes;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
+import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -60,6 +62,9 @@ public class CalcFullHaplotypesWalker extends RodWalker<Integer, Integer> {
     protected boolean requirePQ = false;
 
     private HaplotypeTracker hapTracker = null;
+
+    @ArgumentCollection
+    protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
     public void initialize() {
         Set<String> samples;
@@ -102,7 +107,7 @@ public class CalcFullHaplotypesWalker extends RodWalker<Integer, Integer> {
         if (tracker == null)
             return null;
 
-        hapTracker.trackSite(tracker, ref);
+        hapTracker.trackSite(tracker.getValues(variantCollection.variants, context.getLocation()), ref);
 
         return 1;
     }

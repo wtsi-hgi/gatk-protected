@@ -25,12 +25,13 @@
 package org.broadinstitute.sting.gatk.walkers.phasing;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroReadFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.GenotypePhasingEvaluator;
 import org.broadinstitute.sting.utils.GenomeLoc;
@@ -61,8 +62,11 @@ import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFr
 // Filter out all reads with zero mapping quality
 
 public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<CompareResult, CompareToTrioPhasingStats> {
-    public final static String TRIO_ROD_NAME = "trio";
-    public final static String PHASING_ROD_NAME = "phasing";
+    @Input(fullName="trio", doc="trio VCF", required=true)
+    public RodBinding<VariantContext> trio;
+
+    @Input(fullName="phasing", doc="read-backed phasing VCF", required=true)
+    public RodBinding<VariantContext> phasing;
 
     private final static int NUM_IN_TRIO = 3;
 
@@ -110,10 +114,8 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
         hInfo.addAll(VCFUtils.getHeaderFields(getToolkit()));
         hInfo.add(new VCFHeaderLine("reference", getToolkit().getArguments().referenceFile.getName()));
 
-        List<String> rodNames = new LinkedList<String>();
-        rodNames.add(PHASING_ROD_NAME);
-        Map<String, VCFHeader> rodNameToHeader = getVCFHeadersFromRods(getToolkit(), rodNames);
-        Set<String> samples = new TreeSet<String>(rodNameToHeader.get(PHASING_ROD_NAME).getGenotypeSamples());
+        Map<String, VCFHeader> rodNameToHeader = getVCFHeadersFromRods(getToolkit(), Arrays.asList(phasing.getName()));
+        Set<String> samples = new TreeSet<String>(rodNameToHeader.get(phasing.getName()).getGenotypeSamples());
         writer.writeHeader(new VCFHeader(hInfo, samples));
     }
 
@@ -136,7 +138,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
             return null;
 
         GenomeLoc curLoc = ref.getLocus();
-        VariantContext phasingVc = tracker.getFirstValue(VariantContext.class, PHASING_ROD_NAME, curLoc);
+        VariantContext phasingVc = tracker.getFirstValue(phasing, curLoc);
 
         CompareToTrioPhasingStats stats = new CompareToTrioPhasingStats();
         CompareResult result = new CompareResult(phasingVc, stats);
@@ -147,7 +149,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
         if (phasingSample == null) {
             Map<String, Genotype> phasingSampleToGt = phasingVc.getGenotypes();
             if (phasingSampleToGt.size() != 1)
-                throw new UserException("Must provide EXACTLY one sample in " + PHASING_ROD_NAME + " track!");
+                throw new UserException("Must provide EXACTLY one sample in " + phasing.getName() + " track!");
             phasingSample = phasingSampleToGt.entrySet().iterator().next().getKey();
         }
 
@@ -155,7 +157,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
         if (curPhasingGt == null || !curPhasingGt.isHet()) // can ignore this missing/irrelevant genotype
             return result;
 
-        VariantContext curTrioVc = tracker.getFirstValue(VariantContext.class, TRIO_ROD_NAME, curLoc);
+        VariantContext curTrioVc = tracker.getFirstValue(trio, curLoc);
         boolean useTrioVc = (curTrioVc != null && !curTrioVc.isFiltered());
 
         Genotype sampleCurGtInTrio = null;
@@ -163,10 +165,10 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
             sampleCurGtInTrio = curTrioVc.getGenotype(phasingSample);
 
             if (curTrioVc.getNSamples() > NUM_IN_TRIO || sampleCurGtInTrio == null)
-                throw new UserException("Must provide " + TRIO_ROD_NAME + " track data for sample: " + phasingSample);
+                throw new UserException("Must provide " + trio.getName() + " track data for sample: " + phasingSample);
 
             if (!curPhasingGt.sameGenotype(sampleCurGtInTrio)) {
-                logger.warn("Locus " + curLoc + " breaks phase, since " + PHASING_ROD_NAME + " and " + TRIO_ROD_NAME + " tracks have different genotypes for " + phasingSample + "!");
+                logger.warn("Locus " + curLoc + " breaks phase, since " + phasing.getName() + " and " + trio.getName() + " tracks have different genotypes for " + phasingSample + "!");
                 prevLoc = null;
                 return result;
             }
@@ -308,7 +310,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
 
                             boolean ignorePhase = false;
                             if (!phasedGt.sameGenotype(curPhasingGt, ignorePhase)) {
-                                String contradictMessage = "Phase from " + PHASING_ROD_NAME + " track at " + curLoc + " contradicts the trio-based phasing.";
+                                String contradictMessage = "Phase from " + phasing.getName() + " track at " + curLoc + " contradicts the trio-based phasing.";
                                 stats.contradictoryPhaseSites++;
                                 addToOutput += "\tcontradictory";
 
@@ -316,10 +318,10 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
                                     stats.contradictoryPhaseSitesWithPhaseInconsistency++;
                                     addToOutput += "\tphaseInconsistent";                                    
                                     useTrioPhase = true;
-                                    contradictMessage += " Ignoring " + PHASING_ROD_NAME + " phase due to phase-inconsistency.";
+                                    contradictMessage += " Ignoring " + phasing.getName() + " phase due to phase-inconsistency.";
                                 }
                                 else {
-                                    contradictMessage += " Maintaining phase from " + PHASING_ROD_NAME + ".";
+                                    contradictMessage += " Maintaining phase from " + phasing.getName() + ".";
                                 }
                                 logger.warn(contradictMessage);
                             }
@@ -397,9 +399,9 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
     public void onTraversalDone(CompareToTrioPhasingStats result) {
         System.out.println("Compared " + result.comparedSites + " sites.");
         System.out.println("Trio can phase " + result.trioPhaseableSites + " sites.");
-        System.out.println("Trio and " + PHASING_ROD_NAME + " track can both phase " + result.bothCanPhase + " sites.");
-        System.out.println("Contradiction between phase inferred from " + TRIO_ROD_NAME + " and phase present in " + PHASING_ROD_NAME + " tracks at " + result.contradictoryPhaseSites + " sites.");
-        System.out.println("Of those, " + PHASING_ROD_NAME + " track is phase-inconsistent at " + result.contradictoryPhaseSitesWithPhaseInconsistency + " sites.");
+        System.out.println("Trio and " + phasing.getName() + " track can both phase " + result.bothCanPhase + " sites.");
+        System.out.println("Contradiction between phase inferred from " + trio.getName() + " and phase present in " + phasing.getName() + " tracks at " + result.contradictoryPhaseSites + " sites.");
+        System.out.println("Of those, " + phasing.getName() + " track is phase-inconsistent at " + result.contradictoryPhaseSitesWithPhaseInconsistency + " sites.");
 
         if (diffTrioAndPhasingCounts != null) {
             System.out.println("");

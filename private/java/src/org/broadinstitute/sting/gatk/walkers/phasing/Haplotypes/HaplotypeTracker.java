@@ -26,7 +26,6 @@ package org.broadinstitute.sting.gatk.walkers.phasing.Haplotypes;
 
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.phasing.ReadBackedPhasingWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
@@ -54,7 +53,7 @@ public class HaplotypeTracker {
         Haplotype.out = out;
     }
 
-    public void trackSite(RefMetaDataTracker tracker, ReferenceContext ref) {
+    public void trackSite(Collection<VariantContext> vcs, ReferenceContext ref) {
         GenomeLoc curLocus = ref.getLocus();
         finalizeDoneHaplotypes(curLocus);
 
@@ -77,7 +76,6 @@ public class HaplotypeTracker {
                 waitingHaplotype.extend(prevPosition);
         }
 
-        Collection<VariantContext> vcs = tracker.getValues(VariantContext.class);
         for (VariantContext vc : vcs) {
             if (vc.isFiltered())
                 continue;

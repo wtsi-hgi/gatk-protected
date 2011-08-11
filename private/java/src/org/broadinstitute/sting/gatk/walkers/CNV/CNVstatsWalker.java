@@ -25,11 +25,12 @@
 package org.broadinstitute.sting.gatk.walkers.CNV;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;
@@ -38,7 +39,10 @@ import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
-import java.util.*;
+import java.util.Formatter;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 
 
 /**
@@ -59,7 +63,11 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
     @Argument(fullName = "minFracPassGt", shortName = "minFracPassGt", doc = "Minimum fraction of callable genotypes required to report any genotypes at all", required = false)
     private double minFracPassGt = 0.0;
 
-    private String rodName = "variant";
+    /**
+     * All CNV variants found in these VCF files will be analyzed
+     */
+    @ArgumentCollection
+    protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
     public static String CNV_TAG = "<CNV>";
     public static String CN_FIELD = "CN";
@@ -95,7 +103,7 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
         logger.debug("REF:" + ref.getLocus());
         CNVstatistics stats = new CNVstatistics();
 
-        for (VariantContext vc : tracker.getValues(VariantContext.class, rodName, context.getLocation())) {
+        for (VariantContext vc : tracker.getValues(variantCollection.variants, context.getLocation())) {
             if (vc.isSymbolic() && vc.isBiallelic()) {
                 Allele altAll = vc.getAlternateAllele(0);
                 if (altAll.isSymbolic() && altAll.getDisplayString().equals(CNV_TAG)) {

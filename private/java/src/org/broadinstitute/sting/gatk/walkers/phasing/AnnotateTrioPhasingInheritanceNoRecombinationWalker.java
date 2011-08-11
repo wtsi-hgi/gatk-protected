@@ -25,12 +25,13 @@
 package org.broadinstitute.sting.gatk.walkers.phasing;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroReadFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.SampleUtils;
@@ -56,7 +57,8 @@ import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFr
 // Filter out all reads with zero mapping quality
 
 public class AnnotateTrioPhasingInheritanceNoRecombinationWalker extends RodWalker<Integer, Integer> {
-    public final static String TRIO_ROD_NAME = "trio";
+    @Input(fullName="trio", doc="Annotate trio variants from this VCF file", required=true)
+    public RodBinding<VariantContext> trio;
 
     private final static int DIPLOID = 2;
 
@@ -83,10 +85,7 @@ public class AnnotateTrioPhasingInheritanceNoRecombinationWalker extends RodWalk
         SAMPLE_NAME_DAD = pieces[1];
         SAMPLE_NAME_CHILD = pieces[2];
 
-        ArrayList<String> rodNames = new ArrayList<String>();
-        rodNames.add(TRIO_ROD_NAME);
-
-        Map<String, VCFHeader> rodNameToHeader = getVCFHeadersFromRods(getToolkit(), rodNames);
+        Map<String, VCFHeader> rodNameToHeader = getVCFHeadersFromRods(getToolkit(), Arrays.asList(trio.getName()));
         Set<String> vcfSamples = SampleUtils.getSampleList(rodNameToHeader, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE);
 
         if (vcfSamples.size() != 3) {
@@ -135,7 +134,7 @@ public class AnnotateTrioPhasingInheritanceNoRecombinationWalker extends RodWalk
             return null;
 
         GenomeLoc loc = ref.getLocus();
-        VariantContext trioVc = tracker.getFirstValue(VariantContext.class, TRIO_ROD_NAME, loc);
+        VariantContext trioVc = tracker.getFirstValue(trio, loc);
         if (trioVc == null)
             return null;
 

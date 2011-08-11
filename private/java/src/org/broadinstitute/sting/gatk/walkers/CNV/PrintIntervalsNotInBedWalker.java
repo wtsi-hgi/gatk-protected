@@ -25,12 +25,12 @@
 package org.broadinstitute.sting.gatk.walkers.CNV;
 
 import org.broad.tribble.Feature;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
-import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 
@@ -48,7 +48,8 @@ public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {
     @Output
     protected PrintStream out;
 
-    public final static String INTERVALS_ROD_NAME = "intervals";
+    @Input(fullName="intervalsROD", doc="Intervals to analyze", required=true)
+    public RodBinding<Feature> intervalsROD;
 
     private GenomeLoc waitingInterval = null;
 
@@ -77,7 +78,7 @@ public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {
         int curPos = curLoc.getStart();
         int printed = 0;
 
-        List<Feature> intervals = tracker.getValues(Feature.class, INTERVALS_ROD_NAME);
+        List<Feature> intervals = tracker.getValues(intervalsROD);
         if (intervals.isEmpty()) {
             if (waitingInterval != null && curLoc.compareContigs(waitingInterval) == 0 && curPos == waitingInterval.getStop() + 1) {
                 waitingInterval = getToolkit().getGenomeLocParser().setStop(waitingInterval, curPos);
