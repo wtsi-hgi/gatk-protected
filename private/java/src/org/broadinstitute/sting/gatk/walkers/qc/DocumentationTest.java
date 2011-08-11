@@ -57,9 +57,7 @@ public class DocumentationTest extends RodWalker<Integer, Integer> {
     @ArgumentCollection protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
     /**
-     * Argument summary test
-     *
-     * <p>Argument body test</p>
+     * detailed documentation about the argument goes here.
      */
     @Input(fullName="listofRodBinding", shortName = "disc", doc="Output variants that were not called in this Feature comparison track", required=false)
     private List<RodBinding<VariantContext>> listOfRodBinding = Collections.emptyList();
