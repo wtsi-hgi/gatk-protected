@@ -63,24 +63,21 @@ public class DocumentationTest extends RodWalker<Integer, Integer> {
     private List<RodBinding<VariantContext>> listOfRodBinding = Collections.emptyList();
 
     @Input(fullName="optionalRodBinding", shortName = "conc", doc="Output variants that were also called in this Feature comparison track", required=false)
-    private RodBinding<VariantContext> concordanceTrack = RodBinding.makeUnbound(VariantContext.class);
+    private RodBinding<VariantContext> concordanceTrack;
 
-    @Input(fullName="optionalRodBindingWithoutDefault", shortName = "conc", doc="Output variants that were also called in this Feature comparison track", required=false)
+    @Input(fullName="optionalRodBindingWithoutDefault", shortName = "optionalRodBindingWithoutDefault", doc="Output variants that were also called in this Feature comparison track", required=false)
     private RodBinding<VariantContext> noDefaultOptionalRodBinding;
 
-    @Input(fullName="optionalRodBindingWithoutDefaultNull", shortName = "conc", doc="Output variants that were also called in this Feature comparison track", required=false)
+    @Input(fullName="optionalRodBindingWithoutDefaultNull", shortName = "optionalRodBindingWithoutDefaultNull", doc="Output variants that were also called in this Feature comparison track", required=false)
     private RodBinding<VariantContext> noDefaultOptionalRodBindingNull = null;
 
     @Output(doc="VCFWriter",required=true)
     protected VCFWriter vcfWriter = null;
 
-    @Output(doc="SAMWriter",required=true)
-    protected StingSAMFileWriter bamWriter = null;
-
     @Argument(fullName="setString", shortName="sn", doc="Sample name to be included in the analysis. Can be specified multiple times.", required=false)
     public Set<String> sampleNames;
 
-    @Argument(fullName="setStringInitialized", shortName="sn", doc="Sample name to be included in the analysis. Can be specified multiple times.", required=false)
+    @Argument(fullName="setStringInitialized", shortName="setStringInitialized", doc="Sample name to be included in the analysis. Can be specified multiple times.", required=false)
     public Set<String> setStringInitialized = new HashSet<String>();
 
     @Argument(shortName="optionalArgWithMissinglessDefault", doc="One or more criteria to use when selecting the data.  Evaluated *after* the specified samples are extracted and the INFO-field annotations are updated.", required=false)
