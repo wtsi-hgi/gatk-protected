@@ -63,7 +63,7 @@ public class DocumentationTest extends RodWalker<Integer, Integer> {
     private List<RodBinding<VariantContext>> listOfRodBinding = Collections.emptyList();
 
     @Input(fullName="optionalRodBinding", shortName = "conc", doc="Output variants that were also called in this Feature comparison track", required=false)
-    private RodBinding<VariantContext> concordanceTrack = RodBinding.makeUnbound(VariantContext.class);
+    private RodBinding<VariantContext> concordanceTrack;
 
     @Input(fullName="optionalRodBindingWithoutDefault", shortName = "conc", doc="Output variants that were also called in this Feature comparison track", required=false)
     private RodBinding<VariantContext> noDefaultOptionalRodBinding;
