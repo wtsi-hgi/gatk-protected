@@ -155,10 +155,10 @@ class HybridSelectionPipeline extends QScript {
     //add(annotate)
 
     val targetEval = new VariantEval with CommandLineGATKArgs
-    //targetEval.rodBind :+= RodBind("eval", "VCF", annotate.out)
-    targetEval.rodBind :+= RodBind("eval", "VCF", combineSNPsIndels.out)
+    //targetEval.eval :+= annotate.out
+    targetEval.eval :+= combineSNPsIndels.out
 
-    targetEval.rodBind :+= RodBind("dbsnp", qscript.pipeline.getProject.getEvalDbsnpType, qscript.pipeline.getProject.getEvalDbsnp)
+    targetEval.dbsnp = qscript.pipeline.getProject.getEvalDbsnp
     targetEval.doNotUseAllStandardStratifications = true
     targetEval.doNotUseAllStandardModules = true
     targetEval.evalModule = List("SimpleMetricsByAC", "TiTvVariantEvaluator", "CountVariants")
@@ -169,9 +169,9 @@ class HybridSelectionPipeline extends QScript {
 
     if (qscript.expandIntervals > 0) {
       val flanksEval = new VariantEval with CommandLineGATKArgs
-      //flanksEval.rodBind :+= RodBind("eval", "VCF", annotate.out)
-      flanksEval.rodBind :+= RodBind("eval", "VCF", combineSNPsIndels.out)
-      flanksEval.rodBind :+= RodBind("dbsnp", qscript.pipeline.getProject.getEvalDbsnpType, qscript.pipeline.getProject.getEvalDbsnp)
+      //flanksEval.eval :+= annotate.out
+      flanksEval.eval :+= combineSNPsIndels.out
+      flanksEval.dbsnp = qscript.pipeline.getProject.getEvalDbsnp
       flanksEval.intervals = List(flankIntervals)
       flanksEval.doNotUseAllStandardStratifications = true
       flanksEval.doNotUseAllStandardModules = true
