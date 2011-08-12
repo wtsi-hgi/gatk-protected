@@ -17,11 +17,11 @@ public class AlleleCountModel extends ProbabilityModel {
 
     private final double THETA = 0.001; // Human heterozygozity rate
 
-    public AlleleCountModel(AlleleCountModelParameters p) {
-        maxAlleleCount = p.maxAlleleCount;
-        minCallQuall = p.minCallQual;
-        errorModel = p.errorModel;
-        model = calculateLog10ProbabilityDistribution(p.errorModel, p.matches, p.mismatches);
+    public AlleleCountModel(int maxAlleleCount, ErrorModel errorModel, int matches, int mismatches, double minCallQual) {
+        maxAlleleCount = maxAlleleCount;
+        minCallQuall = minCallQual;
+        errorModel = errorModel;
+        model = calculateLog10ProbabilityDistribution(errorModel, matches, mismatches);
     }
 
     public AlleleCountModel(AlleleCountModel acm) {

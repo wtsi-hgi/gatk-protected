@@ -25,10 +25,10 @@ public class ReferenceSample {
     /**
      * Creates a reference sample object
      */
-    public ReferenceSample(ReferenceSampleParameters p) {
-        name = p.name;
-        pileup = p.pileup;
-        trueBases = p.trueBases;
+    public ReferenceSample(String name, ReadBackedPileup pileup, Collection<Byte> trueBases) {
+        this.name = name;
+        this.pileup = pileup;
+        this.trueBases = trueBases;
     }
 
     public String getName() {

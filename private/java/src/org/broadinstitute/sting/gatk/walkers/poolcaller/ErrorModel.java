@@ -21,22 +21,20 @@ public class ErrorModel extends ProbabilityModel {
 
     /**
      * Calculates the probability of the data (reference sample reads) given the phred scaled site quality score.
-     *
-     * @param p a support object with all the necessary parameters for the error model. See class for a more detailed description
      */
-    public ErrorModel (ErrorModelParameters p) {
-        maxQualityScore = p.maxQualityScore;
-        minQualityScore = p.minQualityScore;
-        phredScaledPrior = p.phredScaledPrior;
-        log10minPower = Math.log10(p.minPower);
+    public ErrorModel (byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, ReferenceSample referenceSample, double minPower) {
+        this.maxQualityScore = maxQualityScore;
+        this.minQualityScore = minQualityScore;
+        this.phredScaledPrior = phredScaledPrior;
+        log10minPower = Math.log10(minPower);
 
 
         model = new double[maxQualityScore-minQualityScore+1];
 
-        byte [] data = p.referenceSample.getPileup().getBases();
+        byte [] data = referenceSample.getPileup().getBases();
         int coverage = data.length;
         int matches = 0;
-        for (byte base : p.referenceSample.getTrueBases()) {
+        for (byte base : referenceSample.getTrueBases()) {
             matches += MathUtils.countOccurrences(base, data);
         }
         int mismatches = coverage - matches;

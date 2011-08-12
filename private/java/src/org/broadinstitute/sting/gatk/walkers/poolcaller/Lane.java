@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
+import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 
 import java.util.*;
@@ -22,30 +23,25 @@ public class Lane {
     private Set<String> filters;
     private Map<String, Object> attributes;
 
-    public Lane(LaneParameters p) {
-        name = p.name;
-        referenceSample = new ReferenceSample(new ReferenceSampleParameters(p.referenceSampleName, p.lanePileup.getPileupForSampleName(p.referenceSampleName), p.trueReferenceBases));
-        errorModel = new ErrorModel(new ErrorModelParameters(p.minQualityScore, p.maxQualityScore, p.phredScaledPrior, referenceSample, p.minPower));
+    public Lane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior,int maxAlleleCount, double minCallQual, double minPower) {
+        this.name = name;
+        this.referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSampleName(referenceSampleName), trueReferenceBases);
+        this.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, referenceSample, minPower);
 
-        Collection<String> poolNames = p.lanePileup.getSampleNames();
-        poolNames.remove(p.referenceSampleName);
-        pools = new LinkedList<Pool>();
+        Collection<String> poolNames = lanePileup.getSampleNames();
+        poolNames.remove(referenceSampleName);
+        this.pools = new LinkedList<Pool>();
         for (String poolName : poolNames) {
-            pools.add(new Pool(new PoolParameters(poolName,
-                                                  p.lanePileup.getPileupForSampleName(poolName),
-                                                  errorModel,
-                                                  p.referenceSequenceBase,
-                                                  p.maxAlleleCount,
-                                                  p.minCallQual)));
+            pools.add(new Pool(poolName, lanePileup.getPileupForSampleName(poolName),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual));
         }
 
-        filters = new TreeSet<String>();
+        this.filters = new TreeSet<String>();
         for (Pool pool : pools) {
             // make the first pool's alleleCountModel our base model and then "recursively" merge it with all the subsequent pools
             if (alleleCountModel == null)
-                alleleCountModel = new AlleleCountModel(pool.getAlleleCountModel());
+                this.alleleCountModel = new AlleleCountModel(pool.getAlleleCountModel());
             else
-                alleleCountModel.merge(pool.getAlleleCountModel());
+                this.alleleCountModel.merge(pool.getAlleleCountModel());
 
             // add all filters from this pool
             filters.addAll(pool.getFilters());
@@ -56,14 +52,14 @@ public class Lane {
     private Lane() {}
 
 
-    public static Lane debugLane(LaneParameters p) {
+    public static Lane debugLane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlleleCount, double minCallQual, double minPower) {
         Lane lane = new Lane();
-        lane.name = p.name;
-        lane.referenceSample = new ReferenceSample(new ReferenceSampleParameters(p.referenceSampleName, p.lanePileup.getPileupForSampleName(p.referenceSampleName), p.trueReferenceBases));
-        lane.errorModel = new ErrorModel(new ErrorModelParameters(p.minQualityScore, p.maxQualityScore, p.phredScaledPrior, lane.referenceSample, p.minPower));
+        lane.name = name;
+        lane.referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSampleName(referenceSampleName), trueReferenceBases);
+        lane.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, lane.referenceSample, minPower);
 
         lane.pools = new LinkedList<Pool>();
-        lane.pools.add(new Pool(new PoolParameters("POOL1", p.lanePileup, lane.errorModel, p.referenceSequenceBase, p.maxAlleleCount, p.minCallQual)));
+        lane.pools.add(new Pool("POOL1", lanePileup, lane.errorModel, referenceSequenceBase, maxAlleleCount, minCallQual));
 
         for (Pool pool : lane.pools) {
             lane.alleleCountModel = new AlleleCountModel(pool.getAlleleCountModel());

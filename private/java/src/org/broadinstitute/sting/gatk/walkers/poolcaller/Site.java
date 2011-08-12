@@ -35,25 +35,16 @@ public class Site {
      * lane.
      */
 
-    public Site(SiteParameters p) {
-        this.referenceSequenceBase = p.referenceSequenceBase;
-        this.minCallQual = p.minCallQual;
-        this.pileup = p.sitePileup;
+    public Site(ReadBackedPileup sitePileup,String referenceSampleName,Collection<Byte> trueReferenceBases,byte referenceSequenceBase,byte minQualityScore,byte maxQualityScore,byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower) {
 
-        laneIDs = parseLaneIDs(p.sitePileup.getReadGroups());
+        this.referenceSequenceBase = referenceSequenceBase;
+        this.minCallQual = minCallQual;
+        this.pileup = sitePileup;
+
+        laneIDs = parseLaneIDs(sitePileup.getReadGroups());
         lanes = new HashSet<Lane>(laneIDs.size());
         for (String laneID : laneIDs) {
-            lanes.add(new Lane(new LaneParameters(laneID,
-                                                  p.sitePileup.getPileupForLane(laneID),
-                                                  p.referenceSampleName,
-                                                  p.trueReferenceBases,
-                                                  p.referenceSequenceBase,
-                                                  p.minQualityScore,
-                                                  p.maxQualityScore,
-                                                  p.phredScaledPrior,
-                                                  p.maxAlelleCount,
-                                                  p.minCallQual,
-                                                  p.minPower)));
+            lanes.add(new Lane(laneID,sitePileup.getPileupForLane(laneID),referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower));
         }
 
         for (Lane lane : lanes) {
@@ -92,21 +83,11 @@ public class Site {
      * Same as Site constructor but will create only one lane containing only one pool with all samples in the SAM record.
      * Only for debug purposes.
      */
-    public static Site debugSite(SiteParameters p) {
+    public static Site debugSite(ReadBackedPileup sitePileup,String referenceSampleName,Collection<Byte> trueReferenceBases,byte referenceSequenceBase,byte minQualityScore,byte maxQualityScore,byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower) {
         String laneID = "LANE1";
-        Lane lane = Lane.debugLane(new LaneParameters(laneID,
-                                                p.sitePileup,
-                                                p.referenceSampleName,
-                                                p.trueReferenceBases,
-                                                p.referenceSequenceBase,
-                                                p.minQualityScore,
-                                                p.maxQualityScore,
-                                                p.phredScaledPrior,
-                                                p.maxAlelleCount,
-                                                p.minCallQual,
-                                                p.minPower));
+        Lane lane = Lane.debugLane(laneID,sitePileup,referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower);
 
-        return new Site(laneID, lane, p.minCallQual, p.referenceSequenceBase, p.sitePileup);
+        return new Site(laneID, lane, minCallQual, referenceSequenceBase, sitePileup);
     }
 
     /**

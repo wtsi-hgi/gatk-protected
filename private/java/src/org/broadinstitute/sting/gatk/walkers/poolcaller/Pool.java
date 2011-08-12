@@ -34,18 +34,18 @@ public class Pool {
     private byte calledAllele;
     private double log10LikelihoodCall;
 
-    public Pool(PoolParameters p) {
-        name = p.name;
-        pileup = p.pileup;
-        maxAlleleCount = p.maxAlleleCount;
-        referenceSequenceBase = p.referenceSequenceBase;
+    public Pool(String name, ReadBackedPileup pileup, ErrorModel errorModel, byte referenceSequenceBase, int maxAlleleCount, double minCallQual) {
+        name = name;
+        pileup = pileup;
+        maxAlleleCount = maxAlleleCount;
+        referenceSequenceBase = referenceSequenceBase;
 
         byte [] data = pileup.getBases();
         int coverage = data.length;
-        matches = MathUtils.countOccurrences(p.referenceSequenceBase, data);
+        matches = MathUtils.countOccurrences(referenceSequenceBase, data);
         mismatches = coverage - matches;
 
-        alleleCountModel = new AlleleCountModel(new AlleleCountModelParameters(maxAlleleCount, p.errorModel, matches, mismatches, p.minCallQual));
+        alleleCountModel = new AlleleCountModel(maxAlleleCount, errorModel, matches, mismatches, minCallQual);
 
         // make the call and apply filters
         filters = new HashSet<Filters>();

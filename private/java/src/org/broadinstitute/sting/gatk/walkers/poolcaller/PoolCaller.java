@@ -175,17 +175,12 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
             return 0;
 
         // Creates a site Object for this location
-        SiteParameters siteParameters = new SiteParameters(context.getBasePileup(),
-                                                referenceSampleName,
-                                                trueReferenceBases,
-                                                ref.getBase(),
-                                                minQualityScore,
-                                                maxQualityScore,
-                                                phredScaledPrior,
-                                                maxAlleleCount,
-                                                minCallQual,
-                                                minPower);
-        Site site = DEBUG_IGNORE_LANES ? Site.debugSite(siteParameters) : new Site(siteParameters);
+
+        Site site;
+        if (DEBUG_IGNORE_LANES)
+            site = Site.debugSite(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower);
+        else
+            site = new Site(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower);
 
         VariantContext call = new VariantContext("PoolCaller",
                                                   ref.getLocus().getContig(),
