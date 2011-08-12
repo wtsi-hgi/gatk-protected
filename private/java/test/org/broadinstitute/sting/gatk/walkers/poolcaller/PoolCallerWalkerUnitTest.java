@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.replication_validation;
+package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 import org.broadinstitute.sting.BaseTest;
 
@@ -9,6 +9,6 @@ import org.broadinstitute.sting.BaseTest;
  * Time: 1:12 PM
  * To change this template use File | Settings | File Templates.
  */
-public class ReplicationValidationWalkerUnitTest extends BaseTest {
+public class PoolCallerWalkerUnitTest extends BaseTest {
 
 }
