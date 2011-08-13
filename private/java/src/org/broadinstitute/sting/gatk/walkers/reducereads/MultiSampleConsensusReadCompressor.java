@@ -42,7 +42,7 @@ import java.util.*;
 public class MultiSampleConsensusReadCompressor implements ConsensusReadCompressor {
     protected static final Logger logger = Logger.getLogger(MultiSampleConsensusReadCompressor.class);
 
-    Map<String, SingleSampleConsensusReadCompressor> compressorsPerSample = new HashMap<String, SingleSampleConsensusReadCompressor>();
+    private Map<String, SingleSampleConsensusReadCompressor> compressorsPerSample = new HashMap<String, SingleSampleConsensusReadCompressor>();
 
     public MultiSampleConsensusReadCompressor(SAMFileHeader header,
                                               final int readContextSize,

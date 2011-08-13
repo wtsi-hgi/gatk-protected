@@ -72,24 +72,19 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     // TODO comment out unused code
     /** The place where we ultimately write out our records */
     //Queue<SAMRecord> waitingReads = new LinkedList<SAMRecord>();
-    SAMFileHeader header;
-    final int readContextSize;
-    final int AverageDepthAtVariableSites;
-    final int QualityEquivalent;
-    final int minMapQuality;
-    //int retryTimer = 0;
-    int consensusCounter = 0;
-    //int rms = 0;
+    private SAMFileHeader header;
+    private final int readContextSize;
+    private final int AverageDepthAtVariableSites;
+    private final int QualityEquivalent;
+    private final int minMapQuality;
+    private int consensusCounter = 0;
 
-    final SAMReadGroupRecord reducedReadGroup;
-    String contig = null;
-    final GenomeLocParser glParser;
+    private final SAMReadGroupRecord reducedReadGroup;
+    private String contig = null;
+    private final GenomeLocParser glParser;
 
-    //GenomeLoc lastProcessedRegion = null;
+    private SlidingWindow slidingWindow;
 
-    SlidingWindow slidingWindow;
-
-    //GenomeLoc variableRegion;
 
     public SingleSampleConsensusReadCompressor(final String sampleName,
                                                final int readContextSize,
