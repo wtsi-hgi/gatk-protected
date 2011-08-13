@@ -64,14 +64,12 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     private static final double MIN_FRACT_BASES_FOR_VARIABLE_READ = 0.33;  // todo -- should be variable
     private static final int MIN_BASES_IN_VARIABLE_SPAN_TO_INCLUDE_READ = 10;
     */
-    protected final static String RG_POSTFIX = ".ReducedReads";
-    public final static int REDUCED_READ_BASE_QUALITY = 30;
+
+    private final static String RG_POSTFIX = ".ReducedReads";
 
     // todo  -- should merge close together spans
     // TODO WE WANT TO PUT ALL function is SLlidingWindow
     // TODO comment out unused code
-    /** The place where we ultimately write out our records */
-    //Queue<SAMRecord> waitingReads = new LinkedList<SAMRecord>();
     private SAMFileHeader header;
     private final int readContextSize;
     private final int AverageDepthAtVariableSites;
