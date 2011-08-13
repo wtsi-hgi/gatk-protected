@@ -38,9 +38,14 @@ import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.GenomeLocSortedSet;
+import org.broadinstitute.sting.utils.clipreads.ClippingOp;
+import org.broadinstitute.sting.utils.clipreads.ClippingRepresentation;
+import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 
 import java.io.PrintStream;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Created by IntelliJ IDEA.
@@ -50,6 +55,7 @@ import java.util.Set;
 
 @ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentReadFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckReadFilter.class})
 public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompressor> {
+
     @Output
     protected StingSAMFileWriter out;
 
@@ -80,6 +86,10 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     protected int totalReads = 0;
     int nCompressedReads = 0;
 
+    GenomeLocSortedSet intervals = null;
+    Iterator<GenomeLoc> i = null;
+    GenomeLoc interval = null;
+
     MultiSampleConsensusReadCompressor compressor;
 
     @Override
@@ -94,6 +104,10 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
         for ( SAMReadGroupRecord rg : compressor.getReducedReadGroups())
             out.getFileHeader().addReadGroup(rg);
+        intervals = getToolkit().getIntervals();
+        i = intervals.iterator();
+        interval = i.next();
+
     }
 
     @Override
@@ -113,6 +127,17 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         return compressor;
     }
 
+    private void findIntersectingInterval (SAMRecord read) {
+        while ( i.hasNext() ){
+            if ( (interval.getContig() == read.getReferenceName()) && (interval.getStart() < read.getUnclippedEnd()) && (interval.getStop() > read.getUnclippedStart()) )
+                     break;
+            else {
+                    interval = i.next();
+            }
+            // TODO what happens if interval is not found?
+        }
+    }
+
     /**
      * given a read and a output location, reduce by emitting the read
      * @param read the read itself
@@ -122,10 +147,22 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         if ( readNamesToUse == null || readNamesToUse.contains(read.getReadName()) ) {
             if ( INCLUDE_RAW_READS )
                 out.addAlignment(read);
+            findIntersectingInterval(read);
+
+            ReadClipper clipper = new ReadClipper(read);
+            if(read.getUnclippedEnd() > interval.getStop())
+                clipper.addOp( new ClippingOp( interval.getStop() - read.getUnclippedStart() + 1 , read.getReadLength() - 1 ));
+            if(read.getUnclippedStart() < interval.getStart())
+                clipper.addOp( new ClippingOp( 0 , interval.getStart() - read.getUnclippedStart() - 1 ));
+
+            // must be +2 here because findSpan needs to include the last loci of the interval
+
+            read = clipper.clipRead(ClippingRepresentation.HARDCLIP_BASES);
+
             // write out compressed reads as they become available
-            for ( SAMRecord consensusRead : comp.addAlignment(read) ) {
+            for ( SAMRecord consensusRead : comp.addAlignment(read)) {
                 out.addAlignment(consensusRead);
-                nCompressedReads++;
+                System.out.println(String.format("Output Read: %d-%d, Cigar: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));                nCompressedReads++;
             }
         }
 
@@ -136,8 +173,10 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     public void onTraversalDone( ConsensusReadCompressor compressor ) {
         //compressor.writeConsensusBed(bedOut);
         // write out any remaining reads
+
         for ( SAMRecord consensusRead : compressor.close() ) {
             out.addAlignment(consensusRead);
+            System.out.println(String.format("Output Read: %d-%d, CIGAR: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));
             nCompressedReads++;
         }
 
