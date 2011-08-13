@@ -75,7 +75,6 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     SAMFileHeader header;
     final int readContextSize;
     final int AverageDepthAtVariableSites;
-    final int minBpForRunningConsensus;
     final int QualityEquivalent;
     final int minMapQuality;
     //int retryTimer = 0;
@@ -95,14 +94,12 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     public SingleSampleConsensusReadCompressor(final String sampleName,
                                                final int readContextSize,
                                                final GenomeLocParser glParser,
-                                               final int minBpForRunningConsensus,
                                                final int AverageDepthAtVariableSites,
                                                final int qualityEquivalent,
                                                final int minMapQuality) {
         this.readContextSize = readContextSize;
         this.glParser = glParser;
         this.slidingWindow = new SlidingWindow("SampleName",contig, header);
-        this.minBpForRunningConsensus = minBpForRunningConsensus;
         this.AverageDepthAtVariableSites = AverageDepthAtVariableSites;
         this.reducedReadGroup = createReducedReadGroup(sampleName);
         this.QualityEquivalent = qualityEquivalent;

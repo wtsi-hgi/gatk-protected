@@ -28,6 +28,7 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
@@ -65,15 +66,6 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Argument(fullName = "contextSize", shortName = "CS", doc = "", required = false)
     protected int contextSize = 10;
 
-    @Argument(fullName = "INCLUDE_RAW_READS", shortName = "IRR", doc = "", required = false)
-    protected boolean INCLUDE_RAW_READS = false;
-
-    @Argument(fullName = "useRead", shortName = "UR", doc = "", required = false)
-    protected Set<String> readNamesToUse;
-
-    @Argument(fullName = "minBpForRunningConsensus", shortName = "MBRC", doc = "", required = false)
-    protected int minBpForRunningConsensus = 1000;
-
     @Argument(fullName = "AverageDepthAtVariableSites", shortName = "ADAV", doc = "", required = false)
     protected int AverageDepthAtVariableSites = 500;
 
@@ -82,6 +74,16 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
     @Argument(fullName = "MinimumMappingQuality", shortName = "MM", doc = "", required = false)
     protected int MIN_MAPPING_QUALITY = 20;
+
+    @Hidden
+    @Argument(fullName = "INCLUDE_RAW_READS", shortName = "IRR", doc = "", required = false)
+    protected boolean INCLUDE_RAW_READS = false;
+
+    @Hidden
+    @Argument(fullName = "useRead", shortName = "UR", doc = "", required = false)
+    protected Set<String> readNamesToUse;
+
+
 
     protected int totalReads = 0;
     int nCompressedReads = 0;
@@ -98,7 +100,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
         compressor = new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(),
                 contextSize, getToolkit().getGenomeLocParser(),
-                minBpForRunningConsensus, AverageDepthAtVariableSites, QUALITY_EQUIVALENT, MIN_MAPPING_QUALITY);
+                AverageDepthAtVariableSites, QUALITY_EQUIVALENT, MIN_MAPPING_QUALITY);
 
         out.setPresorted(false);
 
