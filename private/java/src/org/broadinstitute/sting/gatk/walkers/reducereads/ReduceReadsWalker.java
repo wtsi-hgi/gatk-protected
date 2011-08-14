@@ -87,8 +87,9 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
      *   (maybe split in two reads and treat it specially in the future?)
      *
      * @param read the read to be hard clipped to the interval.
+     * @return a shallow copy of the read hard clipped to the interval
      */
-    private void hardClipReadToInterval(SAMRecord read) {
+    private SAMRecord hardClipReadToInterval(SAMRecord read) {
         ReadClipper clipper = new ReadClipper(read);
 
         boolean clipRead = false;
@@ -132,8 +133,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
             }
 
         }
-        if (clipRead)
-            read = clipper.clipRead(ClippingRepresentation.HARDCLIP_BASES);
+        return (clipRead) ? clipper.clipRead(ClippingRepresentation.HARDCLIP_BASES) : read;
     }
 
 
@@ -166,9 +166,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         totalReads++;
 
         // If the user provided a list of intervals, hard clip the reads to the intervals
-        if (!getToolkit().getIntervals().isEmpty())
-            hardClipReadToInterval(read);
-        return read;
+        return (!getToolkit().getIntervals().isEmpty()) ? hardClipReadToInterval(read) : read;
     }
 
 
