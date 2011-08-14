@@ -90,9 +90,8 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
      * @return a shallow copy of the read hard clipped to the interval
      */
     private SAMRecord hardClipReadToInterval(SAMRecord read) {
+        SAMRecord clippedRead = read;
         ReadClipper clipper = new ReadClipper(read);
-
-        boolean clipRead = false;
         boolean foundInterval = false;
 
         while (!foundInterval) {
@@ -104,19 +103,15 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
                     break;
 
                 case LEFT_OVERLAP:       // clip the left end of the read
-                    clipper.addOp( new ClippingOp( 0 , currentInterval.getStart() - read.getUnclippedStart() - 1 ));
-                    clipRead = true;
+                    clippedRead = clipper.hardClipByReferenceCoordinates(read.getUnclippedStart() , currentInterval.getStart() - 1);
                     break;
 
                 case RIGHT_OVERLAP:      // clip the right end of the read
-                    clipper.addOp( new ClippingOp( currentInterval.getStop() - read.getUnclippedStart() + 1 , read.getReadLength() - 1 ));
-                    clipRead = true;
+                    clippedRead = clipper.hardClipByReferenceCoordinates(currentInterval.getStop() + 1, read.getUnclippedEnd());
                     break;
 
                 case FULL_OVERLAP:       // clip both left and right ends of the read
-                    clipper.addOp( new ClippingOp( 0 , currentInterval.getStart() - read.getUnclippedStart() - 1 ));
-                    clipper.addOp( new ClippingOp( currentInterval.getStop() - read.getUnclippedStart() + 1 , read.getReadLength() - 1 ));
-                    clipRead = true;
+                    clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(currentInterval.getStart()-1, currentInterval.getStop()+1);
                     break;
 
                 case CONTAINED:          // don't do anything to the read
@@ -133,7 +128,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
             }
 
         }
-        return (clipRead) ? clipper.clipRead(ClippingRepresentation.HARDCLIP_BASES) : read;
+        return clippedRead;
     }
 
 
