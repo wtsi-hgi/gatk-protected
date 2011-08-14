@@ -2,7 +2,7 @@ import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.samtools.SamtoolsIndexFunction
 import org.broadinstitute.sting.queue.extensions.gatk._
 
-class ManySampleUGPerformanceTesting extends QScript {
+class ManySampleUGPerformance extends QScript {
   @Argument(doc="gatkJarFile", required=false)
   var gatkJarFile: File = new File("/home/radon01/depristo/dev/GenomeAnalysisTKStable/trunk/dist/GenomeAnalysisTK.jar")
 
