@@ -156,7 +156,8 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         */
 
         int position = read.getAlignmentStart();
-        logger.info(String.format("Setting position to %d", position));slidingWindow.addRead(read);
+        logger.info(String.format("Setting position to %d", position));
+        slidingWindow.addRead(read);
 
         // did adding the read create variance?
         List<VariableRegion> variableRegions = slidingWindow.getVariableRegions(readContextSize);

@@ -103,11 +103,11 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
                     break;
 
                 case LEFT_OVERLAP:       // clip the left end of the read
-                    clippedRead = clipper.hardClipByReferenceCoordinates(read.getUnclippedStart() , currentInterval.getStart() - 1);
+                    clippedRead = clipper.hardClipByReferenceCoordinates(-1 , currentInterval.getStart() - 1);
                     break;
 
                 case RIGHT_OVERLAP:      // clip the right end of the read
-                    clippedRead = clipper.hardClipByReferenceCoordinates(currentInterval.getStop() + 1, read.getUnclippedEnd());
+                    clippedRead = clipper.hardClipByReferenceCoordinates(currentInterval.getStop() + 1, -1);
                     break;
 
                 case FULL_OVERLAP:       // clip both left and right ends of the read
@@ -160,8 +160,16 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     public SAMRecord map( ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker ) {
         totalReads++;
 
+        // Debug version of the one liner below
+        SAMRecord clippedRead = read;
+        System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
+        if (!getToolkit().getIntervals().isEmpty())
+            clippedRead = hardClipReadToInterval(read);
+        System.out.printf("Clipped : %s %s %d %d\n", clippedRead, clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
+        return read;
+
         // If the user provided a list of intervals, hard clip the reads to the intervals
-        return (!getToolkit().getIntervals().isEmpty()) ? hardClipReadToInterval(read) : read;
+        // return (!getToolkit().getIntervals().isEmpty()) ? hardClipReadToInterval(read) : read;
     }
 
 
