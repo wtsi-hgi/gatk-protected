@@ -27,7 +27,9 @@ package org.broadinstitute.sting.gatk.walkers.performance;
 import org.broad.tribble.readers.AsciiLineReader;
 import org.broad.tribble.util.ParsingUtils;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
@@ -49,6 +51,9 @@ import java.util.List;
 public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     @Output(doc="File to which results should be written",required=true)
     protected PrintStream out;
+
+    @Input(fullName="rod", shortName = "rod", doc="rod", required=true)
+    public RodBinding<VariantContext> rods;
 
     @Argument(fullName="nIterations", shortName="N", doc="Number of raw reading iterations to perform", required=false)
     int nIterations = 1;
@@ -131,7 +136,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        VariantContext vc = tracker.getFirstValue(VariantContext.class, "rod", context.getLocation());
+        VariantContext vc = tracker.getFirstValue(rods, context.getLocation());
         processOneVC(vc);
 
         return 0;
