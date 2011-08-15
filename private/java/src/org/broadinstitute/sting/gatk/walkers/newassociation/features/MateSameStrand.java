@@ -12,7 +12,7 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollectio
  */
 public class MateSameStrand extends BinaryFeatureAggregator {
 
-    public boolean extractFeature(SAMRecord record) {
+    public Boolean extractFeature(SAMRecord record) {
         return record.getReadNegativeStrandFlag() == record.getMateNegativeStrandFlag();
     }
 

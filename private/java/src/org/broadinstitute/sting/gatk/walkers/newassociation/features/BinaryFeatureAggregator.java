@@ -1,6 +1,5 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -10,63 +9,18 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollectio
  * Time: 12:52 PM
  * To change this template use File | Settings | File Templates.
  */
-public abstract class BinaryFeatureAggregator {
+public abstract class BinaryFeatureAggregator extends ReadFeatureAggregator<Boolean> {
 
-    protected int nAberrant;
-    protected int nNotAberrant;
-
-    public BinaryFeatureAggregator(RFAArgumentCollection collection) {
-        init(collection);
-        nAberrant = 0;
-        nNotAberrant = 0;
+    public BinaryFeatureAggregator(RFAArgumentCollection col) {
+        super(col);
     }
 
-    public void aggregate(SAMRecord record) {
-        if ( featureDefined(record) ) {
-            aggregate(extractFeature(record));
-        }
+    public void aggregate(Boolean hasFeature) {
+	// now robustified
+        mean = ( (hasFeature ? 1 : 0)+nReads*mean)/(++nReads);
+        var = mean*(1-mean) + Math.pow(2,1-nReads);
+        // todo -- this is a massive bias to the variance. Really we want to estimate the prior for a mixture distribution
+        // in order to find the proper variance...
+        //var = mean*(1-mean) + Math.pow(nReads,Math.pow(mean,4)-1);
     }
-
-    protected void init(RFAArgumentCollection col) { }
-
-    protected void aggregate(boolean feature) {
-        if ( feature ) {
-            nAberrant ++;
-        } else {
-            nNotAberrant ++;
-        }
-    }
-
-    protected abstract boolean featureDefined(SAMRecord record);
-
-    protected abstract boolean extractFeature(SAMRecord record);
-
-    public int getnAberrant() { return nAberrant; }
-
-    public int getnNotAberrant() { return nNotAberrant; }
-
-    public int getnReads() { return nAberrant + nNotAberrant; }
-
-    public double getMean() { return (nAberrant)/(1.0+getnReads()); }
-
-    public double getVar() { return getnReads()*getMean()*(1-getMean()); }
-
-    public double getUnbiasedVar() { return getVar(); }
-
-    public Boolean parse(SAMRecord read) {
-        if ( featureDefined(read) ) {
-            return extractFeature(read);
-        } else {
-            return null;
-        }
-    }
-
-    public String parseStr(SAMRecord read) {
-        if ( featureDefined(read) ) {
-            return Boolean.toString(extractFeature(read));
-        } else {
-            return "undefined";
-        }
-    }
-
 }

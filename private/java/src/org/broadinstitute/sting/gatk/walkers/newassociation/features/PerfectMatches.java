@@ -11,9 +11,9 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollectio
  * To change this template use File | Settings | File Templates.
  */
 public class PerfectMatches extends BinaryFeatureAggregator {
-    private short editDistanceMax = 1;
+    private short editDistanceMax = 4;
 
-    public boolean extractFeature(SAMRecord read) {
+    public Boolean extractFeature(SAMRecord read) {
         return read.getAttribute("NM").equals(0);
     }
 

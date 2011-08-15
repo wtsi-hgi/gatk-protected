@@ -1,9 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
 import org.broad.tribble.Feature;
-import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
@@ -16,7 +14,6 @@ import org.broadinstitute.sting.utils.exceptions.StingException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -33,19 +30,11 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
     @Output
     PrintStream out;
 
-    @Argument(fullName = "RFAOutput", shortName = "r", doc="Outputs from RFA walker")
-    public List<RodBinding<TableFeature>> rfaOutputs = Collections.emptyList();
-
-    private boolean printHeader;
+    private List<String> order;
 
     private GenomeLoc prevLoc;
 
     public void initialize() {
-        printHeader = true;
-
-        /*
-         * OLD CODE:
-
         order = new ArrayList<String>(getToolkit().getRodDataSources().size());
         StringBuffer header = new StringBuffer();
         header.append(FIRST_COL);
@@ -65,8 +54,6 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
         out.printf("%s%n",header);
 
         prevLoc = null;
-        *
-        */
     }
 
     public Object reduceInit() { return null; }
@@ -77,31 +64,26 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
         GenomeLoc loc = null;
         boolean needPrint = false;
         List<String> eventBySample = new ArrayList<String>();
-        if ( printHeader ) {
-            for ( RodBinding<TableFeature> bound : rfaOutputs ) {
-                StringBuffer outputHeader = new StringBuffer(FIRST_COL);
-                for ( String entry : tracker.getFirstValue(bound).getHeader() ) {
-                    if ( ! entry.startsWith("HEADER") ) {
-                        outputHeader.append("\t");
-                        outputHeader.append(entry);
-                    }
-                }
-                out.printf("%s%n",outputHeader);
-            }
-        }
 
-        for ( RodBinding<TableFeature> bound : rfaOutputs ) {
-            TableFeature feature = tracker.getFirstValue(bound);
+        for ( String rodName : order ) {
+            List<Feature> namedMD = tracker.getValues(Feature.class, rodName);
+            TableFeature feature = null;
+            if ( namedMD.size() > 0 ) {
+                feature = namedMD.get(0) instanceof TableFeature ? (TableFeature) namedMD.get(0) : null;
+            }
+
+            if ( feature == null ) { throw new StingException("This should be an instance of TableFeature, no?"); }
+
             loc = feature.getLocation();
             if ( prevLoc != null && loc.equals(prevLoc) ) {
                 break;
             }
 
             for ( String s : feature.getAllValues().subList(1,feature.getAllValues().size()) ) {
-                boolean has = ! ( s.charAt(0) == '0' );
-                eventBySample.add(s);
-                needPrint |= has;
-            }
+                    boolean has = ! (s.charAt(0) == '0');
+                    eventBySample.add(s);
+                    needPrint |= has;
+                }
         }
 
         if ( needPrint && (loc != null)) {

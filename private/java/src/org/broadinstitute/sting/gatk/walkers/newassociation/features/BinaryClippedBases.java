@@ -15,7 +15,7 @@ public class BinaryClippedBases extends BinaryFeatureAggregator {
     private short baseLim;
     private final byte baseQualLim = 20;
 
-    public boolean extractFeature(SAMRecord read) {
+    public Boolean extractFeature(SAMRecord read) {
         int firstClippedToAliStart = read.getUnclippedStart()-read.getAlignmentStart();
         int lastUnclippedToReadEnd = read.getUnclippedEnd()-read.getAlignmentEnd();
 

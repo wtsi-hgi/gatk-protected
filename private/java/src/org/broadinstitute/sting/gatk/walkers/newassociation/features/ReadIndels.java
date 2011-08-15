@@ -14,7 +14,7 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollectio
  */
 public class ReadIndels extends BinaryFeatureAggregator {
 
-    public boolean extractFeature(SAMRecord record) {
+    public Boolean extractFeature(SAMRecord record) {
         for (CigarElement elem : record.getCigar().getCigarElements() ) {
             if ( elem.getOperator().equals(CigarOperator.INSERTION) || elem.getOperator().equals(CigarOperator.DELETION) ) {
                 return true;
