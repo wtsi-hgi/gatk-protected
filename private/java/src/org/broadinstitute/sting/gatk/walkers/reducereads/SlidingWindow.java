@@ -215,8 +215,8 @@ public class SlidingWindow {
 
         if (regions.isEmpty())
             regions.add(p);
-        for ( VariableRegion vr: regions )
-            System.out.println(String.format("INFO -- #### -- VARIANT FOUND Creating Variable Region, %d - %d", vr.start, vr.end));
+        //for ( VariableRegion vr: regions )
+            //System.out.println(String.format("INFO -- #### -- VARIANT FOUND Creating Variable Region, %d - %d", vr.start, vr.end));
 
         return regions;
     }
@@ -286,7 +286,7 @@ public class SlidingWindow {
 
             if ( size >= 0 ) {
 
-                System.out.println(String.format("INFO -- Compressing running Consensus from %d to %d  ", getStart(), position));
+                //System.out.println(String.format("INFO -- Compressing running Consensus from %d to %d  ", getStart(), position));
 
                 byte[] newBases = new byte[size];
                 byte[] newQuals = new byte[size];

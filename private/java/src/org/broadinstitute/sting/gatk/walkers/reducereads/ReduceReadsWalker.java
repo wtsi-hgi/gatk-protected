@@ -45,6 +45,7 @@ import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 
+import javax.sound.sampled.Clip;
 import java.io.PrintStream;
 import java.util.*;
 
@@ -71,6 +72,9 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
     @Argument(fullName = "MinimumMappingQuality", shortName = "MM", doc = "", required = false)
     protected int MIN_MAPPING_QUALITY = 20;
+
+    @Argument(fullName = "minimum_tail_qualities", shortName = "mtq", doc = "", required = false)
+    protected byte minTailQuality = 2;
 
     protected int totalReads = 0;
     int nCompressedReads = 0;
@@ -159,17 +163,23 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Override
     public SAMRecord map( ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker ) {
         totalReads++;
+        ReadClipper clipper = new ReadClipper(read);
 
-        // Debug version of the one liner below
+    System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
+
+        SAMRecord filteredRead = clipper.hardClipLowQualEnds(minTailQuality);
+
+    if (clipper.wasClipped())
+            System.out.printf("******* WAS CLIPPED ***********\n");
+
         SAMRecord clippedRead = read;
-        System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
         if (!getToolkit().getIntervals().isEmpty())
-            clippedRead = hardClipReadToInterval(read);
-        System.out.printf("Result: %s %d %d  =>  %s %d %d\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
-        return read;
+            clippedRead = hardClipReadToInterval(filteredRead);
 
-        // If the user provided a list of intervals, hard clip the reads to the intervals
-        // return (!getToolkit().getIntervals().isEmpty()) ? hardClipReadToInterval(read) : read;
+    System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
+
+        return clippedRead;
+
     }
 
 
