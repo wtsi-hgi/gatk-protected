@@ -165,7 +165,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
         if (!getToolkit().getIntervals().isEmpty())
             clippedRead = hardClipReadToInterval(read);
-        System.out.printf("Clipped : %s %s %d %d\n", clippedRead, clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
+        System.out.printf("Result: %s %d %d  =>  %s %d %d\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
         return read;
 
         // If the user provided a list of intervals, hard clip the reads to the intervals
