@@ -173,7 +173,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
             System.out.printf("******* WAS CLIPPED ***********\n");
 
         SAMRecord clippedRead = read;
-        if (!getToolkit().getIntervals().isEmpty())
+        if (filteredRead.getReadLength() > 0 && !getToolkit().getIntervals().isEmpty())
             clippedRead = hardClipReadToInterval(filteredRead);
 
     System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
@@ -199,10 +199,12 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
      * @return the SAMFileWriter, so that the next reduce can emit to the same source
      */
     public ConsensusReadCompressor reduce( SAMRecord read, ConsensusReadCompressor comp ) {
-        // write out compressed reads as they become available
-        for ( SAMRecord consensusRead : comp.addAlignment(read)) {
-            out.addAlignment(consensusRead);
-            System.out.println(String.format("Output Read: %d-%d, Cigar: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));                nCompressedReads++;
+        if (read.getReadLength() != 0) {
+            // write out compressed reads as they become available
+            for ( SAMRecord consensusRead : comp.addAlignment(read)) {
+                out.addAlignment(consensusRead);
+                System.out.println(String.format("Output Read: %d-%d, Cigar: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));                nCompressedReads++;
+            }
         }
         return comp;
     }
