@@ -11,15 +11,15 @@ class LeftAlignVariantsPipeline extends QScript {
   var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
 
   @Argument(shortName = "vcf", doc="The file to left align", required=true)
-  val vcfToLA : File = _
+  var vcfToLA : File = _
 
   @Argument(shortName= "o", doc="the output file",required=true)
-  val outFile : File = _
+  var outFile : File = _
 
   @Argument(shortName = "sc", doc = "the scatter count", required = false)
-  val scatterCount : Int = 10
+  var scatterCount : Int = 10
 
-  val lav : LeftAlignVariants = new LeftAlignVariants
+  var lav : LeftAlignVariants = new LeftAlignVariants
   lav.reference_sequence = referenceFile
   lav.variant = vcfToLA
   lav.out = outFile
