@@ -29,7 +29,7 @@ class LeftAlignVariantsPipeline extends QScript {
     lav.out = outFile
     lav.scatterCount = scatterCount
     lav.intervals :+= intervalList
-    add(lavl)
+    add(lav)
   }
 
 }
