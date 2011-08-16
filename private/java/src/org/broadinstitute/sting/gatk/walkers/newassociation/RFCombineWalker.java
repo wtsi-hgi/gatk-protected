@@ -1,7 +1,9 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
 import org.broad.tribble.Feature;
+import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
@@ -14,6 +16,7 @@ import org.broadinstitute.sting.utils.exceptions.StingException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -30,29 +33,16 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
     @Output
     PrintStream out;
 
+    //@Argument(fullName = "RFAOutput", shortName = "r", doc="Outputs from RFA walker")
+    public List<RodBinding<TableFeature>> rfaOutputs = Collections.emptyList();
+
     private List<String> order;
 
     private GenomeLoc prevLoc;
+    private boolean printHeader;
 
     public void initialize() {
-        order = new ArrayList<String>(getToolkit().getRodDataSources().size());
-        StringBuffer header = new StringBuffer();
-        header.append(FIRST_COL);
-        for ( ReferenceOrderedDataSource rSource : getToolkit().getRodDataSources() ) {
-            if ( rSource.getRecordType().isAssignableFrom(TableFeature.class) ) {
-                //System.out.println(rSource.getHeader().toString());
-                for ( String entry : (Collection<String>) rSource.getHeader() ) {
-                    if ( ! entry.startsWith("HEADER") ) {
-                        header.append("\t");
-                        header.append(entry);
-                    }
-                }
-                order.add(rSource.getName());
-            }
-        }
-
-        out.printf("%s%n",header);
-
+        printHeader = true;
         prevLoc = null;
     }
 
@@ -64,26 +54,31 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
         GenomeLoc loc = null;
         boolean needPrint = false;
         List<String> eventBySample = new ArrayList<String>();
-
-        for ( String rodName : order ) {
-            List<Feature> namedMD = tracker.getValues(Feature.class, rodName);
-            TableFeature feature = null;
-            if ( namedMD.size() > 0 ) {
-                feature = namedMD.get(0) instanceof TableFeature ? (TableFeature) namedMD.get(0) : null;
+        if ( printHeader ) {
+            for ( RodBinding<TableFeature> bound : rfaOutputs ) {
+                StringBuffer outputHeader = new StringBuffer(FIRST_COL);
+                for ( String entry : tracker.getFirstValue(bound).getHeader() ) {
+                    if ( ! entry.startsWith("HEADER") ) {
+                        outputHeader.append("\t");
+                        outputHeader.append(entry);
+                    }
+                }
+                out.printf("%s%n",outputHeader);
             }
+        }
 
-            if ( feature == null ) { throw new StingException("This should be an instance of TableFeature, no?"); }
-
+        for ( RodBinding<TableFeature> bound : rfaOutputs ) {
+            TableFeature feature = tracker.getFirstValue(bound);
             loc = feature.getLocation();
             if ( prevLoc != null && loc.equals(prevLoc) ) {
                 break;
             }
 
             for ( String s : feature.getAllValues().subList(1,feature.getAllValues().size()) ) {
-                    boolean has = ! (s.charAt(0) == '0');
-                    eventBySample.add(s);
-                    needPrint |= has;
-                }
+                boolean has = ! ( s.charAt(0) == '0' );
+                eventBySample.add(s);
+                needPrint |= has;
+            }
         }
 
         if ( needPrint && (loc != null)) {
@@ -97,7 +92,6 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
         prevLoc = loc;
 
         return null;
-
     }
 
     public Object reduce(Object map, Object reduce) { return null; }
