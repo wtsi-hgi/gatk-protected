@@ -34,7 +34,7 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
     @Output
     PrintStream out;
 
-    @Argument(fullName = "RFAOutput", shortName = "r", doc="Outputs from RFA walker")
+    //@Argument(fullName = "RFAOutput", shortName = "r", doc="Outputs from RFA walker")
     public List<RodBinding<TableFeature>> rfaOutputs = Collections.emptyList();
 
     private boolean printHeader;

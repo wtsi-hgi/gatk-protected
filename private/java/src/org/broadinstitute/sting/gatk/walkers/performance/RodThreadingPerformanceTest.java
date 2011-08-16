@@ -53,14 +53,14 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>
  * Creates a thread pool that reads the input VCF file in parallel with
- * N threads from 1 to maxThreads (in powers of 2) and emits the wall time
- * needed to process the entire file.  Assumes the VCF file has a chromosome
+ * N threads from 1 to maxThreads and emits the wall time needed to process
+ * the entire file.  Assumes the VCF file has a chromosome
  * named 1 that has at least 250 Mb.
  * </p>
  *
  * <h2>Input</h2>
  * <p>
- * A pre-index VCF file
+ * An already indexed VCF file for evaluation
  * </p>
  *
  * <h2>Output</h2>
@@ -81,23 +81,42 @@ import java.util.concurrent.TimeUnit;
  */
 public class RodThreadingPerformanceTest extends RodWalker<Integer, Integer> {
     private final static String CHROMOSOME = "1";
+    private final static int MB_TO_BP = 1000000;
 
     @Output(doc="File to which results should be written",required=true)
     protected PrintStream out;
 
-    @Argument(fullName="vcf", shortName="vcf", doc="File to test", required=true)
+    /**
+     * Chr1 of this file will be used to evaluate performance of multi-threading in the rod system
+     */
+    @Argument(fullName="vcf", shortName="vcf", doc="VCF input to evalute reading", required=true)
     public File VCFFile;
 
-    @Argument(fullName="maxThreads", shortName="maxThreads", doc="File to test", required=false)
+    /**
+     * Evaluate performance of the system using 1, 2, ... maxThreads.
+     */
+    @Argument(fullName="verbose", shortName="verbose", doc="Should we output per thread statistics", required=false)
+    public boolean VERBOSE = false;
+
+    /**
+     * Evaluate performance of the system using 1, 2, ... maxThreads.
+     */
+    @Argument(fullName="maxThreads", shortName="maxThreads", doc="Up to this many threads will be run in parallel", required=false)
     public int maxThreads = 4;
 
+    /**
+     * We read --vcf from 1 to maxMB basepairs for evaluation.  For example, -maxMB
+     * 10 means that we read from 1-10,000,000 from VCF.
+     */
     @Argument(fullName="maxMB", shortName="maxMB", doc="File to test", required=false)
     public int maxMB = 250;
 
-    private final static int MB = 1000000;
+    private Index index;
 
     public void initialize() {
-        for ( int nThreads = 1; nThreads <= maxThreads; nThreads *= 2 ) {
+        index = IndexFactory.loadIndex(Tribble.indexFile(VCFFile).getAbsolutePath());
+
+        for ( int nThreads = 1; nThreads <= maxThreads; nThreads++ ) {
             run(nThreads);
         }
         System.exit(0);
@@ -105,7 +124,7 @@ public class RodThreadingPerformanceTest extends RodWalker<Integer, Integer> {
 
     private void run(int nThreads) {
         ExecutorService pool = Executors.newFixedThreadPool(nThreads);
-        int chunkSize = maxMB / nThreads * MB;
+        int chunkSize = maxMB / nThreads * MB_TO_BP;
         SimpleTimer timer = new SimpleTimer();
         timer.start();
         for ( int i = 0; i < nThreads; i++ ) {
@@ -114,13 +133,15 @@ public class RodThreadingPerformanceTest extends RodWalker<Integer, Integer> {
             ReadRegion region = new ReadRegion(start, end);
             pool.execute(region);
         }
+
         pool.shutdown();
+
         try {
             pool.awaitTermination(1, TimeUnit.MINUTES);
         } catch ( InterruptedException e ) {
             ;
         }
-        System.out.printf("TIME: %d thread runtime %.2f seconds%n", nThreads, timer.getElapsedTime());
+        System.out.printf("TIME: %d thread(s) runtime %.2f seconds%n", nThreads, timer.getElapsedTime());
     }
 
     public class ReadRegion implements Runnable {
@@ -132,15 +153,9 @@ public class RodThreadingPerformanceTest extends RodWalker<Integer, Integer> {
         }
 
         public void run() {
-            File featureInput = VCFFile;
-            FeatureCodec codec = new VCFCodec();
-            File indexFile = Tribble.indexFile(featureInput);
-            Index index = IndexFactory.loadIndex(indexFile.getAbsolutePath());
-
-            // get a source
-            BasicFeatureSource source = null;
             try {
-                source = new BasicFeatureSource(featureInput.getAbsolutePath(), index, codec);
+                FeatureCodec codec = new VCFCodec();
+                BasicFeatureSource source = new BasicFeatureSource(VCFFile.getAbsolutePath(), index, codec);
 
                 // now read iterate over the file
                 long recordCount = 0l;
@@ -154,9 +169,10 @@ public class RodThreadingPerformanceTest extends RodWalker<Integer, Integer> {
                     ++recordCount;
                 }
 
-                System.out.printf("  THREAD: %d-%d read %d objects%n", start, end, recordCount);
+                if ( VERBOSE )
+                    System.out.printf("  THREAD: %d-%d read %d objects%n", start, end, recordCount);
             } catch (IOException e) {
-                throw new RuntimeException("Something went wrong while reading feature file " + featureInput, e);
+                throw new RuntimeException("Something went wrong while reading feature file " + VCFFile, e);
             }
         }
     }
