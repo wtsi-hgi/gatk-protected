@@ -38,9 +38,15 @@ import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.clipreads.ClippingOp;
+import org.broadinstitute.sting.utils.clipreads.ClippingRepresentation;
+import org.broadinstitute.sting.utils.clipreads.ReadClipper;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.io.PrintStream;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Created by IntelliJ IDEA.
@@ -50,23 +56,12 @@ import java.util.Set;
 
 @ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentReadFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckReadFilter.class})
 public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompressor> {
+
     @Output
     protected StingSAMFileWriter out;
 
-    @Output(fullName="bedOut", shortName = "bedOut", doc="BED output", required = false)
-    protected PrintStream bedOut = null;
-
     @Argument(fullName = "contextSize", shortName = "CS", doc = "", required = false)
     protected int contextSize = 10;
-
-    @Argument(fullName = "INCLUDE_RAW_READS", shortName = "IRR", doc = "", required = false)
-    protected boolean INCLUDE_RAW_READS = false;
-
-    @Argument(fullName = "useRead", shortName = "UR", doc = "", required = false)
-    protected Set<String> readNamesToUse;
-
-    @Argument(fullName = "minBpForRunningConsensus", shortName = "MBRC", doc = "", required = false)
-    protected int minBpForRunningConsensus = 1000;
 
     @Argument(fullName = "AverageDepthAtVariableSites", shortName = "ADAV", doc = "", required = false)
     protected int AverageDepthAtVariableSites = 500;
@@ -80,7 +75,65 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     protected int totalReads = 0;
     int nCompressedReads = 0;
 
+    Iterator<GenomeLoc> intervalIterator = null;
+    GenomeLoc currentInterval = null;
+
     MultiSampleConsensusReadCompressor compressor;
+
+
+    /**
+     * Hard clips the read around the edges of the interval it overlaps with.
+     * Note: If read overlaps more than one interval, it will be hard clipped at the end of the first interval it overlaps.
+     *   (maybe split in two reads and treat it specially in the future?)
+     *
+     * @param read the read to be hard clipped to the interval.
+     * @return a shallow copy of the read hard clipped to the interval
+     */
+    private SAMRecord hardClipReadToInterval(SAMRecord read) {
+        SAMRecord clippedRead = read;
+        ReadClipper clipper = new ReadClipper(read);
+        boolean foundInterval = false;
+
+        while (!foundInterval) {
+            foundInterval = true;        // we will only need to look again if there is no overlap.
+            ReadUtils.ReadAndIntervalOverlap overlapType = ReadUtils.getReadAndIntervalOverlapType(read, currentInterval);
+            switch (overlapType) {
+                case NO_OVERLAP:         // check the next interval
+                    foundInterval = false;
+                    break;
+
+                case LEFT_OVERLAP:       // clip the left end of the read
+                    clippedRead = clipper.hardClipByReferenceCoordinates(read.getUnclippedStart() , currentInterval.getStart() - 1);
+                    break;
+
+                case RIGHT_OVERLAP:      // clip the right end of the read
+                    clippedRead = clipper.hardClipByReferenceCoordinates(currentInterval.getStop() + 1, read.getUnclippedEnd());
+                    break;
+
+                case FULL_OVERLAP:       // clip both left and right ends of the read
+                    clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(currentInterval.getStart()-1, currentInterval.getStop()+1);
+                    break;
+
+                case CONTAINED:          // don't do anything to the read
+                    break;
+            }
+
+            // If there is no overlap, we need to get the next interval
+            // Because the reads are sorted we should only traverse the interval list once for the entire genome.
+            if (!foundInterval) {
+                if (intervalIterator.hasNext())
+                    currentInterval = intervalIterator.next();
+                else
+                    throw new ReviewedStingException("Read is over the last requested interval. Either the reads are not sorted or the GATK Engine is not filtering reads outside the requested interval");
+            }
+
+        }
+        return clippedRead;
+    }
+
+
+
+
 
     @Override
     public void initialize() {
@@ -88,18 +141,27 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
         compressor = new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(),
                 contextSize, getToolkit().getGenomeLocParser(),
-                minBpForRunningConsensus, AverageDepthAtVariableSites, QUALITY_EQUIVALENT, MIN_MAPPING_QUALITY);
+                AverageDepthAtVariableSites, QUALITY_EQUIVALENT, MIN_MAPPING_QUALITY);
 
+        //todo -- should be TRUE
         out.setPresorted(false);
 
         for ( SAMReadGroupRecord rg : compressor.getReducedReadGroups())
             out.getFileHeader().addReadGroup(rg);
+
+        // Keep track of the interval list so we can filter out reads that are not within the
+        // requested intervals
+        intervalIterator = getToolkit().getIntervals().iterator();
+        currentInterval = intervalIterator.next();
+
     }
 
     @Override
     public SAMRecord map( ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker ) {
         totalReads++;
-        return read; // all the work is done in the reduce step for this walker
+
+        // If the user provided a list of intervals, hard clip the reads to the intervals
+        return (!getToolkit().getIntervals().isEmpty()) ? hardClipReadToInterval(read) : read;
     }
 
 
@@ -119,16 +181,11 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
      * @return the SAMFileWriter, so that the next reduce can emit to the same source
      */
     public ConsensusReadCompressor reduce( SAMRecord read, ConsensusReadCompressor comp ) {
-        if ( readNamesToUse == null || readNamesToUse.contains(read.getReadName()) ) {
-            if ( INCLUDE_RAW_READS )
-                out.addAlignment(read);
-            // write out compressed reads as they become available
-            for ( SAMRecord consensusRead : comp.addAlignment(read) ) {
-                out.addAlignment(consensusRead);
-                nCompressedReads++;
-            }
+        // write out compressed reads as they become available
+        for ( SAMRecord consensusRead : comp.addAlignment(read)) {
+            out.addAlignment(consensusRead);
+            System.out.println(String.format("Output Read: %d-%d, Cigar: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));                nCompressedReads++;
         }
-
         return comp;
     }
 
@@ -136,8 +193,10 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     public void onTraversalDone( ConsensusReadCompressor compressor ) {
         //compressor.writeConsensusBed(bedOut);
         // write out any remaining reads
+
         for ( SAMRecord consensusRead : compressor.close() ) {
             out.addAlignment(consensusRead);
+            System.out.println(String.format("Output Read: %d-%d, CIGAR: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));
             nCompressedReads++;
         }
 

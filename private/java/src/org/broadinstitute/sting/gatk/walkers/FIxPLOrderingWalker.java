@@ -1,6 +1,8 @@
 package org.broadinstitute.sting.gatk.walkers;
 
+import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -24,12 +26,14 @@ public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
 
     @Output(doc="File to which variants should be written",required=true)
     protected VCFWriter vcfWriter = null;
-    private final String variantRodName = "variant";
+
+    @ArgumentCollection
+    protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
     public void initialize() {
         // Initialize VCF header
         ArrayList<String> rodNames = new ArrayList<String>();
-        rodNames.add(variantRodName);
+        rodNames.add(variantCollection.variants.getName());
 
         Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
         TreeSet<String> vcfSamples = new TreeSet<String>(SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE));
@@ -42,7 +46,7 @@ public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
          if ( tracker == null )
              return 0;
 
-         Collection<VariantContext> vcs = tracker.getValues(VariantContext.class, variantRodName, context.getLocation());
+         Collection<VariantContext> vcs = tracker.getValues(variantCollection.variants, context.getLocation());
 
          if ( vcs == null || vcs.size() == 0) {
              return 0;

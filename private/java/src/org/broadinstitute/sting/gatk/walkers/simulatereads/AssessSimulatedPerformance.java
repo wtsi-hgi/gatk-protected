@@ -25,7 +25,9 @@
 package org.broadinstitute.sting.gatk.walkers.simulatereads;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -36,6 +38,7 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -44,6 +47,12 @@ import java.util.List;
 public class AssessSimulatedPerformance extends RodWalker<Integer, Integer> {
     @Output(doc="File to which results should be written",required=true)
     protected PrintStream out;
+
+    @Input(fullName="sim", shortName = "sim", doc="sim", required=true)
+    public RodBinding<VariantContext> sim;
+
+    @Input(fullName="called", shortName = "called", doc="called", required=true)
+    public RodBinding<VariantContext> called;
 
     @Argument(fullName="fields", shortName="F", doc="Fields to emit from the calls VCF", required=false)
     public String FIELDS = "CHROM,POS,REF,ALT,QUAL,AC,AN,DP,Q,MODE";
@@ -57,7 +66,7 @@ public class AssessSimulatedPerformance extends RodWalker<Integer, Integer> {
     public void initialize() {
         fieldsToTake = Arrays.asList(FIELDS.split(","));
 
-        for ( String source : Arrays.asList("sim", "called")) {
+        for ( String source : Arrays.asList(sim.getName(), called.getName())) {
             out.print(source + "." + Utils.join("\t" + source + ".", fieldsToTake));
             out.print("\t");
         }
@@ -69,8 +78,8 @@ public class AssessSimulatedPerformance extends RodWalker<Integer, Integer> {
             return 0;
 
         if ( ++nRecords < MAX_RECORDS || MAX_RECORDS == -1 ) {
-            printVCFields("sim", tracker, ref, context);
-            printVCFields("called", tracker, ref, context);
+            printVCFields(sim, tracker, context);
+            printVCFields(called, tracker, context);
             out.println();
             return 1;
         } else {
@@ -82,8 +91,8 @@ public class AssessSimulatedPerformance extends RodWalker<Integer, Integer> {
         }
     }
 
-    private void printVCFields(String name, RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        VariantContext vc = tracker.getFirstValue(VariantContext.class, name, context.getLocation());
+    private void printVCFields(RodBinding<VariantContext> binding, RefMetaDataTracker tracker, AlignmentContext context) {
+        VariantContext vc = tracker.getFirstValue(binding, context.getLocation());
         out.print(Utils.join("\t", VariantsToTable.extractFields(vc, fieldsToTake, true)));
         out.print("\t");
     }

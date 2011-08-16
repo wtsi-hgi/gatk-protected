@@ -26,7 +26,9 @@
 package org.broadinstitute.sting.gatk.walkers;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
@@ -71,6 +73,9 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
     @Output(doc="Generate a VCF file with the variants considered by the walker, with a new annotation \"callStatus\" which will carry the value called in the validation VCF or BAM file", required=false)
     protected VCFWriter vcfWriter = null;
 
+    @Input(fullName="alleles", shortName = "alleles", doc="The set of alleles at which to genotype", required=true)
+    public RodBinding<VariantContext> alleles;
+
     @Argument(fullName ="set_bam_truth", shortName ="bt", doc="Use the calls on the reads (bam file) as the truth dataset and validate the calls on the VCF", required=false)
     private boolean bamIsTruth = false;
 
@@ -93,9 +98,6 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
     private String sample = "";
 
 
-
-
-    private String compName = "alleles";
     private UnifiedGenotyperEngine snpEngine;
     private UnifiedGenotyperEngine indelEngine;
 
@@ -131,16 +133,9 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
 
     public void initialize() {
 
-        List<ReferenceOrderedDataSource> rodList = this.getToolkit().getRodDataSources();
-        if ( rodList.size() != 1 )
-            throw new UserException.BadInput("You should provide exactly one genotype VCF");
-        if ( !rodList.get(0).getName().equals(compName))
-            throw new UserException.BadInput("The ROD track has to be named \""+ compName +"\". Not " + rodList.get(0).getName());
-
-
         // Initialize VCF header
         if (vcfWriter != null) {
-            Map<String, VCFHeader> header = VCFUtils.getVCFHeadersFromRodPrefix(getToolkit(), compName);
+            Map<String, VCFHeader> header = VCFUtils.getVCFHeadersFromRodPrefix(getToolkit(), alleles.getName());
             Set<String> samples = SampleUtils.getSampleList(header, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE);
             Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(header.values(), logger);
             headerLines.add(new VCFHeaderLine("source", "GenotypeAndValidate"));
@@ -181,7 +176,7 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
         if( tracker == null )
             return counter;
 
-        VariantContext vcComp = tracker.getFirstValue(VariantContext.class, compName);
+        VariantContext vcComp = tracker.getFirstValue(alleles);
         if( vcComp == null )
             return counter;
 

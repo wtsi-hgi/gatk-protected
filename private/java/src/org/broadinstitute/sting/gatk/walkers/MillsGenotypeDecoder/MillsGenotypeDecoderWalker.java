@@ -1,7 +1,9 @@
 package org.broadinstitute.sting.gatk.walkers.MillsGenotypeDecoder;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -30,10 +32,12 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
     @Output(doc="File to which variants should be written",required=true)
     protected VCFWriter vcfWriter = null;
 
+    @Input(fullName="sites", shortName = "sites", doc="sites", required=false)
+    public RodBinding<VariantContext> sites;
+
     @Argument(fullName="gtFile", shortName="gtFile", doc="File with genotype data", required=true)
     private File GT_FILE = new File("");
 
-    private final String variantRodName = "sites";
     private TreeSet<String> samples = new TreeSet<String>();
     private HashMap<String,HashMap<String,Integer>> recordData = new HashMap<String,HashMap<String,Integer>>();
 
@@ -115,7 +119,7 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
         if ( tracker == null )
             return 0;
 
-        Collection<VariantContext> vcs = tracker.getValues(VariantContext.class, variantRodName, context.getLocation());
+        Collection<VariantContext> vcs = tracker.getValues(sites, context.getLocation());
 
         if ( vcs == null || vcs.size() == 0) {
             return 0;
@@ -124,7 +128,6 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
         // get ID and see if we've seen the ID in genotype data
         for (VariantContext vc: vcs) {
             String id = vc.getID();
-            Set<Allele> alleles = vc.getAlleles();
             if (recordData.containsKey(id)) {
                 HashMap<String,Integer> data =  recordData.get(id);
                 Map<String,Genotype> genotypes = new HashMap<String,Genotype> (vc.getGenotypes());
