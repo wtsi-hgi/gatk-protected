@@ -5,7 +5,6 @@ import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
 import org.apache.commons.lang.ArrayUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.util.*;
 
@@ -95,7 +94,7 @@ public class SlidingWindow {
             // return true if a variant site was CREATED
             boolean result = false;
             if ( qual >= 20 ) {
-                if (!this.isVariant == true) {
+                if (!this.isVariant) {
                     if (base != this.counts.baseWithMostCounts() && this.counts.totalCount() != 0 ) {
                         this.isVariant = true;
                         result = true;
@@ -231,6 +230,7 @@ public class SlidingWindow {
 
         for ( SlidingRead read: SlidingReads ) {
             SAMRecord SAM = read.trimToVariableRegion(variableRegion).toSAMRecord();
+            SAM.setReadName(SAM.getReadName()+".trim");
             if ( SAM.getReadLength() > 0 )
                 output.add(SAM);
         }
@@ -258,7 +258,7 @@ public class SlidingWindow {
 
     public List<SAMRecord> finalizeConsensusRead(VariableRegion variableRegion) {
         List<SAMRecord> result = new LinkedList<SAMRecord>();
-        compressWindow(variableRegion.start);
+        addToConsensus(variableRegion.start);
         SAMRecord consensus = runningConsensus;
         // This determines the end of read
         if ( runningConsensus != null ){
@@ -274,7 +274,7 @@ public class SlidingWindow {
         return result;
     }
 
-    public void compressWindow(int position) {
+    public void addToConsensus(int position) {
         // compresses the sliding reads to a streaming(incomplete) SamRecord
         if ( position != getStart() ) {
             SAMRecord consensus;

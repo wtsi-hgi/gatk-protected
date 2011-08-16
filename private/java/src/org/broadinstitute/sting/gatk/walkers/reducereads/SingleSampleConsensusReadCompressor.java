@@ -1,24 +1,11 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import com.google.java.contract.Ensures;
-import com.google.java.contract.Requires;
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.clipreads.ClippingOp;
-import org.broadinstitute.sting.utils.clipreads.ClippingRepresentation;
-import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.pileup.PileupElement;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
-import sun.management.counter.Variability;
 
 import java.util.*;
 
@@ -68,7 +55,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     private final static String RG_POSTFIX = ".ReducedReads";
 
     // todo  -- should merge close together spans
-    // TODO WE WANT TO PUT ALL function is SLlidingWindow
+    // TODO WE WANT TO PUT ALL functions is SlidingWindow
     // TODO comment out unused code
     private SAMFileHeader header;
     private final int readContextSize;
@@ -171,9 +158,9 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
             }
         }
         if ( variableRegions.isEmpty() )
-            slidingWindow.compressWindow(position-readContextSize);
+            slidingWindow.addToConsensus(position - readContextSize);
         else
-            slidingWindow.compressWindow(Math.min( variableRegions.get(0).start, position - readContextSize ));
+            slidingWindow.addToConsensus(Math.min(variableRegions.get(0).start, position - readContextSize));
         return result;
     }
 

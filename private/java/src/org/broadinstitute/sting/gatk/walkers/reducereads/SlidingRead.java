@@ -16,13 +16,6 @@ import java.util.*;
 public class SlidingRead {
 
 
-    public SlidingRead (SlidingRead sRead) {
-        alignmentStart = sRead.alignmentStart;
-        read = sRead.read;
-        BasesAndQuals = sRead.BasesAndQuals;
-
-
-    }
     public SlidingRead(SAMRecord read) {
         alignmentStart = read.getAlignmentStart();
         this.read = read;
@@ -57,7 +50,7 @@ public class SlidingRead {
     }
 
     public SlidingRead trimToVariableRegion(VariableRegion variableRegion) {
-        SlidingRead read = new SlidingRead(this);
+        SlidingRead read = new SlidingRead(this.read);
 
         int start = getAlignmentStart();
         int stop = getAlignmentStop();
@@ -65,12 +58,10 @@ public class SlidingRead {
         // check to see if read is contained in region
         if ( start < variableRegion.end || stop > variableRegion.start ) {
             if ( start < variableRegion.start )
-                read = clipStart(variableRegion.start);
+                read = read.clipStart(variableRegion.start);
             if ( stop > variableRegion.end )
-                read = clipEnd(variableRegion.end);
+                read = read.clipEnd(variableRegion.end);
         }
-        else
-            read = this;
         return read;
     }
     //makes position the last element in LL
