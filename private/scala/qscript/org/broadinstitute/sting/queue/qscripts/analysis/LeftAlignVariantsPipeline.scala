@@ -19,13 +19,17 @@ class LeftAlignVariantsPipeline extends QScript {
   @Argument(shortName = "sc", doc = "the scatter count", required = false)
   var scatterCount : Int = 10
 
+  @Argument(shortName = "L", doc = "interval list", required = true)
+  var intervalList : File = _
+
   def script = {
     var lav : LeftAlignVariants = new LeftAlignVariants
     lav.reference_sequence = referenceFile
     lav.variant = vcfToLA
     lav.out = outFile
     lav.scatterCount = scatterCount
-    add(lav)
+    lav.intervals :+= intervalList
+    add(lavl)
   }
 
 }
