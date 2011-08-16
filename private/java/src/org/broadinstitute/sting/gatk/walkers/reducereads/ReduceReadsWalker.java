@@ -102,33 +102,37 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
             foundInterval = true;        // we will only need to look again if there is no overlap.
             ReadUtils.ReadAndIntervalOverlap overlapType = ReadUtils.getReadAndIntervalOverlapType(read, currentInterval);
             switch (overlapType) {
-                case NO_OVERLAP:         // check the next interval
+                case NO_OVERLAP_CONTIG:         // check the next interval
+                case NO_OVERLAP_RIGHT:          // check the next interval
                     foundInterval = false;
                     break;
 
-                case LEFT_OVERLAP:       // clip the left end of the read
+                case NO_OVERLAP_LEFT:           // read used to overlap but got hard clipped and doesn't overlap anymore
+                    return new SAMRecord(read.getHeader());
+
+                case OVERLAP_LEFT:              // clip the left end of the read
                     clippedRead = clipper.hardClipByReferenceCoordinates(-1 , currentInterval.getStart() - 1);
                     break;
 
-                case RIGHT_OVERLAP:      // clip the right end of the read
+                case OVERLAP_RIGHT:             // clip the right end of the read
                     clippedRead = clipper.hardClipByReferenceCoordinates(currentInterval.getStop() + 1, -1);
                     break;
 
-                case FULL_OVERLAP:       // clip both left and right ends of the read
+                case OVERLAP_LEFT_AND_RIGHT:    // clip both left and right ends of the read
                     clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(currentInterval.getStart()-1, currentInterval.getStop()+1);
                     break;
 
-                case CONTAINED:          // don't do anything to the read
+                case OVERLAP_CONTAINED:         // don't do anything to the read
                     break;
             }
 
-            // If there is no overlap, we need to get the next interval
+            // If there is no overlap due to contig or because the read was to the right of the current interval, we need to get the next interval
             // Because the reads are sorted we should only traverse the interval list once for the entire genome.
             if (!foundInterval) {
                 if (intervalIterator.hasNext())
                     currentInterval = intervalIterator.next();
                 else
-                    throw new ReviewedStingException("Read is over the last requested interval. Either the reads are not sorted or the GATK Engine is not filtering reads outside the requested interval");
+                    return new SAMRecord(read.getHeader());
             }
 
         }
@@ -165,18 +169,18 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         totalReads++;
         ReadClipper clipper = new ReadClipper(read);
 
-    System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
+//        System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
 
         SAMRecord filteredRead = clipper.hardClipLowQualEnds(minTailQuality);
 
-    if (clipper.wasClipped())
-            System.out.printf("******* WAS CLIPPED ***********\n");
+//        if (clipper.wasClipped())
+//            System.out.printf("******* WAS CLIPPED ***********\n");
 
         SAMRecord clippedRead = read;
         if (filteredRead.getReadLength() > 0 && !getToolkit().getIntervals().isEmpty())
             clippedRead = hardClipReadToInterval(filteredRead);
 
-    System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
+//    System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
 
         return clippedRead;
 
