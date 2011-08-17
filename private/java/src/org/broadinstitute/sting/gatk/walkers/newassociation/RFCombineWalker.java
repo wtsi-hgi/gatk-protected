@@ -12,6 +12,7 @@ import org.broadinstitute.sting.gatk.refdata.features.table.TableFeature;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -36,14 +37,37 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
     //@Argument(fullName = "RFAOutput", shortName = "r", doc="Outputs from RFA walker")
     public List<RodBinding<TableFeature>> rfaOutputs = Collections.emptyList();
 
-    private List<String> order;
+    private boolean printHeader;
 
     private GenomeLoc prevLoc;
-    private boolean printHeader;
 
     public void initialize() {
         printHeader = true;
+
+        /*
+         * OLD CODE:
+
+        order = new ArrayList<String>(getToolkit().getRodDataSources().size());
+        StringBuffer header = new StringBuffer();
+        header.append(FIRST_COL);
+        for ( ReferenceOrderedDataSource rSource : getToolkit().getRodDataSources() ) {
+            if ( rSource.getRecordType().isAssignableFrom(TableFeature.class) ) {
+                //System.out.println(rSource.getHeader().toString());
+                for ( String entry : (Collection<String>) rSource.getHeader() ) {
+                    if ( ! entry.startsWith("HEADER") ) {
+                        header.append("\t");
+                        header.append(entry);
+                    }
+                }
+                order.add(rSource.getName());
+            }
+        }
+
+        out.printf("%s%n",header);
+
         prevLoc = null;
+        *
+        */
     }
 
     public Object reduceInit() { return null; }
@@ -92,6 +116,7 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
         prevLoc = loc;
 
         return null;
+
     }
 
     public Object reduce(Object map, Object reduce) { return null; }
