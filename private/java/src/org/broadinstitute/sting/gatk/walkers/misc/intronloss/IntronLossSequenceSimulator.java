@@ -4,6 +4,7 @@ import net.sf.picard.fastq.FastqRecord;
 import net.sf.picard.fastq.FastqWriter;
 import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -29,7 +30,7 @@ import java.util.List;
  */
 public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pair<StringBuffer,StringBuffer>> {
 
-    @Argument(shortName = "rs", fullName = "refSeq", doc = "RefGene file", required = true)
+    @Input(shortName = "rs", fullName = "refSeq", doc = "RefGene file", required = true)
     public RodBinding<RefSeqFeature> refSeqRodBinding;
 
     @Argument(shortName = "fq",fullName = "outputFASTQ", doc = "the output FASTQ file", required = true)
