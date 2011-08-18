@@ -23,15 +23,16 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.gatk.walkers;
+package org.broadinstitute.sting.gatk.walkers.validation;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.commandline.*;
-import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
@@ -115,7 +116,7 @@ import static org.broadinstitute.sting.utils.IndelUtils.isInsideExtendedIndel;
  *
  *  <p>
  *      The <b>positive predictive value (PPV)</b> is the proportion of subjects with positive test results
- *      who are correctly diagnose.
+ *      who are correctly diagnosed.
  *  </p>
  *  <p>
  *      The <b>negative predictive value (NPV)</b> is the proportion of subjects with a negative test result
@@ -166,8 +167,8 @@ import static org.broadinstitute.sting.utils.IndelUtils.isInsideExtendedIndel;
  *      -T  GenotypeAndValidate
  *      -R human_g1k_v37.fasta
  *      -I myNewTechReads.bam
- *      -V handAnnotatedVCF.vcf
- *      -BTI variant
+ *      -alleles handAnnotatedVCF.vcf
+ *      -BTI alleles
  * </pre>
  *
  *      <li>
@@ -180,8 +181,8 @@ import static org.broadinstitute.sting.utils.IndelUtils.isInsideExtendedIndel;
  *      -T  GenotypeAndValidate
  *      -R human_g1k_v37.fasta
  *      -I myTruthDataset.bam
- *      -V callsToValidate.vcf
- *      -BTI variant
+ *      -alleles callsToValidate.vcf
+ *      -BTI alleles
  *      -bt
  *      -o gav.vcf
  * </pre>
@@ -203,8 +204,8 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
     @Output(doc="Generate a VCF file with the variants considered by the walker, with a new annotation \"callStatus\" which will carry the value called in the validation VCF or BAM file", required=false)
     protected VCFWriter vcfWriter = null;
 
-    @ArgumentCollection
-    protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
+    @Input(fullName="alleles", shortName = "alleles", doc="The set of alleles at which to genotype", required=true)
+    public RodBinding<VariantContext> alleles;
 
     @Argument(fullName ="set_bam_truth", shortName ="bt", doc="Use the calls on the reads (bam file) as the truth dataset and validate the calls on the VCF", required=false)
     private boolean bamIsTruth = false;
@@ -227,7 +228,6 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
     @Argument(fullName ="sample", shortName ="sn", doc="Name of the sample to validate (in case your VCF/BAM has more than one sample)", required=false)
     private String sample = "";
 
-    private String variantTrackName;
     private UnifiedGenotyperEngine snpEngine;
     private UnifiedGenotyperEngine indelEngine;
 
@@ -262,11 +262,10 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
     //---------------------------------------------------------------------------------------------------------------
 
     public void initialize() {
-        variantTrackName = variantCollection.variants.getName();
 
         // Initialize VCF header
         if (vcfWriter != null) {
-            Map<String, VCFHeader> header = VCFUtils.getVCFHeadersFromRodPrefix(getToolkit(), variantTrackName);
+            Map<String, VCFHeader> header = VCFUtils.getVCFHeadersFromRodPrefix(getToolkit(), alleles.getName());
             Set<String> samples = SampleUtils.getSampleList(header, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE);
             Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(header.values(), logger);
             headerLines.add(new VCFHeaderLine("source", "GenotypeAndValidate"));
@@ -276,6 +275,7 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
         // Filling in SNP calling arguments for UG
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
         uac.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES;
+        uac.alleles = alleles;
         if (!bamIsTruth) uac.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES;
         if (mbq >= 0) uac.MIN_BASE_QUALTY_SCORE = mbq;
         if (deletions >= 0) uac.MAX_DELETION_FRACTION = deletions;
@@ -307,7 +307,7 @@ public class GenotypeAndValidateWalker extends RodWalker<GenotypeAndValidateWalk
         if( tracker == null )
             return counter;
 
-        VariantContext vcComp = tracker.getFirstValue(variantCollection.variants);
+        VariantContext vcComp = tracker.getFirstValue(alleles);
         if( vcComp == null )
             return counter;
 
