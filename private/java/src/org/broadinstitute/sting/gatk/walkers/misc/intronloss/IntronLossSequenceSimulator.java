@@ -181,16 +181,16 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
     private FastqRecord[] generateFastqFromSequence(String seq, int offset, int seqOutput) {
         FastqRecord[] toRet;
         int insert = generateInsertSize();
-        boolean widowed = offset + insert < 0 || offset + insert > seq.length();
-        String readName = String.format("%s:%d%s",seqPrefix,seqOutput, widowed ? "" : " 1:Y:0:ATGCGC");
+        boolean widowed = (offset + insert) < 0 || (offset + insert) > seq.length();
+        String readName = String.format("%s:%d%s",seqPrefix,seqOutput, widowed ? "" : " 1:N:0:ATGCGC");
         Pair<String,String> readSequence = generateReadSequence(seq,offset,insert<0);
         FastqRecord record = new FastqRecord(readName,readSequence.first,readName,readSequence.second);
         if ( widowed ) {
             return new FastqRecord[]{ record };
         }
 
-        String mateName =  String.format("%s:%d%s",seqPrefix,seqOutput, "2:Y:0:ATGCGC");
-        Pair<String,String> mateSequence = generateReadSequence(seq,offset+insert,insert<0);
+        String mateName =  String.format("%s:%d%s",seqPrefix,seqOutput, " 2:N:0:ATGCGC");
+        Pair<String,String> mateSequence = generateReadSequence(seq,offset+insert-READ_SIZE_BP,!(insert<0));
         FastqRecord mateRecord = new FastqRecord(mateName,mateSequence.first,mateName,mateSequence.second);
 
         return new FastqRecord[]{ record, mateRecord };
@@ -200,7 +200,7 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
         // todo -- be able to read this from a file
         int symmetricUnderlying = (int)( 260.5 +  GenomeAnalysisEngine.getRandomGenerator().nextGaussian()*30);
         int chiSquareAdd = (int) ( 20.5 + Math.pow(GenomeAnalysisEngine.getRandomGenerator().nextGaussian()*30,2) );
-        return symmetricUnderlying + chiSquareAdd;
+        return (GenomeAnalysisEngine.getRandomGenerator().nextBoolean() ? 1 : -1 ) * (symmetricUnderlying + chiSquareAdd);
     }
 
     private Pair<String,String> generateReadSequence(String base, int offset, boolean reverseComplement) {
@@ -211,7 +211,7 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
         StringBuffer qualSeq = new StringBuffer();
         for ( char b : rawSeq.toCharArray() ) {
             // qual: normal with mean 25, SD 10, quantized by rounding to nearest number
-            byte qual = (byte) ( (int) 25.5 + GenomeAnalysisEngine.getRandomGenerator().nextGaussian()*10 );
+            byte qual = (byte) ( Math.min(40,Math.max(2,(int) 25.5 + GenomeAnalysisEngine.getRandomGenerator().nextGaussian()*10 )));
             char observedB;
             if ( GenomeAnalysisEngine.getRandomGenerator().nextDouble() < QualityUtils.qualToErrorProb(qual) ) {
                 observedB = (char) BaseUtils.baseIndexToSimpleBase(BaseUtils.getRandomBaseIndex(BaseUtils.simpleBaseToBaseIndex((byte) b)));
@@ -219,7 +219,7 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
                 observedB = b;
             }
             newSeq.append(observedB);
-            qualSeq.append((char) (qual + 33));
+            qualSeq.append((char) (qual + 64));
         }
 
         String newSeqStr = newSeq.toString();
