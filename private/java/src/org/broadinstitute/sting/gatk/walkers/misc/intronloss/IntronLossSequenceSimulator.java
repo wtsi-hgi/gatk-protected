@@ -65,7 +65,7 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
     @Argument(fullName = "sequencePrefix", required = false, doc = "")
     public String seqPrefix = "ILSS-SRR";
 
-    private static final int AVG_CVG_PER_CHR_POISSON = 10;
+    private static final int AVG_CVG_PER_CHR_POISSON = 15;
     private static final int READ_SIZE_BP = 76;
 
     private FastqWriter writer;
@@ -131,7 +131,7 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
     public void onTraversalDone(List<Pair<GenomeLoc,Pair<StringBuffer,StringBuffer>>> sequenceByGene) {
         for ( Pair<GenomeLoc,Pair<StringBuffer,StringBuffer>> genePair : sequenceByGene ) {
             String intronLossStr = genePair.second.first.toString();
-            String normalStr = genePair.second.first.toString();
+            String normalStr = genePair.second.second.toString();
             // todo -- generalize random process (uniform/poisson/etc)
             simulateSequencing(intronLossStr, normalStr, nVar, ploidy);
         }
@@ -148,6 +148,8 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
         if ( pSeq > 1.0 ) {
             throw new UserException("Cannot simulate to given coverage without introducing duplication");
         }
+
+        logger.debug(String.format("Normal length: %d Var Length: %d",normal.length(),loss.length()));
 
         int outputSequences = 0;
 
@@ -177,7 +179,8 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
     private FastqRecord[] generateFastqFromSequence(String seq, int offset, int seqOutput) {
         FastqRecord[] toRet;
         int insert = generateInsertSize();
-        boolean widowed = (offset + insert) < 0 || (offset + insert) > seq.length();
+        boolean widowed = (offset + insert - READ_SIZE_BP ) < 0 || (offset + insert) > seq.length();
+        logger.debug(String.format("seqSize: %d, offset: %d, insert: %d, widowed: %s",seq.length(),offset,insert,widowed));
         String readName = String.format("%s:%d%s",seqPrefix,seqOutput, widowed ? "" : " 1:N:0:ATGCGC");
         Pair<String,String> readSequence = generateReadSequence(seq,offset,insert<0);
         FastqRecord record = new FastqRecord(readName,readSequence.first,readName,readSequence.second);
@@ -195,7 +198,7 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
     private int generateInsertSize() {
         // todo -- be able to read this from a file
         int symmetricUnderlying = (int)( 260.5 +  GenomeAnalysisEngine.getRandomGenerator().nextGaussian()*30);
-        int chiSquareAdd = (int) ( 20.5 + Math.pow(GenomeAnalysisEngine.getRandomGenerator().nextGaussian()*30,2) );
+        int chiSquareAdd = (int) ( 0.5 + Math.pow(GenomeAnalysisEngine.getRandomGenerator().nextGaussian()*8,2) );
         return (GenomeAnalysisEngine.getRandomGenerator().nextBoolean() ? 1 : -1 ) * (symmetricUnderlying + chiSquareAdd);
     }
 
