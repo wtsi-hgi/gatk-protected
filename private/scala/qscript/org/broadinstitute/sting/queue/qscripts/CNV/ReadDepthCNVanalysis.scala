@@ -55,13 +55,8 @@ class ReadDepthCNVanalysis extends QScript {
 
   // A target has a list of samples and bam files to use for DoC
   class Target(val name: String, val samples: List[String], val bams: List[File]) {
-    var prefix: String = outputDoC.getParent()
-    if (prefix == null)
-      prefix = ""
-    else
-      prefix = prefix + "/"
-
-    def DoC_output = new File(prefix + name + "." + outputDoC.getName())
+    // getName() just includes the file name WITHOUT the path:
+    def DoC_output = new File(name + "." + outputDoC.getName())
 
     override def toString(): String = String.format("[Target %s [%s] with samples %s against bams %s]", name, DoC_output, samples, bams)
   }
@@ -109,16 +104,17 @@ class ReadDepthCNVanalysis extends QScript {
     @Gather(classOf[org.broadinstitute.sting.queue.function.scattergather.SimpleTextGatherFunction])
     var intervalSampleOut: File = new File(t.DoC_output.getPath() + DOC_OUTPUT_SUFFIX)
 
-    val outFile = new File(intervalSampleOut.getParentFile(), t.DoC_output.getName())
+    // The HACK for DoC to work properly within Queue:
+    val commandLineSuppliedOutputFilesPrefix = new File(intervalSampleOut.getParentFile(), t.DoC_output.getName())
 
     override def commandLine = super.commandLine +
       " --omitDepthOutputAtEachBase --omitLocusTable --minBaseQuality 0 --minMappingQuality " + minMappingQuality +
       " --start " + START_BIN + " --stop " + MAX_DEPTH + " --nBins " + NUM_BINS +
-      " -o " + outFile
+      " -o " + commandLineSuppliedOutputFilesPrefix
 
     override def dotString = "DOC: " + t.DoC_output
 
-    this.jobOutputFile = outFile + ".out"
+    this.jobOutputFile = commandLineSuppliedOutputFilesPrefix + ".out"
   }
 
   class combineDoC(DoCsToCombine: List[File]) extends CommandLineFunction {
@@ -130,7 +126,7 @@ class ReadDepthCNVanalysis extends QScript {
     @Output
     val outputDoCaverageCoverage: File = new File(outputDoC.getPath + DOC_MEAN_COVERAGE_OUTPUT)
 
-    var command: String = "~fromer/CNV/wave1+2/scripts/mergeDoC.pl -gatk " + qscript.gatkJarFile.getPath.replaceFirst("dist/GenomeAnalysisTK.jar", "") + " -ref " + qscript.referenceFile + " -out " + outputDoCaverageCoverage
+    var command: String = "~fromer/CNV/scz_cc/scripts/mergeDoC.pl -gatk " + qscript.gatkJarFile.getPath.replaceFirst("dist/GenomeAnalysisTK.jar", "") + " -ref " + qscript.referenceFile + " -out " + outputDoCaverageCoverage
     for (input <- inputDoCfiles) {
       command += " " + input
     }
