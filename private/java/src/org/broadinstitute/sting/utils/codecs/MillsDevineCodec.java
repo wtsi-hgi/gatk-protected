@@ -169,7 +169,7 @@ public class MillsDevineCodec implements FeatureCodec {
 	*/  return vc;
     }
 
-    public Class getFeatureType() {
+    public Class<VariantContext> getFeatureType() {
         return VariantContext.class;
     }
 
