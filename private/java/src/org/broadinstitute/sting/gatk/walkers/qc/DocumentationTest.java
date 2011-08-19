@@ -76,6 +76,9 @@ public class DocumentationTest extends RodWalker<Integer, Integer> {
     @Argument(shortName="optionalArgWithMissinglessDefault", doc="One or more criteria to use when selecting the data.  Evaluated *after* the specified samples are extracted and the INFO-field annotations are updated.", required=false)
     public ArrayList<String> SELECT_EXPRESSIONS = new ArrayList<String>();
 
+    @Argument(shortName="AAAAA", fullName = "AAAAA", doc="Should be the first argument", required=false)
+    public boolean FIRST_ARG = false;
+
     @Advanced
     @Argument(fullName="booleanArg", shortName="env", doc="Don't include loci found to be non-variant after the subsetting procedure.", required=false)
     private boolean EXCLUDE_NON_VARIANTS = false;
