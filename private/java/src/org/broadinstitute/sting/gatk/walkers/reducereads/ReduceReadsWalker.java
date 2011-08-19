@@ -44,6 +44,7 @@ import org.broadinstitute.sting.utils.clipreads.ClippingRepresentation;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
+import org.broadinstitute.sting.utils.sam.SimplifyingSAMFileWriter;
 
 import javax.sound.sampled.Clip;
 import java.io.PrintStream;
@@ -167,6 +168,8 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Override
     public SAMRecord map( ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker ) {
         totalReads++;
+        read = SimplifyingSAMFileWriter.simplifyRead(read);
+
         ReadClipper clipper = new ReadClipper(read);
 
         System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
