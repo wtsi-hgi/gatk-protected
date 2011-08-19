@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.utils.codecs.soapsnp;
+package org.broadinstitute.sting.utils.codecs;
 
 import org.broad.tribble.Feature;
 import org.broad.tribble.FeatureCodec;

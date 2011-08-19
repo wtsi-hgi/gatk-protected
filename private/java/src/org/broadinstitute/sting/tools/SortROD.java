@@ -38,8 +38,8 @@ import org.broad.tribble.readers.AsciiLineReader;
 import org.broadinstitute.sting.gatk.features.maf.MafCodec;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.codecs.completegenomics.CGVarCodec;
-import org.broadinstitute.sting.utils.codecs.soapsnp.SoapSNPCodec;
+import org.broadinstitute.sting.utils.codecs.CGVarCodec;
+import org.broadinstitute.sting.utils.codecs.SoapSNPCodec;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 

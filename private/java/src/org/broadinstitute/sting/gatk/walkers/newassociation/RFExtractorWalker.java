@@ -30,8 +30,8 @@ import java.util.*;
  * Time: 1:48 PM
  * To change this template use File | Settings | File Templates.
  */
-@ReadFilters({MaxInsertSizeFilter.class,MappingQualityReadFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckReadFilter.class,
-        NotPrimaryAlignmentReadFilter.class,UnmappedReadFilter.class,AddAberrantInsertTagFilter.class})
+@ReadFilters({MaxInsertSizeFilter.class,MappingQualityFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class,
+        NotPrimaryAlignmentFilter.class,UnmappedReadFilter.class,AddAberrantInsertTagFilter.class})
 @By(DataSource.REFERENCE)
 public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
 
