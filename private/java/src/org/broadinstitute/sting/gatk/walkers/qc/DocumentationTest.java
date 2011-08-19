@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.qc;
 
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -56,8 +57,11 @@ public class DocumentationTest extends RodWalker<Integer, Integer> {
     @Input(fullName="optionalRodBindingWithoutDefault", shortName = "optionalRodBindingWithoutDefault", doc="Output variants that were also called in this Feature comparison track", required=false)
     private RodBinding<VariantContext> noDefaultOptionalRodBinding;
 
-    @Input(fullName="optionalRodBindingWithoutDefaultNull", shortName = "optionalRodBindingWithoutDefaultNull", doc="Output variants that were also called in this Feature comparison track", required=false)
+    @Input(fullName="optionalRodBindingWithoutDefaultNull", shortName = "shortTest", doc="Output variants that were also called in this Feature comparison track", required=false)
     private RodBinding<VariantContext> noDefaultOptionalRodBindingNull = null;
+
+    @Input(fullName="featureArg", shortName = "featureArg", doc="A RodBinding of feature", required=false)
+    private RodBinding<Feature> featureArg = null;
 
     @Output(doc="VCFWriter",required=true)
     protected VCFWriter vcfWriter = null;
@@ -73,6 +77,18 @@ public class DocumentationTest extends RodWalker<Integer, Integer> {
 
     @Argument(fullName="booleanArg", shortName="env", doc="Don't include loci found to be non-variant after the subsetting procedure.", required=false)
     private boolean EXCLUDE_NON_VARIANTS = false;
+
+    @Argument(fullName="booleanArray", shortName="booleanArray", doc="x", required=false)
+    private boolean[] boolArray = null;
+
+    @Argument(fullName="enumTest", shortName="enumTest", doc="Test enum", required=false)
+    private TestEnum TestEnumArg = TestEnum.ENUM2;
+    private enum TestEnum {
+        /** Docs for enum1 */
+        ENUM1,
+        /** Docs for enum2 */
+        ENUM2
+    }
 
     @Hidden
     @Argument(fullName="hiddenArg", shortName="keepAF", doc="Don't include loci found to be non-variant after the subsetting procedure.", required=false)
