@@ -14,7 +14,7 @@ class PostCallingQC extends QScript {
   @Argument(shortName = "R", doc="ref", required=false)
   var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
 
-  // todo  -- should accept argument list as well
+  // todo  -- should accept separate indel and snp vcf's, right now script will assume they're combined in one
   @Argument(shortName = "eval", doc="VCFs to evaluate", required=true)
   var evalVCFs: List[File]= _
 

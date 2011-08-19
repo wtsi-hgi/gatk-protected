@@ -146,20 +146,23 @@ summaryPlots <- function(metricsBySites) {
   name = "Transition / transversion ratio by allele count"
   # nSNPs > 0 => requires that we have some data here, otherwise Ti/Tv is zero from VE  
   minSNPsToInclude = 0
-  byACNoAll = subset(metricsBySites$byAC$TiTvVariantEvaluator, Novelty != "all" & AC > 0 & nSNPs > minSNPsToInclude)
-  p <- ggplot(data=byACNoAll, aes(x=AC, y=tiTvRatio, color=Novelty))
-  p <- p + scale_y_continuous("Transition / transversion ratio", limits=c(0,4))
-  p <- p + opts(title = name)
-  p <- p + geom_smooth(size=2)
-  p <- p + geom_point(aes(size=log10(nSNPs), weight=nSNPs), alpha=0.5)
-  p <- p + scale_x_continuous("Allele count (AC)")
-  p2 <- p + scale_x_log10("Allele count (AC)")
-  p2 <- p2 + opts(title = "")
-  distributePerSampleGraph(p2, p, c(1,1))
-  
-  # SNPs to indels ratio by allele frequency
+  print(head(metricsBySites$byAC$TiTvVariantEvaluator))
+  if (sum(metricsBySites$byAC$TiTvVariantEvaluator$nSNPs) > 0) {
+    byACNoAll = subset(metricsBySites$byAC$TiTvVariantEvaluator, Novelty != "all" & AC > 0 & nSNPs > minSNPsToInclude)
+    p <- ggplot(data=byACNoAll, aes(x=AC, y=tiTvRatio, color=Novelty))
+    p <- p + scale_y_continuous("Transition / transversion ratio", limits=c(0,4))
+    p <- p + opts(title = name)
+    p <- p + geom_smooth(size=2)
+    p <- p + geom_point(aes(size=log10(nSNPs), weight=nSNPs), alpha=0.5)
+    p <- p + scale_x_continuous("Allele count (AC)")
+    p2 <- p + scale_x_log10("Allele count (AC)")
+    p2 <- p2 + opts(title = "")
+    distributePerSampleGraph(p2, p, c(1,1))
+  }
+ 
+ # SNPs to indels ratio by allele frequency
  name = "SNPs to indels ratio by allele frequency" 
- if ( sum(metricsBySites$byAC$CountVariants$nIndels) > 0 ) {
+ if ( sum(metricsBySites$byAC$CountVariants$nIndels) > 0 & sum(metricsBySites$byAC$CountVariants$nSNPs) > 0 ) {
    metricsBySites$byAC$CountVariants$SNP.Indel.Ratio = metricsBySites$byAC$CountVariants$nSNPs / metricsBySites$byAC$CountVariants$nIndels
    metricsBySites$byAC$CountVariants$SNP.Indel.Ratio[metricsBySites$byAC$CountVariants$nIndels == 0] = NaN
    p <- ggplot(data=subset(metricsBySites$byAC$CountVariants, Novelty == "all" & nSNPs > 0), aes(x=AC, y=SNP.Indel.Ratio))
@@ -172,13 +175,15 @@ summaryPlots <- function(metricsBySites) {
  }
   
   name = "SNP counts by functional class" 
-  molten = melt(subset(metricsBySites$bySite$CountVariants, Novelty != "all" & FunctionalClass != "all"), id.vars=c("Novelty", "FunctionalClass"), measure.vars=c(c("nSNPs")))
-  if ( sum(molten$value) > 0 ) {
-    p <- ggplot(data=molten, aes(x=FunctionalClass, y=value, fill=Novelty), group=FunctionalClass)
-    p <- p + opts(title = name)
-    p <- p + scale_y_log10("No. of SNPs")
-    p <- p + geom_bar(position="dodge")
-    print(p)
+  if (sum(metricsBySites$byAC$CountVariants$nSNPs) > 0) {
+    molten = melt(subset(metricsBySites$bySite$CountVariants, Novelty != "all" & FunctionalClass != "all"), id.vars=c("Novelty", "FunctionalClass"), measure.vars=c(c("nSNPs")))
+    if ( sum(molten$value) > 0 ) {
+      p <- ggplot(data=molten, aes(x=FunctionalClass, y=value, fill=Novelty), group=FunctionalClass)
+      p <- p + opts(title = name)
+      p <- p + scale_y_log10("No. of SNPs")
+      p <- p + geom_bar(position="dodge")
+      print(p)
+    }
   }
 }
 

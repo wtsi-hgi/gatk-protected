@@ -63,8 +63,14 @@ class WholeGenomeIndelCalling extends QScript {
   @Argument(shortName = "intervals", doc="intervals", required=false)
   val myIntervals: String = null;
 
+  @Argument(shortName = "doOnlyVQSR", doc="doOnlyVQSR", required=false)
+  val doOnlyVQSR: Boolean = false;
+
   val chromosomeLength = List(249250621,243199373,198022430,191154276,180915260,171115067,159138663,146364022,141213431,135534747,135006516,133851895,115169878,107349540,102531392,90354753,81195210,78077248,59128983,63025520,48129895,51304566,155270560)
   //  val chromosomeLength = List(249250621,243199373,198022430,191154276,180915260,171115067,159138663,146364022,141213431,135534747,135006516,133851895,115169878,107349540,102531392,90354753,81195210,78077248,59128983,3000000,48129895,51304566,155270560)
+  val COMP_MULLIKIN =  "/humgen/gsa-hpprojects/GATK/data/Comparisons/StandardForEvaluation/b37/comps/NA12878.DIPline.NQScm.expanded.chr20.b37.minReads_2_or_gt2bp.vcf"
+  val COMP_MILLS =  "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Mills_Devine_Indels_2011/ALL.wgs.indels_mills_devine_hg19_leftAligned_collapsed_double_hit.sites.vcf"
+  val COMP_MILLS_CHIP =  "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Mills_Devine_Indels_2011/indel_genotype_data_hg19_annotated_polymorphic.vcf"
 
   private var pipeline: Pipeline = _
   private val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/data/dbsnp_132_b37.leftAligned.vcf")
@@ -74,8 +80,9 @@ class WholeGenomeIndelCalling extends QScript {
     this.reference_sequence = qscript.reference
     this.memoryLimit = Some(2)
     this.jobQueue = qscript.jobQueue
-    this.intervalsString = List(myIntervals);
-
+    if (qscript.myIntervals != null) {
+      this.intervalsString = List(myIntervals);
+    }
   }
 
   def script = {
@@ -96,7 +103,9 @@ class WholeGenomeIndelCalling extends QScript {
      callIndels.input_file :+= qscript.bamList
 //     callIndels.nt=Some(qscript.nt)
 
-    add(callIndels)
+    if (!qscript.doOnlyVQSR) {
+      add(callIndels)
+    }
 
     val vr = new VariantRecalibrator with CommandLineGATKArgs
     vr.input :+= callIndels.out
@@ -106,16 +115,10 @@ class WholeGenomeIndelCalling extends QScript {
     //vr.trustAllPolymorphic = true
     vr.mode = VariantRecalibratorArgumentCollection.Mode.INDEL
 
-//    vr.use_annotation = List("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum","FS","InbreedingCoeff")
+//    vr.use_annotation = List("QD", "HaplotypeScore",  "ReadPosRankSum","FS","InbreedingCoeff")
    // todo - InbreedingCoeff not appropriate for single sample calling, should be extended to command line argument
     vr.use_annotation = List("QD", "HaplotypeScore",  "ReadPosRankSum","FS")
-    vr.TStranche = List(
-      "100.0", "99.9",
-      "99.0",
-      "98.0",
-      "97.0",
-      "95.0",
-      "90.0")
+    vr.TStranche = List("99.0", "97.0","95.0")
     vr.tranches_file = projectBase + ".tranches"
     vr.recal_file = projectBase + ".recal"
     vr.rscriptFile = projectBase + ".plots.R"
@@ -145,10 +148,14 @@ class WholeGenomeIndelCalling extends QScript {
       eval.dbsnp = qscript.dbSNP
       eval.doNotUseAllStandardStratifications = true
       eval.doNotUseAllStandardModules = true
-      eval.evalModule = List("SimpleMetricsByAC", "CountVariants")
-      eval.stratificationModule = List("EvalRod", "CompRod", "Novelty")
+      eval.evalModule = List("SimpleMetricsByAC", "CountVariants","CompOverlap")
+      eval.stratificationModule = List("EvalRod", "CompRod", "Novelty","Sample")
       eval.out = swapExt(ar.out, ".vcf", ".eval")
       eval.jobOutputFile = eval.out + ".out"
+      eval.comp :+= new TaggedFile(COMP_MILLS,"Mills")
+      eval.comp :+= new TaggedFile(COMP_MILLS_CHIP,"MillsChip")
+      eval.comp :+= new TaggedFile(COMP_MULLIKIN,"Mullikin")
+
       eval.memoryLimit = 32
       add(eval)
     }
