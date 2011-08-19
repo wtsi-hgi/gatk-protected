@@ -2,10 +2,12 @@ package oneoffs.depristo
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.samtools.SamtoolsIndexFunction
-import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.function.JavaCommandLineFunction
+import org.broadinstitute.sting.queue.extensions.gatk._
 
 class PostCallingQC extends QScript {
+  qscript =>
+
   @Argument(doc="gatkJarFile", required=false)
   var gatkJarFile: File = new File("/home/radon01/depristo/dev/GenomeAnalysisTK/trunk/dist/GenomeAnalysisTK.jar")
 
@@ -25,11 +27,15 @@ class PostCallingQC extends QScript {
   @Argument(shortName = "dbSNP", doc="dbSNP", required=false)
   val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_132.b37.vcf")
 
+  @Argument(shortName = "nt", doc="nt", required=false)
+  val nt: Int = 1;
+
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO";
     this.jarFile = gatkJarFile;
     this.reference_sequence = referenceFile;
     this.memoryLimit = 4
+    this.jobQueue = "gsa"
   }
 
   // TODO -- should include "standard" eval for plotting expectations
@@ -59,13 +65,14 @@ class PostCallingQC extends QScript {
     eval.out = swapExt(evalVCF,".vcf", prefix + ".eval")
     eval.evalModule = evalModules
     eval.stratificationModule = List("EvalRod", "CompRod", "Novelty") ::: extraStrats
+    eval.nt = qscript.nt
     add(eval)
   }
 
   class Eval(@Input vcf: File) extends VariantEval with UNIVERSAL_GATK_ARGS {
-    this.rodBind :+= RodBind("eval", "VCF", vcf)
+    this.eval :+= TaggedFile(vcf,":VCF")
     if ( dbSNP.exists() )
-      this.rodBind :+= RodBind("dbsnp", "VCF", dbSNP)
+      this.dbsnp = dbSNP
     this.doNotUseAllStandardStratifications = true
     this.doNotUseAllStandardModules = true
     this.intervalsString = List(myIntervals);
