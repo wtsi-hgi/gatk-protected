@@ -36,7 +36,27 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * a codec for the VAR file types produced by the Complete Genomics Institute
+ * TODO ERIC BANKS
+ *
+ * <p>
+ * A codec for the VAR file types produced by the Complete Genomics Institute
+ * </p>
+ *
+ * <p>
+ * See also: @see <a href="http://vcftools.sourceforge.net/specs.html">VCF specification</a><br>
+ * </p>
+
+ * </p>
+ *
+ * <h2>File format example</h2>
+ * <pre>
+ *     line 1
+ *     line 2
+ *     line 3
+ * </pre>
+ *
+ * @author Eric Banks
+ * @since 2010
  */
 public class CGVarCodec implements FeatureCodec {
 

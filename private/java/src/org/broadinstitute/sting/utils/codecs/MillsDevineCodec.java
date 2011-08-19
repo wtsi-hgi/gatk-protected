@@ -28,7 +28,6 @@ package org.broadinstitute.sting.utils.codecs;
 import org.broad.tribble.Feature;
 import org.broad.tribble.FeatureCodec;
 import org.broad.tribble.readers.LineReader;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
@@ -39,7 +38,27 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
+ * TODO GUILLERMO DEL ANGEL
+ *
+ * <p>
  * a codec for the Mills/Devine indel tables from GR 2011 paper
+ * </p>
+ *
+ * <p>
+ * See also: @see <a href="http://vcftools.sourceforge.net/specs.html">VCF specification</a><br>
+ * </p>
+
+ * </p>
+ *
+ * <h2>File format example</h2>
+ * <pre>
+ *     line 1
+ *     line 2
+ *     line 3
+ * </pre>
+ *
+ * @author Guillermo del Angel
+ * @since 2010
  */
 public class MillsDevineCodec implements FeatureCodec {
 

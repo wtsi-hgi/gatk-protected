@@ -13,30 +13,54 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import java.util.*;
 
 /**
- * @author depristo
- *         <p/>
- *         a codec for parsing soapsnp files (see http://soap.genomics.org.cn/soapsnp.html#usage2)
- *         <p/>
+ * A codec for parsing soapsnp files
  *
- * A simple text file format with the following whitespace separated fields:
+ * <p>
+ * A simple text file format with the following whitespace separated fields of 17 columns:
+ * <ol>
+ *     <li>Chromosome ID</li>
+ *     <li>Coordinate on chromosome, start from 1</li>
+ *     <li>Reference genotype</li>
+ *     <li>Consensus genotype</li>
+ *     <li>Quality score of consensus genotype</li>
+ *     <li>Best base</li>
+ *     <li>Average quality score of best base</li>
+ *     <li>Count of uniquely mapped best base</li>
+ *     <li>Count of all mapped best base</li>
+ *     <li>Second best bases</li>
+ *     <li>Average quality score of second best base</li>
+ *     <li>Count of uniquely mapped second best base</li>
+ *     <li>Count of all mapped second best base</li>
+ *     <li>Sequencing depth of the site</li>
+ *     <li>Rank sum test p_value</li>
+ *     <li>Average copy number of nearby region</li>
+ *     <li>Whether the site is a dbSNP</li>
+ * </ol>
+ * Note this codec is for internal use only, and is not supported outside of GSA.
+ * </p>
  *
-1)  Chromosome ID
-2)  Coordinate on chromosome, start from 1
-3)  Reference genotype
-4)  Consensus genotype
-5)  Quality score of consensus genotype
-6)  Best base
-7)  Average quality score of best base
-8)  Count of uniquely mapped best base
-9)  Count of all mapped best base
-10) Second best bases
-11) Average quality score of second best base
-12) Count of uniquely mapped second best base
-13) Count of all mapped second best base
-14) Sequencing depth of the site
-15) Rank sum test p_value
-16) Average copy number of nearby region
-17) Whether the site is a dbSNP.
+ * <p>
+ * See also: @see <a href="http://soap.genomics.org.cn/soapsnp.html#usage2">SOAPSNP usage page</a><br>
+ * </p>
+
+ * </p>
+ *
+ * <h2>File format example</h2>
+ * <pre>
+ *     chr1    205     A       C       2       C       18      2       2       A       0       0       0       2       2       1.00000 1.00000 0
+ *     chr1    492     C       Y       19      T       34      2       2       C       34      1       1       3       3       0.666667        1.00000 1
+ *     chr1    1540    G       C       3       C       34      2       2       G       0       0       1       3       3       1.00000 1.33333 0
+ *     chr1    1555    A       C       3       C       33      2       2       A       0       0       0       2       2       1.00000 1.00000 0
+ *     chr1    4770    A       G       14      G       33      6       8       A       0       0       3       11      11      1.00000 1.54545 0
+ *     chr1    4793    A       G       17      G       33      7       8       A       0       0       3       11      11      1.00000 1.45455 0
+ *     chr1    126137  C       S       0       G       34      1       1       C       0       0       1       2       2       0.00000 1.50000 0
+ *     chr1    218136  G       R       36      G       34      32      378     A       34      7       58      436     436     0.507135        1.91055 0
+ *     chr1    218178  G       R       54      G       33      44      655     A       34      9       185     841     841     0.504643        1.93698 0
+ *     chr1    218326  G       S       20      G       33      100     1665    C       33      7       60      1727    1727    0.462359        1.93804 0
+ * </pre>
+ *
+ * @author Mark DePristo
+ * @since 2010
  */
 public class SoapSNPCodec implements FeatureCodec, NameAwareCodec {
     private String[] parts;
