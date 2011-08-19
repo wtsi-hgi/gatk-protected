@@ -5,8 +5,8 @@ import net.sf.samtools.SAMSequenceRecord;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
-import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckReadFilter;
-import org.broadinstitute.sting.gatk.filters.NotPrimaryAlignmentReadFilter;
+import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
+import org.broadinstitute.sting.gatk.filters.NotPrimaryAlignmentFilter;
 import org.broadinstitute.sting.gatk.filters.UnmappedReadFilter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
@@ -60,7 +60,7 @@ import java.util.*;
  * @since 7/23/11
  */
 
-@ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentReadFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckReadFilter.class})
+@ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
 public class ContigStatsWalker extends ReadWalker<SAMRecord, ContigStatsWalker.ContigStats> {
 
     @Output(required = false)
