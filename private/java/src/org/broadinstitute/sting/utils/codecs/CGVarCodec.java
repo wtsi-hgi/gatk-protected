@@ -36,7 +36,36 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * a codec for the VAR file types produced by the Complete Genomics Institute
+ * A codec for the VAR file types produced by the Complete Genomics Institute
+ *
+ * <p>
+ * The format specifies variation for a single sample per file.
+ * The format includes several standard fields, but only the first eight appear to always be present.
+ * Two lines per locus for variants, one for each haplotype.
+ * </p>
+ *
+ * <p>
+ * See also: @see <a href="http://vcftools.sourceforge.net/specs.html">VCF specification</a><br>
+ * </p>
+ *
+ * <h2>File format example</h2>
+ * <pre>
+ *  1138    2       all     chr1    50593   50653   ref     =       =
+ *  1139    2       1       chr1    50653   50654   snp     A       G       108             dbsnp.100:rs2691283
+ *  1139    2       2       chr1    50653   50654   snp     A       G       108             dbsnp.100:rs2691283
+ *  1140    2       all     chr1    50654   50691   ref     =       =
+ *  1141    2       1       chr1    50691   50692   ref     C       C       103
+ *  1141    2       2       chr1    50691   50692   snp     C       T       66              dbsnp.100:rs2691284
+ *  1142    2       all     chr1    50692   51050   ref     =       =
+ *  1143    2       all     chr1    51050   51085   no-call =       ?
+ *  1144    2       all     chr1    51085   51152   ref     =       =
+ *  1145    2       1       chr1    51152   51152   ins             G       47
+ *  1145    2       2       chr1    51152   51152   ins             G       118
+ *  1146    2       all     chr1    51152   51209   ref     =       =
+ * </pre>
+ *
+ * @author Eric Banks
+ * @since 2011
  */
 public class CGVarCodec implements FeatureCodec {
 

@@ -26,6 +26,7 @@ package org.broadinstitute.sting.gatk.walkers.qc;
 
 import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.*;
+import org.broadinstitute.sting.gatk.arguments.DbsnpArgumentCollection;
 import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -44,6 +45,13 @@ import java.util.*;
 public class DocumentationTest extends RodWalker<Integer, Integer> {
     // the docs for the arguments are in the collection
     @ArgumentCollection protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
+
+    /**
+     * dbSNP comparison VCF.  By default, the dbSNP file is used to specify the set of "known" variants.
+     * Other sets can be specified with the -knownName (--known_names) argument.
+     */
+    @ArgumentCollection
+    protected DbsnpArgumentCollection dbsnp = new DbsnpArgumentCollection();
 
     /**
      * detailed documentation about the argument goes here.
