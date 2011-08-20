@@ -157,6 +157,7 @@ class WholeGenomeIndelCalling extends QScript {
       eval.comp :+= new TaggedFile(COMP_MULLIKIN,"Mullikin")
 
       eval.memoryLimit = 32
+      eval.nt = 16
       add(eval)
     }
 
