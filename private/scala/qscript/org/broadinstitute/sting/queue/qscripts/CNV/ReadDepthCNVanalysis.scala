@@ -118,8 +118,6 @@ class ReadDepthCNVanalysis extends QScript {
   }
 
   class combineDoC(DoCsToCombine: List[File]) extends CommandLineFunction {
-    override def description = "Combines DoC outputs for multiple samples (at same loci)"
-
     @Input(doc = "")
     var inputDoCfiles: List[File] = DoCsToCombine
 
@@ -133,6 +131,8 @@ class ReadDepthCNVanalysis extends QScript {
     def commandLine = command
 
     // Since loading ALL of the output into the perl script can take significant memory:
-    this.memoryLimit = 9
+    this.memoryLimit = 24
+
+    override def description = "Combines DoC outputs for multiple samples (at same loci): " + command
   }
 }

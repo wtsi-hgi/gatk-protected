@@ -29,7 +29,7 @@ import java.util.*;
  */
 @Reference(window=@Window(start=-50,stop=50))
 public class TableToVCF extends RodWalker<VariantContext,Integer> {
-    @Input(shortName = "-t", fullName = "--table", doc = "The input table we will convert to VCF")
+    @Input(shortName = "t", fullName = "table", doc = "The input table we will convert to VCF")
     RodBinding<TableFeature> table;
 
     //final private String CNV_HEADER = "HEADER,loc,size,type";
