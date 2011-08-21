@@ -18,9 +18,22 @@ public class SlidingRead {
 
     public SlidingRead(SAMRecord read) {
         alignmentStart = read.getAlignmentStart();
+        trimmedLeft = 0;
+        trimmedRight = 0;
+
+        //get first cigar element, see if hard clipped
+        if (read.getCigar().getCigarElement(0).getOperator() == CigarOperator.HARD_CLIP)
+            trimmedLeft =  read.getCigar().getCigarElement(0).getLength();
+
+        // TODO make code concise
+        // get last cigar element, see if hard clipped
+        if (read.getCigar().getCigarElement(read.getCigar().getCigarElements().size() - 1) .getOperator() == CigarOperator.HARD_CLIP)
+            trimmedLeft =  read.getCigar().getCigarElement(0).getLength();
+
+
         this.read = read;
-        // todo We should have a SAMRecordMetadata class
-        // TODO add more field for cigar implementation, (unaligned start and end)
+
+        // TODO cigar implementation,we need to be Indel aware
         byte[] bases = read.getReadBases();
         byte[] quals = read.getBaseQualities();
 
@@ -72,6 +85,7 @@ public class SlidingRead {
             // TODO Cigar handling here
             while ( toRemove > 0 && !BasesAndQuals.isEmpty() ) {
                 BasesAndQuals.removeLast();
+                trimmedRight++;
                 toRemove--;
             }
         }
@@ -85,13 +99,36 @@ public class SlidingRead {
     public SAMRecord toSAMRecord() {
         if (this == null)
             return null;
-        SAMRecord output = read;
-        output.setReadBases(getBaseArray());
-        output.setBaseQualities(getQualArray());
-        output.setCigarString(String.format("%dM", getQualArray().length)); // TODO fix cigar string
-        output.setAlignmentStart(getAlignmentStart());
+        try {
+            SAMRecord output = (SAMRecord) read.clone();
+            output.setReadBases(getBaseArray());
+            output.setBaseQualities(getQualArray());
 
-        return output;  //To change body of created methods use File | Settings | File Templates.
+            List<CigarElement> cigar = output.getCigar().getCigarElements();
+
+            if (trimmedLeft > 0) {
+                // if the read already has hard clipped beginning, just add to it
+                // else prepend hard clip operator
+                if ( cigar.get(0).getOperator() == CigarOperator.HARD_CLIP )
+                    cigar.set( 0 , new CigarElement( cigar.get(0).getLength() + trimmedLeft, CigarOperator.HARD_CLIP ) );
+                else
+                    cigar.add(0, new CigarElement( trimmedLeft, CigarOperator.HARD_CLIP ));
+            }
+            if (trimmedRight > 0) {
+                // if the read already has hard clipped beginning, just add to it
+                // else append hard clip operator
+                if ( cigar.get(cigar.size() - 1).getOperator() == CigarOperator.HARD_CLIP )
+                    cigar.set( cigar.size() - 1 , new CigarElement( cigar.get(cigar.size() - 1).getLength() + trimmedRight, CigarOperator.HARD_CLIP ) );
+                else
+                    cigar.add(new CigarElement( trimmedLeft, CigarOperator.HARD_CLIP ));
+            }
+            // TODO we need a function that can add the hard clip notation using trimmed right and trimmed left
+            output.setCigar(new Cigar(cigar)); // TODO fix cigar string handling
+            output.setAlignmentStart(getAlignmentStart());
+            return output;
+        } catch (CloneNotSupportedException e) {
+                throw new RuntimeException(e); // this should never happen
+        }
     }
 
     public byte[] getBaseArray() {
@@ -130,6 +167,8 @@ public class SlidingRead {
     private LinkedList<BaseAndQual> BasesAndQuals = new LinkedList<BaseAndQual>();
     private int alignmentStart;
     private SAMRecord read;
+    private int trimmedLeft;
+    private int trimmedRight;
 
 
 
@@ -143,6 +182,7 @@ public class SlidingRead {
             // TODO Cigar handling here
             while ( toRemove > 0  && !BasesAndQuals.isEmpty() ) {
                 this.BasesAndQuals.pop();
+                trimmedLeft++;
                 toRemove--;
             }
             setAlignmentStart(position);
