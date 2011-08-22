@@ -21,15 +21,16 @@ public class SlidingRead {
         trimmedLeft = 0;
         trimmedRight = 0;
 
+        //This should not be needed
+        /*
         //get first cigar element, see if hard clipped
         if (read.getCigar().getCigarElement(0).getOperator() == CigarOperator.HARD_CLIP)
             trimmedLeft =  read.getCigar().getCigarElement(0).getLength();
 
-        // TODO make code concise
         // get last cigar element, see if hard clipped
         if (read.getCigar().getCigarElement(read.getCigar().getCigarElements().size() - 1) .getOperator() == CigarOperator.HARD_CLIP)
             trimmedLeft =  read.getCigar().getCigarElement(0).getLength();
-
+        */
 
         this.read = read;
 
@@ -104,13 +105,17 @@ public class SlidingRead {
             output.setReadBases(getBaseArray());
             output.setBaseQualities(getQualArray());
 
-            List<CigarElement> cigar = output.getCigar().getCigarElements();
+            List<CigarElement> cigar = new LinkedList<CigarElement>();
+            // This should make the list modifiable
+            for ( CigarElement i : output.getCigar().getCigarElements())
+                cigar.add(i);
+
 
             if (trimmedLeft > 0) {
                 // if the read already has hard clipped beginning, just add to it
                 // else prepend hard clip operator
                 if ( cigar.get(0).getOperator() == CigarOperator.HARD_CLIP )
-                    cigar.set( 0 , new CigarElement( cigar.get(0).getLength() + trimmedLeft, CigarOperator.HARD_CLIP ) );
+                    cigar.set(0, new CigarElement(cigar.get(0).getLength() + trimmedLeft, CigarOperator.HARD_CLIP));
                 else
                     cigar.add(0, new CigarElement( trimmedLeft, CigarOperator.HARD_CLIP ));
             }
@@ -120,7 +125,7 @@ public class SlidingRead {
                 if ( cigar.get(cigar.size() - 1).getOperator() == CigarOperator.HARD_CLIP )
                     cigar.set( cigar.size() - 1 , new CigarElement( cigar.get(cigar.size() - 1).getLength() + trimmedRight, CigarOperator.HARD_CLIP ) );
                 else
-                    cigar.add(new CigarElement( trimmedLeft, CigarOperator.HARD_CLIP ));
+                    cigar.add(new CigarElement( trimmedRight, CigarOperator.HARD_CLIP ));
             }
             // TODO we need a function that can add the hard clip notation using trimmed right and trimmed left
             output.setCigar(new Cigar(cigar)); // TODO fix cigar string handling
