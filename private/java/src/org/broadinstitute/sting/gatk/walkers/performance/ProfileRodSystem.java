@@ -137,7 +137,8 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             return 0;
 
         VariantContext vc = tracker.getFirstValue(rods, context.getLocation());
-        processOneVC(vc);
+        if ( vc != null )
+            processOneVC(vc);
 
         return 0;
     }
