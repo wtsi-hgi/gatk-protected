@@ -167,13 +167,13 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         read = SimplifyingSAMFileWriter.simplifyRead(read);
 
         ReadClipper clipper = new ReadClipper(read);
-
-        //System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
-
         byte [] bases = read.getReadBases();
+        //System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
+        /*
+
         for (byte base : bases) System.out.print((char)base);
         System.out.println();
-
+        */
         SAMRecord filteredRead = clipper.hardClipLowQualEnds(minTailQuality);
 
         if (clipper.wasClipped()) {
