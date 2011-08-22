@@ -225,11 +225,11 @@ public class SlidingWindow {
     }
 
     public List<SAMRecord> finalizeVariableRegion(VariableRegion variableRegion) {
-        System.out.println(String.format("INFO ######################### \n \n Finalizing Variable Region \n"));
+        //System.out.println(String.format(String.format("INFO ######################### \n \n Finalizing Variable Region: %d-%d ", variableRegion.start, variableRegion.end)));
         List<SAMRecord> output = new LinkedList<SAMRecord>();
 
         for ( SlidingRead read: SlidingReads ) {
-            SAMRecord SAM = read.trimToVariableRegion(variableRegion).toSAMRecord();
+            SAMRecord SAM = read.trimToVariableRegion(variableRegion);
             SAM.setReadName(SAM.getReadName()+".trim");
             if ( SAM.getReadLength() > 0 )
                 output.add(SAM);

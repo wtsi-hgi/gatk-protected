@@ -3,6 +3,7 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 import net.sf.samtools.*;
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 
 import java.util.*;
 
@@ -63,20 +64,32 @@ public class SlidingRead {
         this.alignmentStart = alignmentStart;
     }
 
-    public SlidingRead trimToVariableRegion(VariableRegion variableRegion) {
-        SlidingRead read = new SlidingRead(this.read);
+    public SAMRecord trimToVariableRegion(VariableRegion variableRegion) {
+        //SlidingRead read = new SlidingRead(this.read);
 
-        int start = getAlignmentStart();
-        int stop = getAlignmentStop();
+        int start = read.getAlignmentStart();
+        int stop = read.getAlignmentEnd();
+        SAMRecord clippedRead = read;
+
+        ReadClipper clipper = new ReadClipper(read);
+
+        //System.out.println(String.format("Read Span: %d-%d",clippedRead.getAlignmentStart(),clippedRead.getAlignmentEnd()));
+
+
 
         // check to see if read is contained in region
-        if ( start < variableRegion.end || stop > variableRegion.start ) {
+        if ( start < variableRegion.end && stop > variableRegion.start) {
+            if ( start < variableRegion.start && stop > variableRegion.end )
+                return clipper.hardClipBothEndsByReferenceCoordinates(variableRegion.start-1, variableRegion.end+1);
             if ( start < variableRegion.start )
-                read = read.clipStart(variableRegion.start);
+                clippedRead = clipper.hardClipByReferenceCoordinates(-1, variableRegion.start-1);
+                //read = read.clipStart(variableRegion.start);
             if ( stop > variableRegion.end )
-                read = read.clipEnd(variableRegion.end);
+                clippedRead = clipper.hardClipByReferenceCoordinates(variableRegion.end+1, -1);
+                //read = read.clipEnd(variableRegion.end);
+
         }
-        return read;
+        return clippedRead;
     }
     //makes position the last element in LL
     private SlidingRead clipEnd(int position) {
@@ -97,11 +110,21 @@ public class SlidingRead {
         return (getAlignmentStart() + BasesAndQuals.size() - 1 );
     }
 
+
     public SAMRecord toSAMRecord() {
+
+        //TODO add annotation requires
         if (this == null)
             return null;
+        if ( trimmedLeft != 0 || trimmedRight != 0 )
+            return null;
+
+
         try {
+
             SAMRecord output = (SAMRecord) read.clone();
+            //We assume the read has been appropriately hard clipped and is good to go.
+            /*
             output.setReadBases(getBaseArray());
             output.setBaseQualities(getQualArray());
 
@@ -130,10 +153,14 @@ public class SlidingRead {
             // TODO we need a function that can add the hard clip notation using trimmed right and trimmed left
             output.setCigar(new Cigar(cigar)); // TODO fix cigar string handling
             output.setAlignmentStart(getAlignmentStart());
+            */
+
             return output;
         } catch (CloneNotSupportedException e) {
                 throw new RuntimeException(e); // this should never happen
         }
+
+
     }
 
     public byte[] getBaseArray() {
