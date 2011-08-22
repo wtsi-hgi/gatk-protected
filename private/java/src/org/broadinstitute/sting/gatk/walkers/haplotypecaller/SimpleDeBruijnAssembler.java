@@ -21,10 +21,10 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private static final boolean DEBUG = true;
 
     // k-mer length
-    private static final int KMER_LENGTH = 9;
+    private static final int KMER_LENGTH = 19;
 
     // minimum base quality required in a contiguous stretch of a given read to be used in the assembly
-    private static final int MIN_BASE_QUAL_TO_USE = 20;
+    private static final int MIN_BASE_QUAL_TO_USE = 14;
 
     // minimum clipped sequence length to consider using
     private static final int MIN_SEQUENCE_LENGTH = 25;

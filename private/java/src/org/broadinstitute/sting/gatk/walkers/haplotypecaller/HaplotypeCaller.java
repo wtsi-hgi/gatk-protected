@@ -31,7 +31,9 @@ import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocSortedSet;
@@ -43,10 +45,8 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 
+@ReadFilters( {MappingQualityUnavailableFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class} )
 public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
-
-    protected static final int MIN_MAPPING_QUALITY = 20;
-
 
     @Output(doc="Base-space graph output", required=true)
     protected PrintStream graphWriter = null;
@@ -102,14 +102,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     }
 
     public SAMRecord map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
-        return currentInterval == null || doNotTryToAssemble(read) ? null : read;
-    }
-
-    private boolean doNotTryToAssemble(SAMRecord read) {
-        return read.getNotPrimaryAlignmentFlag() ||
-                read.getReadFailsVendorQualityCheckFlag() ||
-                read.getDuplicateReadFlag() ||
-                read.getMappingQuality() < MIN_MAPPING_QUALITY;
+        return currentInterval == null ? null : read;
     }
 
     public Integer reduceInit() {

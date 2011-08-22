@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.Collections;
 
 /**
  * Created by IntelliJ IDEA.
@@ -18,6 +19,8 @@ public class KBestPaths {
 
     // static access only
     protected KBestPaths() { }
+
+    protected static class MyInt { public int val = 0;}
 
     // class to keep track of paths
     protected static class Path {
@@ -73,17 +76,22 @@ public class KBestPaths {
 
         // run a DFS for best paths
         for ( DeBruijnVertex v : graph.vertexSet() ) {
-            if ( graph.inDegreeOf(v) == 0 )
+            if ( graph.inDegreeOf(v) == 0 ) {
                 findBestPaths(graph, new Path(v), k, bestPaths);
+            }
         }
 
         return new ArrayList<Path>(bestPaths);
     }
 
     private static void findBestPaths(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, Path path, int k, PriorityQueue<Path> bestPaths) {
+        findBestPaths(graph, path, k, bestPaths, new MyInt());
+    }
+
+    private static void findBestPaths(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, Path path, int k, PriorityQueue<Path> bestPaths, MyInt n) {
 
         // did we hit the end of a path?
-        if ( graph.outDegreeOf(path.lastVertex) == 0 ) {
+        if ( allOutgoingEdgesHaveBeenVisited(graph, path) ) {
             if ( bestPaths.size() < k ) {
                 bestPaths.add(path);
             } else if ( bestPaths.peek().totalScore < path.totalScore ) {
@@ -91,19 +99,33 @@ public class KBestPaths {
                 bestPaths.add(path);
             }
 
-            return;
-        }
+        } else if( n.val > 50000) {
+            // do nothing, just return
+        } else {
+            // recursively run DFS
+            ArrayList<DeBruijnEdge> edgeArrayList = new ArrayList<DeBruijnEdge>();
+            edgeArrayList.addAll(graph.outgoingEdgesOf(path.lastVertex));
+            Collections.sort(edgeArrayList);
+            Collections.reverse(edgeArrayList);
+            for ( DeBruijnEdge edge : edgeArrayList ) {
+                // make sure the edge is not already in the path
+                if ( (edgeArrayList.size() > 1 && edge.getMultiplicity() <= 1) || path.containsEdge(graph, edge) )
+                    continue;
 
-        // recursively run DFS
-        for ( DeBruijnEdge edge : graph.outgoingEdgesOf(path.lastVertex) ) {
+                Path newPath = new Path(path, graph, edge);
+                n.val++;
+                findBestPaths(graph, newPath, k, bestPaths, n);
 
-            // make sure the edge is not already in the path
-            if ( path.containsEdge(graph, edge) )
-                continue;
-
-            Path newPath = new Path(path, graph, edge);
-            findBestPaths(graph, newPath, k, bestPaths);
+            }
         }
     }
 
+    private static boolean allOutgoingEdgesHaveBeenVisited(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, Path path) {
+        for ( DeBruijnEdge edge : graph.outgoingEdgesOf(path.lastVertex) ) {
+            if ( !path.containsEdge(graph, edge) ) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

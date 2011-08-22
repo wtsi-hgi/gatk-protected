@@ -7,8 +7,9 @@ import org.jgrapht.graph.DefaultDirectedGraph;
  * User: ebanks
  * Date: Mar 23, 2011
  */
+
 // simple edge class for connecting nodes in the graph
-public class DeBruijnEdge {
+public class DeBruijnEdge implements Comparable<DeBruijnEdge> {
 
     private int multiplicity;
 
@@ -27,4 +28,9 @@ public class DeBruijnEdge {
     public boolean equals(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, DeBruijnEdge edge) {
         return (graph.getEdgeSource(this) == graph.getEdgeSource(edge)) && (graph.getEdgeTarget(this) == graph.getEdgeTarget(edge));
     }
+
+    public int compareTo(final DeBruijnEdge that) {
+        return this.multiplicity - that.multiplicity;
+    }
+
 }
