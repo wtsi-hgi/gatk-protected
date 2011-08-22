@@ -38,11 +38,13 @@ import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.PrintStream;
+import java.util.EnumSet;
 import java.util.List;
 
 /**
@@ -52,8 +54,8 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     @Output(doc="File to which results should be written",required=true)
     protected PrintStream out;
 
-    @Input(fullName="rod", shortName = "rod", doc="rod", required=true)
-    public RodBinding<VariantContext> rods;
+    @Input(fullName="vcf", shortName = "vcf", doc="vcf", required=true)
+    public RodBinding<VariantContext> vcf;
 
     @Argument(fullName="nIterations", shortName="N", doc="Number of raw reading iterations to perform", required=false)
     int nIterations = 1;
@@ -61,22 +63,47 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     @Argument(fullName="maxRecords", shortName="M", doc="Max. number of records to process", required=false)
     int MAX_RECORDS = -1;
 
+    @Argument(fullName="mode", shortName="mode", doc="What kind of profile should we do?", required=false)
+    public ProfileType profileType = ProfileType.ALL;
+
+    public enum ProfileType {
+        /** Run all tests available */
+        ALL,
+        /** Just test the low-level tribble I/O system */
+        JUST_TRIBBLE,
+        /** Just test decoding of the VCF file using the low-level tribble I/O system */
+        JUST_TRIBBLE_DECODE,
+        /** Just test the high-level GATK I/O system */
+        JUST_GATK
+    }
+
     SimpleTimer timer = new SimpleTimer("myTimer");
 
     public void initialize() {
-        File rodFile = getRodFile();
+        if ( getToolkit().getIntervals() != null )
+            throw new UserException.BadArgumentValue("intervals", "ProfileRodSystem cannot accept intervals");
 
-        out.printf("# walltime is in seconds%n");
-        out.printf("# file is %s%n", rodFile);
-        out.printf("# file size is %d bytes%n", rodFile.length());
-        out.printf("operation\titeration\twalltime%n");
-        for ( int i = 0; i < nIterations; i++ ) {
-            out.printf("read.bytes\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_BYTE));
-            out.printf("read.line\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_LINE));
-            out.printf("line.and.parts\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_PARTS));
-            out.printf("decode.loc\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE_LOC));
-            out.printf("full.decode\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE));
+        File rodFile = getRodFile();
+        if (EnumSet.of(ProfileType.ALL, ProfileType.JUST_TRIBBLE).contains(profileType)) {
+
+            out.printf("# walltime is in seconds%n");
+            out.printf("# file is %s%n", rodFile);
+            out.printf("# file size is %d bytes%n", rodFile.length());
+            out.printf("operation\titeration\twalltime%n");
+            for ( int i = 0; i < nIterations; i++ ) {
+                out.printf("read.bytes\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_BYTE));
+                out.printf("read.line\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_LINE));
+                out.printf("line.and.parts\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_PARTS));
+                out.printf("decode.loc\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE_LOC));
+                out.printf("full.decode\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE));
+            }
+        } else if ( profileType == ProfileType.JUST_TRIBBLE_DECODE ) {
+            out.printf("full.decode\t%d\t%.2f%n", 0, readFile(rodFile, ReadMode.DECODE));
         }
+
+
+        if ( EnumSet.of(ProfileType.JUST_TRIBBLE, ProfileType.JUST_TRIBBLE_DECODE).contains(profileType) )
+            System.exit(0);
 
         timer.start(); // start up timer for map itself
     }
@@ -136,7 +163,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        VariantContext vc = tracker.getFirstValue(rods, context.getLocation());
+        VariantContext vc = tracker.getFirstValue(vcf, context.getLocation());
         if ( vc != null )
             processOneVC(vc);
 
