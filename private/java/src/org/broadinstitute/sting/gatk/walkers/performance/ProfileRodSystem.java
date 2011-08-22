@@ -54,8 +54,8 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     @Output(doc="File to which results should be written",required=true)
     protected PrintStream out;
 
-    @Input(fullName="rod", shortName = "rod", doc="rod", required=true)
-    public RodBinding<VariantContext> rods;
+    @Input(fullName="vcf", shortName = "vcf", doc="vcf", required=true)
+    public RodBinding<VariantContext> vcf;
 
     @Argument(fullName="nIterations", shortName="N", doc="Number of raw reading iterations to perform", required=false)
     int nIterations = 1;
@@ -71,6 +71,8 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         ALL,
         /** Just test the low-level tribble I/O system */
         JUST_TRIBBLE,
+        /** Just test decoding of the VCF file using the low-level tribble I/O system */
+        JUST_TRIBBLE_DECODE,
         /** Just test the high-level GATK I/O system */
         JUST_GATK
     }
@@ -81,8 +83,8 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         if ( getToolkit().getIntervals() != null )
             throw new UserException.BadArgumentValue("intervals", "ProfileRodSystem cannot accept intervals");
 
+        File rodFile = getRodFile();
         if (EnumSet.of(ProfileType.ALL, ProfileType.JUST_TRIBBLE).contains(profileType)) {
-            File rodFile = getRodFile();
 
             out.printf("# walltime is in seconds%n");
             out.printf("# file is %s%n", rodFile);
@@ -95,9 +97,12 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
                 out.printf("decode.loc\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE_LOC));
                 out.printf("full.decode\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE));
             }
+        } else if ( profileType == ProfileType.JUST_TRIBBLE_DECODE ) {
+            out.printf("full.decode\t%d\t%.2f%n", 0, readFile(rodFile, ReadMode.DECODE));
         }
 
-        if ( profileType == ProfileType.JUST_TRIBBLE )
+
+        if ( EnumSet.of(ProfileType.JUST_TRIBBLE, ProfileType.JUST_TRIBBLE_DECODE).contains(profileType) )
             System.exit(0);
 
         timer.start(); // start up timer for map itself
@@ -158,7 +163,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        VariantContext vc = tracker.getFirstValue(rods, context.getLocation());
+        VariantContext vc = tracker.getFirstValue(vcf, context.getLocation());
         processOneVC(vc);
 
         return 0;
