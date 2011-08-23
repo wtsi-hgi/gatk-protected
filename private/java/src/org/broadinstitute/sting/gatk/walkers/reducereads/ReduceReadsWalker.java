@@ -167,7 +167,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         read = SimplifyingSAMFileWriter.simplifyRead(read);
 
         ReadClipper clipper = new ReadClipper(read);
-        byte [] bases = read.getReadBases();
+        //byte [] bases = read.getReadBases();
         //System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
         /*
 
@@ -178,9 +178,9 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
         if (clipper.wasClipped()) {
             //System.out.printf("******* WAS CLIPPED ***********\n");
-            bases = filteredRead.getReadBases();
-            for (byte base : bases) System.out.print((char)base);
-            System.out.println();
+            //bases = filteredRead.getReadBases();
+            //for (byte base : bases) System.out.print((char)base);
+            //System.out.println();
         }
 
         SAMRecord clippedRead = read;
@@ -188,11 +188,11 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
             clippedRead = hardClipReadToInterval(filteredRead);
 
         //System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
-
+        /*
         bases = clippedRead.getReadBases();
         for (byte base : bases) System.out.print((char)base);
         System.out.println();
-
+        */
         return clippedRead;
 
     }
@@ -219,6 +219,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
             for ( SAMRecord consensusRead : comp.addAlignment(read)) {
                 out.addAlignment(consensusRead);
                 //System.out.println(String.format("Output Read: %d-%d, Cigar: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));                nCompressedReads++;
+                nCompressedReads++;
             }
         }
         return comp;

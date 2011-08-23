@@ -141,8 +141,8 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
         waitingReads.add(read);
         */
-
-        int position = read.getAlignmentStart();
+        // This prevents a clipped tail from ruining the sliding window
+        int position = read.getUnclippedStart();
         //logger.info(String.format("Setting position to %d", position));
         slidingWindow.addRead(read);
 

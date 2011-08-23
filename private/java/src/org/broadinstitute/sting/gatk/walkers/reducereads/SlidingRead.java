@@ -87,9 +87,12 @@ public class SlidingRead {
             if ( stop > variableRegion.end )
                 clippedRead = clipper.hardClipByReferenceCoordinates(variableRegion.end+1, -1);
                 //read = read.clipEnd(variableRegion.end);
-
+            return clippedRead;
         }
-        return clippedRead;
+        // If read is not in interval, return blank read
+        else
+            return new SAMRecord(read.getHeader());
+
     }
     //makes position the last element in LL
     private SlidingRead clipEnd(int position) {

@@ -89,7 +89,13 @@ public class SlidingWindow {
             this.location = Location;
             this.isVariant = false;
         }
-        // TODO minMApQual filters and minBaseQual filters
+
+        public CountWithBase(int Location) {
+            this.counts = new BaseCounts();
+            this.location = Location;
+            this.isVariant = false;
+        }
+        // TODO minMapQual filters and minBaseQual filters
         public boolean addBase(byte base, byte qual) {
             // return true if a variant site was CREATED
             boolean result = false;
@@ -155,7 +161,13 @@ public class SlidingWindow {
             // move by the indexed amount
             for ( int j = 0; (j < index) && ( I.hasNext() ); j++ )
                 cBase = I.next();
-
+            /*
+            while ( j < index  ) {
+                countsWithBases.add( new CountWithBase(countsWithBases.getFirst().location + j));
+                cBase = I.next();
+                j++;
+            }
+            */
             // increment elements while they exist in the window, AND while you have reads
             // TODO FIX: If I does not have next, cBase is last element, but it never gets added
             while (  i < read.getReadLength()) {
@@ -231,8 +243,10 @@ public class SlidingWindow {
         for ( SlidingRead read: SlidingReads ) {
             SAMRecord SAM = read.trimToVariableRegion(variableRegion);
             SAM.setReadName(SAM.getReadName()+".trim");
-            if ( SAM.getReadLength() > 0 )
+            if ( SAM.getReadLength() > 0 ) {
                 output.add(SAM);
+                //System.out.println(String.format("Output Variable Read: %d-%d", SAM.getAlignmentStart(), SAM.getAlignmentEnd()));
+            }
         }
         slide(variableRegion.end+1);
         createRunningConsensus();
