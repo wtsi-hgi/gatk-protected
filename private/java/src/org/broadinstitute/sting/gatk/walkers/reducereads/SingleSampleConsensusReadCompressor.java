@@ -1,24 +1,11 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import com.google.java.contract.Ensures;
-import com.google.java.contract.Requires;
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.clipreads.ClippingOp;
-import org.broadinstitute.sting.utils.clipreads.ClippingRepresentation;
-import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.pileup.PileupElement;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
-import sun.management.counter.Variability;
 
 import java.util.*;
 
@@ -68,7 +55,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     private final static String RG_POSTFIX = ".ReducedReads";
 
     // todo  -- should merge close together spans
-    // TODO WE WANT TO PUT ALL function is SLlidingWindow
+    // TODO WE WANT TO PUT ALL functions is SlidingWindow
     // TODO comment out unused code
     private SAMFileHeader header;
     private final int readContextSize;
@@ -156,12 +143,13 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         */
 
         int position = read.getAlignmentStart();
-        logger.info(String.format("Setting position to %d", position));slidingWindow.addRead(read);
+        //logger.info(String.format("Setting position to %d", position));
+        slidingWindow.addRead(read);
 
         // did adding the read create variance?
         List<VariableRegion> variableRegions = slidingWindow.getVariableRegions(readContextSize);
         for ( VariableRegion variableRegion : variableRegions ) {
-            logger.info(String.format("Found a variable region : %d - %d", variableRegion.start, variableRegion.end) );
+            //logger.info(String.format("Found a variable region : %d - %d", variableRegion.start, variableRegion.end) );
             if ( (position - readContextSize) >= variableRegion.start ) {
                 result.addAll(slidingWindow.finalizeConsensusRead(variableRegion));
             }
@@ -170,9 +158,9 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
             }
         }
         if ( variableRegions.isEmpty() )
-            slidingWindow.compressWindow(position-readContextSize);
+            slidingWindow.addToConsensus(position - readContextSize);
         else
-            slidingWindow.compressWindow(Math.min( variableRegions.get(0).start, position - readContextSize ));
+            slidingWindow.addToConsensus(Math.min(variableRegions.get(0).start, position - readContextSize));
         return result;
     }
 
@@ -181,11 +169,11 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         // nothing needs ot happen
         LinkedList<SAMRecord> result = new LinkedList<SAMRecord>();
         for ( VariableRegion variableRegion : slidingWindow.getVariableRegions(readContextSize) ) {
-            logger.info(String.format("Variable region at close() : %d - %d", variableRegion.start, variableRegion.end) );
+            //logger.info(String.format("Variable region at close() : %d - %d", variableRegion.start, variableRegion.end) );
             result.addAll(slidingWindow.finalizeVariableRegion(variableRegion));
 
         }
-        logger.info(String.format("Finalizing LAST Consensus Read at %d", slidingWindow.getEnd()) );
+        //logger.info(String.format("Finalizing LAST Consensus Read at %d", slidingWindow.getEnd()) );
         result.addAll(slidingWindow.finalizeConsensusRead(new VariableRegion(-1,slidingWindow.getEnd() + 1)));
         return result;
     }

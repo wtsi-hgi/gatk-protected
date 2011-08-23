@@ -6,12 +6,10 @@ import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgume
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
 
@@ -22,7 +20,7 @@ import java.util.*;
  * Time: 10:31 AM
  * To change this template use File | Settings | File Templates.
  */
-public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
+public class FixGenotypesWalker extends RodWalker<Integer, Integer> {
 
     @Output(doc="File to which variants should be written",required=true)
     protected VCFWriter vcfWriter = null;
@@ -53,9 +51,11 @@ public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
          }
 
          for (VariantContext vc : vcs) {
-             if (vc.isIndel() && !vc.isBiallelic())
-                 vc = modifyGLs(vc);
-             vcfWriter.add(vc);
+             if (vc.isIndel())
+                 vc = modifyGLs(vc, ref);
+
+            if (vc.isPolymorphic())
+                vcfWriter.add(vc);
          }
         return 1;
     }
@@ -69,42 +69,46 @@ public class FIxPLOrderingWalker extends RodWalker<Integer, Integer> {
         logger.info(result + " records processed.");
     }
 
-    private VariantContext modifyGLs(VariantContext vc) {
-        int numAlleles = vc.getNAlleles();
+    private VariantContext modifyGLs(VariantContext vc, ReferenceContext ref) {
         Map<String,Genotype> genotypes = new HashMap<String,Genotype> (vc.getGenotypes());
         for (String sample: genotypes.keySet()) {
-            Genotype g = genotypes.get(sample);
-            if (!g.hasLikelihoods())
-                continue;
-            GenotypeLikelihoods gls =  g.getLikelihoods();
-            double[] glvec = gls.getAsVector();
-            double[][] glmatrix = new double[numAlleles][numAlleles];
+            Genotype g = genotypes.get(sample), newg = null;
+            if (g.isCalled()) {
 
-            // read first in column-wide ordering
-            int k=0;
-            for (int i=0; i < numAlleles; i++) {
-                for (int j=i; j < numAlleles; j++) {
-                    glmatrix[i][j] = glvec[k++];
+
+                GenotypeLikelihoods gls =  g.getLikelihoods();
+                double[] glvec = gls.getAsVector();
+
+                boolean isAllZeros = true;
+                for (int k=0; k < glvec.length; k++) {
+                    if (glvec[k] != 0) {
+                        isAllZeros = false;
+                        break;
+                    }
                 }
-            }
 
-            k=0;
-            // now write in correct ordering
-            for (int j=0; j < numAlleles; j++) {
-                for (int i=0; i <= j; i++){
-                    glvec[k++] = glmatrix[i][j];
+
+                if (isAllZeros) {
+                    ArrayList<Allele> a = new ArrayList<Allele>();
+                    a.add(Allele.NO_CALL);
+                    a.add(Allele.NO_CALL);
+                    newg = new Genotype(sample,a);
                 }
+                else
+                    newg = g;
             }
-            HashMap<String,Object> attributes = new HashMap<String,Object>(g.getAttributes());
-            //GenotypeLikelihoods likelihoods = new GenotypeLikelihoods(GL.getLikelihoods());
-            GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(glvec);
-            attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, likelihoods);
-
-            Genotype newg = new Genotype(sample, g.getAlleles(),g.getNegLog10PError(),g.getFilters(),attributes,g.isPhased());
+            else
+                newg = g;
             genotypes.put(sample,newg);
 
         }
 
-        return new VariantContext( vc.getSource(), vc.getChr(), vc.getStart(), vc.getEnd(), vc.getAlleles(), genotypes, vc.getNegLog10PError(), vc.getFilters(), vc.getAttributes());
+        VariantContext sub =  new VariantContext( vc.getSource(), vc.getChr(), vc.getStart(), vc.getEnd(), vc.getAlleles(), genotypes, vc.getNegLog10PError(), vc.getFilters(), vc.getAttributes(), ref.getBase());
+        HashMap<String, Object> attributes = new HashMap<String, Object>(sub.getAttributes());
+
+        VariantContextUtils.calculateChromosomeCounts(sub, attributes, false);
+
+        return VariantContext.modifyAttributes(sub, attributes);
+
     }
 }
