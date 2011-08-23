@@ -119,7 +119,11 @@ public class RodThreadingPerformanceTest extends RodWalker<Integer, Integer> {
         for ( int nThreads = 1; nThreads <= maxThreads; nThreads++ ) {
             run(nThreads);
         }
-        System.exit(0);
+    }
+
+    @Override
+    public boolean isDone() {
+        return true;
     }
 
     private void run(int nThreads) {
