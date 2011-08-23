@@ -6,7 +6,7 @@ import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.features.table.TableFeature;
+import org.broadinstitute.sting.utils.codecs.table.TableFeature;
 import org.broadinstitute.sting.gatk.walkers.Reference;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.Window;
@@ -29,7 +29,7 @@ import java.util.*;
  */
 @Reference(window=@Window(start=-50,stop=50))
 public class TableToVCF extends RodWalker<VariantContext,Integer> {
-    @Input(shortName = "-t", fullName = "--table", doc = "The input table we will convert to VCF")
+    @Input(shortName = "t", fullName = "table", doc = "The input table we will convert to VCF")
     RodBinding<TableFeature> table;
 
     //final private String CNV_HEADER = "HEADER,loc,size,type";

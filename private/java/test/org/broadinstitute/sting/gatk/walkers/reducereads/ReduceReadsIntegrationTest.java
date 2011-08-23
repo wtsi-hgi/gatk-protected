@@ -17,17 +17,17 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
         executeTest("testReduceReads1: args=" + args, spec);
     }
 
-    @Test()
+    @Test(enabled = false)
     public void testReduceReadsBase() {
         RRTest("", "");
     }
 
-    @Test()
+    @Test(enabled = false)
     public void testReduceReads50MaxReads() {
         RRTest(" -ADAV 50", "");
     }
 
-    @Test()
+    @Test(enabled = false)
     public void testReduceReadsMinBasesForConsensus10000() {
         RRTest(" -MBRC 10000", "");
     }

@@ -31,7 +31,7 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.filters.MappingQualityZeroReadFilter;
+import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
@@ -48,7 +48,7 @@ import java.util.*;
 @Allows(value = {DataSource.REFERENCE})
 @Requires(value = {DataSource.REFERENCE})
 
-@ReadFilters({MappingQualityZeroReadFilter.class})
+@ReadFilters({MappingQualityZeroFilter.class})
 // Filter out all reads with zero mapping quality
 
 public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer> {

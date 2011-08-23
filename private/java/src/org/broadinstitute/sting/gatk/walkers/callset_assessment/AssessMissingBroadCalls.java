@@ -52,7 +52,7 @@ public class AssessMissingBroadCalls extends RodWalker<Integer, Integer> {
     @Input(fullName="broad", shortName = "broad", doc="Input VCF file for Broad calls", required=true)
     public RodBinding<VariantContext> broadTrack;
 
-    @Input(fullName="1kg", shortName = "1kg", doc="Input VCF file for 1kg calls", required=true)
+    @Input(fullName="kg", shortName = "kg", doc="Input VCF file for 1kg calls", required=true)
     public RodBinding<VariantContext> kgTrack;
 
     private static final String status_key = "BI_STATUS";

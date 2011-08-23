@@ -90,7 +90,7 @@ class HybridSelectionPipeline extends QScript {
 
     val call = new UnifiedGenotyper with CommandLineGATKArgs with ExpandedIntervals
     call.input_file = List(writeBamList.listFile)
-    call.rodBind :+= RodBind("dbsnp", qscript.pipeline.getProject.getGenotypeDbsnpType, qscript.pipeline.getProject.getGenotypeDbsnp)
+    call.dbsnp = qscript.pipeline.getProject.getGenotypeDbsnp
     call.downsample_to_coverage = 600
     call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     call.GSA_PRODUCTION_ONLY = true
