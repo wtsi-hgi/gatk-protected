@@ -90,6 +90,7 @@ public class SlidingRead {
             return clippedRead;
         }
         // If read is not in interval, return blank read
+        // TODO speed optimization possible
         else
             return new SAMRecord(read.getHeader());
 
@@ -113,7 +114,8 @@ public class SlidingRead {
         return (getAlignmentStart() + BasesAndQuals.size() - 1 );
     }
 
-
+    // Deprecated function
+/*
     public SAMRecord toSAMRecord() {
 
         //TODO add annotation requires
@@ -157,7 +159,7 @@ public class SlidingRead {
             output.setCigar(new Cigar(cigar)); // TODO fix cigar string handling
             output.setAlignmentStart(getAlignmentStart());
             */
-
+/*
             return output;
         } catch (CloneNotSupportedException e) {
                 throw new RuntimeException(e); // this should never happen
@@ -165,6 +167,7 @@ public class SlidingRead {
 
 
     }
+*/
 
     public byte[] getBaseArray() {
         byte[] output = new byte[BasesAndQuals.size()];
@@ -211,7 +214,7 @@ public class SlidingRead {
     public SlidingRead clipStart(int position) {
         // Like hard clip but for sliding reads
         // position becomes start of the new read
-
+        // todo Make faster
         if ( position > this.alignmentStart) {
             int toRemove = position - this.alignmentStart;
             // TODO Cigar handling here

@@ -143,6 +143,12 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         */
         // This prevents a clipped tail from ruining the sliding window
         int position = read.getUnclippedStart();
+
+        if ( position - readContextSize > slidingWindow.getEnd() && slidingWindow.getEnd() != -1 )
+            result.addAll(close());
+
+
+
         //logger.info(String.format("Setting position to %d", position));
         slidingWindow.addRead(read);
 
@@ -158,15 +164,16 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
             }
         }
         if ( variableRegions.isEmpty() )
-            slidingWindow.addToConsensus(position - readContextSize);
+            result.addAll(slidingWindow.addToConsensus(position - readContextSize));
         else
-            slidingWindow.addToConsensus(Math.min(variableRegions.get(0).start, position - readContextSize));
+            result.addAll(slidingWindow.addToConsensus(Math.min(variableRegions.get(0).start, position - readContextSize)));
         return result;
     }
 
     @Override
-    public Iterable<SAMRecord> close() {
-        // nothing needs ot happen
+    public List<SAMRecord> close() {
+        // TODO fix ending at variable region, it must complete the consensus
+
         LinkedList<SAMRecord> result = new LinkedList<SAMRecord>();
         for ( VariableRegion variableRegion : slidingWindow.getVariableRegions(readContextSize) ) {
             //logger.info(String.format("Variable region at close() : %d - %d", variableRegion.start, variableRegion.end) );
@@ -174,7 +181,8 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
         }
         //logger.info(String.format("Finalizing LAST Consensus Read at %d", slidingWindow.getEnd()) );
-        result.addAll(slidingWindow.finalizeConsensusRead(new VariableRegion(-1,slidingWindow.getEnd() + 1)));
+        result.addAll(slidingWindow.addToConsensus(slidingWindow.getEnd()+1));
+        result.addAll(slidingWindow.finalizeConsensusRead());
         return result;
     }
 

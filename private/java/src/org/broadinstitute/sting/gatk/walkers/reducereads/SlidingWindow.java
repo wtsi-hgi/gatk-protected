@@ -63,7 +63,7 @@ public class SlidingWindow {
         if (slidReads.isEmpty())
             countsWithBases.clear();
         else {
-            while ( countsWithBases.getFirst().location < position)
+            while ( !countsWithBases.isEmpty() && (countsWithBases.getFirst().location < position) )
                 countsWithBases.pop();
         }
         SlidingReads = slidReads;
@@ -75,6 +75,10 @@ public class SlidingWindow {
         else
             return -1;
 
+    }
+
+    public List<SAMRecord> addToConsensus() {
+        return addToConsensus(getEnd()+1);
     }
 
     protected class CountWithBase {
@@ -89,12 +93,13 @@ public class SlidingWindow {
             this.location = Location;
             this.isVariant = false;
         }
-
+        /*Should not be used
         public CountWithBase(int Location) {
             this.counts = new BaseCounts();
             this.location = Location;
             this.isVariant = false;
         }
+        */
         // TODO minMapQual filters and minBaseQual filters
         public boolean addBase(byte base, byte qual) {
             // return true if a variant site was CREATED
@@ -125,7 +130,7 @@ public class SlidingWindow {
         if ( !countsWithBases.isEmpty() )
             start = countsWithBases.getFirst().location;
         else
-            start = 0;
+            start = -1;
         return start;
     }
 
@@ -190,6 +195,16 @@ public class SlidingWindow {
         }
         return result;
     }
+
+    /*
+    // This method add spacer elements to the countWithBases LL in case of zero coverage/gaps between reads
+    private void addBlankCounts( int amount) {
+        //TODO require positive number
+        for ( int i = amount; i != 0; i-- )
+            countsWithBases.add(new CountWithBase(countsWithBases.getLast().location + 1));
+
+    }
+    */
 
     // gets the region(s) of variable sites present in the window
     public List<VariableRegion> getVariableRegions(int contextSize) {
@@ -270,6 +285,25 @@ public class SlidingWindow {
 
     }
 
+    public List<SAMRecord> finalizeConsensusRead() {
+        List<SAMRecord> result = new LinkedList<SAMRecord>();
+        SAMRecord consensus = runningConsensus;
+        // This determines the end of read
+        if ( runningConsensus != null ){
+            if ( consensus.getReadLength() != 0 ) {
+                consensus.setMappingQuality(60); // TODO set up rms
+                consensus.setCigarString(String.format("%dM", consensus.getReadLength()));
+                consensus.setReadName(String.format("%s.read.%d", reducedReadGroup.getId(), consensusCounter++));
+                // Add only if no errors are present
+                if ( consensus.getReadLength() > 0)
+                    result.add(consensus);
+            }
+        }
+        runningConsensus = null;
+
+        return result;
+    }
+
     public List<SAMRecord> finalizeConsensusRead(VariableRegion variableRegion) {
         List<SAMRecord> result = new LinkedList<SAMRecord>();
         addToConsensus(variableRegion.start);
@@ -288,61 +322,105 @@ public class SlidingWindow {
         return result;
     }
 
-    public void addToConsensus(int position) {
+    public List<SAMRecord> addToConsensus(int position) {
         // compresses the sliding reads to a streaming(incomplete) SamRecord
-        if ( position != getStart() ) {
-            SAMRecord consensus;
-            /*
-            if ( position == -1 )
-                position = (getEnd() + 1);
-            */
-            int size = position - getStart();
+        List<SAMRecord> result = new LinkedList<SAMRecord>();
+        if ( position > getStart() ) {
+            if ( !countsWithBases.isEmpty() ) {
+                SAMRecord consensus;
+                /*
+                if ( position == -1 )
+                    position = (getEnd() + 1);
+                */
 
-            if ( size >= 0 ) {
+                int size = position - getStart();
 
                 //System.out.println(String.format("INFO -- Compressing running Consensus from %d to %d  ", getStart(), position));
-
+                int i = 0;
                 byte[] newBases = new byte[size];
                 byte[] newQuals = new byte[size];
-                if ( !countsWithBases.isEmpty() ) {
-                    Iterator<SlidingWindow.CountWithBase> I = countsWithBases.iterator();
-                    SlidingWindow.CountWithBase cBase = I.next();
-                    for ( int i = 0; (i < size) && I.hasNext(); i++ ) {
-                        BaseCounts Counts= cBase.counts;
+
+                int currentPosition = getStart();
+                Iterator<SlidingWindow.CountWithBase> I = countsWithBases.iterator();
+                SlidingWindow.CountWithBase cBase = I.next();
+                while ( currentPosition < position ) {
+                    BaseCounts Counts = cBase.counts;
+                    if ( Counts.totalCount() == 0 ) {
+
+                        int total = Counts.totalCount();
+                        // This counts how many null bases are present
+                        int gap = 0;
+                        while ( total == 0) {
+                            gap++;
+                            if (I.hasNext()) {
+                                cBase = I.next();
+                                Counts = cBase.counts;
+                                total = Counts.totalCount();
+                            }
+                            else
+                                break;
+                        }
+
+                        result.addAll(finalizeConsensusRead());
+                        slide(cBase.location + 1);
+                        createRunningConsensus();
+                        break;
+                        // The recursive call acts as a retry to make the second consensus
+                        //result.addAll(addToConsensus(position));
+                    }
+                    else {
                         newBases[i] = Counts.baseWithMostCounts();
                         newQuals[i] = QualityUtils.boundQual(Counts.countOfMostCommonBase(), (byte) 64);
-                        cBase = I.next();
+                        //cBase = I.next();
+                        i++;
                     }
+
+                    if (I.hasNext()){
+                        cBase = I.next();
+                        currentPosition = cBase.location;
+                    }
+                    else
+                        break;
                 }
-                if ( runningConsensus == null ) {
-                    createRunningConsensus();
-                    //header stuff
-                    consensus = runningConsensus;
+                byte[] tempBases = new byte[i];
+                byte[] tempQuals = new byte[i];
+                System.arraycopy(newBases, 0, tempBases, 0, i);
+                System.arraycopy(newQuals, 0, tempQuals, 0, i);
+                newBases = tempBases;
+                newQuals = tempQuals;
 
-                    consensus.setReadBases(newBases);
-                    consensus.setBaseQualities(newQuals);
-                }
-                else {
-                    consensus = runningConsensus;
-                    //size += consensus.getReadLength();
+            if ( runningConsensus == null ) {
+                createRunningConsensus();
+                //header stuff
+                consensus = runningConsensus;
 
-                    byte[] bases = consensus.getReadBases();
-                    byte[] quals = consensus.getBaseQualities();
+                consensus.setReadBases(newBases);
+                consensus.setBaseQualities(newQuals);
+            }
+            else {
+                consensus = runningConsensus;
+                //size += consensus.getReadLength();
 
-                    bases = ArrayUtils.addAll(bases, newBases);
-                    quals = ArrayUtils.addAll(quals, newQuals);
+                byte[] bases = consensus.getReadBases();
+                byte[] quals = consensus.getBaseQualities();
 
-                    consensus.setReadBases(bases);
-                    consensus.setBaseQualities(quals);
-                }
-                // TODO MQ RMS calc
-                // Once the new consensus is generated, we need to slide the window
-                slide(position);
+                bases = ArrayUtils.addAll(bases, newBases);
+                quals = ArrayUtils.addAll(quals, newQuals);
 
+                consensus.setReadBases(bases);
+                consensus.setBaseQualities(quals);
+            }
+            // TODO MQ RMS calc
+            // Once the new consensus is generated, we need to slide the window
 
-                runningConsensus = consensus;
+            slide(position);
+
+            runningConsensus = consensus;
+
             }
         }
+
+        return result;
     }
 
 }
