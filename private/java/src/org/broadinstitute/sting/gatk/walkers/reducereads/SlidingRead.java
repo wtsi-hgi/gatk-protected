@@ -3,6 +3,7 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 import net.sf.samtools.*;
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 
 import java.util.*;
 
@@ -16,18 +17,25 @@ import java.util.*;
 public class SlidingRead {
 
 
-    public SlidingRead (SlidingRead sRead) {
-        alignmentStart = sRead.alignmentStart;
-        read = sRead.read;
-        BasesAndQuals = sRead.BasesAndQuals;
-
-
-    }
     public SlidingRead(SAMRecord read) {
         alignmentStart = read.getAlignmentStart();
+        trimmedLeft = 0;
+        trimmedRight = 0;
+
+        //This should not be needed
+        /*
+        //get first cigar element, see if hard clipped
+        if (read.getCigar().getCigarElement(0).getOperator() == CigarOperator.HARD_CLIP)
+            trimmedLeft =  read.getCigar().getCigarElement(0).getLength();
+
+        // get last cigar element, see if hard clipped
+        if (read.getCigar().getCigarElement(read.getCigar().getCigarElements().size() - 1) .getOperator() == CigarOperator.HARD_CLIP)
+            trimmedLeft =  read.getCigar().getCigarElement(0).getLength();
+        */
+
         this.read = read;
-        // todo We should have a SAMRecordMetadata class
-        // TODO add more field for cigar implementation, (unaligned start and end)
+
+        // TODO cigar implementation,we need to be Indel aware
         byte[] bases = read.getReadBases();
         byte[] quals = read.getBaseQualities();
 
@@ -56,22 +64,32 @@ public class SlidingRead {
         this.alignmentStart = alignmentStart;
     }
 
-    public SlidingRead trimToVariableRegion(VariableRegion variableRegion) {
-        SlidingRead read = new SlidingRead(this);
+    public SAMRecord trimToVariableRegion(VariableRegion variableRegion) {
+        //SlidingRead read = new SlidingRead(this.read);
 
-        int start = getAlignmentStart();
-        int stop = getAlignmentStop();
+        int start = read.getAlignmentStart();
+        int stop = read.getAlignmentEnd();
+        SAMRecord clippedRead = read;
+
+        ReadClipper clipper = new ReadClipper(read);
+
+        //System.out.println(String.format("Read Span: %d-%d",clippedRead.getAlignmentStart(),clippedRead.getAlignmentEnd()));
+
+
 
         // check to see if read is contained in region
-        if ( start < variableRegion.end || stop > variableRegion.start ) {
+        if ( start < variableRegion.end && stop > variableRegion.start) {
+            if ( start < variableRegion.start && stop > variableRegion.end )
+                return clipper.hardClipBothEndsByReferenceCoordinates(variableRegion.start-1, variableRegion.end+1);
             if ( start < variableRegion.start )
-                read = clipStart(variableRegion.start);
+                clippedRead = clipper.hardClipByReferenceCoordinates(-1, variableRegion.start-1);
+                //read = read.clipStart(variableRegion.start);
             if ( stop > variableRegion.end )
-                read = clipEnd(variableRegion.end);
+                clippedRead = clipper.hardClipByReferenceCoordinates(variableRegion.end+1, -1);
+                //read = read.clipEnd(variableRegion.end);
+
         }
-        else
-            read = this;
-        return read;
+        return clippedRead;
     }
     //makes position the last element in LL
     private SlidingRead clipEnd(int position) {
@@ -81,6 +99,7 @@ public class SlidingRead {
             // TODO Cigar handling here
             while ( toRemove > 0 && !BasesAndQuals.isEmpty() ) {
                 BasesAndQuals.removeLast();
+                trimmedRight++;
                 toRemove--;
             }
         }
@@ -91,16 +110,57 @@ public class SlidingRead {
         return (getAlignmentStart() + BasesAndQuals.size() - 1 );
     }
 
+
     public SAMRecord toSAMRecord() {
+
+        //TODO add annotation requires
         if (this == null)
             return null;
-        SAMRecord output = read;
-        output.setReadBases(getBaseArray());
-        output.setBaseQualities(getQualArray());
-        output.setCigarString(String.format("%dM", getQualArray().length)); // TODO fix cigar string
-        output.setAlignmentStart(getAlignmentStart());
+        if ( trimmedLeft != 0 || trimmedRight != 0 )
+            return null;
 
-        return output;  //To change body of created methods use File | Settings | File Templates.
+
+        try {
+
+            SAMRecord output = (SAMRecord) read.clone();
+            //We assume the read has been appropriately hard clipped and is good to go.
+            /*
+            output.setReadBases(getBaseArray());
+            output.setBaseQualities(getQualArray());
+
+            List<CigarElement> cigar = new LinkedList<CigarElement>();
+            // This should make the list modifiable
+            for ( CigarElement i : output.getCigar().getCigarElements())
+                cigar.add(i);
+
+
+            if (trimmedLeft > 0) {
+                // if the read already has hard clipped beginning, just add to it
+                // else prepend hard clip operator
+                if ( cigar.get(0).getOperator() == CigarOperator.HARD_CLIP )
+                    cigar.set(0, new CigarElement(cigar.get(0).getLength() + trimmedLeft, CigarOperator.HARD_CLIP));
+                else
+                    cigar.add(0, new CigarElement( trimmedLeft, CigarOperator.HARD_CLIP ));
+            }
+            if (trimmedRight > 0) {
+                // if the read already has hard clipped beginning, just add to it
+                // else append hard clip operator
+                if ( cigar.get(cigar.size() - 1).getOperator() == CigarOperator.HARD_CLIP )
+                    cigar.set( cigar.size() - 1 , new CigarElement( cigar.get(cigar.size() - 1).getLength() + trimmedRight, CigarOperator.HARD_CLIP ) );
+                else
+                    cigar.add(new CigarElement( trimmedRight, CigarOperator.HARD_CLIP ));
+            }
+            // TODO we need a function that can add the hard clip notation using trimmed right and trimmed left
+            output.setCigar(new Cigar(cigar)); // TODO fix cigar string handling
+            output.setAlignmentStart(getAlignmentStart());
+            */
+
+            return output;
+        } catch (CloneNotSupportedException e) {
+                throw new RuntimeException(e); // this should never happen
+        }
+
+
     }
 
     public byte[] getBaseArray() {
@@ -139,6 +199,8 @@ public class SlidingRead {
     private LinkedList<BaseAndQual> BasesAndQuals = new LinkedList<BaseAndQual>();
     private int alignmentStart;
     private SAMRecord read;
+    private int trimmedLeft;
+    private int trimmedRight;
 
 
 
@@ -152,6 +214,7 @@ public class SlidingRead {
             // TODO Cigar handling here
             while ( toRemove > 0  && !BasesAndQuals.isEmpty() ) {
                 this.BasesAndQuals.pop();
+                trimmedLeft++;
                 toRemove--;
             }
             setAlignmentStart(position);

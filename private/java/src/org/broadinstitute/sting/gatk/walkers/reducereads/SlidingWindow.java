@@ -5,7 +5,6 @@ import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
 import org.apache.commons.lang.ArrayUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.util.*;
 
@@ -95,7 +94,7 @@ public class SlidingWindow {
             // return true if a variant site was CREATED
             boolean result = false;
             if ( qual >= 20 ) {
-                if (!this.isVariant == true) {
+                if (!this.isVariant) {
                     if (base != this.counts.baseWithMostCounts() && this.counts.totalCount() != 0 ) {
                         this.isVariant = true;
                         result = true;
@@ -215,8 +214,8 @@ public class SlidingWindow {
 
         if (regions.isEmpty())
             regions.add(p);
-        for ( VariableRegion vr: regions )
-            System.out.println(String.format("INFO -- #### -- VARIANT FOUND Creating Variable Region, %d - %d", vr.start, vr.end));
+        //for ( VariableRegion vr: regions )
+            //System.out.println(String.format("INFO -- #### -- VARIANT FOUND Creating Variable Region, %d - %d", vr.start, vr.end));
 
         return regions;
     }
@@ -226,11 +225,12 @@ public class SlidingWindow {
     }
 
     public List<SAMRecord> finalizeVariableRegion(VariableRegion variableRegion) {
-        System.out.println(String.format("INFO ######################### \n \n Finalizing Variable Region \n"));
+        //System.out.println(String.format(String.format("INFO ######################### \n \n Finalizing Variable Region: %d-%d ", variableRegion.start, variableRegion.end)));
         List<SAMRecord> output = new LinkedList<SAMRecord>();
 
         for ( SlidingRead read: SlidingReads ) {
-            SAMRecord SAM = read.trimToVariableRegion(variableRegion).toSAMRecord();
+            SAMRecord SAM = read.trimToVariableRegion(variableRegion);
+            SAM.setReadName(SAM.getReadName()+".trim");
             if ( SAM.getReadLength() > 0 )
                 output.add(SAM);
         }
@@ -258,7 +258,7 @@ public class SlidingWindow {
 
     public List<SAMRecord> finalizeConsensusRead(VariableRegion variableRegion) {
         List<SAMRecord> result = new LinkedList<SAMRecord>();
-        compressWindow(variableRegion.start);
+        addToConsensus(variableRegion.start);
         SAMRecord consensus = runningConsensus;
         // This determines the end of read
         if ( runningConsensus != null ){
@@ -274,7 +274,7 @@ public class SlidingWindow {
         return result;
     }
 
-    public void compressWindow(int position) {
+    public void addToConsensus(int position) {
         // compresses the sliding reads to a streaming(incomplete) SamRecord
         if ( position != getStart() ) {
             SAMRecord consensus;
@@ -286,7 +286,7 @@ public class SlidingWindow {
 
             if ( size >= 0 ) {
 
-                System.out.println(String.format("INFO -- Compressing running Consensus from %d to %d  ", getStart(), position));
+                //System.out.println(String.format("INFO -- Compressing running Consensus from %d to %d  ", getStart(), position));
 
                 byte[] newBases = new byte[size];
                 byte[] newQuals = new byte[size];
