@@ -44,6 +44,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 @ReadFilters( {MappingQualityUnavailableFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class} )
 public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
@@ -60,6 +61,9 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
 
     // the assembly engine
     LocalAssemblyEngine assemblyEngine = null;
+
+    // the likelihoods engine
+    LikelihoodCalculationEngine likelihoodCalculationEngine = new LikelihoodCalculationEngine(45.0, 10.0, false, true, false);
 
     // the intervals input by the user
     private Iterator<GenomeLoc> intervals = null;
@@ -121,7 +125,9 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
         if ( readLoc.overlapsP(currentInterval) ) {
             readsToAssemble.add(read);
         } else {
-            assemblyEngine.runLocalAssembly(readsToAssemble);
+            List<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble );
+            double[] likelihoods = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble );
+
             readsToAssemble.clear();
             sum++;
 
@@ -135,7 +141,12 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
 
     public void onTraversalDone(Integer result) {
         if ( readsToAssemble.size() > 0 ) {
-            assemblyEngine.runLocalAssembly(readsToAssemble);
+            List<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble );
+            double[] likelihoods = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble );
+            for( double l : likelihoods ) {
+                System.out.println(l);
+            }
+            System.out.println("-------------------------------------");
             result++;
         }
         logger.info("Ran local assembly on " + result + " intervals");

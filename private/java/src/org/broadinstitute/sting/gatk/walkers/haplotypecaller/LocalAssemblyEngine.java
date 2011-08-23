@@ -29,6 +29,6 @@ public abstract class LocalAssemblyEngine {
 
     protected IndexedFastaSequenceFile getReferenceReader() { return referenceReader; }
 
-    public abstract void runLocalAssembly(List<SAMRecord> reads);
+    public abstract List<Haplotype> runLocalAssembly(List<SAMRecord> reads);
 
 }

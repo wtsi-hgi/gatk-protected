@@ -24,7 +24,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private static final int KMER_LENGTH = 19;
 
     // minimum base quality required in a contiguous stretch of a given read to be used in the assembly
-    private static final int MIN_BASE_QUAL_TO_USE = 14;
+    private static final int MIN_BASE_QUAL_TO_USE = 15;
 
     // minimum clipped sequence length to consider using
     private static final int MIN_SEQUENCE_LENGTH = 25;
@@ -44,7 +44,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         this.numReadsToUse = numReadsToUse;
     }
 
-    public void runLocalAssembly(List<SAMRecord> reads) {
+    public List<Haplotype> runLocalAssembly(List<SAMRecord> reads) {
 
         // reset the graph
         graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
@@ -56,10 +56,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         createDeBruijnGraph(sequences);
 
         // find the 2 best paths in the graph
-        findBestPaths();
-
-        // assign reads to the graph
-        assignReadsToGraph(sequences);
+        return findBestPaths();
     }
 
     // This method takes the base sequences from the SAM records and pulls
@@ -81,13 +78,13 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             byte[] sequencedReadBases = read.getReadBases();
             byte[] sequencedBaseQuals = read.getBaseQualities();
 
-            int curIndex = 0, firstQ20Index = -1;
+            int curIndex = 0, firstGoodQualIndex = -1;
 
             for ( CigarElement ce : read.getCigar().getCigarElements() ) {
 
                 int elementLength = ce.getLength();
                 switch ( ce.getOperator() ) {
-                    case S:
+                    case S: // Take this out to make use of soft-clipped bases.
                         // skip soft-clipped bases
                         curIndex += elementLength;
                         break;
@@ -95,16 +92,16 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                     case I:
                         for (int i = 0; i < elementLength; i++) {
                             if ( sequencedBaseQuals[curIndex] >= MIN_BASE_QUAL_TO_USE ) {
-                                if ( firstQ20Index == -1 )
-                                    firstQ20Index = curIndex;
-                            } else if ( firstQ20Index != -1 ) {
-                                int sequenceLength = curIndex - firstQ20Index;
+                                if ( firstGoodQualIndex == -1 )
+                                    firstGoodQualIndex = curIndex;
+                            } else if ( firstGoodQualIndex != -1 ) {
+                                int sequenceLength = curIndex - firstGoodQualIndex;
                                 if ( sequenceLength > MIN_SEQUENCE_LENGTH ) {
                                     byte[] sequence = new byte[sequenceLength];
-                                    System.arraycopy(sequencedReadBases, firstQ20Index, sequence, 0, sequenceLength);
+                                    System.arraycopy(sequencedReadBases, firstGoodQualIndex, sequence, 0, sequenceLength);
                                     sequences.add(sequence);
                                 }
-                                firstQ20Index = -1;
+                                firstGoodQualIndex = -1;
                             }
                             curIndex++;
                         }
@@ -115,11 +112,11 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                 }
             }
 
-            if ( firstQ20Index != -1 ) {
-                int sequenceLength = curIndex - firstQ20Index;
+            if ( firstGoodQualIndex != -1 ) {
+                int sequenceLength = curIndex - firstGoodQualIndex;
                 if ( sequenceLength > MIN_SEQUENCE_LENGTH ) {
                     byte[] sequence = new byte[sequenceLength];
-                    System.arraycopy(sequencedReadBases, firstQ20Index, sequence, 0, sequenceLength);
+                    System.arraycopy(sequencedReadBases, firstGoodQualIndex, sequence, 0, sequenceLength);
                     sequences.add(sequence);
                 }
             }
@@ -208,9 +205,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             // convert to array because results of the iteration on a set are undefined when the graph is modified
             ArrayList<DeBruijnVertex> vertices = new ArrayList<DeBruijnVertex>(vertexSet);
 
-            for (int i = 0; i < vertices.size(); i++) {
-
-                DeBruijnVertex v1 = vertices.get(i);
+            for( final DeBruijnVertex v1 : vertices ) {
 
                 // try to merge v1 -> v2
                 if ( graph.outDegreeOf(v1) == 1 ) {
@@ -398,13 +393,16 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         getOutputStream().println("------------\n");
     }
 
-    private void findBestPaths() {
+    private List<Haplotype> findBestPaths() {
+
+        ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         // find them
-        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 2);
+        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 10);
 
+        int minLength = Integer.MAX_VALUE;
         // print them out
-        for ( KBestPaths.Path path : bestPaths ) {
+        for ( final KBestPaths.Path path : bestPaths ) {
 
             List<DeBruijnEdge> edges = path.getEdges();
             for (int i = 0; i < edges.size(); i++) {
@@ -420,8 +418,18 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             if ( edges.size() == 0 )
                 getOutputStream().print(path.getLastVertexInPath());
 
-            getOutputStream().println(" (score=" + path.getScore() + ", lowestEdge=" + path.getLowestEdge() +")");
+            getOutputStream().println(" (score=" + path.getScore() + ", lowestEdge=" + path.getLowestEdge() + ")");
+            int length = path.getBases( graph ).length;
+            if(length < minLength) {
+                minLength = length;
+            }
         }
+
+        for ( final KBestPaths.Path path : bestPaths ) {
+            returnHaplotypes.add( new Haplotype( path.getBases( graph, minLength ), path.getScore() ) );
+        }
+
+        return returnHaplotypes;
     }
 
     private void assignReadsToGraph(List<byte[]> reads) {

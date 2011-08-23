@@ -63,6 +63,46 @@ public class KBestPaths {
         public int getLowestEdge() { return lowestEdge; }
 
         public DeBruijnVertex getLastVertexInPath() { return lastVertex; }
+
+        public byte[] getBases(final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph) {
+            if(edges.size() == 0) { return lastVertex.printableSequence; }
+
+            int length = 0;
+            length += graph.getEdgeSource( edges.get(0) ).printableSequence.length;
+            for ( final DeBruijnEdge e : edges ) {
+                length += graph.getEdgeTarget( e ).printableSequence.length;
+            }
+
+            byte[] bases = new byte[length];
+            int curPos = 0;
+            for( final byte b : graph.getEdgeSource( edges.get(0) ).printableSequence ) {
+                bases[curPos++] = b;
+            }
+            for ( final DeBruijnEdge e : edges ) {
+                for( final byte b : graph.getEdgeTarget( e ).printableSequence ) {
+                    bases[curPos++] = b;
+                }
+            }
+            return bases;
+        }
+        
+        public byte[] getBases(final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final int maxLength) {
+            if(edges.size() == 0) { return lastVertex.printableSequence; }
+
+            byte[] bases = new byte[maxLength];
+            int curPos = 0;
+            for( final byte b : graph.getEdgeSource( edges.get(0) ).printableSequence ) {
+                bases[curPos++] = b;
+                if(curPos >= maxLength) { return bases; }
+            }
+            for ( final DeBruijnEdge e : edges ) {
+                for( final byte b : graph.getEdgeTarget( e ).printableSequence ) {
+                    bases[curPos++] = b;
+                    if(curPos >= maxLength) { return bases; }
+                }
+            }
+            return bases;
+        }
     }
 
     protected static class PathComparator implements Comparator<Path> {
