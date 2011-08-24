@@ -86,20 +86,29 @@ public class KBestPaths {
             return bases;
         }
         
-        public byte[] getBases(final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final int maxLength) {
-            if(edges.size() == 0) { return lastVertex.printableSequence; }
+        public byte[] getBases(final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final int length) {
 
-            byte[] bases = new byte[maxLength];
+            byte[] bases = new byte[length];
             int curPos = 0;
-            for( final byte b : graph.getEdgeSource( edges.get(0) ).printableSequence ) {
-                bases[curPos++] = b;
-                if(curPos >= maxLength) { return bases; }
-            }
-            for ( final DeBruijnEdge e : edges ) {
-                for( final byte b : graph.getEdgeTarget( e ).printableSequence ) {
+
+            if( edges.size() == 0 ) {
+                for( final byte b : lastVertex.printableSequence ) {
                     bases[curPos++] = b;
-                    if(curPos >= maxLength) { return bases; }
                 }
+
+            } else {
+                for( final byte b : graph.getEdgeSource( edges.get(0) ).printableSequence ) {
+                    bases[curPos++] = b;
+                }
+                for ( final DeBruijnEdge e : edges ) {
+                    for( final byte b : graph.getEdgeTarget( e ).printableSequence ) {
+                        bases[curPos++] = b;
+                    }
+                }
+            }
+            if(length - curPos > 30) { return null; }
+            for( int iii = curPos; iii < length; iii++ ) {
+                bases[iii] = (byte) 'N';
             }
             return bases;
         }
@@ -115,7 +124,7 @@ public class KBestPaths {
         PriorityQueue<Path> bestPaths = new PriorityQueue<Path>(k, new PathComparator());
 
         // run a DFS for best paths
-        for ( DeBruijnVertex v : graph.vertexSet() ) {
+        for ( final DeBruijnVertex v : graph.vertexSet() ) {
             if ( graph.inDegreeOf(v) == 0 ) {
                 findBestPaths(graph, new Path(v), k, bestPaths);
             }
@@ -139,20 +148,20 @@ public class KBestPaths {
                 bestPaths.add(path);
             }
 
-        } else if( n.val > 50000) {
+        } else if( n.val > 100000) {
             // do nothing, just return
         } else {
             // recursively run DFS
-            ArrayList<DeBruijnEdge> edgeArrayList = new ArrayList<DeBruijnEdge>();
+            final ArrayList<DeBruijnEdge> edgeArrayList = new ArrayList<DeBruijnEdge>();
             edgeArrayList.addAll(graph.outgoingEdgesOf(path.lastVertex));
             Collections.sort(edgeArrayList);
             Collections.reverse(edgeArrayList);
-            for ( DeBruijnEdge edge : edgeArrayList ) {
+            for ( final DeBruijnEdge edge : edgeArrayList ) {
                 // make sure the edge is not already in the path
-                if ( (edgeArrayList.size() > 1 && edge.getMultiplicity() <= 1) || path.containsEdge(graph, edge) )
+                if ( path.containsEdge(graph, edge) )
                     continue;
 
-                Path newPath = new Path(path, graph, edge);
+                final Path newPath = new Path(path, graph, edge);
                 n.val++;
                 findBestPaths(graph, newPath, k, bestPaths, n);
 
@@ -161,7 +170,7 @@ public class KBestPaths {
     }
 
     private static boolean allOutgoingEdgesHaveBeenVisited(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, Path path) {
-        for ( DeBruijnEdge edge : graph.outgoingEdgesOf(path.lastVertex) ) {
+        for ( final DeBruijnEdge edge : graph.outgoingEdgesOf(path.lastVertex) ) {
             if ( !path.containsEdge(graph, edge) ) {
                 return false;
             }

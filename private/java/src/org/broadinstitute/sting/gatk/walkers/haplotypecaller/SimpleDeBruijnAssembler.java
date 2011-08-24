@@ -21,7 +21,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private static final boolean DEBUG = true;
 
     // k-mer length
-    private static final int KMER_LENGTH = 19;
+    private static final int KMER_LENGTH = 17;
 
     // minimum base quality required in a contiguous stretch of a given read to be used in the assembly
     private static final int MIN_BASE_QUAL_TO_USE = 15;
@@ -398,9 +398,9 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         // find them
-        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 10);
+        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 30);
 
-        int minLength = Integer.MAX_VALUE;
+        int maxLength = Integer.MIN_VALUE;
         // print them out
         for ( final KBestPaths.Path path : bestPaths ) {
 
@@ -420,13 +420,16 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
             getOutputStream().println(" (score=" + path.getScore() + ", lowestEdge=" + path.getLowestEdge() + ")");
             int length = path.getBases( graph ).length;
-            if(length < minLength) {
-                minLength = length;
+            if(length > maxLength) {
+                maxLength = length;
             }
         }
 
         for ( final KBestPaths.Path path : bestPaths ) {
-            returnHaplotypes.add( new Haplotype( path.getBases( graph, minLength ), path.getScore() ) );
+            final Haplotype h = new Haplotype( path.getBases( graph, maxLength ), path.getScore() );
+            if( h.bases != null ) {
+                returnHaplotypes.add( h );
+            }
         }
 
         return returnHaplotypes;

@@ -27,6 +27,7 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.collections.Pair;
 
 import java.util.Arrays;
 import java.util.List;
@@ -150,7 +151,7 @@ public class LikelihoodCalculationEngine {
 
     }
 
-    public double[] computeLikelihoods(final List<Haplotype> haplotypes, final List<SAMRecord> reads) {
+    public Pair<Haplotype, Haplotype> computeLikelihoods(final List<Haplotype> haplotypes, final List<SAMRecord> reads) {
         int numHaplotypes = haplotypes.size();
         double haplotypeLikehoodMatrix[][] = new double[numHaplotypes][numHaplotypes];
         double readLikelihoods[][] = new double[reads.size()][numHaplotypes];
@@ -188,7 +189,19 @@ public class LikelihoodCalculationEngine {
             }
         }
 
-        return getHaplotypeLikelihoods( haplotypeLikehoodMatrix );
+        double maxElement = Double.NEGATIVE_INFINITY;
+        int hap1 = -1;
+        int hap2 = -1;
+        for( int iii = 0; iii < numHaplotypes; iii++ ) {
+            for( int jjj = iii; jjj < numHaplotypes; jjj++ ) {
+                if( haplotypeLikehoodMatrix[iii][jjj] > maxElement ) {
+                    maxElement = haplotypeLikehoodMatrix[iii][jjj];
+                    hap1 = iii;
+                    hap2 = jjj;
+                }
+            }
+        }
+        return new Pair<Haplotype, Haplotype>(haplotypes.get(hap1), haplotypes.get(hap2));
     }
 
     private static double[] getHaplotypeLikelihoods(double[][] haplotypeLikehoodMatrix) {

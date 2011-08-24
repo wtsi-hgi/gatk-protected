@@ -47,8 +47,10 @@ public class Haplotype {
      */
     public Haplotype(byte[] bases, int qual) {
         this.bases = bases;
-        quals = new double[bases.length];
-        Arrays.fill(quals, (double)qual);
+        if(bases != null) {
+            quals = new double[bases.length];
+            Arrays.fill(quals, (double)qual);
+        }
     }
 
     public Haplotype(byte[] bases, double[] quals) {
