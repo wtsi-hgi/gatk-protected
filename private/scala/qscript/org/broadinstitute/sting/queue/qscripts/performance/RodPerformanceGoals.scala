@@ -50,6 +50,7 @@ package org.broadinstitute.sting.queue.qscripts.performance
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.sting.queue.util.JobLogging
 
 class RodPerformanceGoals extends QScript {
   @Argument(shortName = "BUNDLE", doc = "Directory holding all of our data files", required=false)
@@ -100,7 +101,8 @@ class RodPerformanceGoals extends QScript {
   def countCovariatesTest() {
     for ( usedbsnp <- List(true, false))
       for ( nt <- List(1, 8) ) {
-        val cc = new CountCovariates() with UNIVERSAL_GATK_ARGS
+        val cc = new CountCovariates() with UNIVERSAL_GATK_ARGS with JobLogging
+        cc.setJobLogging("CountCovariates", Map("nt" -> nt, "dbsnp" -> usedbsnp))
         cc.input_file :+= bam
         cc.recal_file = "nt" + nt + "_dbsnp" + usedbsnp + ".csv"
         cc.nt = nt
@@ -120,7 +122,8 @@ class RodPerformanceGoals extends QScript {
    */
   def sitesVsGenotypesTest() {
     for ( vcf <- List(OMNI_SITES, OMNI_GENOTYPES) ) {
-      val cr = new CountRODs() with UNIVERSAL_GATK_ARGS
+      val cr = new CountRODs() with UNIVERSAL_GATK_ARGS with JobLogging
+      cr.setJobLogging("SitesVsGenotypes", Map("includesGenotypes" -> (vcf == OMNI_GENOTYPES)))
       cr.rod :+= vcf
       add(cr)
     }
@@ -133,10 +136,13 @@ class RodPerformanceGoals extends QScript {
     def chunkFile(i: Int): File = new File(DATA_DIR.getAbsolutePath + "/chunks/chunk_" + i + ".vcf")
     val vcfs: List[File] = List.range(1, 50).map(chunkFile(_))
     // cat
-    add( new CatGrepCombineVCFs(vcfs) )
+    val cgc = new CatGrepCombineVCFs(vcfs) with JobLogging
+    cgc.setJobLogging("BigCombine", Map("isCombineVariants" -> false))
+    add( cgc )
 
     // combine variants
-    val cv = new CombineVariants() with UNIVERSAL_GATK_ARGS
+    val cv = new CombineVariants() with UNIVERSAL_GATK_ARGS with JobLogging
+    cv.setJobLogging("BigCombine", Map("isCombineVariants" -> true))
     cv.variant = vcfs
     cv.assumeIdenticalSamples = true
     cv.out = "/dev/null"
@@ -150,9 +156,11 @@ class RodPerformanceGoals extends QScript {
   }
 
   def lowLevelTribbleVsGATK() {
+    val justTribble = org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE
     for ( mode <- List(org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE,
                        org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_GATK)) {
-      val prs = new ProfileRodSystem() with UNIVERSAL_GATK_ARGS
+      val prs = new ProfileRodSystem() with UNIVERSAL_GATK_ARGS with JobLogging
+      prs.setJobLogging("LogLevelTribbleVsGATK", Map("isJustTribble" -> (mode == justTribble)))
       prs.vcf = OMNI_SITES
       prs.mode = mode
       prs.out = "profile.rod." + mode + ".txt"
