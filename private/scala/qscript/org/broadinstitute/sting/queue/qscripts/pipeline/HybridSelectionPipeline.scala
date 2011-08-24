@@ -101,14 +101,14 @@ class HybridSelectionPipeline extends QScript {
     add(call)
 
     val selectSNPs = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
-    selectSNPs.selectSNPs = true
+    selectSNPs.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.SNP
     selectSNPs.variant = call.out
     selectSNPs.out = projectBase + ".snps.unfiltered.vcf"
     selectSNPs.jobOutputFile = selectSNPs.out + ".out"
     add(selectSNPs)
 
     val selectIndels = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
-    selectIndels.selectIndels = true
+    selectSNPs.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.INDEL
     selectIndels.variant = call.out
     selectIndels.out = projectBase + ".indels.unfiltered.vcf"
     selectIndels.jobOutputFile = selectIndels.out + ".out"
