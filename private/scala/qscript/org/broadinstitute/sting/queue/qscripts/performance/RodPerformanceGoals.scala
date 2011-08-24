@@ -126,6 +126,7 @@ class RodPerformanceGoals extends QScript {
       val cr = new CountRODs() with UNIVERSAL_GATK_ARGS with QJobReport
       cr.setJobLogging("SitesVsGenotypes", Map("includesGenotypes" -> (vcf == OMNI_GENOTYPES)))
       cr.analysisName = "SitesVsGenotypesTest"
+      cr.scatterCount = 2
       cr.rod :+= vcf
       add(cr)
     }
