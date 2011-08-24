@@ -50,7 +50,7 @@ package org.broadinstitute.sting.queue.qscripts.performance
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.util.JobLogging
+import org.broadinstitute.sting.queue.util.QJobReport
 
 class RodPerformanceGoals extends QScript {
   @Argument(shortName = "BUNDLE", doc = "Directory holding all of our data files", required=false)
@@ -101,7 +101,7 @@ class RodPerformanceGoals extends QScript {
   def countCovariatesTest() {
     for ( usedbsnp <- List(true, false))
       for ( nt <- List(1, 8) ) {
-        val cc = new CountCovariates() with UNIVERSAL_GATK_ARGS with JobLogging
+        val cc = new CountCovariates() with UNIVERSAL_GATK_ARGS with QJobReport
         cc.setJobLogging("CountCovariates", Map("nt" -> nt, "dbsnp" -> usedbsnp))
         cc.input_file :+= bam
         cc.recal_file = "nt" + nt + "_dbsnp" + usedbsnp + ".csv"
@@ -122,7 +122,7 @@ class RodPerformanceGoals extends QScript {
    */
   def sitesVsGenotypesTest() {
     for ( vcf <- List(OMNI_SITES, OMNI_GENOTYPES) ) {
-      val cr = new CountRODs() with UNIVERSAL_GATK_ARGS with JobLogging
+      val cr = new CountRODs() with UNIVERSAL_GATK_ARGS with QJobReport
       cr.setJobLogging("SitesVsGenotypes", Map("includesGenotypes" -> (vcf == OMNI_GENOTYPES)))
       cr.rod :+= vcf
       add(cr)
@@ -136,12 +136,12 @@ class RodPerformanceGoals extends QScript {
     def chunkFile(i: Int): File = new File(DATA_DIR.getAbsolutePath + "/chunks/chunk_" + i + ".vcf")
     val vcfs: List[File] = List.range(1, 50).map(chunkFile(_))
     // cat
-    val cgc = new CatGrepCombineVCFs(vcfs) with JobLogging
+    val cgc = new CatGrepCombineVCFs(vcfs) with QJobReport
     cgc.setJobLogging("BigCombine", Map("isCombineVariants" -> false))
     add( cgc )
 
     // combine variants
-    val cv = new CombineVariants() with UNIVERSAL_GATK_ARGS with JobLogging
+    val cv = new CombineVariants() with UNIVERSAL_GATK_ARGS with QJobReport
     cv.setJobLogging("BigCombine", Map("isCombineVariants" -> true))
     cv.variant = vcfs
     cv.assumeIdenticalSamples = true
@@ -159,7 +159,7 @@ class RodPerformanceGoals extends QScript {
     val justTribble = org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE
     for ( mode <- List(org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE,
                        org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_GATK)) {
-      val prs = new ProfileRodSystem() with UNIVERSAL_GATK_ARGS with JobLogging
+      val prs = new ProfileRodSystem() with UNIVERSAL_GATK_ARGS with QJobReport
       prs.setJobLogging("LogLevelTribbleVsGATK", Map("isJustTribble" -> (mode == justTribble)))
       prs.vcf = OMNI_SITES
       prs.mode = mode
