@@ -143,7 +143,7 @@ public class CGVarCodec implements FeatureCodec {
         }
 
         // create a new feature given the array
-        return new VariantContext("CGI", array[3], start, end, alleles, VariantContext.NO_NEG_LOG_10PERROR, null, attrs);
+        return new VariantContext("CGI", array[3], start, end, alleles, VariantContext.NO_NEG_LOG_10PERROR, null, attrs, null);
     }
 
     public Class<VariantContext> getFeatureType() {
