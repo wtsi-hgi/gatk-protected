@@ -182,8 +182,7 @@ class RodPerformanceGoals extends QScript {
       val prs = new ProfileRodSystem() with UNIVERSAL_GATK_ARGS with QJobReport
       prs.intervalsString = null
       prs.analysisName = "TribbleVsGATK"
-      prs.configureJobReport(Map("mode" -> (if (mode == justTribble) "Tribble" else "GATK")))
-      //prs.configureJobReport(Map("mode" -> (if (mode == justTribble) "Tribble" else "GATK"), "iteration" -> iteration))
+      prs.configureJobReport(Map("mode" -> (if (mode == justTribble) "Tribble" else "GATK"), "iteration" -> iteration))
       prs.vcf = OMNI_SITES
       prs.mode = mode
       prs.out = "profile.rod." + mode + ".txt"
