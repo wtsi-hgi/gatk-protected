@@ -1,12 +1,15 @@
 library(gsalib)
 require("ggplot2")
+require("gplots")
 args = commandArgs(TRUE)
 onCMDLine = ! is.na(args[1])
 
 if ( onCMDLine ) {
   inputFileName = args[1]
+  outputPDF = args[2]
 } else {
   inputFileName = "~/Desktop/broadLocal/GATK/unstable/report.txt"
+  outputPDF = NA
 }
 
 allJobsFromReport <- function(report) {
@@ -39,24 +42,25 @@ plotJobsGantt <- function(gatkReport, sortOverall) {
 }
 
 standardColumns = c("jobName", "startTime", "formattedStartTime", "analysisName", "intermediate", "formattedDoneTime", "doneTime", "runtime")
+
 plotGroup <- function(groupTable) {
   name = unique(groupTable$analysisName)[1]
-  groupAnnotations = setdiff(names(groupTable),standardColumns)
-  
-  groupTable$annotatedName = "x"
-  for ( i in 1:nrow(groupTable)) {
-    parts = lapply(groupAnnotations, function(x) paste(x, groupTable[i, x], sep="="))
-    groupTable[i,]$annotatedName = do.call("paste", c(groupTable[i,c("jobName")], parts, sep="/"))
-  }
-  
-  print(groupTable)
-  p <- ggplot(data=groupTable, aes(x=annotatedName, y=runtime))
-  p <- p + geom_bar()
-  p <- p + xlab("Jobs")
-  p <- p + opts(title=paste(name, ": runtime job"))
-  print(p)  
-}
+  groupAnnotations = setdiff(names(groupTable), standardColumns)
+  sub = groupTable[,c("jobName", groupAnnotations, "runtime")]
+  sub = sub[order(sub$iteration, sub$jobName, decreasing=F), ]
+  textplot(sub, show.rownames=F)
+  title(paste("Job summary for", name, "full itemization"), cex=3)
 
+  sum = cast(melt(sub, id.vars=groupAnnotations, measure.vars=c("runtime")), ... ~ iteration, fun.aggregate=mean)
+  textplot(as.data.frame(sum), show.rownames=F)
+  title(paste("Job summary for", name, "itemizing each iteration"), cex=3)
+
+  groupAnnotationsNoIteration = setdiff(groupAnnotations, "iteration")
+  sum = cast(melt(sub, id.vars=groupAnnotationsNoIteration, measure.vars=c("runtime")), ... ~ ., fun.aggregate=mean)
+  textplot(as.data.frame(sum), show.rownames=F)
+  title(paste("Job summary for", name, "averaging over all iterations"), cex=3)
+}
+    
 print("Report")
 print(paste("Project          :", inputFileName))
 
@@ -75,9 +79,18 @@ gatkReportData <- gsa.read.gatkreport(inputFileName)
 #print(gatkReportData$BigCombine)
 print(summary(gatkReportData))
 
-# plotJobsGantt(gatkReportData, T)
-# plotJobsGantt(gatkReportData, F)
-# for ( group in gatkReportData ) {
-#   plotGroup(group)
-# }
-plotGroup(gatkReportData$SitesVsGenotypes)
+if ( ! is.na(outputPDF) ) {
+  pdf(outputPDF, height=8.5, width=11)
+} 
+
+plotJobsGantt(gatkReportData, T)
+plotJobsGantt(gatkReportData, F)
+for ( group in gatkReportData ) {
+  plotGroup(group)
+}
+  
+if ( ! is.na(outputPDF) ) {
+  dev.off()
+} 
+
+#plotGroup(gatkReportData$SitesVsGenotypes)
