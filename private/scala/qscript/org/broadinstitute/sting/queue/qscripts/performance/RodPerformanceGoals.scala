@@ -120,6 +120,9 @@ class RodPerformanceGoals extends QScript {
           cc.run_without_dbsnp_potentially_ruining_quality = true;
         }
 
+        if ( cc.intervalsString == Nil )
+          cc.intervalsString = List("20")
+
         add(cc)
       }
   }
