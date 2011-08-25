@@ -84,23 +84,27 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             throw new UserException.BadArgumentValue("intervals", "ProfileRodSystem cannot accept intervals");
 
         File rodFile = getRodFile();
-        if (EnumSet.of(ProfileType.ALL, ProfileType.JUST_TRIBBLE).contains(profileType)) {
 
+        if ( !EnumSet.of(ProfileType.JUST_GATK).contains(profileType) ) {
             out.printf("# walltime is in seconds%n");
             out.printf("# file is %s%n", rodFile);
             out.printf("# file size is %d bytes%n", rodFile.length());
             out.printf("operation\titeration\twalltime%n");
-            for ( int i = 0; i < nIterations; i++ ) {
+        }
+
+        for ( int i = 0; i < nIterations; i++ ) {
+            if ( EnumSet.of(ProfileType.ALL, ProfileType.JUST_TRIBBLE).contains(profileType) ) {
                 out.printf("read.bytes\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_BYTE));
                 out.printf("read.line\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_LINE));
                 out.printf("line.and.parts\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_PARTS));
                 out.printf("decode.loc\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE_LOC));
+            }
+
+            if ( EnumSet.of(ProfileType.ALL, ProfileType.JUST_TRIBBLE, ProfileType.JUST_TRIBBLE_DECODE).contains(profileType) ) {
                 out.printf("full.decode\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE));
             }
-        } else if ( profileType == ProfileType.JUST_TRIBBLE_DECODE ) {
-            out.printf("full.decode\t%d\t%.2f%n", 0, readFile(rodFile, ReadMode.DECODE));
-        }
 
+        }
 
         if ( EnumSet.of(ProfileType.JUST_TRIBBLE, ProfileType.JUST_TRIBBLE_DECODE).contains(profileType) )
             System.exit(0);
