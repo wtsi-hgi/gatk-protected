@@ -62,6 +62,11 @@ class RodPerformanceGoals extends QScript {
   @Argument(shortName = "short", doc = "If provided, we will use the shorter tests", required=false)
   val SHORT: Boolean = false;
 
+  @Argument(shortName = "test", doc = "If provided, we will use the shorter tests", required=false)
+  val TEST: Boolean = false;
+
+  @Argument(shortName = "sc", doc = "X", required=false)
+  val SC: Int = 1;
 
   def withBundle(filename: String): File = {
     new File(BUNDLE_DIR.getAbsolutePath + "/b37/" + filename)
@@ -83,10 +88,12 @@ class RodPerformanceGoals extends QScript {
   }
 
   def script = {
-    //countCovariatesTest()
     sitesVsGenotypesTest()
-    //bigCombineVariantsTest()
-    //lowLevelTribbleVsGATK()
+    if ( ! TEST ) {
+      countCovariatesTest()
+      bigCombineVariantsTest()
+      lowLevelTribbleVsGATK()
+    }
   }
 
   /**
@@ -102,7 +109,7 @@ class RodPerformanceGoals extends QScript {
     for ( usedbsnp <- List(true, false))
       for ( nt <- List(1, 8) ) {
         val cc = new CountCovariates() with UNIVERSAL_GATK_ARGS with QJobReport
-        cc.setJobLogging("CountCovariates", Map("nt" -> nt, "dbsnp" -> usedbsnp))
+        cc.configureJobReport("CountCovariates", Map("nt" -> nt, "dbsnp" -> usedbsnp))
         cc.analysisName = "CountCovariatesTest"
         cc.input_file :+= bam
         cc.recal_file = "/dev/null"
@@ -124,9 +131,9 @@ class RodPerformanceGoals extends QScript {
   def sitesVsGenotypesTest() {
     for ( vcf <- List(OMNI_SITES, OMNI_GENOTYPES) ) {
       val cr = new CountRODs() with UNIVERSAL_GATK_ARGS with QJobReport
-      cr.setJobLogging("SitesVsGenotypes", Map("includesGenotypes" -> (vcf == OMNI_GENOTYPES)))
+      cr.configureJobReport("SitesVsGenotypes", Map("includesGenotypes" -> (vcf == OMNI_GENOTYPES)))
       cr.analysisName = "SitesVsGenotypesTest"
-      cr.scatterCount = 2
+      cr.scatterCount = SC
       cr.rod :+= vcf
       add(cr)
     }
@@ -141,12 +148,12 @@ class RodPerformanceGoals extends QScript {
     // cat
     val cgc = new CatGrepCombineVCFs(vcfs) with QJobReport
     cgc.analysisName = "BigCombineVariantsTest"
-    cgc.setJobLogging("BigCombine", Map("mode" -> "CatGrep"))
+    cgc.configureJobReport("BigCombine", Map("mode" -> "CatGrep"))
     add( cgc )
 
     // combine variants
     val cv = new CombineVariants() with UNIVERSAL_GATK_ARGS with QJobReport
-    cv.setJobLogging("BigCombine", Map("mode" -> "CombineVariants"))
+    cv.configureJobReport("BigCombine", Map("mode" -> "CombineVariants"))
     cv.analysisName = "BigCombineVariantsTest"
     cv.variant = vcfs
     cv.assumeIdenticalSamples = true
@@ -167,7 +174,7 @@ class RodPerformanceGoals extends QScript {
       val prs = new ProfileRodSystem() with UNIVERSAL_GATK_ARGS with QJobReport
       prs.intervalsString = null
       prs.analysisName = "lowLevelTribbleVsGATK"
-      prs.setJobLogging("LogLevelTribbleVsGATK", Map("mode" -> (if (mode == justTribble) "Tribble" else "GATK")))
+      prs.configureJobReport("LogLevelTribbleVsGATK", Map("mode" -> (if (mode == justTribble) "Tribble" else "GATK")))
       prs.vcf = OMNI_SITES
       prs.mode = mode
       prs.out = "profile.rod." + mode + ".txt"
