@@ -68,6 +68,9 @@ class RodPerformanceGoals extends QScript {
   @Argument(shortName = "test", doc = "If provided, we will use the shorter tests", required=false)
   val TEST: Boolean = false;
 
+  @Argument(shortName = "multithreaded", doc = "If provided, we will include multi-threaded tests but this should only run on hosts with > 8 cores", required=false)
+  val multithreaded: Boolean = false;
+
   @Argument(shortName = "sc", doc = "X", required=false)
   val SC: Int = 1;
 
@@ -85,7 +88,7 @@ class RodPerformanceGoals extends QScript {
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO";
     this.reference_sequence = referenceFile;
-    this.memoryLimit = 2
+    this.memoryLimit = 4
     if ( SHORT )
       this.intervalsString = List("20:1-10000")
   }
@@ -112,7 +115,7 @@ class RodPerformanceGoals extends QScript {
    */
   def countCovariatesTest(iteration:Int) {
     for ( usedbsnp <- List(true, false))
-      for ( nt <- List(1, 8) ) {
+      for ( nt <- (if (multithreaded) List(1, 8) else List(1)) ) {
         val cc = new CountCovariates() with UNIVERSAL_GATK_ARGS with QJobReport
         cc.configureJobReport(Map("nt" -> nt, "dbsnp" -> usedbsnp, "iteration" -> iteration))
         cc.analysisName = "CountCovariates"
