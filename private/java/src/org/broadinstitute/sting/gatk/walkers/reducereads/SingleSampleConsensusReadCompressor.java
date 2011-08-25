@@ -149,13 +149,13 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
 
 
-        //logger.info(String.format("Setting position to %d", position));
+        logger.info(String.format("Setting position to %d", position));
         slidingWindow.addRead(read);
 
         // did adding the read create variance?
         List<VariableRegion> variableRegions = slidingWindow.getVariableRegions(readContextSize);
         for ( VariableRegion variableRegion : variableRegions ) {
-            //logger.info(String.format("Found a variable region : %d - %d", variableRegion.start, variableRegion.end) );
+            logger.info(String.format("Found a variable region : %d - %d", variableRegion.start, variableRegion.end) );
             if ( (position - readContextSize) >= variableRegion.start ) {
                 result.addAll(slidingWindow.finalizeConsensusRead(variableRegion));
             }
@@ -176,11 +176,11 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
         LinkedList<SAMRecord> result = new LinkedList<SAMRecord>();
         for ( VariableRegion variableRegion : slidingWindow.getVariableRegions(readContextSize) ) {
-            //logger.info(String.format("Variable region at close() : %d - %d", variableRegion.start, variableRegion.end) );
+            logger.info(String.format("Variable region at close() : %d - %d", variableRegion.start, variableRegion.end) );
             result.addAll(slidingWindow.finalizeVariableRegion(variableRegion));
 
         }
-        //logger.info(String.format("Finalizing LAST Consensus Read at %d", slidingWindow.getEnd()) );
+        logger.info(String.format("Finalizing LAST Consensus Read at %d", slidingWindow.getEnd()) );
         result.addAll(slidingWindow.addToConsensus(slidingWindow.getEnd()+1));
         result.addAll(slidingWindow.finalizeConsensusRead());
         return result;

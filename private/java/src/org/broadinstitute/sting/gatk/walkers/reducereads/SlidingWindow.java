@@ -161,30 +161,34 @@ public class SlidingWindow {
 
             int index = read.getAlignmentStart() - countsWithBases.getFirst().location;
 
-            Iterator<CountWithBase> I = countsWithBases.iterator();
-            CountWithBase cBase = I.next();
-            // move by the indexed amount
-            for ( int j = 0; (j < index) && ( I.hasNext() ); j++ )
-                cBase = I.next();
-            /*
-            while ( j < index  ) {
-                countsWithBases.add( new CountWithBase(countsWithBases.getFirst().location + j));
-                cBase = I.next();
-                j++;
-            }
-            */
-            // increment elements while they exist in the window, AND while you have reads
-            // TODO FIX: If I does not have next, cBase is last element, but it never gets added
-            while (  i < read.getReadLength()) {
-
-                // If variant was created
-                if (cBase.addBase(bases[i], quals[i]))
-                    result = true;
-                i++;
-                if (I.hasNext())
+            // This happens id there is overlap between countsWithBases and the new read
+            if ( index < countsWithBases.size() ) {
+                Iterator<CountWithBase> I = countsWithBases.iterator();
+                CountWithBase cBase = I.next();
+                // move by the indexed amount
+                for ( int j = 0; (j < index) && ( I.hasNext() ); j++ )
                     cBase = I.next();
-                else
-                    break;
+
+                /*
+                while ( j < index  ) {
+                    countsWithBases.add( new CountWithBase(countsWithBases.getFirst().location + j));
+                    cBase = I.next();
+                    j++;
+                }
+                */
+                // increment elements while they exist in the window, AND while you have reads
+                // TODO FIXED?: If I does not have next, cBase is last element, but it never gets added
+                while (  i < read.getReadLength()) {
+
+                    // If variant was created
+                    if (cBase.addBase(bases[i], quals[i]))
+                        result = true;
+                    i++;
+                    if (I.hasNext())
+                        cBase = I.next();
+                    else
+                        break;
+                }
             }
             // create new elements
             while (i < read.getReadLength() ) {
@@ -327,6 +331,13 @@ public class SlidingWindow {
         List<SAMRecord> result = new LinkedList<SAMRecord>();
         if ( position > getStart() ) {
             if ( !countsWithBases.isEmpty() ) {
+
+                if ( runningConsensus == null ) {
+                    createRunningConsensus();
+                }
+                if ( runningConsensus.getReadLength() == 0 ) {
+                    createRunningConsensus();
+                }
                 SAMRecord consensus;
                 /*
                 if ( position == -1 )
@@ -389,8 +400,8 @@ public class SlidingWindow {
                 newBases = tempBases;
                 newQuals = tempQuals;
 
-            if ( runningConsensus == null ) {
-                createRunningConsensus();
+            if ( runningConsensus.getReadLength() == 0 ) {
+                //createRunningConsensus();
                 //header stuff
                 consensus = runningConsensus;
 
