@@ -62,6 +62,9 @@ class RodPerformanceGoals extends QScript {
   @Argument(shortName = "short", doc = "If provided, we will use the shorter tests", required=false)
   val SHORT: Boolean = false;
 
+  @Argument(shortName = "iterations", doc = "Number of iterations we should execute", required=false)
+  val iterations: Int = 3;
+
   @Argument(shortName = "test", doc = "If provided, we will use the shorter tests", required=false)
   val TEST: Boolean = false;
 
@@ -88,11 +91,13 @@ class RodPerformanceGoals extends QScript {
   }
 
   def script = {
-    sitesVsGenotypesTest()
-    if ( ! TEST ) {
-      countCovariatesTest()
-      bigCombineVariantsTest()
-      lowLevelTribbleVsGATK()
+    for ( iteration <- 1 until iterations + 1 ) {
+      sitesVsGenotypesTest(iteration)
+      if ( ! TEST ) {
+        countCovariatesTest(iteration)
+        bigCombineVariantsTest(iteration)
+        lowLevelTribbleVsGATK(iteration)
+      }
     }
   }
 
@@ -105,12 +110,12 @@ class RodPerformanceGoals extends QScript {
    * Second, in both cases, what's the performance with -nt 1 vs. -nt 8?  We can
    * then compare scaling w/ w/o dbsnp and w/ and w/o parallelism
    */
-  def countCovariatesTest() {
+  def countCovariatesTest(iteration:Int) {
     for ( usedbsnp <- List(true, false))
       for ( nt <- List(1, 8) ) {
         val cc = new CountCovariates() with UNIVERSAL_GATK_ARGS with QJobReport
-        cc.configureJobReport("CountCovariates", Map("nt" -> nt, "dbsnp" -> usedbsnp))
-        cc.analysisName = "CountCovariatesTest"
+        cc.configureJobReport(Map("nt" -> nt, "dbsnp" -> usedbsnp, "iteration" -> iteration))
+        cc.analysisName = "CountCovariates"
         cc.input_file :+= bam
         cc.recal_file = "/dev/null"
         cc.nt = nt
@@ -121,7 +126,7 @@ class RodPerformanceGoals extends QScript {
         }
 
         if ( cc.intervalsString == Nil )
-          cc.intervalsString = List("20")
+          cc.intervalsString = List("20:1-10,000,000")
 
         add(cc)
       }
@@ -131,11 +136,11 @@ class RodPerformanceGoals extends QScript {
    * What's the relative performance of running CountRods, which doesn't do anything with the
    * tribble feature, when running on the OMNI VCF with sites only vs. with genotypes
    */
-  def sitesVsGenotypesTest() {
+  def sitesVsGenotypesTest(iteration:Int) {
     for ( vcf <- List(OMNI_SITES, OMNI_GENOTYPES) ) {
       val cr = new CountRODs() with UNIVERSAL_GATK_ARGS with QJobReport
-      cr.configureJobReport("SitesVsGenotypes", Map("includesGenotypes" -> (vcf == OMNI_GENOTYPES)))
-      cr.analysisName = "SitesVsGenotypesTest"
+      cr.configureJobReport(Map("includesGenotypes" -> (vcf == OMNI_GENOTYPES), "iteration" -> iteration))
+      cr.analysisName = "SitesVsGenotypes"
       cr.scatterCount = SC
       cr.rod :+= vcf
       add(cr)
@@ -145,19 +150,19 @@ class RodPerformanceGoals extends QScript {
   /**
    * Compares the performance of GATK CombineVariants to cat-ing VCFs and grep -v #
    */
-  def bigCombineVariantsTest() {
+  def bigCombineVariantsTest(iteration:Int) {
     def chunkFile(i: Int): File = new File(DATA_DIR.getAbsolutePath + "/chunks/chunk_" + i + ".vcf")
     val vcfs: List[File] = List.range(1, 50).map(chunkFile(_))
     // cat
     val cgc = new CatGrepCombineVCFs(vcfs) with QJobReport
-    cgc.analysisName = "BigCombineVariantsTest"
-    cgc.configureJobReport("BigCombine", Map("mode" -> "CatGrep"))
+    cgc.analysisName = "BigCombine"
+    cgc.configureJobReport(Map("mode" -> "CatGrep", "iteration" -> iteration))
     add( cgc )
 
     // combine variants
     val cv = new CombineVariants() with UNIVERSAL_GATK_ARGS with QJobReport
-    cv.configureJobReport("BigCombine", Map("mode" -> "CombineVariants"))
-    cv.analysisName = "BigCombineVariantsTest"
+    cv.configureJobReport(Map("mode" -> "CombineVariants", "iteration" -> iteration))
+    cv.analysisName = "BigCombine"
     cv.variant = vcfs
     cv.assumeIdenticalSamples = true
     cv.out = "/dev/null"
@@ -170,14 +175,15 @@ class RodPerformanceGoals extends QScript {
     def commandLine = "cat %s | grep -v \"#\" > %s".format(files, out)
   }
 
-  def lowLevelTribbleVsGATK() {
+  def lowLevelTribbleVsGATK(iteration:Int) {
     val justTribble = org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE
     for ( mode <- List(org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE,
                        org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_GATK)) {
       val prs = new ProfileRodSystem() with UNIVERSAL_GATK_ARGS with QJobReport
       prs.intervalsString = null
-      prs.analysisName = "lowLevelTribbleVsGATK"
-      prs.configureJobReport("LogLevelTribbleVsGATK", Map("mode" -> (if (mode == justTribble) "Tribble" else "GATK")))
+      prs.analysisName = "TribbleVsGATK"
+      prs.configureJobReport(Map("mode" -> (if (mode == justTribble) "Tribble" else "GATK")))
+      //prs.configureJobReport(Map("mode" -> (if (mode == justTribble) "Tribble" else "GATK"), "iteration" -> iteration))
       prs.vcf = OMNI_SITES
       prs.mode = mode
       prs.out = "profile.rod." + mode + ".txt"
