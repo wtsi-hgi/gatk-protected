@@ -381,16 +381,18 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private void printGraph() {
 
-        for ( DeBruijnVertex source : graph.vertexSet() ) {
-            if ( graph.inDegreeOf(source) == 0 )
-                getOutputStream().print("* ");
-            getOutputStream().print(source + " -> ");
-            for ( DeBruijnEdge edge : graph.outgoingEdgesOf(source) ) {
-                getOutputStream().print(graph.getEdgeTarget(edge) + " (" + edge.getMultiplicity() + "), ");
+        if( getOutputStream() != null ) {
+            for ( DeBruijnVertex source : graph.vertexSet() ) {
+                if ( graph.inDegreeOf(source) == 0 )
+                    getOutputStream().print("* ");
+                getOutputStream().print(source + " -> ");
+                for ( DeBruijnEdge edge : graph.outgoingEdgesOf(source) ) {
+                    getOutputStream().print(graph.getEdgeTarget(edge) + " (" + edge.getMultiplicity() + "), ");
+                }
+                getOutputStream().println();
             }
-            getOutputStream().println();
+            getOutputStream().println("------------\n");
         }
-        getOutputStream().println("------------\n");
     }
 
     private List<Haplotype> findBestPaths() {
@@ -404,21 +406,23 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         // print them out
         for ( final KBestPaths.Path path : bestPaths ) {
 
-            List<DeBruijnEdge> edges = path.getEdges();
-            for (int i = 0; i < edges.size(); i++) {
+            if( getOutputStream() != null ) {
+                List<DeBruijnEdge> edges = path.getEdges();
+                for (int i = 0; i < edges.size(); i++) {
 
-                DeBruijnEdge edge = edges.get(i);
+                    DeBruijnEdge edge = edges.get(i);
 
-                if ( i == 0 )
-                    getOutputStream().print(graph.getEdgeSource(edge));
+                    if ( i == 0 )
+                        getOutputStream().print(graph.getEdgeSource(edge));
 
-                getOutputStream().print(graph.getEdgeTarget(edge));
+                    getOutputStream().print(graph.getEdgeTarget(edge));
+                }
+
+                if ( edges.size() == 0 )
+                    getOutputStream().print(path.getLastVertexInPath());
+
+                getOutputStream().println(" (score=" + path.getScore() + ", lowestEdge=" + path.getLowestEdge() + ")");
             }
-
-            if ( edges.size() == 0 )
-                getOutputStream().print(path.getLastVertexInPath());
-
-            getOutputStream().println(" (score=" + path.getScore() + ", lowestEdge=" + path.getLowestEdge() + ")");
             int length = path.getBases( graph ).length;
             if(length > maxLength) {
                 maxLength = length;

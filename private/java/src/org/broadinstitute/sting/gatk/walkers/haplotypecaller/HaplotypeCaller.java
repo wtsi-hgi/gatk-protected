@@ -26,7 +26,6 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
-import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.StringUtil;
 import org.broadinstitute.sting.commandline.Argument;
@@ -59,8 +58,11 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     @Output(doc="File to which variants should be written", required = true)
     protected VCFWriter writer = null;
 
-    @Output(fullName="graphOutput", shortName="graph", doc="File to which debug assembly graph information should be written", required = true)
+    @Output(fullName="graphOutput", shortName="graph", doc="File to which debug assembly graph information should be written", required = false)
     protected PrintStream graphWriter = null;
+
+    @Output(fullName="fasta", shortName="fasta", doc="File to which output haplotypes in fasta format should be written", required = false)
+    protected PrintStream fastaWriter = null;
 
     @Argument(fullName = "assembler", shortName = "assembler", doc = "Assembler to use; currently only SIMPLE_DE_BRUIJN is available.", required = false)
     protected LocalAssemblyEngine.ASSEMBLER ASSEMBLER_TO_USE = LocalAssemblyEngine.ASSEMBLER.SIMPLE_DE_BRUIJN;
@@ -174,12 +176,21 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
         System.out.println(readsToAssemble.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:");
 
         final List<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble.getReads() );
-        final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReads() );
-        final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation() );
+        if( fastaWriter != null ) {
+            int iii = 0;
+            for( final Haplotype h : haplotypes ) {
+                fastaWriter.println( ">Haplotype" + iii );
+                fastaWriter.println( h.toString() );
+                iii++;
+            }
+        } else {
+            final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReads() );
+            final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation() );
 
-        for( final VariantContext vc : vcs ) {
-            System.out.println(vc);
-            writer.add(vc);
+            for( final VariantContext vc : vcs ) {
+                System.out.println(vc);
+                writer.add(vc);
+            }
         }
         System.out.println("----------------------------------------------------------------------------------");
 
