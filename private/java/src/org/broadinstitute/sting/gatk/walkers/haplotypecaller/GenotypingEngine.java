@@ -197,10 +197,20 @@ public class GenotypingEngine {
                     ArrayList<Allele> alleles = new ArrayList<Allele>();
                     alleles.add( vc1.getAlternateAllele(0) );
                     alleles.add( vc2.getAlternateAllele(0) );
-                    Genotype gt = new Genotype( "NA12878", alleles );
-                    HashMap<String,Genotype> genotypeMap = new HashMap<String,Genotype>();
-                    genotypeMap.put("NA12878", gt);
-                    vcs.add( VariantContext.modifyGenotypes( vc1, genotypeMap ) );
+                    if( alleles.get(0).equals(alleles.get(1)) ) { // check if alt allese match
+                        Genotype gt = new Genotype( "NA12878", alleles );
+                        HashMap<String,Genotype> genotypeMap = new HashMap<String,Genotype>();
+                        genotypeMap.put("NA12878", gt);
+                        vcs.add( VariantContext.modifyGenotypes( vc1, genotypeMap ) );
+                    } else { // two alt alleles don't match, and don't call multialleleic records yet
+                        vc2Hold = vc2;
+                        ArrayList<Allele> theseAlleles = new ArrayList<Allele>();
+                        theseAlleles.addAll( vc1.getAlleles() );
+                        Genotype gt = new Genotype( "NA12878", theseAlleles );
+                        HashMap<String,Genotype> genotypeMap = new HashMap<String,Genotype>();
+                        genotypeMap.put("NA12878", gt);
+                        vcs.add( VariantContext.modifyGenotypes( vc1, genotypeMap ) );
+                    }
                 } else if( vc1.getStart() < vc2.getStart()) {
                     vc2Hold = vc2;
                     ArrayList<Allele> alleles = new ArrayList<Allele>();
