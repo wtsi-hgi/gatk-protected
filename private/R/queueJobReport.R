@@ -1,9 +1,13 @@
 library(gsalib)
 require("ggplot2")
 require("gplots")
+
+#
+# Standard command line switch.  Can we loaded interactively for development
+# or executed with RScript
+#
 args = commandArgs(TRUE)
 onCMDLine = ! is.na(args[1])
-
 if ( onCMDLine ) {
   inputFileName = args[1]
   outputPDF = args[2]
@@ -12,14 +16,21 @@ if ( onCMDLine ) {
   outputPDF = NA
 }
 
+RUNTIME_UNITS = "(sec)"
+ORIGINAL_UNITS_TO_SECONDS = 1/1000
+
+# 
+# Helper function to aggregate all of the jobs in the report across all tables
+#
 allJobsFromReport <- function(report) {
   names <- c("jobName", "startTime", "analysisName", "doneTime")
   sub <- lapply(report, function(table) table[,names])
-  r = do.call("rbind", sub)
-  # todo -- sort by time here
-  r
+  do.call("rbind", sub)
 }
 
+#
+# Creates segmentation plots of time (x) vs. job (y) with segments for the duration of the job
+#
 plotJobsGantt <- function(gatkReport, sortOverall) {
   allJobs = allJobsFromReport(gatkReport)
   if ( sortOverall ) {
@@ -33,11 +44,14 @@ plotJobsGantt <- function(gatkReport, sortOverall) {
   minTime = min(allJobs$startTime)
   allJobs$relStartTime = allJobs$startTime - minTime
   allJobs$relDoneTime = allJobs$doneTime - minTime
+  maxRelTime = max(allJobs$relDoneTime)
   p <- ggplot(data=allJobs, aes(x=relStartTime, y=index, color=analysisName))
-  p <- p + geom_segment(aes(xend=relDoneTime, yend=index), size=3, arrow=arrow(length = unit(0.3, "cm")))
-  p <- p + xlab("Start time (relative to first job) (ms)")
+  p <- p + geom_segment(aes(xend=relDoneTime, yend=index), size=2, arrow=arrow(length = unit(0.1, "cm")))
+  p <- p + geom_text(aes(x=relDoneTime, label=jobName, hjust=-0.2), size=2)
+  p <- p + xlim(0, maxRelTime * 1.1)
+  p <- p + xlab(paste("Start time (relative to first job)", RUNTIME_UNITS))
+  p <- p + ylab("Job")
   p <- p + opts(title=title)
-  #p <- p + scale_x_datetime(format = "%d %H:%M:%S")
   print(p)
 }
 
@@ -59,13 +73,9 @@ plotProgressByTime <- function(gatkReport) {
   countJobs <- function(p) {
     s = allJobs$relStartTime
     e = allJobs$relDoneTime
-    x = c()
-    #print(s)
-    #print(e)
-    #print(times)
+    x = c() # I wish I knew how to make this work with apply
     for ( time in times )
       x = c(x, sum(p(s, e, time)))
-    #print(x)
     x
   }
 
@@ -78,48 +88,54 @@ plotProgressByTime <- function(gatkReport) {
   p <- ggplot(data=melt(d, id.vars=c("times")), aes(x=times, y=value, color=variable))
   p <- p + facet_grid(variable ~ ., scales="free")
   p <- p + geom_line(size=2)
-  p <- p + xlab("Time since start of first job (ms)")
+  p <- p + xlab(paste("Time since start of first job", RUNTIME_UNITS))
   p <- p + opts(title = "Job scheduling")
   print(p)
 }
 
+# 
+# Creates tables for each job in this group
+#
 standardColumns = c("jobName", "startTime", "formattedStartTime", "analysisName", "intermediate", "formattedDoneTime", "doneTime", "runtime")
-
 plotGroup <- function(groupTable) {
   name = unique(groupTable$analysisName)[1]
-  groupAnnotations = setdiff(names(groupTable), standardColumns)
+  groupAnnotations = setdiff(names(groupTable), standardColumns)  
   sub = groupTable[,c("jobName", groupAnnotations, "runtime")]
   sub = sub[order(sub$iteration, sub$jobName, decreasing=F), ]
+  
+  # create a table showing each job and all annotations
   textplot(sub, show.rownames=F)
   title(paste("Job summary for", name, "full itemization"), cex=3)
 
+  # create the table for each combination of values in the group, listing iterations in the columns
   sum = cast(melt(sub, id.vars=groupAnnotations, measure.vars=c("runtime")), ... ~ iteration, fun.aggregate=mean)
   textplot(as.data.frame(sum), show.rownames=F)
   title(paste("Job summary for", name, "itemizing each iteration"), cex=3)
 
+  # as above, but averaging over all iterations
   groupAnnotationsNoIteration = setdiff(groupAnnotations, "iteration")
   sum = cast(melt(sub, id.vars=groupAnnotationsNoIteration, measure.vars=c("runtime")), ... ~ ., fun.aggregate=mean)
   textplot(as.data.frame(sum), show.rownames=F)
   title(paste("Job summary for", name, "averaging over all iterations"), cex=3)
 }
     
+# print out some useful basic information
 print("Report")
 print(paste("Project          :", inputFileName))
 
-# parseTimes <- function(report) {
-#   timeFormat = "%d.%m.%y/%H:%M:%S"
-#   one <- function(g) {
-#     g$parsedDoneTime <- strptime(g$doneTime, timeFormat)
-#     g$parsedStartTime <- strptime(g$startTime, timeFormat)
-#     print(g)
-#   }
-#   lapply(report, one)
-# }
+convertUnits <- function(gatkReportData) {
+  convertGroup <- function(g) {
+    g$runtime = g$runtime * ORIGINAL_UNITS_TO_SECONDS
+    g
+  }
+  lapply(gatkReportData, convertGroup)
+}
 
+  
+# read the table
 gatkReportData <- gsa.read.gatkreport(inputFileName)
-#gatkReportData <- parseTimes(gatkReportData)
-#print(gatkReportData$BigCombine)
-print(summary(gatkReportData))
+gatkReportData <- convertUnits(gatkReportData)
+#print(summary(gatkReportData))
 
 if ( ! is.na(outputPDF) ) {
   pdf(outputPDF, height=8.5, width=11)
