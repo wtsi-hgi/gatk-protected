@@ -121,41 +121,21 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         if ( header == null )
             header = read.getHeader();
 
-        /*
-        if ( ! waitingReads.isEmpty() && read.getAlignmentStart() < waitingReads.peek().getAlignmentStart() )
-            throw new ReviewedStingException(
-                    String.format("Adding read %s starting at %d before current queue head start position %d",
-                            read.getReadName(), read.getAlignmentStart(), waitingReads.peek().getAlignmentStart()));
-        */
         List<SAMRecord> result = new LinkedList<SAMRecord>();
-        /*
-        if ( retryTimer == 0 ) {
 
-            if ( chunkReadyForConsensus(read) ) {
-                result = consensusReads(false);
-            }
-        } else {
-            //logger.info("Retry: " + retryTimer);
-            retryTimer--;
-        }
-
-        waitingReads.add(read);
-        */
         // This prevents a clipped tail from ruining the sliding window
         int position = read.getUnclippedStart();
 
-        if ( position - readContextSize > slidingWindow.getEnd() && slidingWindow.getEnd() != -1 )
+        if ( position - readContextSize > slidingWindow.getStopLocation() && slidingWindow.getStopLocation() != -1 )
             result.addAll(close());
 
-
-
-        logger.info(String.format("Setting position to %d", position));
+//        logger.info(String.format("Setting position to %d", position));
         slidingWindow.addRead(read);
 
         // did adding the read create variance?
         List<VariableRegion> variableRegions = slidingWindow.getVariableRegions(readContextSize);
         for ( VariableRegion variableRegion : variableRegions ) {
-            logger.info(String.format("Found a variable region : %d - %d", variableRegion.start, variableRegion.end) );
+//            logger.info(String.format("Found a variable region : %d - %d", variableRegion.start, variableRegion.end) );
             if ( (position - readContextSize) >= variableRegion.start ) {
                 result.addAll(slidingWindow.finalizeConsensusRead(variableRegion));
             }
@@ -176,12 +156,12 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
         LinkedList<SAMRecord> result = new LinkedList<SAMRecord>();
         for ( VariableRegion variableRegion : slidingWindow.getVariableRegions(readContextSize) ) {
-            logger.info(String.format("Variable region at close() : %d - %d", variableRegion.start, variableRegion.end) );
+            //logger.info(String.format("Variable region at close() : %d - %d", variableRegion.start, variableRegion.end) );
             result.addAll(slidingWindow.finalizeVariableRegion(variableRegion));
 
         }
-        logger.info(String.format("Finalizing LAST Consensus Read at %d", slidingWindow.getEnd()) );
-        result.addAll(slidingWindow.addToConsensus(slidingWindow.getEnd()+1));
+        //logger.info(String.format("Finalizing LAST Consensus Read at %d", slidingWindow.getEnd()) );
+        result.addAll(slidingWindow.addToConsensus(slidingWindow.getStopLocation()+1));
         result.addAll(slidingWindow.finalizeConsensusRead());
         return result;
     }

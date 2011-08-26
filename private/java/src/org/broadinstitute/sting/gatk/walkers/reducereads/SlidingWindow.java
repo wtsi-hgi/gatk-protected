@@ -1,12 +1,12 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import net.sf.samtools.SAMFileHeader;
-import net.sf.samtools.SAMReadGroupRecord;
-import net.sf.samtools.SAMRecord;
+import com.google.java.contract.Requires;
+import net.sf.samtools.*;
 import org.apache.commons.lang.ArrayUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
 
 import java.util.*;
+import java.util.zip.InflaterOutputStream;
 
 /**
  * Created by IntelliJ IDEA.
@@ -16,42 +16,85 @@ import java.util.*;
  * To change this template use File | Settings | File Templates.
  */
 public class SlidingWindow {
+
     protected final static String RG_POSTFIX = ".ReducedReads";
 
-    public LinkedList<SlidingRead> SlidingReads = new LinkedList<SlidingRead>();
-    public LinkedList<CountWithBase> countsWithBases = new LinkedList<CountWithBase>();
+    private LinkedList<SlidingRead> SlidingReads = new LinkedList<SlidingRead>();
+    private LinkedList<CountWithBase> countsWithBases = new LinkedList<CountWithBase>();
     private String contig = null;
-    private int start; //of the first read
-    SAMFileHeader header;
-    SAMRecord runningConsensus;
-    final SAMReadGroupRecord reducedReadGroup;
-    int consensusCounter = 0;
+    private int startLocation;
+    private int stopLocation;
+    private SAMFileHeader header;
+    private SAMRecord runningConsensus;
+    private final SAMReadGroupRecord reducedReadGroup;
+    private int consensusCounter = 0;
     private int contigIndex;
+    private final double MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT = 0;   // proportion has to be greater than this value
+    private final int MIN_BASE_QUAL_TO_COUNT = 20;                         // qual has to be greater than or equal to this value
+
+
+    protected class CountWithBase {
+        private BaseCounts counts;
+        private int insertionsToTheRight;
+        private int location;
+        private boolean isVariant;
+
+        public CountWithBase () {
+            this.counts = new BaseCounts();
+            this.insertionsToTheRight = 0;
+            this.location = 0;
+            this.isVariant = false;
+        }
+
+        public CountWithBase (int location) {
+            this();
+            this.location = location;
+        }
+
+       /**
+        * return true if a variant site was CREATED
+        */
+        public boolean addBase(byte base, byte qual, boolean hasInsertionToTheRight) {
+            if ( qual >= MIN_BASE_QUAL_TO_COUNT ) {
+                this.counts.incr(base);
+                if (hasInsertionToTheRight)
+                    insertionsToTheRight++;
+            }
+
+            // todo -- this test should be done when generating consensus
+            if (!this.isVariant) {
+                if (counts.totalCount() > 1 &&
+                        (isVariantFromInsertions()) ||
+                        (base != this.counts.baseWithMostCounts() && counts.baseCountProportion(base) > MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT)) {  // is variant due to base variation
+                    this.isVariant = true;
+                }
+            }
+            return isVariant;
+        }
+
+        private boolean isVariantFromInsertions() {
+            return ((double) insertionsToTheRight / counts.totalCount()) > MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT;
+        }
+    }
 
     public SlidingWindow(final String sampleName, String Contig, SAMFileHeader Header) {
         this.contig = Contig;
-        //this.contigIndex = ContigIndex;
         this.header = Header;
-        runningConsensus = null;
+        this.runningConsensus = null;
+        this.startLocation = -1;
+        this.stopLocation = -1;
         this.reducedReadGroup = createReducedReadGroup(sampleName);
     }
 
-     /**
-     * Helper function to create a read group for these reduced reads
-     * @param sampleName
-     * @return
-     */
-    private static final SAMReadGroupRecord createReducedReadGroup(final String sampleName) {
-        SAMReadGroupRecord rg = new SAMReadGroupRecord(sampleName + RG_POSTFIX);
-        rg.setSample(sampleName);
-        return rg;
+
+    public int getStopLocation() {
+        return stopLocation;
     }
+
 
     public void slide(int position) {
 
         //position is the start of the new window
-
-
         LinkedList<SlidingRead> slidReads = new LinkedList<SlidingRead>();
         for ( SlidingRead read: SlidingReads ) {
             if ( read.getAlignmentStart() < position )
@@ -69,54 +112,8 @@ public class SlidingWindow {
         SlidingReads = slidReads;
     }
 
-    public int getEnd() {
-        if( !(SlidingReads.isEmpty()) )
-            return SlidingReads.getLast().getAlignmentStop();
-        else
-            return -1;
-
-    }
-
     public List<SAMRecord> addToConsensus() {
-        return addToConsensus(getEnd()+1);
-    }
-
-    protected class CountWithBase {
-        BaseCounts counts;
-        int location;
-        boolean isVariant;
-
-        public CountWithBase(byte base, byte qual, int Location) {
-            this.counts = new BaseCounts();
-            if (qual >= 20)
-                this.counts.incr(base);
-            this.location = Location;
-            this.isVariant = false;
-        }
-        /*Should not be used
-        public CountWithBase(int Location) {
-            this.counts = new BaseCounts();
-            this.location = Location;
-            this.isVariant = false;
-        }
-        */
-        // TODO minMapQual filters and minBaseQual filters
-        public boolean addBase(byte base, byte qual) {
-            // return true if a variant site was CREATED
-            boolean result = false;
-            if ( qual >= 20 ) {
-                if (!this.isVariant) {
-                    if (base != this.counts.baseWithMostCounts() && this.counts.totalCount() != 0 ) {
-                        this.isVariant = true;
-                        result = true;
-                    }
-                }
-                this.counts.incr(base);
-            }
-            return result;
-
-        }
-
+        return addToConsensus(stopLocation+1);
     }
 
     public boolean addRead( SAMRecord read ) {
@@ -126,89 +123,79 @@ public class SlidingWindow {
         return result;
     }
 
-    public int getStart() {
-        if ( !countsWithBases.isEmpty() )
-            start = countsWithBases.getFirst().location;
-        else
-            start = -1;
-        return start;
+    public int getStartLocation() {
+        return startLocation;
     }
 
     // look through the read and slidingReads
     // return true if a variant site was created variance
     // add read to counts index
+    @Requires("read.getAlignmentStart >= startLocation")
     private boolean addToCounts(SAMRecord read) {
-        boolean result = false;
+        boolean createdVariant = false;
         byte[] bases = read.getReadBases();
         byte[] quals = read.getBaseQualities();
+        Cigar cigar = read.getCigar();
+
+        // todo -- this is definitely out of place. Sliding Window should be initialized before we try to add things to it.
+        // set up the Sliding Window parameters
         if (SlidingReads.isEmpty()) {
             // update contigs
             contig = read.getReferenceName();
             contigIndex = read.getReferenceIndex();
             header = read.getHeader();
-            // TODO add Quality check for low qual scores here
-
-            for (int i = 0 ; i < read.getReadLength(); i++) {
-                countsWithBases.add( new CountWithBase( bases[i], quals[i], i + read.getAlignmentStart()) );
-            }
-            return result;
+            startLocation = read.getAlignmentStart();
+            stopLocation = read.getAlignmentEnd();
+            for (int i = startLocation; i<=stopLocation; i++)
+                countsWithBases.add(new CountWithBase(read.getAlignmentStart() + i));
         }
-        else {
-            // do this while there is a slidingWindow position in the linked list
-            // we have to make new elements for the rest.
 
-            int i = 0;
+        int readBaseIndex = 0;
+        int locationIndex = read.getAlignmentStart() - startLocation;
 
-            int index = read.getAlignmentStart() - countsWithBases.getFirst().location;
+        // Do we need to add extra elements to the end of the list?
+        if (stopLocation < read.getAlignmentEnd()) {
+            int elementsToAdd = read.getAlignmentEnd() - stopLocation;
+            while (elementsToAdd-- > 0)
+                countsWithBases.addLast(new CountWithBase(read.getAlignmentEnd() - elementsToAdd));
+        }
 
-            // This happens id there is overlap between countsWithBases and the new read
-            if ( index < countsWithBases.size() ) {
-                Iterator<CountWithBase> I = countsWithBases.iterator();
-                CountWithBase cBase = I.next();
-                // move by the indexed amount
-                for ( int j = 0; (j < index) && ( I.hasNext() ); j++ )
-                    cBase = I.next();
 
-                /*
-                while ( j < index  ) {
-                    countsWithBases.add( new CountWithBase(countsWithBases.getFirst().location + j));
-                    cBase = I.next();
-                    j++;
-                }
-                */
-                // increment elements while they exist in the window, AND while you have reads
-                // TODO FIXED?: If I does not have next, cBase is last element, but it never gets added
-                while (  i < read.getReadLength()) {
-
-                    // If variant was created
-                    if (cBase.addBase(bases[i], quals[i]))
-                        result = true;
-                    i++;
-                    if (I.hasNext())
-                        cBase = I.next();
-                    else
-                        break;
-                }
-            }
-            // create new elements
-            while (i < read.getReadLength() ) {
-                //add new  element to sliding window
-                countsWithBases.add( new CountWithBase( bases[i], quals[i], i + read.getAlignmentStart()) );
-                i++;
+        for (CigarElement cigarElement : cigar.getCigarElements()) {
+            switch (cigarElement.getOperator()) {
+                case H:
+                case S:
+                    // nothing to add to the window
+                    break;
+                case I:
+                    // insertions are added to the base to the left (previous element) with the quality score of the first inserted base
+                    createdVariant = countsWithBases.get(locationIndex-1).addBase((byte) 'I', quals[readBaseIndex], true);
+                    readBaseIndex += cigarElement.getLength();
+                    break;
+                case D:
+                    // deletions are added to the counts with the read mapping quality as it's quality score
+                    int nDeletionsToAdd = cigarElement.getLength();
+                    while(nDeletionsToAdd-- > 0) {
+                        createdVariant = countsWithBases.get(locationIndex).addBase((byte) 'D', (byte) read.getMappingQuality(), false);
+                        locationIndex++;
+                    }
+                    break;
+                case M:
+                case P:
+                case EQ:
+                case X:
+                    int nBasesToAdd = cigarElement.getLength();
+                    while(nBasesToAdd-- > 0) {
+                        createdVariant = countsWithBases.get(locationIndex).addBase(bases[readBaseIndex], quals[readBaseIndex], false);
+                        readBaseIndex++;
+                        locationIndex++;
+                    }
+                    break;
             }
         }
-        return result;
-    }
 
-    /*
-    // This method add spacer elements to the countWithBases LL in case of zero coverage/gaps between reads
-    private void addBlankCounts( int amount) {
-        //TODO require positive number
-        for ( int i = amount; i != 0; i-- )
-            countsWithBases.add(new CountWithBase(countsWithBases.getLast().location + 1));
-
+        return createdVariant;
     }
-    */
 
     // gets the region(s) of variable sites present in the window
     public List<VariableRegion> getVariableRegions(int contextSize) {
@@ -285,7 +272,7 @@ public class SlidingWindow {
         runningConsensus.setReadPairedFlag(false);
         runningConsensus.setReadUnmappedFlag(false);
         //runningConsensus.setCigarString(String.format("%dM", size));    // TODO fix cigar
-        runningConsensus.setAlignmentStart(getStart());
+        runningConsensus.setAlignmentStart(getStartLocation());
 
     }
 
@@ -329,7 +316,7 @@ public class SlidingWindow {
     public List<SAMRecord> addToConsensus(int position) {
         // compresses the sliding reads to a streaming(incomplete) SamRecord
         List<SAMRecord> result = new LinkedList<SAMRecord>();
-        if ( position > getStart() ) {
+        if ( position > getStartLocation() ) {
             if ( !countsWithBases.isEmpty() ) {
 
                 if ( runningConsensus == null ) {
@@ -344,14 +331,14 @@ public class SlidingWindow {
                     position = (getEnd() + 1);
                 */
 
-                int size = position - getStart();
+                int size = position - getStartLocation();
 
                 //System.out.println(String.format("INFO -- Compressing running Consensus from %d to %d  ", getStart(), position));
                 int i = 0;
                 byte[] newBases = new byte[size];
                 byte[] newQuals = new byte[size];
 
-                int currentPosition = getStart();
+                int currentPosition = getStartLocation();
                 Iterator<SlidingWindow.CountWithBase> I = countsWithBases.iterator();
                 SlidingWindow.CountWithBase cBase = I.next();
                 while ( currentPosition < position ) {
@@ -432,6 +419,19 @@ public class SlidingWindow {
         }
 
         return result;
+    }
+
+
+    //todo -- this should be part of the class constructor
+    /**
+     * Helper function to create a read group for these reduced reads
+     * @param sampleName
+     * @return
+     */
+    private static final SAMReadGroupRecord createReducedReadGroup(final String sampleName) {
+        SAMReadGroupRecord rg = new SAMReadGroupRecord(sampleName + RG_POSTFIX);
+        rg.setSample(sampleName);
+        return rg;
     }
 
 }

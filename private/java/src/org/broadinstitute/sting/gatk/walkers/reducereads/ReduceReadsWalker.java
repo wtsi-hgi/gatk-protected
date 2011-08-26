@@ -167,32 +167,15 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         read = SimplifyingSAMFileWriter.simplifyRead(read);
 
         ReadClipper clipper = new ReadClipper(read);
-        //byte [] bases = read.getReadBases();
-        //System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
-        /*
-
-        for (byte base : bases) System.out.print((char)base);
-        System.out.println();
-        */
+        System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
         SAMRecord filteredRead = clipper.hardClipLowQualEnds(minTailQuality);
-
-        if (clipper.wasClipped()) {
-            //System.out.printf("******* WAS CLIPPED ***********\n");
-            //bases = filteredRead.getReadBases();
-            //for (byte base : bases) System.out.print((char)base);
-            //System.out.println();
-        }
 
         SAMRecord clippedRead = read;
         if (filteredRead.getReadLength() > 0 && !getToolkit().getIntervals().isEmpty())
             clippedRead = hardClipReadToInterval(filteredRead);
 
         System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
-        /*
-        bases = clippedRead.getReadBases();
-        for (byte base : bases) System.out.print((char)base);
-        System.out.println();
-        */
+
         return clippedRead;
 
     }
