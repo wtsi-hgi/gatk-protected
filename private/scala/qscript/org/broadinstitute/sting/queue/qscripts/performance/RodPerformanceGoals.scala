@@ -116,7 +116,7 @@ class RodPerformanceGoals extends QScript {
   def countCovariatesTest(iteration:Int) {
     for ( usedbsnp <- List(true, false))
       for ( nt <- (if (multithreaded) List(1, 8) else List(1)) ) {
-        val cc = new CountCovariates() with UNIVERSAL_GATK_ARGS with QJobReport
+        val cc = new CountCovariates() with UNIVERSAL_GATK_ARGS
         cc.configureJobReport(Map("nt" -> nt, "dbsnp" -> usedbsnp, "iteration" -> iteration))
         cc.analysisName = "CountCovariates"
         cc.input_file :+= bam
@@ -141,7 +141,7 @@ class RodPerformanceGoals extends QScript {
    */
   def sitesVsGenotypesTest(iteration:Int) {
     for ( vcf <- List(OMNI_SITES, OMNI_GENOTYPES) ) {
-      val cr = new CountRODs() with UNIVERSAL_GATK_ARGS with QJobReport
+      val cr = new CountRODs() with UNIVERSAL_GATK_ARGS
       cr.configureJobReport(Map("includesGenotypes" -> (vcf == OMNI_GENOTYPES), "iteration" -> iteration))
       cr.analysisName = "SitesVsGenotypes"
       cr.scatterCount = SC
@@ -160,13 +160,13 @@ class RodPerformanceGoals extends QScript {
     def chunkFile(i: Int): File = new File(DATA_DIR.getAbsolutePath + "/chunks/chunk_" + i + ".vcf")
     val vcfs: List[File] = List.range(1, 50).map(chunkFile(_))
     // cat
-    val cgc = new CatGrepCombineVCFs(vcfs) with QJobReport
+    val cgc = new CatGrepCombineVCFs(vcfs)
     cgc.analysisName = "BigCombine"
     cgc.configureJobReport(Map("mode" -> "CatGrep", "iteration" -> iteration))
     add( cgc )
 
     // combine variants
-    val cv = new CombineVariants() with UNIVERSAL_GATK_ARGS with QJobReport
+    val cv = new CombineVariants() with UNIVERSAL_GATK_ARGS
     cv.configureJobReport(Map("mode" -> "CombineVariants", "iteration" -> iteration))
     cv.analysisName = "BigCombine"
     cv.variant = vcfs
@@ -185,7 +185,7 @@ class RodPerformanceGoals extends QScript {
     val justTribble = org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE
     for ( mode <- List(org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE,
                        org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_GATK)) {
-      val prs = new ProfileRodSystem() with UNIVERSAL_GATK_ARGS with QJobReport
+      val prs = new ProfileRodSystem() with UNIVERSAL_GATK_ARGS
       prs.intervalsString = null
       prs.analysisName = "TribbleVsGATK"
       prs.configureJobReport(Map("mode" -> (if (mode == justTribble) "Tribble" else "GATK"), "iteration" -> iteration))

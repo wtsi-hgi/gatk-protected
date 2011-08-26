@@ -45,7 +45,8 @@ plotJobsGantt <- function(gatkReport, sortOverall) {
 # Plots scheduling efficiency at job events
 #
 plotProgressByTime <- function(gatkReport) {
-  allJobs = allJobsFromReport(gatkReport)[1:10,]
+  allJobs = allJobsFromReport(gatkReport)
+  nJobs = dim(allJobs)[1]
   allJobs = allJobs[order(allJobs$startTime, decreasing=F),]
   allJobs$index = 1:nrow(allJobs)
 
@@ -69,8 +70,8 @@ plotProgressByTime <- function(gatkReport) {
   }
 
   pending = countJobs(function(s, e, t) s > t)
-  running = countJobs(function(s, e, t) s >= t & t <= e)
   done = countJobs(function(s, e, t) e < t)
+  running = nJobs - pending - done
 
   d = data.frame(times=times, pending=pending, running=running, done=done)
   
