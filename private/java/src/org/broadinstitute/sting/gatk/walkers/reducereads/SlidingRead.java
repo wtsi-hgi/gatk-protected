@@ -89,12 +89,13 @@ public class SlidingRead {
                 //read = read.clipEnd(variableRegion.end);
             return clippedRead;
         }
+
         // If read is not in interval, return blank read
         // TODO speed optimization possible
         else
             return new SAMRecord(read.getHeader());
-
     }
+
     //makes position the last element in LL
     private SlidingRead clipEnd(int position) {
         // Like hard clip but for sliding reads

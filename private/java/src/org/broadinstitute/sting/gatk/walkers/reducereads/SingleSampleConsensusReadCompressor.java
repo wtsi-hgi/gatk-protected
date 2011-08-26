@@ -66,20 +66,16 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
     private final SAMReadGroupRecord reducedReadGroup;
     private String contig = null;
-    private final GenomeLocParser glParser;
 
     private SlidingWindow slidingWindow;
 
 
     public SingleSampleConsensusReadCompressor(final String sampleName,
                                                final int readContextSize,
-                                               final GenomeLocParser glParser,
                                                final int AverageDepthAtVariableSites,
                                                final int qualityEquivalent,
                                                final int minMapQuality) {
         this.readContextSize = readContextSize;
-        this.glParser = glParser;
-        this.slidingWindow = new SlidingWindow("SampleName",contig, header);
         this.AverageDepthAtVariableSites = AverageDepthAtVariableSites;
         this.reducedReadGroup = createReducedReadGroup(sampleName);
         this.QualityEquivalent = qualityEquivalent;
@@ -107,71 +103,59 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     //
     // ------------------------------------------------------------------------------------------
 
-        /**
+    /**
      * @{inheritDoc}
      */
     @Override
     public Iterable<SAMRecord> addAlignment( SAMRecord read ) {
-        if ( contig == null )
-            contig = read.getReferenceName();
-        if ( ! read.getReferenceName().equals(contig) )
-            throw new ReviewedStingException("ConsensusRead system doesn't support multiple contig processing right now");
 
-
-        if ( header == null )
-            header = read.getHeader();
+        /**
+         * Steps to adding alignment:
+         *
+         * 1 - Slide the current window if we can.
+         * 2 - If necessary, close and create a new window.
+         * 3 - Add read to the window
+         *
+         *
+         * When adding read to the window, handle 3 types of reads :
+         *  1 - Read is fully contained by current sliding window
+         *    * add read to the sliding window -- simple case
+         *  2 - Read is partially contained by current sliding window (left side is inside, right side is outside)
+         *    * increase the sliding window to accommodate the new read
+         *  3 - Read is completely outside of the sliding window
+         *    * close current sliding window and create a new one
+         *
+         * Notes:
+         *  - The starting position of the incoming read must be the unclipped end because reads may have been trimmed
+         *  and the next read start can be smaller than the current incoming read's alignmentStart, but never smaller
+         *  than the unclippedStart.
+         *
+         *  - The size of the sliding window has to include the context size (to the right).
+         *
+         */
 
         List<SAMRecord> result = new LinkedList<SAMRecord>();
-
-        // This prevents a clipped tail from ruining the sliding window
         int position = read.getUnclippedStart();
 
-        if ( position - readContextSize > slidingWindow.getStopLocation() && slidingWindow.getStopLocation() != -1 )
-            result.addAll(close());
+        // create a new window if:
+        if ( contig == null ||                                                                                                  // this is the first read
+             !read.getReferenceName().equals(contig) ||                                                                         // this is a brand new contig
+             ( position - readContextSize > slidingWindow.getStopLocation() && slidingWindow.getStopLocation() != -1 ))   {     // this read is too far away from the end of the current sliding window
 
-//        logger.info(String.format("Setting position to %d", position));
-        slidingWindow.addRead(read);
-
-        // did adding the read create variance?
-        List<VariableRegion> variableRegions = slidingWindow.getVariableRegions(readContextSize);
-        for ( VariableRegion variableRegion : variableRegions ) {
-//            logger.info(String.format("Found a variable region : %d - %d", variableRegion.start, variableRegion.end) );
-            if ( (position - readContextSize) >= variableRegion.start ) {
-                result.addAll(slidingWindow.finalizeConsensusRead(variableRegion));
-            }
-            if ( position > variableRegion.end ) {
-                result.addAll(slidingWindow.finalizeVariableRegion(variableRegion));
-            }
+            // if the current sliding window exists, close it
+            if (slidingWindow != null)
+                result.addAll(slidingWindow.close());
+            slidingWindow = new SlidingWindow(read.getReadGroup().getSample(), read.getReferenceName(), read.getHeader(), readContextSize);
         }
-        if ( variableRegions.isEmpty() )
-            result.addAll(slidingWindow.addToConsensus(position - readContextSize));
-        else
-            result.addAll(slidingWindow.addToConsensus(Math.min(variableRegions.get(0).start, position - readContextSize)));
+        result.addAll(slidingWindow.addRead(read));
+
         return result;
     }
 
     @Override
     public List<SAMRecord> close() {
-        // TODO fix ending at variable region, it must complete the consensus
-
-        LinkedList<SAMRecord> result = new LinkedList<SAMRecord>();
-        for ( VariableRegion variableRegion : slidingWindow.getVariableRegions(readContextSize) ) {
-            //logger.info(String.format("Variable region at close() : %d - %d", variableRegion.start, variableRegion.end) );
-            result.addAll(slidingWindow.finalizeVariableRegion(variableRegion));
-
-        }
-        //logger.info(String.format("Finalizing LAST Consensus Read at %d", slidingWindow.getEnd()) );
-        result.addAll(slidingWindow.addToConsensus(slidingWindow.getStopLocation()+1));
-        result.addAll(slidingWindow.finalizeConsensusRead());
-        return result;
+        return (slidingWindow != null) ? slidingWindow.close() : new LinkedList<SAMRecord>();
     }
-
-    // ------------------------------------------------------------------------------------------
-    //
-    // NO private implementation functions
-    //
-    // ------------------------------------------------------------------------------------------
-
 
 }
 

@@ -144,9 +144,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     public void initialize() {
         super.initialize();
 
-        compressor = new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(),
-                contextSize, getToolkit().getGenomeLocParser(),
-                AverageDepthAtVariableSites, QUALITY_EQUIVALENT, MIN_MAPPING_QUALITY);
+        compressor = new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(), contextSize, AverageDepthAtVariableSites, QUALITY_EQUIVALENT, MIN_MAPPING_QUALITY);
 
         //todo -- should be TRUE
         out.setPresorted(false);
@@ -210,9 +208,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
     @Override
     public void onTraversalDone( ConsensusReadCompressor compressor ) {
-        //compressor.writeConsensusBed(bedOut);
         // write out any remaining reads
-
         for ( SAMRecord consensusRead : compressor.close() ) {
             out.addAlignment(consensusRead);
             //System.out.println(String.format("Output Read: %d-%d, CIGAR: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));
