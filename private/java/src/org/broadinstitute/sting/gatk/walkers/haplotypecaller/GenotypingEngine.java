@@ -26,6 +26,9 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.samtools.CigarElement;
+import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.SWPairwiseAlignment;
 import org.broadinstitute.sting.utils.collections.Pair;
@@ -45,7 +48,7 @@ public class GenotypingEngine {
     private static final double SW_GAP = -10.0;       //-1.0-1.0/3.0;
     private static final double SW_GAP_EXTEND = -2.0; //-1.0/.0;
 
-    public List<VariantContext> alignAndGenotype( final Pair<Haplotype, Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc) {
+    public List<VariantContext> alignAndGenotype( final Pair<Haplotype, Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc ) {
         final SWPairwiseAlignment swConsensus1 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.first.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
         final SWPairwiseAlignment swConsensus2 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.second.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
 
@@ -236,5 +239,22 @@ public class GenotypingEngine {
         return vcs;
     }
 
+    public void alignAllHaplotypes( final List<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final StingSAMFileWriter writer, final SAMRecord exampleRead ) {
+
+        int iii = 0;
+        for( Haplotype h : haplotypes ) {
+            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+            exampleRead.setReadName("Haplotype" + iii);
+            exampleRead.setReadBases(h.bases);
+            exampleRead.setAlignmentStart(loc.getStart() + swConsensus.getAlignmentStart2wrt1());
+            exampleRead.setCigar(swConsensus.getCigar());
+            byte[] quals = new byte[h.bases.length];
+            Arrays.fill(quals, (byte) 25);
+            exampleRead.setBaseQualities(quals);
+            writer.addAlignment(exampleRead);
+            iii++;
+        }
+                
+    }
 
 }
