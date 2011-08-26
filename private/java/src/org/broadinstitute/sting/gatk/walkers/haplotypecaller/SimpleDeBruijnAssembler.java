@@ -24,7 +24,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private static final int KMER_LENGTH = 17;
 
     // minimum base quality required in a contiguous stretch of a given read to be used in the assembly
-    private static final int MIN_BASE_QUAL_TO_USE = 15;
+    private static final int MIN_BASE_QUAL_TO_USE = 20;
 
     // minimum clipped sequence length to consider using
     private static final int MIN_SEQUENCE_LENGTH = 25;
@@ -80,7 +80,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
             int curIndex = 0, firstGoodQualIndex = -1;
 
-            for ( CigarElement ce : read.getCigar().getCigarElements() ) {
+            for ( final CigarElement ce : read.getCigar().getCigarElements() ) {
 
                 int elementLength = ce.getLength();
                 switch ( ce.getOperator() ) {
@@ -92,8 +92,9 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                     case I:
                         for (int i = 0; i < elementLength; i++) {
                             if ( sequencedBaseQuals[curIndex] >= MIN_BASE_QUAL_TO_USE ) {
-                                if ( firstGoodQualIndex == -1 )
+                                if ( firstGoodQualIndex == -1 ) {
                                     firstGoodQualIndex = curIndex;
+                                }
                             } else if ( firstGoodQualIndex != -1 ) {
                                 int sequenceLength = curIndex - firstGoodQualIndex;
                                 if ( sequenceLength > MIN_SEQUENCE_LENGTH ) {
@@ -134,11 +135,13 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         // if ( MIN_MULTIPLICITY_TO_USE > 0 )
         //     removeNodesWithLowMultiplicity();
 
+
+        // BUGBUG: the merging / cleaning up of nodes doesn't work correctly, need to eventually fix so that graphs can be visualized
         // cleanup graph by merging nodes
-        concatenateNodes();
+        //concatenateNodes();
 
         // cleanup the node sequences so that they print well
-        cleanupNodeSequences();
+        //cleanupNodeSequences();
 
         if ( DEBUG )
             printGraph();
@@ -405,24 +408,6 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         int maxLength = Integer.MIN_VALUE;
         // print them out
         for ( final KBestPaths.Path path : bestPaths ) {
-
-            if( getOutputStream() != null ) {
-                List<DeBruijnEdge> edges = path.getEdges();
-                for (int i = 0; i < edges.size(); i++) {
-
-                    DeBruijnEdge edge = edges.get(i);
-
-                    if ( i == 0 )
-                        getOutputStream().print(graph.getEdgeSource(edge));
-
-                    getOutputStream().print(graph.getEdgeTarget(edge));
-                }
-
-                if ( edges.size() == 0 )
-                    getOutputStream().print(path.getLastVertexInPath());
-
-                getOutputStream().println(" (score=" + path.getScore() + ", lowestEdge=" + path.getLowestEdge() + ")");
-            }
             int length = path.getBases( graph ).length;
             if(length > maxLength) {
                 maxLength = length;
@@ -432,6 +417,9 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         for ( final KBestPaths.Path path : bestPaths ) {
             final Haplotype h = new Haplotype( path.getBases( graph, maxLength ), path.getScore() );
             if( h.bases != null ) {
+                if( getOutputStream() != null ) {
+                    getOutputStream().println(h.toString());
+                }
                 returnHaplotypes.add( h );
             }
         }
