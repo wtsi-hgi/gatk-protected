@@ -41,6 +41,9 @@ class ReadDepthCNVanalysis extends QScript {
   @Input(doc = "Minimum read mapping quality", shortName = "MMQ", required = false)
   var minMappingQuality = 0
 
+  @Input(doc = "Memory (in GB) required for merging", shortName = "mergeMemory", required = false)
+  var mergeMemory = -1
+
   val DOC_OUTPUT_SUFFIX: String = ".sample_interval_summary"
 
   val DOC_MEAN_COVERAGE_OUTPUT: String = ".sample_interval.averageCoverage.txt"
@@ -49,7 +52,6 @@ class ReadDepthCNVanalysis extends QScript {
     this.intervalsString = List(qscript.intervals)
     this.jarFile = qscript.gatkJarFile
     this.reference_sequence = qscript.referenceFile
-    //this.memoryLimit = 3
     this.logging_level = "INFO"
   }
 
@@ -131,7 +133,12 @@ class ReadDepthCNVanalysis extends QScript {
     def commandLine = command
 
     // Since loading ALL of the output into the perl script can take significant memory:
-    this.memoryLimit = 24
+    if (mergeMemory < 0) {
+      this.memoryLimit = 24
+    }
+    else {
+      this.memoryLimit = mergeMemory
+    }
 
     override def description = "Combines DoC outputs for multiple samples (at same loci): " + command
   }
