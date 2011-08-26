@@ -41,6 +41,47 @@ plotJobsGantt <- function(gatkReport, sortOverall) {
   print(p)
 }
 
+#
+# Plots scheduling efficiency at job events
+#
+plotProgressByTime <- function(gatkReport) {
+  allJobs = allJobsFromReport(gatkReport)[1:10,]
+  allJobs = allJobs[order(allJobs$startTime, decreasing=F),]
+  allJobs$index = 1:nrow(allJobs)
+
+  minTime = min(allJobs$startTime)
+  allJobs$relStartTime = allJobs$startTime - minTime
+  allJobs$relDoneTime = allJobs$doneTime - minTime
+
+  times = sort(c(allJobs$relStartTime, allJobs$relDoneTime))
+
+  countJobs <- function(p) {
+    s = allJobs$relStartTime
+    e = allJobs$relDoneTime
+    x = c()
+    #print(s)
+    #print(e)
+    #print(times)
+    for ( time in times )
+      x = c(x, sum(p(s, e, time)))
+    #print(x)
+    x
+  }
+
+  pending = countJobs(function(s, e, t) s > t)
+  running = countJobs(function(s, e, t) s >= t & t <= e)
+  done = countJobs(function(s, e, t) e < t)
+
+  d = data.frame(times=times, pending=pending, running=running, done=done)
+  
+  p <- ggplot(data=melt(d, id.vars=c("times")), aes(x=times, y=value, color=variable))
+  p <- p + facet_grid(variable ~ ., scales="free")
+  p <- p + geom_line(size=2)
+  p <- p + xlab("Time since start of first job (ms)")
+  p <- p + opts(title = "Job scheduling")
+  print(p)
+}
+
 standardColumns = c("jobName", "startTime", "formattedStartTime", "analysisName", "intermediate", "formattedDoneTime", "doneTime", "runtime")
 
 plotGroup <- function(groupTable) {
@@ -85,6 +126,7 @@ if ( ! is.na(outputPDF) ) {
 
 plotJobsGantt(gatkReportData, T)
 plotJobsGantt(gatkReportData, F)
+plotProgressByTime(gatkReportData)
 for ( group in gatkReportData ) {
   plotGroup(group)
 }
@@ -92,5 +134,3 @@ for ( group in gatkReportData ) {
 if ( ! is.na(outputPDF) ) {
   dev.off()
 } 
-
-#plotGroup(gatkReportData$SitesVsGenotypes)
