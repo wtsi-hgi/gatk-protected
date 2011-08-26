@@ -64,13 +64,14 @@ public class KBestPaths {
 
         public DeBruijnVertex getLastVertexInPath() { return lastVertex; }
 
+        // assumes uncleaned edges and vertices, so each edge just adds one more base to the string
         public byte[] getBases(final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph) {
             if(edges.size() == 0) { return lastVertex.printableSequence; }
 
             int length = 0;
             length += graph.getEdgeSource( edges.get(0) ).printableSequence.length;
             for ( final DeBruijnEdge e : edges ) {
-                length += graph.getEdgeTarget( e ).printableSequence.length;
+                length += 1;
             }
 
             byte[] bases = new byte[length];
@@ -79,13 +80,12 @@ public class KBestPaths {
                 bases[curPos++] = b;
             }
             for ( final DeBruijnEdge e : edges ) {
-                for( final byte b : graph.getEdgeTarget( e ).printableSequence ) {
-                    bases[curPos++] = b;
-                }
+                bases[curPos++] = graph.getEdgeTarget( e ).printableSequence[graph.getEdgeTarget( e ).printableSequence.length-1];
             }
             return bases;
         }
-        
+
+        // assumes uncleaned edges and vertices, so each edge just adds one more base to the string
         public byte[] getBases(final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final int length) {
 
             byte[] bases = new byte[length];
@@ -101,12 +101,10 @@ public class KBestPaths {
                     bases[curPos++] = b;
                 }
                 for ( final DeBruijnEdge e : edges ) {
-                    for( final byte b : graph.getEdgeTarget( e ).printableSequence ) {
-                        bases[curPos++] = b;
-                    }
+                    bases[curPos++] = graph.getEdgeTarget( e ).printableSequence[graph.getEdgeTarget( e ).printableSequence.length-1];
                 }
             }
-            if(length - curPos > 30) { return null; }
+            if(length - curPos > 40) { return null; } // BUGBUG: not sure why there are several very short paths
             for( int iii = curPos; iii < length; iii++ ) {
                 bases[iii] = (byte) 'N';
             }
@@ -148,7 +146,7 @@ public class KBestPaths {
                 bestPaths.add(path);
             }
 
-        } else if( n.val > 100000) {
+        } else if( n.val > 500000) {
             // do nothing, just return
         } else {
             // recursively run DFS

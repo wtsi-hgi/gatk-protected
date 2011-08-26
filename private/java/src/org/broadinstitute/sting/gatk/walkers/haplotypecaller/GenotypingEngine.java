@@ -180,7 +180,6 @@ public class GenotypingEngine {
             vc1Hold = null;
             vc2Hold = null;
 
-
             if( vc1 == null && vc2 != null ) {
                 ArrayList<Allele> alleles = new ArrayList<Allele>();
                 alleles.addAll( vc2.getAlleles() );
@@ -234,7 +233,7 @@ public class GenotypingEngine {
             }
 
 
-        } while ( vcs1Iter.hasNext() || vcs2Iter.hasNext() );
+        } while ( vcs1Iter.hasNext() || vcs2Iter.hasNext() || vc1Hold != null || vc2Hold != null );
 
         return vcs;
     }
