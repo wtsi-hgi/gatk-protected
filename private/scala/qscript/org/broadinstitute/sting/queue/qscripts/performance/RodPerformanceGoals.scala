@@ -146,6 +146,9 @@ class RodPerformanceGoals extends QScript {
       cr.analysisName = "SitesVsGenotypes"
       cr.scatterCount = SC
       cr.rod :+= vcf
+      if ( cr.intervalsString == Nil )
+        cr.intervalsString = List("1")
+
       add(cr)
     }
   }
