@@ -183,7 +183,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
             return; // in assembly debug mode, so no need to run the rest of the procedure
         }
 
-        final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReads() );
+        final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReadsAtVariant() );
         final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation() );
 
         for( final VariantContext vc : vcs ) {
@@ -218,6 +218,23 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
         }
 
         public List<SAMRecord> getReads() { return reads; }
+
+        public List<SAMRecord> getReadsAtVariant() {
+            final ArrayList<SAMRecord> readsOverlappingVariant = new ArrayList<SAMRecord>();
+            int pos = loc.getStart() + (loc.getStop() - loc.getStart()) / 2;
+            final GenomeLoc variantLoc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), pos - 1, pos + 1);
+
+            for( final SAMRecord rec : reads ) {
+                if( rec.getMappingQuality() > 20 && !BadMateFilter.hasBadMate(rec) ) {
+                    GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(rec);
+                    if( locForRead.overlapsP(variantLoc) ) {
+                        readsOverlappingVariant.add(rec);
+                    }
+                }
+            }
+
+            return readsOverlappingVariant;
+        }
 
         public byte[] getReference(IndexedFastaSequenceFile referenceReader) {
             // set up the reference if we haven't done so yet
