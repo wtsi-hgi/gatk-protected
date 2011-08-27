@@ -110,33 +110,5 @@ final class BaseCounts {
         return maxI;
     }
 
-    private enum BaseIndex {
-        A ( 'A', 0 ),
-        C ( 'C', 1 ),
-        G ( 'G', 2 ),
-        T ( 'T', 3 ),
-        D ( 'D', 4 ),
-        I ( 'I', 5 ); // insertion to the right of the base
 
-        final byte b;
-        final int index;
-        private BaseIndex(char base, int index) {
-            this.b = (byte)base;
-            this.index = index;
-        }
-
-        public byte getByte() { return b; }
-
-        public static final BaseIndex byteToBase(final byte base) {
-            switch (base) {
-                case 'A': return A;
-                case 'C': return C;
-                case 'G': return G;
-                case 'T': return T;
-                case 'D': return D;
-                case 'I': return I;
-                default: return null;
-            }
-        }
-    }
 }

@@ -62,7 +62,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     private final int AverageDepthAtVariableSites;
     private final int QualityEquivalent;
     private final int minMapQuality;
-    private int consensusCounter = 0;
+    private int slidingWindowCounter;
 
     private final SAMReadGroupRecord reducedReadGroup;
     private String contig = null;
@@ -80,6 +80,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         this.reducedReadGroup = createReducedReadGroup(sampleName);
         this.QualityEquivalent = qualityEquivalent;
         this.minMapQuality = minMapQuality;
+        this.slidingWindowCounter = 0;
     }
 
     /**
@@ -145,7 +146,8 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
             // if the current sliding window exists, close it
             if (slidingWindow != null)
                 result.addAll(slidingWindow.close());
-            slidingWindow = new SlidingWindow(read.getReadGroup().getSample(), read.getReferenceName(), read.getHeader(), readContextSize);
+            slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), readContextSize, read.getHeader(), read.getAttribute("RG"), slidingWindowCounter);
+            slidingWindowCounter++;
         }
         result.addAll(slidingWindow.addRead(read));
 
