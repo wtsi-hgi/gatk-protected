@@ -114,7 +114,7 @@ plotGroup <- function(groupTable) {
 
   # as above, but averaging over all iterations
   groupAnnotationsNoIteration = setdiff(groupAnnotations, "iteration")
-  sum = cast(melt(sub, id.vars=groupAnnotationsNoIteration, measure.vars=c("runtime")), ... ~ ., fun.aggregate=mean)
+  sum = cast(melt(sub, id.vars=groupAnnotationsNoIteration, measure.vars=c("runtime")), ... ~ ., fun.aggregate=c(mean, sd))
   textplot(as.data.frame(sum), show.rownames=F)
   title(paste("Job summary for", name, "averaging over all iterations"), cex=3)
 }

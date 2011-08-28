@@ -182,18 +182,33 @@ class RodPerformanceGoals extends QScript {
   }
 
   def lowLevelTribbleVsGATK(iteration:Int) {
-    val justTribble = org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE
-    for ( mode <- List(org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE,
-                       org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_GATK)) {
+    val justTribbleMode = org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE
+    val justGATKMode = org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_GATK
+
+    def makeTest(name: String) = {
       val prs = new ProfileRodSystem() with UNIVERSAL_GATK_ARGS
       prs.intervalsString = null
       prs.analysisName = "TribbleVsGATK"
-      prs.configureJobReport(Map("mode" -> (if (mode == justTribble) "Tribble" else "GATK"), "iteration" -> iteration))
-      prs.vcf = OMNI_SITES
-      prs.mode = mode
-      prs.out = "profile.rod." + mode + ".txt"
-      add(prs)
+      prs.configureJobReport(Map("mode" -> name, "iteration" -> iteration))
+      prs.out = "profile.rod." + name + ".txt"
+      prs
     }
+
+    val justGATK = makeTest("GATK")
+    justGATK.vcf = OMNI_SITES
+    justGATK.mode = justGATKMode
+
+    val justTribble = makeTest("Tribble")
+    justTribble.vcf = OMNI_SITES
+    justTribble.mode = justTribbleMode
+
+    val justGATKStream = makeTest("GATK-STREAM")
+    justGATKStream.vcf = TaggedFile(OMNI_SITES,"storage=STREAM")
+    justGATKStream.mode = justGATKMode
+
+    add(justGATK)
+    add(justTribble)
+    add(justGATKStream)
   }
 }
 
