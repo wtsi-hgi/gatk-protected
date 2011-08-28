@@ -143,11 +143,11 @@ if ( ! is.na(outputPDF) ) {
 } 
 
 plotJobsGantt(gatkReportData, T)
-# plotJobsGantt(gatkReportData, F)
-# plotProgressByTime(gatkReportData)
-# for ( group in gatkReportData ) {
-#   plotGroup(group)
-# }
+plotJobsGantt(gatkReportData, F)
+plotProgressByTime(gatkReportData)
+for ( group in gatkReportData ) {
+  plotGroup(group)
+}
   
 if ( ! is.na(outputPDF) ) {
   dev.off()
