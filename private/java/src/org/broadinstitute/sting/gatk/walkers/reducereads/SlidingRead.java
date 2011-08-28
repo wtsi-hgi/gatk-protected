@@ -37,9 +37,9 @@ public class SlidingRead {
             if ( start < refStart && stop > refStop )
                 return clipper.hardClipBothEndsByReferenceCoordinates(refStart-1, refStop+1);
             if ( start < refStart )
-                clippedRead = clipper.hardClipByReferenceCoordinates(-1, refStart-1);
+                clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(refStart-1);
             if ( stop > refStop )
-                clippedRead = clipper.hardClipByReferenceCoordinates(refStop+1, -1);
+                clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(refStop+1);
             return clippedRead;
         }
         else
@@ -49,10 +49,10 @@ public class SlidingRead {
     public SlidingRead clipStart(int refNewStart) {
         if (refNewStart > read.getAlignmentEnd())
             return null;
-        if (refNewStart < read.getAlignmentStart())
+        if (refNewStart <= read.getAlignmentStart())
             return this;
         ReadClipper readClipper = new ReadClipper(read);
-        return new SlidingRead(readClipper.hardClipByReferenceCoordinates(-1, refNewStart-1));
+        return new SlidingRead(readClipper.hardClipByReferenceCoordinatesLeftTail(refNewStart-1));
     }
 
 

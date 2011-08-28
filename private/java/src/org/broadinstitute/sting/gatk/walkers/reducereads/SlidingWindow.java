@@ -32,7 +32,7 @@ public class SlidingWindow {
     private String readName;
 
     // Additional parameters
-    private final double MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT = 0;   // proportion has to be greater than this value
+    private final double MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT = 0.3;   // proportion has to be greater than this value
     private final int MIN_BASE_QUAL_TO_COUNT = 20;                         // qual has to be greater than or equal to this value
     private final int MAX_QUAL_COUNT = 64;
 
@@ -238,6 +238,7 @@ public class SlidingWindow {
     private List<SAMRecord> closeVariantRegion(int start, int end) {
         List<SAMRecord> finalizedReads = new LinkedList<SAMRecord>();
 
+        // Finalize consensus if there is one to finalize before the Variant Region
         if (runningConsensus != null)
             finalizedReads.add(finalizeConsensus());
 
@@ -293,8 +294,8 @@ public class SlidingWindow {
 
         boolean [] variantSite = markSites(stopLocation);
 
-        // close everything -- consensus or variant region
-        int sitesToClose = stopLocation - startLocation;
+        // close everything (+1 to include the last site) -- consensus or variant region
+        int sitesToClose = stopLocation - startLocation + 1;
         int start = 0;
         int i = 0;
 
@@ -306,7 +307,8 @@ public class SlidingWindow {
             // close all variant regions regardless of having enough for context size
             // on the last one
             while(i<sitesToClose && variantSite[i]) i++;
-            finalizedReads.addAll(closeVariantRegion(start, i));
+            if (start <= i-1)
+                finalizedReads.addAll(closeVariantRegion(start, i-1));
             start = i;
         }
         // if it ended in consensus, finish it up
@@ -361,7 +363,7 @@ public class SlidingWindow {
                     break;
                 case I:
                     // insertions are added to the base to the left (previous element) with the quality score of the first inserted base
-                    windowHeader.get(locationIndex - 1).addInsertionToTheRight();
+                    windowHeader.get(locationIndex - 1).addInsertionToTheRight();     // check if it's the first element in the read!
                     readBaseIndex += cigarElement.getLength();
                     break;
                 case D:
