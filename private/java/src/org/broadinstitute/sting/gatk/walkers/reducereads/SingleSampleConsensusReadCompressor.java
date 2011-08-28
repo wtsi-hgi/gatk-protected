@@ -59,26 +59,32 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     // TODO comment out unused code
     private final int readContextSize;
     private final int AverageDepthAtVariableSites;
-    private final int QualityEquivalent;
     private final int minMapQuality;
     private int slidingWindowCounter;
 
     private final SAMReadGroupRecord reducedReadGroup;
 
     private SlidingWindow slidingWindow;
+    private double minAltProportionToTriggerVariant;
+    private int minBaseQual;
+    private int maxQualCount;
 
 
     public SingleSampleConsensusReadCompressor(final String sampleName,
                                                final int readContextSize,
                                                final int AverageDepthAtVariableSites,
-                                               final int qualityEquivalent,
-                                               final int minMapQuality) {
+                                               final int minMapQuality,
+                                               final double minAltProportionToTriggerVariant,
+                                               final int minBaseQual,
+                                               final int maxQualCount) {
         this.readContextSize = readContextSize;
         this.AverageDepthAtVariableSites = AverageDepthAtVariableSites;
         this.reducedReadGroup = createReducedReadGroup(sampleName);
-        this.QualityEquivalent = qualityEquivalent;
         this.minMapQuality = minMapQuality;
         this.slidingWindowCounter = 0;
+        this.minAltProportionToTriggerVariant = minAltProportionToTriggerVariant;
+        this.minBaseQual = minBaseQual;
+        this.maxQualCount = maxQualCount;
     }
 
     /**
@@ -148,7 +154,8 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
         if ( slidingWindow == null) {       // this is the first read
             slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), readContextSize,
-                                              read.getHeader(), read.getAttribute("RG"), slidingWindowCounter);
+                                              read.getHeader(), read.getAttribute("RG"), slidingWindowCounter,
+                                              minAltProportionToTriggerVariant, minBaseQual, maxQualCount);
             slidingWindowCounter++;
         }
 
