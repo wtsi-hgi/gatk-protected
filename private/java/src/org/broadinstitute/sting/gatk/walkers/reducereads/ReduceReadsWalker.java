@@ -136,10 +136,6 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         return clippedRead;
     }
 
-
-
-
-
     @Override
     public void initialize() {
         super.initialize();
@@ -198,8 +194,8 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         if (read.getReadLength() != 0) {
             // write out compressed reads as they become available
             for ( SAMRecord consensusRead : comp.addAlignment(read)) {
+                System.out.println(String.format("Output Read: %d-%d, Cigar: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));
                 out.addAlignment(consensusRead);
-                //System.out.println(String.format("Output Read: %d-%d, Cigar: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));                nCompressedReads++;
                 nCompressedReads++;
             }
         }
@@ -209,9 +205,10 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Override
     public void onTraversalDone( ConsensusReadCompressor compressor ) {
         // write out any remaining reads
+        System.out.println("Traversal DONE\n-----------------------------\n");
         for ( SAMRecord consensusRead : compressor.close() ) {
+            System.out.println(String.format("Output Read: %d-%d, CIGAR: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));
             out.addAlignment(consensusRead);
-            //System.out.println(String.format("Output Read: %d-%d, CIGAR: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));
             nCompressedReads++;
         }
 

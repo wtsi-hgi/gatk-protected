@@ -82,10 +82,7 @@ final class BaseCounts {
      */
     @Ensures("results >=0")
     public double baseCountProportion(byte base) {
-        int total = 0;
-        for ( BaseIndex i : BaseIndex.values() )
-            total += counts.get(i);
-        return (double) counts.get(BaseIndex.byteToBase(base)) / total;
+        return (double) counts.get(BaseIndex.byteToBase(base)) / totalCount();
     }
 
     @Ensures("result != null")
