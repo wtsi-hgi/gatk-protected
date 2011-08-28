@@ -59,7 +59,7 @@ public class RunningConsensus {
     public RunningConsensus (SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex, String readName, Integer refStart) {
         counts = new LinkedList<Byte>();
         bases = new LinkedList<Byte>();
-        this.rms = 0.0;
+        this.rms = 60.0;      // must update with real rms
 
         this.header = header;
         this.readGroupAttribute = readGroupAttribute;
@@ -99,11 +99,30 @@ public class RunningConsensus {
         samRecord.setAlignmentStart(refStart);
         samRecord.setCigar(buildCigar());
         samRecord.setReadName(readName);
+        samRecord.setBaseQualities(convertBaseQualities());
+        samRecord.setReadBases(convertReadBases());
+        samRecord.setMappingQuality((int) Math.ceil(rms));
         return samRecord;
     }
 
     public int size () {
         return bases.size();
+    }
+
+    private byte [] convertBaseQualities() {
+        return listToByteArray(counts);
+    }
+
+    private byte [] convertReadBases() {
+        return listToByteArray(bases);
+    }
+
+    private byte [] listToByteArray(List<Byte> list) {
+        byte [] array = new byte[list.size()];
+        int i = 0;
+        for (Byte element : list)
+            array[i++] = element;
+        return array;
     }
 
     private Cigar buildCigar() {
@@ -123,7 +142,10 @@ public class RunningConsensus {
                     op = CigarOperator.MATCH_OR_MISMATCH;
                     break;
             }
-            if (cigarOperator != op) {
+            if (cigarOperator == null)
+                cigarOperator = op;
+
+            else if (cigarOperator != op) {      // need to treat 1st case
                 cigarElements.add(new CigarElement(length, cigarOperator));
                 cigarOperator = op;
                 length = 0;

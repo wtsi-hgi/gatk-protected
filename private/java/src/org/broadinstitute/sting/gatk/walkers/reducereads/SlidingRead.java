@@ -33,7 +33,7 @@ public class SlidingRead {
         ReadClipper clipper = new ReadClipper(read);
 
         // check to see if read is contained in region
-        if ( start < refStop && stop > refStart) {
+        if ( start <= refStop && stop >= refStart) {
             if ( start < refStart && stop > refStop )
                 return clipper.hardClipBothEndsByReferenceCoordinates(refStart-1, refStop+1);
             if ( start < refStart )
@@ -46,11 +46,13 @@ public class SlidingRead {
             return new SAMRecord(read.getHeader());
     }
 
-    public SlidingRead clipStart(int refStop) {
-        if (refStop >= read.getAlignmentEnd())
+    public SlidingRead clipStart(int refNewStart) {
+        if (refNewStart > read.getAlignmentEnd())
             return null;
+        if (refNewStart < read.getAlignmentStart())
+            return this;
         ReadClipper readClipper = new ReadClipper(read);
-        return new SlidingRead(readClipper.hardClipByReferenceCoordinates(-1, refStop));
+        return new SlidingRead(readClipper.hardClipByReferenceCoordinates(-1, refNewStart-1));
     }
 
 

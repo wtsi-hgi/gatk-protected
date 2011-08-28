@@ -57,7 +57,6 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     // todo  -- should merge close together spans
     // TODO WE WANT TO PUT ALL functions is SlidingWindow
     // TODO comment out unused code
-    private SAMFileHeader header;
     private final int readContextSize;
     private final int AverageDepthAtVariableSites;
     private final int QualityEquivalent;
@@ -65,7 +64,6 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     private int slidingWindowCounter;
 
     private final SAMReadGroupRecord reducedReadGroup;
-    private String contig = null;
 
     private SlidingWindow slidingWindow;
 
@@ -139,18 +137,22 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         int position = read.getUnclippedStart();
 
         // create a new window if:
-        if ( contig == null ||                                                                                                  // this is the first read
-             !read.getReferenceName().equals(contig) ||                                                                         // this is a brand new contig
-             ( position - readContextSize > slidingWindow.getStopLocation() && slidingWindow.getStopLocation() != -1 ))   {     // this read is too far away from the end of the current sliding window
+        if ((slidingWindow != null) &&
+            ( (!read.getReferenceName().equals(slidingWindow.getContig())) ||     // this is a brand new contig
+              (position - readContextSize > slidingWindow.getStopLocation()))) {  // this read is too far away from the end of the current sliding window
 
-            // if the current sliding window exists, close it
-            if (slidingWindow != null)
-                result.addAll(slidingWindow.close());
-            slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), readContextSize, read.getHeader(), read.getAttribute("RG"), slidingWindowCounter);
+            // close the current sliding window
+            result.addAll(slidingWindow.close());
+            slidingWindow = null;  // so we create a new one on the next if
+        }
+
+        if ( slidingWindow == null) {       // this is the first read
+            slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), readContextSize,
+                                              read.getHeader(), read.getAttribute("RG"), slidingWindowCounter);
             slidingWindowCounter++;
         }
-        result.addAll(slidingWindow.addRead(read));
 
+        result.addAll(slidingWindow.addRead(read));
         return result;
     }
 

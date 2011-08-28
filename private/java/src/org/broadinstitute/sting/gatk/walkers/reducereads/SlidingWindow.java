@@ -16,8 +16,8 @@ public class SlidingWindow {
     protected final static String RG_POSTFIX = ".ReducedReads";
 
     // Sliding Window data
-    private LinkedList<SlidingRead> SlidingReads = new LinkedList<SlidingRead>();
-    private LinkedList<HeaderElement> windowHeader = new LinkedList<HeaderElement>();
+    private LinkedList<SlidingRead> SlidingReads;
+    private LinkedList<HeaderElement> windowHeader;
     private int contextSize;
     private int startLocation;
     private int stopLocation;
@@ -87,6 +87,9 @@ public class SlidingWindow {
         this.stopLocation = -1;
         this.contextSize = contextSize;
 
+        this.windowHeader = new LinkedList<HeaderElement>();
+        this.SlidingReads = new LinkedList<SlidingRead>();
+
         this.consensusCounter = 0;
 
         this.contig = contig;
@@ -106,12 +109,16 @@ public class SlidingWindow {
         return stopLocation;
     }
 
-    public List<SAMRecord> addRead( SAMRecord read ) {
-        List<SAMRecord> finalizedReads = slideIfPossible(read.getUnclippedStart());
+    public String getContig() {
+        return contig;
+    }
 
+    public List<SAMRecord> addRead( SAMRecord read ) {
         // If this is the first read in the window, update startLocation
         if (startLocation < 0)
             startLocation = read.getAlignmentStart();
+
+        List<SAMRecord> finalizedReads = slideIfPossible(read.getUnclippedStart());
 
         // update the window header counts
         updateHeaderCounts(read);
@@ -143,11 +150,12 @@ public class SlidingWindow {
 
         // No point doing any calculation if the read's unclipped start is behind
         // the start of the window
-        if (incomingReadUnclippedStart > startLocation) {
-            boolean [] variantSite = markSites(incomingReadUnclippedStart);
+        if (incomingReadUnclippedStart - contextSize > startLocation) {
+            int positionShift = incomingReadUnclippedStart - startLocation;
+            boolean [] variantSite = markSites(startLocation + positionShift);
 
             // this is the limit of what we can close/send to consensus (non-inclusive)
-            int breakpoint = incomingReadUnclippedStart - contextSize;
+            int breakpoint = Math.max(positionShift - contextSize, 0);
             int start = 0;
             int i = 0;
 
@@ -157,8 +165,10 @@ public class SlidingWindow {
 
                 start = i;
                 while(i<breakpoint && variantSite[i]) i++;
-                if (i < breakpoint || i == breakpoint && !variantSite[i])
-                   finalizedReads.addAll(closeVariantRegion(start, i));
+                if ( i < breakpoint || (i-1 > 0 && variantSite[i-1] && !variantSite[i]) ) {
+                    finalizedReads.addAll(closeVariantRegion(start, i-1));
+                    start = i;
+                }
             }
 
             slide(start);
@@ -211,7 +221,7 @@ public class SlidingWindow {
 
         if (runningConsensus == null)
             runningConsensus = new RunningConsensus(header, readGroupAttribute, contig, contigIndex,
-                                                    readName + consensusCounter, windowHeader.get(start).location);
+                                                    readName + consensusCounter++, windowHeader.get(start).location);
 
         int i = 0;
         for (HeaderElement wh : windowHeader) {
@@ -224,23 +234,22 @@ public class SlidingWindow {
         }
     }
 
+    @Requires("start <= end")
     private List<SAMRecord> closeVariantRegion(int start, int end) {
         List<SAMRecord> finalizedReads = new LinkedList<SAMRecord>();
 
-        if (start < end) {
-            if (runningConsensus != null)
-                finalizedReads.add(finalizeConsensus());
+        if (runningConsensus != null)
+            finalizedReads.add(finalizeConsensus());
 
-            // Clipping operations are reference based, not read based
-            int refStart = windowHeader.get(start).location;
-            int refEnd = windowHeader.get(end).location;
+        // Clipping operations are reference based, not read based
+        int refStart = windowHeader.get(start).location;
+        int refEnd = windowHeader.get(end).location;         // update to refStart + end?
 
-            for ( SlidingRead read: SlidingReads ) {
-                SAMRecord SAM = read.trimToVariableRegion(refStart, refEnd);
-                SAM.setReadName(SAM.getReadName()+".trim");
-                if ( SAM.getReadLength() > 0 ) {
-                    finalizedReads.add(SAM);
-                }
+        for ( SlidingRead read: SlidingReads ) {
+            SAMRecord SAM = read.trimToVariableRegion(refStart, refEnd);
+            SAM.setReadName(SAM.getReadName()+".trim");
+            if ( SAM.getReadLength() > 0 ) {
+                finalizedReads.add(SAM);
             }
         }
         return finalizedReads;
@@ -249,23 +258,26 @@ public class SlidingWindow {
     /**
      * Slides the window to the new position
      *
-     * @param leftPosition the new starting location of the window
+     * @param shift the new starting location of the window
      */
-    private void slide (int leftPosition) {
-        LinkedList<SlidingRead> newSlidingReads = new LinkedList<SlidingRead>();
+    private void slide (int shift) {
+        if (shift > 0) {
+            LinkedList<SlidingRead> newSlidingReads = new LinkedList<SlidingRead>();
 
-        // drop base baseCounts out of the window
-        for (int i=0; i<leftPosition; i++)
-            windowHeader.remove();
+            // drop base baseCounts out of the window
+            for (int i=0; i<shift; i++)
+                windowHeader.remove();
+            startLocation += shift;
 
-        // clip reads to new window
-        int refLeftPosition = windowHeader.get(leftPosition).location;
-        for ( SlidingRead slidingRead: SlidingReads ) {
-            SlidingRead sr = slidingRead.clipStart(refLeftPosition);
-            if (sr != null)
-                newSlidingReads.add(sr);
+            // clip reads to new window
+            int refLeftPosition = windowHeader.peekFirst().location;  // should I just get startLocation ?  (works if there are no gaps)
+            for ( SlidingRead slidingRead: SlidingReads ) {
+                SlidingRead sr = slidingRead.clipStart(refLeftPosition);
+                if (sr != null)
+                    newSlidingReads.add(sr);
+            }
+            SlidingReads = newSlidingReads;
         }
-        SlidingReads = newSlidingReads;
     }
 
     /**
@@ -282,18 +294,20 @@ public class SlidingWindow {
         boolean [] variantSite = markSites(stopLocation);
 
         // close everything -- consensus or variant region
+        int sitesToClose = stopLocation - startLocation;
         int start = 0;
         int i = 0;
 
-        while (i < stopLocation) {
-            while (i<stopLocation && !variantSite[i]) i++;
+        while (i < sitesToClose) {
+            while (i<sitesToClose && !variantSite[i]) i++;
             addToConsensus(start, i);
+            start = i;
 
             // close all variant regions regardless of having enough for context size
             // on the last one
-            start = i;
-            while(i<stopLocation && variantSite[i]) i++;
+            while(i<sitesToClose && variantSite[i]) i++;
             finalizedReads.addAll(closeVariantRegion(start, i));
+            start = i;
         }
         // if it ended in consensus, finish it up
         if (runningConsensus != null)
@@ -331,7 +345,7 @@ public class SlidingWindow {
 
         // Do we need to add extra elements to the header?
         if (stopLocation < read.getAlignmentEnd()) {
-            int elementsToAdd = read.getAlignmentEnd() - stopLocation;
+            int elementsToAdd = (stopLocation < 0) ? read.getAlignmentEnd() - read.getAlignmentStart() + 1 : read.getAlignmentEnd() - stopLocation;
             while (elementsToAdd-- > 0)
                 windowHeader.addLast(new HeaderElement(read.getAlignmentEnd() - elementsToAdd));
 
