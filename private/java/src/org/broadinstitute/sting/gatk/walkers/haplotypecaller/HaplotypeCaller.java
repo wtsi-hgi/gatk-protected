@@ -76,7 +76,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     LocalAssemblyEngine assemblyEngine = null;
 
     // the likelihoods engine
-    LikelihoodCalculationEngine likelihoodCalculationEngine = new LikelihoodCalculationEngine(35.0, 10.0, false, true, false);
+    LikelihoodCalculationEngine likelihoodCalculationEngine = new LikelihoodCalculationEngine(35.0, 5.0, false, true, false);
 
     // the genotyping engine
     GenotypingEngine genotypingEngine = new GenotypingEngine();
@@ -190,10 +190,14 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
 
         final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReadsAtVariant() );
         final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation() );
+        final GenomeLoc window = readsToAssemble.getVariantWindow();
 
         for( final VariantContext vc : vcs ) {
+            if( vc.getStart() >= window.getStart() && vc.getStart() <= window.getStop() ) {
+                System.out.print("== ");
+                vcfWriter.add(vc);
+            }
             System.out.println(vc);
-            vcfWriter.add(vc);
         }
 
         System.out.println("----------------------------------------------------------------------------------");
@@ -227,10 +231,10 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
         public List<SAMRecord> getReadsAtVariant() {
             final ArrayList<SAMRecord> readsOverlappingVariant = new ArrayList<SAMRecord>();
             int pos = loc.getStart() + (loc.getStop() - loc.getStart()) / 2;
-            final GenomeLoc variantLoc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), pos - 1, pos + 1);
+            final GenomeLoc variantLoc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), pos - 5, pos + 5);
 
             for( final SAMRecord rec : reads ) {
-                if( rec.getMappingQuality() > 20 && !BadMateFilter.hasBadMate(rec) ) {
+                if( rec.getMappingQuality() > 18 && !BadMateFilter.hasBadMate(rec) ) {
                     GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(rec);
                     if( locForRead.overlapsP(variantLoc) ) {
                         readsOverlappingVariant.add(rec);
@@ -239,6 +243,11 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
             }
 
             return readsOverlappingVariant;
+        }
+
+        public GenomeLoc getVariantWindow() {
+            int pos = loc.getStart() + (loc.getStop() - loc.getStart()) / 2;
+            return getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), pos - 10, pos + 10);
         }
 
         public byte[] getReference(IndexedFastaSequenceFile referenceReader) {

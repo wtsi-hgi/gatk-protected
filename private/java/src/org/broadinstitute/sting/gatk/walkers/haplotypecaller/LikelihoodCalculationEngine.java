@@ -91,7 +91,7 @@ public class LikelihoodCalculationEngine {
     private boolean getGapPenaltiesFromFile = false;
 
     static {
-        LOG_ONE_HALF= -Math.log10(2.0);
+        LOG_ONE_HALF = -Math.log10(2.0);
         END_GAP_COST = LOG_ONE_HALF;
 
         baseMatchArray = new double[MAX_CACHED_QUAL+1];
@@ -312,6 +312,7 @@ public class LikelihoodCalculationEngine {
                     c = currentGOP[jm1];
                     d = currentGCP[jm1];
                 }
+
                 if (indJ == Y_METRIC_LENGTH-1)
                     c = d = END_GAP_COST;
 
@@ -340,10 +341,10 @@ public class LikelihoodCalculationEngine {
                     c = currentGOP[jm1];
                     d = currentGCP[jm1];
                 }
-                if (indI == X_METRIC_LENGTH-1)
+
+                if (indI == X_METRIC_LENGTH-1) {
                     c = d = END_GAP_COST;
-
-
+                }
 
                 if (doViterbi) {
                     metrics[MATCH_OFFSET] = matchMetricArray[indI][jm1] + c;
@@ -353,13 +354,12 @@ public class LikelihoodCalculationEngine {
                     bestMetricIdx = MathUtils.maxElementIndex(metrics);
                     bestMetric = metrics[bestMetricIdx];
                 }
-                else
+                else {
                     bestMetric = MathUtils.softMax(matchMetricArray[indI][jm1] + c, YMetricArray[indI][jm1] + d);
+                }
 
                 YMetricArray[indI][indJ] = bestMetric;
                 bestActionArrayY[indI][indJ] = ACTIONS_Y[bestMetricIdx];
-
-
 
             }
         }
@@ -374,8 +374,9 @@ public class LikelihoodCalculationEngine {
             bestTable = MathUtils.maxElementIndex(metrics);
             bestMetric = metrics[bestTable];
         }
-        else
+        else {
             bestMetric = MathUtils.softMax(metrics);
+        }
 
         // Do traceback (needed only for debugging!)
         if (DEBUG && doViterbi) {
