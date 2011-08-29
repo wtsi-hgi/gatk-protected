@@ -4,6 +4,7 @@ require("gplots")
 
 inputFileName = "~/Desktop/broadLocal/GATK/unstable/report.txt"
 
+pdf("farm.pdf")
 p <- ggplot(data=gatkReportData$CountingDBSNPRecords, aes(x=runtime))
 p <- p + geom_histogram()
 print(p)
@@ -26,3 +27,5 @@ timeOfSecondRuns = 1.314559e12
 plotBox(-Inf, Inf)
 plotBox(timeOfSecondRuns, Inf)
 plotBox(-Inf, timeOfSecondRuns)
+dev.off()
+
