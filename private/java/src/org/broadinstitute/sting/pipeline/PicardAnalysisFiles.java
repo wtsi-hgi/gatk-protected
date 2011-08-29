@@ -57,7 +57,7 @@ public class PicardAnalysisFiles {
         this.path = path;
         HashMap<String,Integer> headerIndexes = null;
         for (String line: new XReadLines(new File(path))) {
-            if (line.startsWith("#"))
+            if (line.length() == 0 || line.startsWith("#"))
                 continue;
             String[] values = line.split("\t");
             if (headerIndexes == null) {
@@ -69,6 +69,8 @@ public class PicardAnalysisFiles {
             } else {
                 for (String header: ANALYSIS_HEADERS) {
                     int index = headerIndexes.get(header);
+                    if (index < 0)
+                        continue;
                     if (values.length <= index)
                         throw new StingException(String.format("Unable to parse line in %s: %n%s", path, line));
                     String value = values[index];
