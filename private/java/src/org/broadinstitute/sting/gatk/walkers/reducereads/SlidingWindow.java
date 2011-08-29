@@ -40,9 +40,10 @@ public class SlidingWindow {
     private double MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT;    // proportion has to be greater than this value
     private int MIN_BASE_QUAL_TO_COUNT;                           // qual has to be greater than or equal to this value
     private int MAX_QUAL_COUNT;                                   // to avoid blowing up the qual field of a consensus site
+    private int MIN_MAPPING_QUALITY;
 
 
-    public SlidingWindow(String contig, int contigIndex, int contextSize, SAMFileHeader header, Object readGroupAttribute, int windowNumber, double minAltProportionToTriggerVariant, int minBaseQual, int maxQualCount) {
+    public SlidingWindow(String contig, int contigIndex, int contextSize, SAMFileHeader header, Object readGroupAttribute, int windowNumber, double minAltProportionToTriggerVariant, int minBaseQual, int maxQualCount, int minMappingQuality) {
         this.startLocation = -1;
         this.stopLocation = -1;
         this.contextSize = contextSize;
@@ -50,6 +51,7 @@ public class SlidingWindow {
         this.MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT = minAltProportionToTriggerVariant;
         this.MAX_QUAL_COUNT = maxQualCount;
         this.MIN_BASE_QUAL_TO_COUNT = minBaseQual;
+        this.MIN_MAPPING_QUALITY = minMappingQuality;
 
         this.windowHeader = new LinkedList<HeaderElement>();
         this.SlidingReads = new LinkedList<SlidingRead>();
@@ -331,6 +333,12 @@ public class SlidingWindow {
      */
     @Requires("read.getAlignmentStart >= startLocation")
     private void updateHeaderCounts(SAMRecord read) {
+        // Reads that don't pass the minimum mapping quality filter are not added to the
+        // consensus, or count towards a variant region so no point in keeping track of
+        // their base counts.
+        if (read.getMappingQuality() < MIN_MAPPING_QUALITY)
+            return;
+
         byte[] bases = read.getReadBases();
         byte[] quals = read.getBaseQualities();
         Cigar cigar = read.getCigar();

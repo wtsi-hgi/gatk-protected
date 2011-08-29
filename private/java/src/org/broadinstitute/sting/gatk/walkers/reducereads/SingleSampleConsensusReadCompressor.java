@@ -1,13 +1,11 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
 
 /*
  * Copyright (c) 2009 The Broad Institute
@@ -59,7 +57,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     // TODO comment out unused code
     private final int readContextSize;
     private final int AverageDepthAtVariableSites;
-    private final int minMapQuality;
+    private int minMappingQuality;
     private int slidingWindowCounter;
 
     private final SAMReadGroupRecord reducedReadGroup;
@@ -73,14 +71,14 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     public SingleSampleConsensusReadCompressor(final String sampleName,
                                                final int readContextSize,
                                                final int AverageDepthAtVariableSites,
-                                               final int minMapQuality,
+                                               final int minMappingQuality,
                                                final double minAltProportionToTriggerVariant,
                                                final int minBaseQual,
                                                final int maxQualCount) {
         this.readContextSize = readContextSize;
         this.AverageDepthAtVariableSites = AverageDepthAtVariableSites;
         this.reducedReadGroup = createReducedReadGroup(sampleName);
-        this.minMapQuality = minMapQuality;
+        this.minMappingQuality = minMappingQuality;
         this.slidingWindowCounter = 0;
         this.minAltProportionToTriggerVariant = minAltProportionToTriggerVariant;
         this.minBaseQual = minBaseQual;
@@ -155,7 +153,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         if ( slidingWindow == null) {       // this is the first read
             slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), readContextSize,
                                               read.getHeader(), read.getAttribute("RG"), slidingWindowCounter,
-                                              minAltProportionToTriggerVariant, minBaseQual, maxQualCount);
+                                              minAltProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
             slidingWindowCounter++;
         }
 
