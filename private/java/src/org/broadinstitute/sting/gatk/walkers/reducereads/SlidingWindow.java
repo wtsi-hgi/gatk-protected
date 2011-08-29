@@ -206,8 +206,11 @@ public class SlidingWindow {
                         consensusList.addAll(addToConsensus(i + 1, end)); // and start a new one starting at the next position
                         break;                                            // recursive call already took care of the rest of this loop, we are done.
                     }
-                    else
-                        runningConsensus.add(wh.baseCounts.baseWithMostCounts(), (byte) Math.min(wh.baseCounts.countOfMostCommonBase(), MAX_QUAL_COUNT));
+                    else {
+                        byte base = wh.baseCounts.baseWithMostCounts();
+                        byte count = (byte) Math.min(wh.baseCounts.countOfMostCommonBase(), MAX_QUAL_COUNT);
+                        runningConsensus.add(base, count);
+                    }
                 }
                 i++;
             }

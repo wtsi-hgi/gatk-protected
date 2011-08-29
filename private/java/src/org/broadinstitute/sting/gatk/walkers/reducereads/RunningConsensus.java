@@ -1,8 +1,8 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import net.sf.samtools.*;
-import org.broadinstitute.sting.utils.BaseUtils;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -120,8 +120,22 @@ public class RunningConsensus {
     private byte [] listToByteArray(List<Byte> list) {
         byte [] array = new byte[list.size()];
         int i = 0;
-        for (Byte element : list)
-            array[i++] = element;
+        Iterator<Byte> basesIterator = bases.listIterator();
+        for (Byte element : list) {
+            Byte b = basesIterator.next();
+            switch (BaseIndex.byteToBase(b)) {
+                case D:  // do not add deletions to the consensus SAM record
+                    break;
+                default:
+                    array[i++] = element;
+                    break;
+            }
+        }
+        if (i < list.size()) {
+            byte[] arrayWithoutDeletions = new byte[i];
+            System.arraycopy(array, 0, arrayWithoutDeletions, 0, i);
+            return arrayWithoutDeletions;
+        }
         return array;
     }
 
