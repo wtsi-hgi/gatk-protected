@@ -59,21 +59,13 @@ public class RunningConsensus {
     public RunningConsensus (SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex, String readName, Integer refStart) {
         counts = new LinkedList<Byte>();
         bases = new LinkedList<Byte>();
-        this.rms = 60.0;      // must update with real rms
+        rms = 0.0;
 
         this.header = header;
         this.readGroupAttribute = readGroupAttribute;
         this.contig = contig;
         this.contigIndex = contigIndex;
         this.readName = readName;
-        this.refStart = refStart;
-    }
-
-    public void setReadName(String readName) {
-        this.readName = readName;
-    }
-
-    public void setRefStart(Integer refStart) {
         this.refStart = refStart;
     }
 
@@ -84,9 +76,10 @@ public class RunningConsensus {
      * @param base
      * @param count
      */
-    public void add(byte base, byte count) {
+    public void add(byte base, byte count, double rms) {
         counts.add(count);
         bases.add(base);
+        this.rms += rms;
     }
 
     public SAMRecord close () {
@@ -101,7 +94,7 @@ public class RunningConsensus {
         samRecord.setReadName(readName);
         samRecord.setBaseQualities(convertBaseQualities());
         samRecord.setReadBases(convertReadBases());
-        samRecord.setMappingQuality((int) Math.ceil(rms));
+        samRecord.setMappingQuality((int) Math.ceil(rms/bases.size()));
         return samRecord;
     }
 

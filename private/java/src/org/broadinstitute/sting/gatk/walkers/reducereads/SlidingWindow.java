@@ -5,6 +5,7 @@ import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.MathUtils;
 
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -211,7 +212,7 @@ public class SlidingWindow {
                     else {
                         byte base = wh.baseCounts.baseWithMostCounts();
                         byte count = (byte) Math.min(wh.baseCounts.countOfMostCommonBase(), MAX_QUAL_COUNT);
-                        runningConsensus.add(base, count);
+                        runningConsensus.add(base, count, wh.getRMS());
                     }
                 }
                 i++;
@@ -388,7 +389,7 @@ public class SlidingWindow {
                     // deletions are added to the baseCounts with the read mapping quality as it's quality score
                     int nDeletionsToAdd = cigarElement.getLength();
                     while(nDeletionsToAdd-- > 0) {
-                        windowHeader.get(locationIndex).addBase((byte) 'D', (byte) read.getMappingQuality());
+                        windowHeader.get(locationIndex).addBase((byte) 'D', (byte) read.getMappingQuality(), read.getMappingQuality());
                         locationIndex++;
                     }
                     break;
@@ -398,7 +399,7 @@ public class SlidingWindow {
                 case X:
                     int nBasesToAdd = cigarElement.getLength();
                     while(nBasesToAdd-- > 0) {
-                        windowHeader.get(locationIndex).addBase(bases[readBaseIndex], quals[readBaseIndex]);
+                        windowHeader.get(locationIndex).addBase(bases[readBaseIndex], quals[readBaseIndex], read.getMappingQuality());
                         readBaseIndex++;
                         locationIndex++;
                     }
@@ -415,14 +416,17 @@ public class SlidingWindow {
      * has insertions (to it's right)
      */
     protected class HeaderElement {
-        private BaseCounts baseCounts;
-        private int insertionsToTheRight;
-        private int location;
+        private BaseCounts baseCounts;    // How many A,C,G,T (and D's) are in this site.
+        private int insertionsToTheRight; // How many reads in this site had insertions to the immediate right
+        private int location;             // Genome location of this site (the sliding window knows which contig we're at
+        private LinkedList<Double> rms;   // keeps the rms of each read that contributed to this element (site)
+
 
         public HeaderElement() {
             this.baseCounts = new BaseCounts();
             this.insertionsToTheRight = 0;
             this.location = 0;
+            this.rms = new LinkedList<Double>();
         }
 
         public HeaderElement(int location) {
@@ -434,9 +438,10 @@ public class SlidingWindow {
             return baseCounts.totalCount() > 1 && ( isVariantFromInsertions() || isVariantFromMismatches() || isVariantFromDeletions());
         }
 
-        public void addBase(byte base, byte qual) {
+        public void addBase(byte base, byte qual, double rms) {
             if ( qual >= MIN_BASE_QUAL_TO_COUNT )
                 baseCounts.incr(base);
+            this.rms.add(rms);
         }
 
         private boolean isVariantFromInsertions() {
@@ -460,6 +465,10 @@ public class SlidingWindow {
 
         public boolean isEmpty() {
             return baseCounts.totalCount() == 0;
+        }
+
+        public double getRMS() {
+            return MathUtils.rms(rms);
         }
     }
 
