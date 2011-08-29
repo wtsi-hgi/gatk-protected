@@ -1,9 +1,14 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import com.google.java.contract.Requires;
-import net.sf.samtools.*;
+import net.sf.samtools.Cigar;
+import net.sf.samtools.CigarElement;
+import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMRecord;
 
-import java.util.*;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * Created by IntelliJ IDEA.
@@ -207,6 +212,7 @@ public class SlidingWindow {
 
         for ( SlidingRead read: SlidingReads ) {
             SAMRecord SAM = read.trimToVariableRegion(refStart, refEnd);
+            //System.out.println("HardClippedEnds:  (" + refStart +","+ refStop +") " + SAM.getCigarString() + "\t" + SAM.getAlignmentStart() + "\t" + SAM.getAlignmentEnd());
             SAM.setReadName(SAM.getReadName()+".trim");
             if ( SAM.getReadLength() > 0 ) {
                 finalizedReads.add(SAM);

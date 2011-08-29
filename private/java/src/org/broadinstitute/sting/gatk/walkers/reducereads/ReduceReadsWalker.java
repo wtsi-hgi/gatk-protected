@@ -43,7 +43,7 @@ import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.sam.SimplifyingSAMFileWriter;
 
-import java.util.*;
+import java.util.Iterator;
 
 /**
  * Created by IntelliJ IDEA.
@@ -168,14 +168,14 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         read = SimplifyingSAMFileWriter.simplifyRead(read);
 
         ReadClipper clipper = new ReadClipper(read);
-//        System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
+        //System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
         SAMRecord filteredRead = clipper.hardClipLowQualEnds(minTailQuality);
 
         SAMRecord clippedRead = filteredRead;
         if (filteredRead.getReadLength() > 0 && !getToolkit().getIntervals().isEmpty())
             clippedRead = hardClipReadToInterval(filteredRead);
 
-//        System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
+        //System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
 
         return clippedRead;
 

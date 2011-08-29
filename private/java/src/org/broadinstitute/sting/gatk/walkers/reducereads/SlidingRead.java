@@ -1,11 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import net.sf.samtools.*;
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
-
-import java.util.*;
 
 /**
  * Created by IntelliJ IDEA.
@@ -34,11 +30,13 @@ public class SlidingRead {
 
         // check to see if read is contained in region
         if ( start <= refStop && stop >= refStart) {
-            if ( start < refStart && stop > refStop )
+            if ( start < refStart && stop > refStop ){
+                //System.out.println("HardClipBothEnds: (" + refStart +","+ refStop +") " + read.getCigarString() + "\t" + read.getAlignmentStart() + "\t" + read.getAlignmentEnd());
                 return clipper.hardClipBothEndsByReferenceCoordinates(refStart-1, refStop+1);
-            if ( start < refStart )
+            }
+            else if ( start < refStart )
                 clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(refStart-1);
-            if ( stop > refStop )
+            else if ( stop > refStop )
                 clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(refStop+1);
             return clippedRead;
         }
