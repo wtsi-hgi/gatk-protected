@@ -64,7 +64,7 @@ public class LikelihoodCalculationEngine {
 
     private boolean DEBUG = false;
 
-    private static final int MAX_CACHED_QUAL = 127;
+    private static final int MAX_CACHED_QUAL = 93;
 
     private static final double baseMatchArray[];
     private static final double baseMismatchArray[];
@@ -75,8 +75,8 @@ public class LikelihoodCalculationEngine {
     private static final int START_HRUN_GAP_IDX = 4;
     private static final int MAX_HRUN_GAP_IDX = 20;
 
-    private static final double MIN_GAP_OPEN_PENALTY = 30.0;
-    private static final double MIN_GAP_CONT_PENALTY = 10.0;
+    private static final double MIN_GAP_OPEN_PENALTY = 3.0;
+    private static final double MIN_GAP_CONT_PENALTY = 1.0;
     private static final double GAP_PENALTY_HRUN_STEP = 1.0; // each increase in hrun decreases gap penalty by this.
 
 
@@ -90,9 +90,6 @@ public class LikelihoodCalculationEngine {
 
     private boolean getGapPenaltiesFromFile = false;
 
-    private int SMOOTHING = 1;
-    private int MAX_QUALITY_SCORE = 50;
-    private int PRESERVE_QSCORES_LESS_THAN = 5;
     static {
         LOG_ONE_HALF= -Math.log10(2.0);
         END_GAP_COST = LOG_ONE_HALF;

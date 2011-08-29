@@ -26,7 +26,6 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.samtools.CigarElement;
-import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.utils.GenomeLoc;
@@ -43,10 +42,10 @@ import java.util.*;
 public class GenotypingEngine {
 
     // Smith-Waterman parameters copied from IndelRealigne
-    private static final double SW_MATCH = 30.0;      // 1.0;
-    private static final double SW_MISMATCH = -10.0;  //-1.0/3.0;
-    private static final double SW_GAP = -10.0;       //-1.0-1.0/3.0;
-    private static final double SW_GAP_EXTEND = -2.0; //-1.0/.0;
+    private static final double SW_MATCH = 25.0;      // 1.0;
+    private static final double SW_MISMATCH = -7.0;  //-1.0/3.0;
+    private static final double SW_GAP = -14.0;       //-1.0-1.0/3.0;
+    private static final double SW_GAP_EXTEND = -1.7; //-1.0/.0;
 
     public List<VariantContext> alignAndGenotype( final Pair<Haplotype, Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc ) {
         final SWPairwiseAlignment swConsensus1 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.first.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
@@ -87,7 +86,7 @@ public class GenotypingEngine {
                         ArrayList<Allele> alleles = new ArrayList<Allele>();
                         alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, true));
                         alleles.add( Allele.create(insertionBases, false));
-                        System.out.println("Insertion: " + alleles);
+                        System.out.println("> Insertion: " + alleles);
                         vcs.add(new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos - 1, alleles, VariantContext.NO_GENOTYPES, InferredGeneticContext.NO_NEG_LOG_10PERROR, null, null, ref[refPos-1]));
                     }
                     readPos += elementLength;
@@ -105,7 +104,7 @@ public class GenotypingEngine {
                     ArrayList<Allele> alleles = new ArrayList<Allele>();
                     alleles.add( Allele.create(deletionBases, true) );
                     alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, false) );
-                    System.out.println( "Deletion: " + alleles);
+                    System.out.println( "> Deletion: " + alleles);
                     vcs.add( new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos + elementLength - 1, alleles, VariantContext.NO_GENOTYPES, InferredGeneticContext.NO_NEG_LOG_10PERROR, null, null, ref[refPos-1]) );
                     refPos += elementLength;
                     break;
@@ -139,7 +138,7 @@ public class GenotypingEngine {
                             ArrayList<Allele> alleles = new ArrayList<Allele>();
                             alleles.add( Allele.create( refBases, true ) );
                             alleles.add( Allele.create( mismatchBases, false ) );
-                            System.out.println( "SNP/MNP: " + alleles);
+                            System.out.println( "> SNP/MNP: " + alleles);
                             vcs.add( new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPosStartOfMismatch, loc.getStart() + refPosStartOfMismatch + (stopOfMismatch - startOfMismatch), alleles) );
                             numSinceMismatch = -1;
                             stopOfMismatch = -1;
@@ -159,6 +158,10 @@ public class GenotypingEngine {
                 default:
                     throw new ReviewedStingException( "Unsupported cigar operator: " + ce.getOperator() );
             }
+        }
+
+        if( vcs.size() == 0 ) {
+            System.out.println("> Reference!");
         }
 
         return vcs;

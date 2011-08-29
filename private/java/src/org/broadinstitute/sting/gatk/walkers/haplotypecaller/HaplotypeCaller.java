@@ -76,7 +76,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     LocalAssemblyEngine assemblyEngine = null;
 
     // the likelihoods engine
-    LikelihoodCalculationEngine likelihoodCalculationEngine = new LikelihoodCalculationEngine(45.0, 10.0, false, true, false);
+    LikelihoodCalculationEngine likelihoodCalculationEngine = new LikelihoodCalculationEngine(35.0, 10.0, false, true, false);
 
     // the genotyping engine
     GenotypingEngine genotypingEngine = new GenotypingEngine();
