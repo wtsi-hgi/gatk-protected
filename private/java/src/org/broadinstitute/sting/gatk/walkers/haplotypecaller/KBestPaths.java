@@ -104,7 +104,7 @@ public class KBestPaths {
                     bases[curPos++] = graph.getEdgeTarget( e ).printableSequence[graph.getEdgeTarget( e ).printableSequence.length-1];
                 }
             }
-            if(length - curPos > 40) { return null; } // BUGBUG: not sure why there are several very short paths
+            if(length - curPos > 40) { return null; } // lots of short paths that aren't connected to anything else
             for( int iii = curPos; iii < length; iii++ ) {
                 bases[iii] = (byte) 'N';
             }

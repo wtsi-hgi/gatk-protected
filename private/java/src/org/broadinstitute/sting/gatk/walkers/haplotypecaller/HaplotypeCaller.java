@@ -178,6 +178,11 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
         final List<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble.getReads() );
         System.out.println("Found " + haplotypes.size() + " potential haplotypes to evaluate");
 
+        if( haplotypes.size() == 0 ) {
+            System.out.println("WARNING! No haplotypes created during assembly!");
+            return;
+        }
+
         if( bamWriter != null ) {
             genotypingEngine.alignAllHaplotypes( haplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), bamWriter, readsToAssemble.getReads().get(0) );
             return; // in assembly debug mode, so no need to run the rest of the procedure

@@ -117,7 +117,7 @@ public class GenotypingEngine {
                     int startOfMismatch = -1;
                     int refPosStartOfMismatch = -1;
                     for( int iii = 0; iii < elementLength; iii++ ) {
-                        if( ref[refPos] != read[readPos] ) {
+                        if( ref[refPos] != read[readPos] && read[readPos] != ((byte) 'N') ) {
                             // SNP or start of possible MNP
                             if( stopOfMismatch == -1 ) {
                                 startOfMismatch = readPos;
