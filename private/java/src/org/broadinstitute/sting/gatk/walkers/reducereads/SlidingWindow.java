@@ -282,30 +282,32 @@ public class SlidingWindow {
         // mark variant regions
         List<SAMRecord> finalizedReads = new LinkedList<SAMRecord>();
 
-        boolean [] variantSite = markSites(stopLocation);
+        if (!windowHeader.isEmpty()) {
+            boolean [] variantSite = markSites(stopLocation);
 
-        // close everything (+1 to include the last site) -- consensus or variant region
-        int sitesToClose = stopLocation - startLocation + 1;
-        int start = 0;
-        int i = 0;
+            // close everything (+1 to include the last site) -- consensus or variant region
+            int sitesToClose = stopLocation - startLocation + 1;
+            int start = 0;
+            int i = 0;
 
-        while (i < sitesToClose) {
-            while (i<sitesToClose && !variantSite[i]) i++;
-            finalizedReads.addAll(addToConsensus(start, i));
-            start = i;
+            while (i < sitesToClose) {
+                while (i<sitesToClose && !variantSite[i]) i++;
+                finalizedReads.addAll(addToConsensus(start, i));
+                start = i;
 
-            // close all variant regions regardless of having enough for context size
-            // on the last one
-            while(i<sitesToClose && variantSite[i]) i++;
-            if (start <= i-1)
-                finalizedReads.addAll(closeVariantRegion(start, i-1));
-            start = i;
-        }
-        // if it ended in consensus, finish it up
-        if (runningConsensus != null) {
-            SAMRecord consensus = finalizeConsensus();
-            if (consensus != null)
-                finalizedReads.add(consensus);
+                // close all variant regions regardless of having enough for context size
+                // on the last one
+                while(i<sitesToClose && variantSite[i]) i++;
+                if (start <= i-1)
+                    finalizedReads.addAll(closeVariantRegion(start, i-1));
+                start = i;
+            }
+            // if it ended in consensus, finish it up
+            if (runningConsensus != null) {
+                SAMRecord consensus = finalizeConsensus();
+                if (consensus != null)
+                    finalizedReads.add(consensus);
+            }
         }
         return finalizedReads;
     }

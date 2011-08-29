@@ -160,8 +160,10 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
         // Keep track of the interval list so we can filter out reads that are not within the
         // requested intervals
-        intervalIterator = getToolkit().getIntervals().iterator();
-        currentInterval = intervalIterator.next();
+        if (getToolkit().getIntervals() != null) {
+            intervalIterator = getToolkit().getIntervals().iterator();
+            currentInterval = intervalIterator.next();
+        }
 
     }
 
@@ -175,7 +177,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         SAMRecord filteredRead = clipper.hardClipLowQualEnds(minTailQuality);
 
         SAMRecord clippedRead = filteredRead;
-        if (filteredRead.getReadLength() > 0 && !getToolkit().getIntervals().isEmpty())
+        if (intervalIterator != null && filteredRead.getReadLength() > 0)
             clippedRead = hardClipReadToInterval(filteredRead);
 
         if(debugLog) System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
