@@ -50,7 +50,6 @@ package org.broadinstitute.sting.queue.qscripts.performance
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.util.QJobReport
 
 class RodPerformanceGoals extends QScript {
   @Argument(shortName = "BUNDLE", doc = "Directory holding all of our data files", required=false)

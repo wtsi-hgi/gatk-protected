@@ -23,7 +23,7 @@ ORIGINAL_UNITS_TO_SECONDS = 1/1000
 # Helper function to aggregate all of the jobs in the report across all tables
 #
 allJobsFromReport <- function(report) {
-  names <- c("jobName", "startTime", "analysisName", "doneTime")
+  names <- c("jobName", "startTime", "analysisName", "doneTime", "exechosts")
   sub <- lapply(report, function(table) table[,names])
   do.call("rbind", sub)
 }
@@ -44,10 +44,11 @@ plotJobsGantt <- function(gatkReport, sortOverall) {
   minTime = min(allJobs$startTime)
   allJobs$relStartTime = allJobs$startTime - minTime
   allJobs$relDoneTime = allJobs$doneTime - minTime
+  allJobs$ganttName = paste(allJobs$jobName, "@", allJobs$exechosts)
   maxRelTime = max(allJobs$relDoneTime)
   p <- ggplot(data=allJobs, aes(x=relStartTime, y=index, color=analysisName))
   p <- p + geom_segment(aes(xend=relDoneTime, yend=index), size=2, arrow=arrow(length = unit(0.1, "cm")))
-  p <- p + geom_text(aes(x=relDoneTime, label=jobName, hjust=-0.2), size=2)
+  p <- p + geom_text(aes(x=relDoneTime, label=ganttName, hjust=-0.2), size=2)
   p <- p + xlim(0, maxRelTime * 1.1)
   p <- p + xlab(paste("Start time (relative to first job)", RUNTIME_UNITS))
   p <- p + ylab("Job")
@@ -96,7 +97,7 @@ plotProgressByTime <- function(gatkReport) {
 # 
 # Creates tables for each job in this group
 #
-standardColumns = c("jobName", "startTime", "formattedStartTime", "analysisName", "intermediate", "formattedDoneTime", "doneTime", "runtime")
+standardColumns = c("jobName", "startTime", "formattedStartTime", "analysisName", "intermediate", "exechosts", "formattedDoneTime", "doneTime", "runtime")
 plotGroup <- function(groupTable) {
   name = unique(groupTable$analysisName)[1]
   groupAnnotations = setdiff(names(groupTable), standardColumns)  
