@@ -377,8 +377,12 @@ public class SlidingWindow {
                     break;
                 case I:
                     // insertions are added to the base to the left (previous element) with the quality score of the first inserted base
-                    windowHeader.get(locationIndex - 1).addInsertionToTheRight();     // check if it's the first element in the read!
-                    readBaseIndex += cigarElement.getLength();
+                    if (locationIndex > 0) {
+                        windowHeader.get(locationIndex - 1).addInsertionToTheRight();     // check if it's the first element in the read!
+                        readBaseIndex += cigarElement.getLength();
+                    }
+
+                    // just ignore the insertions at the beginning of the read
                     break;
                 case D:
                     // deletions are added to the baseCounts with the read mapping quality as it's quality score
