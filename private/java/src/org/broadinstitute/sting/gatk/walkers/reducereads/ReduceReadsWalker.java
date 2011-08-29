@@ -28,6 +28,7 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
@@ -78,7 +79,9 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Argument(fullName = "maximum_consensus_base_qual", shortName = "mcq", doc = "", required = false)
     protected byte maxQualCount = 99;
 
-
+    @Hidden
+    @Argument(fullName = "", shortName = "dl", doc = "", required = false)
+    protected boolean debugLog = false;
 
     protected int totalReads = 0;
     int nCompressedReads = 0;
@@ -168,14 +171,14 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         read = SimplifyingSAMFileWriter.simplifyRead(read);
 
         ReadClipper clipper = new ReadClipper(read);
-        //System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
+        if (debugLog) System.out.printf("Original: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
         SAMRecord filteredRead = clipper.hardClipLowQualEnds(minTailQuality);
 
         SAMRecord clippedRead = filteredRead;
         if (filteredRead.getReadLength() > 0 && !getToolkit().getIntervals().isEmpty())
             clippedRead = hardClipReadToInterval(filteredRead);
 
-        //System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
+        if(debugLog) System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
 
         return clippedRead;
 
@@ -201,7 +204,15 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         if (read.getReadLength() != 0) {
             // write out compressed reads as they become available
             for ( SAMRecord consensusRead : comp.addAlignment(read)) {
-//                System.out.println(String.format("Output Read: %d-%d, Cigar: %s, NAME: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), consensusRead.getReadName()));
+
+                if (debugLog) {
+                    String bases = "";
+                    for (byte b : consensusRead.getReadBases())
+                        bases += (char) b;
+                    System.out.println(String.format("Output Read: %d-%d, Cigar: %s, Bases: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), bases));
+                }
+
+
                 out.addAlignment(consensusRead);
                 nCompressedReads++;
             }
