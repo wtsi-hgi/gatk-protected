@@ -51,6 +51,12 @@ public class PicardPipelineUnitTest {
     }
 
     @Test
+    public void testParseTsvWithoutReference() throws Exception {
+        File tsv = writeTsv("C534", "00277866");
+        PicardPipeline.parse(tsv);
+    }
+
+    @Test
     public void testParseYaml() throws IOException {
         File yaml = writeYaml("project_name", PROJECT, SAMPLE);
         Pipeline pipeline = PicardPipeline.parse(yaml);

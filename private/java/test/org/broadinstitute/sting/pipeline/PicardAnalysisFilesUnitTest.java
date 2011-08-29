@@ -57,6 +57,22 @@ public class PicardAnalysisFilesUnitTest extends BaseTest {
         Assert.assertEquals(file.getBaitIntervals(), "/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list");
     }
 
+    @Test
+    public void testParseValidWithoutReference() throws Exception {
+        PicardAnalysisFiles file = new PicardAnalysisFiles(BaseTest.validationDataLocation + "picard_analysis_file_without_reference.txt");
+        Assert.assertNull(file.getReferenceSequence());
+        Assert.assertEquals(file.getTargetIntervals(), "/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list");
+        Assert.assertEquals(file.getBaitIntervals(), "/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list");
+    }
+
+    @Test
+    public void testParseValidWithBlankLine() throws Exception {
+        PicardAnalysisFiles file = new PicardAnalysisFiles(BaseTest.validationDataLocation + "picard_analysis_file_with_blank_line.txt");
+        Assert.assertNull(file.getReferenceSequence());
+        Assert.assertEquals(file.getTargetIntervals(), "/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list");
+        Assert.assertEquals(file.getBaitIntervals(), "/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list");
+    }
+
     @Test(expectedExceptions = FileNotFoundException.class)
     public void testParseBadPath() throws Exception {
         new PicardAnalysisFiles(BaseTest.validationDataLocation + "non_existent_picard_analysis_file.txt");
