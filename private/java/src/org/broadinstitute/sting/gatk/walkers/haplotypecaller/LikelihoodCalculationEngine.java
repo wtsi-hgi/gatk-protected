@@ -64,7 +64,7 @@ public class LikelihoodCalculationEngine {
 
     private boolean DEBUG = false;
 
-    private static final int MAX_CACHED_QUAL = 127;
+    private static final int MAX_CACHED_QUAL = 93;
 
     private static final double baseMatchArray[];
     private static final double baseMismatchArray[];
@@ -75,8 +75,8 @@ public class LikelihoodCalculationEngine {
     private static final int START_HRUN_GAP_IDX = 4;
     private static final int MAX_HRUN_GAP_IDX = 20;
 
-    private static final double MIN_GAP_OPEN_PENALTY = 30.0;
-    private static final double MIN_GAP_CONT_PENALTY = 10.0;
+    private static final double MIN_GAP_OPEN_PENALTY = 3.0;
+    private static final double MIN_GAP_CONT_PENALTY = 1.0;
     private static final double GAP_PENALTY_HRUN_STEP = 1.0; // each increase in hrun decreases gap penalty by this.
 
 
@@ -90,11 +90,8 @@ public class LikelihoodCalculationEngine {
 
     private boolean getGapPenaltiesFromFile = false;
 
-    private int SMOOTHING = 1;
-    private int MAX_QUALITY_SCORE = 50;
-    private int PRESERVE_QSCORES_LESS_THAN = 5;
     static {
-        LOG_ONE_HALF= -Math.log10(2.0);
+        LOG_ONE_HALF = -Math.log10(2.0);
         END_GAP_COST = LOG_ONE_HALF;
 
         baseMatchArray = new double[MAX_CACHED_QUAL+1];
@@ -315,6 +312,7 @@ public class LikelihoodCalculationEngine {
                     c = currentGOP[jm1];
                     d = currentGCP[jm1];
                 }
+
                 if (indJ == Y_METRIC_LENGTH-1)
                     c = d = END_GAP_COST;
 
@@ -343,10 +341,10 @@ public class LikelihoodCalculationEngine {
                     c = currentGOP[jm1];
                     d = currentGCP[jm1];
                 }
-                if (indI == X_METRIC_LENGTH-1)
+
+                if (indI == X_METRIC_LENGTH-1) {
                     c = d = END_GAP_COST;
-
-
+                }
 
                 if (doViterbi) {
                     metrics[MATCH_OFFSET] = matchMetricArray[indI][jm1] + c;
@@ -356,13 +354,12 @@ public class LikelihoodCalculationEngine {
                     bestMetricIdx = MathUtils.maxElementIndex(metrics);
                     bestMetric = metrics[bestMetricIdx];
                 }
-                else
+                else {
                     bestMetric = MathUtils.softMax(matchMetricArray[indI][jm1] + c, YMetricArray[indI][jm1] + d);
+                }
 
                 YMetricArray[indI][indJ] = bestMetric;
                 bestActionArrayY[indI][indJ] = ACTIONS_Y[bestMetricIdx];
-
-
 
             }
         }
@@ -377,8 +374,9 @@ public class LikelihoodCalculationEngine {
             bestTable = MathUtils.maxElementIndex(metrics);
             bestMetric = metrics[bestTable];
         }
-        else
+        else {
             bestMetric = MathUtils.softMax(metrics);
+        }
 
         // Do traceback (needed only for debugging!)
         if (DEBUG && doViterbi) {

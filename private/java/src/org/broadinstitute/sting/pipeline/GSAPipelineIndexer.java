@@ -111,7 +111,7 @@ public class GSAPipelineIndexer extends CommandLineProgram {
     @Argument(fullName = "useDebugSamples", shortName = "d", doc = "If set, index only samples in the debug directory (" + DEBUG_DIRECTORY_NAME + ")", required = false)
     private boolean useDebugSamples = false;
 
-    @Argument(fullName = "printPaths", shortName = "p", doc = "If set, print the path to each TSV file as it's processed", required = false)
+    @Argument(fullName = "printPaths", shortName = "p", doc = "If set, output the path to each TSV file as it's processed", required = false)
     private boolean printPaths = false;
 
     @Argument(fullName = "noSymlinks", shortName = "nsl", doc = "If set, do not create symlinks to Picard bams (for debugging/dry-run purposes only)", required = false)
@@ -121,7 +121,7 @@ public class GSAPipelineIndexer extends CommandLineProgram {
               "\"live\" locations within the directory tree being indexed (for debugging/dry-run purposes only)", required = false)
     private File debugSymlinkDir = null;
 
-    @Argument(fullName = "noSort", shortName = "ns", doc = "If set, don't sort the XML elements", required = false)
+    @Argument(fullName = "noSort", shortName = "ns", doc = "If set, don't sort the XML elements (for debugging/dry-run purposes only)", required = false)
     private boolean noSort = false;
 
     public static final String DEFAULT_ROOT_DIRECTORY = "/humgen/gsa-pipeline/";
@@ -273,7 +273,7 @@ public class GSAPipelineIndexer extends CommandLineProgram {
             }
             else if ( isTSVFile(currentFileName) ) {
                 if ( printPaths ) {
-                    System.out.println("Processing " + currentFilePath);
+                    logger.info("Processing " + currentFilePath);
                 }
 
                 processTSVFile(currentFile, xmlDocument, childNodes);
