@@ -1,13 +1,11 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
 
 /*
  * Copyright (c) 2009 The Broad Institute
@@ -57,33 +55,34 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     // todo  -- should merge close together spans
     // TODO WE WANT TO PUT ALL functions is SlidingWindow
     // TODO comment out unused code
-    private SAMFileHeader header;
     private final int readContextSize;
     private final int AverageDepthAtVariableSites;
-    private final int QualityEquivalent;
-    private final int minMapQuality;
-    private int consensusCounter = 0;
+    private int minMappingQuality;
+    private int slidingWindowCounter;
 
     private final SAMReadGroupRecord reducedReadGroup;
-    private String contig = null;
-    private final GenomeLocParser glParser;
 
     private SlidingWindow slidingWindow;
+    private double minAltProportionToTriggerVariant;
+    private int minBaseQual;
+    private int maxQualCount;
 
 
     public SingleSampleConsensusReadCompressor(final String sampleName,
                                                final int readContextSize,
-                                               final GenomeLocParser glParser,
                                                final int AverageDepthAtVariableSites,
-                                               final int qualityEquivalent,
-                                               final int minMapQuality) {
+                                               final int minMappingQuality,
+                                               final double minAltProportionToTriggerVariant,
+                                               final int minBaseQual,
+                                               final int maxQualCount) {
         this.readContextSize = readContextSize;
-        this.glParser = glParser;
-        this.slidingWindow = new SlidingWindow("SampleName",contig, header);
         this.AverageDepthAtVariableSites = AverageDepthAtVariableSites;
         this.reducedReadGroup = createReducedReadGroup(sampleName);
-        this.QualityEquivalent = qualityEquivalent;
-        this.minMapQuality = minMapQuality;
+        this.minMappingQuality = minMappingQuality;
+        this.slidingWindowCounter = 0;
+        this.minAltProportionToTriggerVariant = minAltProportionToTriggerVariant;
+        this.minBaseQual = minBaseQual;
+        this.maxQualCount = maxQualCount;
     }
 
     /**
@@ -107,83 +106,65 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     //
     // ------------------------------------------------------------------------------------------
 
-        /**
+    /**
      * @{inheritDoc}
      */
     @Override
     public Iterable<SAMRecord> addAlignment( SAMRecord read ) {
-        if ( contig == null )
-            contig = read.getReferenceName();
-        if ( ! read.getReferenceName().equals(contig) )
-            throw new ReviewedStingException("ConsensusRead system doesn't support multiple contig processing right now");
 
+        /**
+         * Steps to adding alignment:
+         *
+         * 1 - Slide the current window if we can.
+         * 2 - If necessary, close and create a new window.
+         * 3 - Add read to the window
+         *
+         *
+         * When adding read to the window, handle 3 types of reads :
+         *  1 - Read is fully contained by current sliding window
+         *    * add read to the sliding window -- simple case
+         *  2 - Read is partially contained by current sliding window (left side is inside, right side is outside)
+         *    * increase the sliding window to accommodate the new read
+         *  3 - Read is completely outside of the sliding window
+         *    * close current sliding window and create a new one
+         *
+         * Notes:
+         *  - The starting position of the incoming read must be the unclipped end because reads may have been trimmed
+         *  and the next read start can be smaller than the current incoming read's alignmentStart, but never smaller
+         *  than the unclippedStart.
+         *
+         *  - The size of the sliding window has to include the context size (to the right).
+         *
+         */
 
-        if ( header == null )
-            header = read.getHeader();
-
-        /*
-        if ( ! waitingReads.isEmpty() && read.getAlignmentStart() < waitingReads.peek().getAlignmentStart() )
-            throw new ReviewedStingException(
-                    String.format("Adding read %s starting at %d before current queue head start position %d",
-                            read.getReadName(), read.getAlignmentStart(), waitingReads.peek().getAlignmentStart()));
-        */
         List<SAMRecord> result = new LinkedList<SAMRecord>();
-        /*
-        if ( retryTimer == 0 ) {
+        int position = read.getUnclippedStart();
 
-            if ( chunkReadyForConsensus(read) ) {
-                result = consensusReads(false);
-            }
-        } else {
-            //logger.info("Retry: " + retryTimer);
-            retryTimer--;
+        // create a new window if:
+        if ((slidingWindow != null) &&
+            ( (!read.getReferenceName().equals(slidingWindow.getContig())) ||     // this is a brand new contig
+              (position - readContextSize > slidingWindow.getStopLocation()))) {  // this read is too far away from the end of the current sliding window
+
+            // close the current sliding window
+            result.addAll(slidingWindow.close());
+            slidingWindow = null;  // so we create a new one on the next if
         }
 
-        waitingReads.add(read);
-        */
-
-        int position = read.getAlignmentStart();
-        //logger.info(String.format("Setting position to %d", position));
-        slidingWindow.addRead(read);
-
-        // did adding the read create variance?
-        List<VariableRegion> variableRegions = slidingWindow.getVariableRegions(readContextSize);
-        for ( VariableRegion variableRegion : variableRegions ) {
-            //logger.info(String.format("Found a variable region : %d - %d", variableRegion.start, variableRegion.end) );
-            if ( (position - readContextSize) >= variableRegion.start ) {
-                result.addAll(slidingWindow.finalizeConsensusRead(variableRegion));
-            }
-            if ( position > variableRegion.end ) {
-                result.addAll(slidingWindow.finalizeVariableRegion(variableRegion));
-            }
+        if ( slidingWindow == null) {       // this is the first read
+            slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), readContextSize,
+                                              read.getHeader(), read.getAttribute("RG"), slidingWindowCounter,
+                                              minAltProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
+            slidingWindowCounter++;
         }
-        if ( variableRegions.isEmpty() )
-            slidingWindow.addToConsensus(position - readContextSize);
-        else
-            slidingWindow.addToConsensus(Math.min(variableRegions.get(0).start, position - readContextSize));
+
+        result.addAll(slidingWindow.addRead(read));
         return result;
     }
 
     @Override
-    public Iterable<SAMRecord> close() {
-        // nothing needs ot happen
-        LinkedList<SAMRecord> result = new LinkedList<SAMRecord>();
-        for ( VariableRegion variableRegion : slidingWindow.getVariableRegions(readContextSize) ) {
-            //logger.info(String.format("Variable region at close() : %d - %d", variableRegion.start, variableRegion.end) );
-            result.addAll(slidingWindow.finalizeVariableRegion(variableRegion));
-
-        }
-        //logger.info(String.format("Finalizing LAST Consensus Read at %d", slidingWindow.getEnd()) );
-        result.addAll(slidingWindow.finalizeConsensusRead(new VariableRegion(-1,slidingWindow.getEnd() + 1)));
-        return result;
+    public List<SAMRecord> close() {
+        return (slidingWindow != null) ? slidingWindow.close() : new LinkedList<SAMRecord>();
     }
-
-    // ------------------------------------------------------------------------------------------
-    //
-    // NO private implementation functions
-    //
-    // ------------------------------------------------------------------------------------------
-
 
 }
 

@@ -24,6 +24,10 @@
 
 package org.broadinstitute.sting.pipeline;
 
+import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMFileReader;
+import net.sf.samtools.SAMSequenceDictionary;
+import net.sf.samtools.SAMSequenceRecord;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.NullArgumentException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -100,7 +104,12 @@ public class PicardPipeline {
         PicardAnalysisFiles analysis = new PicardAnalysisFiles(project, sample, version);
         if (pipelineProject.getReferenceFile() == null) {
             String referenceSequence = analysis.getReferenceSequence();
+            if (referenceSequence == null)
+                referenceSequence = getSequenceFromBam(bam);
             ReferenceData referenceData = ReferenceData.getByReference(referenceSequence);
+            if (referenceData == null)
+                throw new UserException.BadInput(
+                        String.format("%s / %s: no reference data for %s", project, sample, referenceSequence));
             pipelineProject.setReferenceFile(new File(referenceData.getReference()));
             pipelineProject.setRefseqTable(new File(referenceData.getRefseq()));
             if (analysis.getTargetIntervals() != null)
@@ -114,7 +123,27 @@ public class PicardPipeline {
         } else {
             String referenceSequence = analysis.getReferenceSequence();
             if (!pipelineProject.getReferenceFile().getPath().equals(referenceSequence))
-                throw new UserException.BadInput("Samples sequenced with different references");
+                throw new UserException.BadInput(
+                        String.format("Samples sequenced with a different references:%n%s / %s:%s%nvs. : %s",
+                        project, sample, referenceSequence, pipelineProject.getReferenceFile()));
         }
+    }
+
+    private static String getSequenceFromBam(String bam) {
+        File bamPath = new File(bam);
+        SAMFileReader reader = new SAMFileReader(bamPath);
+        SAMFileHeader header = reader.getFileHeader();
+        SAMSequenceDictionary dict = header.getSequenceDictionary();
+        String sequenceUri = null;
+        for (SAMSequenceRecord record: dict.getSequences()) {
+            String uri = record.getAttribute(SAMSequenceRecord.URI_TAG);
+            if (sequenceUri == null) {
+                sequenceUri = uri;
+            } else {
+                if (!sequenceUri.equals(uri))
+                    throw new UserException.BadInput(String.format("Found more than one sequence URI in %s:%n%s%n%s", bamPath, sequenceUri, uri));
+            }
+        }
+        return sequenceUri;
     }
 }
