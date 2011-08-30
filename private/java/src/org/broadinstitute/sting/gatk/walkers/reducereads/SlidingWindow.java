@@ -334,7 +334,7 @@ public class SlidingWindow {
      *
      * @param read the incoming read to be added to the sliding window
      */
-    @Requires("read.getAlignmentStart >= startLocation")
+    @Requires("read.getAlignmentStart() >= startLocation")
     private void updateHeaderCounts(SAMRecord read) {
         // Reads that don't pass the minimum mapping quality filter are not added to the
         // consensus, or count towards a variant region so no point in keeping track of
