@@ -24,10 +24,7 @@
 
 package org.broadinstitute.sting.pipeline;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 
 /**
  * Tracks data related to reference files at the Broad.
@@ -50,6 +47,7 @@ public enum ReferenceData {
     private final String reference;
     private final String refseq;
     private final Map<Integer,String> dbsnps;
+    private final Set<String> alternateReferences;
 
     ReferenceData(String name) {
         this.name = name;
@@ -58,11 +56,13 @@ public enum ReferenceData {
             this.reference = "/seq/references/Homo_sapiens_assembly18/v0/Homo_sapiens_assembly18.fasta";
             this.refseq = REFSEQ_DIR + "refGene-big-table-hg18.txt";
             dbsnps.put(129, DBSNP_DIR + "dbsnp_129_hg18.rod");
+            alternateReferences = Collections.emptySet();
         } else if ("hg19".equals(name)) {
             this.reference = "/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta";
             this.refseq = REFSEQ_DIR + "refGene-big-table-hg19.txt";
             dbsnps.put(129, DBSNP_DIR + "dbsnp_129_b37.leftAligned.vcf");
             dbsnps.put(132, DBSNP_DIR + "dbsnp_132_b37.leftAligned.vcf");
+            alternateReferences = Collections.singleton("http://www.broadinstitute.org/ftp/pub/seq/references/Homo_sapiens_assembly19.fasta");
         } else
             throw new UnsupportedOperationException("Unknown reference: " + name);
         this.dbsnps = Collections.unmodifiableMap(dbsnps);
@@ -127,9 +127,13 @@ public enum ReferenceData {
      * @return the reference data based on the path or null.
      */
     public static ReferenceData getByReference(String reference) {
-        for (ReferenceData data: ReferenceData.values())
+        for (ReferenceData data: ReferenceData.values()) {
             if (data.reference.equals(reference))
                 return data;
+            for (String alternate: data.alternateReferences)
+                if (alternate.equals(reference))
+                    return data;
+        }
         return null;
     }
 }

@@ -40,8 +40,10 @@ final class BaseCounts {
     public final static BaseIndex MAX_BASE_INDEX_WITH_NO_COUNTS = BaseIndex.A;
     public final static byte MAX_BASE_WITH_NO_COUNTS = MAX_BASE_INDEX_WITH_NO_COUNTS.getByte();
 
-    private final Map<BaseIndex, Integer> counts = new EnumMap<BaseIndex, Integer>(BaseIndex.class); // todo -- fixme -- include - and I events
-    {
+    private final Map<BaseIndex, Integer> counts;
+
+    public BaseCounts() {
+        counts = new EnumMap<BaseIndex, Integer>(BaseIndex.class);
         for ( BaseIndex i : BaseIndex.values() )
             counts.put(i,0);
     }
@@ -73,6 +75,25 @@ final class BaseCounts {
         return sum;
     }
 
+    /**
+     * Given a base , it returns the proportional count of this base compared to all other bases
+     * @param base
+     * @return the proportion of this base over all other bases
+     */
+    @Ensures("results >=0")
+    public double baseCountProportion(byte base) {
+        return (double) counts.get(BaseIndex.byteToBase(base)) / totalCount();
+    }
+
+    @Ensures("result != null")
+    public String toString() {
+        StringBuilder b = new StringBuilder();
+        for ( Map.Entry<BaseIndex,Integer> elt : counts.entrySet() ) {
+            b.append(elt.toString()).append("=").append(elt.getValue()).append(",");
+        }
+        return b.toString();
+    }
+
     @Ensures({
             "result != null",
             "totalCount() != 0 || result == MAX_BASE_INDEX_WITH_NO_COUNTS"})
@@ -86,42 +107,5 @@ final class BaseCounts {
         return maxI;
     }
 
-    @Ensures("result != null")
-    public String toString() {
-        StringBuilder b = new StringBuilder();
-        for ( Map.Entry<BaseIndex,Integer> elt : counts.entrySet() ) {
-            b.append(elt.toString()).append("=").append(elt.getValue()).append(",");
-        }
-        return b.toString();
-    }
 
-    private enum BaseIndex {
-        A ( 'A', 0 ),
-        C ( 'C', 1 ),
-        G ( 'G', 2 ),
-        T ( 'T', 3 ),
-        D ( 'D', 4 ),
-        I ( 'I', 5 ); // insertion to the right of the base
-
-        final byte b;
-        final int index;
-        private BaseIndex(char base, int index) {
-            this.b = (byte)base;
-            this.index = index;
-        }
-
-        public byte getByte() { return b; }
-
-        public static final BaseIndex byteToBase(final byte base) {
-            switch (base) {
-                case 'A': return A;
-                case 'C': return C;
-                case 'G': return G;
-                case 'T': return T;
-                case 'D': return D;
-                case 'I': return I;
-                default: return null;
-            }
-        }
-    }
 }
