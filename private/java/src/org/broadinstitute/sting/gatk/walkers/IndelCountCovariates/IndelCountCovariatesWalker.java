@@ -25,12 +25,10 @@
 
 package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
+import org.broad.tribble.Feature;
 import org.broad.tribble.bed.BEDCodec;
 import org.broad.tribble.dbsnp.DbSNPCodec;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.ArgumentCollection;
-import org.broadinstitute.sting.commandline.Gather;
-import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
@@ -100,18 +98,32 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
     /////////////////////////////
     @ArgumentCollection private RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection();
 
-    @Output
-    PrintStream out;
-
     /////////////////////////////
     // Command Line Arguments
     /////////////////////////////
+    /**
+      * This algorithm treats every reference mismatch as an indication of error. However, real genetic variation is expected to mismatch the reference,
+      * so it is critical that a database of known polymorphic sites is given to the tool in order to skip over those sites.
+      */
+     @Input(fullName="knownSites", shortName = "knownSites", doc="A database of known polymorphic sites to skip over in the recalibration algorithm", required=false)
+     public List<RodBinding<Feature>> knownSites = Collections.emptyList();
+
+     /**
+      * After the header, data records occur one per line until the end of the file. The first several items on a line are the
+      * values of the individual covariates and will change depending on which covariates were specified at runtime. The last
+      * three items are the data- that is, number of observations for this combination of covariates, number of reference mismatches,
+      * and the raw empirical quality score calculated by phred-scaling the mismatch rate.
+      */
     @Output(fullName="recal_file", shortName="recalFile", required=true, doc="Filename for the outputted covariates table recalibration file")
     @Gather(CountCovariatesGatherer.class)
     public PrintStream RECAL_FILE;
 
     @Argument(fullName="list", shortName="ls", doc="List the available covariates and exit", required=false)
     private boolean LIST_ONLY = false;
+
+    /**
+     * See the -list argument to view available covariates.
+     */
     @Argument(fullName="covariate", shortName="cov", doc="Covariates to be used in the recalibration. Each covariate is given as a separate cov parameter. ReadGroup and ReportedQuality are required covariates and are already added for you.", required=false)
     private String[] COVARIATES = null;
     @Argument(fullName="standard_covs", shortName="standard", doc="Use the standard set of covariates in addition to the ones listed using the -cov argument", required=false)
@@ -125,6 +137,10 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
     /////////////////////////////
     @Argument(fullName="dont_sort_output", shortName="unsorted", required=false, doc="If specified, the output table recalibration csv file will be in an unsorted, arbitrary order to save some run time.")
     private boolean DONT_SORT_OUTPUT = false;
+
+    /**
+     * This calculation is critically dependent on being able to skip over known polymorphic sites. Please be sure that you know what you are doing if you use this option.
+     */
     @Argument(fullName="run_without_dbsnp_potentially_ruining_quality", shortName="run_without_dbsnp_potentially_ruining_quality", required=false, doc="If specified, allows the recalibrator to be used without a dbsnp rod. Very unsafe and for expert users only.")
     private boolean RUN_WITHOUT_DBSNP = false;
 
@@ -133,8 +149,8 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
     /////////////////////////////
     private final RecalDataManager dataManager = new RecalDataManager(); // Holds the data HashMap, mostly used by TableRecalibrationWalker to create collapsed data hashmaps
     private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>(); // A list to hold the covariate objects that were requested
-    private static final double DBSNP_VS_NOVEL_MISMATCH_RATE = 2.0;        // rate at which dbSNP sites (on an individual level) mismatch relative to novel sites (determined by looking at NA12878)
-    private static int DBSNP_VALIDATION_CHECK_FREQUENCY = 1000000;                // how often to validate dbsnp mismatch rate (in terms of loci seen)
+    private static final double DBSNP_VS_NOVEL_MISMATCH_RATE = 2.0;      // rate at which dbSNP sites (on an individual level) mismatch relative to novel sites (determined by looking at NA12878)
+    private static int DBSNP_VALIDATION_CHECK_FREQUENCY = 1000000;       // how often to validate dbsnp mismatch rate (in terms of loci seen)
 
     public static class CountedData {
         private long countedSites = 0; // Number of loci used in the calculations, used for reporting in the output file
@@ -195,30 +211,20 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
 
         // Print and exit if that's what was requested
         if ( LIST_ONLY ) {
-            out.println( "Available covariates:" );
+            logger.info( "Available covariates:" );
             for( Class<?> covClass : covariateClasses ) {
-                out.println( covClass.getSimpleName() );
+                logger.info( covClass.getSimpleName() );
             }
-            out.println();
+            logger.info("");
 
             System.exit( 0 ); // Early exit here because user requested it
         }
 
         // Warn the user if no dbSNP file or other variant mask was specified
-        boolean foundDBSNP = false;
-        for( ReferenceOrderedDataSource rod : this.getToolkit().getRodDataSources() ) {
-            if( rod != null ) {
-                if( rod.getType().equals(DbSNPCodec.class) ||
-                        rod.getType().equals(VCFCodec.class) ||
-                        rod.getType().equals(BEDCodec.class) ) {
-                    foundDBSNP = true;
-                    break;
-                }
-            }
+        if( knownSites.isEmpty() && !RUN_WITHOUT_DBSNP ) {
+            throw new UserException.CommandLineException("This calculation is critically dependent on being able to skip over known variant sites. Please provide a VCF file containing known sites of genetic variation.");
         }
-        if( !foundDBSNP && !RUN_WITHOUT_DBSNP ) {
-            throw new UserException.CommandLineException("This calculation is critically dependent on being able to skip over known variant sites. Please provide a dbSNP ROD or a VCF file containing known sites of genetic variation.");
-        }
+
 
         // Initialize the requested covariates by parsing the -cov argument
         // First add the required covariates
@@ -281,11 +287,6 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
             cov.initialize( RAC ); // Initialize any covariate member variables using the shared argument collection
         }
 
-//        try {
-//            stream = new PrintStream( RAC.RECAL_FILE );
-//        } catch ( FileNotFoundException e ) {
-//            throw new RuntimeException( "Couldn't open output file: ", e );
-//        }
     }
 
 
@@ -317,14 +318,14 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
         // Only use data from non-dbsnp sites
         // Assume every mismatch at a non-dbsnp site is indicative of poor quality
         CountedData counter = new CountedData();
-        if( !isKnownVariant ) {
+        if( tracker.getValues(knownSites).size() == 0 ) { // If something here is in one of the knownSites tracks then skip over it, otherwise proceed
 
             if (COUNT_INDELS && context.hasExtendedEventPileup())
             {
 
-                for ( ExtendedEventPileupElement p : context.getExtendedEventPileup().toExtendedIterable() ) {
+                for ( final ExtendedEventPileupElement p : context.getExtendedEventPileup().toExtendedIterable() ) {
 
-                    GATKSAMRecord gatkRead = (GATKSAMRecord) p.getRead();
+                    final GATKSAMRecord gatkRead = (GATKSAMRecord) p.getRead();
                     parsePileupElement(gatkRead, p.getOffset(), ref, counter, RAC, p.getType(), true);
 
                 }

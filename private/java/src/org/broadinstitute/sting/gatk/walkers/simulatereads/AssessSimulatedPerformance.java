@@ -77,18 +77,16 @@ public class AssessSimulatedPerformance extends RodWalker<Integer, Integer> {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        if ( ++nRecords < MAX_RECORDS || MAX_RECORDS == -1 ) {
-            printVCFields(sim, tracker, context);
-            printVCFields(called, tracker, context);
-            out.println();
-            return 1;
-        } else {
-            if ( nRecords >= MAX_RECORDS ) {
-                logger.warn("Calling sys exit to leave after " + nRecords + " records");
-                System.exit(0); // todo -- what's the recommend way to abort like this?
-            }
-            return 0;
-        }
+        ++nRecords;
+        printVCFields(sim, tracker, context);
+        printVCFields(called, tracker, context);
+        out.println();
+        return 1;
+    }
+
+    @Override
+    public boolean isDone() {
+        return MAX_RECORDS != -1 && nRecords >= MAX_RECORDS;
     }
 
     private void printVCFields(RodBinding<VariantContext> binding, RefMetaDataTracker tracker, AlignmentContext context) {

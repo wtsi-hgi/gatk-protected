@@ -24,16 +24,21 @@
 
 package org.broadinstitute.sting.gatk.walkers.performance;
 
+import org.broad.tribble.Tribble;
+import org.broad.tribble.index.Index;
+import org.broad.tribble.index.IndexFactory;
 import org.broad.tribble.readers.AsciiLineReader;
 import org.broad.tribble.util.ParsingUtils;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.commandline.RodBinding;
+import org.broadinstitute.sting.gatk.arguments.ValidationExclusion;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.refdata.tracks.RMDTrackBuilder;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
@@ -43,6 +48,7 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.EnumSet;
 import java.util.List;
@@ -57,6 +63,9 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     @Input(fullName="vcf", shortName = "vcf", doc="vcf", required=true)
     public RodBinding<VariantContext> vcf;
 
+    @Input(fullName="indexTest", shortName = "indexTest", doc="vcf", required=true)
+    public List<File> vcfsForIndexTest;
+
     @Argument(fullName="nIterations", shortName="N", doc="Number of raw reading iterations to perform", required=false)
     int nIterations = 1;
 
@@ -69,6 +78,8 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     public enum ProfileType {
         /** Run all tests available */
         ALL,
+        /** For profiling loading indices */
+        JUST_LOAD_INDICES,
         /** Just test the low-level tribble I/O system */
         JUST_TRIBBLE,
         /** Just test decoding of the VCF file using the low-level tribble I/O system */
@@ -83,24 +94,52 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         if ( getToolkit().getIntervals() != null )
             throw new UserException.BadArgumentValue("intervals", "ProfileRodSystem cannot accept intervals");
 
-        File rodFile = getRodFile();
-        if (EnumSet.of(ProfileType.ALL, ProfileType.JUST_TRIBBLE).contains(profileType)) {
+        if ( profileType == ProfileType.JUST_LOAD_INDICES ) {
+            RMDTrackBuilder builder = new RMDTrackBuilder(getToolkit().getReferenceDataSource().getReference().getSequenceDictionary(),
+                    getToolkit().getGenomeLocParser(), ValidationExclusion.TYPE.ALL);
+            int i = 0;
+            for ( int iteration = 0; iteration < nIterations; iteration++ ) {
+                for ( File x : vcfsForIndexTest ) {
+                    try {
+                        SimpleTimer gatkLoad = new SimpleTimer().start();
+                        builder.loadIndex(x, new VCFCodec());
+                        double gatkLoadTime = gatkLoad.getElapsedTime();
 
+                        SimpleTimer tribbleLoad = new SimpleTimer().start();
+                        File indexFile = Tribble.indexFile(x);
+                        Index index = IndexFactory.loadIndex(indexFile.getAbsolutePath());
+
+                        System.out.printf("GATK load index %d %.2f %.2f%n", ++i, gatkLoadTime, tribbleLoad.getElapsedTime());
+                    } catch ( IOException e ) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+            System.exit(0);
+        }
+
+        File rodFile = getRodFile();
+
+        if ( !EnumSet.of(ProfileType.JUST_GATK).contains(profileType) ) {
             out.printf("# walltime is in seconds%n");
             out.printf("# file is %s%n", rodFile);
             out.printf("# file size is %d bytes%n", rodFile.length());
             out.printf("operation\titeration\twalltime%n");
-            for ( int i = 0; i < nIterations; i++ ) {
+        }
+
+        for ( int i = 0; i < nIterations; i++ ) {
+            if ( EnumSet.of(ProfileType.ALL, ProfileType.JUST_TRIBBLE).contains(profileType) ) {
                 out.printf("read.bytes\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_BYTE));
                 out.printf("read.line\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_LINE));
                 out.printf("line.and.parts\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.BY_PARTS));
                 out.printf("decode.loc\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE_LOC));
+            }
+
+            if ( EnumSet.of(ProfileType.ALL, ProfileType.JUST_TRIBBLE, ProfileType.JUST_TRIBBLE_DECODE).contains(profileType) ) {
                 out.printf("full.decode\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE));
             }
-        } else if ( profileType == ProfileType.JUST_TRIBBLE_DECODE ) {
-            out.printf("full.decode\t%d\t%.2f%n", 0, readFile(rodFile, ReadMode.DECODE));
-        }
 
+        }
 
         if ( EnumSet.of(ProfileType.JUST_TRIBBLE, ProfileType.JUST_TRIBBLE_DECODE).contains(profileType) )
             System.exit(0);
