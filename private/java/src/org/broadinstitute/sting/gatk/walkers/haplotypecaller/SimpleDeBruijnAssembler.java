@@ -1,7 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
-import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.jgrapht.graph.DefaultDirectedGraph;
@@ -48,7 +47,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         // create the graph
         createDeBruijnGraph(sequences);
 
-        // find the 2 best paths in the graph
+        // find the best paths in the graph
         return findBestPaths();
     }
 
@@ -68,7 +67,6 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         }
 
         return sequences;
-
     }
 
     private void createDeBruijnGraph(List<byte[]> reads) {
