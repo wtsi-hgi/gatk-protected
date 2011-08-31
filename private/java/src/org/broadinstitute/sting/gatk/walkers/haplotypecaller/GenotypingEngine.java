@@ -244,13 +244,13 @@ public class GenotypingEngine {
     public void alignAllHaplotypes( final List<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final StingSAMFileWriter writer, final SAMRecord exampleRead ) {
 
         int iii = 0;
-        for( Haplotype h : haplotypes ) {
+        for( final Haplotype h : haplotypes ) {
             final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
             exampleRead.setReadName("Haplotype" + iii);
             exampleRead.setReadBases(h.bases);
             exampleRead.setAlignmentStart(loc.getStart() + swConsensus.getAlignmentStart2wrt1());
             exampleRead.setCigar(swConsensus.getCigar());
-            byte[] quals = new byte[h.bases.length];
+            final byte[] quals = new byte[h.bases.length];
             Arrays.fill(quals, (byte) 25);
             exampleRead.setBaseQualities(quals);
             writer.addAlignment(exampleRead);
@@ -258,5 +258,219 @@ public class GenotypingEngine {
         }
                 
     }
+/*
+    public void alignAllReads( final Pair<Haplotype,Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc, final StingSAMFileWriter writer, final List<SAMRecord> reads, final double[][] likelihoods ) {
+
+        int iii = 0;
+        for( final SAMRecord read : reads ) {
+            final Haplotype h = ( likelihoods[iii][0] > likelihoods[iii][1] ? bestTwoHaplotypes.first : bestTwoHaplotypes.second );
+            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+
+
+
+            writer.addAlignment(read);
+            iii++;
+        }
+    }
+
+
+
+    // private classes copied from IndelRealigner
+    private class AlignedRead {
+        private final SAMRecord read;
+        private byte[] readBases = null;
+        private byte[] baseQuals = null;
+        private Cigar newCigar = null;
+        private int newStart = -1;
+        private int mismatchScoreToReference = 0;
+        private long alignerMismatchScore = 0;
+
+        public AlignedRead(SAMRecord read) {
+            this.read = read;
+            mismatchScoreToReference = 0;
+        }
+
+        public SAMRecord getRead() {
+               return read;
+        }
+
+        public int getReadLength() {
+            return readBases != null ? readBases.length : read.getReadLength();
+        }
+
+        public byte[] getReadBases() {
+            if ( readBases == null )
+                getUnclippedBases();
+            return readBases;
+        }
+
+        public byte[] getBaseQualities() {
+            if ( baseQuals == null )
+                getUnclippedBases();
+            return baseQuals;
+        }
+
+        // pull out the bases that aren't clipped out
+        private void getUnclippedBases() {
+            readBases = new byte[getReadLength()];
+            baseQuals = new byte[getReadLength()];
+            byte[] actualReadBases = read.getReadBases();
+            byte[] actualBaseQuals = read.getBaseQualities();
+            int fromIndex = 0, toIndex = 0;
+
+            for ( CigarElement ce : read.getCigar().getCigarElements() ) {
+                int elementLength = ce.getLength();
+                switch ( ce.getOperator() ) {
+                    case S:
+                        fromIndex += elementLength;
+                        break;
+                    case M:
+                    case I:
+                        System.arraycopy(actualReadBases, fromIndex, readBases, toIndex, elementLength);
+                        System.arraycopy(actualBaseQuals, fromIndex, baseQuals, toIndex, elementLength);
+                        fromIndex += elementLength;
+                        toIndex += elementLength;
+                    default:
+                        break;
+                }
+            }
+
+            // if we got clipped, trim the array
+            if ( fromIndex != toIndex ) {
+                byte[] trimmedRB = new byte[toIndex];
+                byte[] trimmedBQ = new byte[toIndex];
+                System.arraycopy(readBases, 0, trimmedRB, 0, toIndex);
+                System.arraycopy(baseQuals, 0, trimmedBQ, 0, toIndex);
+                readBases = trimmedRB;
+                baseQuals = trimmedBQ;
+            }
+        }
+
+        public Cigar getCigar() {
+            return (newCigar != null ? newCigar : read.getCigar());
+        }
+
+        public void setCigar(Cigar cigar) {
+            setCigar(cigar, true);
+        }
+
+        // tentatively sets the new Cigar, but it needs to be confirmed later
+        public void setCigar(Cigar cigar, boolean fixClippedCigar) {
+            if ( cigar == null ) {
+                newCigar = null;
+                return;
+            }
+
+            if ( fixClippedCigar && getReadBases().length < read.getReadLength() )
+                cigar = reclipCigar(cigar);
+
+            // no change?
+            if ( read.getCigar().equals(cigar) ) {
+                newCigar = null;
+                return;
+            }
+
+            // no indel?
+            String str = cigar.toString();
+            if ( !str.contains("D") && !str.contains("I") ) {
+                logger.debug("Modifying a read with no associated indel; although this is possible, it is highly unlikely.  Perhaps this region should be double-checked: " + read.getReadName() + " near " + read.getReferenceName() + ":" + read.getAlignmentStart());
+                //    newCigar = null;
+                //    return;
+            }
+
+            newCigar = cigar;
+        }
+
+        // pull out the bases that aren't clipped out
+        private Cigar reclipCigar(Cigar cigar) {
+            return IndelRealigner.reclipCigar(cigar, read);
+        }
+
+        // tentatively sets the new start, but it needs to be confirmed later
+        public void setAlignmentStart(int start) {
+            newStart = start;
+        }
+
+        public int getAlignmentStart() {
+            return (newStart != -1 ? newStart : read.getAlignmentStart());
+        }
+
+        public int getOriginalAlignmentStart() {
+            return read.getAlignmentStart();
+        }
+
+        // finalizes the changes made.
+        // returns true if this record actually changes, false otherwise
+        public boolean finalizeUpdate() {
+            // if we haven't made any changes, don't do anything
+            if ( newCigar == null )
+                return false;
+            if ( newStart == -1 )
+                newStart = read.getAlignmentStart();
+            else if ( Math.abs(newStart - read.getAlignmentStart()) > MAX_POS_MOVE_ALLOWED ) {
+                logger.debug(String.format("Attempting to realign read %s at %d more than %d bases to %d.", read.getReadName(), read.getAlignmentStart(), MAX_POS_MOVE_ALLOWED, newStart));
+                return false;
+            }
+
+            // annotate the record with the original cigar (and optionally the alignment start)
+            if ( !NO_ORIGINAL_ALIGNMENT_TAGS ) {
+                read.setAttribute(ORIGINAL_CIGAR_TAG, read.getCigar().toString());
+                if ( newStart != read.getAlignmentStart() )
+                    read.setAttribute(ORIGINAL_POSITION_TAG, read.getAlignmentStart());
+            }
+
+            read.setCigar(newCigar);
+            read.setAlignmentStart(newStart);
+
+            return true;
+        }
+
+        public void setMismatchScoreToReference(int score) {
+            mismatchScoreToReference = score;
+        }
+
+        public int getMismatchScoreToReference() {
+            return mismatchScoreToReference;
+        }
+
+        public void setAlignerMismatchScore(long score) {
+            alignerMismatchScore = score;
+        }
+
+        public long getAlignerMismatchScore() {
+            return alignerMismatchScore;
+        }
+    }
+
+    private static class Consensus {
+        public final byte[] str;
+        public final ArrayList<Pair<Integer, Integer>> readIndexes;
+        public final int positionOnReference;
+        public int mismatchSum;
+        public Cigar cigar;
+
+        public Consensus(byte[] str, Cigar cigar, int positionOnReference) {
+            this.str = str;
+            this.cigar = cigar;
+            this.positionOnReference = positionOnReference;
+            mismatchSum = 0;
+            readIndexes = new ArrayList<Pair<Integer, Integer>>();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return ( this == o || (o instanceof Consensus && Arrays.equals(this.str,(((Consensus)o).str)) ) );
+        }
+
+        public boolean equals(Consensus c) {
+            return ( this == c || Arrays.equals(this.str,c.str) ) ;
+        }
+
+        @Override
+        public int hashCode() {
+            return Arrays.hashCode(this.str);
+        }
+    }
+*/
 
 }

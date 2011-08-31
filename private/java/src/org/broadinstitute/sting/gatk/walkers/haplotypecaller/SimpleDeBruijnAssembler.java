@@ -84,10 +84,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
                 int elementLength = ce.getLength();
                 switch ( ce.getOperator() ) {
-                    case S: // Take this out to make use of soft-clipped bases.
-                        // skip soft-clipped bases
-                        curIndex += elementLength;
-                        break;
+                    case S: 
                     case M:
                     case I:
                         for (int i = 0; i < elementLength; i++) {

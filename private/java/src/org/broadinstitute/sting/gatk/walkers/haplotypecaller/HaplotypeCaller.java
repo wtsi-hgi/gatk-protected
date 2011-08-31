@@ -62,8 +62,11 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     @Output(fullName="graphOutput", shortName="graph", doc="File to which debug assembly graph information should be written", required = false)
     protected PrintStream graphWriter = null;
 
-    @Output(fullName="bam", shortName="bam", doc="File to which all possible haplotypes in bam format (aligned via SW) should be written", required = false)
+    @Output(fullName="haplotypeBam", shortName="haplotypeBam", doc="File to which all possible haplotypes in bam format (aligned via SW) should be written", required = false)
     protected StingSAMFileWriter bamWriter = null;
+
+    //@Output(fullName="alignmentBam", shortName="alignmentBam", doc="If specified, the walker will attempt to realign (via SW) all the reads with the knowledge of this haplotype and write them out to this file", required = false)
+    //protected StingSAMFileWriter alignmentWriter = null;
 
     @Argument(fullName = "assembler", shortName = "assembler", doc = "Assembler to use; currently only SIMPLE_DE_BRUIJN is available.", required = false)
     protected LocalAssemblyEngine.ASSEMBLER ASSEMBLER_TO_USE = LocalAssemblyEngine.ASSEMBLER.SIMPLE_DE_BRUIJN;
@@ -191,6 +194,10 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
         final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReadsAtVariant() );
         final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation() );
         final GenomeLoc window = readsToAssemble.getVariantWindow();
+
+        //if( alignmentWriter != null ) {
+        //    genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), alignmentWriter, readsToAssemble.getReads(), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
+        //}
 
         for( final VariantContext vc : vcs ) {
             if( vc.getStart() >= window.getStart() && vc.getStart() <= window.getStop() ) {
