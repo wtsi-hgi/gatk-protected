@@ -3,6 +3,7 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import java.io.PrintStream;
@@ -23,25 +24,17 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     // k-mer length
     private static final int KMER_LENGTH = 41;
 
-    // minimum base quality required in a contiguous stretch of a given read to be used in the assembly
-    private static final int MIN_BASE_QUAL_TO_USE = 14;
+    // the additional size of a valid chunk of sequence, used to string together k-mers
+    private static final int KMER_OVERLAP = 5;
 
-    // minimum clipped sequence length to consider using
-    private static final int MIN_SEQUENCE_LENGTH = 50;
-
-    // minimum multiplicity to consider using
-    // private static final int MIN_MULTIPLICITY_TO_USE = 2;
-
-    // FOR DEBUGGING
-    private int numReadsToUse = -1;
+    // bases with quality less than or equal to this value are trimmed off the tails of the reads
+    private static final byte MIN_TAIL_QUALITY = 6;
 
     // the deBruijn graph object
     private DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = null;
 
-
-    public SimpleDeBruijnAssembler(PrintStream out, IndexedFastaSequenceFile referenceReader, int numReadsToUse) {
+    public SimpleDeBruijnAssembler(PrintStream out, IndexedFastaSequenceFile referenceReader) {
         super(out, referenceReader);
-        this.numReadsToUse = numReadsToUse;
     }
 
     public List<Haplotype> runLocalAssembly(List<SAMRecord> reads) {
@@ -63,64 +56,19 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     // out runs of bases that are not soft-clipped and are all at least Q20s.
     // Clipped sequences that are overly clipped are not used.
     private List<byte[]> clipReads(List<SAMRecord> reads) {
-        List<byte[]> sequences = new ArrayList<byte[]>(reads.size());
 
-        int counter = 0;
+        List<byte[]> sequences = new ArrayList<byte[]>();
 
-        for ( SAMRecord read : reads ) {
-
-            // for debugging
-            if ( numReadsToUse >= 0 && ++counter > numReadsToUse ) {
-                System.out.println("Stopping before read: " + read.getReadName() + " at " + read.getAlignmentStart());
-                break;
-            }
-
-            byte[] sequencedReadBases = read.getReadBases();
-            byte[] sequencedBaseQuals = read.getBaseQualities();
-
-            int curIndex = 0, firstGoodQualIndex = -1;
-
-            for ( final CigarElement ce : read.getCigar().getCigarElements() ) {
-
-                int elementLength = ce.getLength();
-                switch ( ce.getOperator() ) {
-                    case S: 
-                    case M:
-                    case I:
-                        for (int i = 0; i < elementLength; i++) {
-                            if ( sequencedBaseQuals[curIndex] >= MIN_BASE_QUAL_TO_USE ) {
-                                if ( firstGoodQualIndex == -1 ) {
-                                    firstGoodQualIndex = curIndex;
-                                }
-                            } else if ( firstGoodQualIndex != -1 ) {
-                                int sequenceLength = curIndex - firstGoodQualIndex;
-                                if ( sequenceLength > MIN_SEQUENCE_LENGTH ) {
-                                    byte[] sequence = new byte[sequenceLength];
-                                    System.arraycopy(sequencedReadBases, firstGoodQualIndex, sequence, 0, sequenceLength);
-                                    sequences.add(sequence);
-                                }
-                                firstGoodQualIndex = -1;
-                            }
-                            curIndex++;
-                        }
-                    case N:
-                        // TODO -- implement me (cut the sequence)
-                    default:
-                        break;
-                }
-            }
-
-            if ( firstGoodQualIndex != -1 ) {
-                int sequenceLength = curIndex - firstGoodQualIndex;
-                if ( sequenceLength > MIN_SEQUENCE_LENGTH ) {
-                    byte[] sequence = new byte[sequenceLength];
-                    System.arraycopy(sequencedReadBases, firstGoodQualIndex, sequence, 0, sequenceLength);
-                    sequences.add(sequence);
-                }
+        for( final SAMRecord read : reads ) {
+            final ReadClipper clipper = new ReadClipper(read); // BUGBUG: ReadClipper blows up on unmapped reads
+            final SAMRecord filteredRead = ( read.getReadUnmappedFlag() ? read : clipper.hardClipLowQualEnds( MIN_TAIL_QUALITY ) );
+            if( filteredRead.getReadBases().length > KMER_LENGTH + KMER_OVERLAP ) {
+                sequences.add( filteredRead.getReadBases() );
             }
         }
 
         return sequences;
+
     }
 
     private void createDeBruijnGraph(List<byte[]> reads) {
