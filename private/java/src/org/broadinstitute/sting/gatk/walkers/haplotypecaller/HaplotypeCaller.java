@@ -65,7 +65,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     @Output(fullName="debugBam", shortName="debugBam", doc="File to which all possible haplotypes in bam format (aligned via SW) should be written", required = false)
     protected StingSAMFileWriter bamWriter = null;
 
-    @Output(fullName="realignReads", shortName="realignReads", doc="If provided, the debugBam will contain all reads in the interval realigned to the new haplotype", required = false)
+    @Argument(fullName="realignReads", shortName="realignReads", doc="If provided, the debugBam will contain all reads in the interval realigned to the new haplotype", required = false)
     protected boolean realignReads = false;
 
     @Argument(fullName = "assembler", shortName = "assembler", doc = "Assembler to use; currently only SIMPLE_DE_BRUIJN is available.", required = false)
