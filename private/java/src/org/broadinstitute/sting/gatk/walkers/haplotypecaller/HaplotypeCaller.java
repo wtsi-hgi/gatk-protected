@@ -29,7 +29,6 @@ import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.StringUtil;
 import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.*;
@@ -37,6 +36,7 @@ import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
@@ -62,18 +62,14 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     @Output(fullName="graphOutput", shortName="graph", doc="File to which debug assembly graph information should be written", required = false)
     protected PrintStream graphWriter = null;
 
-    @Output(fullName="haplotypeBam", shortName="haplotypeBam", doc="File to which all possible haplotypes in bam format (aligned via SW) should be written", required = false)
+    @Output(fullName="debugBam", shortName="debugBam", doc="File to which all possible haplotypes in bam format (aligned via SW) should be written", required = false)
     protected StingSAMFileWriter bamWriter = null;
 
-    //@Output(fullName="alignmentBam", shortName="alignmentBam", doc="If specified, the walker will attempt to realign (via SW) all the reads with the knowledge of this haplotype and write them out to this file", required = false)
-    //protected StingSAMFileWriter alignmentWriter = null;
+    @Output(fullName="realignReads", shortName="realignReads", doc="If provided, the debugBam will contain all reads in the interval realigned to the new haplotype", required = false)
+    protected boolean realignReads = false;
 
     @Argument(fullName = "assembler", shortName = "assembler", doc = "Assembler to use; currently only SIMPLE_DE_BRUIJN is available.", required = false)
     protected LocalAssemblyEngine.ASSEMBLER ASSEMBLER_TO_USE = LocalAssemblyEngine.ASSEMBLER.SIMPLE_DE_BRUIJN;
-
-    @Hidden
-    @Argument(fullName = "readsToUse", shortName = "readsToUse", doc = "For debugging: how many reads to use", required = false)
-    protected int numReadsToUse = -1;
 
     // the assembly engine
     LocalAssemblyEngine assemblyEngine = null;
@@ -99,6 +95,8 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     // reference base padding size
     private static final int REFERENCE_PADDING = 50;
 
+    protected ConstrainedMateFixingManager manager = null;
+
     public void initialize() {
 
         // get all of the unique sample names
@@ -117,6 +115,10 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
 
+        if( realignReads ) {
+            manager = new ConstrainedMateFixingManager(bamWriter, getToolkit().getGenomeLocParser(), 3000, 200, 150000);
+        }
+
         GenomeLocSortedSet intervalsToAssemble = getToolkit().getIntervals();
         if ( intervalsToAssemble == null || intervalsToAssemble.isEmpty() )
             throw new UserException.BadInput("Intervals must be provided with -L or -BTI (preferably not larger than several hundred bp)");
@@ -128,7 +130,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     private LocalAssemblyEngine makeAssembler(LocalAssemblyEngine.ASSEMBLER type, IndexedFastaSequenceFile referenceReader) {
         switch ( type ) {
             case SIMPLE_DE_BRUIJN:
-                return new SimpleDeBruijnAssembler(graphWriter, referenceReader, numReadsToUse);
+                return new SimpleDeBruijnAssembler(graphWriter, referenceReader);
             default:
                 throw new UserException.BadInput("Assembler type " + type + " is not valid/supported");
         }
@@ -173,6 +175,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
             result++;
         }
         logger.info("Ran local assembly on " + result + " intervals");
+        manager.close();
     }
 
     private void processReadBin() {
@@ -186,7 +189,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
             return;
         }
 
-        if( bamWriter != null ) {
+        if( bamWriter != null && !realignReads ) {
             genotypingEngine.alignAllHaplotypes( haplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), bamWriter, readsToAssemble.getReads().get(0) );
             return; // in assembly debug mode, so no need to run the rest of the procedure
         }
@@ -195,9 +198,9 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
         final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation() );
         final GenomeLoc window = readsToAssemble.getVariantWindow();
 
-        //if( alignmentWriter != null ) {
-        //    genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), alignmentWriter, readsToAssemble.getReads(), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
-        //}
+        if( bamWriter != null && realignReads ) {
+            genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), manager, readsToAssemble.getReadsAtVariant(), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
+        }
 
         for( final VariantContext vc : vcs ) {
             if( vc.getStart() >= window.getStart() && vc.getStart() <= window.getStop() ) {
@@ -238,7 +241,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
         public List<SAMRecord> getReadsAtVariant() {
             final ArrayList<SAMRecord> readsOverlappingVariant = new ArrayList<SAMRecord>();
             int pos = loc.getStart() + (loc.getStop() - loc.getStart()) / 2;
-            final GenomeLoc variantLoc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), pos - 5, pos + 5);
+            final GenomeLoc variantLoc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), pos - 10, pos + 10);
 
             for( final SAMRecord rec : reads ) {
                 if( rec.getMappingQuality() > 18 && !BadMateFilter.hasBadMate(rec) ) {

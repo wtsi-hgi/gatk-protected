@@ -25,13 +25,18 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
+import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
+import net.sf.samtools.CigarOperator;
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
+import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;
+import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.SWPairwiseAlignment;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.InferredGeneticContext;
@@ -202,12 +207,12 @@ public class GenotypingEngine {
                     ArrayList<Allele> alleles = new ArrayList<Allele>();
                     alleles.add( vc1.getAlternateAllele(0) );
                     alleles.add( vc2.getAlternateAllele(0) );
-                    if( alleles.get(0).equals(alleles.get(1)) ) { // check if alt allese match
+                    if( vc1.getAlleles().equals(vc2.getAlleles()) ) { // check if alleles match
                         Genotype gt = new Genotype( "NA12878", alleles );
                         HashMap<String,Genotype> genotypeMap = new HashMap<String,Genotype>();
                         genotypeMap.put("NA12878", gt);
                         vcs.add( VariantContext.modifyGenotypes( vc1, genotypeMap ) );
-                    } else { // two alt alleles don't match, and don't call multialleleic records yet
+                    } else { // two alleles don't match, and don't call multialleleic records yet
                         vc2Hold = vc2;
                         ArrayList<Allele> theseAlleles = new ArrayList<Allele>();
                         theseAlleles.addAll( vc1.getAlleles() );
@@ -241,6 +246,18 @@ public class GenotypingEngine {
         return vcs;
     }
 
+
+
+
+
+
+
+    //////////////////////////////////////////
+    //
+    // Code for debug output follows
+    //
+    //////////////////////////////////////////        
+
     public void alignAllHaplotypes( final List<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final StingSAMFileWriter writer, final SAMRecord exampleRead ) {
 
         int iii = 0;
@@ -258,21 +275,196 @@ public class GenotypingEngine {
         }
                 
     }
-/*
-    public void alignAllReads( final Pair<Haplotype,Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc, final StingSAMFileWriter writer, final List<SAMRecord> reads, final double[][] likelihoods ) {
+
+    public void alignAllReads( final Pair<Haplotype,Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc, final ConstrainedMateFixingManager manager, final List<SAMRecord> reads, final double[][] likelihoods ) {
+
+        final SWPairwiseAlignment swConsensus0 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.first.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+        final SWPairwiseAlignment swConsensus1 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.second.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+        final Consensus consensus0 = new Consensus(bestTwoHaplotypes.first.bases, swConsensus0.getCigar(), swConsensus0.getAlignmentStart2wrt1());
+        final Consensus consensus1 = new Consensus(bestTwoHaplotypes.second.bases, swConsensus1.getCigar(), swConsensus1.getAlignmentStart2wrt1());
 
         int iii = 0;
         for( final SAMRecord read : reads ) {
-            final Haplotype h = ( likelihoods[iii][0] > likelihoods[iii][1] ? bestTwoHaplotypes.first : bestTwoHaplotypes.second );
-            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
-
-
-
-            writer.addAlignment(read);
+            final Consensus bestConsensus = ( likelihoods[iii][0] > likelihoods[iii][1] ? consensus0 : consensus1 );
+            final AlignedRead aRead = new AlignedRead( read );
+            bestConsensus.cigar = AlignmentUtils.leftAlignIndel(bestConsensus.cigar, ref, bestConsensus.str, bestConsensus.positionOnReference, bestConsensus.positionOnReference);
+            Pair<Integer, Integer> altAlignment = findBestOffset(bestConsensus.str, aRead, loc.getStart());
+            updateRead(bestConsensus.cigar, bestConsensus.positionOnReference, altAlignment.second, aRead, loc.getStart());
+            aRead.finalizeUpdate();
+            manager.addRead(aRead.getRead(), true);
             iii++;
         }
     }
 
+    // private functions copied from IndelRealigner
+    private Pair<Integer, Integer> findBestOffset(final byte[] ref, final AlignedRead read, final int leftmostIndex) {
+
+        // optimization: try the most likely alignment first (to get a low score to beat)
+        int originalAlignment = read.getOriginalAlignmentStart() - leftmostIndex;
+        int bestScore = mismatchQualitySumIgnoreCigar(read, ref, originalAlignment, Integer.MAX_VALUE);
+        int bestIndex = originalAlignment;
+
+        // optimization: we can't get better than 0, so we can quit now
+        if ( bestScore == 0 )
+            return new Pair<Integer, Integer>(bestIndex, 0);
+
+        // optimization: the correct alignment shouldn't be too far from the original one (or else the read wouldn't have aligned in the first place)
+        for ( int i = 0; i < originalAlignment; i++ ) {
+            int score = mismatchQualitySumIgnoreCigar(read, ref, i, bestScore);
+            if ( score < bestScore ) {
+                bestScore = score;
+                bestIndex = i;
+            }
+            // optimization: we can't get better than 0, so we can quit now
+            if ( bestScore == 0 )
+                return new Pair<Integer, Integer>(bestIndex, 0);
+        }
+
+        final int maxPossibleStart = ref.length - read.getReadLength();
+        for ( int i = originalAlignment + 1; i <= maxPossibleStart; i++ ) {
+            int score = mismatchQualitySumIgnoreCigar(read, ref, i, bestScore);
+            if ( score < bestScore ) {
+                bestScore = score;
+                bestIndex = i;
+            }
+            // optimization: we can't get better than 0, so we can quit now
+            if ( bestScore == 0 )
+                return new Pair<Integer, Integer>(bestIndex, 0);
+        }
+
+        return new Pair<Integer, Integer>(bestIndex, bestScore);
+    }
+
+    private static int mismatchQualitySumIgnoreCigar(final AlignedRead aRead, final byte[] refSeq, int refIndex, int quitAboveThisValue) {
+        final byte[] readSeq = aRead.getReadBases();
+        final byte[] quals = aRead.getBaseQualities();
+        int sum = 0;
+        for (int readIndex = 0 ; readIndex < readSeq.length ; refIndex++, readIndex++ ) {
+            if ( refIndex >= refSeq.length ) {
+                sum += 99;
+                // optimization: once we pass the threshold, stop calculating
+                if ( sum > quitAboveThisValue )
+                    return sum;
+            } else {
+                byte refChr = refSeq[refIndex];
+                byte readChr = readSeq[readIndex];
+                if ( !BaseUtils.isRegularBase(readChr) || !BaseUtils.isRegularBase(refChr) )
+                    continue; // do not count Ns/Xs/etc ?
+                if ( readChr != refChr ) {
+                    sum += (int)quals[readIndex];
+                    // optimization: once we pass the threshold, stop calculating
+                    if ( sum > quitAboveThisValue )
+                        return sum;
+                }
+            }
+        }
+        return sum;
+    }
+
+    private boolean updateRead(final Cigar altCigar, final int altPosOnRef, final int myPosOnAlt, final AlignedRead aRead, final int leftmostIndex) {
+        Cigar readCigar = new Cigar();
+
+        // special case: there is no indel
+        if ( altCigar.getCigarElements().size() == 1 ) {
+            aRead.setAlignmentStart(leftmostIndex + myPosOnAlt);
+            readCigar.add(new CigarElement(aRead.getReadLength(), CigarOperator.M));
+            aRead.setCigar(readCigar);
+            return true;
+        }
+
+        CigarElement altCE1 = altCigar.getCigarElement(0);
+        CigarElement altCE2 = altCigar.getCigarElement(1);
+
+        int leadingMatchingBlockLength = 0; // length of the leading M element or 0 if the leading element is I
+
+        CigarElement indelCE;
+        if ( altCE1.getOperator() == CigarOperator.I  ) {
+            indelCE=altCE1;
+            if ( altCE2.getOperator() != CigarOperator.M  ) {
+                return false;
+            }
+        }
+        else {
+            if ( altCE1.getOperator() != CigarOperator.M  ) {
+                return false;
+            }
+            if ( altCE2.getOperator() == CigarOperator.I  || altCE2.getOperator() == CigarOperator.D ) {
+                indelCE=altCE2;
+            } else {
+                return false;
+            }
+            leadingMatchingBlockLength = altCE1.getLength();
+        }
+
+        // the easiest thing to do is to take each case separately
+        int endOfFirstBlock = altPosOnRef + leadingMatchingBlockLength;
+        boolean sawAlignmentStart = false;
+
+        // for reads starting before the indel
+        if ( myPosOnAlt < endOfFirstBlock) {
+            aRead.setAlignmentStart(leftmostIndex + myPosOnAlt);
+            sawAlignmentStart = true;
+
+            // for reads ending before the indel
+            if ( myPosOnAlt + aRead.getReadLength() <= endOfFirstBlock) {
+                //readCigar.add(new CigarElement(aRead.getReadLength(), CigarOperator.M));
+                //aRead.setCigar(readCigar);
+                aRead.setCigar(null); // reset to original alignment
+                return true;
+            }
+            readCigar.add(new CigarElement(endOfFirstBlock - myPosOnAlt, CigarOperator.M));
+        }
+
+        // forward along the indel
+        //int indelOffsetOnRef = 0, indelOffsetOnRead = 0;
+        if ( indelCE.getOperator() == CigarOperator.I ) {
+            // for reads that end in an insertion
+            if ( myPosOnAlt + aRead.getReadLength() < endOfFirstBlock + indelCE.getLength() ) {
+                int partialInsertionLength = myPosOnAlt + aRead.getReadLength() - endOfFirstBlock;
+                // if we also started inside the insertion, then we need to modify the length
+                if ( !sawAlignmentStart )
+                    partialInsertionLength = aRead.getReadLength();
+                readCigar.add(new CigarElement(partialInsertionLength, CigarOperator.I));
+                aRead.setCigar(readCigar);
+                return true;
+            }
+
+            // for reads that start in an insertion
+            if ( !sawAlignmentStart && myPosOnAlt < endOfFirstBlock + indelCE.getLength() ) {
+                aRead.setAlignmentStart(leftmostIndex + endOfFirstBlock);
+                readCigar.add(new CigarElement(indelCE.getLength() - (myPosOnAlt - endOfFirstBlock), CigarOperator.I));
+                //indelOffsetOnRead = myPosOnAlt - endOfFirstBlock;
+                sawAlignmentStart = true;
+            } else if ( sawAlignmentStart ) {
+                readCigar.add(indelCE);
+                //indelOffsetOnRead = indelCE.getLength();
+            }
+        } else if ( indelCE.getOperator() == CigarOperator.D ) {
+            if ( sawAlignmentStart )
+                readCigar.add(indelCE);
+            //indelOffsetOnRef = indelCE.getLength();
+        }
+
+        // for reads that start after the indel
+        if ( !sawAlignmentStart ) {
+            //aRead.setAlignmentStart(leftmostIndex + myPosOnAlt + indelOffsetOnRef - indelOffsetOnRead);
+            //readCigar.add(new CigarElement(aRead.getReadLength(), CigarOperator.M));
+            //aRead.setCigar(readCigar);
+            aRead.setCigar(null); // reset to original alignment
+            return true;
+        }
+
+        int readRemaining = aRead.getReadBases().length;
+        for ( CigarElement ce : readCigar.getCigarElements() ) {
+            if ( ce.getOperator() != CigarOperator.D )
+                readRemaining -= ce.getLength();
+        }
+        if ( readRemaining > 0 )
+            readCigar.add(new CigarElement(readRemaining, CigarOperator.M));
+        aRead.setCigar(readCigar);
+
+        return true;
+    }
 
 
     // private classes copied from IndelRealigner
@@ -373,7 +565,6 @@ public class GenotypingEngine {
             // no indel?
             String str = cigar.toString();
             if ( !str.contains("D") && !str.contains("I") ) {
-                logger.debug("Modifying a read with no associated indel; although this is possible, it is highly unlikely.  Perhaps this region should be double-checked: " + read.getReadName() + " near " + read.getReferenceName() + ":" + read.getAlignmentStart());
                 //    newCigar = null;
                 //    return;
             }
@@ -383,7 +574,31 @@ public class GenotypingEngine {
 
         // pull out the bases that aren't clipped out
         private Cigar reclipCigar(Cigar cigar) {
-            return IndelRealigner.reclipCigar(cigar, read);
+            return reclipCigar(cigar, read);
+        }
+
+        private boolean isClipOperator(CigarOperator op) {
+            return op == CigarOperator.S || op == CigarOperator.H || op == CigarOperator.P;
+        }
+
+        protected Cigar reclipCigar(Cigar cigar, SAMRecord read) {
+            ArrayList<CigarElement> elements = new ArrayList<CigarElement>();
+
+            int i = 0;
+            int n = read.getCigar().numCigarElements();
+            while ( i < n && isClipOperator(read.getCigar().getCigarElement(i).getOperator()) )
+                elements.add(read.getCigar().getCigarElement(i++));
+
+            elements.addAll(cigar.getCigarElements());
+
+            i++;
+            while ( i < n && !isClipOperator(read.getCigar().getCigarElement(i).getOperator()) )
+                i++;
+
+            while ( i < n && isClipOperator(read.getCigar().getCigarElement(i).getOperator()) )
+                elements.add(read.getCigar().getCigarElement(i++));
+
+            return new Cigar(elements);
         }
 
         // tentatively sets the new start, but it needs to be confirmed later
@@ -407,17 +622,6 @@ public class GenotypingEngine {
                 return false;
             if ( newStart == -1 )
                 newStart = read.getAlignmentStart();
-            else if ( Math.abs(newStart - read.getAlignmentStart()) > MAX_POS_MOVE_ALLOWED ) {
-                logger.debug(String.format("Attempting to realign read %s at %d more than %d bases to %d.", read.getReadName(), read.getAlignmentStart(), MAX_POS_MOVE_ALLOWED, newStart));
-                return false;
-            }
-
-            // annotate the record with the original cigar (and optionally the alignment start)
-            if ( !NO_ORIGINAL_ALIGNMENT_TAGS ) {
-                read.setAttribute(ORIGINAL_CIGAR_TAG, read.getCigar().toString());
-                if ( newStart != read.getAlignmentStart() )
-                    read.setAttribute(ORIGINAL_POSITION_TAG, read.getAlignmentStart());
-            }
 
             read.setCigar(newCigar);
             read.setAlignmentStart(newStart);
@@ -471,6 +675,6 @@ public class GenotypingEngine {
             return Arrays.hashCode(this.str);
         }
     }
-*/
+
 
 }
