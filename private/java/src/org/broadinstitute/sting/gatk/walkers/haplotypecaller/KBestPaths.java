@@ -84,32 +84,6 @@ public class KBestPaths {
             }
             return bases;
         }
-
-        // assumes uncleaned edges and vertices, so each edge just adds one more base to the string
-        public byte[] getBases(final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final int length) {
-
-            byte[] bases = new byte[length];
-            int curPos = 0;
-
-            if( edges.size() == 0 ) {
-                for( final byte b : lastVertex.printableSequence ) {
-                    bases[curPos++] = b;
-                }
-
-            } else {
-                for( final byte b : graph.getEdgeSource( edges.get(0) ).printableSequence ) {
-                    bases[curPos++] = b;
-                }
-                for ( final DeBruijnEdge e : edges ) {
-                    bases[curPos++] = graph.getEdgeTarget( e ).printableSequence[graph.getEdgeTarget( e ).printableSequence.length-1];
-                }
-            }
-            if(length - curPos > 40) { return null; } // lots of short paths that aren't connected to anything else
-            for( int iii = curPos; iii < length; iii++ ) {
-                bases[iii] = (byte) 'N';
-            }
-            return bases;
-        }
     }
 
     protected static class PathComparator implements Comparator<Path> {
@@ -146,7 +120,7 @@ public class KBestPaths {
                 bestPaths.add(path);
             }
 
-        } else if( n.val > 500000) {
+        } else if( n.val > 100000) {
             // do nothing, just return
         } else {
             // recursively run DFS

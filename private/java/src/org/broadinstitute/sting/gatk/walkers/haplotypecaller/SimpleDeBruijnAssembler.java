@@ -2,7 +2,6 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import java.io.PrintStream;
@@ -24,10 +23,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private static final int KMER_LENGTH = 41;
 
     // the additional size of a valid chunk of sequence, used to string together k-mers
-    private static final int KMER_OVERLAP = 5;
-
-    // bases with quality less than or equal to this value are trimmed off the tails of the reads
-    private static final byte MIN_TAIL_QUALITY = 6;
+    private static final int KMER_OVERLAP = 7;
 
     // the deBruijn graph object
     private DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = null;
@@ -58,11 +54,10 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
         List<byte[]> sequences = new ArrayList<byte[]>();
 
+        // actual clipping moved to base walker
         for( final SAMRecord read : reads ) {
-            final ReadClipper clipper = new ReadClipper(read); // BUGBUG: ReadClipper blows up on unmapped reads
-            final SAMRecord filteredRead = ( read.getReadUnmappedFlag() ? read : clipper.hardClipLowQualEnds( MIN_TAIL_QUALITY ) );
-            if( filteredRead.getReadBases().length > KMER_LENGTH + KMER_OVERLAP ) {
-                sequences.add( filteredRead.getReadBases() );
+            if( read.getReadBases().length > KMER_LENGTH + KMER_OVERLAP ) {
+                sequences.add( read.getReadBases() );
             }
         }
 
@@ -346,19 +341,10 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         // find them
-        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 30);
-
-        int maxLength = Integer.MIN_VALUE;
-        // print them out
-        for ( final KBestPaths.Path path : bestPaths ) {
-            int length = path.getBases( graph ).length;
-            if(length > maxLength) {
-                maxLength = length;
-            }
-        }
+        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 50);
 
         for ( final KBestPaths.Path path : bestPaths ) {
-            final Haplotype h = new Haplotype( path.getBases( graph, maxLength ), path.getScore() );
+            final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
             if( h.bases != null ) {
                 if( getOutputStream() != null ) {
                     getOutputStream().println(h.toString());

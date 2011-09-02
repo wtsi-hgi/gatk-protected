@@ -38,6 +38,7 @@ import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;
 import org.broadinstitute.sting.utils.*;
+import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
@@ -75,7 +76,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     LocalAssemblyEngine assemblyEngine = null;
 
     // the likelihoods engine
-    LikelihoodCalculationEngine likelihoodCalculationEngine = new LikelihoodCalculationEngine(35.0, 5.0, false, true, false);
+    LikelihoodCalculationEngine likelihoodCalculationEngine = new LikelihoodCalculationEngine(35.0, 10.0, false, true, false);
 
     // the genotyping engine
     GenotypingEngine genotypingEngine = new GenotypingEngine();
@@ -94,6 +95,9 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
 
     // reference base padding size
     private static final int REFERENCE_PADDING = 50;
+
+    // bases with quality less than or equal to this value are trimmed off the tails of the reads
+    private static final byte MIN_TAIL_QUALITY = 6;
 
     protected ConstrainedMateFixingManager manager = null;
 
@@ -156,7 +160,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
         if ( readLoc.overlapsP(currentInterval) ) {
             readsToAssemble.add(read);
         } else {
-            processReadBin();
+            processReadBin( currentInterval );
             readsToAssemble.clear();
             readsToAssemble.add(read); // don't want this triggering read which is past the interval to fall through the cracks?
             sum++;
@@ -171,16 +175,19 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
 
     public void onTraversalDone(Integer result) {
         if ( readsToAssemble.size() > 0 ) {
-            processReadBin();
+            processReadBin( currentInterval );
             result++;
         }
         logger.info("Ran local assembly on " + result + " intervals");
-        manager.close();
+
+        if( realignReads ) {
+            manager.close();
+        }
     }
 
-    private void processReadBin() {
+    private void processReadBin( final GenomeLoc curInterval ) {
 
-        System.out.println(readsToAssemble.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:");
+        System.out.println(curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:");
         final List<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble.getReads() );
         System.out.println("Found " + haplotypes.size() + " potential haplotypes to evaluate");
 
@@ -194,12 +201,14 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
             return; // in assembly debug mode, so no need to run the rest of the procedure
         }
 
-        final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReadsAtVariant() );
+        final int pos = curInterval.getStart() + (curInterval.getStop() - curInterval.getStart()) / 2;
+        final GenomeLoc window = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 7, pos + 7);
+
+        final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReadsInWindow( window ) );
         final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation() );
-        final GenomeLoc window = readsToAssemble.getVariantWindow();
 
         if( bamWriter != null && realignReads ) {
-            genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), manager, readsToAssemble.getReadsAtVariant(), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
+            genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), manager, readsToAssemble.getReadsInWindow( window ), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
         }
 
         for( final VariantContext vc : vcs ) {
@@ -225,39 +234,36 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
 
         // Return false if we can't process this read bin because the reads are not correctly overlapping.
         // This can happen if e.g. there's a large known indel with no overlapping reads.
-        public void add(SAMRecord read) {
+        public void add( final SAMRecord read ) {
 
-            GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(read);
-            if ( loc == null )
-                loc = locForRead;
-            else if ( locForRead.getStop() > loc.getStop() )
-                loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), loc.getStart(), locForRead.getStop());
+            final SAMRecord clippedRead = (new ReadClipper(read)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
+            
+            if( clippedRead.getReadLength() > 0 ) {
+                GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(clippedRead);
+                if ( loc == null )
+                    loc = locForRead;
+                else if ( locForRead.getStop() > loc.getStop() )
+                    loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), loc.getStart(), locForRead.getStop());
 
-            reads.add(read);
+                reads.add(clippedRead);
+            }
         }
 
         public List<SAMRecord> getReads() { return reads; }
 
-        public List<SAMRecord> getReadsAtVariant() {
+        public List<SAMRecord> getReadsInWindow( final GenomeLoc window ) {
             final ArrayList<SAMRecord> readsOverlappingVariant = new ArrayList<SAMRecord>();
-            int pos = loc.getStart() + (loc.getStop() - loc.getStart()) / 2;
-            final GenomeLoc variantLoc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), pos - 10, pos + 10);
 
             for( final SAMRecord rec : reads ) {
                 if( rec.getMappingQuality() > 18 && !BadMateFilter.hasBadMate(rec) ) {
                     GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(rec);
-                    if( locForRead.overlapsP(variantLoc) ) {
+                    if( locForRead.overlapsP(window) ) {
                         readsOverlappingVariant.add(rec);
                     }
                 }
             }
 
             return readsOverlappingVariant;
-        }
-
-        public GenomeLoc getVariantWindow() {
-            int pos = loc.getStart() + (loc.getStop() - loc.getStart()) / 2;
-            return getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), pos - 10, pos + 10);
         }
 
         public byte[] getReference(IndexedFastaSequenceFile referenceReader) {
