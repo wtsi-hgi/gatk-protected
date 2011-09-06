@@ -27,6 +27,7 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
+import net.sf.samtools.SAMUtils;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
@@ -41,6 +42,7 @@ import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.sam.SimplifyingSAMFileWriter;
 
@@ -77,7 +79,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     protected int minBaseQual = 20;
 
     @Argument(fullName = "maximum_consensus_base_qual", shortName = "mcq", doc = "", required = false)
-    protected byte maxQualCount = 99;
+    protected byte maxQualCount = SAMUtils.MAX_PHRED_SCORE;
 
     @Hidden
     @Argument(fullName = "", shortName = "dl", doc = "", required = false)
@@ -164,6 +166,9 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
             intervalIterator = getToolkit().getIntervals().iterator();
             currentInterval = intervalIterator.next();
         }
+
+        if ( maxQualCount > SAMUtils.MAX_PHRED_SCORE )
+            throw new UserException.BadArgumentValue("maximum_consensus_base_qual", "Maximum allowed quality score in a SAM file is " + SAMUtils.MAX_PHRED_SCORE);
 
     }
 
