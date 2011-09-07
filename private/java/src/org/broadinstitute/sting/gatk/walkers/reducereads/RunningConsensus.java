@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import net.sf.samtools.*;
+import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -31,6 +32,7 @@ public class RunningConsensus {
     private int contigIndex;
     private String readName;
     private Integer refStart;
+    final private int consensusBaseQuality;
 
     /**
      * Initialize your running consensus if you don't know yet what the first base and it's name
@@ -41,8 +43,8 @@ public class RunningConsensus {
      * @param contig
      * @param contigIndex
      */
-    public RunningConsensus (SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex) {
-        this(header, readGroupAttribute, contig, contigIndex, null, null);
+    public RunningConsensus (SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex, int consensusBaseQuality) {
+        this(header, readGroupAttribute, contig, contigIndex, null, null, consensusBaseQuality);
     }
 
     /**
@@ -56,7 +58,7 @@ public class RunningConsensus {
      * @param readName
      * @param refStart
      */
-    public RunningConsensus (SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex, String readName, Integer refStart) {
+    public RunningConsensus (SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex, String readName, Integer refStart, int consensusBaseQuality) {
         counts = new LinkedList<Byte>();
         bases = new LinkedList<Byte>();
         rms = 0.0;
@@ -67,6 +69,7 @@ public class RunningConsensus {
         this.contigIndex = contigIndex;
         this.readName = readName;
         this.refStart = refStart;
+        this.consensusBaseQuality = consensusBaseQuality;
     }
 
     /**
@@ -85,6 +88,7 @@ public class RunningConsensus {
     public SAMRecord close () {
         SAMRecord samRecord = new SAMRecord(header);
         samRecord.setAttribute("RG", readGroupAttribute);
+        samRecord.setAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG, consensusBaseQuality);
         samRecord.setReferenceName(contig);
         samRecord.setReferenceIndex(contigIndex);
         samRecord.setReadPairedFlag(false);

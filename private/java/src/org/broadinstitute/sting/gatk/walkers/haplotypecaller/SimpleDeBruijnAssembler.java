@@ -1,7 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
-import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMRecord;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
@@ -21,27 +20,16 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private static final boolean DEBUG = true;
 
     // k-mer length
-    private static final int KMER_LENGTH = 25;
+    private static final int KMER_LENGTH = 41;
 
-    // minimum base quality required in a contiguous stretch of a given read to be used in the assembly
-    private static final int MIN_BASE_QUAL_TO_USE = 16;
-
-    // minimum clipped sequence length to consider using
-    private static final int MIN_SEQUENCE_LENGTH = 50;
-
-    // minimum multiplicity to consider using
-    // private static final int MIN_MULTIPLICITY_TO_USE = 2;
-
-    // FOR DEBUGGING
-    private int numReadsToUse = -1;
+    // the additional size of a valid chunk of sequence, used to string together k-mers
+    private static final int KMER_OVERLAP = 7;
 
     // the deBruijn graph object
     private DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = null;
 
-
-    public SimpleDeBruijnAssembler(PrintStream out, IndexedFastaSequenceFile referenceReader, int numReadsToUse) {
+    public SimpleDeBruijnAssembler(PrintStream out, IndexedFastaSequenceFile referenceReader) {
         super(out, referenceReader);
-        this.numReadsToUse = numReadsToUse;
     }
 
     public List<Haplotype> runLocalAssembly(List<SAMRecord> reads) {
@@ -55,7 +43,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         // create the graph
         createDeBruijnGraph(sequences);
 
-        // find the 2 best paths in the graph
+        // find the best paths in the graph
         return findBestPaths();
     }
 
@@ -63,63 +51,13 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     // out runs of bases that are not soft-clipped and are all at least Q20s.
     // Clipped sequences that are overly clipped are not used.
     private List<byte[]> clipReads(List<SAMRecord> reads) {
-        List<byte[]> sequences = new ArrayList<byte[]>(reads.size());
 
-        int counter = 0;
+        List<byte[]> sequences = new ArrayList<byte[]>();
 
-        for ( SAMRecord read : reads ) {
-
-            // for debugging
-            if ( numReadsToUse >= 0 && ++counter > numReadsToUse ) {
-                System.out.println("Stopping before read: " + read.getReadName() + " at " + read.getAlignmentStart());
-                break;
-            }
-
-            byte[] sequencedReadBases = read.getReadBases();
-            byte[] sequencedBaseQuals = read.getBaseQualities();
-
-            int curIndex = 0, firstGoodQualIndex = -1;
-
-            for ( final CigarElement ce : read.getCigar().getCigarElements() ) {
-
-                int elementLength = ce.getLength();
-                switch ( ce.getOperator() ) {
-                    case S: // Take this out to make use of soft-clipped bases.
-                        // skip soft-clipped bases
-                        curIndex += elementLength;
-                        break;
-                    case M:
-                    case I:
-                        for (int i = 0; i < elementLength; i++) {
-                            if ( sequencedBaseQuals[curIndex] >= MIN_BASE_QUAL_TO_USE ) {
-                                if ( firstGoodQualIndex == -1 ) {
-                                    firstGoodQualIndex = curIndex;
-                                }
-                            } else if ( firstGoodQualIndex != -1 ) {
-                                int sequenceLength = curIndex - firstGoodQualIndex;
-                                if ( sequenceLength > MIN_SEQUENCE_LENGTH ) {
-                                    byte[] sequence = new byte[sequenceLength];
-                                    System.arraycopy(sequencedReadBases, firstGoodQualIndex, sequence, 0, sequenceLength);
-                                    sequences.add(sequence);
-                                }
-                                firstGoodQualIndex = -1;
-                            }
-                            curIndex++;
-                        }
-                    case N:
-                        // TODO -- implement me (cut the sequence)
-                    default:
-                        break;
-                }
-            }
-
-            if ( firstGoodQualIndex != -1 ) {
-                int sequenceLength = curIndex - firstGoodQualIndex;
-                if ( sequenceLength > MIN_SEQUENCE_LENGTH ) {
-                    byte[] sequence = new byte[sequenceLength];
-                    System.arraycopy(sequencedReadBases, firstGoodQualIndex, sequence, 0, sequenceLength);
-                    sequences.add(sequence);
-                }
+        // actual clipping moved to base walker
+        for( final SAMRecord read : reads ) {
+            if( read.getReadBases().length > KMER_LENGTH + KMER_OVERLAP ) {
+                sequences.add( read.getReadBases() );
             }
         }
 
@@ -403,19 +341,10 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         // find them
-        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 30);
-
-        int maxLength = Integer.MIN_VALUE;
-        // print them out
-        for ( final KBestPaths.Path path : bestPaths ) {
-            int length = path.getBases( graph ).length;
-            if(length > maxLength) {
-                maxLength = length;
-            }
-        }
+        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 50);
 
         for ( final KBestPaths.Path path : bestPaths ) {
-            final Haplotype h = new Haplotype( path.getBases( graph, maxLength ), path.getScore() );
+            final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
             if( h.bases != null ) {
                 if( getOutputStream() != null ) {
                     getOutputStream().println(h.toString());

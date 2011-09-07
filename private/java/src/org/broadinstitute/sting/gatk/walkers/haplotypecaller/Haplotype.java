@@ -35,6 +35,7 @@ import java.util.List;
 
 public class Haplotype {
     protected byte[] bases = null;
+    protected byte[] extendedBases = null;
     protected double[] quals = null;
     private GenomeLoc genomeLocation = null;
     private boolean isReference = false;
@@ -88,6 +89,14 @@ public class Haplotype {
         return returnString;
     }
 
+    public String extendedString() {
+        String returnString = "";
+        for(int iii = 0; iii < extendedBases.length; iii++) {
+            returnString += (char) extendedBases[iii];
+        }
+        return returnString;
+    }
+
     public double[] getQuals() {
         return quals;
     }
@@ -107,6 +116,16 @@ public class Haplotype {
     public boolean isReference() {
         return isReference;
     }
+
+    public void extendHaplotype( final int max ) {
+        extendedBases = new byte[max];
+        Arrays.fill(extendedBases, (byte) 'X');
+        int iii = (max - bases.length)/2;
+        for( byte b : bases ) {
+            extendedBases[iii++] = b;
+        }
+    }
+
 
     public static LinkedHashMap<Allele,Haplotype> makeHaplotypeListFromAlleles(List<Allele> alleleList, int startPos, ReferenceContext ref,
                                                                final int haplotypeSize, final int numPrefBases) {

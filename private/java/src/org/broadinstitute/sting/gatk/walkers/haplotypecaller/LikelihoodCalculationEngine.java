@@ -90,6 +90,8 @@ public class LikelihoodCalculationEngine {
 
     private boolean getGapPenaltiesFromFile = false;
 
+    public double readLikelihoodsForBestHaplotypes[][];
+
     static {
         LOG_ONE_HALF = -Math.log10(2.0);
         END_GAP_COST = LOG_ONE_HALF;
@@ -97,10 +99,9 @@ public class LikelihoodCalculationEngine {
         baseMatchArray = new double[MAX_CACHED_QUAL+1];
         baseMismatchArray = new double[MAX_CACHED_QUAL+1];
         for (int k=1; k <= MAX_CACHED_QUAL; k++) {
-            double baseProb = Math.pow(10, -k/10.);
+            double baseProb = Math.pow(10.0, ((double) -k)/10.0);
 
-
-            baseMatchArray[k] =  Math.log10(1-baseProb);
+            baseMatchArray[k] =  Math.log10(1.0-baseProb);
             baseMismatchArray[k] = Math.log10(baseProb);
         }
     }
@@ -116,7 +117,6 @@ public class LikelihoodCalculationEngine {
         this.logGapContinuationProbability = -indelGCP/10.0; // QUAL to log prob
         this.doContextDependentPenalties = doCDP;
         this.DEBUG = deb;
-
 
         // fill gap penalty table, affine naive model:
         this.GAP_CONT_PROB_TABLE = new double[MAX_HRUN_GAP_IDX];
@@ -152,11 +152,7 @@ public class LikelihoodCalculationEngine {
         int numHaplotypes = haplotypes.size();
         double haplotypeLikehoodMatrix[][] = new double[numHaplotypes][numHaplotypes];
         double readLikelihoods[][] = new double[reads.size()][numHaplotypes];
-        double gop[] = new double[haplotypes.get(0).bases.length];
-        double gcp[] = new double[haplotypes.get(0).bases.length];
-
-        Arrays.fill(gop, logGapOpenProbability); // this should eventually be derived from the data
-        Arrays.fill(gcp, logGapContinuationProbability); // this should eventually be derived from the data
+        readLikelihoodsForBestHaplotypes = new double[reads.size()][2];
 
         for( int iii = 0; iii < numHaplotypes; iii++ ) {
             for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
@@ -164,11 +160,23 @@ public class LikelihoodCalculationEngine {
             }
         }
 
-        for( int iii = 0; iii < reads.size(); iii++ ) {
-            final SAMRecord read = reads.get(iii);
-            for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
-                final Haplotype haplotype = haplotypes.get(jjj);
-                readLikelihoods[iii][jjj] = computeReadLikelihoodGivenHaplotypeAffineGaps(haplotype.bases, read.getReadBases(), read.getBaseQualities(), gop, gcp);
+        int maxHaplotypeLength = 0;
+        for( final Haplotype h : haplotypes ) {
+            int length = h.bases.length;
+            if(length > maxHaplotypeLength) { maxHaplotypeLength = length; }
+        }
+
+        for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
+            final Haplotype haplotype = haplotypes.get(jjj);
+            haplotype.extendHaplotype( maxHaplotypeLength );
+            final double gop[] = new double[haplotype.extendedBases.length];
+            final double gcp[] = new double[haplotype.extendedBases.length];
+            Arrays.fill(gop, logGapOpenProbability); // this should eventually be derived from the data
+            Arrays.fill(gcp, logGapContinuationProbability); // this should eventually be derived from the data
+
+            for( int iii = 0; iii < reads.size(); iii++ ) {
+                final SAMRecord read = reads.get(iii);
+                readLikelihoods[iii][jjj] = computeReadLikelihoodGivenHaplotypeAffineGaps(haplotype.extendedBases, read.getReadBases(), read.getBaseQualities(), gop, gcp);
             }
         }
 
@@ -198,28 +206,13 @@ public class LikelihoodCalculationEngine {
                 }
             }
         }
-        return new Pair<Haplotype, Haplotype>(haplotypes.get(hap1), haplotypes.get(hap2));
-    }
 
-    private static double[] getHaplotypeLikelihoods(double[][] haplotypeLikehoodMatrix) {
-        int hSize = haplotypeLikehoodMatrix.length;
-        double[] genotypeLikelihoods = new double[hSize*(hSize+1)/2];
-
-        int k=0;
-        double maxElement = Double.NEGATIVE_INFINITY;
-        for (int j=0; j < hSize; j++) {
-            for (int i=0; i <= j; i++){
-                genotypeLikelihoods[k++] = haplotypeLikehoodMatrix[i][j];
-                if (haplotypeLikehoodMatrix[i][j] > maxElement)
-                    maxElement = haplotypeLikehoodMatrix[i][j];
-            }
+        for( int kkk = 0; kkk < reads.size(); kkk++ ) {
+            readLikelihoodsForBestHaplotypes[kkk][0] = readLikelihoods[kkk][hap1];
+            readLikelihoodsForBestHaplotypes[kkk][1] = readLikelihoods[kkk][hap2];
         }
 
-        // renormalize
-        for (int i=0; i < genotypeLikelihoods.length; i++)
-            genotypeLikelihoods[i] -= maxElement;
-
-        return genotypeLikelihoods;
+        return new Pair<Haplotype, Haplotype>(haplotypes.get(hap1), haplotypes.get(hap2));
     }
 
     private double computeReadLikelihoodGivenHaplotypeAffineGaps(byte[] haplotypeBases, byte[] readBases, byte[] readQuals,

@@ -10,6 +10,41 @@ import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 
 import java.io.PrintStream;
+import java.util.List;
+
+/**
+ * Outputs the read lengths of all the reads in a file.
+ *
+ *  <p>
+ *     Generates a table with the read lengths categorized per sample. If the file has no sample information
+ *     (no read groups) it considers all reads to come from the same sample.
+ *  </p>
+ *
+ *
+ * <h2>Input</h2>
+ *  <p>
+ *      A BAM file.
+ *  </p>
+ *
+ * <h2>Output</h2>
+ *  <p>
+ *      A human/R readable table of tab separated values with one column per sample and one row per read.
+ *  </p>
+ *
+ * <h2>Examples</h2>
+ *  <pre>
+ *    java
+ *      -jar GenomeAnalysisTK.jar
+ *      -T ReadLengthDistribution
+ *      -I example.bam
+ *      -R reference.fasta
+ *      -o example.tbl
+ *  </pre>
+ *
+ * @author Kiran Garimela
+ */
+
+
 
 public class ReadLengthDistribution extends ReadWalker<Integer, Integer> {
     @Output
@@ -24,13 +59,18 @@ public class ReadLengthDistribution extends ReadWalker<Integer, Integer> {
 
         table.addPrimaryKey("readLength");
 
-        for (SAMReadGroupRecord rg : this.getToolkit().getSAMFileHeader().getReadGroups()) {
-            table.addColumn(rg.getSample(), 0);
-        }
+        List<SAMReadGroupRecord> readGroups = getToolkit().getSAMFileHeader().getReadGroups();
+        if (readGroups.isEmpty())
+            table.addColumn("SINGLE_SAMPLE", 0);
+
+        else
+            for (SAMReadGroupRecord rg : readGroups)
+                table.addColumn(rg.getSample(), 0);
+
     }
 
     public boolean filter(ReferenceContext ref, SAMRecord read) {
-        return (read.getReadPairedFlag() && read.getFirstOfPairFlag());
+        return ( !read.getReadPairedFlag() || read.getReadPairedFlag() && read.getFirstOfPairFlag());
     }
 
     @Override

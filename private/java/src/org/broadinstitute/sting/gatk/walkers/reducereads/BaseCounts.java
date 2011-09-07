@@ -80,7 +80,7 @@ final class BaseCounts {
      * @param base
      * @return the proportion of this base over all other bases
      */
-    @Ensures("results >=0")
+    @Ensures("result >=0")
     public double baseCountProportion(byte base) {
         return (double) counts.get(BaseIndex.byteToBase(base)) / totalCount();
     }

@@ -194,7 +194,7 @@ public class SlidingWindow {
         if (start < end) {
             if (runningConsensus == null)
                 runningConsensus = new RunningConsensus(header, readGroupAttribute, contig, contigIndex,
-                                                        readName + consensusCounter++, windowHeader.get(start).location);
+                                                        readName + consensusCounter++, windowHeader.get(start).location, MIN_BASE_QUAL_TO_COUNT);
 
             int i = 0;
             for (HeaderElement wh : windowHeader) {
@@ -334,7 +334,7 @@ public class SlidingWindow {
      *
      * @param read the incoming read to be added to the sliding window
      */
-    @Requires("read.getAlignmentStart >= startLocation")
+    @Requires("read.getAlignmentStart() >= startLocation")
     private void updateHeaderCounts(SAMRecord read) {
         // Reads that don't pass the minimum mapping quality filter are not added to the
         // consensus, or count towards a variant region so no point in keeping track of
