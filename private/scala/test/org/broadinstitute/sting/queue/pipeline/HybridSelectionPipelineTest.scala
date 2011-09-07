@@ -35,12 +35,12 @@ class HybridSelectionPipelineTest {
   val k1gChr20Dataset = {
     val dataset = newK1gDataset("Barcoded_1000G_WEx_chr20", BaseTest.hg19Chr20Intervals)
 
-    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.called.all.all.all", "nCalledLoci", 1430)
-    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.called.all.known.all", "nCalledLoci", 1173)
-    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.called.all.novel.all", "nCalledLoci", 257)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.called.all.all.all", "tiTvRatio", 3.5798)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.called.all.known.all", "tiTvRatio", 3.76)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.called.all.novel.all", "tiTvRatio", 2.87)
+    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.called.all.all.all", "nCalledLoci", 1463)
+    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.called.all.known.all", "nCalledLoci", 1196)
+    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.called.all.novel.all", "nCalledLoci", 267)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.called.all.all.all", "tiTvRatio", 3.5633)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.called.all.known.all", "tiTvRatio", 3.7976)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.called.all.novel.all", "tiTvRatio", 2.7246)
 
     dataset
   }
@@ -65,7 +65,10 @@ class HybridSelectionPipelineTest {
 
     // Run the pipeline with the expected inputs.
     val pipelineCommand =
-      "-retry 1 -S private/scala/qscript/org/broadinstitute/sting/queue/qscripts/pipeline/HybridSelectionPipeline.scala -Y %s"
+      ("-retry 1" +
+        " -S private/scala/qscript/org/broadinstitute/sting/queue/qscripts/pipeline/HybridSelectionPipeline.scala" +
+        " -Y %s" +
+        " -varFilter HARD")
         .format(yamlFile)
 
     val pipelineSpec = new PipelineTestSpec
