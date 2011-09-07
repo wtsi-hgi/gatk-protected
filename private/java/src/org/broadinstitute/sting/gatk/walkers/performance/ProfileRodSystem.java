@@ -24,7 +24,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.performance;
 
-import org.apache.commons.math.ode.ExtendedFirstOrderDifferentialEquations;
 import org.broad.tribble.Tribble;
 import org.broad.tribble.index.Index;
 import org.broad.tribble.index.IndexFactory;
@@ -45,9 +44,9 @@ import org.broadinstitute.sting.utils.SimpleTimer;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.gvcf.GVCF;
-import org.broadinstitute.sting.utils.gvcf.GVCFHeader;
-import org.broadinstitute.sting.utils.gvcf.GVCFHeaderBuilder;
+import org.broadinstitute.sting.utils.gcf.GCF;
+import org.broadinstitute.sting.utils.gcf.GCFHeader;
+import org.broadinstitute.sting.utils.gcf.GCFHeaderBuilder;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.*;
@@ -181,7 +180,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             for ( boolean skipGenotypes : Arrays.asList(false, true) ) {
                 //for ( boolean skipGenotypes : Arrays.asList(true, false) ) {
                 logger.info("Converting to GVCF");
-                File gvcfFile = new File(vcfFile.getName() + ".gvcf");
+                File gvcfFile = new File(vcfFile.getName() + ".gcf");
                 writeGVCF(gvcfFile, vcs, false);
 
                 timer.start();
@@ -195,39 +194,39 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     }
 
     private void writeGVCF(File dest, List<VariantContext> vcs, boolean skipGenotypes) throws IOException {
-        GVCFHeaderBuilder gvcfHeaderBuilder = new GVCFHeaderBuilder();
-        List<GVCF> gvcfs = new ArrayList<GVCF>(vcs.size());
+        GCFHeaderBuilder GCFHeaderBuilder = new GCFHeaderBuilder();
+        List<GCF> GCFs = new ArrayList<GCF>(vcs.size());
         timer.start();
         for ( VariantContext vc : vcs ) {
-            GVCF gvcf = new GVCF(gvcfHeaderBuilder, vc, skipGenotypes);
-            gvcfs.add(gvcf);
+            GCF GCF = new GCF(GCFHeaderBuilder, vc, skipGenotypes);
+            GCFs.add(GCF);
         }
         logger.info("Convert to GVCF in " + timer.getElapsedTime());
 
         // write the output
-        DataOutputStream outputStream = GVCF.createOutputStream(dest);
+        DataOutputStream outputStream = GCF.createOutputStream(dest);
         logger.info("Writing GVCF to " + dest);
-        GVCFHeader gvcfHeader = gvcfHeaderBuilder.createHeader();
+        GCFHeader GCFHeader = GCFHeaderBuilder.createHeader();
         timer.start();
-        int nbytes = gvcfHeader.write(outputStream);
-        for ( GVCF gvcf : gvcfs ) {
-            nbytes += gvcf.write(outputStream);
+        int nbytes = GCFHeader.write(outputStream);
+        for ( GCF GCF : GCFs) {
+            nbytes += GCF.write(outputStream);
         }
         logger.info("Wrote GVCF in " + timer.getElapsedTime());
         outputStream.close();
     }
 
     private void readGVCF(File source, List<VariantContext> vcs, boolean skipGenotypes) throws IOException {
-        DataInputStream inputStream = GVCF.createInputStream(source);
+        DataInputStream inputStream = GCF.createInputStream(source);
         logger.info("Reading GVCF from " + source);
-        GVCFHeader gvcfHeader = new GVCFHeader(inputStream);
+        GCFHeader GCFHeader = new GCFHeader(inputStream);
 
         try {
             for ( VariantContext vc : vcs ) {
                 if ( VERBOSE ) logger.info("Original VCF: " + vc);
-                GVCF gvcf = new GVCF(inputStream, skipGenotypes);
-                VariantContext decoded = gvcf.decode("gvcf", gvcfHeader);
-                //logger.info("GVCF        : " + gvcf);
+                GCF GCF = new GCF(inputStream, skipGenotypes);
+                VariantContext decoded = GCF.decode("gcf", GCFHeader);
+                //logger.info("GVCF        : " + gcf);
                 if ( VERBOSE ) logger.info("GVCF -> VCF : " + decoded);
             }
         } catch ( EOFException e ) {
