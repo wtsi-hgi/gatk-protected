@@ -189,7 +189,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
 
         System.out.println(curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:");
         final List<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble.getReads() );
-        System.out.println("Found " + haplotypes.size() + " potential haplotypes to evaluate");
+        System.out.println("Found " + haplotypes.size() + " candidate haplotypes to evaluate");
 
         if( haplotypes.size() == 0 ) {
             System.out.println("WARNING! No haplotypes created during assembly!");
