@@ -32,7 +32,7 @@ import org.apache.log4j.BasicConfigurator;
 import org.broad.tribble.Feature;
 import org.broad.tribble.FeatureCodec;
 import org.broad.tribble.bed.BEDCodec;
-import org.broad.tribble.dbsnp.DbSNPCodec;
+import org.broad.tribble.dbsnp.OldDbSNPCodec;
 import org.broad.tribble.gelitext.GeliTextCodec;
 import org.broad.tribble.readers.AsciiLineReader;
 import org.broadinstitute.sting.gatk.features.maf.MafCodec;
@@ -190,7 +190,7 @@ public class SortROD {
             if (rodType.equals("vcf") ) return new VCFCodec();
             if (rodType.equals("bed") ) return new BEDCodec();
             if (rodType.equals("cgvar") || rodType.equals("CGVar") ) return new CGVarCodec();
-            if (rodType.equals("snp") || rodType.equals("dbsnp") ) return new DbSNPCodec();
+            if (rodType.equals("snp") || rodType.equals("dbsnp") ) return new OldDbSNPCodec();
             if (rodType.equals("geli.calls") || rodType.equals("geli") ) return new GeliTextCodec();
             if (rodType.equals("txt") ) return new SoapSNPCodec();
             if (rodType.equals("maf") ) return new MafCodec();
@@ -203,7 +203,7 @@ public class SortROD {
         if ( featureFile.getName().endsWith(".tsv") || featureFile.getName().endsWith(".TSV") )
             return new CGVarCodec();
         if (featureFile.getName().endsWith(".snp") || featureFile.getName().endsWith(".rod") )
-            return new DbSNPCodec();
+            return new OldDbSNPCodec();
         if (featureFile.getName().endsWith(".geli.calls") || featureFile.getName().endsWith(".geli") )
             return new GeliTextCodec();
         if (featureFile.getName().endsWith(".txt") || featureFile.getName().endsWith(".TXT") )

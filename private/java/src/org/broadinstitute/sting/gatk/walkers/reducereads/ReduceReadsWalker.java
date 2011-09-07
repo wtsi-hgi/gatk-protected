@@ -120,14 +120,17 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
                     return new SAMRecord(read.getHeader());
 
                 case OVERLAP_LEFT:              // clip the left end of the read
+                    if (debugLog) System.out.printf("Found Interval, OVERLAP_LEFT: %d - %d\n", currentInterval.getStart(), currentInterval.getStop());
                     clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(currentInterval.getStart() - 1);
                     break;
 
                 case OVERLAP_RIGHT:             // clip the right end of the read
+                    if (debugLog) System.out.printf("Found Interval, OVERLAP_RIGHT: %d - %d\n", currentInterval.getStart(), currentInterval.getStop());
                     clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(currentInterval.getStop() + 1);
                     break;
 
                 case OVERLAP_LEFT_AND_RIGHT:    // clip both left and right ends of the read
+                    if (debugLog) System.out.printf("Found Interval, OVERLAP_LEFT_AND_RIGHT: %d - %d\n", currentInterval.getStart(), currentInterval.getStop());
                     clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(currentInterval.getStart()-1, currentInterval.getStop()+1);
                     break;
 
