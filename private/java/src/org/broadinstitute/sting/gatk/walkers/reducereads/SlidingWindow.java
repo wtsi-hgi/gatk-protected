@@ -194,7 +194,7 @@ public class SlidingWindow {
         if (start < end) {
             if (runningConsensus == null)
                 runningConsensus = new RunningConsensus(header, readGroupAttribute, contig, contigIndex,
-                                                        readName + consensusCounter++, windowHeader.get(start).location);
+                                                        readName + consensusCounter++, windowHeader.get(start).location, MIN_BASE_QUAL_TO_COUNT);
 
             int i = 0;
             for (HeaderElement wh : windowHeader) {

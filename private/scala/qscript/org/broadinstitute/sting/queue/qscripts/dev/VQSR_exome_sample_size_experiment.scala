@@ -16,7 +16,7 @@ import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
   // produce Kiran's Venn plots based on comparison between new VCF and gold standard produced VCF
 
 
-class MethodsDevelopmentCallingPipeline extends QScript {
+class VQSRExomeSampleSizeExperiment extends QScript {
   qscript =>
 
   @Argument(shortName="gatk", doc="gatk jar file", required=true)
