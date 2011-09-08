@@ -33,6 +33,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
+import org.broadinstitute.sting.gatk.walkers.TreeReducible;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.Utils;
@@ -50,7 +51,7 @@ import java.util.*;
 /**
  * Assigns somatic status to a set of calls
  */
-public class AssignSomaticStatus extends RodWalker<Integer, Integer> {
+public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements TreeReducible<Integer> {
     @ArgumentCollection
     protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
@@ -217,5 +218,10 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> {
     @Override
     public Integer reduce(Integer value, Integer sum) {
         return null;
+    }
+
+    @Override
+    public Integer treeReduce(Integer sum1, Integer sum2) {
+        return reduce(sum1, sum2);
     }
 }
