@@ -4,7 +4,7 @@
 # There are two run modes: one pulls in timestamps using the sequencing database, one skips those two columns.
 #   To load info from the sequencing database, use IntelliJ to connect to the database, thereby downloading its Oracle connection jar into $STING_HOME.  Then run:
 #   /humgen/gsa-hpprojects/software/bin/jython2.5.2/jython \
-#     -J-classpath $STING_HOME/dist/sam-1.48.889.jar:$STING_HOME/dist/picard-1.48.889.jar:$STING_HOME/dist/picard-private-parts-1954.jar:$STING_HOME/ojdbc6-11.2.0.1.0.jar \
+#     -J-classpath $STING_HOME/dist/sam-1.52.944.jar:$STING_HOME/dist/picard-1.52.944.jar:$STING_HOME/dist/picard-private-parts-2034.jar:$STING_HOME/ojdbc6-11.2.0.1.0.jar \
 #     $STING_HOME/private/python/generate_per_sample_metrics.py <bam.list> true > <output_metrics_file.tsv>
 #
 #  To skip the sequencing database, use the following command:

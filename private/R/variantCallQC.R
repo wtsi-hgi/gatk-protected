@@ -68,12 +68,18 @@ distributePerSampleGraph <- function(distgraph, perSampleGraph, heights = c(2,1)
   print(distgraph, vp = subplot(2))
 }
 
+# Filters out any metric that isnt cumulative for the specified column name
+selectCumulativeMetrics <- function(data,column) {
+  lapply(data,function(x) { subset(x,x[column]=='all') })
+}
+
 createMetricsBySites <- function(VariantEvalRoot, PreQCMetrics) {
   # Metrics by sites:
   #  bySite -> counts of SNPs and Indels by novelty, with expectations
   #  byAC -> snps and indels (known / novel)
-  r = list( bySite = expandVEReport(gsa.read.gatkreport(paste(VariantEvalRoot, ".summary.eval", sep=""))),
-               byAC = gsa.read.gatkreport(paste(VariantEvalRoot, ".byAC.eval", sep="")))
+  bySiteEval <- expandVEReport(selectCumulativeMetrics(gsa.read.gatkreport(paste(VariantEvalRoot, ".bySampleByFunctionalClass.eval", sep="")),'Sample'))
+  byACEval <- gsa.read.gatkreport(paste(VariantEvalRoot, ".byAC.eval", sep=""))
+  r = list(bySite = bySiteEval,byAC = byACEval)
   r$byAC$CountVariants$nIndels = r$byAC$CountVariants$nInsertions + r$byAC$CountVariants$nDeletions
   r$byAC$TiTvVariantEvaluator$nSNPs = r$byAC$TiTvVariantEvaluator$nTi + r$byAC$TiTvVariantEvaluator$nTv
   r$byAC$CountVariants$AC = r$byAC$CountVariants$AlleleCount
@@ -198,7 +204,7 @@ addSection <- function(name) {
 # -------------------------------------------------------
 
 createMetricsBySamples <- function(VariantEvalRoot) {
-  bySampleEval <- expandVEReport(gsa.read.gatkreport(paste(VariantEvalRoot, ".bySample.eval", sep="")))
+  bySampleEval <- expandVEReport(selectCumulativeMetrics(gsa.read.gatkreport(paste(VariantEvalRoot,".bySampleByFunctionalClass.eval", sep="")),'FunctionalClass'))
   r = merge(bySampleEval$TiTvVariantEvaluator, bySampleEval$CountVariants)
   r = merge(r, bySampleEval$CompOverlap)
   if ( ! is.na(preQCFile) ) {
