@@ -43,10 +43,12 @@ import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.gcf.GCF;
 import org.broadinstitute.sting.utils.gcf.GCFHeader;
 import org.broadinstitute.sting.utils.gcf.GCFHeaderBuilder;
+import org.broadinstitute.sting.utils.gcf.GCFWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.*;
@@ -73,6 +75,9 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
 
     @Argument(fullName="verbose", shortName="verbose", doc="Number of raw reading iterations to perform", required=false)
     boolean VERBOSE = false;
+
+    @Argument(fullName="performanceTest", shortName="performanceTest", doc="Number of raw reading iterations to perform", required=false)
+    boolean performanceTest = false;
 
     @Argument(fullName="maxRecords", shortName="M", doc="Max. number of records to process", required=false)
     int MAX_RECORDS = -1;
@@ -160,74 +165,90 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
 
     private final void testGVCF() {
         try {
-            File vcfFile = getRodFile();
-            FileInputStream s = new FileInputStream(vcfFile);
+            final File vcfFile = getRodFile();
+            final File gvcfFile = new File(vcfFile.getName() + ".gcf");
+            final GCFWriter gcfWriter = new GCFWriter(gvcfFile, false, false);
             int counter = 0;
-            List<VariantContext> vcs = new ArrayList<VariantContext>();
-            VCFCodec codec = new VCFCodec();
-            AsciiLineReader lineReader = new AsciiLineReader(s);
-            codec.readHeader(lineReader);
+            final VCFCodec codec = new VCFCodec();
+            final AsciiLineReader lineReader = new AsciiLineReader(new FileInputStream(vcfFile));
+            VCFHeader header = (VCFHeader)codec.readHeader(lineReader);
+            gcfWriter.writeHeader(header);
 
-            timer.start();
-            while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
-                String line = lineReader.readLine();
-                VariantContext vc = (VariantContext)codec.decode(line);
-                vc.getNSamples(); // force parsing
-                vcs.add(vc);
+            final List<VariantContext> vcs = new ArrayList<VariantContext>();
+            if ( performanceTest ) {
+                logger.info("Beginning performance testing");
+                SimpleTimer vcfTimer = new SimpleTimer();
+                SimpleTimer gcfWriterTimer = new SimpleTimer();
+
+                vcfTimer.start();
+                while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
+                    String line = lineReader.readLine();
+                    if ( line == null )
+                        break;
+
+                    VariantContext vc = (VariantContext)codec.decode(line);
+                    vc.getNSamples(); // force parsing
+                    vcs.add(vc);
+                }
+                vcfTimer.stop();
+
+                gcfWriterTimer.start();
+                for ( VariantContext vc : vcs ) {
+                    // write GCF records
+                    gcfWriter.add(vc);
+                }
+                gcfWriter.close();
+                gcfWriterTimer.stop();
+
+                logger.info("Read  " + counter + " VCF records in " + vcfTimer.getElapsedTime());
+                logger.info("Wrote " + counter + " GCF records in " + gcfWriterTimer.getElapsedTime());
+            } else {
+                logger.info("Beginning size testing");
+                while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
+                    String line = lineReader.readLine();
+                    if ( line == null )
+                        break;
+
+                    VariantContext vc = (VariantContext)codec.decode(line);
+                    gcfWriter.add(vc);
+                }
+                gcfWriter.close();
             }
-            logger.info("Read " + vcs.size() + " VCF records in " + timer.getElapsedTime());
 
-            for ( boolean skipGenotypes : Arrays.asList(false, true) ) {
-                //for ( boolean skipGenotypes : Arrays.asList(true, false) ) {
-                logger.info("Converting to GVCF");
-                File gvcfFile = new File(vcfFile.getName() + ".gcf");
-                writeGVCF(gvcfFile, vcs, false);
-
-                timer.start();
-                readGVCF(gvcfFile, vcs, skipGenotypes);
-                logger.info("Read GVCF in " + timer.getElapsedTime() + " skipGenotypes = " + skipGenotypes);
+            if ( performanceTest ) {
+                for ( boolean skipGenotypes : Arrays.asList(false, true) ) {
+                    final SimpleTimer gcfReaderTimer = new SimpleTimer().start();
+                    readGVCF(gvcfFile, vcs, skipGenotypes);
+                    logger.info("Read GVCF in " + gcfReaderTimer.getElapsedTime() + " skipGenotypes = " + skipGenotypes);
+                }
             }
         } catch ( Exception e ) {
-
             throw new RuntimeException(e);
         }
     }
 
-    private void writeGVCF(File dest, List<VariantContext> vcs, boolean skipGenotypes) throws IOException {
-        GCFHeaderBuilder GCFHeaderBuilder = new GCFHeaderBuilder();
-        List<GCF> GCFs = new ArrayList<GCF>(vcs.size());
-        timer.start();
-        for ( VariantContext vc : vcs ) {
-            GCF GCF = new GCF(GCFHeaderBuilder, vc, skipGenotypes);
-            GCFs.add(GCF);
-        }
-        logger.info("Convert to GVCF in " + timer.getElapsedTime());
-
-        // write the output
-        DataOutputStream outputStream = GCF.createOutputStream(dest);
-        logger.info("Writing GVCF to " + dest);
-        GCFHeader GCFHeader = GCFHeaderBuilder.createHeader();
-        timer.start();
-        int nbytes = GCFHeader.write(outputStream);
-        for ( GCF GCF : GCFs) {
-            nbytes += GCF.write(outputStream);
-        }
-        logger.info("Wrote GVCF in " + timer.getElapsedTime());
-        outputStream.close();
-    }
-
     private void readGVCF(File source, List<VariantContext> vcs, boolean skipGenotypes) throws IOException {
-        DataInputStream inputStream = GCF.createInputStream(source);
+        FileInputStream fileInputStream = GCF.createFileInputStream(source);
+        DataInputStream inputStream = GCF.createDataInputStream(fileInputStream);
         logger.info("Reading GVCF from " + source);
-        GCFHeader GCFHeader = new GCFHeader(inputStream);
+        GCFHeader GCFHeader = new GCFHeader(fileInputStream);
 
         try {
-            for ( VariantContext vc : vcs ) {
-                if ( VERBOSE ) logger.info("Original VCF: " + vc);
-                GCF GCF = new GCF(inputStream, skipGenotypes);
-                VariantContext decoded = GCF.decode("gcf", GCFHeader);
-                //logger.info("GVCF        : " + gcf);
-                if ( VERBOSE ) logger.info("GVCF -> VCF : " + decoded);
+            if ( ! vcs.isEmpty() ) {
+                for ( VariantContext vc : vcs ) {
+                    if ( VERBOSE ) logger.info("Original VCF: " + vc);
+                    GCF GCF = new GCF(inputStream, skipGenotypes);
+                    VariantContext decoded = GCF.decode("gcf", GCFHeader);
+                    //logger.info("GVCF        : " + gcf);
+                    if ( VERBOSE ) logger.info("GVCF -> VCF : " + decoded);
+                }
+            } else {
+                while ( true ) {
+                    GCF GCF = new GCF(inputStream, skipGenotypes);
+                    VariantContext decoded = GCF.decode("gcf", GCFHeader);
+                    //logger.info("GVCF        : " + gcf);
+                    if ( VERBOSE ) logger.info("GVCF -> VCF : " + decoded);
+                }
             }
         } catch ( EOFException e ) {
             ; // done reading
@@ -236,81 +257,81 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         inputStream.close();
     }
 
-    private enum ReadMode { BY_BYTE, BY_LINE, BY_PARTS, DECODE_LOC, DECODE };
+private enum ReadMode { BY_BYTE, BY_LINE, BY_PARTS, DECODE_LOC, DECODE };
 
-    private final double readFile(File f, ReadMode mode) {
+private final double readFile(File f, ReadMode mode) {
         timer.start();
 
-        try {
-            byte[] data = new byte[100000];
-            FileInputStream s = new FileInputStream(f);
+try {
+        byte[] data = new byte[100000];
+FileInputStream s = new FileInputStream(f);
 
-            if ( mode == ReadMode.BY_BYTE ) {
-                while (true) {
-                    if ( s.read(data) == -1 )
-                        break;
-                }
-            } else {
-                int counter = 0;
-                VCFCodec codec = new VCFCodec();
-                String[] parts = new String[100000];
-                AsciiLineReader lineReader = new AsciiLineReader(s);
+if ( mode == ReadMode.BY_BYTE ) {
+        while (true) {
+        if ( s.read(data) == -1 )
+        break;
+}
+        } else {
+        int counter = 0;
+VCFCodec codec = new VCFCodec();
+String[] parts = new String[100000];
+AsciiLineReader lineReader = new AsciiLineReader(s);
 
-                if ( mode == ReadMode.DECODE_LOC || mode == ReadMode.DECODE )
-                    codec.readHeader(lineReader);
+if ( mode == ReadMode.DECODE_LOC || mode == ReadMode.DECODE )
+        codec.readHeader(lineReader);
 
-                while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
-                    String line = lineReader.readLine();
-                    if ( line == null )
-                        break;
-                    else if ( mode == ReadMode.BY_PARTS ) {
-                        ParsingUtils.split(line, parts, VCFConstants.FIELD_SEPARATOR_CHAR);
-                    }
-                    else if ( mode == ReadMode.DECODE_LOC ) {
-                        codec.decodeLoc(line);
-                    }
-                    else if ( mode == ReadMode.DECODE ) {
-                        processOneVC((VariantContext)codec.decode(line));
-                    }
-                }
-            }
-        } catch ( Exception e ) {
-            throw new RuntimeException(e);
+while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
+        String line = lineReader.readLine();
+if ( line == null )
+        break;
+else if ( mode == ReadMode.BY_PARTS ) {
+        ParsingUtils.split(line, parts, VCFConstants.FIELD_SEPARATOR_CHAR);
+}
+        else if ( mode == ReadMode.DECODE_LOC ) {
+        codec.decodeLoc(line);
+}
+        else if ( mode == ReadMode.DECODE ) {
+        processOneVC((VariantContext)codec.decode(line));
+}
         }
+        }
+        } catch ( Exception e ) {
+        throw new RuntimeException(e);
+}
 
         return timer.getElapsedTime();
-    }
-
-    private File getRodFile() {
-        List<ReferenceOrderedDataSource> rods = this.getToolkit().getRodDataSources();
-        ReferenceOrderedDataSource rod = rods.get(0);
-        return rod.getFile();
-    }
-
-    public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        if ( tracker == null ) // RodWalkers can make funky map calls
-            return 0;
-
-        VariantContext vc = tracker.getFirstValue(vcf, context.getLocation());
-        if ( vc != null )
-            processOneVC(vc);
-
-        return 0;
-    }
-
-    private static final void processOneVC(VariantContext vc) {
-        vc.getNSamples(); // force us to parse the samples
-    }
-
-    public Integer reduceInit() {
-        return 0;
-    }
-
-    public Integer reduce(Integer counter, Integer sum) {
-        return counter + sum;
-    }
-
-    public void onTraversalDone(Integer sum) {
-        out.printf("gatk.traversal\t%d\t%.2f%n", 0, timer.getElapsedTime());
-    }
 }
+
+private File getRodFile() {
+        List<ReferenceOrderedDataSource> rods = this.getToolkit().getRodDataSources();
+ReferenceOrderedDataSource rod = rods.get(0);
+return rod.getFile();
+}
+
+public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+        if ( tracker == null ) // RodWalkers can make funky map calls
+        return 0;
+
+VariantContext vc = tracker.getFirstValue(vcf, context.getLocation());
+if ( vc != null )
+        processOneVC(vc);
+
+return 0;
+}
+
+private static final void processOneVC(VariantContext vc) {
+        vc.getNSamples(); // force us to parse the samples
+}
+
+public Integer reduceInit() {
+        return 0;
+}
+
+public Integer reduce(Integer counter, Integer sum) {
+        return counter + sum;
+}
+
+public void onTraversalDone(Integer sum) {
+        out.printf("gatk.traversal\t%d\t%.2f%n", 0, timer.getElapsedTime());
+}
+        }
