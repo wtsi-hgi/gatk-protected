@@ -41,8 +41,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.tracks.RMDTrackBuilder;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
@@ -50,6 +49,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -63,8 +64,8 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     @Input(fullName="vcf", shortName = "vcf", doc="vcf", required=true)
     public RodBinding<VariantContext> vcf;
 
-    @Input(fullName="indexTest", shortName = "indexTest", doc="vcf", required=true)
-    public List<File> vcfsForIndexTest;
+    @Input(fullName="indexTest", shortName = "indexTest", doc="vcf", required=false)
+    public List<File> vcfsForIndexTest = Collections.emptyList();
 
     @Argument(fullName="nIterations", shortName="N", doc="Number of raw reading iterations to perform", required=false)
     int nIterations = 1;
@@ -85,7 +86,9 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         /** Just test decoding of the VCF file using the low-level tribble I/O system */
         JUST_TRIBBLE_DECODE,
         /** Just test the high-level GATK I/O system */
-        JUST_GATK
+        JUST_GATK,
+        /** Just test the VCF writing */
+        JUST_OUTPUT
     }
 
     SimpleTimer timer = new SimpleTimer("myTimer");
@@ -139,9 +142,12 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
                 out.printf("full.decode\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE));
             }
 
+            if ( EnumSet.of(ProfileType.ALL, ProfileType.JUST_OUTPUT).contains(profileType) ) {
+                out.printf("output.records\t%d\t%.2f%n", i, writeFile(rodFile));
+            }
         }
 
-        if ( EnumSet.of(ProfileType.JUST_TRIBBLE, ProfileType.JUST_TRIBBLE_DECODE).contains(profileType) )
+        if ( EnumSet.of(ProfileType.JUST_TRIBBLE, ProfileType.JUST_TRIBBLE_DECODE, ProfileType.JUST_OUTPUT).contains(profileType) )
             System.exit(0);
 
         timer.start(); // start up timer for map itself
@@ -185,6 +191,40 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
                     }
                 }
             }
+        } catch ( Exception e ) {
+            throw new RuntimeException(e);
+        }
+
+        return timer.getElapsedTime();
+    }
+
+    private final double writeFile(File f) {
+
+        try {
+            FileInputStream s = new FileInputStream(f);
+            AsciiLineReader lineReader = new AsciiLineReader(s);
+
+            VCFCodec codec = new VCFCodec();
+            VCFHeader header = (VCFHeader)codec.readHeader(lineReader);
+            ArrayList<VariantContext> VCs = new ArrayList<VariantContext>(10000);
+
+            int counter = 0;
+            while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
+                String line = lineReader.readLine();
+                if ( line == null )
+                    break;
+                VCs.add((VariantContext) codec.decode(line));
+            }
+
+            // now we start the timer
+            timer.start();
+
+            VCFWriter writer = new StandardVCFWriter(new File(f.getAbsolutePath() + ".test"));
+            writer.writeHeader(header);
+            for ( VariantContext vc : VCs )
+                writer.add(vc);
+            writer.close();
+
         } catch ( Exception e ) {
             throw new RuntimeException(e);
         }
