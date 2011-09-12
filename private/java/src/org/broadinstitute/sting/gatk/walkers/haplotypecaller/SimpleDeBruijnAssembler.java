@@ -19,9 +19,6 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private static final boolean DEBUG = true;
 
-    // k-mer length
-    //private static final int KMER_LENGTH = 41;
-
     // the additional size of a valid chunk of sequence, used to string together k-mers
     private static final int KMER_OVERLAP = 8;
 
@@ -67,7 +64,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private void createDeBruijnGraph(final List<byte[]> reads) {
 
         // create the graph
-        for(int kmer = 41; kmer <= 101; kmer += 20) {
+        for(int kmer = 41; kmer <= 101; kmer += 16) {
             createGraphFromSequences( reads, kmer );
         }
 
@@ -346,7 +343,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         // find them
-        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 25);
+        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 40);
 
         for ( final KBestPaths.Path path : bestPaths ) {
             final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
