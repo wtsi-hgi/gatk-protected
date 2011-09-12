@@ -219,7 +219,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
                     String bases = "";
                     for (byte b : consensusRead.getReadBases())
                         bases += (char) b;
-                    System.out.println(String.format("Output Read: %d-%d, Cigar: %s, Bases: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), bases));
+//                    System.out.println(String.format("Output Read: %d-%d, Cigar: %s, Bases: %s", consensusRead.getAlignmentStart(), consensusRead.getAlignmentEnd(), consensusRead.getCigarString(), bases));
                 }
 
 

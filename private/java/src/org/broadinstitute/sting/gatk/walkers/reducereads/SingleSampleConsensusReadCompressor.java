@@ -142,8 +142,8 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
         // create a new window if:
         if ((slidingWindow != null) &&
-            ( (!read.getReferenceName().equals(slidingWindow.getContig())) ||     // this is a brand new contig
-              (position - readContextSize > slidingWindow.getStopLocation()))) {  // this read is too far away from the end of the current sliding window
+            ( ( read.getReferenceIndex() != slidingWindow.getContigIndex() ) ||     // this is a brand new contig
+              (position - readContextSize > slidingWindow.getStopLocation()) ) ) {  // this read is too far away from the end of the current sliding window
 
             // close the current sliding window
             result.addAll(slidingWindow.close());

@@ -410,6 +410,10 @@ public class SlidingWindow {
         }
     }
 
+    public int getContigIndex() {
+        return contigIndex;
+    }
+
     /**
      * The element the composes the header of the sliding window.
      *
