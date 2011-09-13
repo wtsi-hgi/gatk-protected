@@ -64,7 +64,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private void createDeBruijnGraph(final List<byte[]> reads) {
 
         // create the graph
-        for(int kmer = 41; kmer <= 101; kmer += 16) {
+        for(int kmer = 41; kmer <= 101; kmer += 12) {
             createGraphFromSequences( reads, kmer );
         }
 
@@ -343,7 +343,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         // find them
-        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 40);
+        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 140);
 
         for ( final KBestPaths.Path path : bestPaths ) {
             final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
