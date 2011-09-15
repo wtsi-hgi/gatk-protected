@@ -97,7 +97,7 @@ class BatchedCallUnionMerger extends QScript {
     }
 
     var cVars : UGCallVariants = new UGCallVariants with CallVariantsArgs
-    cVars.variant ++= calcs.map( a => new TaggedFile(a.out, "VCF") )
+    cVars.variant ++= calcs.map( a => new TaggedFile(a.out, "VCF,custom=variant" + a.out.getName.replace(".vcf","")) )
     cVars.out = batchOut
     add(cVars)
   }
