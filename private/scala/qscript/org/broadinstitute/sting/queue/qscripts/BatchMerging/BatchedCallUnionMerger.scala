@@ -43,10 +43,10 @@ class BatchedCallUnionMerger extends QScript {
       this.scatterCount = 10
       this.memoryLimit=4
     }
+
     var combine : CombineVariants = new CombineVariants with CombineVariantsArgs
     combine.out = swapExt(batchOut,".vcf",".variant.combined.vcf")
-    combine.rodBind ++= vcfs.map( u => new RodBind(u.getName,"vcf",u) )
-
+    combine.variant ++= vcfs.map( u => new TaggedFile(u, "VCF") )
     add(combine)
 
     var getVariantAlleles : List[VCFExtractSites] = vcfs.map( u => new VCFExtractSites(u, swapExt(batchOut.getParent,u,".vcf",".alleles.vcf")) with ExtractArgs)
@@ -68,7 +68,7 @@ class BatchedCallUnionMerger extends QScript {
         this.baq = BAQ.CalculationMode.CALCULATE_AS_NECESSARY
       }
       this.intervals :+= extractIntervals.listOut
-      this.allelesVCF = combine.out
+      this.alleles = new TaggedFile(combine.out, "VCF")
       this.jarFile = new File(stingDir+"/dist/GenomeAnalysisTK.jar")
       this.memoryLimit = 4
       this.scatterCount = 60
@@ -97,7 +97,7 @@ class BatchedCallUnionMerger extends QScript {
     }
 
     var cVars : UGCallVariants = new UGCallVariants with CallVariantsArgs
-    cVars.rodBind ++= calcs.map( a => new RodBind("variant"+a.out.getName.replace(".vcf",""),"vcf",a.out) )
+    cVars.variant ++= calcs.map( a => new TaggedFile(a.out, "VCF") )
     cVars.out = batchOut
     add(cVars)
   }
