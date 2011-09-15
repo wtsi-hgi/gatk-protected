@@ -25,6 +25,9 @@ class ScatteredFullVariantAnnotator extends QScript {
   @Input(doc = "variant calls to annotate", fullName = "variantVCF", shortName = "C", required = true)
   var variantVCF: File = _
 
+  @Input(doc = "dbSNP annotations VCF file", fullName = "dbsnp", shortName = "D", required = false)
+  var dbsnp: File = _
+
   @Output(doc = "annotated file to output", shortName = "o", required = true)
   var outputAnnotated: File = _
 
@@ -54,6 +57,7 @@ class ScatteredFullVariantAnnotator extends QScript {
     this.scatterCount = qscript.scatterCount
     this.variant = qscript.variantVCF
     this.useAllAnnotations = true
+    this.dbsnp = qscript.dbsnp
     this.out = qscript.outputAnnotated
   }
 }
