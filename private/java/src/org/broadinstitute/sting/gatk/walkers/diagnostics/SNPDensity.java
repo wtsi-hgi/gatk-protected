@@ -26,7 +26,9 @@
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -36,16 +38,17 @@ import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
-import java.util.EnumSet;
 
 /**
  * Computes the density of SNPs passing and failing filters in intervals on the genome and emits a table for display
  */
 @By(DataSource.REFERENCE)
-@Requires(value={},referenceMetaData=@RMD(name="eval",type=VariantContext.class))
 public class SNPDensity extends RefWalker<Pair<VariantContext, GenomeLoc>, SNPDensity.Counter> {
     @Output
     private PrintStream out;
+
+    @Input(fullName="eval", shortName = "eval", doc="The eval ROD", required=true)
+    public RodBinding<VariantContext> eval;
 
     @Argument(fullName="granularity", shortName="granularity", doc="", required=false)
     private int granularity = 1000000;
@@ -68,7 +71,7 @@ public class SNPDensity extends RefWalker<Pair<VariantContext, GenomeLoc>, SNPDe
     }
 
     public Pair<VariantContext, GenomeLoc> map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        VariantContext vc = tracker.getVariantContext(ref, "eval", EnumSet.of(VariantContext.Type.SNP), context.getLocation(), false);
+        VariantContext vc = tracker.getFirstValue(eval);
         return new Pair<VariantContext, GenomeLoc>(vc, context.getLocation());
     }
 

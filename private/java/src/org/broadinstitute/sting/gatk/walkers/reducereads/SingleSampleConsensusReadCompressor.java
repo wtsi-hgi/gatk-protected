@@ -1,24 +1,11 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import com.google.java.contract.Ensures;
-import com.google.java.contract.Requires;
-import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.clipreads.ClippingOp;
-import org.broadinstitute.sting.utils.clipreads.ClippingRepresentation;
-import org.broadinstitute.sting.utils.clipreads.ReadClipper;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.pileup.PileupElement;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
 
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
 
 /*
  * Copyright (c) 2009 The Broad Institute
@@ -52,6 +39,7 @@ import java.util.*;
  */
 public class SingleSampleConsensusReadCompressor implements ConsensusReadCompressor {
     protected static final Logger logger = Logger.getLogger(SingleSampleConsensusReadCompressor.class);
+    /*
     private static final boolean DEBUG = false;
     private static final boolean INVERT = false;
     private static final boolean PRINT_CONSENSUS_READS = false;
@@ -60,43 +48,41 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     private static final ClippingRepresentation VARIABLE_READ_REPRESENTATION = ClippingRepresentation.SOFTCLIP_BASES;
     private static final double MIN_FRACT_BASES_FOR_VARIABLE_READ = 0.33;  // todo -- should be variable
     private static final int MIN_BASES_IN_VARIABLE_SPAN_TO_INCLUDE_READ = 10;
-    protected final static String RG_POSTFIX = ".ReducedReads";
-    public final static int REDUCED_READ_BASE_QUALITY = 30;
+    */
+
+    private final static String RG_POSTFIX = ".ReducedReads";
 
     // todo  -- should merge close together spans
+    // TODO WE WANT TO PUT ALL functions is SlidingWindow
+    // TODO comment out unused code
+    private final int readContextSize;
+    private final int AverageDepthAtVariableSites;
+    private int minMappingQuality;
+    private int slidingWindowCounter;
 
-    /** The place where we ultimately write out our records */
-    Queue<SAMRecord> waitingReads = new LinkedList<SAMRecord>();
+    private final SAMReadGroupRecord reducedReadGroup;
 
-    final int readContextSize;
-    final int AverageDepthAtVariableSites;
-    final int minBpForRunningConsensus;
-    final int QualityEquivalent;
-    final int minMapQuality;
-    int retryTimer = 0;
-    int consensusCounter = 0;
-    int rms = 0;
+    private SlidingWindow slidingWindow;
+    private double minAltProportionToTriggerVariant;
+    private int minBaseQual;
+    private int maxQualCount;
 
-    final SAMReadGroupRecord reducedReadGroup;
-    String contig = null;
-    final GenomeLocParser glParser;
-    SAMFileHeader header;
-    GenomeLoc lastProcessedRegion = null;
 
     public SingleSampleConsensusReadCompressor(final String sampleName,
                                                final int readContextSize,
-                                               final GenomeLocParser glParser,
-                                               final int minBpForRunningConsensus,
                                                final int AverageDepthAtVariableSites,
-                                               final int qualityEquivalent,
-                                               final int minMapQuality) {
+                                               final int minMappingQuality,
+                                               final double minAltProportionToTriggerVariant,
+                                               final int minBaseQual,
+                                               final int maxQualCount) {
         this.readContextSize = readContextSize;
-        this.glParser = glParser;
-        this.minBpForRunningConsensus = minBpForRunningConsensus;
         this.AverageDepthAtVariableSites = AverageDepthAtVariableSites;
         this.reducedReadGroup = createReducedReadGroup(sampleName);
-        this.QualityEquivalent = qualityEquivalent;
-        this.minMapQuality = minMapQuality;
+        this.minMappingQuality = minMappingQuality;
+        this.slidingWindowCounter = 0;
+        this.minAltProportionToTriggerVariant = minAltProportionToTriggerVariant;
+        this.minBaseQual = minBaseQual;
+        this.maxQualCount = maxQualCount;
     }
 
     /**
@@ -125,407 +111,60 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
      */
     @Override
     public Iterable<SAMRecord> addAlignment( SAMRecord read ) {
-        if ( contig == null )
-            contig = read.getReferenceName();
-        if ( ! read.getReferenceName().equals(contig) )
-            throw new ReviewedStingException("ConsensusRead system doesn't support multiple contig processing right now");
 
-        if ( header == null )
-            header = read.getHeader();
+        /**
+         * Steps to adding alignment:
+         *
+         * 1 - Slide the current window if we can.
+         * 2 - If necessary, close and create a new window.
+         * 3 - Add read to the window
+         *
+         *
+         * When adding read to the window, handle 3 types of reads :
+         *  1 - Read is fully contained by current sliding window
+         *    * add read to the sliding window -- simple case
+         *  2 - Read is partially contained by current sliding window (left side is inside, right side is outside)
+         *    * increase the sliding window to accommodate the new read
+         *  3 - Read is completely outside of the sliding window
+         *    * close current sliding window and create a new one
+         *
+         * Notes:
+         *  - The starting position of the incoming read must be the unclipped end because reads may have been trimmed
+         *  and the next read start can be smaller than the current incoming read's alignmentStart, but never smaller
+         *  than the unclippedStart.
+         *
+         *  - The size of the sliding window has to include the context size (to the right).
+         *
+         */
 
-        if ( ! waitingReads.isEmpty() && read.getAlignmentStart() < waitingReads.peek().getAlignmentStart() )
-            throw new ReviewedStingException(
-                    String.format("Adding read %s starting at %d before current queue head start position %d",
-                            read.getReadName(), read.getAlignmentStart(), waitingReads.peek().getAlignmentStart()));
+        List<SAMRecord> result = new LinkedList<SAMRecord>();
+        int position = read.getUnclippedStart();
 
-        Collection<SAMRecord> result = Collections.emptyList();
-        if ( retryTimer == 0 ) {
-            if ( chunkReadyForConsensus(read) ) {
-                result = consensusReads(false);
-            }
-        } else {
-            //logger.info("Retry: " + retryTimer);
-            retryTimer--;
+        // create a new window if:
+        if ((slidingWindow != null) &&
+            ( (!read.getReferenceName().equals(slidingWindow.getContig())) ||     // this is a brand new contig
+              (position - readContextSize > slidingWindow.getStopLocation()))) {  // this read is too far away from the end of the current sliding window
+
+            // close the current sliding window
+            result.addAll(slidingWindow.close());
+            slidingWindow = null;  // so we create a new one on the next if
         }
 
-        waitingReads.add(read);
+        if ( slidingWindow == null) {       // this is the first read
+            slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), readContextSize,
+                                              read.getHeader(), read.getAttribute("RG"), slidingWindowCounter,
+                                              minAltProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
+            slidingWindowCounter++;
+        }
 
+        result.addAll(slidingWindow.addRead(read));
         return result;
     }
 
     @Override
-    public Iterable<SAMRecord> close() {
-        return consensusReads(true);
+    public List<SAMRecord> close() {
+        return (slidingWindow != null) ? slidingWindow.close() : new LinkedList<SAMRecord>();
     }
 
-    // ------------------------------------------------------------------------------------------
-    //
-    // private implementation functions
-    //
-    // ------------------------------------------------------------------------------------------
-
-    // Determines whether consensus size is above MBRC
-    private boolean chunkReadyForConsensus(SAMRecord read) {
-        if ( ! waitingReads.isEmpty() ) {
-            SAMRecord firstRead = waitingReads.iterator().next();
-            int refStart = firstRead.getAlignmentStart();
-            int refEnd = read.getAlignmentStart();
-            int size = refEnd - refStart;
-            return size > minBpForRunningConsensus;
-        } else
-            return false;
-    }
-
-//
-//    public void writeConsensusBed(PrintStream bedOut) {
-//        for ( ConsensusSite site : calculateConsensusSites(waitingReads) ) {
-//            GenomeLoc loc = site.getLoc();
-//            bedOut.printf("%s\t%d\t%d\t%s%n", loc.getContig(), loc.getStart()-1, loc.getStop(), site.counts);
-//        }
-//    }
-
-    private Collection<SAMRecord> consensusReads(boolean useAllRemainingReads) {
-        if ( ! waitingReads.isEmpty() ) {
-            logger.info("Calculating consensus reads");
-            // sites of overlap
-            List<ConsensusSite> sites = calculateConsensusSites(waitingReads, useAllRemainingReads, lastProcessedRegion);
-            // spans of non-variance
-            List<ConsensusSpan> rawSpans = calculateSpans(sites);
-            List<ConsensusSpan> spans = useAllRemainingReads ? rawSpans : excludeFinalSpan(rawSpans);
-
-            if ( ! spans.isEmpty() ) {
-                lastProcessedRegion = spannedRegion(spans);
-                logger.info("Processing region: " + lastProcessedRegion);
-                updateWaitingReads(sites, spans);
-                return consensusReadsFromSitesAndSpans(sites, spans);
-            } else {
-                logger.info("Danger, spans is empty, may experience poor performance at: " + spannedRegion(rawSpans));
-                retryTimer = CYCLES_BEFORE_RETRY;
-                return Collections.emptyList();
-            }
-        } else {
-            return Collections.emptyList();
-        }
-    }
-
-    private static final List<ConsensusSpan> excludeFinalSpan(List<ConsensusSpan> rawSpans) {
-        logger.info("Dropping final, potentially incomplete span: " + rawSpans.get(rawSpans.size()-1));
-        return rawSpans.subList(0, rawSpans.size() - 1);
-    }
-
-    // generates the net range of all spans
-    private static final GenomeLoc spannedRegion(List<ConsensusSpan> spans) {
-        GenomeLoc region = spans.get(0).loc;
-        for ( ConsensusSpan span : spans )
-            region = region.merge(span.loc);
-        return region;
-    }
-
-    // adds the site's reads to unprocessed and sorts them
-    private void updateWaitingReads(List<ConsensusSite> sites, List<ConsensusSpan> spans) {
-        ConsensusSpan lastSpan = spans.get(spans.size() - 1);
-        Set<SAMRecord> unprocessedReads = new HashSet<SAMRecord>();
-
-        for ( ConsensusSite site : sites.subList(lastSpan.getOffsetFromStartOfSites() + 1, sites.size()) ) { // from offset of last span (size) to size)
-            for ( PileupElement p : site.getOverlappingReads() )
-                unprocessedReads.add(p.getRead());
-        }
-
-        logger.info(String.format("Updating waiting reads: old=%d reads, new=%d reads", waitingReads.size(), unprocessedReads.size()));
-        waitingReads = new LinkedList<SAMRecord>(ReadUtils.coordinateSortReads(new ArrayList<SAMRecord>(unprocessedReads)));
-    }
-
-    // tags context sie variant as variable, otherwise conserved
-    private List<ConsensusSite> expandVariableSites(List<ConsensusSite> sites) {
-        for ( ConsensusSite site : sites )
-            site.setMarkedType(ConsensusSpan.Type.CONSERVED);
-
-        for ( int i = 0; i < sites.size(); i++ ) {
-            ConsensusSite site = sites.get(i);
-            if ( ! site.isStrongConsensus(MAX_FRACTION_DISAGREEING_BASES) ) {
-                int start = Math.max(i - readContextSize, 0);
-                int stop = Math.min(sites.size(), i + readContextSize + 1);
-                for ( int j = start; j < stop; j++ ) {
-                    // aggressive tagging -- you are only conserved if you are never variable
-                    sites.get(j).setMarkedType(ConsensusSpan.Type.VARIABLE);
-                }
-            }
-        }
-
-        return sites;
-    }
-
-    // Creates a list of spans that do not have variance
-    private List<ConsensusSpan> calculateSpans(List<ConsensusSite> rawSites /* every read overlap */) {
-        List<ConsensusSite> sites = expandVariableSites(rawSites);  // Variants + CS are tagged as variable
-        List<ConsensusSpan> spans = new ArrayList<ConsensusSpan>();
-        int start = 0;
-
-        // our first span type is the type of the first site
-        ConsensusSpan.Type consensusType = sites.get(0).getMarkedType();
-        while ( start < sites.size() ) {
-            ConsensusSpan span = findSpan(sites, start, consensusType);
-
-            if ( span == null ) // we are done
-                return spans;
-            else {
-                spans.add(span);
-                start += span.size();
-            }
-
-            consensusType = ConsensusSpan.Type.otherType(consensusType);
-        }
-
-        return spans;
-    }
-
-
-    //returns a span of non variable sites
-    private ConsensusSpan findSpan(List<ConsensusSite> sites, int start, ConsensusSpan.Type consensusType) {
-        int refStart = sites.get(0).getPosition();
-
-        for ( int end = start + 1; end < sites.size(); end++ ) {
-            ConsensusSite site = sites.get(end);
-            boolean conserved = site.getMarkedType() == ConsensusSpan.Type.CONSERVED;
-            if ( (consensusType == ConsensusSpan.Type.CONSERVED && ! conserved) ||
-                 (consensusType == ConsensusSpan.Type.VARIABLE && conserved) ||
-                 end + 1 == sites.size() ) { // we are done with the complete interval
-                GenomeLoc loc = glParser.createGenomeLoc(contig, start+refStart, end+refStart-1);
-                return new ConsensusSpan(refStart, loc, consensusType);
-            }
-        }
-
-        return null; // couldn't find anything
-    }
-
-
-    // creates a list of consensus sites by adding every read's overlap to a list
-    private List<ConsensusSite> calculateConsensusSites(Collection<SAMRecord> reads, boolean useAllRemainingReads, GenomeLoc lastProcessedRegion) {
-        List<ConsensusSite> consensusSites = createEmptyConsensusSites(reads, lastProcessedRegion);
-        int refStart = consensusSites.get(0).getPosition();
-
-        for ( SAMRecord read : reads ) {
-            for ( RefPileupElement p : RefPileupElement.walkRead(read, refStart) ) {
-                // add to the consensus at this site
-                if ( p.getRefOffset() >= consensusSites.size() )
-                    throw new ReviewedStingException("BUG: ref offset off the consensus site list: " + p.getRead() + " at " + p.getRefOffset());
-                consensusSites.get(p.getRefOffset()).addOverlappingRead(p);
-            }
-        }
-
-        return consensusSites;
-    }
-
-    private static List<ConsensusSite> createEmptyConsensusSites(Collection<SAMRecord> reads, GenomeLoc lastProcessedRegion) {
-        SAMRecord firstRead = reads.iterator().next();
-
-        int minStart = lastProcessedRegion == null ? -1 : lastProcessedRegion.getStop() + 1;
-        int refStart = Math.max(firstRead.getAlignmentStart(), minStart);
-        int refEnd = furtherestEnd(reads);
-
-        logger.info("Calculating sites for region " + refStart + " to " + refEnd);
-        // set up the consensus site array
-        List<ConsensusSite> consensusSites = new ArrayList<ConsensusSite>();
-        int len = refEnd - refStart + 1;
-        for ( int i = 0; i < len; i++ ) {
-            int position = refStart + i;
-            //GenomeLoc loc = glParser.createGenomeLoc(contig, l, l);
-            consensusSites.add(new ConsensusSite(position, i));
-        }
-
-        return consensusSites;
-    }
-
-    // Decides how to treat each read
-    private List<SAMRecord> consensusReadsFromSitesAndSpans(List<ConsensusSite> sites, List<ConsensusSpan> spans) {
-        List<SAMRecord> reads = new ArrayList<SAMRecord>();
-
-        for ( ConsensusSpan span : spans ) {
-            //logger.info("Span is " + span);
-            if ( span.isConserved() ) {
-                processReads();
-                reads.addAll(conservedSpanReads(sites, span));
-            }
-            else
-                reads.addAll(downsample(variableSpanReads(sites, span), span));
-        }
-
-        return reads;
-    }
-
-    private void processReads() {
-
-        long sum = 0;
-        Queue<SAMRecord> temp = new LinkedList<SAMRecord>();
-        while ( ! waitingReads.isEmpty() ) {
-            SAMRecord read = waitingReads.remove();
-            if ( read.getMappingQuality() >= minMapQuality )  {
-                temp.add(read);
-                sum += Math.pow( read.getMappingQuality() , 2 );
-            }
-        }
-        waitingReads.addAll(temp);
-        int n = waitingReads.size();
-        rms = (int)Math.sqrt( sum / n );
-    }
-
-    /**
-     * Downsamples the reads until we have 2x the ideal target depth in the span.
-     *
-     * todo: perhaps it would be better to smooth coverage, so that the probability of
-     * todo: retaining a read would be proportional to the over-coverage of each site
-     *
-     * @param reads
-     * @param span
-     * @return
-     */
-    // Randomly reduce reads some how?
-    private Collection<SAMRecord> downsample(Collection<SAMRecord> reads, ConsensusSpan span) {
-        // ideally, we would have exactly span bp at target depth, x2 for the directionality of reads
-        int idealBPinSpan = span.size() * AverageDepthAtVariableSites * 2;
-        int rawBPinSpan = readsBP(reads);
-
-        // The chance we want to keep a particular bp is ideal / actual
-        double pKeepPerBP = (1.0 * idealBPinSpan) / rawBPinSpan;
-
-        if ( pKeepPerBP >= 1.0 ) { // not enough coverage
-            return reads;
-        } else { // we don't need to downsample
-            List<SAMRecord> downsampled = new ArrayList<SAMRecord>();
-            for ( SAMRecord read : reads ) {
-                // should this be proportional to read length?
-                double pKeep = pKeepPerBP; //  * read.getReadLength();
-                if ( GenomeAnalysisEngine.getRandomGenerator().nextDouble() < pKeep ) {  // Random Value?
-                    downsampled.add(read);
-                }
-            }
-
-            logger.info(String.format("targetDepth=%d, idealBP=%d, rawBP=%d, pKeepPerBP=%.2e, nRawReads=%d, nKeptReads=%d, keptBP=%d",
-                    AverageDepthAtVariableSites, idealBPinSpan, rawBPinSpan, pKeepPerBP, reads.size(), downsampled.size(), readsBP(downsampled)));
-            return downsampled;
-        }
-    }
-
-    private static final int readsBP(Collection<SAMRecord> reads) {
-        int sum = 0;
-        for ( SAMRecord read : reads ) sum += read.getReadLength();
-        return sum;
-    }
-
-    // Returns the consensus read given the sites of overlap and the span
-    private List<SAMRecord> conservedSpanReads(List<ConsensusSite> sites, ConsensusSpan span) {
-
-        byte[] bases = new byte[span.size()];
-        byte[] quals = new byte[span.size()];
-
-        for ( int i = 0; i < span.size(); i++ ) {
-            int refI = i + span.getOffsetFromStartOfSites();
-            ConsensusSite site = sites.get(refI); // converts span index to sites index
-            if ( site.getMarkedType() == ConsensusSpan.Type.VARIABLE )
-                throw new ReviewedStingException("Variable site included in consensus: " + site);
-            int count = 0;
-            for ( PileupElement p : site.overlappingReads) {
-                if ((p.getBase() == site.counts.baseWithMostCounts()) && (p.getQual() >= QualityEquivalent )) // Minimum Read qual
-                    count++;
-            }
-            //final int count = site.counts.countOfMostCommonBase();
-            byte base = count == 0 ? (byte)'N' : site.counts.baseWithMostCounts();
-            if ( !BaseUtils.isRegularBase(base) ) {
-                // todo -- this code needs to be replaced with cigar building code as well
-                logger.warn("Substituting N for non-regular consensus base " + (char)base);
-                base = (byte)'N';
-            }
-
-            bases[i] = base;
-            quals[i] = QualityUtils.boundQual(count, (byte)64);   //fake quality score here
-        }
-
-        //read header stuff
-        SAMRecord consensus = new SAMRecord(header);
-        consensus.setAttribute("RG", reducedReadGroup.getId());
-        consensus.setAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG, Integer.valueOf(REDUCED_READ_BASE_QUALITY)); //Also problems: Should it be avg
-        consensus.setAttribute("QE", QualityEquivalent);    // Qual equivs
-        consensus.setReferenceName(contig);
-        consensus.setReadName(String.format("%s.read.%d", reducedReadGroup.getId(), consensusCounter++));
-        consensus.setReadPairedFlag(false);
-        consensus.setReadUnmappedFlag(false);
-        consensus.setCigarString(String.format("%dM", span.size()));
-        consensus.setAlignmentStart(span.getGenomeStart());
-        consensus.setReadBases(bases);
-        consensus.setBaseQualities(quals);
-        consensus.setMappingQuality(rms);  // MQ is root mean square of all reads
-
-//        if ( INVERT && PRINT_CONSENSUS_READS )
-//            for ( SAMRecord read : consensusReads )
-//                finalDestination.addAlignment(read);
-
-        return Collections.singletonList(consensus);
-    }
-
-    @Requires({"sites != null", "span.isVariable()"})
-    @Ensures("result != null")
-    //  Handles variable span reads
-    private Collection<SAMRecord> variableSpanReads(List<ConsensusSite> sites, ConsensusSpan span) {
-        Collection<SAMRecord> reads = new LinkedList<SAMRecord>();
-        Set<String> readNames = new HashSet<String>();
-
-        for ( int i = 0; i < span.size(); i++ ) {
-            int refI = i + span.getOffsetFromStartOfSites();
-
-            for ( PileupElement p : sites.get(refI).getOverlappingReads() ) {
-                if ( readNames.contains(p.getRead().getReadName()) ) {
-                    ;
-                    //logger.info("Rejecting already seen read: " + p.getRead().getReadName());
-                } else {
-                    readNames.add(p.getRead().getReadName());
-                    SAMRecord read = clipReadToSpan(p.getRead(), span);
-                    if ( keepClippedReadInVariableSpan(p.getRead(), read) )
-                        reads.add(read);
-                }
-            }
-        }
-
-        return reads;
-    }
-
-    // Says if the reads can be included in variable span
-    private final static boolean keepClippedReadInVariableSpan(SAMRecord originalRead, SAMRecord variableRead) {
-        int originalReadLength = originalRead.getReadLength();
-        int variableReadLength = variableRead.getReadLength();
-
-        return variableReadLength >= MIN_BASES_IN_VARIABLE_SPAN_TO_INCLUDE_READ;
-//        &&
-//                ((1.0 * variableReadLength) / originalReadLength) >= MIN_FRACT_BASES_FOR_VARIABLE_READ;
-    }
-
-    // Clips extra read stuff outside of span
-    private SAMRecord clipReadToSpan(SAMRecord read, ConsensusSpan span) {
-        ReadClipper clipper = new ReadClipper(read);
-        int spanStart = span.getGenomeStart();
-        int spanEnd = span.getGenomeStop();
-        int readLen = read.getReadLength();
-
-        for ( RefPileupElement p : RefPileupElement.walkRead(read) ) {
-            // clip extra stuff at beginning
-            if ( p.getRefOffset() == spanStart && p.getOffset() != 0 ) {
-                clipper.addOp(new ClippingOp(0, p.getOffset() - 1));
-            }
-
-            // clip extra stuff at end
-            if ( p.getRefOffset() == spanEnd && p.getOffset() != readLen - 1 ) {
-                clipper.addOp(new ClippingOp(p.getOffset() + 1, readLen - 1));
-            }
-        }
-
-        SAMRecord softClipped = clipper.clipRead(VARIABLE_READ_REPRESENTATION);
-        return ReadUtils.hardClipSoftClippedBases(softClipped);
-    }
-
-    private static int furtherestEnd(Collection<SAMRecord> reads) {
-        int end = -1;
-        for ( SAMRecord read : reads ) {
-            end = Math.max(end, read.getAlignmentEnd());
-        }
-        return end;
-    }
 }
+

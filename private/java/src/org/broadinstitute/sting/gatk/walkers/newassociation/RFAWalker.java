@@ -12,7 +12,6 @@ import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.gatk.walkers.newassociation.features.ReadFeatureAggregator;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.collections.Pair;
@@ -30,8 +29,8 @@ import java.util.*;
  * todo -- for most features there's a nuisance variable which is the proportion of *paired* reads, perhaps a pair-only setting for read features
  */
 
-@ReadFilters({MaxInsertSizeFilter.class,MappingQualityReadFilter.class,DuplicateReadFilter.class,
-        FailsVendorQualityCheckReadFilter.class,NotPrimaryAlignmentReadFilter.class,UnmappedReadFilter.class,
+@ReadFilters({MaxInsertSizeFilter.class,MappingQualityFilter.class,DuplicateReadFilter.class,
+        FailsVendorQualityCheckFilter.class,NotPrimaryAlignmentFilter.class,UnmappedReadFilter.class,
         AddAberrantInsertTagFilter.class})
 public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
     // todo -- this needs to be an argument collection that can get passed around to initialize read features etc

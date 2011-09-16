@@ -27,7 +27,9 @@ package org.broadinstitute.sting.gatk.walkers.genotypeLikelhoodCalibration;
 
 import net.sf.samtools.SAMReadGroupRecord;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -53,17 +55,18 @@ import java.util.*;
  *
  * @author depristo
  * @since May, 2011
- * @help.summary Computes raw GL calibration data for read groups in BAMs against a comp VCF track of genotypes
  */
 
-@Requires(value={DataSource.READS, DataSource.REFERENCE},referenceMetaData=@RMD(name="alleles",type=VariantContext.class))
+@Requires(value={DataSource.READS, DataSource.REFERENCE})
 @Allows(value={DataSource.READS, DataSource.REFERENCE})
 
 // Ugly fix because RodWalkers don't have access to reads
 @By(DataSource.REFERENCE)
 @Reference(window=@Window(start=-200,stop=200))
 public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLikelihoods.Data, CalibrateGenotypeLikelihoods.Data> implements TreeReducible<CalibrateGenotypeLikelihoods.Data> {
-    public static final String COMP_NAME = "alleles";
+
+    @Input(fullName="alleles", shortName = "alleles", doc="The set of alleles at which to genotype when in GENOTYPE_MODE = GENOTYPE_GIVEN_ALLELES", required=false)
+    public RodBinding<VariantContext> alleles;
 
     @Argument(fullName="minimum_base_quality_score", shortName="mbq", doc="Minimum base quality score for calling a genotype", required=false)
     private int mbq = -1;
@@ -138,17 +141,10 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         if ( samples.size() > 1 ) // todo -- remove me when we support multiple samples
             throw new UserException.BadInput("CalibrateGenotypeLikelihoods does not currently support comparison of multiple samples simulatenously.  To enable, see TODO in code");
 
-        List<ReferenceOrderedDataSource> rodList = this.getToolkit().getRodDataSources();
-        if ( rodList.size() != 1 )
-            throw new UserException.BadInput("You should provide exactly one genotype VCF");
-        if ( !rodList.get(0).getName().equals(COMP_NAME))
-            throw new UserException.BadInput("The ROD track has to be named \""+ COMP_NAME +"\". Not " + rodList.get(0).getName());
-
         // Filling in SNP calling arguments for UG
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
         uac.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES;
         uac.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES;
-        uac.NO_SLOD = true;
         if (mbq >= 0) uac.MIN_BASE_QUALTY_SCORE = mbq;
         if (deletions >= 0) uac.MAX_DELETION_FRACTION = deletions;
         uac.STANDARD_CONFIDENCE_FOR_CALLING = callConf;
@@ -170,18 +166,18 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     //
     //---------------------------------------------------------------------------------------------------------------
     public Data map( RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context ) {
-        if ( tracker == null || tracker.getNBoundRodTracks() == 0 )
+        if ( tracker == null || tracker.getNTracksWithBoundFeatures() == 0 )
             return Data.EMPTY_DATA;
 
         // Grabs a usable VariantContext from the Alleles ROD
-        VariantContext vcComp = SNPGenotypeLikelihoodsCalculationModel.getSNPVCFromAllelesRod(tracker, ref, false, logger);
+        VariantContext vcComp = UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, snpEngine.getUAC().alleles );
         if( vcComp == null )
             return Data.EMPTY_DATA;
 
         Data data = new Data();
         for ( String sample : samples ) {
             // What's the genotype of our sample at this record?
-            Genotype compGT = getGenotype(tracker, ref, sample, COMP_NAME);
+            Genotype compGT = getGenotype(tracker, ref, sample);
             if ( compGT == null || compGT.isNoCall() )
                 continue;
 
@@ -222,11 +218,10 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
      * @param tracker
      * @param ref
      * @param sample
-     * @param rod
      * @return
      */
-    private Genotype getGenotype(RefMetaDataTracker tracker, ReferenceContext ref, String sample, String rod) {
-        for ( VariantContext vc : tracker.getVariantContexts(ref, rod, null, ref.getLocus(), true, false) ) {
+    private Genotype getGenotype(RefMetaDataTracker tracker, ReferenceContext ref, String sample) {
+        for ( VariantContext vc : tracker.getValues(alleles, ref.getLocus()) ) {
             if ( vc.isNotFiltered() && vc.hasGenotype(sample) )
                 return vc.getGenotype(sample);
             else

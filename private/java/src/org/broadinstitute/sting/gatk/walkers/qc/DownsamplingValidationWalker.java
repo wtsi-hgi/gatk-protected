@@ -25,11 +25,14 @@
 package org.broadinstitute.sting.gatk.walkers.qc;
 
 import net.sf.samtools.SAMRecord;
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.features.samread.SAMReadFeature;
+import org.broadinstitute.sting.utils.codecs.samread.SAMReadFeature;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
@@ -43,15 +46,18 @@ import java.util.Collection;
  * possibly be a valid version of the full pileup.
  *
  * @author mhanna
- * @version 0.1
  */
 public class DownsamplingValidationWalker extends LocusWalker<Integer,Long> {
+
+    @Input(fullName="reads", shortName = "reads", doc="ROD representing original reads", required=false)
+    public RodBinding<Feature> features;
+
     @Argument(fullName="max_expected_number_of_reads",shortName="menr",doc="The expected number of reads chosed by the downsampler.  Fewer than this number might be added to a given alignment start, but more than this should never be.",required=true)
     private int maxExpectedNumberOfReads = 0;
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         ReadBackedPileup pileup = context.getBasePileup();
-        Collection<Object> allFeatures = tracker.getReferenceMetaData("reads");
+        Collection<Feature> allFeatures = tracker.getValues(features);
 
         Collection<SAMReadFeature> unsampledReadsStartingAtThisLocus = new ArrayList<SAMReadFeature>();
         for(Object featureCandidate: allFeatures) {

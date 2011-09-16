@@ -25,7 +25,9 @@
 package org.broadinstitute.sting.gatk.walkers.phasing.Haplotypes;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -54,6 +56,9 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
 
     @Argument(doc = "sample to emit", required = false)
     protected String sample = null;
+
+    @ArgumentCollection
+    protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
     private boolean prevHadInheritanceInfo;
     private GenomeLoc prevLoc;
@@ -85,7 +90,7 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
         if (prevLoc == null || prevLoc.compareContigs(curLocus) != 0)
             prevHadInheritanceInfo = true;
 
-        Collection<VariantContext> vcs = tracker.getAllVariantContexts(ref, curLocus);
+        Collection<VariantContext> vcs = tracker.getValues(variantCollection.variants, curLocus);
         for (VariantContext vc : vcs) {
             if (vc.isFiltered())
                 continue;

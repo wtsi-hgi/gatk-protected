@@ -25,7 +25,9 @@
 package org.broadinstitute.sting.gatk.walkers.phasing;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -54,6 +56,9 @@ public class PhasingEval extends RodWalker<Integer, Integer> {
 
     @Argument(doc = "Analysis to perform", required = true)
     protected Analysis analysis;
+
+    @ArgumentCollection
+    protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
     public enum Analysis {
         PHASING_BY_AC
@@ -85,7 +90,7 @@ public class PhasingEval extends RodWalker<Integer, Integer> {
         if (tracker == null) // RodWalkers can make funky map calls
             return 0;
 
-        Collection<VariantContext> vcs = tracker.getAllVariantContexts(ref, context.getLocation());
+        Collection<VariantContext> vcs = tracker.getValues(variantCollection.variants);
         for (VariantContext vc : vcs) {
             if (sample != null)
                 vc = vc.subContextFromGenotypes(vc.getGenotype(sample));

@@ -26,7 +26,9 @@
 package org.broadinstitute.sting.gatk.walkers.variantutils;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -43,11 +45,11 @@ import java.util.*;
 /**
  * Converts variants from the Complete Genomics VAR format to VCF format.
  */
-@Requires(value={},referenceMetaData=@RMD(name=CGVarToVCF.INPUT_ROD_NAME, type=VariantContext.class))
 @Reference(window=@Window(start=-40,stop=400))
 public class CGVarToVCF extends RodWalker<Integer, Integer> {
 
-    public static final String INPUT_ROD_NAME = "variant";
+    @ArgumentCollection
+    protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
     @Output(doc="File to which variants should be written", required=true)
     protected VCFWriter vcfWriter = null;
@@ -65,7 +67,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
         if ( tracker == null )
             return 0;
 
-        Collection<VariantContext> contexts = tracker.getVariantContexts(ref, INPUT_ROD_NAME, null, ref.getLocus(), true, false);
+        Collection<VariantContext> contexts = tracker.getValues(variantCollection.variants, ref.getLocus());
 
         // for now, we don't support the mixed type
         if ( contexts.size() == 0 || contexts.size() > 2 )
@@ -73,38 +75,38 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
 
         Iterator<VariantContext> iter = contexts.iterator();
         if ( contexts.size() == 1 ) {
-            writeHet(iter.next(), ref.getBase());
+            writeHet(iter.next());
         } else {
             VariantContext vc1 = iter.next();
             VariantContext vc2 = iter.next();
             if ( vc1.getType().equals(vc2.getType()) )
-                writeHom(vc1, ref.getBase());
+                writeHom(vc1);
         }
 
         return 0;
     }
 
-    private void writeHet(VariantContext vc, byte ref) {
+    private void writeHet(VariantContext vc) {
         List<Allele> alleles = new ArrayList<Allele>(vc.getAlleles());
         Genotype g = new Genotype(sampleName, alleles);
-        write(vc, ref, g);
+        write(vc, g);
     }
 
-    private void writeHom(VariantContext vc, byte ref) {
+    private void writeHom(VariantContext vc) {
         List<Allele> alleles = new ArrayList<Allele>(2);
         alleles.add(vc.getAlternateAllele(0));
         alleles.add(vc.getAlternateAllele(0));
         Genotype g = new Genotype(sampleName, alleles);
-        write(vc, ref, g);
+        write(vc, g);
     }
 
-    private void write(VariantContext vc, byte ref, Genotype g) {
+    private void write(VariantContext vc, Genotype g) {
         HashMap<String, Genotype> genotypes = new HashMap<String, Genotype>(1);
         genotypes.put(sampleName, g);
         vc = VariantContext.modifyGenotypes(vc, genotypes);
         if ( vc.isSNP() )
             vc = VariantContext.modifyLocation(vc, vc.getChr(), vc.getStart()+1, vc.getStart()+1);        
-        vcfWriter.add(vc, ref);
+        vcfWriter.add(vc);
     }
 
     public Integer reduceInit() {

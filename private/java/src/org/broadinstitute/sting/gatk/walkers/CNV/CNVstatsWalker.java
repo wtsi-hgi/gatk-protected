@@ -25,11 +25,12 @@
 package org.broadinstitute.sting.gatk.walkers.CNV;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;
@@ -38,14 +39,17 @@ import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
-import java.util.*;
+import java.util.Formatter;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 
 
 /**
  * Walks along all variant ROD loci, and tabulates the statistics of the CNVs detected.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = @RMD(name = "variant", type = ReferenceOrderedDatum.class))
+@Requires(value = {DataSource.REFERENCE})
 @By(DataSource.REFERENCE_ORDERED_DATA)
 
 public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
@@ -59,7 +63,11 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
     @Argument(fullName = "minFracPassGt", shortName = "minFracPassGt", doc = "Minimum fraction of callable genotypes required to report any genotypes at all", required = false)
     private double minFracPassGt = 0.0;
 
-    private LinkedList<String> rodNames = null;
+    /**
+     * All CNV variants found in these VCF files will be analyzed
+     */
+    @ArgumentCollection
+    protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
     public static String CNV_TAG = "<CNV>";
     public static String CN_FIELD = "CN";
@@ -70,8 +78,6 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
     public static int DIPLOID = 2;
 
     public void initialize() {
-        rodNames = new LinkedList<String>();
-        rodNames.add("variant");
     }
 
     public boolean generateExtendedEvents() {
@@ -97,9 +103,7 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
         logger.debug("REF:" + ref.getLocus());
         CNVstatistics stats = new CNVstatistics();
 
-        boolean requireStartHere = true; // only see each VariantContext once
-        boolean takeFirstOnly = false; // take as many entries as the VCF file has
-        for (VariantContext vc : tracker.getVariantContexts(ref, rodNames, null, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : tracker.getValues(variantCollection.variants, context.getLocation())) {
             if (vc.isSymbolic() && vc.isBiallelic()) {
                 Allele altAll = vc.getAlternateAllele(0);
                 if (altAll.isSymbolic() && altAll.getDisplayString().equals(CNV_TAG)) {

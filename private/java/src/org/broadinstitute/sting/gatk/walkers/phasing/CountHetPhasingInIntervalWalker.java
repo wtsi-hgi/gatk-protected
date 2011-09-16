@@ -24,14 +24,15 @@
 
 package org.broadinstitute.sting.gatk.walkers.phasing;
 
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.filters.MappingQualityZeroReadFilter;
+import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
-import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -45,13 +46,14 @@ import java.util.*;
  * Walks along all variant ROD loci and verifies the phasing from the reads for user-defined pairs of sites.
  */
 @Allows(value = {DataSource.REFERENCE})
-@Requires(value = {DataSource.REFERENCE}, referenceMetaData = {@RMD(name = "variant", type = ReferenceOrderedDatum.class), @RMD(name = CountHetPhasingInIntervalWalker.INTERVALS_ROD_NAME, type = ReferenceOrderedDatum.class)})
+@Requires(value = {DataSource.REFERENCE})
 
-@ReadFilters({MappingQualityZeroReadFilter.class})
+@ReadFilters({MappingQualityZeroFilter.class})
 // Filter out all reads with zero mapping quality
 
 public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer> {
-    private LinkedList<String> rodNames = null;
+    @Input(fullName="variant", shortName = "V", doc="Select variants from this VCF file", required=true)
+    public RodBinding<VariantContext> variants;
 
     private GenomeLoc prevInterval = null;
 
@@ -63,12 +65,10 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
     @Argument(fullName = "perIntervalOut", shortName = "perIntervalOut", doc = "File to which to write per-sample, per-interval phased het statistics", required = false)
     protected PrintStream perIntervalOut = null;
 
-    public final static String INTERVALS_ROD_NAME = "intervals";
+    @Input(fullName="intervalsROD", doc="Intervals to analyze", required=true)
+    public RodBinding<Feature> intervalsROD;
 
     public void initialize() {
-        rodNames = new LinkedList<String>();
-        rodNames.add("variant");
-
         intervalStats = new MultiSampleIntervalStats(perIntervalOut);
     }
 
@@ -92,25 +92,23 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
 
         int processed = 1;
 
-        List<GATKFeature> interval = tracker.getGATKFeatureMetaData(INTERVALS_ROD_NAME, true);
+        List<Feature> interval = tracker.getValues(intervalsROD);
         if (interval.size() != 1) {
-            String error = "At " + ref.getLocus() + " : Must provide a track named '"+ INTERVALS_ROD_NAME  +"' with exactly ONE interval per locus in -L argument!";
+            String error = "At " + ref.getLocus() + " : Must provide a track named '"+ intervalsROD.getName()  +"' with exactly ONE interval per locus in -L argument!";
             if (interval.size() < 1)
                 throw new UserException(error);
             else // interval.size() > 1
                 logger.warn(error);
         }
         // Take the FIRST interval covering this locus, and WARN about multiple intervals (above):
-        GenomeLoc curInterval = interval.get(0).getLocation();
+        GenomeLoc curInterval = getToolkit().getGenomeLocParser().createGenomeLoc(interval.get(0));
         logger.debug("refLocus: " + ref.getLocus() + "\tcurInterval = " + curInterval);
 
         boolean isNewInterval = (prevInterval == null || !curInterval.equals(prevInterval));
         if (isNewInterval)
             intervalStats.startNewInterval(curInterval);
 
-        boolean requireStartHere = true; // only see each VariantContext once
-        boolean takeFirstOnly = false; // take as many entries as the VCF file has
-        for (VariantContext vc : tracker.getVariantContexts(ref, rodNames, null, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : tracker.getValues(variants, context.getLocation())) {
             Map<String, Genotype> sampToGenotypes = vc.getGenotypes();
             for (Map.Entry<String, Genotype> sampEntry : sampToGenotypes.entrySet()) {
                 Genotype gt = sampEntry.getValue();

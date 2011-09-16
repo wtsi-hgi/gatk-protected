@@ -26,12 +26,13 @@ package org.broadinstitute.sting.gatk.walkers.phasing;
 
 import org.broad.tribble.readers.AsciiLineReader;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.filters.MappingQualityZeroReadFilter;
+import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
@@ -49,14 +50,15 @@ import java.util.*;
  * Walks along all variant ROD loci and verifies the phasing from the reads for user-defined pairs of sites.
  */
 @Allows(value = {DataSource.READS, DataSource.REFERENCE})
-@Requires(value = {DataSource.READS, DataSource.REFERENCE}, referenceMetaData = @RMD(name = "variant", type = ReferenceOrderedDatum.class))
+@Requires(value = {DataSource.READS, DataSource.REFERENCE})
 @By(DataSource.READS)
 
-@ReadFilters({MappingQualityZeroReadFilter.class})
+@ReadFilters({MappingQualityZeroFilter.class})
 // Filter out all reads with zero mapping quality
 
 public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer> {
-    private LinkedList<String> rodNames = null;
+    @Input(fullName="variant", shortName = "V", doc="Validate variants from this VCF file", required=true)
+    public RodBinding<VariantContext> variants;
 
     @Argument(fullName = "sitePairsFile", shortName = "sitePairsFile", doc = "File of pairs of variants for which phasing in ROD should be assessed using input reads", required = true)
     protected File sitePairsFile = null;
@@ -77,9 +79,6 @@ public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer
     }
 
     public void initialize() {
-        rodNames = new LinkedList<String>();
-        rodNames.add("variant");
-
         sitePairs = new TreeSet<SitePair>();
         GenomeLocParser locParser = getToolkit().getGenomeLocParser();
 
@@ -187,9 +186,7 @@ public class ReadBasedPhasingValidationWalker extends RodWalker<Integer, Integer
         Set<Haplotype> calledHaplotypes = null;
         List<Haplotype> allPossibleHaplotypes = null;
 
-        boolean requireStartHere = true; // only see each VariantContext once
-        boolean takeFirstOnly = true; // take only the first entry from the ROD file
-        for (VariantContext vc : tracker.getVariantContexts(ref, rodNames, null, context.getLocation(), requireStartHere, takeFirstOnly)) {
+        for (VariantContext vc : Arrays.asList(tracker.getFirstValue(variants, context.getLocation()))) {
             if (vc.isFiltered() || !vc.isSNP())
                 continue;
 

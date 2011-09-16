@@ -55,6 +55,9 @@ public class IndelCountCovariate implements ExperimentalCovariate {
 
         int indelCount = 0;
 
+        ////
+        /// todo fixme!! This doesn't seem to work with certain cigar strings, TBD why
+        /// DO NOT USE THIS COVARIATE FOR NOW!!!
         for ( int i = 0 ; i < c.numCigarElements() ; i++ ) {
              CigarElement ce = c.getCigarElement(i);
              switch( ce.getOperator() ) {
@@ -82,7 +85,7 @@ public class IndelCountCovariate implements ExperimentalCovariate {
          }    */
         int ind = 0;
         Cigar c = read.getCigar();
-        System.out.println(c.toString());
+        //ystem.out.println(c.toString());
         for ( int i = 0 ; i < c.numCigarElements() ; i++ ) {
               CigarElement ce = c.getCigarElement(i);
 
