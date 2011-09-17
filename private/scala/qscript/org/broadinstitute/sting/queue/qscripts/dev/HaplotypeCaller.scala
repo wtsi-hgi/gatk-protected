@@ -25,7 +25,7 @@ class HaplotypeCallerScript extends QScript {
     val hc = new HaplotypeCaller with UNIVERSAL_GATK_ARGS
     hc.reference_sequence = new File(ref)
     hc.intervalsString ++= List(interval)
-    hc.scatterCount = 100
+    hc.scatterCount = 148
     hc.input_file :+= new File(bam)
     hc.o = new File(out)
     add(hc)

@@ -212,6 +212,9 @@ public class LikelihoodCalculationEngine {
             readLikelihoodsForBestHaplotypes[kkk][1] = readLikelihoods[kkk][hap2];
         }
 
+        haplotypes.get(hap1).likelihood = maxElement;
+        haplotypes.get(hap2).likelihood = maxElement;
+
         return new Pair<Haplotype, Haplotype>(haplotypes.get(hap1), haplotypes.get(hap2));
     }
 

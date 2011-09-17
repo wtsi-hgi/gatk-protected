@@ -47,9 +47,9 @@ import java.util.*;
 public class GenotypingEngine {
 
     // Smith-Waterman parameters copied from IndelRealigner
-    private static final double SW_MATCH = 23.0;      // 1.0;
-    private static final double SW_MISMATCH = -8.0;  //-1.0/3.0;
-    private static final double SW_GAP = -14.0;       //-1.0-1.0/3.0;
+    private static final double SW_MATCH = 7.0;      // 1.0;
+    private static final double SW_MISMATCH = -8.5;  //-1.0/3.0;
+    private static final double SW_GAP = -20.0;       //-1.0-1.0/3.0;
     private static final double SW_GAP_EXTEND = -1.5; //-1.0/.0;
 
     private final boolean DEBUG;
