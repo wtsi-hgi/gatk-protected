@@ -34,8 +34,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.ReadFilters;
-import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
@@ -51,8 +50,36 @@ import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.*;
 
+/**
+ * [Short one sentence description of this walker]
+ *
+ * <p>
+ * [Functionality of this walker]
+ * </p>
+ *
+ * <h2>Input</h2>
+ * <p>
+ * [Input description]
+ * </p>
+ *
+ * <h2>Output</h2>
+ * <p>
+ * [Output description]
+ * </p>
+ *
+ * <h2>Examples</h2>
+ * PRE-TAG
+ *    java
+ *      -jar GenomeAnalysisTK.jar
+ *      -T $WalkerName
+ * PRE-TAG
+ *
+ * @author Your Name
+ * @since Date created
+ */
+@PartitionBy(PartitionType.INTERVAL)
 @ReadFilters( {MappingQualityUnavailableFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class} )
-public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
+public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements TreeReducible<Integer> {
 
     /**
      * A raw, unfiltered, highly specific callset in VCF format.
@@ -72,6 +99,9 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     @Argument(fullName = "assembler", shortName = "assembler", doc = "Assembler to use; currently only SIMPLE_DE_BRUIJN is available.", required = false)
     protected LocalAssemblyEngine.ASSEMBLER ASSEMBLER_TO_USE = LocalAssemblyEngine.ASSEMBLER.SIMPLE_DE_BRUIJN;
 
+    // should we print out verbose debug information about each triggering interval
+    private final boolean DEBUG = false;
+
     // the assembly engine
     LocalAssemblyEngine assemblyEngine = null;
 
@@ -79,7 +109,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
     LikelihoodCalculationEngine likelihoodCalculationEngine = new LikelihoodCalculationEngine(35.0, 10.0, false, true, false);
 
     // the genotyping engine
-    GenotypingEngine genotypingEngine = new GenotypingEngine();
+    GenotypingEngine genotypingEngine = new GenotypingEngine( DEBUG );
 
     // the intervals input by the user
     private Iterator<GenomeLoc> intervals = null;
@@ -173,6 +203,10 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
         return sum;
     }
 
+    public Integer treeReduce(Integer lhs, Integer rhs) {
+        return lhs + rhs;
+    }
+
     public void onTraversalDone(Integer result) {
         if ( readsToAssemble.size() > 0 ) {
             processReadBin( currentInterval );
@@ -187,12 +221,12 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
 
     private void processReadBin( final GenomeLoc curInterval ) {
 
-        System.out.println(curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:");
+        if( DEBUG ) { System.out.println(curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:"); }
         final List<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble.getReads() );
-        System.out.println("Found " + haplotypes.size() + " candidate haplotypes to evaluate");
+        if( DEBUG ) { System.out.println("Found " + haplotypes.size() + " candidate haplotypes to evaluate"); }
 
         if( haplotypes.size() == 0 ) {
-            System.out.println("WARNING! No haplotypes created during assembly!");
+            if( DEBUG ) { System.out.println("WARNING! No haplotypes created during assembly!"); }
             return;
         }
 
@@ -202,7 +236,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
         }
 
         final int pos = curInterval.getStart() + (curInterval.getStop() - curInterval.getStart()) / 2;
-        final GenomeLoc window = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 7, pos + 7);
+        final GenomeLoc window = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 9, pos + 9);
 
         final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReadsInWindow( window ) );
         final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation() );
@@ -213,13 +247,13 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> {
 
         for( final VariantContext vc : vcs ) {
             if( vc.getStart() >= window.getStart() && vc.getStart() <= window.getStop() ) {
-                System.out.print("== ");
+                if( DEBUG ) { System.out.print("== "); }
                 vcfWriter.add(vc);
             }
-            System.out.println(vc);
+            if( DEBUG ) { System.out.println(vc); }
         }
 
-        System.out.println("----------------------------------------------------------------------------------");
+        if( DEBUG ) { System.out.println("----------------------------------------------------------------------------------"); }
 
     }
 
