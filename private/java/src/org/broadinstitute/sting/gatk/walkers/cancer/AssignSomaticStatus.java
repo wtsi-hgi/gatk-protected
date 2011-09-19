@@ -86,6 +86,7 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
         rodNames.add(variantCollection.variants.getName());
 
         Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
+        tumorSamplesArg = SampleUtils.getSamplesFromCommandLineInput(tumorSamplesArg);
         Set<String> vcfSamples = SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE);
 
         // set up tumor and normal samples
