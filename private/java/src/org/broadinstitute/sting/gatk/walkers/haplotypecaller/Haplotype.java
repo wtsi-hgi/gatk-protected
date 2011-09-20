@@ -37,6 +37,7 @@ public class Haplotype {
     protected byte[] bases = null;
     protected byte[] extendedBases = null;
     protected double[] quals = null;
+    public double likelihood = 0.0;
     private GenomeLoc genomeLocation = null;
     private boolean isReference = false;
  
@@ -72,6 +73,11 @@ public class Haplotype {
         this(bases, loc);
         this.isReference = isRef;
     }
+
+    public boolean equals( final Haplotype h ) {
+        return Arrays.equals(bases, h.bases);
+    }
+
 
     public double getQualitySum() {
         double s = 0;
