@@ -116,8 +116,8 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
                     boolean hasNonDiploidGt = false;
                     for (Map.Entry<String, Genotype> gtEntry : vc.getGenotypes().entrySet()) {
                         Genotype gt = gtEntry.getValue();
-                        Integer copyNum = gt.getAttributeAsIntegerNoException(CN_FIELD);
-                        if (copyNum != null && gt.isNotFiltered()) {
+                        int copyNum = gt.getAttributeAsInt(CN_FIELD, -1);
+                        if (copyNum != -1 && gt.isNotFiltered()) {
                             cnc.incrementCopyNumber(copyNum);
 
                             if (copyNum == DIPLOID)
@@ -144,8 +144,8 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
                     }
 
                     int cnvEnd = vc.getEnd();
-                    Integer cnvLength = vc.getAttributeAsIntegerNoException(SVLEN_FIELD);
-                    if (cnvLength != null)
+                    int cnvLength = vc.getAttributeAsInt(SVLEN_FIELD, -1);
+                    if (cnvLength != -1)
                         cnvEnd = vc.getStart() + cnvLength - 1;
                     GenomeLoc vcLoc = getToolkit().getGenomeLocParser().createGenomeLoc(vc.getChr(), vc.getStart(), cnvEnd, true);
                     out.print(vcLoc);
@@ -156,7 +156,7 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
                     out.println();
 
                     if (alleleCountsCopyNumberFreqs != null) {
-                        Integer ac = vc.getAttributeAsIntegerNoException(AC_FIELD);
+                        int ac = vc.getAttributeAsInt(AC_FIELD, -1);
                         CopyNumberCounts.DeletionDuplicationFreqs freqs = cnc.deletionDuplicationFreqs();
                         double cnvCount = freqs.deletionFreq + freqs.duplicationFreq;
 

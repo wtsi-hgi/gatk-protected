@@ -16,13 +16,13 @@ public class DeBruijnVertex {
     // used for printing and traversing graphs
     protected byte[] printableSequence;
 
-    public DeBruijnVertex(byte[] sequence) {
+    public DeBruijnVertex( final byte[] sequence) {
         actualSequence = sequence;
         printableSequence = new byte[sequence.length];
         System.arraycopy(sequence, 0, printableSequence, 0, sequence.length);
     }
 
-    public boolean equals(DeBruijnVertex v) {
+    public boolean equals( final DeBruijnVertex v ) {
         return Arrays.equals(actualSequence, v.actualSequence);
     }
 

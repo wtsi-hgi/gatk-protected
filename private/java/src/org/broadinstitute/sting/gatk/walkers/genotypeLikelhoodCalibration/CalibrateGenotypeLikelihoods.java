@@ -170,7 +170,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             return Data.EMPTY_DATA;
 
         // Grabs a usable VariantContext from the Alleles ROD
-        VariantContext vcComp = SNPGenotypeLikelihoodsCalculationModel.getSNPVCFromAllelesRod( tracker, ref, false, logger, snpEngine.getUAC().alleles );
+        VariantContext vcComp = UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, snpEngine.getUAC().alleles );
         if( vcComp == null )
             return Data.EMPTY_DATA;
 
