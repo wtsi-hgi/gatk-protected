@@ -43,16 +43,14 @@ import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.gcf.GCF;
+import org.broadinstitute.sting.utils.gcf.GCFHeader;
+import org.broadinstitute.sting.utils.gcf.GCFHeaderBuilder;
+import org.broadinstitute.sting.utils.gcf.GCFWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.List;
+import java.io.*;
+import java.util.*;
 
 /**
  * Emits specific fields as dictated by the user from one or more VCF files.
@@ -69,6 +67,12 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
 
     @Argument(fullName="nIterations", shortName="N", doc="Number of raw reading iterations to perform", required=false)
     int nIterations = 1;
+
+    @Argument(fullName="verbose", shortName="verbose", doc="Number of raw reading iterations to perform", required=false)
+    boolean VERBOSE = false;
+
+    @Argument(fullName="performanceTest", shortName="performanceTest", doc="Number of raw reading iterations to perform", required=false)
+    boolean performanceTest = false;
 
     @Argument(fullName="maxRecords", shortName="M", doc="Max. number of records to process", required=false)
     int MAX_RECORDS = -1;
@@ -88,7 +92,8 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         /** Just test the high-level GATK I/O system */
         JUST_GATK,
         /** Just test the VCF writing */
-        JUST_OUTPUT
+        JUST_OUTPUT,
+        JUST_GVCF
     }
 
     SimpleTimer timer = new SimpleTimer("myTimer");
@@ -118,6 +123,11 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
                     }
                 }
             }
+            System.exit(0);
+        }
+
+        if ( profileType == ProfileType.JUST_GVCF ) {
+            testGVCF();
             System.exit(0);
         }
 
@@ -151,6 +161,100 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             System.exit(0);
 
         timer.start(); // start up timer for map itself
+    }
+
+    private final void testGVCF() {
+        try {
+            final File vcfFile = getRodFile();
+            final File gvcfFile = new File(vcfFile.getName() + ".gcf");
+            final GCFWriter gcfWriter = new GCFWriter(gvcfFile, false, false);
+            int counter = 0;
+            final VCFCodec codec = new VCFCodec();
+            final AsciiLineReader lineReader = new AsciiLineReader(new FileInputStream(vcfFile));
+            VCFHeader header = (VCFHeader)codec.readHeader(lineReader);
+            gcfWriter.writeHeader(header);
+
+            final List<VariantContext> vcs = new ArrayList<VariantContext>();
+            if ( performanceTest ) {
+                logger.info("Beginning performance testing");
+                SimpleTimer vcfTimer = new SimpleTimer();
+                SimpleTimer gcfWriterTimer = new SimpleTimer();
+
+                vcfTimer.start();
+                while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
+                    String line = lineReader.readLine();
+                    if ( line == null )
+                        break;
+
+                    VariantContext vc = (VariantContext)codec.decode(line);
+                    vc.getNSamples(); // force parsing
+                    vcs.add(vc);
+                }
+                vcfTimer.stop();
+
+                gcfWriterTimer.start();
+                for ( VariantContext vc : vcs ) {
+                    // write GCF records
+                    gcfWriter.add(vc);
+                }
+                gcfWriter.close();
+                gcfWriterTimer.stop();
+
+                logger.info("Read  " + counter + " VCF records in " + vcfTimer.getElapsedTime());
+                logger.info("Wrote " + counter + " GCF records in " + gcfWriterTimer.getElapsedTime());
+            } else {
+                logger.info("Beginning size testing");
+                while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
+                    String line = lineReader.readLine();
+                    if ( line == null )
+                        break;
+
+                    VariantContext vc = (VariantContext)codec.decode(line);
+                    gcfWriter.add(vc);
+                }
+                gcfWriter.close();
+            }
+
+            if ( performanceTest ) {
+                for ( boolean skipGenotypes : Arrays.asList(false, true) ) {
+                    final SimpleTimer gcfReaderTimer = new SimpleTimer().start();
+                    readGVCF(gvcfFile, vcs, skipGenotypes);
+                    logger.info("Read GVCF in " + gcfReaderTimer.getElapsedTime() + " skipGenotypes = " + skipGenotypes);
+                }
+            }
+        } catch ( Exception e ) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void readGVCF(File source, List<VariantContext> vcs, boolean skipGenotypes) throws IOException {
+        FileInputStream fileInputStream = GCF.createFileInputStream(source);
+        DataInputStream inputStream = GCF.createDataInputStream(fileInputStream);
+        logger.info("Reading GVCF from " + source);
+        GCFHeader GCFHeader = new GCFHeader(fileInputStream);
+
+        try {
+            if ( ! vcs.isEmpty() ) {
+                for ( VariantContext vc : vcs ) {
+                    if ( VERBOSE ) logger.info("Original VCF: " + vc);
+                    GCF GCF = new GCF(inputStream, skipGenotypes);
+                    VariantContext decoded = GCF.decode("gcf", GCFHeader);
+                    //logger.info("GVCF        : " + gcf);
+                    if ( VERBOSE ) logger.info("GVCF -> VCF : " + decoded);
+                }
+            } else {
+                while ( true ) {
+                    GCF GCF = new GCF(inputStream, skipGenotypes);
+                    VariantContext decoded = GCF.decode("gcf", GCFHeader);
+                    //logger.info("GVCF        : " + gcf);
+                    if ( VERBOSE ) logger.info("GVCF -> VCF : " + decoded);
+                }
+            }
+        } catch ( EOFException e ) {
+            ; // done reading
+        }
+
+        inputStream.close();
     }
 
     private enum ReadMode { BY_BYTE, BY_LINE, BY_PARTS, DECODE_LOC, DECODE };
