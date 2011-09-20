@@ -2,7 +2,7 @@ package org.broadinstitute.sting.queue.qscripts.annotations
 
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.utils.interval.IntervalSetRule
+import org.broadinstitute.sting.queue.library.ipf.vcf.VCFExtractIntervals
 
 class ScatteredFullVariantAnnotator extends QScript {
   qscript =>
@@ -12,9 +12,6 @@ class ScatteredFullVariantAnnotator extends QScript {
 
   @Argument(shortName = "R", doc = "ref", required = true)
   var referenceFile: File = _
-
-  @Argument(shortName = "L", doc = "Intervals", required = false)
-  var intervals: String = null
 
   @Input(doc = "level of parallelism. By default is set to 0 [no scattering].", shortName = "scatter", required = false)
   var scatterCount = 0
@@ -44,34 +41,33 @@ class ScatteredFullVariantAnnotator extends QScript {
   var requireExplicitAnnotations: Boolean = false
 
   def script = {
-    add(new ScatteredFullVariantAnnotator())
-  }
+    var extractIntervals : VCFExtractIntervals = new VCFExtractIntervals(qscript.variantVCF, swapExt(qscript.variantVCF, ".vcf", ".intervals.list"), true)
+    add(extractIntervals)
 
-  trait CommandLineGATKArgs extends CommandLineGATK {
-    if (qscript.intervals != null) {
-      this.intervalsString = List(qscript.intervals)
+    trait CommandLineGATKArgs extends CommandLineGATK {
+      this.intervals :+= extractIntervals.listOut
+
+      this.jarFile = qscript.gatkJarFile
+      this.reference_sequence = qscript.referenceFile
+      this.input_file = List(qscript.bams)
+
+      this.memoryLimit = qscript.memoryLimit
+      this.logging_level = "INFO"
     }
-    this.jarFile = qscript.gatkJarFile
-    this.reference_sequence = qscript.referenceFile
-    this.input_file = List(qscript.bams)
 
-    this.memoryLimit = qscript.memoryLimit
-    this.logging_level = "INFO"
+    class ScatteredFullVariantAnnotator() extends org.broadinstitute.sting.queue.extensions.gatk.VariantAnnotator with CommandLineGATKArgs {
+      this.scatterCount = qscript.scatterCount
+      this.variant = qscript.variantVCF
 
-    this.rodToIntervalTrackName = "variant"
-    this.BTI_merge_rule = IntervalSetRule.INTERSECTION
-  }
+      this.useAllAnnotations = !qscript.requireExplicitAnnotations
+      this.annotation = qscript.annotation
+      this.group = qscript.group
 
-  class ScatteredFullVariantAnnotator() extends org.broadinstitute.sting.queue.extensions.gatk.VariantAnnotator with CommandLineGATKArgs {
-    this.scatterCount = qscript.scatterCount
-    this.variant = qscript.variantVCF
+      this.dbsnp = qscript.dbsnp
 
-    this.useAllAnnotations = !qscript.requireExplicitAnnotations
-    this.annotation = qscript.annotation
-    this.group = qscript.group
+      this.out = qscript.outputAnnotated
+    }
 
-    this.dbsnp = qscript.dbsnp
-
-    this.out = qscript.outputAnnotated
+    add(new ScatteredFullVariantAnnotator())
   }
 }
