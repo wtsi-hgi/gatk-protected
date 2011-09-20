@@ -167,7 +167,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         try {
             final File vcfFile = getRodFile();
             final File gvcfFile = new File(vcfFile.getName() + ".gcf");
-            final GCFWriter gcfWriter = new GCFWriter(gvcfFile, false, false);
+            final GCFWriter gcfWriter = new GCFWriter(gvcfFile, getMasterSequenceDictionary(), false, false);
             int counter = 0;
             final VCFCodec codec = new VCFCodec();
             final AsciiLineReader lineReader = new AsciiLineReader(new FileInputStream(vcfFile));
@@ -323,7 +323,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             // now we start the timer
             timer.start();
 
-            VCFWriter writer = new StandardVCFWriter(new File(f.getAbsolutePath() + ".test"));
+            VCFWriter writer = new StandardVCFWriter(new File(f.getAbsolutePath() + ".test"), getMasterSequenceDictionary());
             writer.writeHeader(header);
             for ( VariantContext vc : VCs )
                 writer.add(vc);
