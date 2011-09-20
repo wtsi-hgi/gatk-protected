@@ -41,9 +41,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.tracks.RMDTrackBuilder;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.gcf.GCF;
 import org.broadinstitute.sting.utils.gcf.GCFHeader;
@@ -52,10 +50,7 @@ import org.broadinstitute.sting.utils.gcf.GCFWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
+import java.util.*;
 
 /**
  * Emits specific fields as dictated by the user from one or more VCF files.
@@ -68,7 +63,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     public RodBinding<VariantContext> vcf;
 
     @Input(fullName="indexTest", shortName = "indexTest", doc="vcf", required=false)
-    public List<File> vcfsForIndexTest;
+    public List<File> vcfsForIndexTest = Collections.emptyList();
 
     @Argument(fullName="nIterations", shortName="N", doc="Number of raw reading iterations to perform", required=false)
     int nIterations = 1;
@@ -96,6 +91,8 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         JUST_TRIBBLE_DECODE,
         /** Just test the high-level GATK I/O system */
         JUST_GATK,
+        /** Just test the VCF writing */
+        JUST_OUTPUT,
         JUST_GVCF
     }
 
@@ -155,9 +152,12 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
                 out.printf("full.decode\t%d\t%.2f%n", i, readFile(rodFile, ReadMode.DECODE));
             }
 
+            if ( EnumSet.of(ProfileType.ALL, ProfileType.JUST_OUTPUT).contains(profileType) ) {
+                out.printf("output.records\t%d\t%.2f%n", i, writeFile(rodFile));
+            }
         }
 
-        if ( EnumSet.of(ProfileType.JUST_TRIBBLE, ProfileType.JUST_TRIBBLE_DECODE).contains(profileType) )
+        if ( EnumSet.of(ProfileType.JUST_TRIBBLE, ProfileType.JUST_TRIBBLE_DECODE, ProfileType.JUST_OUTPUT).contains(profileType) )
             System.exit(0);
 
         timer.start(); // start up timer for map itself
@@ -257,81 +257,115 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         inputStream.close();
     }
 
-private enum ReadMode { BY_BYTE, BY_LINE, BY_PARTS, DECODE_LOC, DECODE };
+    private enum ReadMode { BY_BYTE, BY_LINE, BY_PARTS, DECODE_LOC, DECODE };
 
-private final double readFile(File f, ReadMode mode) {
+    private final double readFile(File f, ReadMode mode) {
         timer.start();
 
-try {
-        byte[] data = new byte[100000];
-FileInputStream s = new FileInputStream(f);
+        try {
+            byte[] data = new byte[100000];
+            FileInputStream s = new FileInputStream(f);
 
-if ( mode == ReadMode.BY_BYTE ) {
-        while (true) {
-        if ( s.read(data) == -1 )
-        break;
-}
-        } else {
-        int counter = 0;
-VCFCodec codec = new VCFCodec();
-String[] parts = new String[100000];
-AsciiLineReader lineReader = new AsciiLineReader(s);
+            if ( mode == ReadMode.BY_BYTE ) {
+                while (true) {
+                    if ( s.read(data) == -1 )
+                        break;
+                }
+            } else {
+                int counter = 0;
+                VCFCodec codec = new VCFCodec();
+                String[] parts = new String[100000];
+                AsciiLineReader lineReader = new AsciiLineReader(s);
 
-if ( mode == ReadMode.DECODE_LOC || mode == ReadMode.DECODE )
-        codec.readHeader(lineReader);
+                if ( mode == ReadMode.DECODE_LOC || mode == ReadMode.DECODE )
+                    codec.readHeader(lineReader);
 
-while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
-        String line = lineReader.readLine();
-if ( line == null )
-        break;
-else if ( mode == ReadMode.BY_PARTS ) {
-        ParsingUtils.split(line, parts, VCFConstants.FIELD_SEPARATOR_CHAR);
-}
-        else if ( mode == ReadMode.DECODE_LOC ) {
-        codec.decodeLoc(line);
-}
-        else if ( mode == ReadMode.DECODE ) {
-        processOneVC((VariantContext)codec.decode(line));
-}
-        }
-        }
+                while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
+                    String line = lineReader.readLine();
+                    if ( line == null )
+                        break;
+                    else if ( mode == ReadMode.BY_PARTS ) {
+                        ParsingUtils.split(line, parts, VCFConstants.FIELD_SEPARATOR_CHAR);
+                    }
+                    else if ( mode == ReadMode.DECODE_LOC ) {
+                        codec.decodeLoc(line);
+                    }
+                    else if ( mode == ReadMode.DECODE ) {
+                        processOneVC((VariantContext)codec.decode(line));
+                    }
+                }
+            }
         } catch ( Exception e ) {
-        throw new RuntimeException(e);
-}
+            throw new RuntimeException(e);
+        }
 
         return timer.getElapsedTime();
-}
+    }
 
-private File getRodFile() {
-        List<ReferenceOrderedDataSource> rods = this.getToolkit().getRodDataSources();
-ReferenceOrderedDataSource rod = rods.get(0);
-return rod.getFile();
-}
+    private final double writeFile(File f) {
 
-public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        if ( tracker == null ) // RodWalkers can make funky map calls
-        return 0;
+        try {
+            FileInputStream s = new FileInputStream(f);
+            AsciiLineReader lineReader = new AsciiLineReader(s);
 
-VariantContext vc = tracker.getFirstValue(vcf, context.getLocation());
-if ( vc != null )
-        processOneVC(vc);
+            VCFCodec codec = new VCFCodec();
+            VCFHeader header = (VCFHeader)codec.readHeader(lineReader);
+            ArrayList<VariantContext> VCs = new ArrayList<VariantContext>(10000);
 
-return 0;
-}
+            int counter = 0;
+            while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
+                String line = lineReader.readLine();
+                if ( line == null )
+                    break;
+                VCs.add((VariantContext) codec.decode(line));
+            }
 
-private static final void processOneVC(VariantContext vc) {
-        vc.getNSamples(); // force us to parse the samples
-}
+            // now we start the timer
+            timer.start();
 
-public Integer reduceInit() {
-        return 0;
-}
+            VCFWriter writer = new StandardVCFWriter(new File(f.getAbsolutePath() + ".test"));
+            writer.writeHeader(header);
+            for ( VariantContext vc : VCs )
+                writer.add(vc);
+            writer.close();
 
-public Integer reduce(Integer counter, Integer sum) {
-        return counter + sum;
-}
-
-public void onTraversalDone(Integer sum) {
-        out.printf("gatk.traversal\t%d\t%.2f%n", 0, timer.getElapsedTime());
-}
+        } catch ( Exception e ) {
+            throw new RuntimeException(e);
         }
+
+        return timer.getElapsedTime();
+    }
+
+    private File getRodFile() {
+        List<ReferenceOrderedDataSource> rods = this.getToolkit().getRodDataSources();
+        ReferenceOrderedDataSource rod = rods.get(0);
+        return rod.getFile();
+    }
+
+    public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+        if ( tracker == null ) // RodWalkers can make funky map calls
+            return 0;
+
+        VariantContext vc = tracker.getFirstValue(vcf, context.getLocation());
+        if ( vc != null )
+            processOneVC(vc);
+
+        return 0;
+    }
+
+    private static final void processOneVC(VariantContext vc) {
+        vc.getNSamples(); // force us to parse the samples
+    }
+
+    public Integer reduceInit() {
+        return 0;
+    }
+
+    public Integer reduce(Integer counter, Integer sum) {
+        return counter + sum;
+    }
+
+    public void onTraversalDone(Integer sum) {
+        out.printf("gatk.traversal\t%d\t%.2f%n", 0, timer.getElapsedTime());
+    }
+}

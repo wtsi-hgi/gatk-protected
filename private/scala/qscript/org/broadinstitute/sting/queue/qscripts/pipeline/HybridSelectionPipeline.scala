@@ -158,13 +158,11 @@ class HybridSelectionPipeline extends QScript {
 
         val buildSNPModel = new VariantRecalibrator with CommandLineGATKArgs with ExpandedIntervals
         buildSNPModel.input :+= selectSNPs.out
-        buildSNPModel.training :+= TaggedFile(hapmap, "prior=15.0")
-        buildSNPModel.training :+= TaggedFile(omni, "prior=12.0")
-        buildSNPModel.training :+= TaggedFile(k1gTrainingHighQuality, "prior=12.0")
-        buildSNPModel.truth :+= TaggedFile(hapmap, "prior=15.0")
-        buildSNPModel.truth :+= TaggedFile(omni, "prior=12.0")
-        buildSNPModel.badSites :+= TaggedFile(k1gTrainingTerrible, "prior=2.0")
-        buildSNPModel.known :+= TaggedFile(dbsnp129, "prior=4.0")
+        buildSNPModel.resource :+= TaggedFile(hapmap, "training=true,truth=true,prior=15.0")
+        buildSNPModel.resource :+= TaggedFile(omni, "training=true,truth=true,prior=12.0")
+        buildSNPModel.resource :+= TaggedFile(k1gTrainingHighQuality, "training=true,prior=12.0")
+        buildSNPModel.resource :+= TaggedFile(k1gTrainingTerrible, "bad=true,prior=2.0")
+        buildSNPModel.resource :+= TaggedFile(dbsnp129, "known=true,prior=4.0")
         buildSNPModel.use_annotation = List("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "MQ", "FS", "InbreedingCoeff")
         buildSNPModel.trustAllPolymorphic = true
         buildSNPModel.maxGaussians = 6

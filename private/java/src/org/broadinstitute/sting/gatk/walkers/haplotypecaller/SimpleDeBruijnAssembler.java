@@ -19,11 +19,8 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private static final boolean DEBUG = true;
 
-    // k-mer length
-    private static final int KMER_LENGTH = 41;
-
     // the additional size of a valid chunk of sequence, used to string together k-mers
-    private static final int KMER_OVERLAP = 7;
+    private static final int KMER_OVERLAP = 8;
 
     // the deBruijn graph object
     private DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = null;
@@ -32,13 +29,13 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         super(out, referenceReader);
     }
 
-    public List<Haplotype> runLocalAssembly(List<SAMRecord> reads) {
+    public List<Haplotype> runLocalAssembly(final List<SAMRecord> reads) {
 
         // reset the graph
         graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
 
         // clip the reads to get just the base sequences we want
-        List<byte[]> sequences = clipReads(reads);
+        final List<byte[]> sequences = clipReads(reads);
 
         // create the graph
         createDeBruijnGraph(sequences);
@@ -50,24 +47,26 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     // This method takes the base sequences from the SAM records and pulls
     // out runs of bases that are not soft-clipped and are all at least Q20s.
     // Clipped sequences that are overly clipped are not used.
-    private List<byte[]> clipReads(List<SAMRecord> reads) {
+    private List<byte[]> clipReads(final List<SAMRecord> reads) {
 
-        List<byte[]> sequences = new ArrayList<byte[]>();
+        final List<byte[]> sequences = new ArrayList<byte[]>();
 
         // actual clipping moved to base walker
         for( final SAMRecord read : reads ) {
-            if( read.getReadBases().length > KMER_LENGTH + KMER_OVERLAP ) {
+            //if( read.getReadBases().length > KMER_LENGTH + KMER_OVERLAP ) {
                 sequences.add( read.getReadBases() );
-            }
+            //}
         }
 
         return sequences;
     }
 
-    private void createDeBruijnGraph(List<byte[]> reads) {
+    private void createDeBruijnGraph(final List<byte[]> reads) {
 
         // create the graph
-        createGraphFromSequences(reads);
+        for(int kmer = 41; kmer <= 101; kmer += 12) {
+            createGraphFromSequences( reads, kmer );
+        }
 
         // remove nodes with incoming multiplicity of N
         // if ( MIN_MULTIPLICITY_TO_USE > 0 )
@@ -85,31 +84,32 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             printGraph();
     }
 
-    private void createGraphFromSequences(List<byte[]> reads) {
+    private void createGraphFromSequences(final List<byte[]> reads, final int KMER_LENGTH ) {
 
-        for ( byte[] sequence : reads ) {
+        for ( final byte[] sequence : reads ) {
+            if( sequence.length > KMER_LENGTH + KMER_OVERLAP ) {
+                final int kmersInSequence = sequence.length - KMER_LENGTH + 1;
+                for (int i = 0; i < kmersInSequence - 1; i++) {
+                    // get the kmers
+                    final byte[] kmer1 = new byte[KMER_LENGTH];
+                    System.arraycopy(sequence, i, kmer1, 0, KMER_LENGTH);
+                    final byte[] kmer2 = new byte[KMER_LENGTH];
+                    System.arraycopy(sequence, i+1, kmer2, 0, KMER_LENGTH);
 
-            final int kmersInSequence = sequence.length - KMER_LENGTH + 1;
-            for (int i = 0; i < kmersInSequence - 1; i++) {
-                // get the kmers
-                byte[] kmer1 = new byte[KMER_LENGTH];
-                System.arraycopy(sequence, i, kmer1, 0, KMER_LENGTH);
-                byte[] kmer2 = new byte[KMER_LENGTH];
-                System.arraycopy(sequence, i+1, kmer2, 0, KMER_LENGTH);
+                    addEdgeToGraph(kmer1, kmer2);
 
-                addEdgeToGraph(kmer1, kmer2);
-
-                // TODO -- eventually, we'll need to deal with reverse complementing the sequences
+                    // TODO -- eventually, we'll need to deal with reverse complementing the sequences ???
+                }
             }
         }
     }
 
-    private void addEdgeToGraph(byte[] kmer1, byte[] kmer2) {
+    private void addEdgeToGraph(final byte[] kmer1, final byte[] kmer2) {
 
-        DeBruijnVertex v1 = addToGraphIfNew(kmer1);
-        DeBruijnVertex v2 = addToGraphIfNew(kmer2);
+        final DeBruijnVertex v1 = addToGraphIfNew(kmer1);
+        final DeBruijnVertex v2 = addToGraphIfNew(kmer2);
 
-        Set<DeBruijnEdge> edges = graph.outgoingEdgesOf(v1);
+        final Set<DeBruijnEdge> edges = graph.outgoingEdgesOf(v1);
         DeBruijnEdge targetEdge = null;
         for ( DeBruijnEdge edge : edges ) {
             if ( graph.getEdgeTarget(edge).equals(v2) ) {
@@ -124,11 +124,11 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             targetEdge.setMultiplicity(targetEdge.getMultiplicity() + 1);
     }
 
-    private DeBruijnVertex addToGraphIfNew(byte[] kmer) {
+    private DeBruijnVertex addToGraphIfNew(final byte[] kmer) {
 
         // the graph.containsVertex() method is busted, so here's a hack around it
-        DeBruijnVertex newV = new DeBruijnVertex(kmer);
-        for ( DeBruijnVertex v : graph.vertexSet() ) {
+        final DeBruijnVertex newV = new DeBruijnVertex(kmer);
+        for ( final DeBruijnVertex v : graph.vertexSet() ) {
             if ( v.equals(newV) )
                 return v;
         }
@@ -137,6 +137,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         return newV;
     }
 
+    /*
     private void concatenateNodes() {
 
         while ( true ) {
@@ -246,6 +247,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                 break;
         }
     }
+    */
 
     private void removeEmptyNodes() {
 
@@ -341,7 +343,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         // find them
-        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 50);
+        List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 140);
 
         for ( final KBestPaths.Path path : bestPaths ) {
             final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
