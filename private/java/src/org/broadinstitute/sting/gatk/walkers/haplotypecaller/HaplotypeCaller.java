@@ -127,7 +127,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     private IndexedFastaSequenceFile referenceReader;
 
     // reference base padding size
-    private static final int REFERENCE_PADDING = 30;
+    private static final int REFERENCE_PADDING = 50;
 
     // bases with quality less than or equal to this value are trimmed off the tails of the reads
     private static final byte MIN_TAIL_QUALITY = 8;
@@ -225,6 +225,8 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     private void processReadBin( final GenomeLoc curInterval ) {
 
         if( DEBUG ) { System.out.println(curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:"); }
+        if( readsToAssemble.getReads().size() > 1300 ) { System.out.println("Too many reads! Abort."); return; }
+
         final List<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble.getReads() );
 
         // Add the full reference as a possible haplotype
@@ -247,11 +249,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         final GenomeLoc window = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 5, pos + 5);
 
         final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReadsInWindow( window ) );
-        final List<Haplotype> refHaplotypes = new ArrayList<Haplotype>();
-        refHaplotypes.add(refHaplotype);
-        final Pair<Haplotype, Haplotype> refPairHaplotypes = likelihoodCalculationEngine.computeLikelihoods( refHaplotypes, readsToAssemble.getReadsInWindow( window ) );
-        System.out.println("Ref Likelihood = " + refPairHaplotypes.first.likelihood + ", Alt Likelihood = " + bestTwoHaplotypes.first.likelihood);
-        final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation() );
+        final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), bestTwoHaplotypes.first.likelihood );
 
         if( bamWriter != null && realignReads ) {
             genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), manager, readsToAssemble.getReadsInWindow( window ), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
@@ -305,7 +303,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
             final ArrayList<SAMRecord> readsOverlappingVariant = new ArrayList<SAMRecord>();
 
             for( final SAMRecord rec : reads ) {
-                if( rec.getMappingQuality() > 8 && !BadMateFilter.hasBadMate(rec) ) {
+                if( rec.getMappingQuality() > 18 && !BadMateFilter.hasBadMate(rec) ) {
                     GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(rec);
                     if( locForRead.overlapsP(window) ) {
                         readsOverlappingVariant.add(rec);
@@ -333,8 +331,8 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         public byte[] getReferenceNoPadding(IndexedFastaSequenceFile referenceReader) {
             int padLeft = Math.max(loc.getStart(), 1);
             int padRight = Math.min(loc.getStop(), referenceReader.getSequenceDictionary().getSequence(loc.getContig()).getSequenceLength());
-            loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), padLeft, padRight);
-            byte[] returnReference = referenceReader.getSubsequenceAt(loc.getContig(), loc.getStart(), loc.getStop()).getBases();
+            final GenomeLoc thisLoc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), padLeft, padRight);
+            byte[] returnReference = referenceReader.getSubsequenceAt(thisLoc.getContig(), thisLoc.getStart(), thisLoc.getStop()).getBases();
             StringUtil.toUpperCase(returnReference);
             return returnReference;
         }
