@@ -43,6 +43,7 @@ import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.sam.SimplifyingSAMFileWriter;
@@ -216,14 +217,15 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
             // write out compressed reads as they become available
             for ( SAMRecord consensusRead : comp.addAlignment(read)) {
                 if ( true ) {
-                    final int start = read.getAlignmentStart();
-                    final int stop = read.getAlignmentEnd();
+                    final int start = consensusRead.getAlignmentStart();
+                    final int stop = consensusRead.getAlignmentEnd();
                     final byte[] ref = getToolkit().getReferenceDataSource().getReference().getSubsequenceAt(read.getReferenceName(), start, stop).getBases();
-                    final int nm = SequenceUtil.countMismatches(read, ref, start - 1);
-                    final int readLen = read.getReadLength();
+                    final int nm = SequenceUtil.countMismatches(consensusRead, ref, start - 1);
+                    final int readLen = consensusRead.getReadLength();
                     final double nmFraction = nm / (1.0*readLen);
                     if ( nmFraction > 0.4 && readLen > 20 )
-                        logger.warn("High mismatch fraction found in read " + read.getReadName());
+                        throw new ReviewedStingException("BUG: High mismatch fraction found in read " + consensusRead.getReadName());
+                        //logger.warn("High mismatch fraction found in read " + consensusRead.getReadName());
                 }
 
                 if (debugLog) {
