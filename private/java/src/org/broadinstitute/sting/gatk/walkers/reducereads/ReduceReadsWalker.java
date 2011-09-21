@@ -28,6 +28,7 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMUtils;
+import net.sf.samtools.util.SequenceUtil;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
@@ -214,6 +215,16 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         if (read.getReadLength() != 0) {
             // write out compressed reads as they become available
             for ( SAMRecord consensusRead : comp.addAlignment(read)) {
+                if ( true ) {
+                    final int start = read.getAlignmentStart();
+                    final int stop = read.getAlignmentEnd();
+                    final byte[] ref = getToolkit().getReferenceDataSource().getReference().getSubsequenceAt(read.getReferenceName(), start, stop).getBases();
+                    final int nm = SequenceUtil.countMismatches(read, ref, start - 1);
+                    final int readLen = read.getReadLength();
+                    final double nmFraction = nm / (1.0*readLen);
+                    if ( nmFraction > 0.4 && readLen > 20 )
+                        logger.warn("High mismatch fraction found in read " + read.getReadName());
+                }
 
                 if (debugLog) {
                     String bases = "";
