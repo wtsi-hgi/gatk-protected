@@ -216,17 +216,14 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         if (read.getReadLength() != 0) {
             // write out compressed reads as they become available
             for ( SAMRecord consensusRead : comp.addAlignment(read)) {
-                if ( true ) {
-                    final int start = consensusRead.getAlignmentStart();
-                    final int stop = consensusRead.getAlignmentEnd();
-                    final byte[] ref = getToolkit().getReferenceDataSource().getReference().getSubsequenceAt(read.getReferenceName(), start, stop).getBases();
-                    final int nm = SequenceUtil.countMismatches(consensusRead, ref, start - 1);
-                    final int readLen = consensusRead.getReadLength();
-                    final double nmFraction = nm / (1.0*readLen);
-                    if ( nmFraction > 0.4 && readLen > 20 )
-                        throw new ReviewedStingException("BUG: High mismatch fraction found in read " + consensusRead.getReadName());
-                        //logger.warn("High mismatch fraction found in read " + consensusRead.getReadName());
-                }
+                final int start = consensusRead.getAlignmentStart();
+                final int stop = consensusRead.getAlignmentEnd();
+                final byte[] ref = getToolkit().getReferenceDataSource().getReference().getSubsequenceAt(read.getReferenceName(), start, stop).getBases();
+                final int nm = SequenceUtil.countMismatches(consensusRead, ref, start - 1);
+                final int readLen = consensusRead.getReadLength();
+                final double nmFraction = nm / (1.0*readLen);
+                if ( nmFraction > 0.4 && readLen > 20 )
+                    throw new ReviewedStingException("BUG: High mismatch fraction found in read " + consensusRead.getReadName());
 
                 if (debugLog) {
                     String bases = "";
@@ -251,10 +248,6 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
             out.addAlignment(consensusRead);
             nCompressedReads++;
         }
-
-//        double percent = (100.0 * nCompressedReads) / totalReads;
-//        logger.info("Compressed reads : " + nCompressedReads + String.format(" (%.2f%%)", percent));
-//        logger.info("Total reads      : " + totalReads);
     }
     
 }
