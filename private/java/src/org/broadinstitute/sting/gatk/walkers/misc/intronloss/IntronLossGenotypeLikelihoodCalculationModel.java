@@ -189,7 +189,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel extends GenotypeLikeli
     // todo -- there is a proper way to do these four calculations
 
     private double readProperlyAligned(SAMRecord read) {
-        return QualityUtils.qualToProb(read.getMappingQuality());
+        return QualityUtils.qualToProb((byte)read.getMappingQuality());
     }
 
     private double mateProperlyAligned(SAMRecord read) {

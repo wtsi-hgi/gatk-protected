@@ -38,12 +38,15 @@ import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
+import org.broadinstitute.sting.utils.codecs.samread.SAMReadCodec;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.FileNotFoundException;
@@ -100,7 +103,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     protected LocalAssemblyEngine.ASSEMBLER ASSEMBLER_TO_USE = LocalAssemblyEngine.ASSEMBLER.SIMPLE_DE_BRUIJN;
 
     // should we print out verbose debug information about each triggering interval
-    private final boolean DEBUG = false;
+    private final boolean DEBUG = true;
 
     // the assembly engine
     LocalAssemblyEngine assemblyEngine = null;
@@ -127,7 +130,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     private static final int REFERENCE_PADDING = 50;
 
     // bases with quality less than or equal to this value are trimmed off the tails of the reads
-    private static final byte MIN_TAIL_QUALITY = 6;
+    private static final byte MIN_TAIL_QUALITY = 8;
 
     protected ConstrainedMateFixingManager manager = null;
 
@@ -222,7 +225,14 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     private void processReadBin( final GenomeLoc curInterval ) {
 
         if( DEBUG ) { System.out.println(curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:"); }
+        if( readsToAssemble.getReads().size() > 1300 ) { System.out.println("Too many reads! Abort."); return; }
+
         final List<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble.getReads() );
+
+        // Add the full reference as a possible haplotype
+        final Haplotype refHaplotype = new Haplotype(readsToAssemble.getReferenceNoPadding(referenceReader));
+        haplotypes.add(refHaplotype);
+
         if( DEBUG ) { System.out.println("Found " + haplotypes.size() + " candidate haplotypes to evaluate"); }
 
         if( haplotypes.size() == 0 ) {
@@ -236,10 +246,10 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         }
 
         final int pos = curInterval.getStart() + (curInterval.getStop() - curInterval.getStart()) / 2;
-        final GenomeLoc window = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 9, pos + 9);
+        final GenomeLoc window = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 5, pos + 5);
 
         final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReadsInWindow( window ) );
-        final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation() );
+        final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), bestTwoHaplotypes.first.likelihood );
 
         if( bamWriter != null && realignReads ) {
             genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), manager, readsToAssemble.getReadsInWindow( window ), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
@@ -250,6 +260,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
                 if( DEBUG ) { System.out.print("== "); }
                 vcfWriter.add(vc);
             }
+
             if( DEBUG ) { System.out.println(vc); }
         }
 
@@ -270,16 +281,19 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         // This can happen if e.g. there's a large known indel with no overlapping reads.
         public void add( final SAMRecord read ) {
 
-            final SAMRecord clippedRead = (new ReadClipper(read)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
-            
-            if( clippedRead.getReadLength() > 0 ) {
-                GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(clippedRead);
-                if ( loc == null )
-                    loc = locForRead;
-                else if ( locForRead.getStop() > loc.getStop() )
-                    loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), loc.getStart(), locForRead.getStop());
+            final GATKSAMRecord postAdapterRead = ReadUtils.hardClipAdaptorSequence(read);
+            if( postAdapterRead != null ) {
+                final SAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
 
-                reads.add(clippedRead);
+                if( clippedRead.getReadLength() > 0 ) {
+                    GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(clippedRead);
+                    if ( loc == null )
+                        loc = locForRead;
+                    else if ( locForRead.getStop() > loc.getStop() )
+                        loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), loc.getStart(), locForRead.getStop());
+
+                    reads.add(clippedRead);
+                }
             }
         }
 
@@ -312,6 +326,15 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
             }
 
             return reference;
+        }
+
+        public byte[] getReferenceNoPadding(IndexedFastaSequenceFile referenceReader) {
+            int padLeft = Math.max(loc.getStart(), 1);
+            int padRight = Math.min(loc.getStop(), referenceReader.getSequenceDictionary().getSequence(loc.getContig()).getSequenceLength());
+            final GenomeLoc thisLoc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), padLeft, padRight);
+            byte[] returnReference = referenceReader.getSubsequenceAt(thisLoc.getContig(), thisLoc.getStart(), thisLoc.getStop()).getBases();
+            StringUtil.toUpperCase(returnReference);
+            return returnReference;
         }
 
         public GenomeLoc getLocation() { return loc; }

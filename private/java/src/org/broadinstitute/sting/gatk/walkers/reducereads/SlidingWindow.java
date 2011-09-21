@@ -203,11 +203,11 @@ public class SlidingWindow {
                 if (i >= start) {
                     // Element may be an empty element representing a gap between the reads
                     if (wh.isEmpty()) {
-                        SAMRecord consensus = finalizeConsensus();        // we finalized the running consensus and start a new one with the remaining
+                        SAMRecord consensus = finalizeConsensus();        // we finalize the running consensus and start a new one with the remaining
                         if(consensus != null)
                             consensusList.add(consensus);
                         consensusList.addAll(addToConsensus(i + 1, end)); // and start a new one starting at the next position
-                        break;                                            // recursive call already took care of the rest of this loop, we are done.
+                        break;                                            // recursive call takes care of the rest of this loop, we are done.
                     }
                     else {
                         byte base = wh.baseCounts.baseWithMostCounts();
@@ -321,10 +321,12 @@ public class SlidingWindow {
     @Requires("runningConsensus != null")
     private SAMRecord finalizeConsensus() {
         SAMRecord finalizedRead = null;
-        if (runningConsensus.size() > 0) {
+        if (runningConsensus.size() > 0)
             finalizedRead = runningConsensus.close();
-            runningConsensus = null;
-        }
+        else
+            consensusCounter--;
+
+        runningConsensus = null;
         return finalizedRead;
     }
 
@@ -370,7 +372,7 @@ public class SlidingWindow {
             stopLocation = read.getAlignmentEnd();
         }
 
-        // todo -- perhaps rewrite this iteration usign list iterator to save time searching for each index.
+        // todo -- perhaps rewrite this iteration using list iterator to save time searching for each index.
         // todo -- they should be consecutive (as far as I can tell)
         for (CigarElement cigarElement : cigar.getCigarElements()) {
             switch (cigarElement.getOperator()) {
@@ -410,6 +412,10 @@ public class SlidingWindow {
         }
     }
 
+    public int getContigIndex() {
+        return contigIndex;
+    }
+
     /**
      * The element the composes the header of the sliding window.
      *
@@ -441,9 +447,10 @@ public class SlidingWindow {
         }
 
         public void addBase(byte base, byte qual, double rms) {
-            if ( qual >= MIN_BASE_QUAL_TO_COUNT )
+            if ( qual >= MIN_BASE_QUAL_TO_COUNT )  {
                 baseCounts.incr(base);
-            this.rms.add(rms);
+                this.rms.add(rms);
+            }
         }
 
         private boolean isVariantFromInsertions() {
