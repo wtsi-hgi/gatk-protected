@@ -15,8 +15,8 @@ if ( onCMDLine ) {
   outputPDF = args[2]
 } else {
   reference_dataset = '/humgen/gsa-scr1/GATK_Data/preqc.database'
-  inputTSV = 'Diamond_BlackFan_Anemia_07112011_per_sample_metrics.tsv'
-  outputPDF = 'Diamond_BlackFan_Anemia_07112011.pdf'
+  inputTSV = 'ToKraft_Haiman.Pilot_plate_metrics.GWASeq_BrCa_per_sample_metrics.tsv'
+  outputPDF = 'ToKraft_Haiman.pdf'
 }
 
 require('ggplot2')
@@ -27,12 +27,18 @@ data <- read.table(inputTSV,header=T)
 trim_to_95_pct <- function(column) {
   mean <- mean(column,na.rm=T)
   sd <- sd(column,na.rm=T)
-  min <- mean - 2*sd
-  max <- mean + 2*sd
-  not_within_bounds <- function(value) {
-    return(as.numeric(value<=min|value>=max))
+  if(sd > 0) {
+      min <- mean - 2*sd
+      max <- mean + 2*sd
+      not_within_bounds <- function(value) {
+        return(as.numeric(value<=min|value>=max))
+      }
+      return(sapply(column,not_within_bounds))
   }
-  return(sapply(column,not_within_bounds))
+  else {
+      # Dataset was completely uniform.  Do not attempt to trim outliers.
+      return(rep(0,length(column)))
+  }
 }
 
 create_base_plot <- function(title,reference_dataset,new_dataset,column_name,include_sigmas=T) {
@@ -92,9 +98,13 @@ complete <- data.frame(complete,months_to_current_project=number_of_months(as.Da
 complete <- subset(complete,months_to_current_project>=-12)
 
 novel_sampled <- subset(complete,Novelty=="novel"&FunctionalClass=="all")
-novel_sampled <- novel_sampled[novel_sampled$BAIT_SET %in% data$BAIT_SET,]
+comparing_to_all = TRUE
+if(any(novel_sampled$BAIT_SET %in% data$BAIT_SET)) {
+    novel_sampled <- novel_sampled[novel_sampled$BAIT_SET %in% data$BAIT_SET,]
+    comparing_to_all = FALSE
+}
+
 violations <- trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
-violations <- violations + trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
 violations <- violations + trim_to_95_pct(novel_sampled$MEAN_TARGET_COVERAGE)
 violations <- violations + trim_to_95_pct(novel_sampled$ZERO_CVG_TARGETS_PCT)
 violations <- violations + trim_to_95_pct(novel_sampled$PCT_TARGET_BASES_20X)
@@ -122,7 +132,10 @@ if(onCMDLine) {
 # Specify a project header.
 initiative <- as.character(unique(data$INITIATIVE))
 num_samples <- length(unique(data$sample))
-intervals <- as.character(unique(data$BAIT_SET))
+bait_set <- as.character(unique(data$BAIT_SET))
+if(comparing_to_all) {
+    bait_set <- paste(bait_set,'(Comparing custom bait set to all prior runs)',sep=' ')
+}
 total_reads <- sum(as.numeric(data$TOTAL_READS))
 total_pf_reads <- sum(as.numeric(data$PF_READS))
 total_pf_aligned_reads <- sum(as.numeric(data$PF_READS_ALIGNED))
@@ -130,7 +143,7 @@ total_pf_aligned_reads <- sum(as.numeric(data$PF_READS_ALIGNED))
 num_reference_samples <- length(unique(complete$sample))
 num_curated_reference_samples <- length(unique(novel_sampled$sample))
 
-summary <- data.frame(keys=c('Initiative:','Number of Samples:','Intervals:','Total Reads:','PF Reads:','PF Reads Aligned:','','Number of Samples in Reference Database:','Number of Samples in + Curated Database:'),values=c(initiative,num_samples,intervals,total_reads,total_pf_reads,total_pf_aligned_reads,'',num_reference_samples,num_curated_reference_samples))
+summary <- data.frame(keys=c('Initiative:','Number of Samples:','Bait Set:','Total Reads:','PF Reads:','PF Reads Aligned:','','Number of Samples in Reference Database:','Number of Samples in + Curated Database:'),values=c(initiative,num_samples,bait_set,total_reads,total_pf_reads,total_pf_aligned_reads,'',num_reference_samples,num_curated_reference_samples))
 textplot(summary,show.rownames=F,show.colnames=F,valign=c("top"))
 title('Project Summary Metrics')
 
