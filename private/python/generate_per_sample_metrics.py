@@ -4,7 +4,7 @@
 # There are two run modes: one pulls in timestamps using the sequencing database, one skips those two columns.
 #   To load info from the sequencing database, use IntelliJ to connect to the database, thereby downloading its Oracle connection jar into $STING_HOME.  Then run:
 #   /humgen/gsa-hpprojects/software/bin/jython2.5.2/jython \
-#     -J-classpath $STING_HOME/dist/sam-1.48.889.jar:$STING_HOME/dist/picard-1.48.889.jar:$STING_HOME/dist/picard-private-parts-1954.jar:$STING_HOME/ojdbc6-11.2.0.1.0.jar \
+#     -J-classpath $STING_HOME/dist/sam-1.52.944.jar:$STING_HOME/dist/picard-1.52.944.jar:$STING_HOME/dist/picard-private-parts-2034.jar:$STING_HOME/ojdbc6-11.2.0.1.0.jar \
 #     $STING_HOME/private/python/generate_per_sample_metrics.py <bam.list> true > <output_metrics_file.tsv>
 #
 #  To skip the sequencing database, use the following command:
@@ -56,10 +56,14 @@ def get_sample_summary_metrics(filename,filter):
     file_reader = FileReader(filename)
     metrics_file = MetricsFile()
     metrics_file.read(file_reader)
-    raw_metrics = metrics_file.getMetrics()
+    metrics = metrics_file.getMetrics()
     file_reader.close()
+
+    # If sample summary metrics can break down by library, make sure we're only selecting the row without a per-library breakdown.
+    metrics = [metric for metric in metrics_file.getMetrics() if 'LIBRARY' not in get_sample_summary_metrics_fields(metric.getClass()) or getattr(metric,'LIBRARY') == None]
+
     sampled_metrics = []
-    for metric in raw_metrics:
+    for metric in metrics:
         if filter != None:
             key,value = filter.split('=')
             if hasattr(metric,key) and getattr(metric,key).toString() == value:
