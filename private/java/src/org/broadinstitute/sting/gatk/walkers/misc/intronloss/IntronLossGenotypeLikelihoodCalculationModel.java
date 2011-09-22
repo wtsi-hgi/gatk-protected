@@ -42,14 +42,7 @@ import java.util.*;
 public class IntronLossGenotypeLikelihoodCalculationModel {
 
     public static final int PLOIDY = 2;
-    public static final double MAX_LIKELIHOOD = Math.log10(1.0-Math.pow(10.0,-12));
-    public static final double MIN_LIKELIHOOD = Double.MIN_VALUE;
     public static final int ALIGNMENT_QUAL_CAP = 500;
-
-    // todo -- deletion is with respect to a specific transcript, so intron loss can remove an exon
-    //     ... so we could be looking 2 or 3 exons away, or even in the middle of an intron if there is
-    //     ... an alternate transcript
-    private RodBinding<RefSeqFeature> refSeqBinding;
     private GenomeLocParser genomeLocParser;
     private Map<String,byte[]> insertSizeQualHistograms;
     private Set<String> samples;
@@ -61,7 +54,6 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
 
     public void initialize(RodBinding<RefSeqFeature> refSeqBinding,
                            GenomeLocParser parser, Map<String,byte[]> histograms) {
-        this.refSeqBinding = refSeqBinding;
         this.genomeLocParser = parser;
         this.insertSizeQualHistograms = histograms;
     }
@@ -71,8 +63,6 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
     }
 
     public GenomeLoc getGenomeLoc(SAMRecord read) {
-        //String debugStr = read == null ? "null" : String.format("%s %s:%d-%d",read.getReadName(),read.getReferenceName(),ReadUtils.getRefCoordSoftUnclippedStart(read),ReadUtils.getRefCoordSoftUnclippedEnd(read));
-        //logger.debug(debugStr);
         if ( read == null )
             return null;
         int start =  ReadUtils.getRefCoordSoftUnclippedStart(read);
@@ -91,7 +81,6 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         // first postulate events
         for ( Pair<SAMRecord,SAMRecord> pair : readBin ) {
             IntronLossPostulate p = new IntronLossPostulate(geneFeature.getExons(),getGenomeLoc(pair.first),getGenomeLoc(pair.second));
-            //logger.debug(String.format("%s %d %s %s", genomeLocParser.createGenomeLoc(r), r.getInferredInsertSize(), createMateLoc(r), Utils.join(",",geneFeature.getExons())));
             if ( ! postulates.containsKey(p.toString()) ) {
                 postulates.put(p.toString(),p);
             }
@@ -105,8 +94,6 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
                 GenomeLoc eventLoc = geneFeature.getLocation();
                 Allele ref = Allele.create(refFile.getSubsequenceAt(featureStop.getContig(), featureStop.getStop(), featureStop.getStop()).getBases(), true);
                 Allele alt = Allele.create(String.format("<:%s:>",postulate),false);
-                // update the likelihoods for the postulate itself
-                //Map<String,double[]> oldLikelihoods = createPostulateLikelihoods(samples,postulate,postulates.get("NONE"),geneFeature,refFile);
                 Map<String,double[]> newLikelihoods = createPostulateLikelihoodsNew(samples,postulate,postulates.get("NONE"),geneFeature,refFile);
                 Map<String,MultiallelicGenotypeLikelihoods> GLs = new HashMap<String,MultiallelicGenotypeLikelihoods>(samples.size());
                 for ( Map.Entry<String,double[]> gl : samLikelihoods.entrySet() ) {
@@ -164,8 +151,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
             }
         }
 
-        /*
-        * Note: Early abort if we are more likely to be ref from SUPPORTING READS
+        // Note: Early abort if we are more likely to be ref from SUPPORTING READS
         boolean probRef = true;
         for ( double[] lik : samLikelihoods.values() ) {
             probRef &= MathUtils.compareDoubles(MathUtils.arrayMax(lik),lik[0],1e-5) == 0;
@@ -173,7 +159,6 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         if ( probRef ) {
             return samLikelihoods;
         }
-         */
 
         if ( nonePostulate == null ) {
             return samLikelihoods;
@@ -274,222 +259,6 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
 
         return  ( (double) cappedPhred)/(-10.0);
     }
-
-    public Map<String,double[]> createPostulateLikelihoods(Set<String> samples, IntronLossPostulate myPostulate, IntronLossPostulate nonePostulate, RefSeqFeature geneFeature, IndexedFastaSequenceFile refFile) {
-        Map<String,double[]> samLikelihoods = new HashMap<String,double[]>(samples.size());
-        for ( String s : samples ) {
-            samLikelihoods.put(s,new double[1+PLOIDY]);
-        }
-
-        // step one: update the likelihoods based on pairs supporting the postulate
-        for ( Pair<SAMRecord,SAMRecord> supportingPair : myPostulate.supportingPairs ) {
-            double deletionProbabilityLog = generativeIntronDeletionProbabilityLog(supportingPair, ILReadClass.EXON_EXON,myPostulate.getEventSize());
-            double noDeletionProbabilityLog = generativeUnmodifiedGenomeProbabilityLog(supportingPair, ILReadClass.EXON_EXON,myPostulate.getEventSize());
-            for ( SAMRecord read : Arrays.asList(supportingPair.first,supportingPair.second) ) {
-                GenomeLoc readLoc = getGenomeLoc(read);
-                if ( readProximalToEvent(read,myPostulate) && (readLoc.getStart() < myPostulate.exonLocs.second.getStart() || readLoc.getStop() > myPostulate.exonLocs.first.getStop())) {
-                    // read overlaps either the intron or spans the event, so this is a supporting read
-                    deletionProbabilityLog += overlapIntronDeletionProbabilityLog(read,myPostulate,geneFeature,refFile);
-                    noDeletionProbabilityLog += overlapIntronNoDeletionProbabilityLog(read,myPostulate,geneFeature,refFile);
-                }
-            }
-            for ( int ac = 0; ac <= PLOIDY; ac ++ ) {
-                double logAc = Math.log10(ac);
-                double logAnMAc = Math.log10(PLOIDY-ac);
-                double logPloidy = Math.log10(PLOIDY); // todo -- should be global constant
-                // todo -- numerically unstable: delta can be negative infinity
-                double delta = MathUtils.log10sumLog10(new double[]{logAc + deletionProbabilityLog - logPloidy, logAnMAc + noDeletionProbabilityLog - logPloidy});
-                String sam = supportingPair.first.getReadGroup().getSample();
-                samLikelihoods.get(sam)[ac] += delta;
-            }
-        }
-
-        // step two: update likelihoods based on read pairs possibly not supporting the postulate
-        if ( nonePostulate == null )
-            return samLikelihoods;
-
-        for ( Pair<SAMRecord,SAMRecord> otherPair : nonePostulate.supportingPairs ) {
-            // set the delta
-            double deletionProbabilityLog = 0.0;
-            double noDeletionProbabilityLog = 0.0;
-            // first, check to see if the pair is an intron -> exon jump
-            if ( otherPair.second != null && myPostulate.isIntronExon(getGenomeLoc(otherPair.first),getGenomeLoc(otherPair.second))) {
-                deletionProbabilityLog += generativeIntronDeletionProbabilityLog(otherPair, ILReadClass.EXON_INTRON, myPostulate.getEventSize());
-                noDeletionProbabilityLog += generativeIntronDeletionProbabilityLog(otherPair, ILReadClass.EXON_INTRON, myPostulate.getEventSize());
-            }
-            // next identify any reads spanning exon/intron or exon/exon boundary
-            for ( SAMRecord read : Arrays.asList(otherPair.first,otherPair.second) ) {
-                if ( read == null ) {
-                    continue;
-                }
-                GenomeLoc readLoc = getGenomeLoc(read);
-                // check if it extends beyind an exon of the postulate
-                if ( readProximalToEvent(read,myPostulate) && (readLoc.getStart() < myPostulate.exonLocs.second.getStart() || readLoc.getStop() > myPostulate.exonLocs.first.getStop())) {
-                    // read overlaps either the intron or spans the event, so this is a supporting read
-                    deletionProbabilityLog += overlapIntronDeletionProbabilityLog(read, myPostulate, geneFeature, refFile);
-                    noDeletionProbabilityLog += overlapIntronNoDeletionProbabilityLog(read, myPostulate, geneFeature, refFile);
-                }
-            }
-
-            if ( deletionProbabilityLog < -1e-2 && noDeletionProbabilityLog < -1e-2 ) {
-                // probabilities have been updated
-                for ( int ac = 0; ac <= PLOIDY ; ac ++ ) {
-                    double logAc = Math.log10(ac);
-                    double logAnMAc = Math.log10(PLOIDY-ac);
-                    double logPloidy = Math.log10(PLOIDY); // todo -- should be global constant
-                    // todo -- numerically unstable: delta can be negative infinity
-                    double delta = MathUtils.log10sumLog10(new double[]{logAc + deletionProbabilityLog - logPloidy, logAnMAc + noDeletionProbabilityLog - logPloidy});
-                    String sam = otherPair.first.getReadGroup().getSample();
-                    samLikelihoods.get(sam)[ac] += delta;
-                }
-            }
-        }
-
-        return samLikelihoods;
-    }
-
-    private double overlapIntronDeletionProbabilityLog(SAMRecord read, IntronLossPostulate postulate, RefSeqFeature gene, IndexedFastaSequenceFile ref) {
-        // want the bases and qualities of the positions extending past the intron, and the bases and qualities of both the reference, and into the postulated exon
-        GenomeLoc uClipReadLoc = getGenomeLoc(read);
-        GenomeLoc overlExonLoc = uClipReadLoc.overlapsP(postulate.exonLocs.first) ? postulate.exonLocs.first : postulate.exonLocs.second;
-        GenomeLoc nextExonLoc =   uClipReadLoc.overlapsP(postulate.exonLocs.first) ? postulate.exonLocs.second : postulate.exonLocs.first;
-        GenomeLoc overlapLoc = uClipReadLoc.intersect(overlExonLoc);
-        boolean lastBases = uClipReadLoc.getStop() > overlExonLoc.getStop();
-        int numBases = lastBases ? uClipReadLoc.getStop() - overlExonLoc.getStop() : overlExonLoc.getStart()-uClipReadLoc.getStart();
-        if ( numBases >= read.getReadBases().length) {
-            return 1.0;
-        }
-        //logger.debug(uClipReadLoc.toString()+" "+overlExonLoc.toString() + " "+overlapLoc.toString()+" "+Boolean.toString(lastBases));
-        //logger.debug(String.format("%d-%d=%d",uClipReadLoc.getStop(),overlExonLoc.getStop(),numBases));
-        //byte[] intronBases = ref.getSubsequenceAt(overlapLoc.getContig(),overlapLoc.getStop()+1,overlapLoc.getStop()+1+numBases).getBases();
-        StringBuffer exonSeq = new StringBuffer();
-        if ( lastBases ) {
-            exonSeq.append(new String(ref.getSubsequenceAt(overlExonLoc.getContig(),overlapLoc.getStart()-3,overlapLoc.getStop()).getBases()));
-            exonSeq.append(new String(ref.getSubsequenceAt(nextExonLoc.getContig(),nextExonLoc.getStart(),nextExonLoc.getStart()+numBases+3).getBases()));
-        } else {
-            exonSeq.append(new String(ref.getSubsequenceAt(nextExonLoc.getContig(),nextExonLoc.getStop()-numBases-3,nextExonLoc.getStop()).getBases()));
-            exonSeq.append(new String(ref.getSubsequenceAt(overlapLoc.getContig(),overlapLoc.getStart(),overlapLoc.getStop()+3).getBases()));
-        }
-        byte[] exonBases = exonSeq.toString().getBytes(); // lower-case bases are crap
-        // see if the overlapping bases match the exon, and with what probability they do not
-        // todo -- do we need to locally shift at all? -- yup!
-        SWPairwiseAlignment exonAlignment = new SWPairwiseAlignment(exonBases,read.getReadBases());
-        int offset = exonAlignment.getAlignmentStart2wrt1();
-        double logProbBasesAreExonBases = 0.0;
-        //logger.debug(new String(read.getReadBases()));
-        //logger.debug(new String(exonBases));
-        //logger.debug(new String(read.getReadBases()).substring(offset,offset+numBases));
-        // todo -- CIGAR string!
-        int b = 0;
-        for ( CigarElement elem : exonAlignment.getCigar().getCigarElements() ) {
-            if ( elem.getOperator().equals(CigarOperator.M) ) {
-                for ( int ct = elem.getLength(); ct > 0; ct-- ) {
-                    int pos = b + offset;
-                    if (BaseUtils.basesAreEqual(read.getReadBases()[b],exonBases[pos])) {
-                        // the probability that the base IS what it says it is
-                        logProbBasesAreExonBases += Math.log10(QualityUtils.qualToProb(read.getBaseQualities()[b]));
-                    } else {
-                        // the probability that the base ISN'T what it says it is
-                        logProbBasesAreExonBases += Math.log10(QualityUtils.qualToErrorProb(read.getBaseQualities()[b]))-3; // epsilon over 3
-                    }
-                    b++;
-                }
-            } else if ( elem.getOperator().equals(CigarOperator.D) ) {
-                // just increment offset
-                offset += elem.getLength();
-            } else if (elem.getOperator().equals(CigarOperator.I)) {
-                // update the b
-                b += elem.getLength();
-                offset -= elem.getLength(); // compensate, since pos will move up by elem.getLength()
-            } else if ( elem.getOperator().equals(CigarOperator.S) || elem.getOperator().equals(CigarOperator.H) ) {
-                // just skip the bases and update b; soft clipping occurs at edges, so need to subtract from offset
-                b += elem.getLength();
-                offset -= elem.getLength();
-            } else {
-                throw new StingException("Unsupported operator: "+elem.getOperator().toString());
-            }
-        }
-
-        return logProbBasesAreExonBases; // todo -- see below ("make this better") ??
-    }
-
-    // todo -- code duplication. Merge with above.
-    private double overlapIntronNoDeletionProbabilityLog(SAMRecord read, IntronLossPostulate postulate, RefSeqFeature gene, IndexedFastaSequenceFile ref) {
-        // want the bases and qualities of the positions extending past the intron, and the bases and qualities of both the reference, and into the postulated exon
-        GenomeLoc uClipReadLoc = getGenomeLoc(read);
-        GenomeLoc overlExonLoc = uClipReadLoc.overlapsP(postulate.exonLocs.first) ? postulate.exonLocs.first : postulate.exonLocs.second;
-        GenomeLoc overlapLoc = uClipReadLoc.intersect(overlExonLoc);
-        boolean lastBases = uClipReadLoc.getStop() > overlExonLoc.getStop();
-        int numBases = lastBases ? uClipReadLoc.getStop() - overlExonLoc.getStop() : overlExonLoc.getStart()-uClipReadLoc.getStart();
-        if ( numBases >=  read.getReadBases().length ) {
-            return 1.0;
-        }
-        byte[] intronBases = ref.getSubsequenceAt(overlapLoc.getContig(),overlapLoc.getStop()+1,overlapLoc.getStop()+numBases+1).getBases();
-        //byte[] exonBases = ref.getSubsequenceAt(overlExonLoc.getContig(),overlExonLoc.getStart(),overlExonLoc.getStart()+numBases).toString().toUpperCase().getBytes(); // lower-case bases are crap
-        // see if the overlapping bases match the exon, and with what probability they do not
-        // todo -- do we need to locally shift at all?
-        double logProbBasesAreExonBases = 0.0;
-        int offset = lastBases ? read.getReadBases().length-numBases  : 0;
-        for ( int b = 0; b < numBases; b++ ) {
-            int pos = b+offset;
-            if (BaseUtils.basesAreEqual(read.getReadBases()[pos],intronBases[b])) {
-                // the probability that the base IS what it says it is
-                logProbBasesAreExonBases += Math.log10(QualityUtils.qualToProb(read.getBaseQualities()[pos]));
-            } else {
-                // the probability that the base ISN'T what it says it is
-                logProbBasesAreExonBases += Math.log10(QualityUtils.qualToErrorProb(read.getBaseQualities()[pos]))-3; // epsilon over 3
-            }
-        }
-
-        return logProbBasesAreExonBases; // max of Q80 todo -- make this better ??
-    }
-
-    public boolean readProximalToEvent(SAMRecord read, IntronLossPostulate postulate) {
-        GenomeLoc rLoc = getGenomeLoc(read);
-        return  rLoc.overlapsP(postulate.exonLocs.first) && ! postulate.exonLocs.first.containsP(rLoc)|| rLoc.overlapsP(postulate.exonLocs.second) && ! postulate.exonLocs.second.containsP(rLoc);
-    }
-
-    private double generativeIntronDeletionProbabilityLog(Pair<SAMRecord,SAMRecord> readPair, ILReadClass readClass, int eventSize) {
-        switch (readClass) {
-            case EXON_INTRON: // that one or both reads are IMPROPERLY aligned
-                return Math.log10( Math.pow(10.0,readImproperlyAligned(readPair.first)) + Math.pow(10.0, readImproperlyAligned(readPair.second)) );
-            case EXON_EXON: // both reads aligned, P[insert size] given the deletion event
-                double g =  readProperlyAligned(readPair.first) + readProperlyAligned(readPair.second) + insertSizeProbability(readPair.first,eventSize);
-                return g;
-            case INTRON_EXON: // that one or both reads are improperly aligned
-                return Math.log10( Math.pow(10.0,readImproperlyAligned(readPair.first)) + Math.pow(10.0,readProperlyAligned(readPair.second)));
-        }
-
-        throw new ReviewedStingException("This read has a read class which is not enumerated: "+readClass.name());
-    }
-
-    private double generativeUnmodifiedGenomeProbabilityLog(Pair<SAMRecord,SAMRecord> pair, ILReadClass readClass, int eventSize) {
-        switch ( readClass ) {
-            case EXON_INTRON:
-                return readProperlyAligned(pair.first)+readProperlyAligned(pair.second);
-            case EXON_EXON: // either read improperly aligned OR insert size
-                double pImp = Math.log10(Math.pow(10.0,readImproperlyAligned(pair.first))+Math.pow(10.0,readImproperlyAligned(pair.second)));
-                double pInsert = Math.log10((1-pImp)) + insertSizeProbability(pair.first,0);
-                return Math.log10(Math.pow(10.0,pImp)+Math.pow(10.0,pInsert));
-            case INTRON_EXON: // both reads proper
-                return readProperlyAligned(pair.first)+readProperlyAligned(pair.second);
-        }
-
-        throw new ReviewedStingException("This read has a read class which is not enumerated: "+readClass.name());
-
-    }
-    // todo -- there is a proper way to do these four calculations
-
-    private double readProperlyAligned(SAMRecord read) {
-        return Math.log10(QualityUtils.qualToProb(read.getMappingQuality()));
-    }
-
-    private double readImproperlyAligned(SAMRecord read) {
-        return Math.log10(QualityUtils.qualToErrorProb(((Integer) read.getMappingQuality()).byteValue()));
-    }
-
-    // todo -- end todo
-
     private double insertSizeProbability(SAMRecord read, int adjustment) {
         byte[] quals = insertSizeQualHistograms.get(read.getReadGroup().getId());
         if ( quals == null ) {
@@ -498,10 +267,6 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         }
         int size = Math.max(1,Math.min(quals.length-1,Math.abs(read.getInferredInsertSize())-adjustment));
         return Math.log10(QualityUtils.qualToErrorProb(quals[size]));
-    }
-
-    enum ILReadClass {
-        IN_SAME_EXON,EXON_INTRON,EXON_EXON,INTRON_EXON,INTRON_INTRON
     }
 
     enum PostulateClass {
@@ -600,13 +365,6 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         public boolean isValid() {
             // todo -- this needs to somehow use the insert size distribution
             return getEventSize() > 350;
-        }
-
-        public boolean isIntronExon(GenomeLoc first, GenomeLoc second) {
-            return ( first.overlapsP(exonLocs.first) && ! second.overlapsP(exonLocs.first) && ! second.overlapsP(exonLocs.second) ) ||
-                     ( first.overlapsP(exonLocs.second) && ! second.overlapsP(exonLocs.second) && ! second.overlapsP(exonLocs.first) ) ||
-                    ( second.overlapsP(exonLocs.first) && ! first.overlapsP(exonLocs.first) && ! first.overlapsP(exonLocs.second) ) ||
-                    ( second.overlapsP(exonLocs.second) && ! first.overlapsP(exonLocs.first) && ! first.overlapsP(exonLocs.second));
         }
 
         public byte[] getSequence(IndexedFastaSequenceFile ref) {

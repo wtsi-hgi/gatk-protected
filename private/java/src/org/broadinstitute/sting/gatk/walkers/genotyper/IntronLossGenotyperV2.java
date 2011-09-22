@@ -258,13 +258,13 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
                 result++;
             }
         }
-        logger.info("Ran ILG on " + result + " genes");
+        logger.info("Ran ILG on " + result + " reads");
     }
 
     private void processReadBin(final RefSeqFeature geneFeature, PairedReadBin readBin) {
         logger.debug("Processing read bin");
 
-        System.out.println(readBin.getLocation() + " with " + readBin.getReadPairs().size() + " reads:");
+       logger.info(readBin.getLocation() + " with " + readBin.getReadPairs().size() + " reads:");
 
         List<VariantContext> likVC = ilglcm.getLikelihoods(readBin,geneFeature,referenceReader);
 
@@ -334,103 +334,4 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
             return  reads.values().iterator();
         }
     }
-/*
-    @Argument(shortName="r",fullName="refSeq",required=true,doc="The RefSeq Gene definition track")
-    public RodBinding<RefSeqFeature> refSeqRodBinding;
-
-    @Argument(shortName="H",fullName="insertHistogram",required=true,doc="The insert size histogram per read group, either flat file or GATK report formatted")
-    public File readGroupInsertHistogram;
-
-    private Map<String,byte[]> insertQualsByRG = new HashMap<String,byte[]>();
-
-    private boolean initialized = false;
-
-    @Override
-    public void initialize() {
-        // regardless of what user gives, set the GL model to intron
-        this.UAC.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INTRON;
-        super.initialize();
-
-        Set<Sample> samples = getToolkit().getSAMFileSamples();
-        Set<String> sampleStr = new HashSet<String>(samples.size());
-        for ( Sample s : samples ) {
-            sampleStr.add(s.getId());
-        }
-
-        try {
-
-            XReadLines xrl = new XReadLines(readGroupInsertHistogram);
-            if ( ! xrl.next().startsWith("##:") ) {
-                xrl.close();
-                for ( String entry : new XReadLines(readGroupInsertHistogram) ) {
-                    String[] split1 = entry.split("\\t");
-                    String id = split1[0];
-                    String[] histogram = split1[1].split(";");
-                    byte[] quals = new byte[histogram.length];
-                    int idx = 0;
-                    for ( String histEntry : histogram ) {
-                        quals[idx++] = Byte.parseByte(histEntry);
-                    }
-
-                    insertQualsByRG.put(id,quals);
-                }
-            } else {
-                xrl.close();
-                GATKReport report = new GATKReport(readGroupInsertHistogram);
-                GATKReportTable reportTable = report.getTable("InsertSizeDistribution");
-                // rows are insert sizes, columns are read groups
-                for (GATKReportColumn reportColumn : reportTable.getColumns() ) {
-                    // annoyingly, the column has no knowledge of its own rows
-                    int sum = 0;
-                    for ( int row = 0; row < reportTable.getNumRows(); row++ ) {
-                        sum += Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
-                    }
-                    int remain = sum;
-                    byte[] rgHist = new byte[reportTable.getNumRows()];
-                    for ( int row = 0; row < reportTable.getNumRows(); row++) {
-                        remain -= Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
-                        rgHist[row] = QualityUtils.probToQual(((double)remain)/sum);
-                    }
-
-                    insertQualsByRG.put(reportColumn.getColumnName(),rgHist);
-                }
-            }
-
-        } catch (FileNotFoundException e) {
-            throw new UserException("Histogram file not found",e);
-        } catch (IOException e) {
-            throw new StingException("IO Exception",e);
-        }
-
-        StringBuffer debug = new StringBuffer();
-        for ( Map.Entry<String,byte[]> etry : insertQualsByRG.entrySet() ) {
-            debug.append("  ");
-            debug.append(etry.getKey());
-            debug.append("->");
-            debug.append(Arrays.deepToString(ArrayUtils.toObject(etry.getValue())));
-        }
-
-        logger.debug(debug);
-    }
-
-    @Override
-    public VariantCallContext map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        if ( tracker.getValues(refSeqRodBinding).size() == 0 ) {
-            logger.debug("No values in tracker...");
-            return null;
-        }
-
-        // if the genotype model isn't initialized, grab it and initialize it
-        if ( ! initialized ) {
-            super.getEngine().getILModel().initialize(refSeqRodBinding,getToolkit().getGenomeLocParser(),insertQualsByRG);
-            initialized = true;
-        }
-
-        return super.map(tracker,ref,context);
-    }
-
-    @Override
-    public UGStatistics reduce(VariantCallContext map, UGStatistics red) {
-        return super.reduce(map,red);
-    }*/
 }
