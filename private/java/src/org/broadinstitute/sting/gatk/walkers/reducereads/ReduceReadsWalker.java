@@ -182,15 +182,18 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         totalReads++;
         read = SimplifyingSAMFileWriter.simplifyRead(read);
 
-        ReadClipper clipper = new ReadClipper(read);
         if (debugLog) System.out.printf("Original: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
-        SAMRecord filteredRead = clipper.hardClipLowQualEnds(minTailQuality);
 
-        SAMRecord clippedRead = filteredRead;
-        if (intervalIterator != null && filteredRead.getReadLength() > 0)
-            clippedRead = hardClipReadToInterval(filteredRead);
+        ReadClipper clipper = new ReadClipper(read);
+        SAMRecord clippedRead = clipper.hardClipLowQualEnds(minTailQuality);
 
-        if(debugLog) System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), filteredRead.getCigar(), filteredRead.getAlignmentStart(), filteredRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
+        clipper = new ReadClipper(clippedRead);
+        clippedRead = clipper.hardClipSoftClippedBases();
+
+        if (intervalIterator != null && clippedRead.getReadLength() > 0)
+            clippedRead = hardClipReadToInterval(clippedRead);
+
+        if(debugLog) System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
 
         return clippedRead;
 
@@ -222,8 +225,8 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
                 final int nm = SequenceUtil.countMismatches(consensusRead, ref, start - 1);
                 final int readLen = consensusRead.getReadLength();
                 final double nmFraction = nm / (1.0*readLen);
-                if ( nmFraction > 0.4 && readLen > 20 )
-                    throw new ReviewedStingException("BUG: High mismatch fraction found in read " + consensusRead.getReadName());
+                if ( nmFraction > 0.4 && readLen > 20 && consensusRead.getAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG) != null)
+                    throw new ReviewedStingException("BUG: High mismatch fraction found in read " + consensusRead.getReadName() + " position: " + consensusRead.getReferenceName() + ":" + consensusRead.getAlignmentStart() + "-" + consensusRead.getAlignmentEnd());
 
                 if (debugLog) {
                     String bases = "";
