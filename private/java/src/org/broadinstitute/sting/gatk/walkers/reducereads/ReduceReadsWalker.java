@@ -63,7 +63,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     protected StingSAMFileWriter out;
 
     @Argument(fullName = "contextSize", shortName = "CS", doc = "", required = false)
-    protected int contextSize = 10;
+    protected int contextSize = 20;
 
     @Argument(fullName = "AverageDepthAtVariableSites", shortName = "ADAV", doc = "", required = false)
     protected int AverageDepthAtVariableSites = 500;
@@ -75,7 +75,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     protected byte minTailQuality = 2;
 
     @Argument(fullName = "minimum_alt_proportion_to_trigger_variant", shortName = "minvar", doc = "", required = false)
-    protected double minAltProportionToTriggerVariant = 0.3;
+    protected double minAltProportionToTriggerVariant = 0.05;
 
     @Argument(fullName = "minimum_base_quality_to_consider", shortName = "minqual", doc = "", required = false)
     protected int minBaseQual = 20;
