@@ -15,8 +15,8 @@ if ( onCMDLine ) {
   outputPDF = args[2]
 } else {
   reference_dataset = '/humgen/gsa-scr1/GATK_Data/preqc.database'
-  inputTSV = 'Diamond_BlackFan_Anemia_07112011_per_sample_metrics.tsv'
-  outputPDF = 'Diamond_BlackFan_Anemia_07112011.pdf'
+  inputTSV = 'ToKraft_Haiman.Pilot_plate_metrics.GWASeq_BrCa_per_sample_metrics.tsv'
+  outputPDF = 'ToKraft_Haiman.pdf'
 }
 
 require('ggplot2')
@@ -27,12 +27,18 @@ data <- read.table(inputTSV,header=T)
 trim_to_95_pct <- function(column) {
   mean <- mean(column,na.rm=T)
   sd <- sd(column,na.rm=T)
-  min <- mean - 2*sd
-  max <- mean + 2*sd
-  not_within_bounds <- function(value) {
-    return(as.numeric(value<=min|value>=max))
+  if(sd > 0) {
+      min <- mean - 2*sd
+      max <- mean + 2*sd
+      not_within_bounds <- function(value) {
+        return(as.numeric(value<=min|value>=max))
+      }
+      return(sapply(column,not_within_bounds))
   }
-  return(sapply(column,not_within_bounds))
+  else {
+      # Dataset was completely uniform.  Do not attempt to trim outliers.
+      return(rep(0,length(column)))
+  }
 }
 
 create_base_plot <- function(title,reference_dataset,new_dataset,column_name,include_sigmas=T) {
@@ -99,7 +105,6 @@ if(any(novel_sampled$BAIT_SET %in% data$BAIT_SET)) {
 }
 
 violations <- trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
-violations <- violations + trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
 violations <- violations + trim_to_95_pct(novel_sampled$MEAN_TARGET_COVERAGE)
 violations <- violations + trim_to_95_pct(novel_sampled$ZERO_CVG_TARGETS_PCT)
 violations <- violations + trim_to_95_pct(novel_sampled$PCT_TARGET_BASES_20X)
