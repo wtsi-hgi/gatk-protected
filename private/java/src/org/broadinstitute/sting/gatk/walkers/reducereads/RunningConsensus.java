@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import net.sf.samtools.*;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.util.Iterator;
@@ -144,11 +145,9 @@ public class RunningConsensus {
             CigarOperator op;
             switch (BaseIndex.byteToBase(b)) {
                 case D:
-                    op = CigarOperator.DELETION;
-                    break;
+                    throw new ReviewedStingException("Trying to create a deletion in the consensus");
                 case I:
-                    op = CigarOperator.INSERTION;
-                    break;
+                    throw new ReviewedStingException("Trying to create an insertion in the consensus");
                 default:
                     op = CigarOperator.MATCH_OR_MISMATCH;
                     break;
