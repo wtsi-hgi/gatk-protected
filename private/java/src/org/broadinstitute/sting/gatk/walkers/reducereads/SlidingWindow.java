@@ -446,7 +446,7 @@ public class SlidingWindow {
         }
 
         public boolean isVariant() {
-            return baseCounts.totalCount() > 1 && ( isVariantFromInsertions() || isVariantFromMismatches() || isVariantFromDeletions());
+            return isVariantFromInsertions() || isVariantFromMismatches() || isVariantFromDeletions();
         }
 
         public void addBase(byte base, byte qual, double mappingQuality) {
@@ -460,9 +460,6 @@ public class SlidingWindow {
             return ((double) insertionsToTheRight / baseCounts.totalCount()) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
         }
 
-        /**
-         * Deletions are already counted as mismatches but even if the most common base is a deletion, we need to make this a variant site
-         */
         private boolean isVariantFromDeletions() {
             return baseCounts.baseWithMostCounts() == BaseIndex.D.getByte() || baseCounts.baseCountProportion(BaseIndex.D) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
         }

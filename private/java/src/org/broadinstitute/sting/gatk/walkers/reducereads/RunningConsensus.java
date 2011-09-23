@@ -145,6 +145,7 @@ public class RunningConsensus {
             CigarOperator op;
             switch (BaseIndex.byteToBase(b)) {
                 case D:
+                    System.out.println("BUG CATCHER: " + readName + " " + contig + ":" + refStart + "-" + refStart + bases.size());
                     throw new ReviewedStingException("Trying to create a deletion in the consensus");
                 case I:
                     throw new ReviewedStingException("Trying to create an insertion in the consensus");
