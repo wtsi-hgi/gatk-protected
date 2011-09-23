@@ -23,7 +23,7 @@ import java.util.List;
 public class RunningConsensus {
     private List<Byte> counts;
     private List<Byte> bases;
-    private double rms;   // todo -- implement this
+    private double mappingQuality;          // the average of the rms of the mapping qualities of all the reads that contributed to this consensus
 
     // Information to produce a SAMRecord
     private SAMFileHeader header;
@@ -61,7 +61,7 @@ public class RunningConsensus {
     public RunningConsensus (SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex, String readName, Integer refStart, int consensusBaseQuality) {
         counts = new LinkedList<Byte>();
         bases = new LinkedList<Byte>();
-        rms = 0.0;
+        mappingQuality = 0.0;
 
         this.header = header;
         this.readGroupAttribute = readGroupAttribute;
@@ -79,10 +79,10 @@ public class RunningConsensus {
      * @param base
      * @param count
      */
-    public void add(byte base, byte count, double rms) {
+    public void add(byte base, byte count, double mappingQuality) {
         counts.add(count);
         bases.add(base);
-        this.rms += rms;
+        this.mappingQuality += mappingQuality;
     }
 
     public SAMRecord close () {
@@ -98,7 +98,7 @@ public class RunningConsensus {
         samRecord.setReadName(readName);
         samRecord.setBaseQualities(convertBaseQualities());
         samRecord.setReadBases(convertReadBases());
-        samRecord.setMappingQuality((int) Math.ceil(rms/bases.size()));
+        samRecord.setMappingQuality((int) Math.ceil(mappingQuality /bases.size()));
         return samRecord;
     }
 

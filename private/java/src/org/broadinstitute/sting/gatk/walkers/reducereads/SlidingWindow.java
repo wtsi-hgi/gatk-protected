@@ -424,17 +424,17 @@ public class SlidingWindow {
      * has insertions (to it's right)
      */
     protected class HeaderElement {
-        private BaseCounts baseCounts;    // How many A,C,G,T (and D's) are in this site.
-        private int insertionsToTheRight; // How many reads in this site had insertions to the immediate right
-        private int location;             // Genome location of this site (the sliding window knows which contig we're at
-        private LinkedList<Double> rms;   // keeps the rms of each read that contributed to this element (site)
+        private BaseCounts baseCounts;               // How many A,C,G,T (and D's) are in this site.
+        private int insertionsToTheRight;            // How many reads in this site had insertions to the immediate right
+        private int location;                        // Genome location of this site (the sliding window knows which contig we're at
+        private LinkedList<Double> mappingQuality;   // keeps the mapping quality of each read that contributed to this element (site)
 
 
         public HeaderElement() {
             this.baseCounts = new BaseCounts();
             this.insertionsToTheRight = 0;
             this.location = 0;
-            this.rms = new LinkedList<Double>();
+            this.mappingQuality = new LinkedList<Double>();
         }
 
         public HeaderElement(int location) {
@@ -446,10 +446,10 @@ public class SlidingWindow {
             return baseCounts.totalCount() > 1 && ( isVariantFromInsertions() || isVariantFromMismatches() || isVariantFromDeletions());
         }
 
-        public void addBase(byte base, byte qual, double rms) {
+        public void addBase(byte base, byte qual, double mappingQuality) {
             if ( qual >= MIN_BASE_QUAL_TO_COUNT )  {
                 baseCounts.incr(base);
-                this.rms.add(rms);
+                this.mappingQuality.add(mappingQuality);
             }
         }
 
@@ -477,7 +477,7 @@ public class SlidingWindow {
         }
 
         public double getRMS() {
-            return MathUtils.rms(rms);
+            return MathUtils.rms(mappingQuality);
         }
     }
 
