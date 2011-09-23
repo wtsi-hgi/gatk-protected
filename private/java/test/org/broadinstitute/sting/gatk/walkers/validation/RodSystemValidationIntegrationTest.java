@@ -30,7 +30,7 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
 
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString1KG() + " --eval:VCF3 " + validationDataLocation + "justHeader.vcf", 1,
-                Arrays.asList("579456b4da3498e80c42483abbdf5926"));
+                Arrays.asList("4b884df0f7166a4c2104c311d78fabcd"));
         executeTest("testEmptyVCF", spec);
     }
 
