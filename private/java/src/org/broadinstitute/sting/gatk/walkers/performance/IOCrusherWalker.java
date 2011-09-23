@@ -37,13 +37,7 @@ import org.broadinstitute.sting.utils.sam.ReadUtils;
 import java.util.ArrayList;
 
 /**
- * ReadErrorRateWalker assesses the error rate per read position ('cycle') by comparing the
- * read to its home on the reference and noting the mismatch rate.  It ignores reads with
- * indels in them, treats high and low-quality references bases the same, and does not count
- * ambiguous bases as mismatches.  It's also thread-safe, so you can process a slew of reads
- * in short order.
- *
- * @author Kiran Garimella
+ * A performance assessing walker that reads and writes out very many BAM files
  */
 public class IOCrusherWalker extends ReadWalker<SAMRecord, ArrayList<SAMFileWriter>> {
     @Argument(shortName="nWaysOut",doc="n ways out",required=false)
