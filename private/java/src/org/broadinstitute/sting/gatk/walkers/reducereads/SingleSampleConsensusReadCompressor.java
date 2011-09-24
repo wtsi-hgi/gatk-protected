@@ -64,6 +64,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
     private SlidingWindow slidingWindow;
     private double minAltProportionToTriggerVariant;
+    private double minIndelProportionToTriggerVariant;
     private int minBaseQual;
     private int maxQualCount;
 
@@ -73,6 +74,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
                                                final int AverageDepthAtVariableSites,
                                                final int minMappingQuality,
                                                final double minAltProportionToTriggerVariant,
+                                               final double minIndelProportionToTriggerVariant,
                                                final int minBaseQual,
                                                final int maxQualCount) {
         this.readContextSize = readContextSize;
@@ -81,6 +83,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         this.minMappingQuality = minMappingQuality;
         this.slidingWindowCounter = 0;
         this.minAltProportionToTriggerVariant = minAltProportionToTriggerVariant;
+        this.minIndelProportionToTriggerVariant = minIndelProportionToTriggerVariant;
         this.minBaseQual = minBaseQual;
         this.maxQualCount = maxQualCount;
     }
@@ -153,7 +156,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         if ( slidingWindow == null) {       // this is the first read
             slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), readContextSize,
                                               read.getHeader(), read.getAttribute("RG"), slidingWindowCounter,
-                                              minAltProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
+                                              minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
             slidingWindowCounter++;
         }
 

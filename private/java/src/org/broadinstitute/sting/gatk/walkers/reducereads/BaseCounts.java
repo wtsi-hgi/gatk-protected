@@ -85,6 +85,17 @@ final class BaseCounts {
         return (double) counts.get(BaseIndex.byteToBase(base)) / totalCount();
     }
 
+    /**
+     * Given a base , it returns the proportional count of this base compared to all other bases
+     * @param baseIndex
+     * @return the proportion of this base over all other bases
+     */
+    @Ensures("result >=0")
+    public double baseCountProportion(BaseIndex baseIndex) {
+        return (double) counts.get(baseIndex) / totalCount();
+    }
+
+
     @Ensures("result != null")
     public String toString() {
         StringBuilder b = new StringBuilder();

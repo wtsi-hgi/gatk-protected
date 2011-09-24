@@ -77,6 +77,9 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Argument(fullName = "minimum_alt_proportion_to_trigger_variant", shortName = "minvar", doc = "", required = false)
     protected double minAltProportionToTriggerVariant = 0.05;
 
+    @Argument(fullName = "minimum_del_proportion_to_trigger_variant", shortName = "mindel", doc = "", required = false)
+    protected double minIndelProportionToTriggerVariant = 0.01;
+
     @Argument(fullName = "minimum_base_quality_to_consider", shortName = "minqual", doc = "", required = false)
     protected int minBaseQual = 20;
 
@@ -157,7 +160,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     public void initialize() {
         super.initialize();
 
-        compressor = new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(), contextSize, AverageDepthAtVariableSites, MIN_MAPPING_QUALITY, minAltProportionToTriggerVariant, minBaseQual, maxQualCount);
+        compressor = new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(), contextSize, AverageDepthAtVariableSites, MIN_MAPPING_QUALITY, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount);
 
         //todo -- should be TRUE
         out.setPresorted(false);
