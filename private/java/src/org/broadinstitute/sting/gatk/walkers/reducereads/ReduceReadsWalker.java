@@ -39,6 +39,8 @@ import org.broadinstitute.sting.gatk.filters.NotPrimaryAlignmentFilter;
 import org.broadinstitute.sting.gatk.filters.UnmappedReadFilter;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.PartitionBy;
+import org.broadinstitute.sting.gatk.walkers.PartitionType;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
@@ -56,22 +58,20 @@ import java.util.Iterator;
  * Date: April 7, 2011
  */
 
+@PartitionBy(PartitionType.INTERVAL)
 @ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
 public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompressor> {
 
     @Output
     protected StingSAMFileWriter out;
 
-    @Argument(fullName = "contextSize", shortName = "CS", doc = "", required = false)
+    @Argument(fullName = "context_size", shortName = "cs", doc = "", required = false)
     protected int contextSize = 20;
 
-    @Argument(fullName = "AverageDepthAtVariableSites", shortName = "ADAV", doc = "", required = false)
-    protected int AverageDepthAtVariableSites = 500;
-
     @Argument(fullName = "minimum_mapping_quality", shortName = "minmap", doc = "", required = false)
-    protected int MIN_MAPPING_QUALITY = 20;
+    protected int minMappingQuality = 20;
 
-    @Argument(fullName = "minimum_tail_qualities", shortName = "mtq", doc = "", required = false)
+    @Argument(fullName = "minimum_tail_qualities", shortName = "mintail", doc = "", required = false)
     protected byte minTailQuality = 2;
 
     @Argument(fullName = "minimum_alt_proportion_to_trigger_variant", shortName = "minvar", doc = "", required = false)
@@ -83,12 +83,17 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     @Argument(fullName = "minimum_base_quality_to_consider", shortName = "minqual", doc = "", required = false)
     protected int minBaseQual = 20;
 
-    @Argument(fullName = "maximum_consensus_base_qual", shortName = "mcq", doc = "", required = false)
+    @Argument(fullName = "maximum_consensus_base_qual", shortName = "maxqual", doc = "", required = false)
     protected byte maxQualCount = SAMUtils.MAX_PHRED_SCORE;
 
     @Hidden
     @Argument(fullName = "", shortName = "dl", doc = "", required = false)
     protected int debugLevel = 0;
+
+    @Hidden //todo -- not yet implemented
+    @Argument(fullName = "downsample_coverage", shortName = "ds", doc = "", required = false)
+    protected int downsampleCoverage = 500;
+
 
     protected int totalReads = 0;
     int nCompressedReads = 0;
@@ -160,7 +165,7 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     public void initialize() {
         super.initialize();
 
-        compressor = new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(), contextSize, AverageDepthAtVariableSites, MIN_MAPPING_QUALITY, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount);
+        compressor = new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(), contextSize, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount);
 
         //todo -- should be TRUE
         out.setPresorted(false);
