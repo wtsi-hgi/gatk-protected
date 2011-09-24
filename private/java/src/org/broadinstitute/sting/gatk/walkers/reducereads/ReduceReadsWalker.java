@@ -187,11 +187,19 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
         if (debugLevel == 1) System.out.printf("Original: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
 
+        if (read.getReadName().contains("SRR070819.423131"))
+            System.out.println("Achei!");
+
         ReadClipper clipper = new ReadClipper(read);
         SAMRecord clippedRead = clipper.hardClipLowQualEnds(minTailQuality);
 
         clipper = new ReadClipper(clippedRead);
         clippedRead = clipper.hardClipSoftClippedBases();
+
+        clipper = new ReadClipper(clippedRead);
+        clippedRead = clipper.hardClipLeadingInsertions();
+
+
 
         if (intervalIterator != null && clippedRead.getReadLength() > 0)
             clippedRead = hardClipReadToInterval(clippedRead);
