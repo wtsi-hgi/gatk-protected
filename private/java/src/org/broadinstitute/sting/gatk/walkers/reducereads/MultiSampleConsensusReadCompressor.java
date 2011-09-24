@@ -49,12 +49,13 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
                                               final int AverageDepthAtVariableSites,
                                               final int minMapQuality,
                                               final double minAltProportionToTriggerVariant,
+                                              final double minIndelProportionToTriggerVariant,
                                               final int minBaseQual,
                                               final int maxQualCount) {
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
                     new SingleSampleConsensusReadCompressor(name, readContextSize, AverageDepthAtVariableSites,
-                                    minMapQuality, minAltProportionToTriggerVariant, minBaseQual, maxQualCount));
+                                    minMapQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
         }
     }
 
