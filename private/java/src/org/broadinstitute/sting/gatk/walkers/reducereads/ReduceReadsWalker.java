@@ -193,6 +193,11 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         clipper = new ReadClipper(clippedRead);
         clippedRead = clipper.hardClipSoftClippedBases();
 
+        clipper = new ReadClipper(clippedRead);
+        clippedRead = clipper.hardClipLeadingInsertions();
+
+
+
         if (intervalIterator != null && clippedRead.getReadLength() > 0)
             clippedRead = hardClipReadToInterval(clippedRead);
 
