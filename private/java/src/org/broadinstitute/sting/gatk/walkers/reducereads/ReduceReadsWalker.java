@@ -118,33 +118,36 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         boolean foundInterval = false;
 
         while (!foundInterval) {
-            foundInterval = true;        // we will only need to look again if there is no overlap.
+            foundInterval = true;                 // we will only need to look again if there is no overlap.
             ReadUtils.ReadAndIntervalOverlap overlapType = ReadUtils.getReadAndIntervalOverlapType(read, currentInterval);
             switch (overlapType) {
-                case NO_OVERLAP_CONTIG:         // check the next interval
-                case NO_OVERLAP_RIGHT:          // check the next interval
+                case NO_OVERLAP_CONTIG:           // check the next interval
+                case NO_OVERLAP_RIGHT:            // check the next interval
                     foundInterval = false;
                     break;
 
-                case NO_OVERLAP_LEFT:           // read used to overlap but got hard clipped and doesn't overlap anymore
+                case NO_OVERLAP_LEFT:             // read shouldn't be here in the first place
+                    throw new ReviewedStingException("Read does not overlap interval, read out of order? " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() + " + " + read.getCigarString());
+
+                case NO_OVERLAP_HARDCLIPPED_LEFT: // read used to overlap but got hard clipped and doesn't overlap anymore
                     return new SAMRecord(read.getHeader());
 
-                case OVERLAP_LEFT:              // clip the left end of the read
-                    if (debugLevel == 1) System.out.printf("Found Interval, OVERLAP_LEFT: %d - %d\n", currentInterval.getStart(), currentInterval.getStop());
+                case NO_OVERLAP_HARDCLIPPED_RIGHT:// read used to overlap but got hard clipped and doesn't overlap anymore
+                    return new SAMRecord(read.getHeader());
+
+                case OVERLAP_LEFT:                // clip the left end of the read
                     clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(currentInterval.getStart() - 1);
                     break;
 
-                case OVERLAP_RIGHT:             // clip the right end of the read
-                    if (debugLevel == 1) System.out.printf("Found Interval, OVERLAP_RIGHT: %d - %d\n", currentInterval.getStart(), currentInterval.getStop());
+                case OVERLAP_RIGHT:               // clip the right end of the read
                     clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(currentInterval.getStop() + 1);
                     break;
 
-                case OVERLAP_LEFT_AND_RIGHT:    // clip both left and right ends of the read
-                    if (debugLevel == 1) System.out.printf("Found Interval, OVERLAP_LEFT_AND_RIGHT: %d - %d\n", currentInterval.getStart(), currentInterval.getStop());
+                case OVERLAP_LEFT_AND_RIGHT:      // clip both left and right ends of the read
                     clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(currentInterval.getStart()-1, currentInterval.getStop()+1);
                     break;
 
-                case OVERLAP_CONTAINED:         // don't do anything to the read
+                case OVERLAP_CONTAINED:           // don't do anything to the read
                     break;
             }
 
