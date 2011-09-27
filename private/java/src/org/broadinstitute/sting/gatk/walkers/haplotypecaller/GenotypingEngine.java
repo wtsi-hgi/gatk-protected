@@ -47,27 +47,42 @@ import java.util.*;
 public class GenotypingEngine {
 
     // Smith-Waterman parameters copied from IndelRealigner
-    private static final double SW_MATCH = 23.0;      // 1.0;
-    private static final double SW_MISMATCH = -8.0;  //-1.0/3.0;
-    private static final double SW_GAP = -14.0;       //-1.0-1.0/3.0;
-    private static final double SW_GAP_EXTEND = -1.5; //-1.0/.0;
+    private static final double SW_MATCH = 6.0;      // 1.0;
+    private static final double SW_MISMATCH = -8.5;  //-1.0/3.0;
+    private static final double SW_GAP = -20.0;       //-1.0-1.0/3.0;
+    private static final double SW_GAP_EXTEND = -1.4; //-1.0/.0;
 
-    public List<VariantContext> alignAndGenotype( final Pair<Haplotype, Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc ) {
+    private final boolean DEBUG;
+
+    public GenotypingEngine( final boolean DEBUG ) {
+        this.DEBUG = DEBUG;
+    }
+
+    public List<VariantContext> alignAndGenotype( final Pair<Haplotype, Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc, final double qual ) {
         final SWPairwiseAlignment swConsensus1 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.first.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
         final SWPairwiseAlignment swConsensus2 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.second.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
 
-        System.out.println( bestTwoHaplotypes.first.toString() );
-        System.out.println( "Cigar = " + swConsensus1.getCigar() );
-        final List<VariantContext> vcs1 = generateVCsFromAlignment( swConsensus1, ref, bestTwoHaplotypes.first.bases, loc );
+        if(swConsensus1.getAlignmentStart2wrt1() + bestTwoHaplotypes.first.bases.length > ref.length ||
+                swConsensus2.getAlignmentStart2wrt1() + bestTwoHaplotypes.second.bases.length > ref.length ) {
+            return new ArrayList<VariantContext>();
+        }
+        
+        if( DEBUG ) {
+            System.out.println( bestTwoHaplotypes.first.toString() );
+            System.out.println( "Cigar = " + swConsensus1.getCigar() );
+        }
+        final List<VariantContext> vcs1 = generateVCsFromAlignment( swConsensus1, ref, bestTwoHaplotypes.first.bases, loc, qual );
 
-        System.out.println( bestTwoHaplotypes.second.toString() );
-        System.out.println( "Cigar = " + swConsensus2.getCigar() );
-        final List<VariantContext> vcs2 = generateVCsFromAlignment( swConsensus2, ref, bestTwoHaplotypes.second.bases, loc );
+        if( DEBUG ) {
+            System.out.println( bestTwoHaplotypes.second.toString() );
+            System.out.println( "Cigar = " + swConsensus2.getCigar() );
+        }
+        final List<VariantContext> vcs2 = generateVCsFromAlignment( swConsensus2, ref, bestTwoHaplotypes.second.bases, loc, qual );
 
         return genotype( vcs1, vcs2 );
     }
 
-    private static List<VariantContext> generateVCsFromAlignment( final SWPairwiseAlignment swConsensus, final byte[] ref, final byte[] read, final GenomeLoc loc ) {
+    private List<VariantContext> generateVCsFromAlignment( final SWPairwiseAlignment swConsensus, final byte[] ref, final byte[] read, final GenomeLoc loc, final double qual ) {
         final ArrayList<VariantContext> vcs = new ArrayList<VariantContext>();
 
         int refPos = swConsensus.getAlignmentStart2wrt1();
@@ -91,8 +106,9 @@ public class GenotypingEngine {
                         ArrayList<Allele> alleles = new ArrayList<Allele>();
                         alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, true));
                         alleles.add( Allele.create(insertionBases, false));
-                        System.out.println("> Insertion: " + alleles);
-                        vcs.add(new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos - 1, alleles, VariantContext.NO_GENOTYPES, InferredGeneticContext.NO_NEG_LOG_10PERROR, null, null, ref[refPos-1]));
+                        if( DEBUG ) { System.out.println("> Insertion: " + alleles); }
+                        vcs.add(new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos - 1,
+                                alleles, VariantContext.NO_GENOTYPES, qual, null, null, ref[refPos-1]));
                     }
                     readPos += elementLength;
                     break;
@@ -109,8 +125,9 @@ public class GenotypingEngine {
                     ArrayList<Allele> alleles = new ArrayList<Allele>();
                     alleles.add( Allele.create(deletionBases, true) );
                     alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, false) );
-                    System.out.println( "> Deletion: " + alleles);
-                    vcs.add( new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos + elementLength - 1, alleles, VariantContext.NO_GENOTYPES, InferredGeneticContext.NO_NEG_LOG_10PERROR, null, null, ref[refPos-1]) );
+                    if( DEBUG ) { System.out.println( "> Deletion: " + alleles); }
+                    vcs.add( new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos + elementLength - 1,
+                            alleles, VariantContext.NO_GENOTYPES, qual, null, null, ref[refPos-1]) );
                     refPos += elementLength;
                     break;
                 }
@@ -143,8 +160,10 @@ public class GenotypingEngine {
                             ArrayList<Allele> alleles = new ArrayList<Allele>();
                             alleles.add( Allele.create( refBases, true ) );
                             alleles.add( Allele.create( mismatchBases, false ) );
-                            System.out.println( "> SNP/MNP: " + alleles);
-                            vcs.add( new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPosStartOfMismatch, loc.getStart() + refPosStartOfMismatch + (stopOfMismatch - startOfMismatch), alleles) );
+                            if( DEBUG ) { System.out.println( "> SNP/MNP: " + alleles); }
+                            vcs.add( new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPosStartOfMismatch,
+                                    loc.getStart() + refPosStartOfMismatch + (stopOfMismatch - startOfMismatch), alleles,
+                                    VariantContext.NO_GENOTYPES, qual, null, null) );
                             numSinceMismatch = -1;
                             stopOfMismatch = -1;
                             startOfMismatch = -1;
@@ -165,7 +184,7 @@ public class GenotypingEngine {
             }
         }
 
-        if( vcs.size() == 0 ) {
+        if( DEBUG && vcs.size() == 0 ) {
             System.out.println("> Reference!");
         }
 

@@ -56,10 +56,14 @@ def get_sample_summary_metrics(filename,filter):
     file_reader = FileReader(filename)
     metrics_file = MetricsFile()
     metrics_file.read(file_reader)
-    raw_metrics = metrics_file.getMetrics()
+    metrics = metrics_file.getMetrics()
     file_reader.close()
+
+    # If sample summary metrics can break down by library, make sure we're only selecting the row without a per-library breakdown.
+    metrics = [metric for metric in metrics_file.getMetrics() if 'LIBRARY' not in get_sample_summary_metrics_fields(metric.getClass()) or getattr(metric,'LIBRARY') == None]
+
     sampled_metrics = []
-    for metric in raw_metrics:
+    for metric in metrics:
         if filter != None:
             key,value = filter.split('=')
             if hasattr(metric,key) and getattr(metric,key).toString() == value:
