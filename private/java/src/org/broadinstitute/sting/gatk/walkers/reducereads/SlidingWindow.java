@@ -5,6 +5,7 @@ import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 
 import java.util.Iterator;
@@ -38,18 +39,20 @@ public class SlidingWindow {
     private String readName;
 
     // Additional parameters
-    private double MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT;    // proportion has to be greater than this value
+    private double MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT;    // proportion has to be greater than this value to trigger variant region due to mismatches
+    private double MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;  // proportion has to be greater than this value to trigger variant region due to deletions
     private int MIN_BASE_QUAL_TO_COUNT;                           // qual has to be greater than or equal to this value
     private int MAX_QUAL_COUNT;                                   // to avoid blowing up the qual field of a consensus site
     private int MIN_MAPPING_QUALITY;
 
 
-    public SlidingWindow(String contig, int contigIndex, int contextSize, SAMFileHeader header, Object readGroupAttribute, int windowNumber, double minAltProportionToTriggerVariant, int minBaseQual, int maxQualCount, int minMappingQuality) {
+    public SlidingWindow(String contig, int contigIndex, int contextSize, SAMFileHeader header, Object readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int maxQualCount, int minMappingQuality) {
         this.startLocation = -1;
         this.stopLocation = -1;
         this.contextSize = contextSize;
 
         this.MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT = minAltProportionToTriggerVariant;
+        this.MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT = minIndelProportionToTriggerVariant;
         this.MAX_QUAL_COUNT = maxQualCount;
         this.MIN_BASE_QUAL_TO_COUNT = minBaseQual;
         this.MIN_MAPPING_QUALITY = minMappingQuality;
@@ -424,17 +427,17 @@ public class SlidingWindow {
      * has insertions (to it's right)
      */
     protected class HeaderElement {
-        private BaseCounts baseCounts;    // How many A,C,G,T (and D's) are in this site.
-        private int insertionsToTheRight; // How many reads in this site had insertions to the immediate right
-        private int location;             // Genome location of this site (the sliding window knows which contig we're at
-        private LinkedList<Double> rms;   // keeps the rms of each read that contributed to this element (site)
+        private BaseCounts baseCounts;               // How many A,C,G,T (and D's) are in this site.
+        private int insertionsToTheRight;            // How many reads in this site had insertions to the immediate right
+        private int location;                        // Genome location of this site (the sliding window knows which contig we're at
+        private LinkedList<Double> mappingQuality;   // keeps the mapping quality of each read that contributed to this element (site)
 
 
         public HeaderElement() {
             this.baseCounts = new BaseCounts();
             this.insertionsToTheRight = 0;
             this.location = 0;
-            this.rms = new LinkedList<Double>();
+            this.mappingQuality = new LinkedList<Double>();
         }
 
         public HeaderElement(int location) {
@@ -443,25 +446,22 @@ public class SlidingWindow {
         }
 
         public boolean isVariant() {
-            return baseCounts.totalCount() > 1 && ( isVariantFromInsertions() || isVariantFromMismatches() || isVariantFromDeletions());
+            return isVariantFromInsertions() || isVariantFromMismatches() || isVariantFromDeletions();
         }
 
-        public void addBase(byte base, byte qual, double rms) {
+        public void addBase(byte base, byte qual, double mappingQuality) {
             if ( qual >= MIN_BASE_QUAL_TO_COUNT )  {
                 baseCounts.incr(base);
-                this.rms.add(rms);
+                this.mappingQuality.add(mappingQuality);
             }
         }
 
         private boolean isVariantFromInsertions() {
-            return ((double) insertionsToTheRight / baseCounts.totalCount()) > MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT;
+            return ((double) insertionsToTheRight / baseCounts.totalCount()) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
         }
 
-        /**
-         * Deletions are already counted as mismatches but even if the most common base is a deletion, we need to make this a variant site
-         */
         private boolean isVariantFromDeletions() {
-            return baseCounts.baseWithMostCounts() == BaseIndex.D.getByte();
+            return baseCounts.baseWithMostCounts() == BaseIndex.D.getByte() || baseCounts.baseCountProportion(BaseIndex.D) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
         }
 
         private boolean isVariantFromMismatches() {
@@ -477,7 +477,7 @@ public class SlidingWindow {
         }
 
         public double getRMS() {
-            return MathUtils.rms(rms);
+            return MathUtils.rms(mappingQuality);
         }
     }
 

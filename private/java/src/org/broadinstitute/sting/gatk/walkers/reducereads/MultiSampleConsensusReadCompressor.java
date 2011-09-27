@@ -4,7 +4,6 @@ import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 
@@ -46,15 +45,16 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
 
     public MultiSampleConsensusReadCompressor(SAMFileHeader header,
                                               final int readContextSize,
-                                              final int AverageDepthAtVariableSites,
-                                              final int minMapQuality,
+                                              final int downsampleCoverage,
+                                              final int minMappingQuality,
                                               final double minAltProportionToTriggerVariant,
+                                              final double minIndelProportionToTriggerVariant,
                                               final int minBaseQual,
                                               final int maxQualCount) {
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
-                    new SingleSampleConsensusReadCompressor(name, readContextSize, AverageDepthAtVariableSites,
-                                    minMapQuality, minAltProportionToTriggerVariant, minBaseQual, maxQualCount));
+                    new SingleSampleConsensusReadCompressor(name, readContextSize, downsampleCoverage,
+                                    minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
         }
     }
 

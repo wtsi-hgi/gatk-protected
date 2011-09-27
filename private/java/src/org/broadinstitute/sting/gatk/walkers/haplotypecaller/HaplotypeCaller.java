@@ -137,7 +137,6 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     public void initialize() {
 
         // get all of the unique sample names
-        // if we're supposed to assume a single sample, do so
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         // initialize the header
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
@@ -269,6 +268,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     }
 
     // private class copied from IndelRealigner, used to bin together a bunch of reads and then retrieve the reference overlapping the full extent of the bin
+    // the precursor to the Active Region Traversal
     private class ReadBin implements HasGenomeLocation {
 
         private final ArrayList<SAMRecord> reads = new ArrayList<SAMRecord>();
@@ -286,7 +286,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
                 final SAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
 
                 if( clippedRead.getReadLength() > 0 ) {
-                    GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(clippedRead);
+                    final GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(clippedRead);
                     if ( loc == null )
                         loc = locForRead;
                     else if ( locForRead.getStop() > loc.getStop() )
@@ -304,7 +304,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
 
             for( final SAMRecord rec : reads ) {
                 if( rec.getMappingQuality() > 18 && !BadMateFilter.hasBadMate(rec) ) {
-                    GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(rec);
+                    final GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(rec);
                     if( locForRead.overlapsP(window) ) {
                         readsOverlappingVariant.add(rec);
                     }
