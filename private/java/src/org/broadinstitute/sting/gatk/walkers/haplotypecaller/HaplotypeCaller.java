@@ -109,7 +109,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     protected double gcpHMM = 10.0;
 
     @Argument(fullName="gopSW", shortName="gopSW", doc="gopSW", required = false)
-    protected double gopSW = 20.0;
+    protected double gopSW = 30.0;
 
     @Argument(fullName="gcpSW", shortName="gcpSW", doc="gcpSW", required = false)
     protected double gcpSW = 1.4;
@@ -139,10 +139,10 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     private IndexedFastaSequenceFile referenceReader;
 
     // reference base padding size
-    private static final int REFERENCE_PADDING = 30;
+    private static final int REFERENCE_PADDING = 110;
 
     // bases with quality less than or equal to this value are trimmed off the tails of the reads
-    private static final byte MIN_TAIL_QUALITY = 8;
+    private static final byte MIN_TAIL_QUALITY = 6;
 
     protected ConstrainedMateFixingManager manager = null;
 
@@ -257,7 +257,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         }
 
         final int pos = curInterval.getStart() + (curInterval.getStop() - curInterval.getStart()) / 2;
-        final GenomeLoc evalWindow = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 7, pos + 7);
+        final GenomeLoc evalWindow = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 8, pos + 8);
         final GenomeLoc outputWindow = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 1, pos + 1);
 
         final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReadsInWindow( evalWindow ) );
@@ -295,7 +295,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         // This can happen if e.g. there's a large known indel with no overlapping reads.
         public void add( final SAMRecord read ) {
 
-            if( reads.size() < 250 ) { // protection against pileups with abnormally deep coverage
+            if( reads.size() < 300 ) { // protection against pileups with abnormally deep coverage
                 final GATKSAMRecord postAdapterRead = ReadUtils.hardClipAdaptorSequence(read);
                 if( postAdapterRead != null ) {
                     final SAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );

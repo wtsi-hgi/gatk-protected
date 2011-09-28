@@ -386,7 +386,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            final List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 10);
+            final List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 11);
 
             for ( final KBestPaths.Path path : bestPaths ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );

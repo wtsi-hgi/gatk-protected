@@ -244,6 +244,7 @@ public class LikelihoodCalculationEngine {
                 hforward[i] = hforward[i-1]+1;
             }
         }
+/*
         for (int i = 2; i < refBytes.length - 1; i++) {
             if (refBytes[i] != (byte) 'X' && refBytes[i] == refBytes[i-2] && refBytes[i+1] == refBytes[i-1] && refBytes[i] != refBytes[i+1]) {
                 hforward2[i] = hforward2[i-2]+2;
@@ -251,7 +252,7 @@ public class LikelihoodCalculationEngine {
                 i++;
             }
         }
-
+*/
         // do similar thing for reverse length, example:
         // AGGTGACCCCCCTGAGAG
         // 021000543210000000
@@ -260,6 +261,7 @@ public class LikelihoodCalculationEngine {
                 hreverse[i] = hreverse[i+1]+1;
             }
         }
+/*
         for (int i=refBytes.length-3; i >= 1; i--) {
             if (refBytes[i] != (byte) 'X' && refBytes[i] == refBytes[i+2] && refBytes[i-1] == refBytes[i+1] && refBytes[i] != refBytes[i-1]) {
                 hreverse2[i] = hreverse2[i+2]+2;
@@ -267,13 +269,13 @@ public class LikelihoodCalculationEngine {
             }
 
         }
-
+*/
         // and then accumulate with forward values.
         // Total:
         // AGGTGACCCCCCTGAGAG
         // 022000555555000000
         for (int i = 1; i < refBytes.length; i++) {
-            hrunArray[i] = hforward[i] + hreverse[i] + hforward2[i] + hreverse2[i];
+            hrunArray[i] = hforward[i] + hreverse[i];// + hforward2[i] + hreverse2[i];
         }
     }
 
