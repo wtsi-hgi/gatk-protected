@@ -173,6 +173,8 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
 
             if (doneClipping)
                 break;
+            else
+                doneClipping = true;               // if this is the last interval, there is nothing else to clip (ugly fix)
         }
 
         if (!doneClipping)
