@@ -47,15 +47,17 @@ import java.util.*;
 public class GenotypingEngine {
 
     // Smith-Waterman parameters copied from IndelRealigner
-    private static final double SW_MATCH = 6.0;      // 1.0;
-    private static final double SW_MISMATCH = -8.5;  //-1.0/3.0;
-    private static final double SW_GAP = -20.0;       //-1.0-1.0/3.0;
-    private static final double SW_GAP_EXTEND = -1.4; //-1.0/.0;
+    private final double SW_MATCH = 7.0;      // 1.0;
+    private final double SW_MISMATCH = -9.5;  //-1.0/3.0;
+    private final double SW_GAP;       //-1.0-1.0/3.0;
+    private final double SW_GAP_EXTEND; //-1.0/.0;
 
     private final boolean DEBUG;
 
-    public GenotypingEngine( final boolean DEBUG ) {
+    public GenotypingEngine( final boolean DEBUG, final double gop, final double gcp ) {
         this.DEBUG = DEBUG;
+        SW_GAP = -1.0 * gop;
+        SW_GAP_EXTEND = -1.0 * gcp;
     }
 
     public List<VariantContext> alignAndGenotype( final Pair<Haplotype, Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc, final double qual ) {
@@ -116,7 +118,6 @@ public class GenotypingEngine {
                 case S:
                 {
                     readPos += elementLength;
-                    refPos += elementLength;
                     break;
                 }
                 case D:

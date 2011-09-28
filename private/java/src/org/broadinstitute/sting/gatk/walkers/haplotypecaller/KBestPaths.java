@@ -116,7 +116,7 @@ public class KBestPaths {
             if ( bestPaths.size() < k ) {
                 bestPaths.add(path);
             } else if ( bestPaths.peek().totalScore < path.totalScore ) {
-                bestPaths.remove();
+                bestPaths.remove(bestPaths.peek());
                 bestPaths.add(path);
             }
 

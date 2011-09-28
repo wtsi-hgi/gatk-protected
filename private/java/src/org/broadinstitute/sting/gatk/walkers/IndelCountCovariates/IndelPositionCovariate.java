@@ -8,9 +8,8 @@ import net.sf.samtools.SAMRecord;
  * Created by IntelliJ IDEA.
  * User: delangel
  * Date: Jan 17, 2011
- * Time: 2:53:28 PM
- * To change this template use File | Settings | File Templates.
  */
+
 public class IndelPositionCovariate implements Covariate {
 
     // Initialize any member variables using the command-line arguments passed to the walkers
