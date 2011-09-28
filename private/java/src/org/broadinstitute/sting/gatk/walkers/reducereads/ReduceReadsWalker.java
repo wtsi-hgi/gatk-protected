@@ -119,6 +119,7 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
         List<SAMRecord> clippedReads = new LinkedList<SAMRecord>();
         ReadClipper clipper = new ReadClipper(read);
         GenomeLoc intervalOverlapped = null;
+        boolean overlap = false;                   // keeps track of the interval that overlapped the original read
         boolean doneClipping = true;
 
         if (getToolkit().getIntervals().size() == 0)
@@ -131,8 +132,9 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
                 break;
             }
 
-            boolean overlap = true;                // keeps track of the interval that overlapped the original read
+            overlap = true;
             doneClipping = false;                  // triggers an early exit if we are done clipping this read
+            SAMRecord clippedRead = null;
 
             switch (ReadUtils.getReadAndIntervalOverlapType(read, interval)) {
                 case NO_OVERLAP_CONTIG:            // check the next interval
@@ -147,38 +149,41 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
                     break;
 
                 case OVERLAP_LEFT:                 // clip the left tail of the read
-                    clippedReads.add(clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStart() - 1));
+                    clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStart() - 1);
                     doneClipping = true;
                     break;
 
                 case OVERLAP_RIGHT:                // clip the right tail of the read and try to match it to the next interval
-                    clippedReads.add(clipper.hardClipByReferenceCoordinatesRightTail(interval.getStop() + 1));
+                    clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(interval.getStop() + 1);
                     read = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStop());
                     clipper = new ReadClipper(read);
                     break;
 
                 case OVERLAP_LEFT_AND_RIGHT:       // clip both left and right ends of the read
-                    clippedReads.add(clipper.hardClipBothEndsByReferenceCoordinates(interval.getStart()-1, interval.getStop()+1));
+                    clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(interval.getStart()-1, interval.getStop()+1);
                     read = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStop());
                     clipper = new ReadClipper(read);
                     break;
 
                 case OVERLAP_CONTAINED:            // don't do anything to the read
-                    clippedReads.add(read);
+                    clippedRead = read;
                     doneClipping = true;
                     break;
             }
+            if (clippedRead != null && clippedRead.getReadLength() > 0)
+                clippedReads.add(clippedRead);        // if the read overlaps the interval entirely within a deletion, it will be entirely clipped off
+
             if (overlap && intervalOverlapped == null)
                 intervalOverlapped = interval;
 
             if (doneClipping)
                 break;
-            else
-                doneClipping = true;               // if this is the last interval, there is nothing else to clip (ugly fix)
+//            else
+//                doneClipping = true;               // if this is the last interval, there is nothing else to clip (ugly fix)
         }
 
-        if (!doneClipping)
-            throw new ReviewedStingException("Never found the interval. This should never happen -- call Mauricio. " + String.format("%s %s %d %d", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd()));
+//      if (!overlap && intervalOverlapped == null)
+//          throw new ReviewedStingException("Never found the interval. This should never happen -- call Mauricio. " + String.format("%s %s %d %d", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd()));
 
         if (intervalOverlapped != null)
             intervalList = intervalList.tailSet(intervalOverlapped);
