@@ -24,6 +24,7 @@
 
 import org.broadinstitute.sting.pipeline.{PicardPipeline, Pipeline}
 import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
 import org.broadinstitute.sting.queue.function.ListWriterFunction
 import org.broadinstitute.sting.queue.library.ipf.intervals.ExpandIntervals
 import org.broadinstitute.sting.queue.QScript
@@ -44,8 +45,11 @@ class HybridSelectionPipeline extends QScript {
   @Argument(doc="memory limit for UnifiedGenotyper. By default set to 2g.", shortName="varMemory", required=false)
   var variantCallerMemory = 2
 
-  @Argument(doc="memory limit for VariantRecalibrator and ApplyRecalibration. By default set to 8g.", shortName="vqsrMemory", required=false)
-  var variantRecalibratorMemory = 8
+  @Argument(doc="memory limit for VariantRecalibrator and ApplyRecalibration. By default set to 2g.", shortName="vqsrMemory", required=false)
+  var variantRecalibratorMemory = 2
+
+  @Argument(doc="memory limit for snpEff. By default set to 4g.", shortName="snpEffMemory", required=false)
+  var snpEffMemory = 4
 
   @Argument(doc="expand each target in input intervals by the specified number of bases. By default set to 50 bases.", shortName="expand", required=false)
   var expandIntervals = 50
@@ -169,8 +173,8 @@ class HybridSelectionPipeline extends QScript {
         buildSNPModel.stdThreshold = 14
         buildSNPModel.percentBadVariants = 0.03
         buildSNPModel.TStranche = trancheLevels
-        buildSNPModel.tranches_file = projectBase + ".tranches"
-        buildSNPModel.recal_file = projectBase + ".recal"
+        buildSNPModel.tranches_file = projectBase + ".snps.tranches"
+        buildSNPModel.recal_file = projectBase + ".snps.recal"
         buildSNPModel.jobOutputFile = buildSNPModel.recal_file + ".out"
         buildSNPModel.memoryLimit = qscript.variantRecalibratorMemory
         add(buildSNPModel)
@@ -233,21 +237,25 @@ class HybridSelectionPipeline extends QScript {
         removeK1gSamples.out
       }
 
-    //
-    // TODO -- David will replace the Genomic Annotator with snpEff
-    //
+    val snpEff = new SnpEff
+    snpEff.inVcf = snpsIndelsVcf
+    snpEff.config = "/humgen/gsa-pipeline/resources/snpEff/v2_0_2/snpEff.config"
+    snpEff.genomeVersion = "GRCh37.63"
+    snpEff.outVcf = projectBase + ".snpeff.vcf"
+    snpEff.jobOutputFile = snpEff.outVcf + ".out"
+    snpEff.memoryLimit = snpEffMemory
+    add(snpEff)
 
-    //val annotate = new GenomicAnnotator with CommandLineGATKArgs with ExpandedIntervals
-    //annotate.rodBind :+= RodBind("variant", "VCF", snpsIndelsVcf)
-    //annotate.rodBind :+= RodBind("refseq", "AnnotatorInputTable", qscript.pipeline.getProject.getRefseqTable)
-    //annotate.rodToIntervalTrackName = "variant"
-    //annotate.out = projectBase + ".vcf"
-    //annotate.jobOutputFile = annotate.out + ".out"
-    //add(annotate)
+    val annotate = new VariantAnnotator with CommandLineGATKArgs with ExpandedIntervals
+    annotate.variant = snpsIndelsVcf
+    annotate.snpEffFile = snpEff.outVcf
+    annotate.annotation :+= "SnpEff"
+    annotate.out = projectBase + ".vcf"
+    annotate.jobOutputFile = annotate.out + ".out"
+    add(annotate)
 
     val targetEval = new VariantEval with CommandLineGATKArgs
-    //targetEval.eval :+= annotate.out
-    targetEval.eval :+= snpsIndelsVcf
+    targetEval.eval :+= annotate.out
     targetEval.dbsnp = qscript.pipeline.getProject.getEvalDbsnp
     targetEval.doNotUseAllStandardStratifications = true
     targetEval.doNotUseAllStandardModules = true
@@ -259,8 +267,7 @@ class HybridSelectionPipeline extends QScript {
 
     if (qscript.expandIntervals > 0) {
       val flanksEval = new VariantEval with CommandLineGATKArgs
-      //flanksEval.eval :+= annotate.out
-      flanksEval.eval :+= snpsIndelsVcf
+      flanksEval.eval :+= annotate.out
       flanksEval.dbsnp = qscript.pipeline.getProject.getEvalDbsnp
       flanksEval.intervals = List(flankIntervals)
       flanksEval.doNotUseAllStandardStratifications = true

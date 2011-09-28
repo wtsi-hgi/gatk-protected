@@ -53,7 +53,7 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
                                               final int maxQualCount) {
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
-                    new SingleSampleConsensusReadCompressor(name, readContextSize, downsampleCoverage,
+                    new SingleSampleConsensusReadCompressor(name, header.getReadGroup(name), readContextSize, downsampleCoverage,
                                     minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
         }
     }
@@ -61,9 +61,8 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
     public Collection<SAMReadGroupRecord> getReducedReadGroups() {
         List<SAMReadGroupRecord> rgs = new ArrayList<SAMReadGroupRecord>();
 
-        for ( SingleSampleConsensusReadCompressor comp : compressorsPerSample.values() ) {
+        for ( SingleSampleConsensusReadCompressor comp : compressorsPerSample.values() )
             rgs.add(comp.getReducedReadGroup());
-        }
 
         return rgs;
     }

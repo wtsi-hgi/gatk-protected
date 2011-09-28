@@ -14,13 +14,13 @@ import java.util.List;
  */
 public class SingleSampleConsensusReadCompressor implements ConsensusReadCompressor {
     protected static final Logger logger = Logger.getLogger(SingleSampleConsensusReadCompressor.class);
-    private final static String RG_POSTFIX = ".ReducedReads";
 
     private final int readContextSize;
     private final int downsampleCoverage;
     private int minMappingQuality;
     private int slidingWindowCounter;
 
+    private final String sampleName;
     private final SAMReadGroupRecord reducedReadGroup;
 
     private SlidingWindow slidingWindow;
@@ -31,6 +31,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
 
     public SingleSampleConsensusReadCompressor(final String sampleName,
+                                               final SAMReadGroupRecord readGroupRecord,
                                                final int readContextSize,
                                                final int downsampleCoverage,
                                                final int minMappingQuality,
@@ -38,26 +39,16 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
                                                final double minIndelProportionToTriggerVariant,
                                                final int minBaseQual,
                                                final int maxQualCount) {
+        this.sampleName = sampleName;
+        this.reducedReadGroup = readGroupRecord;
         this.readContextSize = readContextSize;
         this.downsampleCoverage = downsampleCoverage;
-        this.reducedReadGroup = createReducedReadGroup(sampleName);
         this.minMappingQuality = minMappingQuality;
         this.slidingWindowCounter = 0;
         this.minAltProportionToTriggerVariant = minAltProportionToTriggerVariant;
         this.minIndelProportionToTriggerVariant = minIndelProportionToTriggerVariant;
         this.minBaseQual = minBaseQual;
         this.maxQualCount = maxQualCount;
-    }
-
-    /**
-     * Helper function to create a read group for these reduced reads
-     * @param sampleName
-     * @return
-     */
-    private static final SAMReadGroupRecord createReducedReadGroup(final String sampleName) {
-        SAMReadGroupRecord rg = new SAMReadGroupRecord(sampleName + RG_POSTFIX);
-        rg.setSample(sampleName);
-        return rg;
     }
 
     public SAMReadGroupRecord getReducedReadGroup() {

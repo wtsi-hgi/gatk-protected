@@ -43,19 +43,16 @@ class PostCallingQC extends QScript {
   def script = {
     for ( evalVCF <- evalVCFs ) {
       // The basic summary eval
-      createEval(evalVCF, ".summary",
-        List("TiTvVariantEvaluator", "CountVariants", "CompOverlap"),
-        List("FunctionalClass"))
-
       // The basic summary eval, by AF
       createEval(evalVCF, ".byAC",
         List("TiTvVariantEvaluator", "CountVariants", "CompOverlap"),
         List("AlleleCount"))
 
-      // By sample
-      createEval(evalVCF, ".bySample",
+      // The basic summary eval, broken down by sample as well as functional class
+      createEval(evalVCF, ".bySampleByFunctionalClass",
         List("TiTvVariantEvaluator", "CountVariants", "CompOverlap"),
-        List("Sample"))
+        List("Sample","FunctionalClass"))
+
       add(new QCRScript(evalVCF))
     }
   }
@@ -70,7 +67,7 @@ class PostCallingQC extends QScript {
   }
 
   class Eval(@Input vcf: File) extends VariantEval with UNIVERSAL_GATK_ARGS {
-    this.eval :+= TaggedFile(vcf,":VCF")
+    this.eval :+= vcf
     if ( dbSNP.exists() )
       this.dbsnp = dbSNP
     this.doNotUseAllStandardStratifications = true

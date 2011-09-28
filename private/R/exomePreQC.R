@@ -15,8 +15,8 @@ if ( onCMDLine ) {
   outputPDF = args[2]
 } else {
   reference_dataset = '/humgen/gsa-scr1/GATK_Data/preqc.database'
-  inputTSV = 'ToKraft_Haiman.Pilot_plate_metrics.GWASeq_BrCa_per_sample_metrics.tsv'
-  outputPDF = 'ToKraft_Haiman.pdf'
+  inputTSV = 'GWASeq_batches.metrics'
+  outputPDF = 'GWASeq_batches.pdf'
 }
 
 require('ggplot2')
@@ -152,7 +152,11 @@ fingerprint_lod_values = c()
 fingerprint_lod_median = c()
 for(i in 1:nrow(data)) {
    fingerprint_lods_for_sample <- eval(parse(text=data$FINGERPRINT_LODS[i]))
-   fingerprint_samples <- c(fingerprint_samples,rep(data$sample[i],length(fingerprint_lods_for_sample)))
+   # No fingerprint data for this sample?  Drop in an NA so that the fingerprint_samples database actually has reasonable values.
+   if(is.null(fingerprint_lods_for_sample)) {
+     fingerprint_lods_for_sample = c(NA)
+   }
+   fingerprint_samples <- c(fingerprint_samples,rep(as.character(data$sample[i]),length(fingerprint_lods_for_sample)))
    fingerprint_lod_values = c(fingerprint_lod_values,fingerprint_lods_for_sample)
    fingerprint_lod_median = c(fingerprint_lod_median,rep(median(fingerprint_lods_for_sample),length(fingerprint_lods_for_sample)))
 }
