@@ -178,12 +178,7 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
 
             if (doneClipping)
                 break;
-//            else
-//                doneClipping = true;               // if this is the last interval, there is nothing else to clip (ugly fix)
         }
-
-//      if (!overlap && intervalOverlapped == null)
-//          throw new ReviewedStingException("Never found the interval. This should never happen -- call Mauricio. " + String.format("%s %s %d %d", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd()));
 
         if (intervalOverlapped != null)
             intervalList = intervalList.tailSet(intervalOverlapped);
