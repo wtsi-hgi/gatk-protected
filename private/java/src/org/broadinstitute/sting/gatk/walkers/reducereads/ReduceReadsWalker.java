@@ -51,6 +51,8 @@ import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.sam.SimplifyingSAMFileWriter;
 
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * Created by IntelliJ IDEA.
@@ -60,7 +62,7 @@ import java.util.Iterator;
 
 @PartitionBy(PartitionType.INTERVAL)
 @ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
-public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompressor> {
+public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ConsensusReadCompressor> {
 
     @Output
     protected StingSAMFileWriter out;
@@ -112,39 +114,42 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
      * @param read the read to be hard clipped to the interval.
      * @return a shallow copy of the read hard clipped to the interval
      */
-    private SAMRecord hardClipReadToInterval(SAMRecord read) {
-        SAMRecord clippedRead = read;
+    private List<SAMRecord> hardClipReadToInterval(SAMRecord read) {
+        List<SAMRecord> clippedReads = new LinkedList<SAMRecord>();
         ReadClipper clipper = new ReadClipper(read);
         boolean foundInterval = false;
 
         while (!foundInterval) {
-            foundInterval = true;        // we will only need to look again if there is no overlap.
+            foundInterval = true;                 // we will only need to look again if there is no overlap.
             ReadUtils.ReadAndIntervalOverlap overlapType = ReadUtils.getReadAndIntervalOverlapType(read, currentInterval);
             switch (overlapType) {
-                case NO_OVERLAP_CONTIG:         // check the next interval
-                case NO_OVERLAP_RIGHT:          // check the next interval
+                case NO_OVERLAP_CONTIG:           // check the next interval
+                case NO_OVERLAP_RIGHT:            // check the next interval
                     foundInterval = false;
                     break;
 
-                case NO_OVERLAP_LEFT:           // read used to overlap but got hard clipped and doesn't overlap anymore
-                    return new SAMRecord(read.getHeader());
+                case NO_OVERLAP_LEFT:             // read shouldn't be here in the first place
+                    throw new ReviewedStingException("Read does not overlap interval, read out of order? " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() + " + " + read.getCigarString());
 
-                case OVERLAP_LEFT:              // clip the left end of the read
-                    if (debugLevel == 1) System.out.printf("Found Interval, OVERLAP_LEFT: %d - %d\n", currentInterval.getStart(), currentInterval.getStop());
-                    clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(currentInterval.getStart() - 1);
+                case NO_OVERLAP_HARDCLIPPED_LEFT: // read used to overlap but got hard clipped and doesn't overlap anymore
+                case NO_OVERLAP_HARDCLIPPED_RIGHT:// read used to overlap but got hard clipped and doesn't overlap anymore
+                    clippedReads.add(new SAMRecord(read.getHeader()));
                     break;
 
-                case OVERLAP_RIGHT:             // clip the right end of the read
-                    if (debugLevel == 1) System.out.printf("Found Interval, OVERLAP_RIGHT: %d - %d\n", currentInterval.getStart(), currentInterval.getStop());
-                    clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(currentInterval.getStop() + 1);
+                case OVERLAP_LEFT:                // clip the left end of the read
+                    clippedReads.add(clipper.hardClipByReferenceCoordinatesLeftTail(currentInterval.getStart() - 1));
                     break;
 
-                case OVERLAP_LEFT_AND_RIGHT:    // clip both left and right ends of the read
-                    if (debugLevel == 1) System.out.printf("Found Interval, OVERLAP_LEFT_AND_RIGHT: %d - %d\n", currentInterval.getStart(), currentInterval.getStop());
-                    clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(currentInterval.getStart()-1, currentInterval.getStop()+1);
+                case OVERLAP_RIGHT:               // clip the right end of the read
+                    clippedReads.add(clipper.hardClipByReferenceCoordinatesRightTail(currentInterval.getStop() + 1));
                     break;
 
-                case OVERLAP_CONTAINED:         // don't do anything to the read
+                case OVERLAP_LEFT_AND_RIGHT:      // clip both left and right ends of the read
+                    clippedReads.add(clipper.hardClipBothEndsByReferenceCoordinates(currentInterval.getStart()-1, currentInterval.getStop()+1));
+                    break;
+
+                case OVERLAP_CONTAINED:           // don't do anything to the read
+                    clippedReads.add(read);
                     break;
             }
 
@@ -153,12 +158,13 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
             if (!foundInterval) {
                 if (intervalIterator.hasNext())
                     currentInterval = intervalIterator.next();
-                else
-                    return new SAMRecord(read.getHeader());
+                else {
+                    clippedReads.add(new SAMRecord(read.getHeader()));
+                    break;
+                }
             }
-
         }
-        return clippedRead;
+        return clippedReads;
     }
 
     @Override
@@ -186,7 +192,8 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
     }
 
     @Override
-    public SAMRecord map( ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker ) {
+    public List<SAMRecord> map( ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker ) {
+        List<SAMRecord> mappedReads;
         totalReads++;
         read = SimplifyingSAMFileWriter.simplifyRead(read);
 
@@ -201,14 +208,18 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         clipper = new ReadClipper(clippedRead);
         clippedRead = clipper.hardClipLeadingInsertions();
 
-
-
         if (intervalIterator != null && clippedRead.getReadLength() > 0)
-            clippedRead = hardClipReadToInterval(clippedRead);
+            mappedReads = hardClipReadToInterval(clippedRead);
+        else
+            mappedReads = new LinkedList<SAMRecord>();
 
-        if(debugLevel == 1) System.out.printf("Result: %s %d %d  => %s %d %d => %s %d %d\n\n", read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd(), clippedRead.getCigar(), clippedRead.getAlignmentStart(), clippedRead.getAlignmentEnd());
+        if (debugLevel == 1) {
+            System.out.println("Output Reads:");
+            for (SAMRecord mappedRead : mappedReads)
+                System.out.printf("%s %d %d\n\n", mappedRead.getCigar(), mappedRead.getAlignmentStart(), mappedRead.getAlignmentEnd());
+        }
 
-        return clippedRead;
+        return mappedReads;
 
     }
 
@@ -225,29 +236,23 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
 
     /**
      * given a read and a output location, reduce by emitting the read
-     * @param read the read itself
+     * @param mappedReads all reads mapped from the original read
      * @return the SAMFileWriter, so that the next reduce can emit to the same source
      */
-    public ConsensusReadCompressor reduce( SAMRecord read, ConsensusReadCompressor comp ) {
-        if (read.getReadLength() != 0) {
-            // write out compressed reads as they become available
-            for ( SAMRecord consensusRead : comp.addAlignment(read)) {
-                if (debugLevel == 2) checkForHighMismatch(consensusRead);
-                out.addAlignment(consensusRead);
-                nCompressedReads++;
-            }
-        }
-        return comp;
+    public ConsensusReadCompressor reduce( List<SAMRecord> mappedReads, ConsensusReadCompressor compressor ) {
+        // write out compressed reads as they become available
+        for (SAMRecord read : mappedReads)
+            if (read.getReadLength() != 0)
+                for ( SAMRecord compressedRead : compressor.addAlignment(read))
+                    outputRead(compressedRead);
+        return compressor;
     }
 
     @Override
     public void onTraversalDone( ConsensusReadCompressor compressor ) {
         // write out any remaining reads
-        for ( SAMRecord consensusRead : compressor.close() ) {
-            if (debugLevel == 2) checkForHighMismatch(consensusRead);
-            out.addAlignment(consensusRead);
-            nCompressedReads++;
-        }
+        for ( SAMRecord compressedRead : compressor.close() )
+            outputRead(compressedRead);
     }
 
     private void checkForHighMismatch(SAMRecord read) {
@@ -259,6 +264,23 @@ public class ReduceReadsWalker extends ReadWalker<SAMRecord, ConsensusReadCompre
         final double nmFraction = nm / (1.0*readLen);
         if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG) != null)
             throw new ReviewedStingException("BUG: High mismatch fraction found in read " + read.getReadName() + " position: " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
+    }
+
+    private boolean isConsensus(SAMRecord read) {
+        return read.getAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG) != null;
+    }
+
+    private void outputRead(SAMRecord read) {
+        if (debugLevel == 2)
+            checkForHighMismatch(read);
+
+        if (isConsensus(read))
+            nCompressedReads++;
+        else
+            totalReads++;
+
+        out.addAlignment(read);
+
     }
 
 
