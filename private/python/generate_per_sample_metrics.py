@@ -64,7 +64,9 @@ def get_sample_summary_metrics(filename,filter):
 
     sampled_metrics = []
     for metric in metrics:
-        if filter != None:
+        if hasattr(metric,"LIBRARY") and getattr(metric,"LIBRARY") != None:
+            continue
+        elif filter != None:
             key,value = filter.split('=')
             if hasattr(metric,key) and getattr(metric,key).toString() == value:
                 sampled_metrics.append(metric)
