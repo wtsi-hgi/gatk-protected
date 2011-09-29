@@ -15,7 +15,8 @@ import java.util.List;
 public class SingleSampleConsensusReadCompressor implements ConsensusReadCompressor {
     protected static final Logger logger = Logger.getLogger(SingleSampleConsensusReadCompressor.class);
 
-    private final int readContextSize;
+    private final int contextSize;
+    private final int contextSizeIndels;
     private final int downsampleCoverage;
     private int minMappingQuality;
     private int slidingWindowCounter;
@@ -32,7 +33,8 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
 
     public SingleSampleConsensusReadCompressor(final String sampleName,
                                                final SAMReadGroupRecord readGroupRecord,
-                                               final int readContextSize,
+                                               final int contextSize,
+                                               final int contextSizeIndels,
                                                final int downsampleCoverage,
                                                final int minMappingQuality,
                                                final double minAltProportionToTriggerVariant,
@@ -41,7 +43,8 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
                                                final int maxQualCount) {
         this.sampleName = sampleName;
         this.reducedReadGroup = readGroupRecord;
-        this.readContextSize = readContextSize;
+        this.contextSize = contextSize;
+        this.contextSizeIndels = contextSizeIndels;
         this.downsampleCoverage = downsampleCoverage;
         this.minMappingQuality = minMappingQuality;
         this.slidingWindowCounter = 0;
@@ -66,7 +69,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         // create a new window if:
         if ((slidingWindow != null) &&
             ( ( read.getReferenceIndex() != slidingWindow.getContigIndex() ) ||     // this is a brand new contig
-              (position - readContextSize > slidingWindow.getStopLocation()) ) ) {  // this read is too far away from the end of the current sliding window
+              (position - contextSize > slidingWindow.getStopLocation()) ) ) {  // this read is too far away from the end of the current sliding window
 
             // close the current sliding window
             result.addAll(slidingWindow.close());
@@ -74,9 +77,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         }
 
         if ( slidingWindow == null) {       // this is the first read
-            slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), readContextSize,
-                                              read.getHeader(), read.getAttribute("RG"), slidingWindowCounter,
-                                              minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
+            slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getAttribute("RG"), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
             slidingWindowCounter++;
         }
 

@@ -26,6 +26,7 @@ public class SlidingWindow {
     private LinkedList<SlidingRead> SlidingReads;
     private LinkedList<HeaderElement> windowHeader;
     private int contextSize;
+    private int contextSizeIndels;
     private int startLocation;
     private int stopLocation;
 
@@ -46,10 +47,11 @@ public class SlidingWindow {
     private int MIN_MAPPING_QUALITY;
 
 
-    public SlidingWindow(String contig, int contigIndex, int contextSize, SAMFileHeader header, Object readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int maxQualCount, int minMappingQuality) {
+    public SlidingWindow(String contig, int contigIndex, int contextSize, int contextSizeIndels, SAMFileHeader header, Object readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int maxQualCount, int minMappingQuality) {
         this.startLocation = -1;
         this.stopLocation = -1;
         this.contextSize = contextSize;
+        this.contextSizeIndels = contextSizeIndels;
 
         this.MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT = minAltProportionToTriggerVariant;
         this.MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT = minIndelProportionToTriggerVariant;
@@ -196,8 +198,7 @@ public class SlidingWindow {
         LinkedList<SAMRecord> consensusList = new LinkedList<SAMRecord>();
         if (start < end) {
             if (runningConsensus == null)
-                runningConsensus = new RunningConsensus(header, readGroupAttribute, contig, contigIndex,
-                                                        readName + consensusCounter++, windowHeader.get(start).location, MIN_BASE_QUAL_TO_COUNT);
+                runningConsensus = new RunningConsensus(header, readGroupAttribute, contig, contigIndex, readName + consensusCounter++, windowHeader.get(start).location, MIN_BASE_QUAL_TO_COUNT);
 
             int i = 0;
             for (HeaderElement wh : windowHeader) {
@@ -213,9 +214,10 @@ public class SlidingWindow {
                         break;                                            // recursive call takes care of the rest of this loop, we are done.
                     }
                     else {
-                        byte base = wh.baseCounts.baseWithMostCounts();
+                        byte base  = wh.baseCounts.baseWithMostCounts();
                         byte count = (byte) Math.min(wh.baseCounts.countOfMostCommonBase(), MAX_QUAL_COUNT);
-                        runningConsensus.add(base, count, wh.getRMS());
+                        byte qual  = wh.baseCounts.averageQualsOfMostCommonBase();
+                        runningConsensus.add(base, count, qual, wh.getRMS());
                     }
                 }
                 i++;
@@ -451,7 +453,7 @@ public class SlidingWindow {
 
         public void addBase(byte base, byte qual, double mappingQuality) {
             if ( qual >= MIN_BASE_QUAL_TO_COUNT )  {
-                baseCounts.incr(base);
+                baseCounts.incr(base, qual);
                 this.mappingQuality.add(mappingQuality);
             }
         }
