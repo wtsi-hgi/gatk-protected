@@ -67,7 +67,10 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
     protected StingSAMFileWriter out;
 
     @Argument(fullName = "context_size", shortName = "cs", doc = "", required = false)
-    protected int contextSize = 20;
+    protected int contextSize = 10;
+
+    @Argument(fullName = "context_size_indels", shortName = "csindel", doc = "", required = false)
+    protected int contextSizeIndels = 50;
 
     @Argument(fullName = "minimum_mapping_quality", shortName = "minmap", doc = "", required = false)
     protected int minMappingQuality = 20;
@@ -241,7 +244,7 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
      */
     @Override
     public ReduceReadsStash reduceInit() {
-        return new ReduceReadsStash(new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(), contextSize, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
+        return new ReduceReadsStash(new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(), contextSize, contextSizeIndels, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
     }
 
     /**
