@@ -32,7 +32,12 @@ trim_to_95_pct <- function(column) {
       min <- mean - 2*sd
       max <- mean + 2*sd
       not_within_bounds <- function(value) {
-        return(as.numeric(value<=min|value>=max))
+        if (is.na(value)) {
+          out_of_bounds <- FALSE
+        } else {
+          out_of_bounds <- (value<min|value>max)
+        }
+        return(as.numeric(out_of_bounds))
       }
       return(sapply(column,not_within_bounds))
   }
@@ -97,6 +102,8 @@ complete <- read.table(reference_dataset,header=T)
 complete <- cbind(complete,good=F)
 complete <- data.frame(complete,months_to_current_project=number_of_months(as.Date(complete$Last_Sequenced_WR_Created_Date),min(as.Date(data$Last_Sequenced_WR_Created_Date),na.rm=T)))
 complete <- subset(complete,months_to_current_project>=-12)
+# PF_INDEL_RATE is deserialized as zero when the column isn't found in the Picard metrics
+complete$PF_INDEL_RATE[complete$PF_INDEL_RATE==0] <- NA
 
 novel_sampled <- subset(complete,Novelty=="novel"&FunctionalClass=="all")
 comparing_to_all = TRUE
@@ -104,6 +111,7 @@ if(any(novel_sampled$BAIT_SET %in% data$BAIT_SET)) {
     novel_sampled <- novel_sampled[novel_sampled$BAIT_SET %in% data$BAIT_SET,]
     comparing_to_all = FALSE
 }
+novel_sampled$PF_INDEL_RATE[novel_sampled$PF_INDEL_RATE==0] <- NA
 
 violations <- trim_to_95_pct(novel_sampled$PCT_SELECTED_BASES)
 violations <- violations + trim_to_95_pct(novel_sampled$MEAN_TARGET_COVERAGE)
@@ -124,6 +132,7 @@ samples <- unique(rbind(data.frame(sample=paste(as.character(novel_sampled$sampl
 			data.frame(sample=paste(as.character(data$sample),as.character(data$Last_Sequenced_WR_Created_Date)),Last_Sequenced_WR_Created_Date=data$Last_Sequenced_WR_Created_Date)))
 novel_sampled$sample <- factor(paste(novel_sampled$sample,novel_sampled$Last_Sequenced_WR_Created_Date),levels=samples$sample[order(samples$Last_Sequenced_WR)])
 data$sample <- factor(paste(data$sample,data$Last_Sequenced_WR_Created_Date),levels=samples$sample[order(samples$Last_Sequenced_WR,samples$sample)])
+data$PF_INDEL_RATE[data$PF_INDEL_RATE==0] <- NA
 
 # Write to PDF as necessary.
 if(onCMDLine) {
@@ -152,7 +161,7 @@ fingerprint_samples = c()
 fingerprint_lod_values = c()
 fingerprint_lod_median = c()
 for(i in 1:nrow(data)) {
-   fingerprint_lods_for_sample <- eval(parse(text=data$FINGERPRINT_LODS[i]))
+   fingerprint_lods_for_sample <- eval(parse(text=as.character(data$FINGERPRINT_LODS[i])))
    # No fingerprint data for this sample?  Drop in an NA so that the fingerprint_samples database actually has reasonable values.
    if(is.null(fingerprint_lods_for_sample)) {
      fingerprint_lods_for_sample = c(NA)
@@ -164,8 +173,16 @@ for(i in 1:nrow(data)) {
 fingerprint_lods = data.frame(sample=fingerprint_samples,median=fingerprint_lod_median,FINGERPRINT_LODS=fingerprint_lod_values)
 fingerprint_lods$sample = factor(fingerprint_lods$sample,levels=unique(fingerprint_lods$sample[order(fingerprint_lods$median)]))
 
-qplot(sample,FINGERPRINT_LODS,data=fingerprint_lods,geom="boxplot",outlier.size=0,main='Fingerprint LOD Scores By Sample') + opts(axis.text.x = theme_text(angle = 90,size=7)) + xlab('Sample') + ylab('LOD Score Distribution')
-
+# Lines and text for LOD -3/+3
+fingerprint_levels <- c(-3, 3)
+fingerprint_level_labels <- c('LOD -3', 'LOD +3')
+p <- qplot(sample,FINGERPRINT_LODS,data=fingerprint_lods,geom="boxplot",outlier.size=0,main='Fingerprint LOD Scores By Sample')
+p <- p + opts(axis.text.x = theme_text(angle = 90,size=7))
+p <- p + xlab('Sample') + ylab('LOD Score Distribution')
+p <- p + geom_hline(yintercept=fingerprint_levels,color='blue',alpha=0.1)
+p <- p + geom_text(aes(x,y,label=label),data=data.frame(x=tail(levels(fingerprint_lods$sample), n=1),y=fingerprint_levels,label=fingerprint_level_labels),hjust=1,vjust=0,color='blue',size=2)
+print(p)
+   
 create_stock_plots('% Selected Bases per Sample',novel_sampled,data,'PCT_SELECTED_BASES')
 
 create_stock_plots('Mean Target Coverage per Sample',novel_sampled,data,'MEAN_TARGET_COVERAGE')
@@ -180,9 +197,11 @@ create_stock_plots('% PF Reads Aligned per Sample',novel_sampled,data,'PCT_PF_RE
 
 create_stock_plots('% HQ Bases mismatching the Reference per Sample',novel_sampled,data,'PF_HQ_ERROR_RATE')
 
-create_base_plot('Mean Read Length per Sample',novel_sampled,data,'MEAN_READ_LENGTH')
+# HACK: print() since create_base_plot only creates while create_stock_plots actually creates *and* prints 
+# The MEDIAN_INSERT_SIZE adds a facet_grid() to the fun
+print(create_base_plot('Mean Read Length per Sample',novel_sampled,data,'MEAN_READ_LENGTH'))
 
-create_base_plot('# Bad Cycles per Sample',novel_sampled,data,'BAD_CYCLES')
+print(create_base_plot('# Bad Cycles per Sample',novel_sampled,data,'BAD_CYCLES'))
 
 create_stock_plots('% PF Reads Aligned to the + Strand per Sample',novel_sampled,data,'STRAND_BALANCE')
 
@@ -196,7 +215,7 @@ median_insert_size_ref <- rbind(data.frame(sample=novel_sampled$sample,MEDIAN_IN
 median_insert_size_new <- rbind(data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF'),
 			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR'),
 			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM'))
-create_base_plot('Median Insert Size per Sample',median_insert_size_ref,median_insert_size_new,'MEDIAN_INSERT_SIZE',include_sigmas=F) + facet_grid(insert_type ~ .)
+print(create_base_plot('Median Insert Size per Sample',median_insert_size_ref,median_insert_size_new,'MEDIAN_INSERT_SIZE',include_sigmas=F) + facet_grid(insert_type ~ ., scales="free"))
 
 create_stock_plots('% Chimera Read Pairs per Sample',novel_sampled,data,'PCT_CHIMERAS')
 
