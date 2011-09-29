@@ -214,9 +214,10 @@ public class SlidingWindow {
                         break;                                            // recursive call takes care of the rest of this loop, we are done.
                     }
                     else {
-                        byte base = wh.baseCounts.baseWithMostCounts();
+                        byte base  = wh.baseCounts.baseWithMostCounts();
                         byte count = (byte) Math.min(wh.baseCounts.countOfMostCommonBase(), MAX_QUAL_COUNT);
-                        runningConsensus.add(base, count, wh.getRMS());
+                        byte qual  = wh.baseCounts.averageQualsOfMostCommonBase();
+                        runningConsensus.add(base, count, qual, wh.getRMS());
                     }
                 }
                 i++;
@@ -452,7 +453,7 @@ public class SlidingWindow {
 
         public void addBase(byte base, byte qual, double mappingQuality) {
             if ( qual >= MIN_BASE_QUAL_TO_COUNT )  {
-                baseCounts.incr(base);
+                baseCounts.incr(base, qual);
                 this.mappingQuality.add(mappingQuality);
             }
         }
