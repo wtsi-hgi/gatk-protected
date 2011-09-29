@@ -44,6 +44,7 @@ import org.broadinstitute.sting.gatk.walkers.PartitionType;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.GenomeLocComparator;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -102,6 +103,8 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
     protected int totalReads = 0;
     int nCompressedReads = 0;
 
+    SortedSet<GenomeLoc> intervalList;
+
 
 
     /**
@@ -115,21 +118,30 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
     private List<SAMRecord> hardClipReadToInterval(SAMRecord read) {
         List<SAMRecord> clippedReads = new LinkedList<SAMRecord>();
         ReadClipper clipper = new ReadClipper(read);
+        GenomeLoc intervalOverlapped = null;
+        boolean overlap = false;                   // keeps track of the interval that overlapped the original read
+        boolean doneClipping = true;
 
         if (getToolkit().getIntervals().size() == 0)
             clippedReads.add(read);                // if we don't have intervals (wgs) the read goes in unchanged
 
-        for (GenomeLoc interval : getToolkit().getIntervals()) {
-            boolean doneClipping = false;          // triggers an early exit if we are done clipping this read
+        for (GenomeLoc interval : intervalList) {
 
-            if ( read.getReadLength() == 0 || interval.getStart() > read.getAlignmentEnd())
-                break;                             // read has been entirely clipped or this interval is beyond this read, no need to continue
+            if ( read.getReadLength() == 0 || interval.getStart() > read.getAlignmentEnd())   {
+                doneClipping = true;               // read has been entirely clipped or this interval is beyond this read, no need to continue
+                break;
+            }
+
+            overlap = true;
+            doneClipping = false;                  // triggers an early exit if we are done clipping this read
+            SAMRecord clippedRead = null;
 
             switch (ReadUtils.getReadAndIntervalOverlapType(read, interval)) {
                 case NO_OVERLAP_CONTIG:            // check the next interval
                 case NO_OVERLAP_LEFT:              // check the next interval
                 case NO_OVERLAP_RIGHT:             // check the next interval
                 case NO_OVERLAP_HARDCLIPPED_RIGHT: // read used to overlap but got hard clipped and doesn't overlap anymore
+                    overlap = false;
                     break;
 
                 case NO_OVERLAP_HARDCLIPPED_LEFT:  // read used to overlap but got hard clipped and doesn't overlap anymore
@@ -137,30 +149,40 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
                     break;
 
                 case OVERLAP_LEFT:                 // clip the left tail of the read
-                    clippedReads.add(clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStart() - 1));
+                    clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStart() - 1);
                     doneClipping = true;
                     break;
 
                 case OVERLAP_RIGHT:                // clip the right tail of the read and try to match it to the next interval
-                    clippedReads.add(clipper.hardClipByReferenceCoordinatesRightTail(interval.getStop() + 1));
+                    clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(interval.getStop() + 1);
                     read = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStop());
                     clipper = new ReadClipper(read);
                     break;
 
                 case OVERLAP_LEFT_AND_RIGHT:       // clip both left and right ends of the read
-                    clippedReads.add(clipper.hardClipBothEndsByReferenceCoordinates(interval.getStart()-1, interval.getStop()+1));
+                    clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(interval.getStart()-1, interval.getStop()+1);
                     read = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStop());
                     clipper = new ReadClipper(read);
                     break;
 
                 case OVERLAP_CONTAINED:            // don't do anything to the read
-                    clippedReads.add(read);
+                    clippedRead = read;
                     doneClipping = true;
                     break;
             }
+            if (clippedRead != null && clippedRead.getReadLength() > 0)
+                clippedReads.add(clippedRead);        // if the read overlaps the interval entirely within a deletion, it will be entirely clipped off
+
+            if (overlap && intervalOverlapped == null)
+                intervalOverlapped = interval;
+
             if (doneClipping)
                 break;
         }
+
+        if (intervalOverlapped != null)
+            intervalList = intervalList.tailSet(intervalOverlapped);
+
         return clippedReads;
     }
 
@@ -168,6 +190,9 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
     @Override
     public void initialize() {
         super.initialize();
+
+        intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator ());
+        intervalList.addAll(getToolkit().getIntervals());
 
         out.setPresorted(false);
 
