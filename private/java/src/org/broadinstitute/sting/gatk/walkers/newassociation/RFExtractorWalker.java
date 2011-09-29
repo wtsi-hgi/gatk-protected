@@ -78,7 +78,7 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
         for ( Sample s : getToolkit().getSAMFileSamples() ) {
             allCase.put(s.getID(),true);
             if ( s.getID() == null || s.getID().equals("null") ) {
-                throw new StingException("Sample IDs must not be null... " + s.toString() + " " + Boolean.toString(s.hasSAMFileEntry()));
+                throw new StingException("Sample IDs must not be null... " + s.toString());
             }
         }
 
