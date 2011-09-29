@@ -76,8 +76,8 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
             }
 
             for ( Sample sample : getToolkit().getSAMFileSamples() ) {
-                if ( ! caseStatus.containsKey(sample.getId())) {
-                    throw new UserException("No case/control status for sample "+sample.getId());
+                if ( ! caseStatus.containsKey(sample.getID())) {
+                    throw new UserException("No case/control status for sample "+sample.getID());
                 }
             }
 
@@ -116,9 +116,9 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
     }
 
     public RFWindow reduceInit() {
-        Set<String> samples = new HashSet<String>(getToolkit().getSamples().size());
-        for ( Sample s : getToolkit().getSamples() ) {
-            samples.add(s.getId());
+        Set<String> samples = new HashSet<String>(getSampleDB().getSamples().size());
+        for ( Sample s : getSampleDB().getSamples() ) {
+            samples.add(s.getID());
         }
         return new RFWindow(aggregators,collection,caseStatus,getToolkit().getGenomeLocParser());
     }

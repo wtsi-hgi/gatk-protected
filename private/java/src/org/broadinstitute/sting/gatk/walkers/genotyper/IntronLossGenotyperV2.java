@@ -101,7 +101,7 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
         Set<Sample> samples = getToolkit().getSAMFileSamples();
         Set<String> sampleStr = new HashSet<String>(samples.size());
         for ( Sample s : samples ) {
-            sampleStr.add(s.getId());
+            sampleStr.add(s.getID());
         }
 
         ilglcm.setSamples(sampleStr);

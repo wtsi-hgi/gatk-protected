@@ -33,8 +33,8 @@ public class LocusDepthProportionWalker extends LocusWalker<double[],Boolean> im
         out.printf("pos");
         for ( Sample s : getToolkit().getSAMFileSamples() ) {
             out.printf("\t");
-            out.printf(s.getId());
-            samOrder.put(s.getId(),idx++);
+            out.printf(s.getID());
+            samOrder.put(s.getID(),idx++);
         }
         out.printf("\t%s%n","total");
     }

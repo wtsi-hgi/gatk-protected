@@ -74,10 +74,10 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
     }
 
     public RFWindow reduceInit() {
-        Map <String,Boolean> allCase = new HashMap<String,Boolean>(getToolkit().getSamples().size());
+        Map <String,Boolean> allCase = new HashMap<String,Boolean>(getSampleDB().getSamples().size());
         for ( Sample s : getToolkit().getSAMFileSamples() ) {
-            allCase.put(s.getId(),true);
-            if ( s.getId() == null || s.getId().equals("null") ) {
+            allCase.put(s.getID(),true);
+            if ( s.getID() == null || s.getID().equals("null") ) {
                 throw new StingException("Sample IDs must not be null... " + s.toString() + " " + Boolean.toString(s.hasSAMFileEntry()));
             }
         }
