@@ -29,6 +29,7 @@ import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.StringUtil;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.*;
@@ -36,19 +37,27 @@ import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;
+import org.broadinstitute.sting.gatk.walkers.recalibration.Covariate;
+import org.broadinstitute.sting.gatk.walkers.recalibration.RecalDataManager;
+import org.broadinstitute.sting.gatk.walkers.recalibration.RecalDatum;
+import org.broadinstitute.sting.gatk.walkers.recalibration.TableRecalibrationWalker;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.samread.SAMReadCodec;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
+import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.sting.utils.exceptions.DynamicClassResolutionException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
+import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.*;
@@ -99,6 +108,15 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     @Argument(fullName="realignReads", shortName="realignReads", doc="If provided, the debugBam will contain all reads in the interval realigned to the new haplotype", required = false)
     protected boolean realignReads = false;
 
+    /**
+     * After the header, data records occur one per line until the end of the file. The first several items on a line are the
+     * values of the individual covariates and will change depending on which covariates were specified at runtime. The last
+     * three items are the data- that is, number of observations for this combination of covariates, number of reference mismatches,
+     * and the raw empirical quality score calculated by phred-scaling the mismatch rate.
+     */
+    @Input(fullName="recal_file", shortName="recalFile", required=true, doc="Filename for the input indel covariates table recalibration .csv file")
+    public File RECAL_FILE = null;
+
     @Argument(fullName = "assembler", shortName = "assembler", doc = "Assembler to use; currently only SIMPLE_DE_BRUIJN is available.", required = false)
     protected LocalAssemblyEngine.ASSEMBLER ASSEMBLER_TO_USE = LocalAssemblyEngine.ASSEMBLER.SIMPLE_DE_BRUIJN;
 
@@ -146,7 +164,13 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
 
     protected ConstrainedMateFixingManager manager = null;
 
+    private NestedHashMap kmerQualityTables = new NestedHashMap();
+    private int contextSize = 0;
+
     public void initialize() {
+
+        // read in the input recal data from IndelCountCovariates and calculate the empirical gap open penalty for each k-mer
+        parseInputRecalData();
 
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
@@ -162,7 +186,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         }
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
-        likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, false, true, false);
+        likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, false, true, false, kmerQualityTables, contextSize);
         genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
 
         if( realignReads ) {
@@ -175,6 +199,46 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
 
         intervals = intervalsToAssemble.clone().iterator();
         currentInterval = intervals.hasNext() ? intervals.next() : null;
+    }
+
+    private void parseInputRecalData() {
+        int lineNumber = 0;
+        boolean foundAllCovariates = false;
+
+        // Read in the data from the csv file and populate the data map and covariates list
+        logger.info( "Reading in the data from input csv file..." );
+
+        boolean sawEOF = false;
+        try {
+            for ( String line : new XReadLines(RECAL_FILE) ) {
+                lineNumber++;
+                if (TableRecalibrationWalker.EOF_MARKER.equals(line) ) {
+                    sawEOF = true;
+                } else if( TableRecalibrationWalker.COMMENT_PATTERN.matcher(line).matches() || TableRecalibrationWalker.OLD_RECALIBRATOR_HEADER.matcher(line).matches() ||
+                        TableRecalibrationWalker.COVARIATE_PATTERN.matcher(line).matches() )  {
+                    // Skip over the comment lines, (which start with '#')
+                } else { // Found a line of data
+                    final String[] vals = line.split(",");
+                    final Object[] key = new Object[2];
+                    key[0] = vals[0]; // read group
+                    key[1] = vals[2]; // k-mer Context
+                    final Double logGapOpenPenalty = Math.log10( (Double.parseDouble(vals[4]) + 1.0) / (Double.parseDouble(vals[3]) + 1.0) );
+                    kmerQualityTables.put( logGapOpenPenalty, key );
+                    if(contextSize == 0) { contextSize = key[1].toString().length(); }
+                }
+            }
+
+        } catch ( FileNotFoundException e ) {
+            throw new UserException.CouldNotReadInputFile(RECAL_FILE, "Can not find input file", e);
+        } catch ( NumberFormatException e ) {
+            throw new UserException.MalformedFile(RECAL_FILE, "Error parsing recalibration data at line " + lineNumber + ". Perhaps your table was generated by an older version of CovariateCounterWalker.");
+        }
+        logger.info( "...done!" );
+
+        if ( !sawEOF ) {
+            final String errorMessage = "No EOF marker was present in the recal covariates table; this could mean that the file is corrupted or was generated with an old version of the CountCovariates tool.";
+            throw new UserException.MalformedFile(RECAL_FILE, errorMessage);
+        }
     }
 
     private LocalAssemblyEngine makeAssembler(LocalAssemblyEngine.ASSEMBLER type, IndexedFastaSequenceFile referenceReader) {
@@ -338,7 +402,6 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
                 int padRight = Math.min(loc.getStop()+REFERENCE_PADDING, referenceReader.getSequenceDictionary().getSequence(loc.getContig()).getSequenceLength());
                 loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), padLeft, padRight);
                 reference = referenceReader.getSubsequenceAt(loc.getContig(), loc.getStart(), loc.getStop()).getBases();
-                StringUtil.toUpperCase(reference);
             }
 
             return reference;
@@ -348,9 +411,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
             int padLeft = Math.max(loc.getStart(), 1);
             int padRight = Math.min(loc.getStop(), referenceReader.getSequenceDictionary().getSequence(loc.getContig()).getSequenceLength());
             final GenomeLoc thisLoc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), padLeft, padRight);
-            byte[] returnReference = referenceReader.getSubsequenceAt(thisLoc.getContig(), thisLoc.getStart(), thisLoc.getStop()).getBases();
-            StringUtil.toUpperCase(returnReference);
-            return returnReference;
+            return referenceReader.getSubsequenceAt(thisLoc.getContig(), thisLoc.getStart(), thisLoc.getStop()).getBases();
         }
 
         public GenomeLoc getLocation() { return loc; }
