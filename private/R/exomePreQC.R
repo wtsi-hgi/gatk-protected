@@ -21,6 +21,7 @@ if ( onCMDLine ) {
 
 require('ggplot2')
 require('gplots')
+require('tools')
 
 data <- read.table(inputTSV,header=T)
 
@@ -126,13 +127,13 @@ data$sample <- factor(paste(data$sample,data$Last_Sequenced_WR_Created_Date),lev
 
 # Write to PDF as necessary.
 if(onCMDLine) {
-    pdf(outputPDF)
+    pdf(outputPDF, height=8.5, width=11)
 }
 
 # Specify a project header.
-initiative <- as.character(unique(data$INITIATIVE))
+initiative <- paste(unique(data$INITIATIVE), collapse=', ')
 num_samples <- length(unique(data$sample))
-bait_set <- as.character(unique(data$BAIT_SET))
+bait_set <- paste(unique(data$BAIT_SET), collapse=', ')
 if(comparing_to_all) {
     bait_set <- paste(bait_set,'(Comparing custom bait set to all prior runs)',sep=' ')
 }
@@ -207,5 +208,7 @@ create_stock_plots('TiTv of SNPs in dbSNP per Sample',novel_sampled,data,'DBSNP_
 
 if(onCMDLine) {
     dev.off()
+    if (exists("compactPDF")) {
+        compactPDF(outputPDF)
+    }
 }
-
