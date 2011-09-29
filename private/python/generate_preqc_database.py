@@ -30,8 +30,8 @@ def load_dates_from_database(project,sample):
     sql = 'select "Last Sequenced WR","Last Sequenced WR Created Date" from ILLUMINA_SAMPLE_STATUS_AGG where "Project" = \'%s\' and "Sample" = \'%s\'' % (project,sample)
     rs = stmt.executeQuery(sql)
 
-    last_sequenced_wr = None
-    last_sequenced_wr_created_date = None
+    last_sequenced_wr = 'NA'
+    last_sequenced_wr_created_date = 'NA'
 
     has_results = rs.next()
 
