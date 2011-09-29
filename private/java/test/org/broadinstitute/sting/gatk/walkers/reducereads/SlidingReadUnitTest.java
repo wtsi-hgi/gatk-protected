@@ -25,7 +25,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-
 import net.sf.samtools.*;
 import org.broadinstitute.sting.BaseTest;
 import org.broadinstitute.sting.utils.sam.ArtificialSAMUtils;
@@ -61,7 +60,6 @@ public class SlidingReadUnitTest extends BaseTest {
         read.setBaseQualityString(new String(QUALS));
 
         slidingRead = new SlidingRead(read);
-
     }
 
     @Test
