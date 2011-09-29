@@ -92,6 +92,9 @@ class FindMissingCalls extends QScript {
   @Argument(shortName = "sample", doc = "", required=true)
   val SAMPLE: List[String] = Nil
 
+  @Argument(shortName = "scatterCount", doc = "", required=false)
+  val scatterCount: Int = 1
+
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO";
     this.reference_sequence = referenceFile;
@@ -117,7 +120,8 @@ class FindMissingCalls extends QScript {
     rr.input_file :+= BAM
     rr.out = reducedBAM
     rr.intervals :+= INTERVALS
-    rr.minqual = 30
+    rr.minqual = 20
+    rr.scatterCount = scatterCount
     add(rr)
 
     add(call(BAM, subsites, fullVCF))
