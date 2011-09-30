@@ -321,15 +321,15 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         }
 
         final int pos = curInterval.getStart() + (curInterval.getStop() - curInterval.getStart()) / 2;
-        final GenomeLoc evalWindow = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 8, pos + 8);
-        final GenomeLoc outputWindow = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 1, pos + 1);
+        //final GenomeLoc evalWindow = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 40, pos + 40);
+        final GenomeLoc outputWindow = getToolkit().getGenomeLocParser().createGenomeLoc(curInterval.getContig(), pos - 10, pos + 10);
 
-        final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getReadsInWindow( evalWindow ) );
+        final Pair<Haplotype, Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getPassingReads() ); //readsToAssemble.getReadsInWindow( evalWindow ) );
         final List<VariantContext> vcs = genotypingEngine.alignAndGenotype( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), bestTwoHaplotypes.first.likelihood );
 
-        if( bamWriter != null && realignReads ) {
-            genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), manager, readsToAssemble.getReadsInWindow( evalWindow ), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
-        }
+        //if( bamWriter != null && realignReads ) {
+        //    genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), manager, readsToAssemble.getReadsInWindow( evalWindow ), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
+        //}
 
         for( final VariantContext vc : vcs ) {
             if( vc.getStart() >= outputWindow.getStart() && vc.getStart() <= outputWindow.getStop() ) {
@@ -378,6 +378,18 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         }
 
         public List<SAMRecord> getReads() { return reads; }
+
+        public List<SAMRecord> getPassingReads() {
+            final ArrayList<SAMRecord> readsOverlappingVariant = new ArrayList<SAMRecord>();
+
+            for( final SAMRecord rec : reads ) {
+                if( rec.getMappingQuality() > 15 && !BadMateFilter.hasBadMate(rec) ) {
+                    readsOverlappingVariant.add(rec);
+                }
+            }
+
+            return readsOverlappingVariant;
+        }
 
         public List<SAMRecord> getReadsInWindow( final GenomeLoc window ) {
             final ArrayList<SAMRecord> readsOverlappingVariant = new ArrayList<SAMRecord>();

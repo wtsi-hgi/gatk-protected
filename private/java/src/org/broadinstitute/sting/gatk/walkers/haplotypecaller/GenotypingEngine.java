@@ -96,7 +96,7 @@ public class GenotypingEngine {
             switch( ce.getOperator() ) {
                 case I:
                 {
-                    byte[] insertionBases = Arrays.copyOfRange( read, readPos, readPos + elementLength);
+                    final byte[] insertionBases = Arrays.copyOfRange( read, readPos, readPos + elementLength);
                     boolean allN = true;
                     for( byte b : insertionBases ) {
                         if( b != (byte) 'N' ) {
@@ -105,7 +105,7 @@ public class GenotypingEngine {
                         }
                     }
                     if( !allN ) {
-                        ArrayList<Allele> alleles = new ArrayList<Allele>();
+                        final ArrayList<Allele> alleles = new ArrayList<Allele>();
                         alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, true));
                         alleles.add( Allele.create(insertionBases, false));
                         if( DEBUG ) { System.out.println("> Insertion: " + alleles); }
@@ -122,8 +122,8 @@ public class GenotypingEngine {
                 }
                 case D:
                 {
-                    byte[] deletionBases = Arrays.copyOfRange( ref, refPos, refPos + elementLength);
-                    ArrayList<Allele> alleles = new ArrayList<Allele>();
+                    final byte[] deletionBases = Arrays.copyOfRange( ref, refPos, refPos + elementLength);
+                    final ArrayList<Allele> alleles = new ArrayList<Allele>();
                     alleles.add( Allele.create(deletionBases, true) );
                     alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, false) );
                     if( DEBUG ) { System.out.println( "> Deletion: " + alleles); }
@@ -156,9 +156,9 @@ public class GenotypingEngine {
                         }
 
                         if( numSinceMismatch > lookAhead || (iii == elementLength - 1 && stopOfMismatch != -1) ) {
-                            byte[] refBases = Arrays.copyOfRange( ref, refPosStartOfMismatch, refPosStartOfMismatch + (stopOfMismatch - startOfMismatch) + 1 );
-                            byte[] mismatchBases = Arrays.copyOfRange( read, startOfMismatch, stopOfMismatch + 1 );
-                            ArrayList<Allele> alleles = new ArrayList<Allele>();
+                            final byte[] refBases = Arrays.copyOfRange( ref, refPosStartOfMismatch, refPosStartOfMismatch + (stopOfMismatch - startOfMismatch) + 1 );
+                            final byte[] mismatchBases = Arrays.copyOfRange( read, startOfMismatch, stopOfMismatch + 1 );
+                            final ArrayList<Allele> alleles = new ArrayList<Allele>();
                             alleles.add( Allele.create( refBases, true ) );
                             alleles.add( Allele.create( mismatchBases, false ) );
                             if( DEBUG ) { System.out.println( "> SNP/MNP: " + alleles); }
