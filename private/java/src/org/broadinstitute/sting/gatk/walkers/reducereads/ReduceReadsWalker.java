@@ -109,7 +109,6 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
     SortedSet<GenomeLoc> intervalList;
 
 
-
     /**
      * Hard clips the read around the edges of the interval it overlaps with.
      * Note: If read overlaps more than one interval, it will be hard clipped at the end of the first interval it overlaps.
@@ -121,50 +120,80 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
     private List<SAMRecord> hardClipReadToInterval(SAMRecord read) {
         List<SAMRecord> clippedReads = new LinkedList<SAMRecord>();
         ReadClipper clipper = new ReadClipper(read);
-        GenomeLoc intervalOverlapped = null;
-        boolean overlap;                           // keeps track of the interval that overlapped the original read
-        boolean doneClipping;
 
-        if (getToolkit().getIntervals().size() == 0)
+        GenomeLoc intervalOverlapped = null;       // marks the interval to which the original read overlapped (so we can cut all previous intervals from the list)
+
+        boolean originalRead = true;               // false if this is the right tail of the original read
+        boolean overlap;                           // keeps track of the interval that overlapped the original read
+        boolean doneClipping;                      // triggers an early exit if we are done clipping this read
+
+        if (intervalList.isEmpty())
             clippedReads.add(read);                // if we don't have intervals (wgs) the read goes in unchanged
 
         for (GenomeLoc interval : intervalList) {
 
-            if ( read.getReadLength() == 0 )
+            if ( read.getReadLength() == 0 )       // nothing to do with an empty read (could have been fully clipped before)
                 break;
 
-            overlap = true;
-            doneClipping = false;                  // triggers an early exit if we are done clipping this read
-            SAMRecord clippedRead = null;
+            SAMRecord clippedRead = null;                 // this will hold the read clipped to the interval to be added in the end of the switch
 
             switch (ReadUtils.getReadAndIntervalOverlapType(read, interval)) {
-                case NO_OVERLAP_RIGHT:             // no reads on this interval, check the next interval
+                case NO_OVERLAP_RIGHT:             // no reads on this interval, check the next interval if this is the original read
+                    if (!originalRead)             // something went wrong if this is the tail of the read
+                        throw new ReviewedStingException("tail of the read should never NO_OVERLAP_RIGHT the following interval. " + read.getReadName() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() + " x " + interval.getLocation().toString());
+                    overlap = false;
+                    doneClipping = false;
+                    break;
+
+
                 case NO_OVERLAP_HARDCLIPPED_RIGHT: // read used to overlap but got hard clipped and doesn't overlap anymore
-                    overlap = false;
+                    if (originalRead) {
+                        overlap = true;            // effectively, we have found the read's location and now we are going to try and match it's tail (which happens to be the entire read).
+                        clippedRead = new SAMRecord(read.getHeader());
+                    }
+                    else
+                        overlap = false;
+
+                    doneClipping = false;
                     break;
 
-                case NO_OVERLAP_CONTIG:            // read is in a different contig (bigger is fine)
-                    boolean isFirstRead = intervalOverlapped == null;
-                    if (isFirstRead && read.getReferenceIndex() < interval.getContigIndex())
-                            throw new ReviewedStingException("read is behind interval list -- this should never happen. (contig) " + read.getReadName() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() + " x " + interval.getLocation().toString());
-                    else if (!isFirstRead)
-                        doneClipping = true;
-                    overlap = false;
+                case NO_OVERLAP_CONTIG:            // read is in a different contig
+                    if (originalRead) {            // the original read can be in a bigger contig, but not on a smaller one.
+                        if (read.getReferenceIndex() < interval.getContigIndex())
+                            throw new ReviewedStingException("read is behind interval list. (contig) " + read.getReadName() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() + " x " + interval.getLocation().toString());
+                        else {
+                            overlap = false;
+                            doneClipping = false;
+                        }
+                    }                              // tail read CANNOT be in a different contig.
+                    else {
+                        if (read.getReferenceIndex() < interval.getContigIndex()) {
+                            overlap = false;
+                            doneClipping = true;
+                        }
+                        else
+                            throw new ReviewedStingException("Tail read is in bigger contig than interval traversal. " + read.getReadName() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() + " x " + interval.getLocation().toString());
+
+                    }
                     break;
 
-                case NO_OVERLAP_LEFT:              // if this is the first read (intervalOverlapped == null) this should never happen. Otherwise it is okay (right tail of a previous read checking if matches the next interval, and it doesn't)
-                    if (intervalOverlapped == null)
-                        throw new ReviewedStingException("read is behind interval list -- this should never happen. (position) " + read.getReadName() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() + " x " + interval.getLocation().toString());
+                case NO_OVERLAP_LEFT:
+                    if (originalRead)              // if this is the first read this should never happen.
+                        throw new ReviewedStingException("original read cannot be behind the first interval. (position) " + read.getReadName() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() + " x " + interval.getLocation().toString());
+
                     overlap = false;
                     doneClipping = true;
                     break;
 
                 case NO_OVERLAP_HARDCLIPPED_LEFT:  // read used to overlap but got hard clipped and doesn't overlap anymore
+                    overlap = originalRead;        // if this is the original read, we should not advance the interval list, the original overlap was here.
                     doneClipping = true;
                     break;
 
                 case OVERLAP_LEFT:                 // clip the left tail of the read
                     clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStart() - 1);
+
+                    overlap = true;
                     doneClipping = true;
                     break;
 
@@ -172,24 +201,40 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
                     clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(interval.getStop() + 1);
                     read = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStop());
                     clipper = new ReadClipper(read);
+
+                    overlap = true;
+                    doneClipping = false;
                     break;
 
                 case OVERLAP_LEFT_AND_RIGHT:       // clip both left and right ends of the read
                     clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(interval.getStart()-1, interval.getStop()+1);
                     read = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStop());
                     clipper = new ReadClipper(read);
+
+                    overlap = true;
+                    doneClipping = false;
                     break;
 
                 case OVERLAP_CONTAINED:            // don't do anything to the read
                     clippedRead = read;
+
+                    overlap = true;
                     doneClipping = true;
                     break;
-            }
-            if (clippedRead != null && clippedRead.getReadLength() > 0)
-                clippedReads.add(clippedRead);     // if the read overlaps the interval entirely within a deletion, it will be entirely clipped off
 
-            if (overlap && intervalOverlapped == null)
+                default:
+                    throw new ReviewedStingException("interval overlap returned an unknown / unhandled state. If new state was added to intervalOverlap, it should be handled by hardClipReadToInterval.");
+            }
+
+            if (overlap && originalRead)
                 intervalOverlapped = interval;
+
+            if (clippedRead != null) {
+                originalRead = false;
+
+                if (clippedRead.getReadLength() > 0)
+                    clippedReads.add(clippedRead);     // if the read overlaps the interval entirely within a deletion, it will be entirely clipped off
+            }
 
             if (doneClipping)
                 break;
@@ -209,7 +254,7 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
         intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator ());
         intervalList.addAll(getToolkit().getIntervals());
 
-        out.setPresorted(false);
+        out.setPresorted(true);
 
 //        for ( SAMReadGroupRecord rg : getToolkit().getSAMFileHeader().getReadGroups())
 //            out.getFileHeader().addReadGroup(rg);
@@ -224,9 +269,6 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
         read = SimplifyingSAMFileWriter.simplifyRead(read);
 
         if (!debugRead.isEmpty() && read.getReadName().contains(debugRead))
-            System.out.println("Found debug read!");
-
-        if (read.getReferenceIndex() == 1)
             System.out.println("Found debug read!");
 
         if (debugLevel == 1) System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
@@ -266,15 +308,14 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
      * given a read and a output location, reduce by emitting the read
      */
     public ReduceReadsStash reduce( List<SAMRecord> mappedReads, ReduceReadsStash stash ) {
-        boolean isFirstRead = true;
+        boolean firstRead = true;
         for (SAMRecord read : mappedReads) {
+            boolean originalRead = firstRead && ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
 
             if (read.getReadLength() == 0)
                 throw new ReviewedStingException("Empty read sent to reduce, this should never happen! " + read.getReadName() + " -- " + read.getCigar() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() );
 
-            if (isFirstRead) {
-                isFirstRead = false;
-
+            if (originalRead) {
                 List<SAMRecord> readsReady = new LinkedList<SAMRecord>();
                 readsReady.addAll(stash.getAllReadsBefore(read));
                 readsReady.add(read);
@@ -290,6 +331,8 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
             }
             else
                 stash.add(read);
+
+            firstRead = false;
         }
 
         return stash;

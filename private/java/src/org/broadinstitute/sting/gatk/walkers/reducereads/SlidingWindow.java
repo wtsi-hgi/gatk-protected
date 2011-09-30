@@ -5,7 +5,6 @@ import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 
 import java.util.Iterator;
@@ -99,6 +98,10 @@ public class SlidingWindow {
         SlidingReads.add(new SlidingRead(read));
 
         return finalizedReads;
+    }
+
+    public int getContigIndex() {
+        return contigIndex;
     }
 
     /**
@@ -415,10 +418,6 @@ public class SlidingWindow {
                     break;
             }
         }
-    }
-
-    public int getContigIndex() {
-        return contigIndex;
     }
 
     /**

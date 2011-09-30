@@ -3,9 +3,12 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
+import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 /**
  *
@@ -63,7 +66,7 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
      */
     @Override
     public Iterable<SAMRecord> addAlignment( SAMRecord read ) {
-        List<SAMRecord> result = new LinkedList<SAMRecord>();
+        TreeSet<SAMRecord> result = new TreeSet<SAMRecord>(new AlignmentStartWithNoTiesComparator());
         int position = read.getUnclippedStart();
 
         // create a new window if:
@@ -86,8 +89,8 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     }
 
     @Override
-    public List<SAMRecord> close() {
-        return (slidingWindow != null) ? slidingWindow.close() : new LinkedList<SAMRecord>();
+    public Iterable<SAMRecord> close() {
+        return (slidingWindow != null) ? slidingWindow.close() : new TreeSet<SAMRecord>();
     }
 
 }

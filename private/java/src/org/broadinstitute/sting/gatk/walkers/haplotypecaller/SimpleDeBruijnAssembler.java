@@ -23,7 +23,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private static final int KMER_OVERLAP = 6;
 
     // the deBruijn graph object
-    private List<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>> graphs = new ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>>();
+    private final List<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>> graphs = new ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>>();
 
     public SimpleDeBruijnAssembler(PrintStream out, IndexedFastaSequenceFile referenceReader) {
         super(out, referenceReader);
@@ -101,6 +101,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private void createDeBruijnGraph(final List<byte[]> reads) {
 
+        graphs.clear();
         // create the graph
         for( int kmer = 7; kmer <= 101; kmer += 8 ) {
             final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
@@ -385,7 +386,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            final List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 9);
+            final List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 13);
 
             for ( final KBestPaths.Path path : bestPaths ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
