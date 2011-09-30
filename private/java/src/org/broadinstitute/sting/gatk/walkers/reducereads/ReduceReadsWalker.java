@@ -254,7 +254,7 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
         intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator ());
         intervalList.addAll(getToolkit().getIntervals());
 
-        out.setPresorted(false);
+        out.setPresorted(true);
 
 //        for ( SAMReadGroupRecord rg : getToolkit().getSAMFileHeader().getReadGroups())
 //            out.getFileHeader().addReadGroup(rg);
