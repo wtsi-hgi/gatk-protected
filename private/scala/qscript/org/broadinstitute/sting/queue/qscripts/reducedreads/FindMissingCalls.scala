@@ -107,13 +107,15 @@ class FindMissingCalls extends QScript {
     val fullVCF = swapExt(BAM, ".bam", ".vcf")
     val reducedVCF = swapExt(BAM, ".bam", ".reduced.vcf")
 
-    val sv = new SelectVariants() with UNIVERSAL_GATK_ARGS
-    sv.V = GENOTYPES
-    sv.sample_name = SAMPLE
-    sv.out = subsites
-    sv.env = true
-    sv.intervals :+= INTERVALS
-    add(sv)
+    if ( ! subsites.exists() ) {
+      val sv = new SelectVariants() with UNIVERSAL_GATK_ARGS
+      sv.V = GENOTYPES
+      sv.sample_name = SAMPLE
+      sv.out = subsites
+      sv.env = true
+      sv.intervals :+= INTERVALS
+      add(sv)
+    }
 
     // reduce
     val rr = new ReduceReads() with UNIVERSAL_GATK_ARGS

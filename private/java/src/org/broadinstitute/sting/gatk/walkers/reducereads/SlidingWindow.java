@@ -288,7 +288,7 @@ public class SlidingWindow {
         List<SAMRecord> finalizedReads = new LinkedList<SAMRecord>();
 
         if (!windowHeader.isEmpty()) {
-            boolean [] variantSite = markSites(stopLocation);
+            boolean [] variantSite = markSites(stopLocation+1);
 
             // close everything (+1 to include the last site) -- consensus or variant region
             int sitesToClose = stopLocation - startLocation + 1;
