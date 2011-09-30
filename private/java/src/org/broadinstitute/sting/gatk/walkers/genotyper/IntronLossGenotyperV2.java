@@ -98,12 +98,7 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
             throw new UserException.CouldNotReadInputFile(getToolkit().getArguments().referenceFile,ex);
         }
 
-        Set<Sample> samples = getToolkit().getSAMFileSamples();
-        Set<String> sampleStr = new HashSet<String>(samples.size());
-        for ( Sample s : samples ) {
-            sampleStr.add(s.getID());
-        }
-
+        Set<String> sampleStr = SampleUtils.getSAMFileSamples(getToolkit());
         ilglcm.setSamples(sampleStr);
 
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), sampleStr));

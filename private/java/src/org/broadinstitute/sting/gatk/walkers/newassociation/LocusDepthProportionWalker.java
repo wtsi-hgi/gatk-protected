@@ -7,11 +7,13 @@ import org.broadinstitute.sting.gatk.samples.Sample;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
+import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Created by IntelliJ IDEA.
@@ -28,13 +30,14 @@ public class LocusDepthProportionWalker extends LocusWalker<double[],Boolean> im
     private Map<String,Integer> samOrder;
 
     public void initialize() {
-        samOrder = new HashMap<String,Integer>(getToolkit().getSAMFileSamples().size());
+        final Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit());
+        samOrder = new HashMap<String,Integer>(samples.size());
         int idx = 0;
         out.printf("pos");
-        for ( Sample s : getToolkit().getSAMFileSamples() ) {
+        for ( final String s : samples ) {
             out.printf("\t");
-            out.printf(s.getID());
-            samOrder.put(s.getID(),idx++);
+            out.printf(s);
+            samOrder.put(s,idx++);
         }
         out.printf("\t%s%n","total");
     }

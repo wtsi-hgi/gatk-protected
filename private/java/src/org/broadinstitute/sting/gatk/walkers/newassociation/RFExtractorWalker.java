@@ -15,6 +15,7 @@ import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.gatk.walkers.newassociation.features.ReadFeatureAggregator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
@@ -75,10 +76,10 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
 
     public RFWindow reduceInit() {
         Map <String,Boolean> allCase = new HashMap<String,Boolean>(getSampleDB().getSamples().size());
-        for ( Sample s : getToolkit().getSAMFileSamples() ) {
-            allCase.put(s.getID(),true);
-            if ( s.getID() == null || s.getID().equals("null") ) {
-                throw new StingException("Sample IDs must not be null... " + s.toString());
+        for ( final String s : SampleUtils.getSAMFileSamples(getToolkit()) ) {
+            allCase.put(s,true);
+            if ( s == null || s.equals("null") ) {
+                throw new StingException("Sample IDs must not be null... " + s);
             }
         }
 

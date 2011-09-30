@@ -12,6 +12,7 @@ import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.gatk.walkers.newassociation.features.ReadFeatureAggregator;
 import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.collections.Pair;
@@ -62,7 +63,7 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
             throw new UserException("You must provide both a case file (-case) and a control file (-control) each listing those samples belonging to the cohort");
         }
 
-        caseStatus = new HashMap<String,Boolean>(getToolkit().getSAMFileSamples().size());
+        caseStatus = new HashMap<String,Boolean>();
         nCase = 0;
         nControl = 0;
         try {
@@ -75,9 +76,9 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
                 ++nControl;
             }
 
-            for ( Sample sample : getToolkit().getSAMFileSamples() ) {
-                if ( ! caseStatus.containsKey(sample.getID())) {
-                    throw new UserException("No case/control status for sample "+sample.getID());
+            for ( final String sample : SampleUtils.getSAMFileSamples(getToolkit()) ) {
+                if ( ! caseStatus.containsKey(sample)) {
+                    throw new UserException("No case/control status for sample "+sample);
                 }
             }
 
