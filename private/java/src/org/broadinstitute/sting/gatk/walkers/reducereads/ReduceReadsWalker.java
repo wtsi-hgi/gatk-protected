@@ -308,15 +308,14 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
      * given a read and a output location, reduce by emitting the read
      */
     public ReduceReadsStash reduce( List<SAMRecord> mappedReads, ReduceReadsStash stash ) {
-        boolean isFirstRead = true;
+        boolean firstRead = true;
         for (SAMRecord read : mappedReads) {
+            boolean originalRead = firstRead && ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
 
             if (read.getReadLength() == 0)
                 throw new ReviewedStingException("Empty read sent to reduce, this should never happen! " + read.getReadName() + " -- " + read.getCigar() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() );
 
-            if (isFirstRead) {
-                isFirstRead = false;
-
+            if (originalRead) {
                 List<SAMRecord> readsReady = new LinkedList<SAMRecord>();
                 readsReady.addAll(stash.getAllReadsBefore(read));
                 readsReady.add(read);
@@ -332,6 +331,8 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
             }
             else
                 stash.add(read);
+
+            firstRead = false;
         }
 
         return stash;
