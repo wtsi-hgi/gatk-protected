@@ -44,7 +44,8 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
     private Map<String, SingleSampleConsensusReadCompressor> compressorsPerSample = new HashMap<String, SingleSampleConsensusReadCompressor>();
 
     public MultiSampleConsensusReadCompressor(SAMFileHeader header,
-                                              final int readContextSize,
+                                              final int contextSize,
+                                              final int contextSizeIndels,
                                               final int downsampleCoverage,
                                               final int minMappingQuality,
                                               final double minAltProportionToTriggerVariant,
@@ -53,7 +54,7 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
                                               final int maxQualCount) {
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
-                    new SingleSampleConsensusReadCompressor(name, header.getReadGroup(name), readContextSize, downsampleCoverage,
+                    new SingleSampleConsensusReadCompressor(name, header.getReadGroup(name), contextSize, contextSizeIndels, downsampleCoverage,
                                     minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
         }
     }

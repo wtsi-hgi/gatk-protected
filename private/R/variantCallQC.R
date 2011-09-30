@@ -254,8 +254,18 @@ perSamplePlots <- function(metricsBySamples) {
   #   Error: attempt to apply non-function
   numSamples <- length(unique(metricsBySamples$Sample))
   metricsBySamples$highlightTextSizes <- c(1,2)[metricsBySamples$highlight+1]
-  sampleTextLabel <- geom_text(aes(label=Sample, size=highlightTextSizes)) 
-  sampleTextLabelScale <- scale_size("Highlighted samples", to=c(3,5), breaks=c(1,2), labels=c("regular", "highlighted"))
+  if (TRUE %in% metricsBySamples$highlight) {
+    # TODO: How do you scale the relative aes and the geom_text at the same time?
+    # In R 2.13 the font size is much bigger and not sure the syntax to size it correctly
+    sampleTextLabel <- geom_text(aes(label=Sample, size=highlightTextSizes))
+    sampleTextLabelScale <- scale_size("Highlighted samples", to=c(3,5), breaks=c(1,2), labels=c("regular", "highlighted"))
+  } else {
+    # Nothing to highlight
+    # If the size was in the aes then R 2.13 wasn't scaling the text
+    # https://groups.google.com/d/msg/ggplot2/uj38mwCyY0Q/dOHhLyLEW8YJ
+    sampleTextLabel <- geom_text(aes(label=Sample), size=1.5)
+    sampleTextLabelScale <- geom_blank() # don't display a scale
+  }
   xAxis <- scale_x_discrete("Sample (ordered by nSNPs)", formatter=function(x) "")
 
   measures <- c("nSNPs", "tiTvRatio", "nSingletons", "nIndels", "deletionInsertionRatio")
