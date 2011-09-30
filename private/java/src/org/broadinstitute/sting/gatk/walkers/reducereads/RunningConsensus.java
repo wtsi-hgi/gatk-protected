@@ -9,21 +9,22 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * Running Consensus is a read that is composed as a sliding window travels over the reads
+ * Running Consensus is a read that is compressed as a sliding window travels over the reads
  * and keeps track of all the bases that are outside of variant regions.
  *
  * Consensus reads have qual fields that correspond to the number of reads that had the base
  * and passed the minimum quality threshold.
  *
- * The mapping quality of a consensus read is the RMS of the mapping qualities of all reads
+ * The mapping quality of a consensus read is the average RMS of the mapping qualities of all reads
  * that compose the consensus
  *
  * @author Mauricio Carneiro
  * @since 8/26/11
  */
 public class RunningConsensus {
-    private List<Byte> counts;
     private List<Byte> bases;
+    private List<Byte> counts;
+    private List<Byte> quals;
     private double mappingQuality;          // the average of the rms of the mapping qualities of all the reads that contributed to this consensus
 
     // Information to produce a SAMRecord
@@ -60,8 +61,9 @@ public class RunningConsensus {
      * @param refStart
      */
     public RunningConsensus (SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex, String readName, Integer refStart, int consensusBaseQuality) {
-        counts = new LinkedList<Byte>();
         bases = new LinkedList<Byte>();
+        counts = new LinkedList<Byte>();
+        quals = new LinkedList<Byte>();
         mappingQuality = 0.0;
 
         this.header = header;
@@ -80,16 +82,15 @@ public class RunningConsensus {
      * @param base
      * @param count
      */
-    public void add(byte base, byte count, double mappingQuality) {
+    public void add(byte base, byte count, byte qual, double mappingQuality) {
         counts.add(count);
         bases.add(base);
+        quals.add(qual);
         this.mappingQuality += mappingQuality;
     }
 
     public SAMRecord close () {
         SAMRecord samRecord = new SAMRecord(header);
-        samRecord.setAttribute("RG", readGroupAttribute);
-        samRecord.setAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG, consensusBaseQuality);
         samRecord.setReferenceName(contig);
         samRecord.setReferenceIndex(contigIndex);
         samRecord.setReadPairedFlag(false);
@@ -100,6 +101,8 @@ public class RunningConsensus {
         samRecord.setBaseQualities(convertBaseQualities());
         samRecord.setReadBases(convertReadBases());
         samRecord.setMappingQuality((int) Math.ceil(mappingQuality /bases.size()));
+        samRecord.setAttribute("RG", readGroupAttribute);
+        samRecord.setAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG, convertBaseCounts());
         return samRecord;
     }
 
@@ -108,8 +111,13 @@ public class RunningConsensus {
     }
 
     private byte [] convertBaseQualities() {
+        return listToByteArray(quals);
+    }
+
+    private byte [] convertBaseCounts() {
         return listToByteArray(counts);
     }
+
 
     private byte [] convertReadBases() {
         return listToByteArray(bases);
