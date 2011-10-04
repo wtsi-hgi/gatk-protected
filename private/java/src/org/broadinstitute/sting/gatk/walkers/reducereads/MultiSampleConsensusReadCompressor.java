@@ -6,6 +6,7 @@ import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
 
 import java.util.*;
 
@@ -44,7 +45,8 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
     private Map<String, SingleSampleConsensusReadCompressor> compressorsPerSample = new HashMap<String, SingleSampleConsensusReadCompressor>();
 
     public MultiSampleConsensusReadCompressor(SAMFileHeader header,
-                                              final int readContextSize,
+                                              final int contextSize,
+                                              final int contextSizeIndels,
                                               final int downsampleCoverage,
                                               final int minMappingQuality,
                                               final double minAltProportionToTriggerVariant,
@@ -53,7 +55,7 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
                                               final int maxQualCount) {
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
-                    new SingleSampleConsensusReadCompressor(name, header.getReadGroup(name), readContextSize, downsampleCoverage,
+                    new SingleSampleConsensusReadCompressor(name, header.getReadGroup(name), contextSize, contextSizeIndels, downsampleCoverage,
                                     minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
         }
     }
@@ -78,7 +80,7 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
 
     @Override
     public Iterable<SAMRecord> close() {
-        List<SAMRecord> reads = new LinkedList<SAMRecord>();
+        SortedSet<SAMRecord> reads = new TreeSet<SAMRecord>(new AlignmentStartWithNoTiesComparator());
         for ( SingleSampleConsensusReadCompressor comp : compressorsPerSample.values() )
             for ( SAMRecord read : comp.close() )
                 reads.add(read);
