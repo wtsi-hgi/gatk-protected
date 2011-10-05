@@ -215,7 +215,19 @@ median_insert_size_ref <- rbind(data.frame(sample=novel_sampled$sample,MEDIAN_IN
 median_insert_size_new <- rbind(data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_RF,insert_type='RF'),
 			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_FR,insert_type='FR'),
 			        data.frame(sample=data$sample,MEDIAN_INSERT_SIZE=data$MEDIAN_INSERT_SIZE_TANDEM,insert_type='TANDEM'))
-print(create_base_plot('Median Insert Size per Sample',median_insert_size_ref,median_insert_size_new,'MEDIAN_INSERT_SIZE',include_sigmas=F) + facet_grid(insert_type ~ ., scales="free"))
+# create a combination data.frame containing all the ref and new rows.
+median_insert_size <- rbind(median_insert_size_ref, median_insert_size_new)
+# remove the rows without MEDIAN_INSERT_SIZE
+median_insert_size <- median_insert_size[!is.na(median_insert_size$MEDIAN_INSERT_SIZE),]
+p <- create_base_plot('Median Insert Size per Sample',median_insert_size_ref,median_insert_size_new,'MEDIAN_INSERT_SIZE',include_sigmas=F)
+p <- p + facet_grid(insert_type ~ ., scales="free")
+# If there are no values for any individual insert types draw a geom_blank() at zero
+for (insert_type in c('RF', 'FR', 'TANDEM')) {
+  if (nrow(median_insert_size[median_insert_size$insert_type == insert_type,]) == 0) {
+    p <- p + geom_blank(data=data.frame(sample=c(NA), MEDIAN_INSERT_SIZE=c(0), insert_type=c(insert_type)))
+  }
+}
+print(p)
 
 create_stock_plots('% Chimera Read Pairs per Sample',novel_sampled,data,'PCT_CHIMERAS')
 
