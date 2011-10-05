@@ -6,6 +6,7 @@ import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
 
 import java.util.*;
 
@@ -79,7 +80,7 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
 
     @Override
     public Iterable<SAMRecord> close() {
-        List<SAMRecord> reads = new LinkedList<SAMRecord>();
+        SortedSet<SAMRecord> reads = new TreeSet<SAMRecord>(new AlignmentStartWithNoTiesComparator());
         for ( SingleSampleConsensusReadCompressor comp : compressorsPerSample.values() )
             for ( SAMRecord read : comp.close() )
                 reads.add(read);

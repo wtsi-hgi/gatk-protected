@@ -27,9 +27,11 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.collections.Pair;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 public class LikelihoodCalculationEngine {
@@ -75,8 +77,8 @@ public class LikelihoodCalculationEngine {
     private static final int START_HRUN_GAP_IDX = 4;
     private static final int MAX_HRUN_GAP_IDX = 20;
 
-    private static final double MIN_GAP_OPEN_PENALTY = 3.0;
-    private static final double MIN_GAP_CONT_PENALTY = 1.0;
+    private static final double MIN_GAP_OPEN_PENALTY = 30.0;
+    private static final double MIN_GAP_CONT_PENALTY = 10.0;
     private static final double GAP_PENALTY_HRUN_STEP = 1.0; // each increase in hrun decreases gap penalty by this.
 
 
@@ -89,6 +91,9 @@ public class LikelihoodCalculationEngine {
     private final double[] GAP_CONT_PROB_TABLE;
 
     private boolean getGapPenaltiesFromFile = false;
+
+    private final NestedHashMap kmerQualityTables;
+    private final int CONTEXT_SIZE;
 
     public double readLikelihoodsForBestHaplotypes[][];
 
@@ -106,12 +111,15 @@ public class LikelihoodCalculationEngine {
         }
     }
 
-    public LikelihoodCalculationEngine(double indelGOP, double indelGCP, boolean deb, boolean doCDP, boolean dovit) {
-        this(indelGOP, indelGCP, deb, doCDP);
+    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean deb, boolean doCDP, boolean dovit, final NestedHashMap kmerQualityTables, final int contextSize ) {
+        this(indelGOP, indelGCP, deb, doCDP, kmerQualityTables, contextSize);
         this.doViterbi = dovit;
     }
 
-    public LikelihoodCalculationEngine(double indelGOP, double indelGCP, boolean deb, boolean doCDP) {
+    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean deb, boolean doCDP, final NestedHashMap kmerQualityTables, final int contextSize ) {
+
+        this.kmerQualityTables = kmerQualityTables;
+        this.CONTEXT_SIZE = contextSize;
 
         this.logGapOpenProbability = -indelGOP/10.0; // QUAL to log prob
         this.logGapContinuationProbability = -indelGCP/10.0; // QUAL to log prob
@@ -145,7 +153,6 @@ public class LikelihoodCalculationEngine {
             GAP_OPEN_PROB_TABLE[i] = gop;
             GAP_CONT_PROB_TABLE[i] = gcp;
         }
-
     }
 
     public Pair<Haplotype, Haplotype> computeLikelihoods(final List<Haplotype> haplotypes, final List<SAMRecord> reads) {
@@ -169,14 +176,29 @@ public class LikelihoodCalculationEngine {
         for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
             final Haplotype haplotype = haplotypes.get(jjj);
             haplotype.extendHaplotype( maxHaplotypeLength );
-            final double gop[] = new double[haplotype.extendedBases.length];
-            final double gcp[] = new double[haplotype.extendedBases.length];
-            Arrays.fill(gop, logGapOpenProbability); // this should eventually be derived from the data
-            Arrays.fill(gcp, logGapContinuationProbability); // this should eventually be derived from the data
+            final byte[] haplotypeBases = haplotype.extendedBases;
+            //final Double[] contextLogGapOpenProbabilities = new Double[haplotypeBases.length];
+            final Double[] contextLogGapContinuationProbabilities = new Double[haplotypeBases.length];
 
+            // get homopolymer length profile for current haplotype
+            //final int[] hrunProfile = new int[haplotypeBases.length];
+            //getContextHomopolymerLength(haplotypeBases,hrunProfile);
+            //fillGapProbabilities(hrunProfile, contextLogGapOpenProbabilities, contextLogGapContinuationProbabilities);
+
+            //Arrays.fill(contextLogGapOpenProbabilities, logGapOpenProbability); // this should eventually be derived from the data
+            Arrays.fill(contextLogGapContinuationProbabilities, logGapContinuationProbability); // this should eventually be derived from the data
+
+            HashMap<String, Double[]> readGroupMap = new HashMap<String, Double[]>();
             for( int iii = 0; iii < reads.size(); iii++ ) {
                 final SAMRecord read = reads.get(iii);
-                readLikelihoods[iii][jjj] = computeReadLikelihoodGivenHaplotypeAffineGaps(haplotype.extendedBases, read.getReadBases(), read.getBaseQualities(), gop, gcp);
+                final String readGroup = read.getReadGroup().getReadGroupId();
+                Double[] contextLogGapOpenProbabilities = readGroupMap.get(readGroup);
+                if( contextLogGapOpenProbabilities == null ) {
+                    contextLogGapOpenProbabilities = new Double[haplotypeBases.length];
+                    fillGapProbabilitiesFromQualityTables( readGroup, haplotypeBases, contextLogGapOpenProbabilities );
+                    readGroupMap.put(readGroup, contextLogGapOpenProbabilities);
+                }
+                readLikelihoods[iii][jjj] = computeReadLikelihoodGivenHaplotypeAffineGaps(haplotypeBases, read.getReadBases(), read.getBaseQualities(), contextLogGapOpenProbabilities, contextLogGapContinuationProbabilities);
             }
         }
 
@@ -218,8 +240,95 @@ public class LikelihoodCalculationEngine {
         return new Pair<Haplotype, Haplotype>(haplotypes.get(hap1), haplotypes.get(hap2));
     }
 
+    static private void getContextHomopolymerLength(final byte[] refBytes, int[] hrunArray) {
+        hrunArray[0] = 0;
+        int[] hforward = new int[hrunArray.length];
+        int[] hreverse = new int[hrunArray.length];
+        int[] hforward2 = new int[hrunArray.length];
+        int[] hreverse2 = new int[hrunArray.length];
+
+        Arrays.fill(hforward, 0);
+        Arrays.fill(hreverse, 0);
+        Arrays.fill(hforward2, 0);
+        Arrays.fill(hreverse2, 0);
+
+        // compute forward hrun length, example:
+        // AGGTGACCCCCCTGAGAG
+        // 001000012345000000
+        for (int i = 1; i < refBytes.length; i++) {
+            if (refBytes[i] != (byte) 'X' && refBytes[i] == refBytes[i-1]) {
+                hforward[i] = hforward[i-1]+1;
+            }
+        }
+/*
+        for (int i = 2; i < refBytes.length - 1; i++) {
+            if (refBytes[i] != (byte) 'X' && refBytes[i] == refBytes[i-2] && refBytes[i+1] == refBytes[i-1] && refBytes[i] != refBytes[i+1]) {
+                hforward2[i] = hforward2[i-2]+2;
+                hforward2[i+1] = hforward2[i-2]+2;
+                i++;
+            }
+        }
+*/
+        // do similar thing for reverse length, example:
+        // AGGTGACCCCCCTGAGAG
+        // 021000543210000000
+        for (int i=refBytes.length-2; i >= 0; i--) {
+            if (refBytes[i] != (byte) 'X' && refBytes[i] == refBytes[i+1]) {
+                hreverse[i] = hreverse[i+1]+1;
+            }
+        }
+/*
+        for (int i=refBytes.length-3; i >= 1; i--) {
+            if (refBytes[i] != (byte) 'X' && refBytes[i] == refBytes[i+2] && refBytes[i-1] == refBytes[i+1] && refBytes[i] != refBytes[i-1]) {
+                hreverse2[i] = hreverse2[i+2]+2;
+                hreverse2[i-1] = hreverse2[i+2]+2;
+            }
+
+        }
+*/
+        // and then accumulate with forward values.
+        // Total:
+        // AGGTGACCCCCCTGAGAG
+        // 022000555555000000
+        for (int i = 1; i < refBytes.length; i++) {
+            hrunArray[i] = hforward[i] + hreverse[i];// + hforward2[i] + hreverse2[i];
+        }
+    }
+
+    private void fillGapProbabilities(int[] hrunProfile,
+                                      double[] contextLogGapOpenProbabilities, double[] contextLogGapContinuationProbabilities) {
+        // fill based on lookup table
+        for (int i = 0; i < hrunProfile.length; i++) {
+            if (hrunProfile[i] >= MAX_HRUN_GAP_IDX) {
+                contextLogGapOpenProbabilities[i] = GAP_OPEN_PROB_TABLE[MAX_HRUN_GAP_IDX-1];
+                contextLogGapContinuationProbabilities[i] = GAP_CONT_PROB_TABLE[MAX_HRUN_GAP_IDX-1];
+            }
+            else {
+                contextLogGapOpenProbabilities[i] = GAP_OPEN_PROB_TABLE[hrunProfile[i]];
+                contextLogGapContinuationProbabilities[i] = GAP_CONT_PROB_TABLE[hrunProfile[i]];
+            }
+        }
+    }
+
+    private void fillGapProbabilitiesFromQualityTables( final String readGroup, final byte[] refBytes, final Double[] contextLogGapOpenProbabilities ) {
+
+        final Object[] key = new Object[2];
+        key[0] = readGroup;
+        for(int i = 0; i < refBytes.length; i++) {
+
+            Double gop = null;
+            final String bases = ( i-CONTEXT_SIZE < 0 ? null : new String(Arrays.copyOfRange(refBytes,i-CONTEXT_SIZE,i)) );
+            if( bases != null ) {
+                key[1] = bases;
+                gop = (Double) kmerQualityTables.get( key );
+            }
+            contextLogGapOpenProbabilities[i] = ( gop != null ? gop : -4.5 );
+        }
+    }
+
+
     private double computeReadLikelihoodGivenHaplotypeAffineGaps(byte[] haplotypeBases, byte[] readBases, byte[] readQuals,
-                                                                 double[] currentGOP, double[] currentGCP) {
+                                                                 Double[] currentGOP, Double[] currentGCP) {
 
         final int X_METRIC_LENGTH = readBases.length+1;
         final int Y_METRIC_LENGTH = haplotypeBases.length+1;

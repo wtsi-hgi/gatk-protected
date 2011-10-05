@@ -50,7 +50,6 @@ public class QualityScoreCovariate implements RequiredCovariate {
     */
 
     public void getValues(SAMRecord read, Comparable[] comparable) {
-        byte[] baseQualities = read.getBaseQualities();
         for(int i = 0; i < read.getReadLength(); i++) {
 //            comparable[i] = (int) baseQualities[i];
             comparable[i] = (int) 45;

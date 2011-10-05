@@ -74,8 +74,6 @@ package org.broadinstitute.sting.queue.qscripts.reducedreads
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.utils.Utils
-
 class FindMissingCalls extends QScript {
   @Argument(shortName = "ref", doc = "Directory holding all of our data files", required=true)
   val referenceFile: File = null
