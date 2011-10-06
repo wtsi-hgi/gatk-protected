@@ -40,6 +40,9 @@ class ScatteredFullVariantAnnotator extends QScript {
   @Argument(fullName="requireExplicitAnnotations", shortName="requireExplicitAnnotations", doc="SUPPRESS the default option of using all annotations", required=false)
   var requireExplicitAnnotations: Boolean = false
 
+  @Argument(fullName="downsample_to_coverage", shortName="dcov", doc="Per-sample downsampling to perform", required=false)
+  var downsample_to_coverage: Int = 0
+
   def script = {
     var extractIntervals : VCFExtractIntervals = new VCFExtractIntervals(qscript.variantVCF, swapExt(qscript.variantVCF, ".vcf", ".intervals.list"), true)
     add(extractIntervals)
@@ -66,6 +69,11 @@ class ScatteredFullVariantAnnotator extends QScript {
       this.dbsnp = qscript.dbsnp
 
       this.out = qscript.outputAnnotated
+
+      if (qscript.downsample_to_coverage > 0) {
+        this.downsample_to_coverage = qscript.downsample_to_coverage
+        this.downsampling_type = org.broadinstitute.sting.gatk.DownsampleType.BY_SAMPLE
+      }
     }
 
     add(new ScatteredFullVariantAnnotator())
