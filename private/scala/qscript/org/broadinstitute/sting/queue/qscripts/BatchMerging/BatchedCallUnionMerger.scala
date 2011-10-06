@@ -24,6 +24,9 @@ class BatchedCallUnionMerger extends QScript {
   @Hidden @Argument(doc="Min map q",shortName="mmq",required=false) var mmq : Int = 20
   @Hidden @Argument(doc="baq gap open penalty, using sets baq to calc when necessary",shortName="baqp",required=false) var baq : Int = -1
 
+  @Argument(fullName="downsample_to_coverage", shortName="dcov", doc="Per-sample downsampling to perform", required=false)
+  var downsample_to_coverage: Int = 0
+
   def script = {
 
     var vcfs : List[File] = extractFileEntries(vcfList)
@@ -74,6 +77,11 @@ class BatchedCallUnionMerger extends QScript {
       this.scatterCount = 60
       this.output_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
       this.genotyping_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
+
+      if (batchMerge.downsample_to_coverage > 0) {
+        this.downsample_to_coverage = batchMerge.downsample_to_coverage
+        this.downsampling_type = org.broadinstitute.sting.gatk.DownsampleType.BY_SAMPLE
+      }
     }
 
     def newUGCL( bams: (List[File],Int) ) : UGCalcLikelihoods = {
@@ -94,6 +102,11 @@ class BatchedCallUnionMerger extends QScript {
       this.memoryLimit = 8
       this.output_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
       this.genotyping_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
+
+      if (batchMerge.downsample_to_coverage > 0) {
+        this.downsample_to_coverage = batchMerge.downsample_to_coverage
+        this.downsampling_type = org.broadinstitute.sting.gatk.DownsampleType.BY_SAMPLE
+      }
     }
 
     var cVars : UGCallVariants = new UGCallVariants with CallVariantsArgs
