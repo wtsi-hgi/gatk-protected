@@ -5,7 +5,7 @@ import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.datasources.sample.Sample;
+import org.broadinstitute.sting.gatk.samples.Sample;
 import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.By;
@@ -15,6 +15,7 @@ import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.gatk.walkers.newassociation.features.ReadFeatureAggregator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
@@ -74,11 +75,11 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
     }
 
     public RFWindow reduceInit() {
-        Map <String,Boolean> allCase = new HashMap<String,Boolean>(getToolkit().getSamples().size());
-        for ( Sample s : getToolkit().getSAMFileSamples() ) {
-            allCase.put(s.getId(),true);
-            if ( s.getId() == null || s.getId().equals("null") ) {
-                throw new StingException("Sample IDs must not be null... " + s.toString() + " " + Boolean.toString(s.hasSAMFileEntry()));
+        Map <String,Boolean> allCase = new HashMap<String,Boolean>(getSampleDB().getSamples().size());
+        for ( final String s : SampleUtils.getSAMFileSamples(getToolkit()) ) {
+            allCase.put(s,true);
+            if ( s == null || s.equals("null") ) {
+                throw new StingException("Sample IDs must not be null... " + s);
             }
         }
 

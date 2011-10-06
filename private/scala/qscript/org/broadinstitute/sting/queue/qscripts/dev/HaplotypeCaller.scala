@@ -1,9 +1,6 @@
 package org.broadinstitute.sting.queue.qscripts
 
-import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
-
 class HaplotypeCallerScript extends QScript {
   qscript =>
 

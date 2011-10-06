@@ -5,9 +5,6 @@ import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.SortedSet;
 import java.util.TreeSet;
 
 /**
