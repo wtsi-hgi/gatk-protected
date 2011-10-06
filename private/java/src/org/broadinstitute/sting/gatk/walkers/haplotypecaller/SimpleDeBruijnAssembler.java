@@ -2,13 +2,13 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import java.io.PrintStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Created by IntelliJ IDEA.
@@ -23,7 +23,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private static final int KMER_OVERLAP = 6;
 
     // the deBruijn graph object
-    private List<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>> graphs = new ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>>();
+    private final List<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>> graphs = new ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>>();
 
     public SimpleDeBruijnAssembler(PrintStream out, IndexedFastaSequenceFile referenceReader) {
         super(out, referenceReader);
@@ -101,6 +101,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private void createDeBruijnGraph(final List<byte[]> reads) {
 
+        graphs.clear();
         // create the graph
         for( int kmer = 7; kmer <= 101; kmer += 8 ) {
             final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
@@ -385,7 +386,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            final List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 9);
+            final List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 13);
 
             for ( final KBestPaths.Path path : bestPaths ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );

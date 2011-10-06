@@ -3,12 +3,11 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.CigarOperator;
 import net.sf.samtools.SAMRecord;
-import net.sf.samtools.SAMUtils;
 import net.sf.samtools.util.StringUtil;
 import org.apache.commons.lang.ArrayUtils;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.datasources.sample.Sample;
+import org.broadinstitute.sting.gatk.samples.Sample;
 import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
@@ -99,12 +98,7 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
             throw new UserException.CouldNotReadInputFile(getToolkit().getArguments().referenceFile,ex);
         }
 
-        Set<Sample> samples = getToolkit().getSAMFileSamples();
-        Set<String> sampleStr = new HashSet<String>(samples.size());
-        for ( Sample s : samples ) {
-            sampleStr.add(s.getId());
-        }
-
+        Set<String> sampleStr = SampleUtils.getSAMFileSamples(getToolkit());
         ilglcm.setSamples(sampleStr);
 
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), sampleStr));
