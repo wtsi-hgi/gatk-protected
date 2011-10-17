@@ -24,22 +24,19 @@
 
 package org.broadinstitute.sting.utils.R;
 
-import org.apache.commons.io.FileUtils;
 import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.utils.exceptions.UserException;
+
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
 
 /**
  * Basic unit test for RScriptExecutor in reduced reads
  */
-public class RScriptExecutorUnitTest extends BaseTest {
-    final static String testrscript = "print(\"hello, world\")\n";
-    final static String publicRScript = "plot_Tranches.R";
+public class RScriptExecutorPrivateUnitTest extends BaseTest {
+    final static String privateRScript = "variantCallQC.R";
 
     // --------------------------------------------------------------------------------
     //
@@ -62,24 +59,13 @@ public class RScriptExecutorUnitTest extends BaseTest {
     }
 
     @Test
-    public void testPublic() { testOne(publicRScript, null, null, true); }
+    public void testPrivate() { testOne(privateRScript, null, null, true); }
 
-    @Test(expectedExceptions = UserException.class)
-    public void testNonExistantScriptException() { testOne("does_not_exist.R", null, null, true); }
+    // make sure we don't break finding something in private by adding another directory
+    @Test
+    public void testPrivateWithAdditionalPath1() { testOne(privateRScript, null, "dist", true); }
 
-    @Test()
-    public void testNonExistantScriptNoException() { testOne("does_not_exist.R", null, null, false); }
-
-    @Test(expectedExceptions = UserException.class)
-    public void testNonExistantRScriptException() { testOne(publicRScript, "badRScriptValue", null, true); }
-
-    @Test()
-    public void testNonExistantRScriptNoException() { testOne(publicRScript, "badRScriptValue", null, false); }
-
-    @Test()
-    public void testScriptInNewPath() throws IOException {
-        File t = createTempFile("myTestScript", ".R");
-        FileUtils.writeStringToFile(t, testrscript);
-        testOne(t.getName(), null, t.getParent(), true);
-    }
+    // make sure we don't break finding something in private by adding another directory
+    @Test
+    public void testPrivateWithAdditionalPath2() { testOne(privateRScript, null, "doesNotExist", true); }
 }
