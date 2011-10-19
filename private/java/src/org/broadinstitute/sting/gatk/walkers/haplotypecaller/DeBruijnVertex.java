@@ -22,8 +22,9 @@ public class DeBruijnVertex {
         System.arraycopy(sequence, 0, printableSequence, 0, sequence.length);
     }
 
-    public boolean equals( final DeBruijnVertex v ) {
-        return Arrays.equals(actualSequence, v.actualSequence);
+    @Override
+    public boolean equals( Object v ) {
+        return v instanceof DeBruijnVertex && Arrays.equals(actualSequence, ((DeBruijnVertex) v).actualSequence);
     }
 
     public String toString() {

@@ -268,7 +268,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
             readsToAssemble.add(read);
         } else {
             processReadBin( currentInterval );
-            readsToAssemble.add(read); // don't want this triggering read which is past the interval to fall through the cracks?
+            readsToAssemble.add(read); // don't want this triggering read which is past the interval to fall through the cracks
             sum++;
 
             do {
@@ -284,10 +284,8 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     }
 
     public void onTraversalDone(Integer result) {
-        if ( readsToAssemble.size() > 0 ) {
-            processReadBin( currentInterval );
-            result++;
-        }
+        processReadBin( currentInterval );
+        result++;
         logger.info("Ran local assembly on " + result + " intervals");
 
         if( realignReads ) {
@@ -296,6 +294,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     }
 
     private void processReadBin( final GenomeLoc curInterval ) {
+        if ( readsToAssemble.size() == 0 ) { return; } // No reads here so nothing to do!
 
         if( DEBUG ) { System.out.println(curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:"); }
 
