@@ -12,7 +12,7 @@ import java.util.Map;
 * Time: 2:55 PM
 */
 
-final class BaseCounts {
+final public class BaseCounts {
     public final static BaseIndex MAX_BASE_INDEX_WITH_NO_COUNTS = BaseIndex.A;
     public final static byte MAX_BASE_WITH_NO_COUNTS = MAX_BASE_INDEX_WITH_NO_COUNTS.getByte();
 

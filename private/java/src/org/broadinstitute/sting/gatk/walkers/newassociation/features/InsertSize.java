@@ -6,22 +6,27 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollectio
 /**
  * Created by IntelliJ IDEA.
  * User: chartl
- * Date: 5/4/11
- * Time: 12:58 PM
+ * Date: 9/28/11
+ * Time: 11:58 AM
  * To change this template use File | Settings | File Templates.
  */
-public class InsertSize {
-    // todo -- this is deprecated by AIS, so the extension is removed.
+public class InsertSize extends ReadFeature {
 
     public InsertSize(RFAArgumentCollection col) {
-        //super(col);
+        super(col);
     }
 
-    protected Integer extractFeature(SAMRecord record) {
-        return Math.abs(record.getInferredInsertSize());
+    public String getName() { return "InsertSize"; }
+
+    public String getKey() { return "insertSize"; }
+
+    public String getDescription() { return "the insert size distribution among all valid reads"; }
+
+    public boolean isDefinedFor(SAMRecord read) {
+        return read.getReadPairedFlag() && ! read.getMateUnmappedFlag();
     }
 
-    protected boolean featureDefined(SAMRecord record) {
-        return record.getReadPairedFlag() && record.getProperPairFlag();
+    public Object getFeature(SAMRecord read) {
+        return Math.abs(read.getInferredInsertSize());
     }
 }

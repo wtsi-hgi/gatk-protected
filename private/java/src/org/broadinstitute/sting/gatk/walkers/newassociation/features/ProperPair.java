@@ -16,7 +16,7 @@ public class ProperPair extends BinaryFeatureAggregator {
         super(collection);
     }
 
-    public Boolean extractFeature(SAMRecord record) {
+    public boolean extractFeature(SAMRecord record) {
         return record.getProperPairFlag();
     }
 
