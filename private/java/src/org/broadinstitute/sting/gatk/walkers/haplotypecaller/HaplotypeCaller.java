@@ -49,7 +49,7 @@ import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSamRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -357,7 +357,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         public void add( final SAMRecord read ) {
 
             if( reads.size() < 300 ) { // protection against pileups with abnormally deep coverage
-                final GATKSAMRecord postAdapterRead = ReadUtils.hardClipAdaptorSequence(read);
+                final GATKSamRecord postAdapterRead = ReadUtils.hardClipAdaptorSequence(read);
                 if( postAdapterRead != null ) {
                     final SAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
 

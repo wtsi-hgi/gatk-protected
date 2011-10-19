@@ -35,7 +35,7 @@ import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSamRecord;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -236,7 +236,7 @@ public class RecalDataManager {
                 // There is no readGroup so defaulting to these values
                 readGroup = new SAMReadGroupRecord( RAC.DEFAULT_READ_GROUP );
                 readGroup.setPlatform( RAC.DEFAULT_PLATFORM );
-                ((GATKSAMRecord)read).setReadGroup( readGroup );
+                ((GATKSamRecord)read).setReadGroup( readGroup );
             } else {
                 throw new UserException.MalformedBAM(read, "The input .bam file contains reads with no read group. First observed at read with name = " + read.getReadName() +
                                          " Users must set both the default read group using the --default_read_group <String> argument and the default platform using the --default_platform <String> argument." );
@@ -247,7 +247,7 @@ public class RecalDataManager {
             final String oldPlatform = readGroup.getPlatform();
             readGroup = new SAMReadGroupRecord( RAC.FORCE_READ_GROUP );
             readGroup.setPlatform( oldPlatform );
-            ((GATKSAMRecord)read).setReadGroup( readGroup );
+            ((GATKSamRecord)read).setReadGroup( readGroup );
         }
 
         if( RAC.FORCE_PLATFORM != null && (readGroup.getPlatform() == null || !readGroup.getPlatform().equals(RAC.FORCE_PLATFORM))) {
@@ -567,7 +567,7 @@ public class RecalDataManager {
      * value for the ith position in the read and the jth covariate in
      * reqeustedCovariates list.
      */
-     public static Comparable[][] computeCovariates(final GATKSAMRecord gatkRead, final List<Covariate> requestedCovariates) {
+     public static Comparable[][] computeCovariates(final GATKSamRecord gatkRead, final List<Covariate> requestedCovariates) {
          //compute all covariates for this read
          final List<Covariate> requestedCovariatesRef = requestedCovariates;
          final int numRequestedCovariates = requestedCovariatesRef.size();
