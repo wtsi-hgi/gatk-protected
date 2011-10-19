@@ -30,6 +30,7 @@ import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.gatk.walkers.genotyper.IntronLossGenotypeLikelihoodCalculationModel;
 
 import java.io.File;
 import java.io.FileNotFoundException;
