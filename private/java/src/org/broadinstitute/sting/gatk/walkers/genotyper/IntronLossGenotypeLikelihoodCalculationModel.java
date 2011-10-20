@@ -1,39 +1,22 @@
-package org.broadinstitute.sting.gatk.walkers.misc.intronloss;
+package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import com.google.java.contract.Requires;
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
 import net.sf.samtools.SAMRecord;
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.RodBinding;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.genotyper.*;
 import org.broadinstitute.sting.utils.*;
-import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
-import org.broadinstitute.sting.utils.codecs.vcf.VCF3Codec;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.collections.PrimitivePair;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.pileup.PileupElement;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import sun.rmi.rmic.iiop.ContextStack;
-
-import java.lang.instrument.IllegalClassFormatException;
 import java.util.*;
 
 /**
@@ -43,6 +26,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
 
     public static final int PLOIDY = 2;
     public static final int ALIGNMENT_QUAL_CAP = 500;
+    private static final double GARBAGE_COLLECT_THRESHOLD = -20; // Q200
     private GenomeLocParser genomeLocParser;
     private Map<String,byte[]> insertSizeQualHistograms;
     private Set<String> samples;
@@ -172,6 +156,9 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
                 double initialScore = scoreAlignment(nonePair);
                 lossScore += realignmentScore;
                 noLossScore += initialScore;
+                if ( lossScore < GARBAGE_COLLECT_THRESHOLD && noLossScore < GARBAGE_COLLECT_THRESHOLD ) {
+                    continue;
+                }
                 for ( int ac = 0; ac <= PLOIDY; ac ++ ) {
                     double logAc = Math.log10(ac);
                     double logAnMAc = Math.log10(PLOIDY-ac);
@@ -221,6 +208,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
     private double scoreRealignment(Collection<CigarElement> elements, int offset, byte[] readBases, byte[] exonBases) {
         int b = 0;
         int phredBasesAreExonBases = 0;
+        int indelPen = 15;
         for ( CigarElement elem : elements) {
             if ( elem.getOperator().equals(CigarOperator.M) ) {
                 for ( int ct = elem.getLength(); ct > 0; ct-- ) {
@@ -236,17 +224,19 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
             } else if ( elem.getOperator().equals(CigarOperator.D) ) {
                 // just increment offset
                 offset += elem.getLength();
-                phredBasesAreExonBases += 10*(2-Math.pow(2,1-elem.getLength()));
+                phredBasesAreExonBases += indelPen + 15*elem.getLength();
+                indelPen += 15;
             } else if (elem.getOperator().equals(CigarOperator.I)) {
                 // update the b
                 b += elem.getLength();
                 offset -= elem.getLength(); // compensate, since pos will move up by elem.getLength()
-                phredBasesAreExonBases += 10+20*(2-Math.pow(2.0,-1.0*elem.getLength()));
+                phredBasesAreExonBases += indelPen+15*elem.getLength();
+                indelPen += 15;
             } else if ( elem.getOperator().equals(CigarOperator.S) ) {
                 // just skip the bases and update b; soft clipping occurs at edges, so need to subtract from offset
                 b += elem.getLength();
                 offset -= elem.getLength();
-                phredBasesAreExonBases += 5*elem.getLength();
+                phredBasesAreExonBases += 10*elem.getLength();
             } else if ( elem.getOperator().equals(CigarOperator.H) ) {
                 b += elem.getLength();
                 offset -= elem.getLength();
@@ -389,7 +379,9 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         @Requires("! loc.overlapsP(exonLocs.second)")
         public boolean isRelevant(GenomeLoc loc) {
             // basically if the read hangs partially in the intron
-            return loc.overlapsP(exonLocs.first) && loc.getStop() > exonLocs.first.getStop();
+            boolean r1 =  loc.overlapsP(exonLocs.first) && loc.getStop() > exonLocs.first.getStop();
+            boolean r2 = loc.overlapsP(exonLocs.second) && loc.getStart() < exonLocs.second.getStart();
+            return r1 || r2;
         }
     }
 }

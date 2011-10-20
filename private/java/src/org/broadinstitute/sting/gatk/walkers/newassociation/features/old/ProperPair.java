@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.newassociation.features;
+package org.broadinstitute.sting.gatk.walkers.newassociation.features.old;
 
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
@@ -6,21 +6,21 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollectio
 /**
  * Created by IntelliJ IDEA.
  * User: chartl
- * Date: 5/4/11
- * Time: 1:32 PM
+ * Date: 6/8/11
+ * Time: 11:59 AM
  * To change this template use File | Settings | File Templates.
  */
-public class MateUnmapped extends BinaryFeatureAggregator {
+public class ProperPair extends BinaryFeatureAggregator {
+
+    public ProperPair(RFAArgumentCollection collection) {
+        super(collection);
+    }
 
     public boolean extractFeature(SAMRecord record) {
-        return record.getMateUnmappedFlag();
+        return record.getProperPairFlag();
     }
 
     public boolean featureDefined(SAMRecord record) {
         return record.getReadPairedFlag();
-    }
-
-    public MateUnmapped(RFAArgumentCollection col) {
-        super(col);
     }
 }

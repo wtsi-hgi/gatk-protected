@@ -74,10 +74,10 @@ public class Haplotype {
         this.isReference = isRef;
     }
 
-    public boolean equals( final Haplotype h ) {
-        return Arrays.equals(bases, h.bases);
+    @Override
+    public boolean equals( Object h ) {
+        return h instanceof Haplotype && Arrays.equals(bases, ((Haplotype) h).bases);
     }
-
 
     public double getQualitySum() {
         double s = 0;

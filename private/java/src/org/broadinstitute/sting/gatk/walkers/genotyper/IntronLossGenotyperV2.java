@@ -15,7 +15,6 @@ import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportColumn;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.walkers.misc.intronloss.IntronLossGenotypeLikelihoodCalculationModel;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
@@ -31,6 +30,7 @@ import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.gatk.walkers.genotyper.IntronLossGenotypeLikelihoodCalculationModel;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -57,7 +57,7 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
     public RodBinding<RefSeqFeature> refSeqRodBinding;
 
     @Input(shortName="H",fullName="insertHistogram",required=true,doc="The insert size histogram per read group, either flat file or GATK report formatted")
-    public File readGroupInsertHistogram;
+    public List<File> readGroupInsertHistogram;
 
     @Hidden
     @Input(fullName="maxInsertSize",required=false)
@@ -104,50 +104,55 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), sampleStr));
 
         try {
-
-            XReadLines xrl = new XReadLines(readGroupInsertHistogram);
-            if ( ! xrl.next().startsWith("##:") ) {
-                xrl.close();
-                for ( String entry : new XReadLines(readGroupInsertHistogram) ) {
-                    String[] split1 = entry.split("\\t");
-                    String id = split1[0];
-                    String[] histogram = split1[1].split(";");
-                    byte[] quals = new byte[histogram.length];
-                    int idx = 0;
-                    for ( String histEntry : histogram ) {
-                        try {
-                            quals[idx++] = Byte.parseByte(histEntry);
-                        } catch( NumberFormatException e) {
-                            quals[idx-1] = QualityUtils.probToQual(Double.parseDouble(histEntry));
-                        }
-                    }
-
-                    insertQualsByRG.put(id,quals);
+            for ( File readGroupInsertHistogramFile : readGroupInsertHistogram ) {
+                logger.debug("Reading: "+readGroupInsertHistogramFile.getAbsolutePath());
+                XReadLines xrl = new XReadLines(readGroupInsertHistogramFile);
+                if ( ! xrl.hasNext() ) {
+                    logger.warn("The histogram file appears to be empty: "+readGroupInsertHistogramFile.getAbsolutePath());
+                    continue;
                 }
-            } else {
-                xrl.close();
-                GATKReport report = new GATKReport(readGroupInsertHistogram);
-                GATKReportTable reportTable = report.getTable("InsertSizeDistribution");
-                // rows are insert sizes, columns are read groups
-                for (GATKReportColumn reportColumn : reportTable.getColumns() ) {
-                    // annoyingly, the column has no knowledge of its own rows
-                    int sum = 0;
-                    for ( int row = 0; row < reportTable.getNumRows(); row++ ) {
-                        sum += Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
-                    }
-                    byte[] rgHist = new byte[MAX_INSERT_SIZE];
-                    for ( int row = 0; row < rgHist.length; row++) {
-                        int val = 1;
-                        if ( reportTable.containsKey(row) ) {
-                            val = Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
+                if ( ! xrl.next().startsWith("##:") ) {
+                    xrl.close();
+                    for ( String entry : new XReadLines(readGroupInsertHistogramFile) ) {
+                        String[] split1 = entry.split("\\t");
+                        String id = split1[0];
+                        String[] histogram = split1[1].split(";");
+                        byte[] quals = new byte[histogram.length];
+                        int idx = 0;
+                        for ( String histEntry : histogram ) {
+                            try {
+                                quals[idx++] = Byte.parseByte(histEntry);
+                            } catch( NumberFormatException e) {
+                                quals[idx-1] = QualityUtils.probToQual(Double.parseDouble(histEntry));
+                            }
                         }
-                        rgHist[row] = QualityUtils.probToQual( 1.0-( ( (double) val )/sum ), Math.pow(10,-25.4) );
-                    }
 
-                    insertQualsByRG.put(reportColumn.getColumnName(),rgHist);
+                        insertQualsByRG.put(id,quals);
+                    }
+                } else {
+                    xrl.close();
+                    GATKReport report = new GATKReport(readGroupInsertHistogramFile);
+                    GATKReportTable reportTable = report.getTable("InsertSizeDistributionByReadGroup");
+                    // rows are insert sizes, columns are read groups
+                    for (GATKReportColumn reportColumn : reportTable.getColumns() ) {
+                        // annoyingly, the column has no knowledge of its own rows
+                        int sum = 0;
+                        for ( int row = 0; row < reportTable.getNumRows(); row++ ) {
+                            sum += Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
+                        }
+                        byte[] rgHist = new byte[MAX_INSERT_SIZE];
+                        for ( int row = 0; row < rgHist.length; row++) {
+                            int val = 1;
+                            if ( reportTable.containsKey(row) ) {
+                                val = Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
+                            }
+                            rgHist[row] = QualityUtils.probToQual( 1.0-( ( (double) val )/sum ), Math.pow(10,-25.4) );
+                        }
+
+                        insertQualsByRG.put(reportColumn.getColumnName(),rgHist);
+                    }
                 }
             }
-
         } catch (FileNotFoundException e) {
             throw new UserException("Histogram file not found",e);
         } catch (IOException e) {

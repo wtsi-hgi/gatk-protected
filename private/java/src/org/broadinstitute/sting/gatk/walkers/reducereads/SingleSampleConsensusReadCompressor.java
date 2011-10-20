@@ -15,20 +15,20 @@ import java.util.TreeSet;
 public class SingleSampleConsensusReadCompressor implements ConsensusReadCompressor {
     protected static final Logger logger = Logger.getLogger(SingleSampleConsensusReadCompressor.class);
 
-    private final int contextSize;
-    private final int contextSizeIndels;
-    private final int downsampleCoverage;
-    private int minMappingQuality;
-    private int slidingWindowCounter;
+    protected final int contextSize;
+    protected final int contextSizeIndels;
+    protected final int downsampleCoverage;
+    protected int minMappingQuality;
+    protected int slidingWindowCounter;
 
-    private final String sampleName;
-    private final SAMReadGroupRecord reducedReadGroup;
+    protected final String sampleName;
+    protected final SAMReadGroupRecord reducedReadGroup;
 
-    private SlidingWindow slidingWindow;
-    private double minAltProportionToTriggerVariant;
-    private double minIndelProportionToTriggerVariant;
-    private int minBaseQual;
-    private int maxQualCount;
+    protected SlidingWindow slidingWindow;
+    protected double minAltProportionToTriggerVariant;
+    protected double minIndelProportionToTriggerVariant;
+    protected int minBaseQual;
+    protected int maxQualCount;
 
 
     public SingleSampleConsensusReadCompressor(final String sampleName,
@@ -77,12 +77,16 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         }
 
         if ( slidingWindow == null) {       // this is the first read
-            slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getAttribute("RG"), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
+            instantiateSlidingWindow(read);
             slidingWindowCounter++;
         }
 
         result.addAll(slidingWindow.addRead(read));
         return result;
+    }
+
+    protected void instantiateSlidingWindow(SAMRecord read) {
+        slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getAttribute("RG"), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
     }
 
     @Override
