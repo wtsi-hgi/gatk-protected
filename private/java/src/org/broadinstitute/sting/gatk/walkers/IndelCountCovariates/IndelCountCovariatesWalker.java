@@ -43,7 +43,7 @@ import org.broadinstitute.sting.utils.exceptions.DynamicClassResolutionException
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.ExtendedEventPileupElement;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
-import org.broadinstitute.sting.utils.sam.GATKSamRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
@@ -321,7 +321,7 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
 
                 for ( final ExtendedEventPileupElement p : context.getExtendedEventPileup().toExtendedIterable() ) {
 
-                    final GATKSamRecord gatkRead = (GATKSamRecord) p.getRead();
+                    final GATKSAMRecord gatkRead = (GATKSAMRecord) p.getRead();
                     parsePileupElement(gatkRead, p.getOffset(), ref, counter, RAC, p.getType(), true);
 
                 }
@@ -329,7 +329,7 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
             else {
                 // For each read at this locus
                 for( PileupElement p : context.getBasePileup() ) {
-                    GATKSamRecord gatkRead = (GATKSamRecord) p.getRead();
+                    GATKSAMRecord gatkRead = (GATKSAMRecord) p.getRead();
                     parsePileupElement(gatkRead, p.getOffset(), ref, counter, RAC, ExtendedEventPileupElement.Type.NOEVENT, false);
                 }
             }
@@ -342,7 +342,7 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
         return counter;
     }
 
-    private void parsePileupElement(GATKSamRecord gatkRead, int offset, ReferenceContext ref, CountedData counter,
+    private void parsePileupElement(GATKSAMRecord gatkRead, int offset, ReferenceContext ref, CountedData counter,
                                     RecalibrationArgumentCollection RAC, ExtendedEventPileupElement.Type type, boolean inExtendedPileup) {
 
 
@@ -465,7 +465,7 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
      * @param offset The offset in the read for this locus
      * @param refBase The reference base at this locus
      */
-    private void updateDataFromRead(CountedData counter, final GATKSamRecord gatkRead, final int offset, final byte refBase,
+    private void updateDataFromRead(CountedData counter, final GATKSAMRecord gatkRead, final int offset, final byte refBase,
                                     final boolean hasIndelAtThisPosition) {
         final Object[][] covars = (Comparable[][]) gatkRead.getTemporaryAttribute(COVARS_ATTRIBUTE);
 
