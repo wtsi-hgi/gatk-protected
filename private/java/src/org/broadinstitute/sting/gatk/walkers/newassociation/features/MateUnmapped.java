@@ -12,7 +12,7 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollectio
  */
 public class MateUnmapped extends BinaryFeatureAggregator {
 
-    public Boolean extractFeature(SAMRecord record) {
+    public boolean extractFeature(SAMRecord record) {
         return record.getMateUnmappedFlag();
     }
 

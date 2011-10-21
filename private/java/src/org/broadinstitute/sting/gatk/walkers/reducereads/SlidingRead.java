@@ -11,7 +11,7 @@ import org.broadinstitute.sting.utils.clipreads.ReadClipper;
  * To change this template use File | Settings | File Templates.
  */
 public class SlidingRead {
-    private SAMRecord read;
+    protected SAMRecord read;
 
     public SlidingRead(SAMRecord read) {
         this.read = read;

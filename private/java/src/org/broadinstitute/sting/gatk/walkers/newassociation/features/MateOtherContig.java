@@ -16,7 +16,7 @@ public class MateOtherContig extends BinaryFeatureAggregator {
         super(col);
     }
 
-    public Boolean extractFeature(SAMRecord record) {
+    public boolean extractFeature(SAMRecord record) {
         return ! record.getReferenceName().equals(record.getMateReferenceName());
     }
 
