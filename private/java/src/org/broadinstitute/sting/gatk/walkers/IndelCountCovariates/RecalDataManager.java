@@ -35,6 +35,7 @@ import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSamRecord;
 
 import java.util.ArrayList;
@@ -222,7 +223,7 @@ public class RecalDataManager {
      */
     public static void parseSAMRecord( final SAMRecord read, final RecalibrationArgumentCollection RAC ) {
 
-        SAMReadGroupRecord readGroup = read.getReadGroup();
+        GATKSAMReadGroupRecord readGroup = ((GATKSamRecord)read).getReadGroup();
 
         // If there are no read groups we have to default to something, and that something could be specified by the user using command line arguments
         if( readGroup == null ) {
@@ -234,7 +235,7 @@ public class RecalDataManager {
                     warnUserNullReadGroup = true;
                 }
                 // There is no readGroup so defaulting to these values
-                readGroup = new SAMReadGroupRecord( RAC.DEFAULT_READ_GROUP );
+                readGroup = new GATKSAMReadGroupRecord( RAC.DEFAULT_READ_GROUP );
                 readGroup.setPlatform( RAC.DEFAULT_PLATFORM );
                 ((GATKSamRecord)read).setReadGroup( readGroup );
             } else {
@@ -245,7 +246,7 @@ public class RecalDataManager {
 
         if( RAC.FORCE_READ_GROUP != null && !readGroup.getReadGroupId().equals(RAC.FORCE_READ_GROUP) ) { // Collapse all the read groups into a single common String provided by the user
             final String oldPlatform = readGroup.getPlatform();
-            readGroup = new SAMReadGroupRecord( RAC.FORCE_READ_GROUP );
+            readGroup = new GATKSAMReadGroupRecord( RAC.FORCE_READ_GROUP );
             readGroup.setPlatform( oldPlatform );
             ((GATKSamRecord)read).setReadGroup( readGroup );
         }
