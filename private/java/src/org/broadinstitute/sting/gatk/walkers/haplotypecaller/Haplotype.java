@@ -37,10 +37,10 @@ public class Haplotype {
     protected byte[] bases = null;
     protected byte[] extendedBases = null;
     protected double[] quals = null;
-    public double likelihood = 0.0;
     private GenomeLoc genomeLocation = null;
     private boolean isReference = false;
- 
+    public double likelihood = Double.NEGATIVE_INFINITY;
+
     /**
      * Create a simple consensus sequence with provided bases and a uniform quality over all bases of qual
      *
@@ -131,7 +131,6 @@ public class Haplotype {
             extendedBases[iii++] = b;
         }
     }
-
 
     public static LinkedHashMap<Allele,Haplotype> makeHaplotypeListFromAlleles(List<Allele> alleleList, int startPos, ReferenceContext ref,
                                                                final int haplotypeSize, final int numPrefBases) {

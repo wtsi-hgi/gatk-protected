@@ -23,33 +23,33 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private static final int KMER_OVERLAP = 6;
 
     // the deBruijn graph object
-    private final List<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>> graphs = new ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>>();
+    private final ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>> graphs = new ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>>();
 
     public SimpleDeBruijnAssembler(PrintStream out, IndexedFastaSequenceFile referenceReader) {
         super(out, referenceReader);
     }
 
-    public List<Haplotype> runLocalAssembly(final List<SAMRecord> reads) {
+    public ArrayList<Haplotype> runLocalAssembly(final ArrayList<SAMRecord> reads, final Haplotype refHaplotype) {
 
         // reset the graph
         //graphs = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
 
         // clip the reads to get just the base sequences we want
-        final List<byte[]> sequences = clipReads(reads);
+        final ArrayList<byte[]> sequences = clipReads( reads );
 
         // create the graph
-        createDeBruijnGraph(sequences);
+        createDeBruijnGraph( sequences );
 
         // find the best paths in the graph
-        return findBestPaths();
+        return findBestPaths( refHaplotype );
     }
 
     // This method takes the base sequences from the SAM records and pulls
     // out runs of bases that are not soft-clipped and are all at least Q20s.
     // Clipped sequences that are overly clipped are not used.
-    private List<byte[]> clipReads(final List<SAMRecord> reads) {
+    private ArrayList<byte[]> clipReads(final ArrayList<SAMRecord> reads) {
 
-        final List<byte[]> sequences = new ArrayList<byte[]>();
+        final ArrayList<byte[]> sequences = new ArrayList<byte[]>();
         final HashMap<String,SAMRecord> nameMap = new HashMap<String, SAMRecord>();
 
         for( final SAMRecord read : reads ) {
@@ -99,7 +99,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         return sequences;
     }
 
-    private void createDeBruijnGraph(final List<byte[]> reads) {
+    private void createDeBruijnGraph(final ArrayList<byte[]> reads) {
 
         graphs.clear();
         // create the graph
@@ -125,7 +125,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         //    printGraph();
     }
 
-    private static void createGraphFromSequences( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final List<byte[]> reads, final int KMER_LENGTH ) {
+    private static void createGraphFromSequences( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final ArrayList<byte[]> reads, final int KMER_LENGTH ) {
 
         for ( final byte[] sequence : reads ) {
             if( sequence.length > KMER_LENGTH + KMER_OVERLAP ) {
@@ -381,12 +381,12 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     }
     */
 
-    private List<Haplotype> findBestPaths() {
-
-        ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
+    private ArrayList<Haplotype> findBestPaths( final Haplotype refHaplotype ) {
+        final ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
+        returnHaplotypes.add( refHaplotype );
 
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            final List<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 13);
+            final ArrayList<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 13);
 
             for ( final KBestPaths.Path path : bestPaths ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
@@ -404,7 +404,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         return returnHaplotypes;
     }
 
-    private void assignReadsToGraph(List<byte[]> reads) {
+    private void assignReadsToGraph(ArrayList<byte[]> reads) {
 
         // TODO -- implement me
 
