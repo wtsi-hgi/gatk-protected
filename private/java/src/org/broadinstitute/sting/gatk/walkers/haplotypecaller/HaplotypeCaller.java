@@ -320,9 +320,18 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
             return; // in assembly debug mode, so no need to run the rest of the procedure
         }
 
-        likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getPassingReads() );
-        final ArrayList<Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.chooseBestHaplotypes(haplotypes);
-        final ArrayList<VariantContext> vcs = genotypingEngine.alignAndAssignGenotypeLikelihoods(getToolkit().getGenomeLocParser(), haplotypes, bestTwoHaplotypes, readsToAssemble.getReference(referenceReader), readsToAssemble.getLocation(), curInterval, likelihoodCalculationEngine.haplotypeLikehoodMatrix);
+        final HashMap<String, Double[][]> haplotypeLikehoodMatrixMap = new HashMap<String, Double[][]>();
+        final HashSet<Haplotype> bestTwoHaplotypesPerSample = new HashSet<Haplotype>();
+        final HashMap<String, ArrayList<SAMRecord>> readListMap = splitReadsBySample( readsToAssemble.getPassingReads() );
+
+        for( final String sample : readListMap.keySet() ) {
+            if( DEBUG ) { System.out.println("Evaluating sample " + sample + " with " + readListMap.get( sample ).size() + " reads"); }
+            likelihoodCalculationEngine.computeLikelihoods( haplotypes, readListMap.get( sample ) );
+            bestTwoHaplotypesPerSample.addAll( likelihoodCalculationEngine.chooseBestHaplotypes(haplotypes) );
+            haplotypeLikehoodMatrixMap.put( sample, likelihoodCalculationEngine.haplotypeLikehoodMatrix );
+        }
+
+        final ArrayList<VariantContext> vcs = genotypingEngine.alignAndAssignGenotypeLikelihoods( getToolkit().getGenomeLocParser(), haplotypes, bestTwoHaplotypesPerSample, readsToAssemble.getReference(referenceReader), readsToAssemble.getLocation(), curInterval, haplotypeLikehoodMatrixMap );
 
         //if( bamWriter != null && realignReads ) {
         //    genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), manager, readsToAssemble.getReadsInWindow( evalWindow ), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
@@ -343,6 +352,21 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         readsToAssemble.clear();
     }
 
+    private HashMap<String, ArrayList<SAMRecord>> splitReadsBySample( final ArrayList<SAMRecord> reads ) {
+        final HashMap<String, ArrayList<SAMRecord>> returnMap = new HashMap<String, ArrayList<SAMRecord>>();
+        for( final SAMRecord read : reads ) {
+            final String sample = read.getReadGroup().getSample();
+            ArrayList<SAMRecord> readList = returnMap.get( sample );
+            if( readList == null ) {
+                readList = new ArrayList<SAMRecord>();
+                returnMap.put(sample, readList);
+            }
+            readList.add(read);
+        }
+
+        return returnMap;
+    }
+
     // private class copied from IndelRealigner, used to bin together a bunch of reads and then retrieve the reference overlapping the full extent of the bin
     // the precursor to the Active Region Traversal
     private class ReadBin implements HasGenomeLocation {
@@ -357,22 +381,12 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         // This can happen if e.g. there's a large known indel with no overlapping reads.
         public void add( final SAMRecord read ) {
 
-            if( reads.size() < 350 ) { // protection against pileups with abnormally deep coverage, BUGBUG: what value to use here?
+            if( reads.size() < 450 ) { // protection against pileups with abnormally deep coverage, BUGBUG: what value to use here?
                 final GATKSAMRecord postAdapterRead = ReadUtils.hardClipAdaptorSequence(read);
                 if( postAdapterRead != null ) {
                     final SAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
 
                     if( clippedRead.getReadLength() > 0 ) {
-                        /*
-                        // cap the base qualities by the mapping quality of the read
-                        if(clippedRead.getMappingQuality() > 0) {
-                            final byte[] qual = read.getBaseQualities();
-                            for( int iii = 0; iii < qual.length; iii++ ) {
-                                qual[iii] = (byte) Math.min((int) qual[iii], clippedRead.getMappingQuality());
-                            }
-                            clippedRead.setBaseQualities(qual);
-                        }
-                        */
                         final GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(clippedRead);
                         if ( loc == null )
                             loc = locForRead;

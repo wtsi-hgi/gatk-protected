@@ -30,10 +30,7 @@ import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.collections.Pair;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 public class LikelihoodCalculationEngine {
 
@@ -96,7 +93,7 @@ public class LikelihoodCalculationEngine {
     private final NestedHashMap kmerQualityTables;
     private final int CONTEXT_SIZE;
 
-    public double haplotypeLikehoodMatrix[][];
+    public Double haplotypeLikehoodMatrix[][];
 
     static {
         LOG_ONE_HALF = -Math.log10(2.0);
@@ -159,7 +156,7 @@ public class LikelihoodCalculationEngine {
     public void computeLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<SAMRecord> reads ) {
         int numHaplotypes = haplotypes.size();
         double readLikelihoods[][] = new double[reads.size()][numHaplotypes];
-        haplotypeLikehoodMatrix = new double[numHaplotypes][numHaplotypes];
+        haplotypeLikehoodMatrix = new Double[numHaplotypes][numHaplotypes];
 
         for( int iii = 0; iii < numHaplotypes; iii++ ) {
             for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
@@ -225,13 +222,13 @@ public class LikelihoodCalculationEngine {
 
     }
 
-    public ArrayList<Haplotype> chooseBestHaplotypes( final ArrayList<Haplotype> haplotypes ) {
+    public Set<Haplotype> chooseBestHaplotypes( final ArrayList<Haplotype> haplotypes ) {
 
         // For now we choose the top two haplotypes by finding the max value of the pairwise matrix
         // in the future we could use AIC or some other criterion to select more haplotypes to best explain the read data
 
         int numHaplotypes = haplotypes.size();
-        ArrayList<Haplotype> returnHaplotypeList = new ArrayList<Haplotype>();
+        HashSet<Haplotype> returnHaplotypeSet = new HashSet<Haplotype>();
         double maxElement = Double.NEGATIVE_INFINITY;
         int hap1 = -1;
         int hap2 = -1;
@@ -245,10 +242,10 @@ public class LikelihoodCalculationEngine {
             }
         }
 
-        if( !returnHaplotypeList.contains( haplotypes.get(hap1) ) ) { returnHaplotypeList.add(haplotypes.get(hap1)); }
-        if( !returnHaplotypeList.contains( haplotypes.get(hap2) ) ) { returnHaplotypeList.add(haplotypes.get(hap2)); }
+        returnHaplotypeSet.add(haplotypes.get(hap1));
+        returnHaplotypeSet.add(haplotypes.get(hap2));
 
-        return returnHaplotypeList;
+        return returnHaplotypeSet;
     }
 
     private void fillGapProbabilitiesFromQualityTables( final String readGroup, final byte[] refBytes, final Double[] contextLogGapOpenProbabilities ) {

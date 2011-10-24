@@ -17,7 +17,7 @@ import java.util.Set;
  */
 public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     // the additional size of a valid chunk of sequence, used to string together k-mers
     private static final int KMER_OVERLAP = 6;
@@ -67,17 +67,19 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                     for(final Byte b : read.getReadBases()) {
                         bases[iii++] = b;
                     }
-                    System.out.println("Created longer read by merging! " + bases.length);
-                    System.out.println(firstRead.getReadString());
-                    for(int jjj = 0; jjj < read.getAlignmentStart() - firstRead.getAlignmentStart(); jjj++) {
-                        System.out.print(" ");
+                    if( DEBUG ) {
+                        System.out.println("Created longer read by merging! " + bases.length);
+                        System.out.println(firstRead.getReadString());
+                        for(int jjj = 0; jjj < read.getAlignmentStart() - firstRead.getAlignmentStart(); jjj++) {
+                            System.out.print(" ");
+                        }
+                        System.out.println(read.getReadString());
+                        String displayString = "";
+                        for(int jjj = 0; jjj < bases.length; jjj++) {
+                            displayString += (char) bases[jjj];
+                        }
+                        System.out.println(displayString);
                     }
-                    System.out.println(read.getReadString());
-                    String returnString = "";
-                    for(int jjj = 0; jjj < bases.length; jjj++) {
-                        returnString += (char) bases[jjj];
-                    }
-                    System.out.println(returnString);
                     sequences.add( bases );
                 } else {
                     sequences.add( read.getReadBases() );
@@ -386,7 +388,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         returnHaplotypes.add( refHaplotype );
 
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            final ArrayList<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 13);
+            final ArrayList<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 10);
 
             for ( final KBestPaths.Path path : bestPaths ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
