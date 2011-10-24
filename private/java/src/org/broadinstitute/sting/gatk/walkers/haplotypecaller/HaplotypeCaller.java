@@ -322,7 +322,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
 
         likelihoodCalculationEngine.computeLikelihoods( haplotypes, readsToAssemble.getPassingReads() );
         final ArrayList<Haplotype> bestTwoHaplotypes = likelihoodCalculationEngine.chooseBestHaplotypes(haplotypes);
-        final ArrayList<VariantContext> vcs = genotypingEngine.alignAndAssignGenotypeLikelihoods(haplotypes, bestTwoHaplotypes, readsToAssemble.getReference(referenceReader), readsToAssemble.getLocation(), curInterval, likelihoodCalculationEngine.haplotypeLikehoodMatrix);
+        final ArrayList<VariantContext> vcs = genotypingEngine.alignAndAssignGenotypeLikelihoods(getToolkit().getGenomeLocParser(), haplotypes, bestTwoHaplotypes, readsToAssemble.getReference(referenceReader), readsToAssemble.getLocation(), curInterval, likelihoodCalculationEngine.haplotypeLikehoodMatrix);
 
         //if( bamWriter != null && realignReads ) {
         //    genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), manager, readsToAssemble.getReadsInWindow( evalWindow ), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
