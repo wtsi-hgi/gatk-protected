@@ -205,13 +205,11 @@ public class LikelihoodCalculationEngine {
                     }
                     final SAMRecord read = reads.get(kkk);
                     final int mappingLength = read.getAlignmentEnd() - read.getAlignmentStart() + 1;
-                    double mappingProb = 1.0 - Math.max(0.0, (101.0 - ((double)mappingLength)) / 101.0); //BUGBUG: 101!
+                    final double mappingProb = 1.0 - Math.max(0.0, (101.0 - ((double)mappingLength)) / 101.0); //BUGBUG: 101!
 
                     haplotypeLikehoodMatrix[iii][jjj] += (mappingProb*mappingProb) * ( MathUtils.softMax(readLikelihoods[kkk][iii], readLikelihoods[kkk][jjj]) + LOG_ONE_HALF ); // BUGBUG: needs to be a logged probability
-                    //haplotypeLikehoods[iii] += readLikelihoods[kkk][iii];
                 }
             }
-            //haplotypes.get(iii).likelihood = haplotypeLikehoods[iii];
         }
         for( int iii = 1; iii < numHaplotypes; iii++ ) {
             for( int jjj = 0; jjj < iii; jjj++ ) {
@@ -227,8 +225,8 @@ public class LikelihoodCalculationEngine {
         // For now we choose the top two haplotypes by finding the max value of the pairwise matrix
         // in the future we could use AIC or some other criterion to select more haplotypes to best explain the read data
 
-        int numHaplotypes = haplotypes.size();
-        HashSet<Haplotype> returnHaplotypeSet = new HashSet<Haplotype>();
+        final int numHaplotypes = haplotypes.size();
+        final HashSet<Haplotype> returnHaplotypeSet = new HashSet<Haplotype>();
         double maxElement = Double.NEGATIVE_INFINITY;
         int hap1 = -1;
         int hap2 = -1;

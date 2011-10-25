@@ -58,6 +58,9 @@ public class GenotypingEngine {
     private final boolean DEBUG;
 
     private final static double LOG_ONE_HALF = -Math.log10(2.0);
+    private final static List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
+
+    final HashMap<Integer, ArrayList<Event>> allEventDictionary;
 
     private class Event {
         public VariantContext vc;
@@ -70,19 +73,20 @@ public class GenotypingEngine {
         this.DEBUG = DEBUG;
         SW_GAP = -1.0 * gop;
         SW_GAP_EXTEND = -1.0 * gcp;
+        noCall.add(Allele.NO_CALL);
+        allEventDictionary = new HashMap<Integer, ArrayList<Event>>();
     }
 
     public ArrayList<VariantContext> alignAndAssignGenotypeLikelihoods( final GenomeLocParser genomeLocParser, final ArrayList<Haplotype> allHaplotypes, final Set<Haplotype> bestHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final HashMap<String,Double[][]> haplotypeLikelihoodMatrixMap ) {
 
-        final HashMap<Integer, ArrayList<Event>> allEventDictionary = new HashMap<Integer, ArrayList<Event>>();
-        final HashMap<Integer, ArrayList<Event>> bestEventDictionary = new HashMap<Integer, ArrayList<Event>>();
-
+        final HashMap<Integer, ArrayList<Event>> bestEventDictionary = new HashMap<Integer, ArrayList<Event>>(); // These are the events we will actually be genotyping
         final ArrayList<VariantContext> returnCallContexts = new ArrayList<VariantContext>();
 
-        populateEventDictionary(allEventDictionary, allHaplotypes, ref, loc, window);
+        // Create the dictionary of all possible events sorted by start location and annotated with the originating haplotype index
         if( DEBUG ) { System.out.println(" ========  Top Haplotypes ======== "); }
-        populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window);
+        populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, false);
 
+        // walk along the haplotype in genomic order, genotyping the events as the come up
         final ArrayList<Integer> sortedKeySet = new ArrayList<Integer>();
         sortedKeySet.addAll(bestEventDictionary.keySet());
         Collections.sort(sortedKeySet);
@@ -90,15 +94,21 @@ public class GenotypingEngine {
             final ArrayList<Event> allEventList = allEventDictionary.get(key);
             final ArrayList<Event> bestEventList = bestEventDictionary.get(key);
 
+            // Gather together all the VCs at this start location and use VariantContextUtils to merge the alleles together
             final ArrayList<VariantContext> unmergedVCs = new ArrayList<VariantContext>();
             for( final Event e : bestEventList ) {
                 unmergedVCs.add(e.vc);
             }
             final VariantContext mergedVC = VariantContextUtils.simpleMerge(genomeLocParser, unmergedVCs, null, VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED, VariantContextUtils.GenotypeMergeType.UNSORTED, false, false, null, false, false);
-            correctAndExpandEventListWithRefEvents(allEventList, mergedVC, allHaplotypes.size());
-            final Map<String, MultiallelicGenotypeLikelihoods> GLs = new LinkedHashMap<String, MultiallelicGenotypeLikelihoods>();
 
-            System.out.println("Genotyping event at " + key + " with alleles: " + mergedVC.getAlleles());
+            // For multi-allelic deletion records the alleles need to be expanded to match the length of the longest allele
+            // Also add reference events to the dictionary for every haplotype that doesn't have any event to make the for loop below very easy to write
+            correctAndExpandEventListWithRefEvents(allEventList, mergedVC, haplotypeLikelihoodMatrixMap.values().iterator().next()[0].length);
+            final Map<String, Genotype> genotypes = new LinkedHashMap<String, Genotype>();
+
+            if( DEBUG ) { System.out.println("Genotyping event at " + key + " with alleles: " + mergedVC.getAlleles()); }
+
+            // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample
             for( final String sample : haplotypeLikelihoodMatrixMap.keySet() ) {
                 final double[] genotypeLikelihoods = new double[(mergedVC.getAlleles().size() * (mergedVC.getAlleles().size()+1)) / 2];
                 final Double[][] haplotypeLikelihoodMatrix = haplotypeLikelihoodMatrixMap.get( sample );
@@ -120,31 +130,53 @@ public class GenotypingEngine {
                         }
 
                         genotypeLikelihoods[glIndex++] = likelihood;
-                        System.out.println(iii + ", " + jjj + ": " + likelihood);
+                        if( DEBUG ) { System.out.println(iii + ", " + jjj + ": " + likelihood); }
                     }
                 }
-                GLs.put(sample, new MultiallelicGenotypeLikelihoods(sample, mergedVC.getAlleles(), genotypeLikelihoods, 40)); // BUGBUG: 40 depth hard coded
+                final HashMap<String, Object> attributes = new HashMap<String, Object>();
+                attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((new MultiallelicGenotypeLikelihoods(sample, mergedVC.getAlleles(), genotypeLikelihoods, 40)).getLikelihoods()));
+                genotypes.put(sample, new Genotype(sample, noCall, Genotype.NO_NEG_LOG_10PERROR, null, attributes, false));
             }
-            returnCallContexts.add( createVariantContextFromLikelihoods(mergedVC, GLs) );
+            returnCallContexts.add( VariantContext.modifyGenotypes(mergedVC, genotypes) );
         }
 
         return returnCallContexts;
     }
 
-    private void populateEventDictionary(final HashMap<Integer, ArrayList<Event>> eventDictionary, final Collection<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window ) {
+    public void createEventDictionaryAndFilterBadHaplotypes( final ArrayList<Haplotype> allHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window ) {
+        allEventDictionary.clear();
+        populateEventDictionary(allEventDictionary, allHaplotypes, ref, loc, window, true);
+    }
+
+
+    private void populateEventDictionary(final HashMap<Integer, ArrayList<Event>> eventDictionary, final Collection<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final boolean filterBadHaplotypes ) {
         int hIndex = 0;
+        final HashSet<Haplotype> haplotypesToRemove = new HashSet<Haplotype>();
         for( final Haplotype h : haplotypes ) {
+
+            // Align the haplotype to the reference
             final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
             if( DEBUG ) {
                 System.out.println( h.toString() );
+                System.out.println( "Score = " + h.score );
                 System.out.println( "Cigar = " + swConsensus.getCigar() );
             }
-            if( swConsensus.getCigar().getReadLength() < 10 ) { continue; } // Protection against SW failures
+            if( swConsensus.getCigar().getReadLength() < 10 ) {
+                if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
+                continue; // Protection against SW failures
+            }
 
+            // Walk along the alignment and turn any difference from the reference into an event
             final ArrayList<VariantContext> vcs = generateVCsFromAlignment(swConsensus, ref, h.bases, loc);
 
+            if( vcs == null || vcs.size() > 3 ) { // too many variants on this haplotype, wasn't assembled very well
+                if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
+                continue; // Protection against SW failures
+            }
+
+            // Separate all events into dictionaries partitioned by start location
             for( final VariantContext vc : vcs ) {
-                if( vc.getChr().equals(window.getContig()) && vc.getStart() >= window.getStart() && vc.getStart() <= window.getStop() ) {
+                if( vc.getStart() >= window.getStart() && vc.getStart() <= window.getStop() ) {
                     ArrayList<Event> eventList = eventDictionary.get(vc.getStart());
                     if(eventList == null) { // haven't seen this start location yet, so need to create a new list
                         eventList = new ArrayList<Event>();
@@ -161,6 +193,7 @@ public class GenotypingEngine {
 
             hIndex++;
         }
+        if( filterBadHaplotypes ) { haplotypes.removeAll(haplotypesToRemove); }
     }
 
     private void correctAndExpandEventListWithRefEvents( final ArrayList<Event> inputEvents, final VariantContext mergedVC, final int maxHaplotypeIndex ) {
@@ -188,91 +221,12 @@ public class GenotypingEngine {
         }
     }
 
-    private VariantContext createVariantContextFromLikelihoods(final VariantContext vc, final Map<String, MultiallelicGenotypeLikelihoods> GLs) {
-        // no-call everyone for now
-        final List<Allele> noCall = new ArrayList<Allele>();
-        noCall.add(Allele.NO_CALL);
-
-        final Set<Allele> alleles = new LinkedHashSet<Allele>();
-        alleles.add(vc.getReference());
-        boolean addedAltAlleles = false;
-
-        final HashMap<String, Genotype> genotypes = new HashMap<String, Genotype>();
-        for ( final MultiallelicGenotypeLikelihoods GL : GLs.values() ) {
-            if ( !addedAltAlleles ) {
-                addedAltAlleles = true;
-                // ordering important to maintain consistency
-                for ( final Allele a: GL.getAlleles() ) {
-                    alleles.add(a);
-                }
-            }
-
-            final HashMap<String, Object> attributes = new HashMap<String, Object>();
-            //GenotypeLikelihoods likelihoods = new GenotypeLikelihoods(GL.getLikelihoods());
-            final GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(GL.getLikelihoods());
-            attributes.put(VCFConstants.DEPTH_KEY, GL.getDepth());
-            attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, likelihoods);
-
-            genotypes.put(GL.getSample(), new Genotype(GL.getSample(), noCall, Genotype.NO_NEG_LOG_10PERROR, null, attributes, false));
-        }
-
-        int endLoc = calculateEndPos(alleles, vc.getReference(), vc.getStart());
-
-        return new VariantContext("UG_call",
-                vc.getChr(),
-                vc.getStart(),
-                endLoc,
-                alleles,
-                genotypes,
-                VariantContext.NO_NEG_LOG_10PERROR,
-                null,
-                null,
-                vc.getReferenceBaseForIndel());
-    }
-
-    private int calculateEndPos(final Collection<Allele> alleles, final Allele refAllele, final int start) {
-        // TODO - temp fix until we can deal with extended events properly
-        // for indels, stop location is one more than ref allele length
-        boolean isSNP = true, hasNullAltAllele = false;
-        for (final Allele a : alleles){
-            if (a.length() != 1) {
-                isSNP = false;
-                break;
-            }
-        }
-        for (final Allele a : alleles){
-            if (a.isNull()) {
-                hasNullAltAllele = true;
-                break;
-            }
-        }
-        // standard deletion: ref allele length = del length. endLoc = startLoc + refAllele.length(), alt allele = null
-        // standard insertion: ref allele length = 0, endLos = startLoc
-        // mixed: want end loc = start Loc for case {A*,AT,T} but say  {ATG*,A,T} : want then end loc = start loc + refAllele.length
-        // So, in general, end loc = startLoc + refAllele.length, except in complex substitutions where it's one less
-        //
-        // todo - this is unnecessarily complicated and is so just because of Tribble's arbitrary vc conventions, should be cleaner/simpler,
-        // the whole vc processing infrastructure seems too brittle and riddled with special case handling
-
-
-        int endLoc = start;
-        if ( !isSNP) {
-            endLoc += refAllele.length();
-            if(!hasNullAltAllele)
-                endLoc--;
-
-        }
-
-        return endLoc;
-    }
-
-
     private ArrayList<VariantContext> generateVCsFromAlignment( final SWPairwiseAlignment swConsensus, final byte[] ref, final byte[] read, final GenomeLoc loc ) {
         final ArrayList<VariantContext> vcs = new ArrayList<VariantContext>();
 
         int refPos = swConsensus.getAlignmentStart2wrt1();
-        if( refPos==0 ) { return vcs; } // Protection against SW failures
-        if( swConsensus.getCigar().toString().contains("S") ) { return vcs; } // Protection against SW failures
+        if( refPos==0 ) { return null; } // Protection against SW failures
+        if( swConsensus.getCigar().toString().contains("S") ) { return null; } // Protection against SW failures
         int readPos = 0;
         final int lookAhead = 5;
 

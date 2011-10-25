@@ -36,7 +36,7 @@ import java.util.List;
 public class Haplotype {
     protected byte[] bases = null;
     protected byte[] extendedBases = null;
-    protected double[] quals = null;
+    public int score = 0;
     private GenomeLoc genomeLocation = null;
     private boolean isReference = false;
     public double likelihood = Double.NEGATIVE_INFINITY;
@@ -49,15 +49,7 @@ public class Haplotype {
      */
     public Haplotype(byte[] bases, int qual) {
         this.bases = bases;
-        if(bases != null) {
-            quals = new double[bases.length];
-            Arrays.fill(quals, (double)qual);
-        }
-    }
-
-    public Haplotype(byte[] bases, double[] quals) {
-        this.bases = bases;
-        this.quals = quals;
+        score = qual;
     }
 
     public Haplotype(byte[] bases) {
@@ -79,14 +71,6 @@ public class Haplotype {
         return h instanceof Haplotype && Arrays.equals(bases, ((Haplotype) h).bases);
     }
 
-    public double getQualitySum() {
-        double s = 0;
-        for (int k=0; k < bases.length; k++) {
-            s += quals[k];
-        }
-        return s;
-    }
-
     public String toString() {
         String returnString = "";
         for(int iii = 0; iii < bases.length; iii++) {
@@ -103,9 +87,6 @@ public class Haplotype {
         return returnString;
     }
 
-    public double[] getQuals() {
-        return quals;
-    }
     public byte[] getBasesAsBytes() {
         return bases;
     }

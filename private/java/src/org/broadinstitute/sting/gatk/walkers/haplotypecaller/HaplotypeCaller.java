@@ -310,6 +310,10 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
 
         if( DEBUG ) { System.out.println("Found " + haplotypes.size() + " candidate haplotypes to evaluate"); }
 
+        genotypingEngine.createEventDictionaryAndFilterBadHaplotypes( haplotypes, readsToAssemble.getReference(referenceReader), readsToAssemble.getLocation(), curInterval );
+
+        if( DEBUG ) { System.out.println(haplotypes.size() + " candidate haplotypes remain after filtering"); }
+
         if( haplotypes.size() == 0 ) {
             if( DEBUG ) { System.out.println("WARNING! No haplotypes created during assembly!"); }
             return;
@@ -325,7 +329,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         final HashMap<String, ArrayList<SAMRecord>> readListMap = splitReadsBySample( readsToAssemble.getPassingReads() );
 
         for( final String sample : readListMap.keySet() ) {
-            if( DEBUG ) { System.out.println("Evaluating sample " + sample + " with " + readListMap.get( sample ).size() + " reads"); }
+            if( DEBUG ) { System.out.println("Evaluating sample " + sample + " with " + readListMap.get( sample ).size() + " passing reads"); }
             likelihoodCalculationEngine.computeLikelihoods( haplotypes, readListMap.get( sample ) );
             bestTwoHaplotypesPerSample.addAll( likelihoodCalculationEngine.chooseBestHaplotypes(haplotypes) );
             haplotypeLikehoodMatrixMap.put( sample, likelihoodCalculationEngine.haplotypeLikehoodMatrix );
@@ -339,7 +343,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
 
         for( final VariantContext vc : vcs ) {
             if( curInterval.containsP(getToolkit().getGenomeLocParser().createGenomeLoc(vc)) ) {
-                VariantCallContext vcOut = UG_engine.calculateGenotypes(vc, getToolkit().getGenomeLocParser().createGenomeLoc(vc), UG_engine.getUAC().GLmodel);
+                final VariantCallContext vcOut = UG_engine.calculateGenotypes(vc, getToolkit().getGenomeLocParser().createGenomeLoc(vc), UG_engine.getUAC().GLmodel);
                 if(vcOut != null) {
                     if( DEBUG ) { System.out.println(vcOut); }
                     vcfWriter.add(vcOut);
@@ -381,7 +385,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         // This can happen if e.g. there's a large known indel with no overlapping reads.
         public void add( final SAMRecord read ) {
 
-            if( reads.size() < 450 ) { // protection against pileups with abnormally deep coverage, BUGBUG: what value to use here?
+            if( reads.size() < 650 ) { // protection against pileups with abnormally deep coverage, BUGBUG: what value to use here?
                 final GATKSAMRecord postAdapterRead = ReadUtils.hardClipAdaptorSequence(read);
                 if( postAdapterRead != null ) {
                     final SAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );

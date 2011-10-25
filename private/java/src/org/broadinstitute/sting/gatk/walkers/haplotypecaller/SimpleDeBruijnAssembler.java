@@ -5,10 +5,7 @@ import net.sf.samtools.SAMRecord;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Created by IntelliJ IDEA.
@@ -388,7 +385,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         returnHaplotypes.add( refHaplotype );
 
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            final ArrayList<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 10);
+            final ArrayList<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 13);
 
             for ( final KBestPaths.Path path : bestPaths ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
