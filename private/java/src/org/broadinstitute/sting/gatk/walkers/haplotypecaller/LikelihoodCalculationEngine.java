@@ -203,11 +203,7 @@ public class LikelihoodCalculationEngine {
                     if (Double.isInfinite(readLikelihoods[kkk][iii]) && Double.isInfinite(readLikelihoods[kkk][jjj])) {
                         continue;
                     }
-                    final SAMRecord read = reads.get(kkk);
-                    final int mappingLength = read.getAlignmentEnd() - read.getAlignmentStart() + 1;
-                    final double mappingProb = 1.0 - Math.max(0.0, (101.0 - ((double)mappingLength)) / 101.0); //BUGBUG: 101!
-
-                    haplotypeLikehoodMatrix[iii][jjj] += (mappingProb*mappingProb) * ( MathUtils.softMax(readLikelihoods[kkk][iii], readLikelihoods[kkk][jjj]) + LOG_ONE_HALF ); // BUGBUG: needs to be a logged probability
+                    haplotypeLikehoodMatrix[iii][jjj] += ( MathUtils.softMax(readLikelihoods[kkk][iii], readLikelihoods[kkk][jjj]) + LOG_ONE_HALF );
                 }
             }
         }
