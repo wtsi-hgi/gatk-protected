@@ -25,9 +25,6 @@ class ReducedBAMEvaluation extends QScript {
 
 
   def script = {
-
-
-
     val sliceBAM =  swapExt(bam,".bam",".printreads.bam")
     val sliceVCF = swapExt(sliceBAM,".bam",".filtered.vcf")
     add(SliceBAM(bam, sliceBAM))
