@@ -82,7 +82,7 @@ public class GenotypingEngine {
         final HashMap<Integer, ArrayList<Event>> bestEventDictionary = new HashMap<Integer, ArrayList<Event>>(); // These are the events we will actually be genotyping
         final ArrayList<VariantContext> returnCallContexts = new ArrayList<VariantContext>();
 
-        // Create the dictionary of all possible events sorted by start location and annotated with the originating haplotype index
+        // Create the dictionary of all genotype-able events sorted by start location and annotated with the originating haplotype index
         if( DEBUG ) { System.out.println(" ========  Top Haplotypes ======== "); }
         populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, false);
 
@@ -119,6 +119,7 @@ public class GenotypingEngine {
                         final Pair<Allele, Allele> allelePair1 = new Pair<Allele, Allele>(mergedVC.getReference(), mergedVC.getAlleles().get(jjj));
                         final Pair<Allele, Allele> allelePair2 = new Pair<Allele, Allele>(mergedVC.getReference(), mergedVC.getAlleles().get(iii));
 
+                        // Loop through all haplotype pairs and find the max likelihood that has this given combination of events on the pair of haplotypes
                         for( final Event e1 : allEventList ) {
                             if( allelePair1.equals( new Pair<Allele, Allele>(e1.refAllele, e1.altAllele) ) ) {
                                 for( final Event e2 : allEventList ) {
@@ -169,7 +170,7 @@ public class GenotypingEngine {
             // Walk along the alignment and turn any difference from the reference into an event
             final ArrayList<VariantContext> vcs = generateVCsFromAlignment(swConsensus, ref, h.bases, loc);
 
-            if( vcs == null || vcs.size() > 3 ) { // too many variants on this haplotype, wasn't assembled very well
+            if( vcs == null || vcs.size() > 5 ) { // too many variants on this haplotype, wasn't assembled very well
                 if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
                 continue; // Protection against SW failures
             }
@@ -228,7 +229,7 @@ public class GenotypingEngine {
         if( refPos==0 ) { return null; } // Protection against SW failures
         if( swConsensus.getCigar().toString().contains("S") ) { return null; } // Protection against SW failures
         int readPos = 0;
-        final int lookAhead = 5;
+        final int lookAhead = 3;
 
         for( final CigarElement ce : swConsensus.getCigar().getCigarElements() ) {
             final int elementLength = ce.getLength();
@@ -327,80 +328,6 @@ public class GenotypingEngine {
         if( DEBUG && vcs.size() == 0 ) {
             System.out.println("> Reference!");
         }
-
-        return vcs;
-    }
-
-    private static ArrayList<VariantContext> genotype( final ArrayList<VariantContext> vcs1, final ArrayList<VariantContext> vcs2 ) {
-        final ArrayList<VariantContext> vcs = new ArrayList<VariantContext>();
-
-        final Iterator<VariantContext> vcs1Iter = vcs1.iterator();
-        final Iterator<VariantContext> vcs2Iter = vcs2.iterator();
-
-        VariantContext vc1Hold = null;
-        VariantContext vc2Hold = null;
-
-        do {
-            final VariantContext vc1 = ( vc1Hold != null ? vc1Hold : (vcs1Iter.hasNext() ? vcs1Iter.next() : null) );
-            final VariantContext vc2 = ( vc2Hold != null ? vc2Hold : (vcs2Iter.hasNext() ? vcs2Iter.next() : null) );
-
-            vc1Hold = null;
-            vc2Hold = null;
-
-            if( vc1 == null && vc2 != null ) {
-                ArrayList<Allele> alleles = new ArrayList<Allele>();
-                alleles.addAll( vc2.getAlleles() );
-                Genotype gt = new Genotype( "NA12878", alleles );
-                HashMap<String,Genotype> genotypeMap = new HashMap<String,Genotype>();
-                genotypeMap.put("NA12878", gt);
-                vcs.add( VariantContext.modifyGenotypes( vc2, genotypeMap ) );
-            } else if( vc1 != null && vc2 == null ) {
-                ArrayList<Allele> alleles = new ArrayList<Allele>();
-                alleles.addAll( vc1.getAlleles() );
-                Genotype gt = new Genotype( "NA12878", alleles );
-                HashMap<String,Genotype> genotypeMap = new HashMap<String,Genotype>();
-                genotypeMap.put("NA12878", gt);
-                vcs.add( VariantContext.modifyGenotypes( vc1, genotypeMap ) );
-            } else if( vc1 != null ) { // && vc2 != null
-                if( vc1.getStart() == vc2.getStart() ) {
-                    ArrayList<Allele> alleles = new ArrayList<Allele>();
-                    alleles.add( vc1.getAlternateAllele(0) );
-                    alleles.add( vc2.getAlternateAllele(0) );
-                    if( vc1.getAlleles().equals(vc2.getAlleles()) ) { // check if alleles match
-                        Genotype gt = new Genotype( "NA12878", alleles );
-                        HashMap<String,Genotype> genotypeMap = new HashMap<String,Genotype>();
-                        genotypeMap.put("NA12878", gt);
-                        vcs.add( VariantContext.modifyGenotypes( vc1, genotypeMap ) );
-                    } else { // two alleles don't match, and don't call multialleleic records yet
-                        vc2Hold = vc2;
-                        ArrayList<Allele> theseAlleles = new ArrayList<Allele>();
-                        theseAlleles.addAll( vc1.getAlleles() );
-                        Genotype gt = new Genotype( "NA12878", theseAlleles );
-                        HashMap<String,Genotype> genotypeMap = new HashMap<String,Genotype>();
-                        genotypeMap.put("NA12878", gt);
-                        vcs.add( VariantContext.modifyGenotypes( vc1, genotypeMap ) );
-                    }
-                } else if( vc1.getStart() < vc2.getStart()) {
-                    vc2Hold = vc2;
-                    ArrayList<Allele> alleles = new ArrayList<Allele>();
-                    alleles.addAll( vc1.getAlleles() );
-                    Genotype gt = new Genotype( "NA12878", alleles );
-                    HashMap<String,Genotype> genotypeMap = new HashMap<String,Genotype>();
-                    genotypeMap.put("NA12878", gt);
-                    vcs.add( VariantContext.modifyGenotypes( vc1, genotypeMap ) );
-                } else {
-                    vc1Hold = vc1;
-                    ArrayList<Allele> alleles = new ArrayList<Allele>();
-                    alleles.addAll( vc2.getAlleles() );
-                    Genotype gt = new Genotype( "NA12878", alleles );
-                    HashMap<String,Genotype> genotypeMap = new HashMap<String,Genotype>();
-                    genotypeMap.put("NA12878", gt);
-                    vcs.add( VariantContext.modifyGenotypes( vc2, genotypeMap ) );
-                }
-            }
-
-
-        } while ( vcs1Iter.hasNext() || vcs2Iter.hasNext() || vc1Hold != null || vc2Hold != null );
 
         return vcs;
     }
