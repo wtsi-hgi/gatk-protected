@@ -25,7 +25,7 @@ public class KBestPaths {
         private DeBruijnVertex lastVertex;
 
         // the list of edges comprising the path
-        private List<DeBruijnEdge> edges;
+        private ArrayList<DeBruijnEdge> edges;
 
         // the scores for the path
         private int totalScore = 0, lowestEdge = -1;
@@ -52,7 +52,7 @@ public class KBestPaths {
             return false;
         }
 
-        public List<DeBruijnEdge> getEdges() { return edges; }
+        public ArrayList<DeBruijnEdge> getEdges() { return edges; }
 
         public int getScore() { return totalScore; }
 
@@ -88,7 +88,7 @@ public class KBestPaths {
         }
     }
 
-    public static List<Path> getKBestPaths(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, int k) {
+    public static ArrayList<Path> getKBestPaths(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, int k) {
         PriorityQueue<Path> bestPaths = new PriorityQueue<Path>(k, new PathComparator());
 
         // run a DFS for best paths
@@ -116,7 +116,7 @@ public class KBestPaths {
                 bestPaths.add(path);
             }
 
-        } else if( n.val > 100000) {
+        } else if( n.val > 20000) {
             // do nothing, just return
         } else {
             // recursively run DFS
