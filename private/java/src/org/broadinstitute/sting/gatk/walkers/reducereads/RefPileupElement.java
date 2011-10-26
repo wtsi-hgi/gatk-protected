@@ -1,16 +1,5 @@
-package org.broadinstitute.sting.gatk.walkers.reducereads;
-
-import net.sf.samtools.CigarElement;
-import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.pileup.PileupElement;
-
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-
 /*
- * Copyright (c) 2009 The Broad Institute
+ * Copyright (c) 2011, The Broad Institute
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -23,7 +12,6 @@ import java.util.List;
  *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
- *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
  * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -33,6 +21,17 @@ import java.util.List;
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  */
+
+package org.broadinstitute.sting.gatk.walkers.reducereads;
+
+import net.sf.samtools.CigarElement;
+import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.pileup.PileupElement;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * Created by IntelliJ IDEA.
