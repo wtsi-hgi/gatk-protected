@@ -36,6 +36,7 @@ import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
+import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
@@ -177,7 +178,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         parseInputRecalData();
 
         // get all of the unique sample names
-        Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
+        final Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
         // initialize the header
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
