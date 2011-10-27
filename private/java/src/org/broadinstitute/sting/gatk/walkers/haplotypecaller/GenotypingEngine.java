@@ -149,7 +149,6 @@ public class GenotypingEngine {
         populateEventDictionary(allEventDictionary, allHaplotypes, ref, loc, window, true);
     }
 
-
     private void populateEventDictionary(final HashMap<Integer, ArrayList<Event>> eventDictionary, final Collection<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final boolean filterBadHaplotypes ) {
         int hIndex = 0;
         final HashSet<Haplotype> haplotypesToRemove = new HashSet<Haplotype>();
@@ -163,6 +162,7 @@ public class GenotypingEngine {
                 System.out.println( "Cigar = " + swConsensus.getCigar() );
             }
             if( swConsensus.getCigar().getReadLength() < 10 ) {
+                if( DEBUG ) { System.out.println("Filtered!"); }
                 if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
                 continue; // Protection against SW failures
             }
@@ -171,6 +171,7 @@ public class GenotypingEngine {
             final ArrayList<VariantContext> vcs = generateVCsFromAlignment(swConsensus, ref, h.bases, loc);
 
             if( vcs == null || vcs.size() > 5 ) { // too many variants on this haplotype, wasn't assembled very well
+                if( DEBUG ) { System.out.println("Filtered!"); }
                 if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
                 continue; // Protection against SW failures
             }
@@ -213,10 +214,14 @@ public class GenotypingEngine {
             } else { // might need to correct the alleles because of the potential merging of multiallelic records
                 if( !myEvent.refAllele.equals(mergedVC.getReference()) ) {
                     final int suffixSize = mergedVC.getReference().getBases().length - myEvent.refAllele.length();
-                    if(suffixSize > 0) {
-                        myEvent.altAllele = Allele.extend(myEvent.altAllele, Arrays.copyOfRange(mergedVC.getReference().getBases(), myEvent.refAllele.getBases().length, myEvent.refAllele.getBases().length + suffixSize));
-                        myEvent.refAllele = mergedVC.getReference();
+                    if( suffixSize > 0 ) {
+                        if( myEvent.refAllele.isNull() && !mergedVC.getReference().isNull() ) { // the special case of combining a SNP and an insertion (one has padded reference but the other doesn't)
+                            myEvent.altAllele = Allele.create(mergedVC.getReference().getBaseString() + myEvent.altAllele.getBaseString());
+                        } else {
+                            myEvent.altAllele = Allele.extend(myEvent.altAllele, Arrays.copyOfRange(mergedVC.getReference().getBases(), myEvent.refAllele.getBases().length, myEvent.refAllele.getBases().length + suffixSize));
+                        }
                     }
+                    myEvent.refAllele = mergedVC.getReference();
                 }
             }
         }
@@ -248,7 +253,7 @@ public class GenotypingEngine {
                         final ArrayList<Allele> alleles = new ArrayList<Allele>();
                         alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, true));
                         alleles.add( Allele.create(insertionBases, false));
-                        if( DEBUG ) { System.out.println("> Insertion: " + alleles); }
+                        if( DEBUG ) { System.out.println("@ " + (loc.getStart() + refPos - 1) + " > Insertion: " + alleles); }
                         vcs.add(new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos - 1,
                                 alleles, VariantContext.NO_GENOTYPES, VariantContext.NO_NEG_LOG_10PERROR, null, null, ref[refPos-1]));
                     }
@@ -266,7 +271,7 @@ public class GenotypingEngine {
                     final ArrayList<Allele> alleles = new ArrayList<Allele>();
                     alleles.add( Allele.create(deletionBases, true) );
                     alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, false) );
-                    if( DEBUG ) { System.out.println( "> Deletion: " + alleles); }
+                    if( DEBUG ) { System.out.println( "@ " + (loc.getStart() + refPos - 1) + " Deletion: " + alleles); }
                     vcs.add( new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos + elementLength - 1,
                             alleles, VariantContext.NO_GENOTYPES, VariantContext.NO_NEG_LOG_10PERROR, null, null, ref[refPos-1]) );
                     refPos += elementLength;
@@ -301,7 +306,7 @@ public class GenotypingEngine {
                             final ArrayList<Allele> alleles = new ArrayList<Allele>();
                             alleles.add( Allele.create( refBases, true ) );
                             alleles.add( Allele.create( mismatchBases, false ) );
-                            if( DEBUG ) { System.out.println( "> SNP/MNP: " + alleles); }
+                            if( DEBUG ) { System.out.println( "@ " + (loc.getStart() + refPosStartOfMismatch) + " > SNP/MNP: " + alleles); }
                             vcs.add( new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPosStartOfMismatch,
                                     loc.getStart() + refPosStartOfMismatch + (stopOfMismatch - startOfMismatch), alleles,
                                     VariantContext.NO_GENOTYPES, VariantContext.NO_NEG_LOG_10PERROR, null, null) );

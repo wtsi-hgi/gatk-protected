@@ -229,6 +229,25 @@ public class LikelihoodCalculationEngine {
                 }
             }
         }
+
+        double[] genotypeLikelihoods = new double[numHaplotypes*(numHaplotypes+1)/2];
+        int k=0;
+        for (int j=0; j < numHaplotypes; j++) {
+            for (int i=0; i <= j; i++){
+                genotypeLikelihoods[k++] = haplotypeLikehoodMatrix[i][j];
+            }
+        }
+
+        genotypeLikelihoods = MathUtils.normalizeFromLog10(genotypeLikelihoods, false, true);
+
+        k=0;
+        for (int j=0; j < numHaplotypes; j++) {
+            for (int i=0; i <= j; i++){
+                haplotypeLikehoodMatrix[i][j] = genotypeLikelihoods[k++];
+            }
+        }
+
+
         for( int iii = 1; iii < numHaplotypes; iii++ ) {
             for( int jjj = 0; jjj < iii; jjj++ ) {
                 haplotypeLikehoodMatrix[iii][jjj] = haplotypeLikehoodMatrix[jjj][iii]; // fill in the symmetric lower triangular part of the matrix for convenience later
@@ -331,7 +350,7 @@ public class LikelihoodCalculationEngine {
                                                                  double[] currentGOP, double[] currentGCP, int indToStart,
                                                                  double[][] matchMetricArray, double[][] XMetricArray, double[][] YMetricArray) {
 
-        final boolean bandedLikelihoods = true;
+        final boolean bandedLikelihoods = false;
 
         final int X_METRIC_LENGTH = readBases.length+1;
         final int Y_METRIC_LENGTH = haplotypeBases.length+1;

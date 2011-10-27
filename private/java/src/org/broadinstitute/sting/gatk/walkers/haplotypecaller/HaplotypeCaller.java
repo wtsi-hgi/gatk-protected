@@ -410,7 +410,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
             final ArrayList<SAMRecord> readsOverlappingVariant = new ArrayList<SAMRecord>();
 
             for( final SAMRecord rec : reads ) {
-                if( rec.getMappingQuality() > 15 && !BadMateFilter.hasBadMate(rec) ) {
+                if( rec.getMappingQuality() > 18 && !BadMateFilter.hasBadMate(rec) ) {
                     readsOverlappingVariant.add(rec);
                 }
             }
@@ -422,7 +422,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
             final ArrayList<SAMRecord> readsOverlappingVariant = new ArrayList<SAMRecord>();
 
             for( final SAMRecord rec : reads ) {
-                if( rec.getMappingQuality() > 15 && !BadMateFilter.hasBadMate(rec) ) {
+                if( rec.getMappingQuality() > 18 && !BadMateFilter.hasBadMate(rec) ) {
                     final GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(rec);
                     if( locForRead.overlapsP(window) ) {
                         readsOverlappingVariant.add(rec);
