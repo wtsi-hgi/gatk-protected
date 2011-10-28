@@ -57,6 +57,12 @@ import java.util.*;
  * information on these files.  This info file is a 'Marker Information File'
  * </p>
  *
+ * <p>
+ *     To load this into Haplotype, you should use the Open dialog and choose Linkage Format.  The ped and info
+ * files must be named with the root name, i.e., X.ped and X.info.  Haploview will load in the results
+ * and detect automatically the info field when you select X.ped.
+ * </p>
+ *
  * <h2>Examples</h2>
  * <pre>
  *     -T $WalkerName -V my.vcf -pedOut my.ped -infoOut my.info

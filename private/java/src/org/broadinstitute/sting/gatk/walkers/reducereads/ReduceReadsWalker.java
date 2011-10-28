@@ -50,16 +50,7 @@ import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.sam.SimplifyingSAMFileWriter;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.SortedSet;
-import java.util.TreeSet;
-
-/**
- * Created by IntelliJ IDEA.
- * User: depristo
- * Date: April 7, 2011
- */
+import java.util.*;
 
 @PartitionBy(PartitionType.INTERVAL)
 @ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
@@ -107,6 +98,9 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
 
     protected int totalReads = 0;
     int nCompressedReads = 0;
+
+    HashMap<String, Long> readNameHash;  // This hash will keep the name of the original read the new compressed name (a number).
+    Long nextReadNumber = 1L;             // The next number to use for the compressed read name.
 
     SortedSet<GenomeLoc> intervalList;
 
@@ -253,6 +247,8 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
     public void initialize() {
         super.initialize();
 
+        readNameHash = new HashMap<String, Long>();
+
         intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator ());
         intervalList.addAll(getToolkit().getIntervals());
 
@@ -307,7 +303,7 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
     }
 
     /**
-     * given a read and a output location, reduce by emitting the read
+     * given a read and an output location, reduce by emitting the read
      */
     public ReduceReadsStash reduce( List<SAMRecord> mappedReads, ReduceReadsStash stash ) {
         boolean firstRead = true;
@@ -374,8 +370,29 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
 
         if (debugLevel == 1) System.out.println("BAM: " + read.getCigar() + " " + read.getAlignmentStart() + " " + read.getAlignmentEnd());
 
-        out.addAlignment(read);
-
+        out.addAlignment(compressReadName(read));
     }
 
+    private SAMRecord compressReadName(SAMRecord read) {
+        SAMRecord compressedRead;
+
+        try {
+            compressedRead = (SAMRecord) read.clone();
+        } catch (CloneNotSupportedException e) {
+            throw new ReviewedStingException("Where did the clone go?");
+        }
+
+        String name = read.getReadName();
+        String compressedName = isConsensus(read) ? "C" : "";
+        if (readNameHash.containsKey(name))
+            compressedName += readNameHash.get(name).toString();
+        else {
+            readNameHash.put(name, nextReadNumber);
+            compressedName += nextReadNumber.toString();
+            nextReadNumber++;
+        }
+
+        compressedRead.setReadName(compressedName);
+        return compressedRead;
+    }
 }
