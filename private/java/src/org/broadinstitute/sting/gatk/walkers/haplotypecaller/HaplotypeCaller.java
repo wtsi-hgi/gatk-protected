@@ -201,7 +201,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
 
         GenomeLocSortedSet intervalsToAssemble = getToolkit().getIntervals();
         if ( intervalsToAssemble == null || intervalsToAssemble.isEmpty() )
-            throw new UserException.BadInput("Intervals must be provided with -L or -BTI (preferably not larger than several hundred bp)");
+            throw new UserException.BadInput("Intervals must be provided with -L (preferably not larger than several hundred bp)");
 
         intervals = intervalsToAssemble.clone().iterator();
         currentInterval = intervals.hasNext() ? intervals.next() : null;
