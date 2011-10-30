@@ -70,12 +70,12 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
     }
 
     @Override
-    public Iterable<SAMRecord> addAlignment(SAMRecord read) {
-        String sample = read.getReadGroup().getSample();
+    public Iterable<SAMRecord> addAlignment(SlidingRead slidingRead) {
+        String sample = slidingRead.getRead().getReadGroup().getSample();
         SingleSampleConsensusReadCompressor compressor = compressorsPerSample.get(sample);
         if ( compressor == null )
             throw new ReviewedStingException("No compressor for sample " + sample);
-        return compressor.addAlignment(read);
+        return compressor.addAlignment(slidingRead);
     }
 
     @Override

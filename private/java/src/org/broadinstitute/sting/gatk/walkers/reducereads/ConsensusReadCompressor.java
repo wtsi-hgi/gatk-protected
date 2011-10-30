@@ -45,12 +45,12 @@ public interface ConsensusReadCompressor {
     /**
      * Adds the read to the compressor.  The returned iteratable collection of
      * reads represents the incremental compressed output.
-     * @param read the next uncompressed read in the input stream to the compressor
+     * @param slidingRead the next uncompressed SlidingRead in the input stream to the compressor
      * @return an iterator over the incrementally available compressed reads
      */
     @Requires("read != null")
     @Ensures("result != null")
-    Iterable<SAMRecord> addAlignment(SAMRecord read);
+    Iterable<SAMRecord> addAlignment(SlidingRead slidingRead);
 
     /**
      * Must be called after the last read has been added to finalize the compressor state

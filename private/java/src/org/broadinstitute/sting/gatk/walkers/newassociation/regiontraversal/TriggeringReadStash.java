@@ -28,9 +28,9 @@ public class TriggeringReadStash extends ReduceReadsStash {
         nSamples = SampleUtils.getSAMFileSamples(header).size();
     }
 
-    @Override
+//    @Override
     public Iterable<SAMRecord> compress(SAMRecord read) {
-        return super.compress(read);
+        return super.compress(SlidingRead.createDummySlidingRead(read));
     }
 }
 
@@ -63,7 +63,7 @@ class TriggeringMultiSampleConsensusReadCompressor extends MultiSampleConsensusR
         return multiSampleRegion;
     }
 
-    @Override
+//    @Override
     public Iterable<SAMRecord> addAlignment(SAMRecord read) {
         String sample = read.getReadGroup().getSample();
         SingleSampleConsensusReadCompressor compressor = compressorsPerSample.get(sample);
@@ -72,7 +72,7 @@ class TriggeringMultiSampleConsensusReadCompressor extends MultiSampleConsensusR
         TreeSet<SAMRecord> toReturn = new TreeSet<SAMRecord>(new AlignmentStartWithNoTiesComparator());
         for ( Map.Entry<String,SingleSampleConsensusReadCompressor> compressorEntry : compressorsPerSample.entrySet() ) {
             if ( compressorEntry.getKey().equals(sample) ) {
-                toReturn.addAll( (Collection<SAMRecord>) compressorEntry.getValue().addAlignment(read));
+                toReturn.addAll( (Collection<SAMRecord>) compressorEntry.getValue().addAlignment(SlidingRead.createDummySlidingRead(read)));
             } else {
                 toReturn.addAll( (Collection<SAMRecord>) ( (TriggeringSingleSampleConsensusReadCompressor) compressorEntry.getValue()).registerAlignment(read));
             }
@@ -100,7 +100,8 @@ class TriggeringSingleSampleConsensusReadCompressor extends SingleSampleConsensu
     }
 
     @Override
-    protected void instantiateSlidingWindow(SAMRecord read) {
+    protected void instantiateSlidingWindow(SlidingRead slidingRead) {
+        SAMRecord read = slidingRead.getRead();
         slidingWindow = new TriggeringSlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getAttribute("RG"), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality,this);
     }
 
@@ -195,7 +196,9 @@ class TriggeringSlidingWindow extends SlidingWindow {
     }
 
     @Override
-        protected void updateHeaderCounts(SAMRecord read) {
+        protected void updateHeaderCounts(SlidingRead slidingRead) {
+        SAMRecord read = slidingRead.getRead();
+
         // Reads that don't pass the minimum mapping quality filter are not added to the
         // consensus, or count towards a variant region so no point in keeping track of
         // their base counts.
