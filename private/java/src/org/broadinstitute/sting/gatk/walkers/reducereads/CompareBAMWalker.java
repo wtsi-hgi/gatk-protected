@@ -3,13 +3,17 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
+import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
+import org.broadinstitute.sting.gatk.filters.NotPrimaryAlignmentFilter;
+import org.broadinstitute.sting.gatk.filters.UnmappedReadFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
+import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Given two BAMs with different read groups, it compares them based on ReduceReads metrics.
@@ -34,10 +38,14 @@ import java.util.Map;
  * @author carneiro
  * @since 10/30/11
  */
+
+@ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
 public class CompareBAMWalker extends LocusWalker<Map<CompareBAMWalker.TestName, Boolean>, CompareBAMWalker.TestResults> {
     @Argument(required = true,  shortName = "rr",  fullName = "reduced_readgroup", doc = "The read group ID corresponding to the compressed BAM being tested") public String reducedReadGroupID;
     @Argument(required = false, shortName = "teq", fullName = "test_equal_bases",  doc = "Test if the bases marked as '=' are indeed ref bases.")              public boolean TEST_EQUAL_BASES = false;
-    @Argument(required = false, shortName = "tbc", fullName = "test_base_counts",  doc = "Test if the base counts tag in consensus reads are accurate.")       public boolean TEST_BASE_COUNTS= false;
+    @Argument(required = false, shortName = "tbc", fullName = "test_base_counts",  doc = "Test if the base counts tag in consensus reads are accurate.")       public boolean TEST_BASE_COUNTS = false;
+    @Argument(required = false, shortName = "mbq", fullName = "min_base_qual",     doc = "Minimum base quality to be considered.")                             public int MIN_BASE_QUAL    = 20;
+    @Argument(required = false, shortName = "mmq", fullName = "min_mapping_qual",  doc = "Minimum mapping quality to be considered.")                          public int MIN_MAPPING_QUAL = 20;
 
 
     @Override
@@ -79,11 +87,44 @@ public class CompareBAMWalker extends LocusWalker<Map<CompareBAMWalker.TestName,
     private boolean testEqualBases (ReferenceContext ref, AlignmentContext context) {
         byte referenceBase = ref.getBase();
 
-//        ReadBackedPileup reducedPileup = context.getBasePileup().getPileupForReadGroup(reducedReadGroupID);
-//        for (byte reducedBase : reducedPileup.getBases()) {
-//            if (reducedBase != referenceBase)
-//                return false;
-//        }
+        // No data in this locus
+        if (context.getBasePileup() == null)
+            return true;
+
+        // No data in the Reduced Read
+        if (context.getBasePileup().getPileupForReadGroup(reducedReadGroupID) == null) {
+            if (context.getBasePileup().getBaseAndMappingFilteredPileup(MIN_BASE_QUAL, MIN_MAPPING_QUAL).size() != 0) {
+               logger.warn("No reduce reads information at locus " + ref.getLocus().toString() + " but full BAM has bases that pass filters. [" + context.getBasePileup().getBaseAndMappingFilteredPileup(MIN_BASE_QUAL, MIN_MAPPING_QUAL).size() + "]");
+               return false;
+            }
+            return true;
+        }
+
+        // Reduce Read pileup
+        byte [] reducedBases = context.getBasePileup().getPileupForReadGroup(reducedReadGroupID).getBases();
+
+
+        // this is a consensus sequence
+        if (reducedBases.length == 1)  {
+            BaseCounts filteredBaseCounts = getFilteredBaseCounts(context);
+            if (reducedBases[0] == BaseIndex.EQ.getByte() && filteredBaseCounts.baseWithMostCounts() != referenceBase) {
+                logger.warn("Consensus read at " + ref.getLocus().toString() + " should not be '='. Most common base is: " + (char) filteredBaseCounts.maxBaseIndex().getByte() + " [" + filteredBaseCounts.countOfMostCommonBase() + "]");
+                return false;
+            }
+        }
+        // this is a variant region
+        else {
+            BaseCounts fullBaseCounts = getFullBaseCounts(context);
+            int nEquals = 0;
+            for (byte b : reducedBases)
+                if (b == BaseIndex.EQ.getByte())
+                    nEquals++;
+            if (nEquals != fullBaseCounts.getCount(referenceBase)) {
+                logger.warn("Variant locus " + ref.getLocus().toString() + " has " + nEquals + " '='s but full BAM has " + fullBaseCounts.getCount(referenceBase) + " bases that matches the reference base [" + (char) referenceBase + "]");
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -157,5 +198,25 @@ public class CompareBAMWalker extends LocusWalker<Map<CompareBAMWalker.TestName,
             this.failed++;
         }
     }
+
+    private BaseCounts getFilteredBaseCounts(AlignmentContext context) {
+        return getBaseCounts(context, MIN_BASE_QUAL, MIN_MAPPING_QUAL);
+    }
+
+    private BaseCounts getFullBaseCounts(AlignmentContext context) {
+        return getBaseCounts(context, 3, 0);
+    }
+
+    private BaseCounts getBaseCounts(AlignmentContext context, int mbq, int mmq) {
+        BaseCounts fullBaseCounts = new BaseCounts();
+        for (String rg : context.getBasePileup().getReadGroups()) {
+            if (!rg.equals(reducedReadGroupID)) {
+                BaseCounts b = BaseCounts.createWithCounts(context.getBasePileup().getPileupForReadGroup(rg).getBaseAndMappingFilteredPileup(mbq, mmq).getBaseCounts());
+                fullBaseCounts.add(b);
+            }
+        }
+        return fullBaseCounts;
+    }
+
 
 }

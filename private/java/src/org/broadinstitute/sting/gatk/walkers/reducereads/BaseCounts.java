@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import com.google.java.contract.Ensures;
+import com.google.java.contract.Requires;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -28,6 +29,27 @@ final public class BaseCounts {
         }
     }
 
+    public static BaseCounts createWithCounts(int [] countsACGT) {
+        BaseCounts baseCounts = new BaseCounts();
+        baseCounts.counts.put(BaseIndex.A, countsACGT[0]);
+        baseCounts.counts.put(BaseIndex.C, countsACGT[1]);
+        baseCounts.counts.put(BaseIndex.G, countsACGT[2]);
+        baseCounts.counts.put(BaseIndex.T, countsACGT[3]);
+        return baseCounts;
+    }
+
+    @Requires("other != null")
+    public void add(BaseCounts other) {
+        for (BaseIndex i : BaseIndex.values() )
+            counts.put(i, counts.get(i) + other.counts.get(i));
+    }
+
+    @Requires("other != null")
+    public void sub(BaseCounts other) {
+        for (BaseIndex i : BaseIndex.values() )
+            counts.put(i, counts.get(i) - other.counts.get(i));
+    }
+
     @Ensures("totalCount() == old(totalCount()) || totalCount() == old(totalCount()) + 1")
     public void incr(byte base) {
         BaseIndex i = BaseIndex.byteToBase(base);
@@ -42,6 +64,11 @@ final public class BaseCounts {
             counts.put(i, counts.get(i) + 1);
             sumQuals.put(i, sumQuals.get(i) + qual);
         }
+    }
+
+    @Ensures("result >= 0")
+    public int getCount(byte base) {
+        return counts.get(BaseIndex.byteToBase(base));
     }
 
     public byte baseWithMostCounts() {
@@ -106,7 +133,7 @@ final public class BaseCounts {
     }
 
     @Ensures({"result != null", "totalCount() != 0 || result == MAX_BASE_INDEX_WITH_NO_COUNTS"})
-    private BaseIndex maxBaseIndex() {
+    public BaseIndex maxBaseIndex() {
         BaseIndex maxI = MAX_BASE_INDEX_WITH_NO_COUNTS;
         for ( BaseIndex i : counts.keySet() )
             if ( counts.get(i) > counts.get(maxI) )
