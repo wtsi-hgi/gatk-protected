@@ -48,7 +48,7 @@ public interface ConsensusReadCompressor {
      * @param slidingRead the next uncompressed SlidingRead in the input stream to the compressor
      * @return an iterator over the incrementally available compressed reads
      */
-    @Requires("read != null")
+    @Requires("slidingRead != null")
     @Ensures("result != null")
     Iterable<SAMRecord> addAlignment(SlidingRead slidingRead);
 

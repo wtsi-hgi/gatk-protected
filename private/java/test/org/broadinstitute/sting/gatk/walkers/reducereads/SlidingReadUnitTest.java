@@ -31,7 +31,7 @@ public class SlidingReadUnitTest extends BaseTest {
         read.setReadBases(new String(BASES).getBytes());
         read.setBaseQualityString(new String(QUALS));
 
-        slidingRead = new SlidingRead(read);
+        slidingRead = SlidingRead.createDummySlidingRead(read);
     }
 
     @Test ( enabled = false )
