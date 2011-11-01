@@ -1,8 +1,10 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
+import com.google.java.contract.Requires;
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 
 import java.util.BitSet;
@@ -14,6 +16,7 @@ public class SlidingRead {
     public SlidingRead(SAMRecord read, ReferenceContext referenceContext) {
         this.read = read;
         baseIsMismatch = AlignmentUtils.mismatchesInRefWindow(read, referenceContext);
+        debugRead();
     }
 
     private SlidingRead(SAMRecord read, BitSet baseIsMismatch) {
