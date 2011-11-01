@@ -8,19 +8,19 @@ import java.util.*;
 
 public class ReduceReadsStash {
         protected MultiSampleConsensusReadCompressor compressor;
-        SortedSet<SlidingRead> outOfOrderReads;
+        SortedSet<SAMRecord> outOfOrderReads;
 
         public ReduceReadsStash(MultiSampleConsensusReadCompressor compressor) {
             this.compressor = compressor;
-            this.outOfOrderReads = new TreeSet<SlidingRead>(new SlidingReadComparator());
+            this.outOfOrderReads = new TreeSet<SAMRecord>(new AlignmentStartWithNoTiesComparator());
         }
 
-        public List<SlidingRead> getAllReadsBefore(SlidingRead slidingRead) {
-            List<SlidingRead> result = new LinkedList<SlidingRead>();
-            SlidingRead newHead = null;
+        public List<SAMRecord> getAllReadsBefore(SAMRecord read) {
+            List<SAMRecord> result = new LinkedList<SAMRecord>();
+            SAMRecord newHead = null;
 
-            for (SlidingRead stashedRead : outOfOrderReads) {
-                if (ReadUtils.compareSAMRecords(stashedRead.getRead(), slidingRead.getRead()) <= 0) {
+            for (SAMRecord stashedRead : outOfOrderReads) {
+                if (ReadUtils.compareSAMRecords(stashedRead, read) <= 0) {
                     result.add(stashedRead);
                 }
                 else {
@@ -39,15 +39,15 @@ public class ReduceReadsStash {
             return result;
         }
 
-        public Iterable<SAMRecord> compress(SlidingRead slidingRead) {
-            return compressor.addAlignment(slidingRead);
+        public Iterable<SAMRecord> compress(SAMRecord read) {
+            return compressor.addAlignment(read);
         }
 
-        public void add(SlidingRead read) {
+        public void add(SAMRecord read) {
             outOfOrderReads.add(read);
         }
 
-        public SortedSet<SlidingRead> getAllReads() {
+        public SortedSet<SAMRecord> getAllReads() {
             return outOfOrderReads;
         }
 
@@ -55,7 +55,7 @@ public class ReduceReadsStash {
             LinkedList<SAMRecord> result = new LinkedList<SAMRecord>();
 
             // compress all the stashed reads (in order)
-            for (SlidingRead read : outOfOrderReads)
+            for (SAMRecord read : outOfOrderReads)
                 for (SAMRecord compressedRead : compressor.addAlignment(read))
                     result.add(compressedRead);
 

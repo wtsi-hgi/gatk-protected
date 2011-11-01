@@ -54,7 +54,7 @@ import java.util.*;
 
 @PartitionBy(PartitionType.INTERVAL)
 @ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
-public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReadsStash> {
+public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsStash> {
 
     @Output
     protected StingSAMFileWriter out;
@@ -262,7 +262,7 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
     }
 
     @Override
-    public List<SlidingRead> map( ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker ) {
+    public List<SAMRecord> map( ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker ) {
         totalReads++;
         read = SimplifyingSAMFileWriter.simplifyRead(read);
 
@@ -287,11 +287,8 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
                 System.out.printf("MAPPED: %s %d %d\n", mappedRead.getCigar(), mappedRead.getAlignmentStart(), mappedRead.getAlignmentEnd());
         }
 
-        List<SlidingRead> slidingReads = new LinkedList<SlidingRead>();
-        for (SAMRecord record : mappedReads)
-            slidingReads.add(new SlidingRead(record, ref));
+        return mappedReads;
 
-        return slidingReads;
     }
 
 
@@ -308,21 +305,21 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
     /**
      * given a read and an output location, reduce by emitting the read
      */
-    public ReduceReadsStash reduce( List<SlidingRead> mappedReads, ReduceReadsStash stash ) {
+    public ReduceReadsStash reduce( List<SAMRecord> mappedReads, ReduceReadsStash stash ) {
         boolean firstRead = true;
-        for (SlidingRead slidingRead : mappedReads) {
-            boolean originalRead = firstRead && ReadUtils.getReadAndIntervalOverlapType(slidingRead.getRead(), intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
+        for (SAMRecord read : mappedReads) {
+            boolean originalRead = firstRead && ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
 
-            if (slidingRead.getReadLength() == 0)
-                throw new ReviewedStingException("Empty read sent to reduce, this should never happen! " + slidingRead.getRead().getReadName() + " -- " + slidingRead.getRead().getCigar() + " -- " + slidingRead.getRead().getReferenceName() + ":" + slidingRead.getRead().getAlignmentStart() + "-" + slidingRead.getRead().getAlignmentEnd() );
+            if (read.getReadLength() == 0)
+                throw new ReviewedStingException("Empty read sent to reduce, this should never happen! " + read.getReadName() + " -- " + read.getCigar() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() );
 
             if (originalRead) {
-                List<SlidingRead> readsReady = new LinkedList<SlidingRead>();
-                readsReady.addAll(stash.getAllReadsBefore(slidingRead));
-                readsReady.add(slidingRead);
+                List<SAMRecord> readsReady = new LinkedList<SAMRecord>();
+                readsReady.addAll(stash.getAllReadsBefore(read));
+                readsReady.add(read);
 
-                for (SlidingRead readReady : readsReady) {
-                    if (debugLevel == 1) System.out.println("REDUCE: " + readReady.getRead().getCigar() + " " + readReady.getRead().getAlignmentStart() + " " + readReady.getRead().getAlignmentEnd());
+                for (SAMRecord readReady : readsReady) {
+                    if (debugLevel == 1) System.out.println("REDUCE: " + readReady.getCigar() + " " + readReady.getAlignmentStart() + " " + readReady.getAlignmentEnd());
 
                     for ( SAMRecord compressedRead : stash.compress(readReady))
                         outputRead(compressedRead);
@@ -331,7 +328,7 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
 
             }
             else
-                stash.add(slidingRead);
+                stash.add(read);
 
             firstRead = false;
         }
@@ -347,8 +344,6 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
             outputRead(read);
     }
 
-    @Deprecated
-    // this test is not meaningful with the new representation of reference bases ('=') anymore.
     private void checkForHighMismatch(SAMRecord read) {
         final int start = read.getAlignmentStart();
         final int stop = read.getAlignmentEnd();
@@ -365,8 +360,8 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
     }
 
     private void outputRead(SAMRecord read) {
-//        if (debugLevel == 2)
-//            checkForHighMismatch(read);
+        if (debugLevel == 2)
+            checkForHighMismatch(read);
 
         if (isConsensus(read))
             nCompressedReads++;
