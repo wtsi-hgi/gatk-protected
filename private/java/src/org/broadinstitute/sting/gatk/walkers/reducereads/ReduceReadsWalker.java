@@ -356,25 +356,24 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
             throw new ReviewedStingException("BUG: High mismatch fraction found in read " + read.getReadName() + " position: " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
     }
 
-    private boolean isConsensus(SAMRecord read) {
-        return read.getAttribute(GATKSAMRecord.REDUCED_READ_QUALITY_TAG) != null;
-    }
-
     private void outputRead(SAMRecord read) {
-        if (debugLevel == 2)
-            checkForHighMismatch(read);
+        GATKSAMRecord gatkRead = (GATKSAMRecord) read;
 
-        if (isConsensus(read))
+        if (debugLevel == 2)
+            checkForHighMismatch(gatkRead);
+
+        if (gatkRead.isReducedRead())
             nCompressedReads++;
         else
             totalReads++;
 
-        if (debugLevel == 1) System.out.println("BAM: " + read.getCigar() + " " + read.getAlignmentStart() + " " + read.getAlignmentEnd());
+        if (debugLevel == 1) System.out.println("BAM: " + gatkRead.getCigar() + " " + gatkRead.getAlignmentStart() + " " + gatkRead.getAlignmentEnd());
 
-        out.addAlignment(compressReadName(read));
+        out.addAlignment(compressReadName(gatkRead));
     }
 
-    private SAMRecord compressReadName(SAMRecord read) {
+    private SAMRecord compressReadName(SAMRecord samRead) {
+        GATKSAMRecord read = (GATKSAMRecord) samRead;
         SAMRecord compressedRead;
 
         try {
@@ -384,7 +383,7 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
         }
 
         String name = read.getReadName();
-        String compressedName = isConsensus(read) ? "C" : "";
+        String compressedName = read.isReducedRead() ? "C" : "";
         if (readNameHash.containsKey(name))
             compressedName += readNameHash.get(name).toString();
         else {
