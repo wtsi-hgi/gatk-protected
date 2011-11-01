@@ -47,6 +47,7 @@ import org.broadinstitute.sting.utils.GenomeLocComparator;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.sam.SimplifyingSAMFileWriter;
 
@@ -351,12 +352,12 @@ public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsSt
         final int nm = SequenceUtil.countMismatches(read, ref, start - 1);
         final int readLen = read.getReadLength();
         final double nmFraction = nm / (1.0*readLen);
-        if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG) != null)
+        if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_QUALITY_TAG) != null)
             throw new ReviewedStingException("BUG: High mismatch fraction found in read " + read.getReadName() + " position: " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
     }
 
     private boolean isConsensus(SAMRecord read) {
-        return read.getAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG) != null;
+        return read.getAttribute(GATKSAMRecord.REDUCED_READ_QUALITY_TAG) != null;
     }
 
     private void outputRead(SAMRecord read) {

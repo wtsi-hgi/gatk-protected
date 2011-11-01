@@ -2,7 +2,7 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import net.sf.samtools.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -102,7 +102,7 @@ public class RunningConsensus {
         samRecord.setReadBases(convertReadBases());
         samRecord.setMappingQuality((int) Math.ceil(mappingQuality /bases.size()));
         samRecord.setAttribute("RG", readGroupAttribute);
-        samRecord.setAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG, convertBaseCounts());
+        samRecord.setAttribute(GATKSAMRecord.REDUCED_READ_QUALITY_TAG, convertBaseCounts());
         return samRecord;
     }
 
