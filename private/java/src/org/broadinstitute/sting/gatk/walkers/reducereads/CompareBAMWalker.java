@@ -11,7 +11,6 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 
 import java.util.*;
 
@@ -93,8 +92,8 @@ public class CompareBAMWalker extends LocusWalker<Map<CompareBAMWalker.TestName,
 
         // No data in the Reduced Read
         if (context.getBasePileup().getPileupForReadGroup(reducedReadGroupID) == null) {
-            if (context.getBasePileup().getBaseAndMappingFilteredPileup(MIN_BASE_QUAL, MIN_MAPPING_QUAL).size() != 0) {
-               logger.warn("No reduce reads information at locus " + ref.getLocus().toString() + " but full BAM has bases that pass filters. [" + context.getBasePileup().getBaseAndMappingFilteredPileup(MIN_BASE_QUAL, MIN_MAPPING_QUAL).size() + "]");
+            if (context.getBasePileup().getBaseAndMappingFilteredPileup(MIN_BASE_QUAL, MIN_MAPPING_QUAL).getNumberOfElements() != 0) {
+               logger.warn("No reduce reads information at locus " + ref.getLocus().toString() + " but full BAM has bases that pass filters. [" + context.getBasePileup().getBaseAndMappingFilteredPileup(MIN_BASE_QUAL, MIN_MAPPING_QUAL).getNumberOfElements() + "]");
                return false;
             }
             return true;

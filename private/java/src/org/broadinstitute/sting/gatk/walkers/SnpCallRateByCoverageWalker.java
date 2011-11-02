@@ -74,7 +74,7 @@ public class SnpCallRateByCoverageWalker extends LocusWalker<List<String>, Strin
 
     public boolean filter(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         return (BaseUtils.simpleBaseToBaseIndex(ref.getBase()) != -1 &&
-                context.getBasePileup().size() != 0 &&
+                context.getBasePileup().getNumberOfElements() != 0 &&
                 tracker != null &&
                 tracker.getValues(VariantContext.class) != null
         );

@@ -7,7 +7,6 @@ import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 
 import java.util.*;
-import java.util.logging.Filter;
 
 /**
  * Created by IntelliJ IDEA.
@@ -88,7 +87,7 @@ public class Pool {
      * @return the number of bases in the pool pileup
      */
     public int size() {
-        return pileup.size();
+        return pileup.getNumberOfElements();
     }
 
     /**
