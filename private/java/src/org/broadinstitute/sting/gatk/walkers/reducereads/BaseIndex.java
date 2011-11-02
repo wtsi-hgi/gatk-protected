@@ -7,13 +7,12 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
  * @since 8/26/11
  */
 public enum BaseIndex {
-    A  ( 'A', 0 ),
-    C  ( 'C', 1 ),
-    G  ( 'G', 2 ),
-    T  ( 'T', 3 ),
-    D  ( 'D', 4 ),
-    I  ( 'I', 5 ), // insertion to the right of the base
-    EQ ( '=', 6 );
+    A ( 'A', 0 ),
+    C ( 'C', 1 ),
+    G ( 'G', 2 ),
+    T ( 'T', 3 ),
+    D ( 'D', 4 ),
+    I ( 'I', 5 ); // insertion to the right of the base
 
     final byte b;
     final int index;
@@ -46,8 +45,6 @@ public enum BaseIndex {
             case 'I':
             case 'i':
                 return I;
-            case '=':
-                return EQ;
             default: return null;
         }
     }

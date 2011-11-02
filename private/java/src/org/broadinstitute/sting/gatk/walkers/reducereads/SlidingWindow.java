@@ -23,7 +23,7 @@ public class SlidingWindow {
     protected final static String RG_POSTFIX = ".ReducedReads";
 
     // Sliding Window data
-    protected LinkedList<SlidingRead> slidingReads;
+    protected LinkedList<SlidingRead> SlidingReads;
     protected LinkedList<HeaderElement> windowHeader;
     protected int contextSize;
     protected int contextSizeIndels;
@@ -46,9 +46,6 @@ public class SlidingWindow {
     protected int MAX_QUAL_COUNT;                                   // to avoid blowing up the qual field of a consensus site
     protected int MIN_MAPPING_QUALITY;
 
-    public SlidingWindow(SlidingRead slidingRead, int contextSize, int contextSizeIndels, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int maxQualCount, int minMappingQuality) {
-        this(slidingRead.getRead().getReferenceName(), slidingRead.getRead().getReferenceIndex(), contextSize, contextSizeIndels, slidingRead.getRead().getHeader(), slidingRead.getRead().getAttribute("RG"), windowNumber, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
-    }
 
     public SlidingWindow(String contig, int contigIndex, int contextSize, int contextSizeIndels, SAMFileHeader header, Object readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int maxQualCount, int minMappingQuality) {
         this.startLocation = -1;
@@ -63,7 +60,7 @@ public class SlidingWindow {
         this.MIN_MAPPING_QUALITY = minMappingQuality;
 
         this.windowHeader = new LinkedList<HeaderElement>();
-        this.slidingReads = new LinkedList<SlidingRead>();
+        this.SlidingReads = new LinkedList<SlidingRead>();
 
         this.consensusCounter = 0;
 
@@ -88,19 +85,18 @@ public class SlidingWindow {
         return contig;
     }
 
-    public List<SAMRecord> addRead( SlidingRead slidingRead ) {
+    public List<SAMRecord> addRead( SAMRecord read ) {
         // If this is the first read in the window, update startLocation
         if (startLocation < 0)
-            startLocation = slidingRead.getRead().getAlignmentStart();
+            startLocation = read.getAlignmentStart();
 
-        List<SAMRecord> finalizedReads = slideIfPossible(slidingRead.getRead().getUnclippedStart());
+        List<SAMRecord> finalizedReads = slideIfPossible(read.getUnclippedStart());
 
         // update the window header counts
-        updateHeaderCounts(slidingRead);
+        updateHeaderCounts(read);
 
         // add read to sliding reads
-        slidingRead.compress();
-        slidingReads.add(slidingRead);
+        SlidingReads.add(new SlidingRead(read));
 
         return finalizedReads;
     }
@@ -225,11 +221,6 @@ public class SlidingWindow {
                         byte base  = wh.baseCounts.baseWithMostCounts();
                         byte count = (byte) Math.min(wh.baseCounts.countOfMostCommonBase(), MAX_QUAL_COUNT);
                         byte qual  = wh.baseCounts.averageQualsOfMostCommonBase();
-
-                        boolean isReference = wh.getReferenceBase() == base;
-                        if (isReference)
-                            base = BaseIndex.EQ.getByte();
-
                         runningConsensus.add(base, count, qual, wh.getRMS());
                     }
                 }
@@ -253,7 +244,7 @@ public class SlidingWindow {
         int refStart = windowHeader.get(start).location;
         int refEnd = windowHeader.get(end).location;         // update to refStart + end?
 
-        for ( SlidingRead read: slidingReads) {
+        for ( SlidingRead read: SlidingReads ) {
             SAMRecord SAM = read.trimToVariableRegion(refStart, refEnd);
             //System.out.println("HardClippedEnds:  (" + refStart +","+ refStop +") " + SAM.getCigarString() + "\t" + SAM.getAlignmentStart() + "\t" + SAM.getAlignmentEnd());
             SAM.setReadName(SAM.getReadName()+".trim");
@@ -280,12 +271,12 @@ public class SlidingWindow {
 
             // clip reads to new window
             int refLeftPosition = windowHeader.peekFirst().location;  // should I just get startLocation ?  (works if there are no gaps)
-            for ( SlidingRead slidingRead: slidingReads) {
+            for ( SlidingRead slidingRead: SlidingReads ) {
                 SlidingRead sr = slidingRead.clipStart(refLeftPosition);
                 if (sr != null)
                     newSlidingReads.add(sr);
             }
-            slidingReads = newSlidingReads;
+            SlidingReads = newSlidingReads;
         }
     }
 
@@ -352,19 +343,10 @@ public class SlidingWindow {
      * Updates the sliding window's header counts with the incoming read bases, insertions
      * and deletions.
      *
-     * @param slidingRead the incoming read to be added to the sliding window
+     * @param read the incoming read to be added to the sliding window
      */
-    @Requires("slidingRead.getRead().getAlignmentStart() >= startLocation")
-    protected void updateHeaderCounts(SlidingRead slidingRead) {
-        // Simplifying SAMRecord methods access downstream
-        SAMRecord read = slidingRead.getRead();
-
-        // Reads that don't pass the minimum mapping quality filter are not added to the
-        // consensus, or count towards a variant region so no point in keeping track of
-        // their base counts.
-        if (read.getMappingQuality() < MIN_MAPPING_QUALITY)
-            return;
-
+    @Requires("read.getAlignmentStart() >= startLocation")
+    protected void updateHeaderCounts(SAMRecord read) {
         byte[] bases = read.getReadBases();
         byte[] quals = read.getBaseQualities();
         Cigar cigar = read.getCigar();
@@ -393,43 +375,57 @@ public class SlidingWindow {
             stopLocation = read.getAlignmentEnd();
         }
 
-        for (CigarElement cigarElement : cigar.getCigarElements()) {
-            switch (cigarElement.getOperator()) {
-                case H:
-                case S:
-                    // nothing to add to the window
-                    break;
-                case I:
-                    // insertions are added to the base to the left (previous element) with the quality score of the first inserted base
-                    if (locationIndex > 0) {
-                        windowHeader.get(locationIndex - 1).addInsertionToTheRight();     // check if it's the first element in the read!
-                        readBaseIndex += cigarElement.getLength();
-                    }
+        // Reads that don't pass the minimum mapping quality filter are not added to the
+        // consensus, or count towards a variant region so no point in keeping track of
+        // their base counts.
+        if (read.getMappingQuality() < MIN_MAPPING_QUALITY) {
+            Iterator<HeaderElement> headerElementIterator = windowHeader.listIterator(locationIndex);
+            for (int i = read.getAlignmentStart(); i <= read.getAlignmentEnd(); i++) {
+                if (!headerElementIterator.hasNext())
+                    throw new ReviewedStingException("No header element for position: + " + read.getReferenceName() + ":" + i);
 
-                    // just ignore the insertions at the beginning of the read
-                    break;
-                case D:
-                    // deletions are added to the baseCounts with the read mapping quality as it's quality score
-                    int nDeletionsToAdd = cigarElement.getLength();
-                    while(nDeletionsToAdd-- > 0) {
-                        windowHeader.get(locationIndex).addBase((byte) 'D', (byte) read.getMappingQuality(), read.getMappingQuality());
-                        locationIndex++;
-                    }
-                    break;
-                case M:
-                case P:
-                case EQ:
-                case X:
-                    int nBasesToAdd = cigarElement.getLength();
-                    while(nBasesToAdd-- > 0) {
-                        HeaderElement wh = windowHeader.get(locationIndex);
-                        wh.addBase(bases[readBaseIndex], quals[readBaseIndex], read.getMappingQuality());
-                        if (!slidingRead.getBaseIsMismatch(readBaseIndex))
-                            wh.setReferenceBase(bases[readBaseIndex]);
-                        readBaseIndex++;
-                        locationIndex++;
-                    }
-                    break;
+                HeaderElement headerElement = headerElementIterator.next();
+                headerElement.addMappingQuality(read.getMappingQuality());
+            }
+        }
+        else {
+            // todo -- perhaps rewrite this iteration using list iterator to save time searching for each index.
+            // todo -- they should be consecutive (as far as I can tell)
+            for (CigarElement cigarElement : cigar.getCigarElements()) {
+                switch (cigarElement.getOperator()) {
+                    case H:
+                    case S:
+                        // nothing to add to the window
+                        break;
+                    case I:
+                        // insertions are added to the base to the left (previous element) with the quality score of the first inserted base
+                        if (locationIndex > 0) {
+                            windowHeader.get(locationIndex - 1).addInsertionToTheRight();     // check if it's the first element in the read!
+                            readBaseIndex += cigarElement.getLength();
+                        }
+
+                        // just ignore the insertions at the beginning of the read
+                        break;
+                    case D:
+                        // deletions are added to the baseCounts with the read mapping quality as it's quality score
+                        int nDeletionsToAdd = cigarElement.getLength();
+                        while(nDeletionsToAdd-- > 0) {
+                            windowHeader.get(locationIndex).addBase((byte) 'D', (byte) read.getMappingQuality(), read.getMappingQuality());
+                            locationIndex++;
+                        }
+                        break;
+                    case M:
+                    case P:
+                    case EQ:
+                    case X:
+                        int nBasesToAdd = cigarElement.getLength();
+                        while(nBasesToAdd-- > 0) {
+                            windowHeader.get(locationIndex).addBase(bases[readBaseIndex], quals[readBaseIndex], read.getMappingQuality());
+                            readBaseIndex++;
+                            locationIndex++;
+                        }
+                        break;
+                }
             }
         }
     }
@@ -449,30 +445,17 @@ public class SlidingWindow {
         protected BaseCounts baseCounts;               // How many A,C,G,T (and D's) are in this site.
         protected int insertionsToTheRight;            // How many reads in this site had insertions to the immediate right
         protected int location;                        // Genome location of this site (the sliding window knows which contig we're at
-        protected LinkedList<Double> mappingQuality;   // keeps the mapping quality of each read that contributed to this element (site)
-        protected byte referenceBase;                  // the reference base for this element's locus
+        protected LinkedList<Integer> mappingQuality;   // keeps the mapping quality of each read that contributed to this element (site)
 
-        private final byte NO_BASE = 0;
 
         public HeaderElement() {
             this.baseCounts = new BaseCounts();
             this.insertionsToTheRight = 0;
             this.location = 0;
-            this.mappingQuality = new LinkedList<Double>();
-            this.referenceBase = NO_BASE;
+            this.mappingQuality = new LinkedList<Integer>();
         }
 
         public int getLocation() { return location; }
-
-        public byte getReferenceBase() {
-            return referenceBase;
-        }
-
-        public void setReferenceBase(byte referenceBase) {
-            if (this.referenceBase != NO_BASE && this.referenceBase != referenceBase)
-                throw new ReviewedStingException("This read has a reference base that is different from the reference base previously informed by other reads. This should never happen. " + location + " - read says:" + referenceBase + " vs " + this.referenceBase);
-            this.referenceBase = referenceBase;
-        }
 
         public HeaderElement(int location) {
             this();
@@ -483,11 +466,11 @@ public class SlidingWindow {
             return isVariantFromInsertions() || isVariantFromMismatches() || isVariantFromDeletions();
         }
 
-        public void addBase(byte base, byte qual, double mappingQuality) {
+        public void addBase(byte base, byte qual, int mappingQuality) {
             if ( qual >= MIN_BASE_QUAL_TO_COUNT )  {
                 baseCounts.incr(base, qual);
-                this.mappingQuality.add(mappingQuality);
             }
+            this.mappingQuality.add(mappingQuality);
         }
 
         protected boolean isVariantFromInsertions() {
@@ -512,6 +495,10 @@ public class SlidingWindow {
 
         public double getRMS() {
             return MathUtils.rms(mappingQuality);
+        }
+
+        public void addMappingQuality(int mappingQuality) {
+            this.mappingQuality.add(mappingQuality);
         }
     }
 

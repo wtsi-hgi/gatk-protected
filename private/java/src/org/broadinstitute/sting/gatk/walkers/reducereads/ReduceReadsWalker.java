@@ -1,6 +1,30 @@
+/*
+ * Copyright (c) 2010 The Broad Institute
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+ * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMUtils;
 import net.sf.samtools.util.SequenceUtil;
@@ -23,6 +47,7 @@ import org.broadinstitute.sting.utils.GenomeLocComparator;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.sam.SimplifyingSAMFileWriter;
 
@@ -30,7 +55,7 @@ import java.util.*;
 
 @PartitionBy(PartitionType.INTERVAL)
 @ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
-public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReadsStash> {
+public class ReduceReadsWalker extends ReadWalker<List<SAMRecord>, ReduceReadsStash> {
 
     @Output
     protected StingSAMFileWriter out;
@@ -75,11 +100,8 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
     protected int totalReads = 0;
     int nCompressedReads = 0;
 
-    HashMap<String, Long> readNameHash;    // This hash will keep the name of the original read the new compressed name (a number).
-    Long nextReadNumber = 1L;              // The next number to use for the compressed read name.
-
-    HashMap<String, String> readGroupHash; // This hash will keep the original read group id and the new compressed read group id (a number).
-    Long nextReadGroup = 1L;               // The next number to use for the compressed read group.
+    HashMap<String, Long> readNameHash;  // This hash will keep the name of the original read the new compressed name (a number).
+    Long nextReadNumber = 1L;             // The next number to use for the compressed read name.
 
     SortedSet<GenomeLoc> intervalList;
 
@@ -227,32 +249,21 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
         super.initialize();
 
         readNameHash = new HashMap<String, Long>();
-        readGroupHash = new HashMap<String, String>();
 
         intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator ());
         intervalList.addAll(getToolkit().getIntervals());
 
-        // multi-sample BAMs will pump out consensus reads in random order
         out.setPresorted(false);
 
-        // fill the hash table with the compressed read names and rewrite the output header with the compressed read groups only
-        List<SAMReadGroupRecord> readGroupRecordList = new LinkedList<SAMReadGroupRecord>();
-        for ( SAMReadGroupRecord rg : getToolkit().getSAMFileHeader().getReadGroups()) {
-            if (!readGroupHash.containsKey(rg.getId())) {
-                SAMReadGroupRecord compressedReadGroup = new SAMReadGroupRecord(nextReadGroup.toString(), rg);
-                readGroupRecordList.add(compressedReadGroup);
-                readGroupHash.put(rg.getId(), compressedReadGroup.getId());
-                nextReadGroup++;
-            }
-        }
-        out.getFileHeader().setReadGroups(readGroupRecordList);
+//        for ( SAMReadGroupRecord rg : getToolkit().getSAMFileHeader().getReadGroups())
+//            out.getFileHeader().addReadGroup(rg);
 
         if ( maxQualCount > SAMUtils.MAX_PHRED_SCORE )
             throw new UserException.BadArgumentValue("maximum_consensus_base_qual", "Maximum allowed quality score in a SAM file is " + SAMUtils.MAX_PHRED_SCORE);
     }
 
     @Override
-    public List<SlidingRead> map( ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker ) {
+    public List<SAMRecord> map( ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker ) {
         totalReads++;
         read = SimplifyingSAMFileWriter.simplifyRead(read);
 
@@ -277,34 +288,39 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
                 System.out.printf("MAPPED: %s %d %d\n", mappedRead.getCigar(), mappedRead.getAlignmentStart(), mappedRead.getAlignmentEnd());
         }
 
-        List<SlidingRead> slidingReads = new LinkedList<SlidingRead>();
-        for (SAMRecord record : mappedReads)
-            slidingReads.add(new SlidingRead(record, ref));
+        return mappedReads;
 
-        return slidingReads;
     }
 
 
+    /**
+     * reduceInit is called once before any calls to the map function.  We use it here to setup the output
+     * bam file, if it was specified on the command line
+     * @return SAMFileWriter, set to the BAM output file if the command line option was set, null otherwise
+     */
     @Override
     public ReduceReadsStash reduceInit() {
         return new ReduceReadsStash(new MultiSampleConsensusReadCompressor(getToolkit().getSAMFileHeader(), contextSize, contextSizeIndels, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
     }
 
-    public ReduceReadsStash reduce( List<SlidingRead> mappedReads, ReduceReadsStash stash ) {
+    /**
+     * given a read and an output location, reduce by emitting the read
+     */
+    public ReduceReadsStash reduce( List<SAMRecord> mappedReads, ReduceReadsStash stash ) {
         boolean firstRead = true;
-        for (SlidingRead slidingRead : mappedReads) {
-            boolean originalRead = firstRead && ReadUtils.getReadAndIntervalOverlapType(slidingRead.getRead(), intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
+        for (SAMRecord read : mappedReads) {
+            boolean originalRead = firstRead && ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
 
-            if (slidingRead.getReadLength() == 0)
-                throw new ReviewedStingException("Empty read sent to reduce, this should never happen! " + slidingRead.getRead().getReadName() + " -- " + slidingRead.getRead().getCigar() + " -- " + slidingRead.getRead().getReferenceName() + ":" + slidingRead.getRead().getAlignmentStart() + "-" + slidingRead.getRead().getAlignmentEnd() );
+            if (read.getReadLength() == 0)
+                throw new ReviewedStingException("Empty read sent to reduce, this should never happen! " + read.getReadName() + " -- " + read.getCigar() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() );
 
             if (originalRead) {
-                List<SlidingRead> readsReady = new LinkedList<SlidingRead>();
-                readsReady.addAll(stash.getAllReadsBefore(slidingRead));
-                readsReady.add(slidingRead);
+                List<SAMRecord> readsReady = new LinkedList<SAMRecord>();
+                readsReady.addAll(stash.getAllReadsBefore(read));
+                readsReady.add(read);
 
-                for (SlidingRead readReady : readsReady) {
-                    if (debugLevel == 1) System.out.println("REDUCE: " + readReady.getRead().getCigar() + " " + readReady.getRead().getAlignmentStart() + " " + readReady.getRead().getAlignmentEnd());
+                for (SAMRecord readReady : readsReady) {
+                    if (debugLevel == 1) System.out.println("REDUCE: " + readReady.getCigar() + " " + readReady.getAlignmentStart() + " " + readReady.getAlignmentEnd());
 
                     for ( SAMRecord compressedRead : stash.compress(readReady))
                         outputRead(compressedRead);
@@ -313,7 +329,7 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
 
             }
             else
-                stash.add(slidingRead);
+                stash.add(read);
 
             firstRead = false;
         }
@@ -329,8 +345,6 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
             outputRead(read);
     }
 
-    @Deprecated
-    // this test is not meaningful with the new representation of reference bases ('=') anymore.
     private void checkForHighMismatch(SAMRecord read) {
         final int start = read.getAlignmentStart();
         final int stop = read.getAlignmentEnd();
@@ -338,17 +352,17 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
         final int nm = SequenceUtil.countMismatches(read, ref, start - 1);
         final int readLen = read.getReadLength();
         final double nmFraction = nm / (1.0*readLen);
-        if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG) != null)
+        if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_QUALITY_TAG) != null)
             throw new ReviewedStingException("BUG: High mismatch fraction found in read " + read.getReadName() + " position: " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
     }
 
     private boolean isConsensus(SAMRecord read) {
-        return read.getAttribute(ReadUtils.REDUCED_READ_QUALITY_TAG) != null;
+        return read.getAttribute(GATKSAMRecord.REDUCED_READ_QUALITY_TAG) != null;
     }
 
     private void outputRead(SAMRecord read) {
-//        if (debugLevel == 2)
-//            checkForHighMismatch(read);
+        if (debugLevel == 2)
+            checkForHighMismatch(read);
 
         if (isConsensus(read))
             nCompressedReads++;
@@ -357,10 +371,10 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
 
         if (debugLevel == 1) System.out.println("BAM: " + read.getCigar() + " " + read.getAlignmentStart() + " " + read.getAlignmentEnd());
 
-        out.addAlignment(compressReadAttributes(read));
+        out.addAlignment(compressReadName(read));
     }
 
-    private SAMRecord compressReadAttributes(SAMRecord read) {
+    private SAMRecord compressReadName(SAMRecord read) {
         SAMRecord compressedRead;
 
         try {
@@ -369,7 +383,6 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
             throw new ReviewedStingException("Where did the clone go?");
         }
 
-        // Compress the read name
         String name = read.getReadName();
         String compressedName = isConsensus(read) ? "C" : "";
         if (readNameHash.containsKey(name))
@@ -379,13 +392,8 @@ public class ReduceReadsWalker extends ReadWalker<List<SlidingRead>, ReduceReads
             compressedName += nextReadNumber.toString();
             nextReadNumber++;
         }
+
         compressedRead.setReadName(compressedName);
-
-        // Compress the read group
-        String id = (String) read.getAttribute("RG");
-        compressedRead.setAttribute("RG", readGroupHash.get(id));
-
-        // Return compressed read
         return compressedRead;
     }
 }
