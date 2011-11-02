@@ -84,46 +84,6 @@ public class CompareBAMWalker extends LocusWalker<Map<CompareBAMWalker.TestName,
     }
 
     private boolean testEqualBases (ReferenceContext ref, AlignmentContext context) {
-        byte referenceBase = ref.getBase();
-
-        // No data in this locus
-        if (context.getBasePileup() == null)
-            return true;
-
-        // No data in the Reduced Read
-        if (context.getBasePileup().getPileupForReadGroup(reducedReadGroupID) == null) {
-            if (context.getBasePileup().getBaseAndMappingFilteredPileup(MIN_BASE_QUAL, MIN_MAPPING_QUAL).getNumberOfElements() != 0) {
-               logger.warn("No reduce reads information at locus " + ref.getLocus().toString() + " but full BAM has bases that pass filters. [" + context.getBasePileup().getBaseAndMappingFilteredPileup(MIN_BASE_QUAL, MIN_MAPPING_QUAL).getNumberOfElements() + "]");
-               return false;
-            }
-            return true;
-        }
-
-        // Reduce Read pileup
-        byte [] reducedBases = context.getBasePileup().getPileupForReadGroup(reducedReadGroupID).getBases();
-
-
-        // this is a consensus sequence
-        if (reducedBases.length == 1)  {
-            BaseCounts filteredBaseCounts = getFilteredBaseCounts(context);
-            if (reducedBases[0] == BaseIndex.EQ.getByte() && filteredBaseCounts.baseWithMostCounts() != referenceBase) {
-                logger.warn("Consensus read at " + ref.getLocus().toString() + " should not be '='. Most common base is: " + (char) filteredBaseCounts.maxBaseIndex().getByte() + " [" + filteredBaseCounts.countOfMostCommonBase() + "]");
-                return false;
-            }
-        }
-        // this is a variant region
-        else {
-            BaseCounts fullBaseCounts = getFullBaseCounts(context);
-            int nEquals = 0;
-            for (byte b : reducedBases)
-                if (b == BaseIndex.EQ.getByte())
-                    nEquals++;
-            if (nEquals != fullBaseCounts.getCount(referenceBase)) {
-                logger.warn("Variant locus " + ref.getLocus().toString() + " has " + nEquals + " '='s but full BAM has " + fullBaseCounts.getCount(referenceBase) + " bases that matches the reference base [" + (char) referenceBase + "]");
-                return false;
-            }
-        }
-
         return true;
     }
 
