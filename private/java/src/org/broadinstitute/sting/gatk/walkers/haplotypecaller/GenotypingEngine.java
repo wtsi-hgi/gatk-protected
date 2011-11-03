@@ -28,7 +28,7 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.walkers.genotyper.MultiallelicGenotypeLikelihoods;
 import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;

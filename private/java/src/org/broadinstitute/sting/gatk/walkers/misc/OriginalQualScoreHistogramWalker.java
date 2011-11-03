@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.misc;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
@@ -34,7 +34,7 @@ public class OriginalQualScoreHistogramWalker extends ReadWalker<Boolean,Long> {
         return 0L;
     }
 
-    public boolean filter(SAMRecord read) {
+    public boolean filter(GATKSAMRecord read) {
         return read.getAttribute("OQ") != null;
     }
 

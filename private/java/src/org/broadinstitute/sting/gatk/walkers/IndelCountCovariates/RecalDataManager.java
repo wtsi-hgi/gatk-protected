@@ -26,7 +26,7 @@
 package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
 import net.sf.samtools.SAMReadGroupRecord;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import net.sf.samtools.SAMUtils;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.utils.BaseUtils;
@@ -221,7 +221,7 @@ public class RecalDataManager {
      * @param read The read to adjust
      * @param RAC The list of shared command line arguments
      */
-    public static void parseSAMRecord( final SAMRecord read, final RecalibrationArgumentCollection RAC ) {
+    public static void parseSAMRecord( final GATKSAMRecord read, final RecalibrationArgumentCollection RAC ) {
 
         GATKSAMReadGroupRecord readGroup = ((GATKSAMRecord)read).getReadGroup();
 
@@ -272,10 +272,10 @@ public class RecalDataManager {
     }
 
     /**
-     * Parse through the color space of the read and add a new tag to the SAMRecord that says which bases are inconsistent with the color space
-     * @param read The SAMRecord to parse
+     * Parse through the color space of the read and add a new tag to the GATKSAMRecord that says which bases are inconsistent with the color space
+     * @param read The GATKSAMRecord to parse
      */
-    public static void parseColorSpace( final SAMRecord read ) {
+    public static void parseColorSpace( final GATKSAMRecord read ) {
 
         // If this is a SOLID read then we have to check if the color space is inconsistent. This is our only sign that SOLID has inserted the reference base
         if( read.getReadGroup().getPlatform().toUpperCase().contains("SOLID") ) {
@@ -315,13 +315,13 @@ public class RecalDataManager {
     /**
      * Parse through the color space of the read and apply the desired --solid_recal_mode correction to the bases
      * This method doesn't add the inconsistent tag to the read like parseColorSpace does
-     * @param read The SAMRecord to parse
+     * @param read The GATKSAMRecord to parse
      * @param originalQualScores The array of original quality scores to modify during the correction
      * @param solidRecalMode Which mode of solid recalibration to apply
      * @param refBases The reference for this read
      * @return A new array of quality scores that have been ref bias corrected
      */
-    public static byte[] calcColorSpace( final SAMRecord read, byte[] originalQualScores, final SOLID_RECAL_MODE solidRecalMode, final byte[] refBases ) {
+    public static byte[] calcColorSpace( final GATKSAMRecord read, byte[] originalQualScores, final SOLID_RECAL_MODE solidRecalMode, final byte[] refBases ) {
 
         final Object attr = read.getAttribute(org.broadinstitute.sting.gatk.walkers.recalibration.RecalDataManager.COLOR_SPACE_ATTRIBUTE_TAG);
         if( attr != null ) {
@@ -368,7 +368,7 @@ public class RecalDataManager {
         return originalQualScores;
     }
 
-    public static boolean checkNoCallColorSpace( final SAMRecord read ) {
+    public static boolean checkNoCallColorSpace( final GATKSAMRecord read ) {
         if( read.getReadGroup().getPlatform().toUpperCase().contains("SOLID") ) {
             final Object attr = read.getAttribute(org.broadinstitute.sting.gatk.walkers.recalibration.RecalDataManager.COLOR_SPACE_ATTRIBUTE_TAG);
             if( attr != null ) {
@@ -396,7 +396,7 @@ public class RecalDataManager {
 
     /**
      * Perform the SET_Q_ZERO solid recalibration. Inconsistent color space bases and their previous base are set to quality zero
-     * @param read The SAMRecord to recalibrate
+     * @param read The GATKSAMRecord to recalibrate
      * @param readBases The bases in the read which have been RC'd if necessary
      * @param inconsistency The array of 1/0 that says if this base is inconsistent with its color
      * @param originalQualScores The array of original quality scores to set to zero if needed
@@ -404,7 +404,7 @@ public class RecalDataManager {
      * @param setBaseN Should we also set the base to N as well as quality zero in order to visualize in IGV or something similar
      * @return The byte array of original quality scores some of which might have been set to zero
      */
-    private static byte[] solidRecalSetToQZero( final SAMRecord read, byte[] readBases, final int[] inconsistency, final byte[] originalQualScores,
+    private static byte[] solidRecalSetToQZero( final GATKSAMRecord read, byte[] readBases, final int[] inconsistency, final byte[] originalQualScores,
                                                 final byte[] refBases, final boolean setBaseN ) {
 
         final boolean negStrand = read.getReadNegativeStrandFlag();
@@ -433,13 +433,13 @@ public class RecalDataManager {
 
     /**
      * Peform the REMOVE_REF_BIAS solid recalibration. Look at the color space qualities and probabilistically decide if the base should be change to match the color or left as reference
-     * @param read The SAMRecord to recalibrate
+     * @param read The GATKSAMRecord to recalibrate
      * @param readBases The bases in the read which have been RC'd if necessary
      * @param inconsistency The array of 1/0 that says if this base is inconsistent with its color
      * @param colorImpliedBases The bases implied by the color space, RC'd if necessary
      * @param refBases The reference which has been RC'd if necessary
      */
-    private static void solidRecalRemoveRefBias( final SAMRecord read, byte[] readBases, final int[] inconsistency, final byte[] colorImpliedBases,
+    private static void solidRecalRemoveRefBias( final GATKSAMRecord read, byte[] readBases, final int[] inconsistency, final byte[] colorImpliedBases,
                                                  final byte[] refBases) {
 
         final Object attr = read.getAttribute(org.broadinstitute.sting.gatk.walkers.recalibration.RecalDataManager.COLOR_SPACE_QUAL_ATTRIBUTE_TAG);
@@ -505,7 +505,7 @@ public class RecalDataManager {
      * @param color The color
      * @return The next base in the sequence
      */
-    private static byte getNextBaseFromColor( SAMRecord read, final byte prevBase, final byte color ) {
+    private static byte getNextBaseFromColor( GATKSAMRecord read, final byte prevBase, final byte color ) {
         switch(color) {
             case '0':
                 return prevBase;
@@ -527,7 +527,7 @@ public class RecalDataManager {
      * @param offset The offset in the read at which to check
      * @return Returns true if the base was inconsistent with the color space
      */
-    public static boolean isInconsistentColorSpace( final SAMRecord read, final int offset ) {
+    public static boolean isInconsistentColorSpace( final GATKSAMRecord read, final int offset ) {
         final Object attr = read.getAttribute(org.broadinstitute.sting.gatk.walkers.recalibration.RecalDataManager.COLOR_SPACE_INCONSISTENCY_TAG);
         if( attr != null ) {
             final byte[] inconsistency = (byte[])attr;

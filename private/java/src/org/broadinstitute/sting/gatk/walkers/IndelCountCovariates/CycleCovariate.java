@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 
@@ -62,7 +62,7 @@ public class CycleCovariate implements StandardCovariate {
 
     /*
     // Used to pick out the covariate's value from attributes of the read
-    public final Comparable getValue( final SAMRecord read, final int offset ) {
+    public final Comparable getValue( final GATKSAMRecord read, final int offset ) {
 
         int cycle = 1;
 
@@ -166,7 +166,7 @@ public class CycleCovariate implements StandardCovariate {
     private static List<String> SOLID_NAMES = Arrays.asList("SOLID");
     private static List<String> LS454_NAMES = Arrays.asList("454");
 
-    private static boolean isPlatform(SAMRecord read, List<String> names) {
+    private static boolean isPlatform(GATKSAMRecord read, List<String> names) {
         String pl = read.getReadGroup().getPlatform().toUpperCase();
         for ( String name : names )
             if ( pl.contains( name ) )
@@ -175,7 +175,7 @@ public class CycleCovariate implements StandardCovariate {
     }
 
     // Used to pick out the covariate's value from attributes of the read
-    public void getValues(SAMRecord read, Comparable[] comparable) {
+    public void getValues(GATKSAMRecord read, Comparable[] comparable) {
 
         //-----------------------------
         // ILLUMINA and SOLID

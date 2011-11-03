@@ -12,7 +12,7 @@ import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import java.io.PrintStream;
 
 /**
- * This tool computes the insert size distributions (from the ISIZE field of the SAMRecord) for each sample and read group in a BAM
+ * This tool computes the insert size distributions (from the ISIZE field of the GATKSAMRecord) for each sample and read group in a BAM
  *
  * <h2>Input</h2>
  * <p>

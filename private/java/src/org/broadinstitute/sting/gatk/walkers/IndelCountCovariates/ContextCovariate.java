@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.Arrays;
 
@@ -22,7 +22,7 @@ public class ContextCovariate implements Covariate {
         }
     }
 
-    public void getValues(SAMRecord read, Comparable[] comparable) {
+    public void getValues(GATKSAMRecord read, Comparable[] comparable) {
         byte[] bases = read.getReadBases();
         for(int i = 0; i < read.getReadLength(); i++) {
             comparable[i] = ( i-CONTEXT_SIZE < 0 ? allN : new String(Arrays.copyOfRange(bases,i-CONTEXT_SIZE,i)) );
