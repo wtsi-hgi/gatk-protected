@@ -29,13 +29,9 @@ import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
 import net.sf.samtools.SAMRecord;
-import org.apache.poi.ss.formula.functions.Even;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.walkers.genotyper.MultiallelicGenotypeLikelihoods;
 import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;
-import org.broadinstitute.sting.gatk.walkers.variantutils.CombineVariants;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
@@ -43,8 +39,6 @@ import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
-import javax.swing.*;
-import java.lang.reflect.Array;
 import java.util.*;
 
 public class GenotypingEngine {
@@ -95,50 +89,58 @@ public class GenotypingEngine {
             final ArrayList<Event> bestEventList = bestEventDictionary.get(key);
 
             // Gather together all the VCs at this start location and use VariantContextUtils to merge the alleles together
-            final ArrayList<VariantContext> unmergedVCs = new ArrayList<VariantContext>();
+            final ArrayList<VariantContext> vcsToGenotype = new ArrayList<VariantContext>();
             for( final Event e : bestEventList ) {
-                unmergedVCs.add(e.vc);
+                vcsToGenotype.add(e.vc);
             }
-            final VariantContext mergedVC = VariantContextUtils.simpleMerge(genomeLocParser, unmergedVCs, null, VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED, VariantContextUtils.GenotypeMergeType.UNSORTED, false, false, null, false, false);
 
             // For multi-allelic deletion records the alleles need to be expanded to match the length of the longest allele
             // Also add reference events to the dictionary for every haplotype that doesn't have any event to make the for loop below very easy to write
+            final VariantContext mergedVC = VariantContextUtils.simpleMerge(genomeLocParser, vcsToGenotype, null, VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED, VariantContextUtils.GenotypeMergeType.UNSORTED, false, false, null, false, false);
             correctAndExpandEventListWithRefEvents(allEventList, mergedVC, haplotypeLikelihoodMatrixMap.values().iterator().next()[0].length);
-            final Map<String, Genotype> genotypes = new LinkedHashMap<String, Genotype>();
+            vcsToGenotype.clear();
+            vcsToGenotype.add( mergedVC );
 
-            if( DEBUG ) { System.out.println("Genotyping event at " + key + " with alleles: " + mergedVC.getAlleles()); }
+            for( final VariantContext vcToGenotype : vcsToGenotype ) {
+                if( DEBUG ) { System.out.println("Genotyping event at " + key + " with alleles: " + vcToGenotype.getAlleles()); }
+                final Map<String, Genotype> genotypes = new LinkedHashMap<String, Genotype>();
+                // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample
+                for( final String sample : haplotypeLikelihoodMatrixMap.keySet() ) {
+                    final double[] genotypeLikelihoods = new double[(vcToGenotype.getAlleles().size() * (vcToGenotype.getAlleles().size()+1)) / 2];
+                    final Double[][] haplotypeLikelihoodMatrix = haplotypeLikelihoodMatrixMap.get( sample );
+                    int glIndex = 0;
+                    for( int iii = 0; iii < vcToGenotype.getAlleles().size(); iii++ ) {
+                        for( int jjj = 0; jjj <= iii; jjj++ ) {
+                            double likelihood = Double.NEGATIVE_INFINITY;
+                            final Pair<Allele, Allele> allelePair1 = new Pair<Allele, Allele>(vcToGenotype.getReference(), vcToGenotype.getAlleles().get(jjj));
+                            final Pair<Allele, Allele> allelePair2 = new Pair<Allele, Allele>(vcToGenotype.getReference(), vcToGenotype.getAlleles().get(iii));
 
-            // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample
-            for( final String sample : haplotypeLikelihoodMatrixMap.keySet() ) {
-                final double[] genotypeLikelihoods = new double[(mergedVC.getAlleles().size() * (mergedVC.getAlleles().size()+1)) / 2];
-                final Double[][] haplotypeLikelihoodMatrix = haplotypeLikelihoodMatrixMap.get( sample );
-                int glIndex = 0;
-                for( int iii = 0; iii < mergedVC.getAlleles().size(); iii++ ) {
-                    for( int jjj = 0; jjj <= iii; jjj++ ) {
-                        double likelihood = Double.NEGATIVE_INFINITY;
-                        final Pair<Allele, Allele> allelePair1 = new Pair<Allele, Allele>(mergedVC.getReference(), mergedVC.getAlleles().get(jjj));
-                        final Pair<Allele, Allele> allelePair2 = new Pair<Allele, Allele>(mergedVC.getReference(), mergedVC.getAlleles().get(iii));
-
-                        // Loop through all haplotype pairs and find the max likelihood that has this given combination of events on the pair of haplotypes
-                        for( final Event e1 : allEventList ) {
-                            if( allelePair1.equals( new Pair<Allele, Allele>(e1.refAllele, e1.altAllele) ) ) {
-                                for( final Event e2 : allEventList ) {
-                                    if( allelePair2.equals( new Pair<Allele, Allele>(e2.refAllele, e2.altAllele) ) ) {
-                                        likelihood = Math.max( likelihood, haplotypeLikelihoodMatrix[e1.index][e2.index] );
+                            // Loop through all haplotype pairs and find the max likelihood that has this given combination of events on the pair of haplotypes
+                            for( final Event e1 : allEventList ) {
+                                if( allelePair1.equals( new Pair<Allele, Allele>(e1.refAllele, e1.altAllele) ) ) {
+                                    for( final Event e2 : allEventList ) {
+                                        if( allelePair2.equals( new Pair<Allele, Allele>(e2.refAllele, e2.altAllele) ) ) {
+                                            likelihood = Math.max( likelihood, haplotypeLikelihoodMatrix[e1.index][e2.index] );
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        genotypeLikelihoods[glIndex++] = likelihood;
-                        if( DEBUG ) { System.out.println(iii + ", " + jjj + ": " + likelihood); }
+                            if( Double.isInfinite(likelihood) ) {
+                                throw new ReviewedStingException("Infinite likelihood detected. Maybe the correct event wasn't found in the event dictionary.");
+                            }
+
+                            genotypeLikelihoods[glIndex++] = likelihood;
+                            if( DEBUG ) { System.out.println(iii + ", " + jjj + ": " + likelihood); }
+                        }
                     }
+                    final HashMap<String, Object> attributes = new HashMap<String, Object>();
+                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((
+                            new MultiallelicGenotypeLikelihoods(sample, vcToGenotype.getAlleles(), genotypeLikelihoods, 40)).getLikelihoods()));
+                    genotypes.put(sample, new Genotype(sample, noCall, Genotype.NO_NEG_LOG_10PERROR, null, attributes, false));
                 }
-                final HashMap<String, Object> attributes = new HashMap<String, Object>();
-                attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((new MultiallelicGenotypeLikelihoods(sample, mergedVC.getAlleles(), genotypeLikelihoods, 40)).getLikelihoods()));
-                genotypes.put(sample, new Genotype(sample, noCall, Genotype.NO_NEG_LOG_10PERROR, null, attributes, false));
+                returnCallContexts.add( VariantContext.modifyGenotypes(vcToGenotype, genotypes) );
             }
-            returnCallContexts.add( VariantContext.modifyGenotypes(mergedVC, genotypes) );
         }
 
         return returnCallContexts;
@@ -158,7 +160,6 @@ public class GenotypingEngine {
             final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
             if( DEBUG ) {
                 System.out.println( h.toString() );
-                System.out.println( "Score = " + h.score );
                 System.out.println( "Cigar = " + swConsensus.getCigar() );
             }
             if( swConsensus.getCigar().getReadLength() < 10 ) {
@@ -170,7 +171,7 @@ public class GenotypingEngine {
             // Walk along the alignment and turn any difference from the reference into an event
             final ArrayList<VariantContext> vcs = generateVCsFromAlignment(swConsensus, ref, h.bases, loc);
 
-            if( vcs == null || vcs.size() > 5 ) { // too many variants on this haplotype, wasn't assembled very well
+            if( vcs == null || tooManyClusteredVariantsOnHaplotype( vcs ) ) { // too many variants on this haplotype means it wasn't assembled very well
                 if( DEBUG ) { System.out.println("Filtered!"); }
                 if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
                 continue; // Protection against SW failures
@@ -188,6 +189,9 @@ public class GenotypingEngine {
                     e.vc = vc; // BUGBUG: probably don't need to keep all the VC's around anymore or even create them in the first place
                     e.refAllele = vc.getReference();
                     e.altAllele = vc.getAlternateAlleles().get(0); // This vc is guaranteed to have only one alternate allele
+                    if( vc.getAlternateAlleles().size() != 1 ) {
+                        throw new ReviewedStingException("BUG: smith-waterman derived variant context has more than one alternate allele!");
+                    }
                     e.index = hIndex;
                     eventList.add(e);
                 }
@@ -198,7 +202,22 @@ public class GenotypingEngine {
         if( filterBadHaplotypes ) { haplotypes.removeAll(haplotypesToRemove); }
     }
 
+    private boolean tooManyClusteredVariantsOnHaplotype( final ArrayList<VariantContext> vcs ) {
+        final int clusterSize = 60;
+        final int threshold = 4;
+
+        for(int iii = 0; iii < vcs.size() - threshold + 1; iii++) {
+            final int size = vcs.get(iii + threshold - 1).getStart() - vcs.get(iii).getStart();
+            if( size <= clusterSize ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void correctAndExpandEventListWithRefEvents( final ArrayList<Event> inputEvents, final VariantContext mergedVC, final int maxHaplotypeIndex ) {
+        if( DEBUG ) { System.out.println( "! Merged event ref = " + mergedVC.getReference() ); }
         for(int iii = 0; iii < maxHaplotypeIndex; iii++) {
             Event myEvent = null;
             for( final Event e : inputEvents) {
@@ -212,17 +231,20 @@ public class GenotypingEngine {
                 e.index = iii;
                 inputEvents.add(e);
             } else { // might need to correct the alleles because of the potential merging of multiallelic records
-                if( !myEvent.refAllele.equals(mergedVC.getReference()) ) {
+                if( DEBUG ) { System.out.println( "My Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
+                if( mergedVC.getAlternateAlleles().size() > 1 && !myEvent.refAllele.equals(mergedVC.getReference()) ) {
                     final int suffixSize = mergedVC.getReference().getBases().length - myEvent.refAllele.length();
                     if( suffixSize > 0 ) {
-                        if( myEvent.refAllele.isNull() && !mergedVC.getReference().isNull() ) { // the special case of combining a SNP and an insertion (one has padded reference but the other doesn't)
-                            myEvent.altAllele = Allele.create(mergedVC.getReference().getBaseString() + myEvent.altAllele.getBaseString());
+                        if( (myEvent.vc.isSimpleInsertion() || myEvent.vc.isSimpleDeletion()) && mergedVC.isMixed() ) { // the special case of combining a SNP and an in/del (one has padded reference but the other doesn't)
+                            myEvent.altAllele = Allele.extend(myEvent.altAllele, Arrays.copyOfRange(mergedVC.getReference().getBases(), myEvent.refAllele.getBases().length + 1, myEvent.refAllele.getBases().length + suffixSize));
+                            myEvent.altAllele = Allele.create(mergedVC.getReference().getBaseString().charAt(0) + myEvent.altAllele.getBaseString());
                         } else {
                             myEvent.altAllele = Allele.extend(myEvent.altAllele, Arrays.copyOfRange(mergedVC.getReference().getBases(), myEvent.refAllele.getBases().length, myEvent.refAllele.getBases().length + suffixSize));
                         }
+                        myEvent.refAllele = mergedVC.getReference();
                     }
-                    myEvent.refAllele = mergedVC.getReference();
                 }
+                if( DEBUG ) { System.out.println( "--> Updated Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
             }
         }
     }

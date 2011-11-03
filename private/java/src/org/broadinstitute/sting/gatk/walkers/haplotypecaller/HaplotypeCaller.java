@@ -26,7 +26,7 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
-import net.sf.samtools.SAMRecord;
+import net.sf.samtools.*;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Input;
@@ -36,7 +36,6 @@ import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
@@ -48,9 +47,13 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.collections.NestedHashMap;
-import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
+import org.broadinstitute.sting.utils.fragments.FragmentCollection;
+import org.broadinstitute.sting.utils.fragments.FragmentUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.text.XReadLines;
@@ -165,7 +168,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     private static final int REFERENCE_PADDING = 120;
 
     // bases with quality less than or equal to this value are trimmed off the tails of the reads
-    private static final byte MIN_TAIL_QUALITY = 6;
+    private static final byte MIN_TAIL_QUALITY = 8;
 
     protected ConstrainedMateFixingManager manager = null;
 
@@ -305,7 +308,9 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
     private void processReadBin( final GenomeLoc curInterval ) {
         if ( readsToAssemble.size() == 0 ) { return; } // No reads here so nothing to do!
 
-        if( DEBUG ) { System.out.println(curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:"); }
+        if( DEBUG ) { System.out.println("Assembling " + curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:"); }
+
+        readsToAssemble.finalizeBin();
 
         final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble.getReads(), new Haplotype(readsToAssemble.getReferenceNoPadding(referenceReader) ) );
 
@@ -343,7 +348,7 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
         //}
 
         for( final VariantContext vc : vcs ) {
-            if( curInterval.containsP(getToolkit().getGenomeLocParser().createGenomeLoc(vc)) ) {
+            if( curInterval.containsP(getToolkit().getGenomeLocParser().createGenomeLoc(vc).getStartLocation()) ) {
                 final VariantCallContext vcOut = UG_engine.calculateGenotypes(vc, getToolkit().getGenomeLocParser().createGenomeLoc(vc), UG_engine.getUAC().GLmodel);
                 if(vcOut != null) {
                     if( DEBUG ) { System.out.println(vcOut); }
@@ -382,26 +387,41 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
 
         public ReadBin() { }
 
-        // Return false if we can't process this read bin because the reads are not correctly overlapping.
-        // This can happen if e.g. there's a large known indel with no overlapping reads.
+        // add each read to the bin and extend the reference genome loc if needed
         public void add( final SAMRecord read ) {
+            if( reads.size() < 2000 ) {
+                final GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc( read );
+                if ( loc == null )
+                    loc = locForRead;
+                else if ( locForRead.getStop() > loc.getStop() )
+                    loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), loc.getStart(), locForRead.getStop());
 
-            if( reads.size() < 650 ) { // protection against pileups with abnormally deep coverage, BUGBUG: what value to use here?
-                final GATKSAMRecord postAdapterRead = ReadUtils.hardClipAdaptorSequence(read);
+                reads.add( read );
+            }
+        }
+
+        public void finalizeBin() {
+            final ArrayList<SAMRecord> finalizedReadList = new ArrayList<SAMRecord>();
+            FragmentCollection<SAMRecord> fragmentCollection = FragmentUtils.create( reads );
+            reads.clear();
+
+            // Join overlapping paired reads to create a single longer read
+            finalizedReadList.addAll( fragmentCollection.getSingletonReads() );
+            for( final List<SAMRecord> overlappingPair : fragmentCollection.getOverlappingPairs() ) {
+                finalizedReadList.add( mergeOverlappingPairedReads( overlappingPair ) );
+            }
+
+            // Loop through the reads hard clipping the adaptor and low quality tails
+            for( final SAMRecord myRead : finalizedReadList ) {
+                final GATKSAMRecord postAdapterRead = ReadUtils.hardClipAdaptorSequence( myRead );
                 if( postAdapterRead != null ) {
                     final SAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
-
                     if( clippedRead.getReadLength() > 0 ) {
-                        final GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(clippedRead);
-                        if ( loc == null )
-                            loc = locForRead;
-                        else if ( locForRead.getStop() > loc.getStop() )
-                            loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), loc.getStart(), locForRead.getStop());
-
-                        reads.add(clippedRead);
                     }
                 }
             }
+
+            reads.addAll(finalizedReadList);
         }
 
         public ArrayList<SAMRecord> getReads() { return reads; }
@@ -462,5 +482,71 @@ public class HaplotypeCaller extends ReadWalker<SAMRecord, Integer> implements T
             reference = null;
             loc = null;
         }
+    }
+
+    private SAMRecord mergeOverlappingPairedReads( List<SAMRecord> overlappingPair ) {
+        if( overlappingPair.size() != 2 ) { throw new ReviewedStingException("Found overlapping pair with " + overlappingPair.size() + " reads, but expecting exactly 2."); }
+
+        SAMRecord firstRead = overlappingPair.get(0);
+        SAMRecord secondRead = overlappingPair.get(1);
+        if( !(secondRead.getUnclippedStart() <= firstRead.getUnclippedEnd() && secondRead.getUnclippedStart() >= firstRead.getUnclippedStart() && secondRead.getUnclippedEnd() >= firstRead.getUnclippedEnd()) ) {
+            firstRead = overlappingPair.get(1);
+            secondRead = overlappingPair.get(0);
+        }
+
+// DEBUG PRINTING
+//        System.out.println("1: " + firstRead.getUnclippedStart() + " - " + firstRead.getUnclippedEnd() + "  > " + firstRead.getCigar() + " " + firstRead.getReadGroup().getId());
+//        System.out.println("2: " + secondRead.getUnclippedStart() + " - " + secondRead.getUnclippedEnd() + "  > " + secondRead.getCigar()+ " " + firstRead.getReadGroup().getId());
+//        System.out.println(firstRead.getReadString());
+//        System.out.println(secondRead.getReadString());
+
+        int firstReadStop = ReadUtils.getReadCoordinateForReferenceCoordinate(firstRead, secondRead.getUnclippedStart(), ReadUtils.ClippingTail.RIGHT_TAIL);
+        final int numBases = firstReadStop + secondRead.getReadLength();
+        final byte[] bases = new byte[numBases];
+        final byte[] quals = new byte[numBases];
+        int iii = 0;
+
+        for(iii = 0; iii < firstReadStop; iii++) {
+            bases[iii] = firstRead.getReadBases()[iii];
+            quals[iii] = firstRead.getBaseQualities()[iii];
+        }
+        int jjj = iii;
+        for(final Byte b : secondRead.getReadBases()) {
+            bases[iii++] = b;
+        }
+        for(final Byte b : secondRead.getBaseQualities()) {
+            quals[jjj++] = b;
+        }
+
+// DEBUG PRINTING
+/*
+        if( DEBUG ) {
+            System.out.println("Created longer read by merging! " + bases.length);
+            System.out.println(firstRead.getReadString());
+            for(jjj = 0; jjj < firstReadStop; jjj++) {
+                System.out.print(" ");
+            }
+            System.out.println(secondRead.getReadString());
+            String displayString = "";
+            for(jjj = 0; jjj < bases.length; jjj++) {
+                displayString += (char) bases[jjj];
+            }
+            System.out.println(displayString);
+        }
+*/
+
+        final GATKSAMRecord returnRead = new GATKSAMRecord(firstRead.getHeader());
+        returnRead.setAlignmentStart(firstRead.getUnclippedStart());
+        returnRead.setReadBases( bases );
+        returnRead.setBaseQualities( quals );
+        returnRead.setReadGroup( (GATKSAMReadGroupRecord) firstRead.getReadGroup() );
+        returnRead.setReferenceName( firstRead.getReferenceName() );
+        final CigarElement c = new CigarElement(bases.length, CigarOperator.M);
+        final ArrayList<CigarElement> cList = new ArrayList<CigarElement>();
+        cList.add(c);
+        returnRead.setCigar( new Cigar( cList ));
+        returnRead.setMappingQuality( firstRead.getMappingQuality() );
+
+        return returnRead;
     }
 }

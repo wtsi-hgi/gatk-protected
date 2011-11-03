@@ -27,79 +27,14 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     }
 
     public ArrayList<Haplotype> runLocalAssembly(final ArrayList<SAMRecord> reads, final Haplotype refHaplotype) {
+        // create the graphs
+        createDeBruijnGraph( reads );
 
-        // reset the graph
-        //graphs = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
-
-        // clip the reads to get just the base sequences we want
-        final ArrayList<byte[]> sequences = clipReads( reads );
-
-        // create the graph
-        createDeBruijnGraph( sequences );
-
-        // find the best paths in the graph
+        // find the best paths in the graphs
         return findBestPaths( refHaplotype );
     }
 
-    // This method takes the base sequences from the SAM records and pulls
-    // out runs of bases that are not soft-clipped and are all at least Q20s.
-    // Clipped sequences that are overly clipped are not used.
-    private ArrayList<byte[]> clipReads(final ArrayList<SAMRecord> reads) {
-
-        final ArrayList<byte[]> sequences = new ArrayList<byte[]>();
-        final HashMap<String,SAMRecord> nameMap = new HashMap<String, SAMRecord>();
-
-        for( final SAMRecord read : reads ) {
-            if( nameMap.containsKey(read.getReadName()) ) { // assuming only two reads in a pair
-                final SAMRecord firstRead = nameMap.remove(read.getReadName());
-
-                // if the reads overlap, note: reads are provided in sorted order by alignment start
-                if(read.getAlignmentStart() < firstRead.getAlignmentEnd() && read.getAlignmentStart() > firstRead.getAlignmentStart() && read.getAlignmentEnd() > firstRead.getAlignmentEnd() ) {
-                    final int numBases = read.getAlignmentStart() - firstRead.getAlignmentStart() + read.getReadLength();
-                    final byte[] bases = new byte[numBases];
-                    int iii = 0;
-                    for(iii = 0; iii < read.getAlignmentStart() - firstRead.getAlignmentStart(); iii++) {
-                        bases[iii] = firstRead.getReadBases()[iii];
-                    }
-                    for(final Byte b : read.getReadBases()) {
-                        bases[iii++] = b;
-                    }
-                    if( DEBUG ) {
-                        System.out.println("Created longer read by merging! " + bases.length);
-                        System.out.println(firstRead.getReadString());
-                        for(int jjj = 0; jjj < read.getAlignmentStart() - firstRead.getAlignmentStart(); jjj++) {
-                            System.out.print(" ");
-                        }
-                        System.out.println(read.getReadString());
-                        String displayString = "";
-                        for(int jjj = 0; jjj < bases.length; jjj++) {
-                            displayString += (char) bases[jjj];
-                        }
-                        System.out.println(displayString);
-                    }
-                    sequences.add( bases );
-                } else {
-                    sequences.add( read.getReadBases() );
-                    sequences.add( firstRead.getReadBases() );
-                }
-
-            } else {
-                nameMap.put(read.getReadName(), read);
-            }
-        }
-
-        // actual clipping moved to base walker
-        for( final SAMRecord read : nameMap.values() ) {
-            //if( read.getReadBases().length > KMER_LENGTH + KMER_OVERLAP ) {
-                sequences.add( read.getReadBases() );
-            //}
-        }
-
-        return sequences;
-    }
-
-    private void createDeBruijnGraph(final ArrayList<byte[]> reads) {
-
+    private void createDeBruijnGraph(final ArrayList<SAMRecord> reads) {
         graphs.clear();
         // create the graph
         for( int kmer = 7; kmer <= 101; kmer += 8 ) {
@@ -107,26 +42,11 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             createGraphFromSequences( graph, reads, kmer );
             graphs.add(graph);
         }
-
-        // remove nodes with incoming multiplicity of N
-        // if ( MIN_MULTIPLICITY_TO_USE > 0 )
-        //     removeNodesWithLowMultiplicity();
-
-
-        // BUGBUG: the merging / cleaning up of nodes doesn't work correctly, need to eventually fix so that graphs can be visualized
-        // cleanup graph by merging nodes
-        //concatenateNodes();
-
-        // cleanup the node sequences so that they print well
-        //cleanupNodeSequences();
-
-        //if ( DEBUG )
-        //    printGraph();
     }
 
-    private static void createGraphFromSequences( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final ArrayList<byte[]> reads, final int KMER_LENGTH ) {
-
-        for ( final byte[] sequence : reads ) {
+    private static void createGraphFromSequences( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final ArrayList<SAMRecord> reads, final int KMER_LENGTH ) {
+        for ( final SAMRecord read : reads ) {
+            final byte[] sequence = read.getReadBases();
             if( sequence.length > KMER_LENGTH + KMER_OVERLAP ) {
                 final int kmersInSequence = sequence.length - KMER_LENGTH + 1;
                 for (int i = 0; i < kmersInSequence - 1; i++) {
@@ -178,191 +98,6 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     }
 
     /*
-    private void concatenateNodes() {
-
-        while ( true ) {
-            boolean graphWasModified = false;
-
-            Set<DeBruijnVertex> vertexSet = graph.vertexSet();
-            // convert to array because results of the iteration on a set are undefined when the graph is modified
-            ArrayList<DeBruijnVertex> vertices = new ArrayList<DeBruijnVertex>(vertexSet);
-
-            for( final DeBruijnVertex v1 : vertices ) {
-
-                // try to merge v1 -> v2
-                if ( graph.outDegreeOf(v1) == 1 ) {
-                    DeBruijnEdge edge = graph.outgoingEdgesOf(v1).iterator().next();
-                    DeBruijnVertex v2 = graph.getEdgeTarget(edge);
-
-                    if ( graph.inDegreeOf(v2) == 1 ) {
-                        mergeVertices(v1, v2);
-                        graphWasModified = true;
-                        break;
-                    }
-                }
-
-                // try to merge v2 -> v1
-                if ( graph.inDegreeOf(v1) == 1 ) {
-                    DeBruijnEdge edge = graph.incomingEdgesOf(v1).iterator().next();
-                    DeBruijnVertex v2 = graph.getEdgeSource(edge);
-
-                    if ( graph.outDegreeOf(v2) == 1 ) {
-                        mergeVertices(v2, v1);
-                        graphWasModified = true;
-                        break;
-                    }
-                }
-            }
-
-            if ( !graphWasModified )
-                break;
-        }
-    }
-
-    private void mergeVertices(DeBruijnVertex V1, DeBruijnVertex V2) {
-        // (Vx -> V1 -> V2 -> Vy)
-        //     should now be
-        //   (Vx -> V12 -> Vy)
-
-        // create V12
-        int additionalSequenceFromV2 = V2.actualSequence.length - KMER_LENGTH + 1;
-        byte[] newKmer = new byte[V1.actualSequence.length + additionalSequenceFromV2];
-        System.arraycopy(V1.actualSequence, 0, newKmer, 0, V1.actualSequence.length);
-        System.arraycopy(V2.actualSequence, KMER_LENGTH - 1, newKmer, V1.actualSequence.length, additionalSequenceFromV2);
-        DeBruijnVertex V12 = new DeBruijnVertex(newKmer);
-        graph.addVertex(V12);
-
-        // copy edges coming from Vx to V12
-        Set<DeBruijnEdge> Ex = graph.incomingEdgesOf(V1);
-        for ( DeBruijnEdge edge : Ex ) {
-            DeBruijnVertex Vx = graph.getEdgeSource(edge);
-            DeBruijnEdge newEdge = new DeBruijnEdge();
-            newEdge.setMultiplicity(edge.getMultiplicity());
-            graph.addEdge(Vx, V12, newEdge);
-        }
-
-        // copy edges going to Vy from V12
-        Set<DeBruijnEdge> Ey = graph.outgoingEdgesOf(V2);
-        for ( DeBruijnEdge edge : Ey ) {
-            DeBruijnVertex Vy = graph.getEdgeTarget(edge);
-            DeBruijnEdge newEdge = new DeBruijnEdge();
-            newEdge.setMultiplicity(edge.getMultiplicity());
-            graph.addEdge(V12, Vy, newEdge);
-        }
-
-        // remove V1 and V2 and their associated edges
-        graph.removeVertex(V1);
-        graph.removeVertex(V2);
-    }
-
-    private void cleanupNodeSequences() {
-
-        // remove the first k-1 bases of the kmers
-        for ( DeBruijnVertex v :  graph.vertexSet() ) {
-            if ( graph.inDegreeOf(v) > 0 )
-                v.removePrefix(KMER_LENGTH - 1, true);
-        }
-
-        // move common suffixes from incoming nodes to this one
-
-        while ( true ) {
-
-            boolean graphWasModified = false;
-            for ( DeBruijnVertex v :  graph.vertexSet() ) {
-
-                if ( graph.inDegreeOf(v) > 1 )  {
-                    Set<DeBruijnVertex> connectedVs = new HashSet<DeBruijnVertex>();
-                    for ( DeBruijnEdge edge : graph.incomingEdgesOf(v) )
-                        connectedVs.add(graph.getEdgeSource(edge));
-
-                    if ( propagateCommonSuffix(v, connectedVs) ) {
-                        removeEmptyNodes();
-                        graphWasModified = true;
-                        break;
-                    }
-                }
-            }
-
-            if ( !graphWasModified )
-                break;
-        }
-    }
-    */
-
-    /*
-    private void removeEmptyNodes() {
-
-        // remember that results of an iteration on a set are undefined when the graph is modified
-        while ( true ) {
-
-            boolean graphWasModified = false;
-            for ( DeBruijnVertex v :  graph.vertexSet() ) {
-                if ( v.printableSequence.length == 0 ) {
-                    removeNode(v);
-                    graphWasModified = true;
-                    break;
-                }
-            }
-
-            if ( !graphWasModified )
-                break;
-        }
-    }
-
-    private void removeNode(DeBruijnVertex v) {
-        Set<DeBruijnEdge> incoming = graph.incomingEdgesOf(v);
-        Set<DeBruijnEdge> outgoing = graph.outgoingEdgesOf(v);
-
-        // make edges from all incoming nodes to all outgoing nodes
-        for ( DeBruijnEdge Ex : incoming ) {
-            DeBruijnVertex Vx = graph.getEdgeSource(Ex);
-            for ( DeBruijnEdge Ey : outgoing ) {
-                DeBruijnVertex Vy = graph.getEdgeTarget(Ey);
-
-                DeBruijnEdge newEdge = new DeBruijnEdge();
-                newEdge.setMultiplicity(Ex.getMultiplicity());
-                graph.addEdge(Vx, Vy, newEdge);
-            }
-        }
-
-        // remove v and its associated edges
-        graph.removeVertex(v);
-    }
-
-    private boolean propagateCommonSuffix(DeBruijnVertex Vx, Set<DeBruijnVertex> incoming) {
-
-        // find the common matching suffix
-        byte[] match = null;
-        for ( DeBruijnVertex v : incoming ) {
-            if ( match == null ) {
-                match = v.printableSequence;
-            } else {
-                int idx = 0;
-                while ( idx < match.length && idx < v.printableSequence.length && match[match.length - idx - 1] == v.printableSequence[v.printableSequence.length - idx - 1] )
-                    idx++;
-
-                if ( idx < match.length ) {
-                    match = new byte[idx];
-                    System.arraycopy(v.printableSequence, v.printableSequence.length - idx, match, 0, idx);
-                }
-            }
-        }
-
-        // if there is a common suffix...
-        if ( match != null && match.length > 0 ) {
-
-            // remove the suffix from the end of the incoming nodes...
-            for ( DeBruijnVertex v : incoming )
-                v.removeSuffix(match.length, false);
-
-            // ...and put it at the front of this node
-            Vx.addPrefix(match, false);
-            return true;
-        }
-
-        return false;
-    }
-
     private void printGraph() {
 
         if( getOutputStream() != null ) {
@@ -403,26 +138,4 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         return returnHaplotypes;
     }
 
-    private void assignReadsToGraph(ArrayList<byte[]> reads) {
-
-        // TODO -- implement me
-
-    }
-
-    /****
-    private void removeNodesWithLowMultiplicity() {
-
-        Set<DeBruijnVertex> vertexSet = graph.vertexSet();
-        // convert to array because results of the iteration on a set are undefined when the graph is modified
-        ArrayList<DeBruijnVertex> vertices = new ArrayList<DeBruijnVertex>(vertexSet);
-
-        for (int i = 0; i < vertices.size(); i++) {
-
-            DeBruijnVertex v = vertices.get(i);
-            if ( graph.inDegreeOf(v) == 1 &&
-                    graph.incomingEdgesOf(v).iterator().next().getMultiplicity() < MIN_MULTIPLICITY_TO_USE )
-                removeNode(v);
-        }
-    }
-    ****/
 }
