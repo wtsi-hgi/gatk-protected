@@ -1,7 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
 import net.sf.samtools.SAMReadGroupRecord;
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -10,6 +9,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
 import java.util.List;
@@ -45,7 +45,7 @@ public class ErrorRatePerCycle extends LocusWalker<Integer, Integer> {
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         List<Integer> offsets = context.getOffsets();
-        List<SAMRecord> reads = context.getReads();
+        List<GATKSAMRecord> reads = context.getReads();
 
         for (int i = 0; i < offsets.size(); i++) {
             int offset = offsets.get(i);

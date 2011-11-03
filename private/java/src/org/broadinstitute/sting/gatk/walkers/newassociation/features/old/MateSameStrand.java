@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features.old;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -12,11 +12,11 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollectio
  */
 public class MateSameStrand extends BinaryFeatureAggregator {
 
-    public boolean extractFeature(SAMRecord record) {
+    public boolean extractFeature(GATKSAMRecord record) {
         return record.getReadNegativeStrandFlag() == record.getMateNegativeStrandFlag();
     }
 
-    public boolean featureDefined(SAMRecord record) {
+    public boolean featureDefined(GATKSAMRecord record) {
         return record.getReadPairedFlag() && ! record.getMateUnmappedFlag() && record.getReferenceIndex().equals(record.getMateReferenceIndex());
     }
 

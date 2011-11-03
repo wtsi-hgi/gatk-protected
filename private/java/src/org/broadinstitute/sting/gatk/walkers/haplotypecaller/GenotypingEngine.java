@@ -37,6 +37,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -371,7 +372,7 @@ public class GenotypingEngine {
     //
     //////////////////////////////////////////        
 
-    public void alignAllHaplotypes( final ArrayList<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final StingSAMFileWriter writer, final SAMRecord exampleRead ) {
+    public void alignAllHaplotypes( final ArrayList<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final StingSAMFileWriter writer, final GATKSAMRecord exampleRead ) {
 
         int iii = 0;
         for( final Haplotype h : haplotypes ) {
@@ -389,7 +390,7 @@ public class GenotypingEngine {
                 
     }
 
-    public void alignAllReads( final Pair<Haplotype,Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc, final ConstrainedMateFixingManager manager, final ArrayList<SAMRecord> reads, final double[][] likelihoods ) {
+    public void alignAllReads( final Pair<Haplotype,Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc, final ConstrainedMateFixingManager manager, final ArrayList<GATKSAMRecord> reads, final double[][] likelihoods ) {
 
         final SWPairwiseAlignment swConsensus0 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.first.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
         final SWPairwiseAlignment swConsensus1 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.second.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
@@ -397,7 +398,7 @@ public class GenotypingEngine {
         final Consensus consensus1 = new Consensus(bestTwoHaplotypes.second.bases, swConsensus1.getCigar(), swConsensus1.getAlignmentStart2wrt1());
 
         int iii = 0;
-        for( final SAMRecord read : reads ) {
+        for( final GATKSAMRecord read : reads ) {
             final Consensus bestConsensus = ( likelihoods[iii][0] > likelihoods[iii][1] ? consensus0 : consensus1 );
             final AlignedRead aRead = new AlignedRead( read );
             bestConsensus.cigar = AlignmentUtils.leftAlignIndel(bestConsensus.cigar, ref, bestConsensus.str, bestConsensus.positionOnReference, bestConsensus.positionOnReference);
@@ -582,7 +583,7 @@ public class GenotypingEngine {
 
     // private classes copied from IndelRealigner
     private class AlignedRead {
-        private final SAMRecord read;
+        private final GATKSAMRecord read;
         private byte[] readBases = null;
         private byte[] baseQuals = null;
         private Cigar newCigar = null;
@@ -590,12 +591,12 @@ public class GenotypingEngine {
         private int mismatchScoreToReference = 0;
         private long alignerMismatchScore = 0;
 
-        public AlignedRead(SAMRecord read) {
+        public AlignedRead(GATKSAMRecord read) {
             this.read = read;
             mismatchScoreToReference = 0;
         }
 
-        public SAMRecord getRead() {
+        public GATKSAMRecord getRead() {
                return read;
         }
 
@@ -694,7 +695,7 @@ public class GenotypingEngine {
             return op == CigarOperator.S || op == CigarOperator.H || op == CigarOperator.P;
         }
 
-        protected Cigar reclipCigar(Cigar cigar, SAMRecord read) {
+        protected Cigar reclipCigar(Cigar cigar, GATKSAMRecord read) {
             ArrayList<CigarElement> elements = new ArrayList<CigarElement>();
 
             int i = 0;

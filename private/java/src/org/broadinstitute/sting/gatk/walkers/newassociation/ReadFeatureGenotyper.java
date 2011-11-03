@@ -1,13 +1,13 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
-import net.sf.samtools.SAMFileWriter;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.gatk.walkers.newassociation.regiontraversal.TriggeringReadStash;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 /**
  * Created by IntelliJ IDEA.
@@ -16,7 +16,7 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.regiontraversal.Trig
  * Time: 6:57 PM
  * To change this template use File | Settings | File Templates.
  */
-public class ReadFeatureGenotyper extends ReadWalker<SAMRecord,TriggeringReadStash> {
+public class ReadFeatureGenotyper extends ReadWalker<GATKSAMRecord,TriggeringReadStash> {
 
     @Output
     StingSAMFileWriter out;
@@ -25,18 +25,18 @@ public class ReadFeatureGenotyper extends ReadWalker<SAMRecord,TriggeringReadSta
         return new TriggeringReadStash(getToolkit().getSAMFileHeader());
     }
 
-    public SAMRecord map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker tracker) {
+    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker tracker) {
         if ( Math.abs(read.getInferredInsertSize()) > 1000 ) {
             read.setAttribute("LI",1);
         }
         return read;
     }
 
-    public TriggeringReadStash reduce(SAMRecord read, TriggeringReadStash readBin) {
+    public TriggeringReadStash reduce(GATKSAMRecord read, TriggeringReadStash readBin) {
         if ( read == null )
             return readBin;
-        Iterable<SAMRecord> triggeredContext = readBin.compress(read);
-        for ( SAMRecord r : triggeredContext ) {
+        Iterable<GATKSAMRecord> triggeredContext = readBin.compress(read);
+        for ( GATKSAMRecord r : triggeredContext ) {
             logger.debug(String.format("%s: %d",r.getReadName(), r.getAlignmentStart()));
             out.addAlignment(r);
         }
@@ -44,8 +44,8 @@ public class ReadFeatureGenotyper extends ReadWalker<SAMRecord,TriggeringReadSta
     }
 
     public void onTraversalDone(TriggeringReadStash sum) {
-        Iterable<SAMRecord> finalContext = sum.close();
-        for ( SAMRecord r : finalContext ) {
+        Iterable<GATKSAMRecord> finalContext = sum.close();
+        for ( GATKSAMRecord r : finalContext ) {
             out.addAlignment(r);
         }
     }

@@ -1,7 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
 import cern.jet.math.Arithmetic;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -36,7 +36,7 @@ import java.util.*;
 @ReadFilters({MaxInsertSizeFilter.class,MappingQualityFilter.class,DuplicateReadFilter.class,
         FailsVendorQualityCheckFilter.class,NotPrimaryAlignmentFilter.class,UnmappedReadFilter.class,
         AddAberrantInsertTagFilter.class})
-public abstract class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
+public abstract class RFAWalker extends ReadWalker<GATKSAMRecord,RFWindow> {
     /*    // todo -- marginalization over genotypes and tables
     // todo -- segmenting the window to find max concentration of reads
     // todo -- estimation of purity of the actual window selection for the event
@@ -139,7 +139,7 @@ public abstract class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
         return new RFWindow(aggregators,collection,caseStatus,getToolkit().getGenomeLocParser());
     }
 
-    public SAMRecord map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
         if ( ref == null ) { return null; } // unmapped reads have null ref contexts
         //loc = getToolkit().getGenomeLocParser().createGenomeLoc(ref.getLocus().getContig(),read.getAlignmentStart());
         GenomeLoc newLoc = ref.getLocus().getStartLocation(); // can be problematic if read aligns prior to start of contig -- should never happen
@@ -153,7 +153,7 @@ public abstract class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
         return read;
     }
 
-    public RFWindow reduce(SAMRecord read, RFWindow prevReduce) {
+    public RFWindow reduce(GATKSAMRecord read, RFWindow prevReduce) {
         if ( iteratorLoc != null && iteratorLoc.isBefore(loc) ) {// test if read is past end of the user interval
             //logger.info(String.format("iteratorLoc: %s    loc: %s",iteratorLoc.toString(),loc.toString()));
             onIntervalDone(prevReduce);

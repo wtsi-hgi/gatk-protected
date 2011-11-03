@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features.old;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -21,7 +21,7 @@ public abstract class BinaryFeatureAggregator {
         nNotAberrant = 0;
     }
 
-    public void aggregate(SAMRecord record) {
+    public void aggregate(GATKSAMRecord record) {
         if ( featureDefined(record) ) {
             aggregate(extractFeature(record));
         }
@@ -37,9 +37,9 @@ public abstract class BinaryFeatureAggregator {
         }
     }
 
-    protected abstract boolean featureDefined(SAMRecord record);
+    protected abstract boolean featureDefined(GATKSAMRecord record);
 
-    protected abstract boolean extractFeature(SAMRecord record);
+    protected abstract boolean extractFeature(GATKSAMRecord record);
 
     public int getnAberrant() { return nAberrant; }
 
@@ -53,7 +53,7 @@ public abstract class BinaryFeatureAggregator {
 
     public double getUnbiasedVar() { return getVar(); }
 
-    public Boolean parse(SAMRecord read) {
+    public Boolean parse(GATKSAMRecord read) {
         if ( featureDefined(read) ) {
             return extractFeature(read);
         } else {
@@ -61,7 +61,7 @@ public abstract class BinaryFeatureAggregator {
         }
     }
 
-    public String parseStr(SAMRecord read) {
+    public String parseStr(GATKSAMRecord read) {
         if ( featureDefined(read) ) {
             return Boolean.toString(extractFeature(read));
         } else {

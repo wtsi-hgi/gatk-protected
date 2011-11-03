@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -20,7 +20,7 @@ public abstract class ReadFeature {
 
     public abstract String getDescription();
 
-    public abstract Object getFeature(SAMRecord read);
+    public abstract Object getFeature(GATKSAMRecord read);
 
-    public abstract boolean isDefinedFor(SAMRecord read);
+    public abstract boolean isDefinedFor(GATKSAMRecord read);
 }

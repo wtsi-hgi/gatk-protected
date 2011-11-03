@@ -12,6 +12,7 @@ import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.ContigComparator;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 
 import java.io.PrintStream;
@@ -139,7 +140,7 @@ public class ContigStatsWalker extends ReadWalker<SAMRecord, ContigStatsWalker.C
     }
 
     @Override
-    public SAMRecord map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public SAMRecord map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
         return read;
     }
 

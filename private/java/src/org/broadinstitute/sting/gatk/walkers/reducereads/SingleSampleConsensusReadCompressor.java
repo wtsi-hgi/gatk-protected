@@ -1,9 +1,9 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import net.sf.samtools.SAMReadGroupRecord;
-import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.TreeSet;
 
@@ -62,8 +62,8 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
      * @{inheritDoc}
      */
     @Override
-    public Iterable<SAMRecord> addAlignment( SAMRecord read ) {
-        TreeSet<SAMRecord> result = new TreeSet<SAMRecord>(new AlignmentStartWithNoTiesComparator());
+    public Iterable<GATKSAMRecord> addAlignment( GATKSAMRecord read ) {
+        TreeSet<GATKSAMRecord> result = new TreeSet<GATKSAMRecord>(new AlignmentStartWithNoTiesComparator());
         int position = read.getUnclippedStart();
 
         // create a new window if:
@@ -85,13 +85,13 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
         return result;
     }
 
-    protected void instantiateSlidingWindow(SAMRecord read) {
+    protected void instantiateSlidingWindow(GATKSAMRecord read) {
         slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getAttribute("RG"), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
     }
 
     @Override
-    public Iterable<SAMRecord> close() {
-        return (slidingWindow != null) ? slidingWindow.close() : new TreeSet<SAMRecord>();
+    public Iterable<GATKSAMRecord> close() {
+        return (slidingWindow != null) ? slidingWindow.close() : new TreeSet<GATKSAMRecord>();
     }
 
 }

@@ -27,7 +27,6 @@ package org.broadinstitute.sting.gatk.walkers.qc;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.picard.reference.ReferenceSequence;
-import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.StringUtil;
 import org.broadinstitute.sting.alignment.Alignment;
 import org.broadinstitute.sting.alignment.bwa.BWAAligner;
@@ -42,6 +41,7 @@ import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -136,7 +136,7 @@ public class TestReadFishingWalker extends ReadWalker<Integer,Long> {
     }
 
     @Override
-    public Integer map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public Integer map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
         Alignment bestAlignment = aligner.getBestAlignment(read.getReadBases());
         System.out.println("bestAlignment = " + bestAlignment);
         return 1;

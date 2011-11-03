@@ -4,7 +4,6 @@ import com.google.java.contract.Requires;
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
-import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.utils.*;
@@ -12,6 +11,7 @@ import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -46,7 +46,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         samples =s;
     }
 
-    public GenomeLoc getGenomeLoc(SAMRecord read) {
+    public GenomeLoc getGenomeLoc(GATKSAMRecord read) {
         if ( read == null )
             return null;
         int start =  ReadUtils.getRefCoordSoftUnclippedStart(read);
@@ -63,7 +63,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
 
         Map<String,IntronLossPostulate> postulates = new HashMap<String,IntronLossPostulate>(36);
         // first postulate events
-        for ( Pair<SAMRecord,SAMRecord> pair : readBin ) {
+        for ( Pair<GATKSAMRecord,GATKSAMRecord> pair : readBin ) {
             IntronLossPostulate p = new IntronLossPostulate(geneFeature.getExons(),getGenomeLoc(pair.first),getGenomeLoc(pair.second));
             if ( ! postulates.containsKey(p.toString()) ) {
                 postulates.put(p.toString(),p);
@@ -113,7 +113,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         byte[] junctionSeq = myPostulate.getSequence(refFile);
 
 
-        for ( Pair<SAMRecord,SAMRecord> supportingPair : myPostulate.supportingPairs ) {
+        for ( Pair<GATKSAMRecord,GATKSAMRecord> supportingPair : myPostulate.supportingPairs ) {
             double lossScore = 0.0;
             double noLossScore = 0.0;
             double realignmentScore = scoreRealignment(supportingPair,junctionSeq);
@@ -148,7 +148,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
             return samLikelihoods;
         }
 
-        for ( Pair<SAMRecord,SAMRecord> nonePair : nonePostulate.supportingPairs ) {
+        for ( Pair<GATKSAMRecord,GATKSAMRecord> nonePair : nonePostulate.supportingPairs ) {
             double lossScore = 0.0;
             double noLossScore = 0.0;
             if ( myPostulate.isRelevant(getGenomeLoc(nonePair.first),getGenomeLoc(nonePair.second)) ) {
@@ -174,10 +174,10 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         return samLikelihoods;
     }
 
-    private double scoreAlignment(Pair<SAMRecord,SAMRecord> initiallyAlignedPair) {
+    private double scoreAlignment(Pair<GATKSAMRecord,GATKSAMRecord> initiallyAlignedPair) {
         // aligned reads are equipped already with necessary metrics
         double logScore = 0.0;
-        for ( SAMRecord read : Arrays.asList(initiallyAlignedPair.first,initiallyAlignedPair.second) ) {
+        for ( GATKSAMRecord read : Arrays.asList(initiallyAlignedPair.first,initiallyAlignedPair.second) ) {
             if ( read == null )
                 continue;
             logScore += ( (Integer) read.getAttribute("NM") )*(-1.2);
@@ -193,9 +193,9 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         return logScore;
     }
 
-    private double scoreRealignment(Pair<SAMRecord,SAMRecord> inPair, byte[] sequence) {
+    private double scoreRealignment(Pair<GATKSAMRecord,GATKSAMRecord> inPair, byte[] sequence) {
         double logScore = 0.0;
-        for ( SAMRecord rec : Arrays.asList(inPair.first,inPair.second) ) {
+        for ( GATKSAMRecord rec : Arrays.asList(inPair.first,inPair.second) ) {
             if ( rec == null )
                 continue;
             SWPairwiseAlignment alignment = new SWPairwiseAlignment(sequence,rec.getReadBases());
@@ -249,7 +249,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
 
         return  ( (double) cappedPhred)/(-10.0);
     }
-    private double insertSizeProbability(SAMRecord read, int adjustment) {
+    private double insertSizeProbability(GATKSAMRecord read, int adjustment) {
         byte[] quals = insertSizeQualHistograms.get(read.getReadGroup().getId());
         if ( quals == null ) {
             logger.warn("No insert size histogram for RGID: " + read.getReadGroup().getId()+" returning an uninformative probability");
@@ -268,7 +268,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         Pair<GenomeLoc,GenomeLoc> exonLocs;
         Pair<Integer,Integer> exonNums;
         PostulateClass clazz;
-        Set<Pair<SAMRecord,SAMRecord>> supportingPairs = new HashSet<Pair<SAMRecord,SAMRecord>>(1000);
+        Set<Pair<GATKSAMRecord,GATKSAMRecord>> supportingPairs = new HashSet<Pair<GATKSAMRecord,GATKSAMRecord>>(1000);
 
         public IntronLossPostulate(List<GenomeLoc> exons, GenomeLoc read, GenomeLoc mate) {
             if ( read == null || mate == null ) {

@@ -2,7 +2,7 @@ package org.broadinstitute.sting.gatk.walkers.newassociation.features.old;
 
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -15,7 +15,7 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollectio
 public class ClippedBases {
     // todo -- make a binary feature version of this
 
-    public Integer extractFeature(SAMRecord record) {
+    public Integer extractFeature(GATKSAMRecord record) {
         int nClipped = 0;
 
         for ( CigarElement e : record.getCigar().getCigarElements() ) {
@@ -27,7 +27,7 @@ public class ClippedBases {
         return nClipped;
     }
 
-    public boolean featureDefined(SAMRecord rec) { return true; }
+    public boolean featureDefined(GATKSAMRecord rec) { return true; }
 
     public ClippedBases(RFAArgumentCollection col) {
         //super(col);

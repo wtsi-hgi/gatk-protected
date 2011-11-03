@@ -1,9 +1,9 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import net.sf.samtools.SAMFileHeader;
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.BaseTest;
 import org.broadinstitute.sting.utils.sam.ArtificialSAMUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -18,7 +18,7 @@ public class SlidingReadUnitTest extends BaseTest {
 
     // TODO: Add error messages on failed tests
 
-    SAMRecord read, expected;
+    GATKSAMRecord read, expected;
     SlidingRead slidingRead;
     final static String BASES = "ACTG";
     final static String QUALS = "!+5?";
@@ -67,10 +67,10 @@ public class SlidingReadUnitTest extends BaseTest {
         Assert.assertEquals(slidingRead.trimToVariableRegion(1,4), slidingRead.getRead());
 
         // Region is entirely before read
-        Assert.assertEquals(slidingRead.trimToVariableRegion(0,0), new SAMRecord( new SAMFileHeader() ));
+        Assert.assertEquals(slidingRead.trimToVariableRegion(0,0), new GATKSAMRecord( new SAMFileHeader() ));
 
         // Read is entirely after read
-        Assert.assertEquals(slidingRead.trimToVariableRegion(5,6), new SAMRecord( new SAMFileHeader() ));
+        Assert.assertEquals(slidingRead.trimToVariableRegion(5,6), new GATKSAMRecord( new SAMFileHeader() ));
 
         // Read overlaps region on the left
         expected = slidingRead.trimToVariableRegion(0,2);

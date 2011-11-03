@@ -1,7 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 /**
  * Created by IntelliJ IDEA.
@@ -11,20 +11,20 @@ import org.broadinstitute.sting.utils.clipreads.ReadClipper;
  * To change this template use File | Settings | File Templates.
  */
 public class SlidingRead {
-    protected SAMRecord read;
+    protected GATKSAMRecord read;
 
-    public SlidingRead(SAMRecord read) {
+    public SlidingRead(GATKSAMRecord read) {
         this.read = read;
     }
 
-    public SAMRecord getRead() {
+    public GATKSAMRecord getRead() {
         return read;
     }
 
-    public SAMRecord trimToVariableRegion(int refStart, int refStop) {
+    public GATKSAMRecord trimToVariableRegion(int refStart, int refStop) {
         int start = read.getAlignmentStart();
         int stop = read.getAlignmentEnd();
-        SAMRecord clippedRead = read;
+        GATKSAMRecord clippedRead = read;
 
         ReadClipper clipper = new ReadClipper(read);
 
@@ -41,7 +41,7 @@ public class SlidingRead {
             return clippedRead;
         }
         else
-            return new SAMRecord(read.getHeader());
+            return new GATKSAMRecord(read.getHeader());
     }
 
     public SlidingRead clipStart(int refNewStart) {

@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -16,11 +16,11 @@ public class ProperPair extends BinaryFeatureAggregator {
         super(collection);
     }
 
-    public boolean extractFeature(SAMRecord record) {
+    public boolean extractFeature(GATKSAMRecord record) {
         return record.getProperPairFlag();
     }
 
-    public boolean featureDefined(SAMRecord record) {
+    public boolean featureDefined(GATKSAMRecord record) {
         return record.getReadPairedFlag();
     }
 }

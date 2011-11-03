@@ -1,7 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import java.io.PrintStream;
@@ -26,7 +26,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         super(out, referenceReader);
     }
 
-    public ArrayList<Haplotype> runLocalAssembly(final ArrayList<SAMRecord> reads, final Haplotype refHaplotype) {
+    public ArrayList<Haplotype> runLocalAssembly(final ArrayList<GATKSAMRecord> reads, final Haplotype refHaplotype) {
         // create the graphs
         createDeBruijnGraph( reads );
 
@@ -34,7 +34,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         return findBestPaths( refHaplotype );
     }
 
-    private void createDeBruijnGraph(final ArrayList<SAMRecord> reads) {
+    private void createDeBruijnGraph(final ArrayList<GATKSAMRecord> reads) {
         graphs.clear();
         // create the graph
         for( int kmer = 7; kmer <= 101; kmer += 8 ) {
@@ -44,8 +44,8 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         }
     }
 
-    private static void createGraphFromSequences( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final ArrayList<SAMRecord> reads, final int KMER_LENGTH ) {
-        for ( final SAMRecord read : reads ) {
+    private static void createGraphFromSequences( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final ArrayList<GATKSAMRecord> reads, final int KMER_LENGTH ) {
+        for ( final GATKSAMRecord read : reads ) {
             final byte[] sequence = read.getReadBases();
             if( sequence.length > KMER_LENGTH + KMER_OVERLAP ) {
                 final int kmersInSequence = sequence.length - KMER_LENGTH + 1;

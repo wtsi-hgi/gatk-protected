@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -13,11 +13,11 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollectio
 public class PerfectMatches extends BinaryFeatureAggregator {
     private short editDistanceMax = 1;
 
-    public boolean extractFeature(SAMRecord read) {
+    public boolean extractFeature(GATKSAMRecord read) {
         return read.getAttribute("NM").equals(0);
     }
 
-    public boolean featureDefined(SAMRecord read) {
+    public boolean featureDefined(GATKSAMRecord read) {
         return ((Integer) read.getAttribute("NM") < editDistanceMax);
     }
 
