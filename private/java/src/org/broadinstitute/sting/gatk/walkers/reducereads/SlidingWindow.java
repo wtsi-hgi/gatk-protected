@@ -21,8 +21,6 @@ import java.util.List;
  */
 public class SlidingWindow {
 
-    protected final static String RG_POSTFIX = ".ReducedReads";
-
     // Sliding Window data
     protected LinkedList<GATKSAMRecord> readsInWindow;
     protected LinkedList<HeaderElement> windowHeader;
@@ -30,15 +28,21 @@ public class SlidingWindow {
     protected int contextSizeIndels;
     protected int startLocation;
     protected int stopLocation;
-
-    // Running consensus data
-    protected SyntheticRead runningConsensus;
-    protected int consensusCounter;
     protected String contig;
     protected int contigIndex;
     protected SAMFileHeader header;
     protected Object readGroupAttribute;
-    protected String readName;
+
+    // Running consensus data
+    protected SyntheticRead runningConsensus;
+    protected int consensusCounter;
+    protected String consensusReadName;
+
+    // Filtered Data Consensus data
+    protected SyntheticRead filteredDataConsensus;
+    protected int filteredDataConsensusCounter;
+    protected String filteredDataReadName;
+
 
     // Additional parameters
     protected double MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT;    // proportion has to be greater than this value to trigger variant region due to mismatches
@@ -63,19 +67,19 @@ public class SlidingWindow {
         this.windowHeader = new LinkedList<HeaderElement>();
         this.readsInWindow = new LinkedList<GATKSAMRecord>();
 
-        this.consensusCounter = 0;
-
         this.contig = contig;
         this.contigIndex = contigIndex;
         this.header = header;
         this.readGroupAttribute = readGroupAttribute;
-        this.readName = "Consensus-" + windowNumber + "-";
+
+        this.consensusCounter = 0;
+        this.consensusReadName = "Consensus-" + windowNumber + "-";
+
+        this.filteredDataConsensusCounter = 0;
+        this.filteredDataReadName = "Filtered-" + windowNumber + "-";
 
         this.runningConsensus = null;
-    }
-
-    public int getStartLocation() {
-        return startLocation;
+        this.filteredDataConsensus = null;
     }
 
     public int getStopLocation() {
@@ -203,20 +207,19 @@ public class SlidingWindow {
         LinkedList<GATKSAMRecord> consensusList = new LinkedList<GATKSAMRecord>();
         if (start < end) {
             if (runningConsensus == null)
-                runningConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, readName + consensusCounter++, windowHeader.get(start).location, MIN_BASE_QUAL_TO_COUNT);
+                runningConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, consensusReadName + consensusCounter++, windowHeader.get(start).location, MIN_BASE_QUAL_TO_COUNT);
 
             int i = 0;
             for (HeaderElement wh : windowHeader) {
                 if (i == end)
                     break;
                 if (i >= start) {
-                    // Element may be an empty element representing a gap between the reads
-                    if (wh.isEmpty()) {
-                        GATKSAMRecord consensus = finalizeConsensus();        // we finalize the running consensus and start a new one with the remaining
+                    if (wh.isEmpty()) {                                       // Element may be an empty element representing a gap between the reads
+                        GATKSAMRecord consensus = finalizeConsensus();        // we finalize the running consensus
                         if(consensus != null)
                             consensusList.add(consensus);
-                        consensusList.addAll(addToConsensus(i + 1, end)); // and start a new one starting at the next position
-                        break;                                            // recursive call takes care of the rest of this loop, we are done.
+                        consensusList.addAll(addToConsensus(i + 1, end));     // and continue to add the next section with a recursive call
+                        break;
                     }
                     else {
                         byte base  = wh.baseCounts.baseWithMostCounts();

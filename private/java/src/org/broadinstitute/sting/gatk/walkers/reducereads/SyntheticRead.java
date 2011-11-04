@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
+import com.google.java.contract.Requires;
 import net.sf.samtools.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -82,6 +83,7 @@ public class SyntheticRead {
      * @param base
      * @param count
      */
+    @Requires("count < Byte.MAX_VALUE")
     public void add(byte base, byte count, byte qual, double mappingQuality) {
         counts.add(count);
         bases.add(base);
