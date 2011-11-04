@@ -196,7 +196,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
         likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, false, true, false, kmerQualityTables, contextSize);
-        genotypingEngine = new GenotypingEngine( false, gopSW, gcpSW );
+        genotypingEngine = new GenotypingEngine( true, gopSW, gcpSW );
 
         if( realignReads ) {
             manager = new ConstrainedMateFixingManager(bamWriter, getToolkit().getGenomeLocParser(), 3000, 200, 150000);

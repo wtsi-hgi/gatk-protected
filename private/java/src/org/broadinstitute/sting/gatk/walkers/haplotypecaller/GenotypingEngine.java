@@ -154,6 +154,7 @@ public class GenotypingEngine {
 
     private void populateEventDictionary(final HashMap<Integer, ArrayList<Event>> eventDictionary, final Collection<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final boolean filterBadHaplotypes ) {
         int hIndex = 0;
+        int sizeRefHaplotype = 0;
         final HashSet<Haplotype> haplotypesToRemove = new HashSet<Haplotype>();
         for( final Haplotype h : haplotypes ) {
 
@@ -167,6 +168,13 @@ public class GenotypingEngine {
                 if( DEBUG ) { System.out.println("Filtered!"); }
                 if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
                 continue; // Protection against SW failures
+            }
+            if( hIndex == 0 ) {
+                sizeRefHaplotype = swConsensus.getCigar().getReadLength();
+            } else if ( Math.max(swConsensus.getCigar().getReadLength(), swConsensus.getCigar().getReferenceLength() ) < 0.6 * sizeRefHaplotype ) {
+                if( DEBUG ) { System.out.println("Filtered!"); }
+                if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
+                continue; // Protection against assembly failures
             }
 
             // Walk along the alignment and turn any difference from the reference into an event

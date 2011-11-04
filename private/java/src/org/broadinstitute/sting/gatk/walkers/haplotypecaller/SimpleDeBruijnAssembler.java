@@ -5,6 +5,7 @@ import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import java.io.PrintStream;
+import java.lang.reflect.Array;
 import java.util.*;
 
 /**
@@ -19,6 +20,8 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     // the additional size of a valid chunk of sequence, used to string together k-mers
     private static final int KMER_OVERLAP = 6;
 
+    private static final int PRUNE_FACTOR = 3;
+
     // the deBruijn graph object
     private final ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>> graphs = new ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>>();
 
@@ -28,19 +31,55 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     public ArrayList<Haplotype> runLocalAssembly(final ArrayList<GATKSAMRecord> reads, final Haplotype refHaplotype) {
         // create the graphs
-        createDeBruijnGraph( reads );
+        createDeBruijnGraphs(reads);
+
+        // prune singleton paths off the graph
+        pruneGraphs();
 
         // find the best paths in the graphs
         return findBestPaths( refHaplotype );
     }
 
-    private void createDeBruijnGraph(final ArrayList<GATKSAMRecord> reads) {
+    private void createDeBruijnGraphs(final ArrayList<GATKSAMRecord> reads) {
         graphs.clear();
         // create the graph
         for( int kmer = 7; kmer <= 101; kmer += 8 ) {
             final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
             createGraphFromSequences( graph, reads, kmer );
             graphs.add(graph);
+        }
+    }
+
+    private void pruneGraphs() {
+        for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
+            for( final DeBruijnVertex v : graph.vertexSet() ) {
+                if( graph.outDegreeOf(v) > 1 ) {
+                    ArrayList<DeBruijnEdge> edgesToRemove = new ArrayList<DeBruijnEdge>();
+                    for( final DeBruijnEdge e : graph.outgoingEdgesOf(v) ) {
+                        if( e.getMultiplicity() < PRUNE_FACTOR ) {
+                            edgesToRemove.add(e);
+                        }
+                    }
+                    if( edgesToRemove.size() == graph.outDegreeOf(v) ) { // don't want to remove all the edges if they all have a score of 1
+                        edgesToRemove.remove(0);
+                    }
+                    graph.removeAllEdges( edgesToRemove );
+                }
+            }
+            if( !graph.vertexSet().isEmpty() ) {
+                ArrayList<DeBruijnVertex> verticesToRemove = new ArrayList<DeBruijnVertex>();
+                verticesToRemove.add(graph.vertexSet().iterator().next());
+                while( !verticesToRemove.isEmpty() ) {
+                    verticesToRemove.clear();
+                    for( final DeBruijnVertex v : graph.vertexSet() ) {
+                        if( graph.outDegreeOf(v) == 1 && graph.outgoingEdgesOf(v).iterator().next().getMultiplicity() < PRUNE_FACTOR ) {
+                            graph.removeEdge(graph.outgoingEdgesOf(v).iterator().next());
+                            verticesToRemove.add(v);
+                        }
+                    }
+                    graph.removeAllVertices( verticesToRemove );
+                }
+            }
         }
     }
 
