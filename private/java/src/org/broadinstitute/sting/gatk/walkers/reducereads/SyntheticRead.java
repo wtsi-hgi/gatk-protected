@@ -21,7 +21,7 @@ import java.util.List;
  * @author Mauricio Carneiro
  * @since 8/26/11
  */
-public class RunningConsensus {
+public class SyntheticRead {
     private List<Byte> bases;
     private List<Byte> counts;
     private List<Byte> quals;
@@ -45,7 +45,7 @@ public class RunningConsensus {
      * @param contig
      * @param contigIndex
      */
-    public RunningConsensus (SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex, int consensusBaseQuality) {
+    public SyntheticRead(SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex, int consensusBaseQuality) {
         this(header, readGroupAttribute, contig, contigIndex, null, null, consensusBaseQuality);
     }
 
@@ -60,7 +60,7 @@ public class RunningConsensus {
      * @param readName
      * @param refStart
      */
-    public RunningConsensus (SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex, String readName, Integer refStart, int consensusBaseQuality) {
+    public SyntheticRead(SAMFileHeader header, Object readGroupAttribute, String contig, int contigIndex, String readName, Integer refStart, int consensusBaseQuality) {
         bases = new LinkedList<Byte>();
         counts = new LinkedList<Byte>();
         quals = new LinkedList<Byte>();

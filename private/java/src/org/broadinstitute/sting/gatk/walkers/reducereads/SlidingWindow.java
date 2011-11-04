@@ -32,7 +32,7 @@ public class SlidingWindow {
     protected int stopLocation;
 
     // Running consensus data
-    protected RunningConsensus runningConsensus;
+    protected SyntheticRead runningConsensus;
     protected int consensusCounter;
     protected String contig;
     protected int contigIndex;
@@ -203,7 +203,7 @@ public class SlidingWindow {
         LinkedList<GATKSAMRecord> consensusList = new LinkedList<GATKSAMRecord>();
         if (start < end) {
             if (runningConsensus == null)
-                runningConsensus = new RunningConsensus(header, readGroupAttribute, contig, contigIndex, readName + consensusCounter++, windowHeader.get(start).location, MIN_BASE_QUAL_TO_COUNT);
+                runningConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, readName + consensusCounter++, windowHeader.get(start).location, MIN_BASE_QUAL_TO_COUNT);
 
             int i = 0;
             for (HeaderElement wh : windowHeader) {
