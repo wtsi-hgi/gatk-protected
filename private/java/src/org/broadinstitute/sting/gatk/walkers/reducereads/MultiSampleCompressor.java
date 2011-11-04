@@ -39,23 +39,23 @@ import java.util.*;
  *
  * @author depristo
  */
-public class MultiSampleConsensusReadCompressor implements ConsensusReadCompressor {
-    protected static final Logger logger = Logger.getLogger(MultiSampleConsensusReadCompressor.class);
+public class MultiSampleCompressor implements Compressor {
+    protected static final Logger logger = Logger.getLogger(MultiSampleCompressor.class);
 
-    protected Map<String, SingleSampleConsensusReadCompressor> compressorsPerSample = new HashMap<String, SingleSampleConsensusReadCompressor>();
+    protected Map<String, SingleSampleCompressor> compressorsPerSample = new HashMap<String, SingleSampleCompressor>();
 
-    public MultiSampleConsensusReadCompressor(SAMFileHeader header,
-                                              final int contextSize,
-                                              final int contextSizeIndels,
-                                              final int downsampleCoverage,
-                                              final int minMappingQuality,
-                                              final double minAltProportionToTriggerVariant,
-                                              final double minIndelProportionToTriggerVariant,
-                                              final int minBaseQual,
-                                              final int maxQualCount) {
+    public MultiSampleCompressor(SAMFileHeader header,
+                                 final int contextSize,
+                                 final int contextSizeIndels,
+                                 final int downsampleCoverage,
+                                 final int minMappingQuality,
+                                 final double minAltProportionToTriggerVariant,
+                                 final double minIndelProportionToTriggerVariant,
+                                 final int minBaseQual,
+                                 final int maxQualCount) {
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
-                    new SingleSampleConsensusReadCompressor(name, header.getReadGroup(name), contextSize, contextSizeIndels, downsampleCoverage,
+                    new SingleSampleCompressor(name, header.getReadGroup(name), contextSize, contextSizeIndels, downsampleCoverage,
                                     minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
         }
     }
@@ -63,7 +63,7 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
     public Collection<SAMReadGroupRecord> getReducedReadGroups() {
         List<SAMReadGroupRecord> rgs = new ArrayList<SAMReadGroupRecord>();
 
-        for ( SingleSampleConsensusReadCompressor comp : compressorsPerSample.values() )
+        for ( SingleSampleCompressor comp : compressorsPerSample.values() )
             rgs.add(comp.getReducedReadGroup());
 
         return rgs;
@@ -72,7 +72,7 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
     @Override
     public Iterable<GATKSAMRecord> addAlignment(GATKSAMRecord read) {
         String sample = read.getReadGroup().getSample();
-        SingleSampleConsensusReadCompressor compressor = compressorsPerSample.get(sample);
+        SingleSampleCompressor compressor = compressorsPerSample.get(sample);
         if ( compressor == null )
             throw new ReviewedStingException("No compressor for sample " + sample);
         return compressor.addAlignment(read);
@@ -81,7 +81,7 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
     @Override
     public Iterable<GATKSAMRecord> close() {
         SortedSet<GATKSAMRecord> reads = new TreeSet<GATKSAMRecord>(new AlignmentStartWithNoTiesComparator());
-        for ( SingleSampleConsensusReadCompressor comp : compressorsPerSample.values() )
+        for ( SingleSampleCompressor comp : compressorsPerSample.values() )
             for ( GATKSAMRecord read : comp.close() )
                 reads.add(read);
         return reads;

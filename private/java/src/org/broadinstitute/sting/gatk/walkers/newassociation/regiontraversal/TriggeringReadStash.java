@@ -19,13 +19,13 @@ import java.util.*;
 public class TriggeringReadStash extends ReduceReadsStash {
     int nSamples;
 
-    protected TriggeringReadStash(TriggeringMultiSampleConsensusReadCompressor compressor) {
+    protected TriggeringReadStash(TriggeringMultiSampleCompressor compressor) {
         super(compressor);
     }
 
     public TriggeringReadStash(SAMFileHeader header) {
         // todo -- take inputs
-        this(new TriggeringMultiSampleConsensusReadCompressor(header,80,80,100,20,0.15,0.05,15,100));
+        this(new TriggeringMultiSampleCompressor(header,80,80,100,20,0.15,0.05,15,100));
         nSamples = SampleUtils.getSAMFileSamples(header).size();
     }
 
@@ -35,30 +35,30 @@ public class TriggeringReadStash extends ReduceReadsStash {
     }
 }
 
-class TriggeringMultiSampleConsensusReadCompressor extends MultiSampleConsensusReadCompressor {
+class TriggeringMultiSampleCompressor extends MultiSampleCompressor {
 
-    public TriggeringMultiSampleConsensusReadCompressor(SAMFileHeader header,
-                                              final int contextSize,
-                                              final int contextSizeIndels,
-                                              final int downsampleCoverage,
-                                              final int minMappingQuality,
-                                              final double minAltProportionToTriggerVariant,
-                                              final double minIndelProportionToTriggerVariant,
-                                              final int minBaseQual,
-                                              final int maxQualCount) {
+    public TriggeringMultiSampleCompressor(SAMFileHeader header,
+                                           final int contextSize,
+                                           final int contextSizeIndels,
+                                           final int downsampleCoverage,
+                                           final int minMappingQuality,
+                                           final double minAltProportionToTriggerVariant,
+                                           final double minIndelProportionToTriggerVariant,
+                                           final int minBaseQual,
+                                           final int maxQualCount) {
         super(header,contextSize,contextSizeIndels,downsampleCoverage,minMappingQuality,minAltProportionToTriggerVariant,minIndelProportionToTriggerVariant,minBaseQual,maxQualCount);
         compressorsPerSample.clear(); // out with the bad, in with the good
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
-                    new TriggeringSingleSampleConsensusReadCompressor(name, header.getReadGroup(name), contextSize, contextSizeIndels, downsampleCoverage,
+                    new TriggeringSingleSampleCompressor(name, header.getReadGroup(name), contextSize, contextSizeIndels, downsampleCoverage,
                                     minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount,this));
         }
     }
 
     protected boolean[] markRegion(int startLoc, int stopLoc, int contextSize) {
         boolean[] multiSampleRegion = new boolean[stopLoc-startLoc+contextSize+1];
-        for ( Map.Entry<String,SingleSampleConsensusReadCompressor> compressor : compressorsPerSample.entrySet() ) {
-            ((TriggeringSingleSampleConsensusReadCompressor) compressor.getValue()).markWherePossible(multiSampleRegion,startLoc,stopLoc,contextSize);
+        for ( Map.Entry<String,SingleSampleCompressor> compressor : compressorsPerSample.entrySet() ) {
+            ((TriggeringSingleSampleCompressor) compressor.getValue()).markWherePossible(multiSampleRegion,startLoc,stopLoc,contextSize);
         }
 
         return multiSampleRegion;
@@ -67,15 +67,15 @@ class TriggeringMultiSampleConsensusReadCompressor extends MultiSampleConsensusR
     @Override
     public Iterable<GATKSAMRecord> addAlignment(GATKSAMRecord read) {
         String sample = read.getReadGroup().getSample();
-        SingleSampleConsensusReadCompressor compressor = compressorsPerSample.get(sample);
+        SingleSampleCompressor compressor = compressorsPerSample.get(sample);
         if ( compressor == null )
             throw new ReviewedStingException("No compressor for sample " + sample);
         TreeSet<GATKSAMRecord> toReturn = new TreeSet<GATKSAMRecord>(new AlignmentStartWithNoTiesComparator());
-        for ( Map.Entry<String,SingleSampleConsensusReadCompressor> compressorEntry : compressorsPerSample.entrySet() ) {
+        for ( Map.Entry<String,SingleSampleCompressor> compressorEntry : compressorsPerSample.entrySet() ) {
             if ( compressorEntry.getKey().equals(sample) ) {
                 toReturn.addAll( (Collection<GATKSAMRecord>) compressorEntry.getValue().addAlignment(read));
             } else {
-                toReturn.addAll( (Collection<GATKSAMRecord>) ( (TriggeringSingleSampleConsensusReadCompressor) compressorEntry.getValue()).registerAlignment(read));
+                toReturn.addAll( (Collection<GATKSAMRecord>) ( (TriggeringSingleSampleCompressor) compressorEntry.getValue()).registerAlignment(read));
             }
         }
 
@@ -83,19 +83,19 @@ class TriggeringMultiSampleConsensusReadCompressor extends MultiSampleConsensusR
     }
 }
 
-class TriggeringSingleSampleConsensusReadCompressor extends SingleSampleConsensusReadCompressor {
-    protected TriggeringMultiSampleConsensusReadCompressor parentMultiSampleCompressor;
-    public TriggeringSingleSampleConsensusReadCompressor(final String sampleName,
-                                               final SAMReadGroupRecord readGroupRecord,
-                                               final int contextSize,
-                                               final int contextSizeIndels,
-                                               final int downsampleCoverage,
-                                               final int minMappingQuality,
-                                               final double minAltProportionToTriggerVariant,
-                                               final double minIndelProportionToTriggerVariant,
-                                               final int minBaseQual,
-                                               final int maxQualCount,
-                                               final TriggeringMultiSampleConsensusReadCompressor parent) {
+class TriggeringSingleSampleCompressor extends SingleSampleCompressor {
+    protected TriggeringMultiSampleCompressor parentMultiSampleCompressor;
+    public TriggeringSingleSampleCompressor(final String sampleName,
+                                            final SAMReadGroupRecord readGroupRecord,
+                                            final int contextSize,
+                                            final int contextSizeIndels,
+                                            final int downsampleCoverage,
+                                            final int minMappingQuality,
+                                            final double minAltProportionToTriggerVariant,
+                                            final double minIndelProportionToTriggerVariant,
+                                            final int minBaseQual,
+                                            final int maxQualCount,
+                                            final TriggeringMultiSampleCompressor parent) {
         super(sampleName,readGroupRecord,contextSize,contextSizeIndels,downsampleCoverage,minMappingQuality,minAltProportionToTriggerVariant,minIndelProportionToTriggerVariant,minBaseQual,maxQualCount);
         parentMultiSampleCompressor = parent;
     }
@@ -122,14 +122,14 @@ class TriggeringSingleSampleConsensusReadCompressor extends SingleSampleConsensu
 class TriggeringSlidingWindow extends SlidingWindow {
     protected final static double MIN_LARGE_INSERT_READS_TO_TRIGGER_VARIANT = 0.10;
     protected final static double MIN_CLIPPED_READS_TO_TRIGGER_VARIANT = 0.10;
-    protected TriggeringSingleSampleConsensusReadCompressor parentCompressor;
+    protected TriggeringSingleSampleCompressor parentCompressor;
 
     public TriggeringSlidingWindow(String contig, int contigIndex, int contextSize, int contextSizeIndels,
                                    SAMFileHeader header, Object readGroupAttribute, int windowNumber,
                                    final double minAltProportionToTriggerVariant,
                                    final double minIndelProportionToTriggerVariant, int minBaseQual,
                                    int maxQualCount, int minMappingQuality,
-                                   TriggeringSingleSampleConsensusReadCompressor parent) {
+                                   TriggeringSingleSampleCompressor parent) {
         super(contig, contigIndex, contextSize, contextSizeIndels, header, readGroupAttribute, windowNumber, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
         parentCompressor = parent;
     }

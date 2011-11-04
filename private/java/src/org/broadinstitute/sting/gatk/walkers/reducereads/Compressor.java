@@ -41,7 +41,7 @@ import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
  * of reads for emission.  This stream of reads is a "reduced" representation of the total stream
  * of reads.  The actual compression approach is left up to the implementing class.
  */
-public interface ConsensusReadCompressor {
+public interface Compressor {
     /**
      * Adds the read to the compressor.  The returned iteratable collection of
      * reads represents the incremental compressed output.

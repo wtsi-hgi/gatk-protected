@@ -12,8 +12,8 @@ import java.util.TreeSet;
  * @author depristo
  * @version 0.1
  */
-public class SingleSampleConsensusReadCompressor implements ConsensusReadCompressor {
-    protected static final Logger logger = Logger.getLogger(SingleSampleConsensusReadCompressor.class);
+public class SingleSampleCompressor implements Compressor {
+    protected static final Logger logger = Logger.getLogger(SingleSampleCompressor.class);
 
     protected final int contextSize;
     protected final int contextSizeIndels;
@@ -31,16 +31,16 @@ public class SingleSampleConsensusReadCompressor implements ConsensusReadCompres
     protected int maxQualCount;
 
 
-    public SingleSampleConsensusReadCompressor(final String sampleName,
-                                               final SAMReadGroupRecord readGroupRecord,
-                                               final int contextSize,
-                                               final int contextSizeIndels,
-                                               final int downsampleCoverage,
-                                               final int minMappingQuality,
-                                               final double minAltProportionToTriggerVariant,
-                                               final double minIndelProportionToTriggerVariant,
-                                               final int minBaseQual,
-                                               final int maxQualCount) {
+    public SingleSampleCompressor(final String sampleName,
+                                  final SAMReadGroupRecord readGroupRecord,
+                                  final int contextSize,
+                                  final int contextSizeIndels,
+                                  final int downsampleCoverage,
+                                  final int minMappingQuality,
+                                  final double minAltProportionToTriggerVariant,
+                                  final double minIndelProportionToTriggerVariant,
+                                  final int minBaseQual,
+                                  final int maxQualCount) {
         this.sampleName = sampleName;
         this.reducedReadGroup = readGroupRecord;
         this.contextSize = contextSize;
