@@ -1,7 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
 import net.sf.samtools.SAMReadGroupRecord;
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -13,6 +12,7 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.features.ReadFeature
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -50,12 +50,12 @@ public class ReadFeatureDistribution extends ReadWalker<Integer, Integer> {
         }
     }
 
-    public boolean filter(ReferenceContext ref, SAMRecord read) {
+    public boolean filter(ReferenceContext ref, GATKSAMRecord read) {
         return (read.getReadPairedFlag() && read.getFirstOfPairFlag() && ! read.getMateUnmappedFlag());
     }
 
     @Override
-    public Integer map(ReferenceContext referenceContext, SAMRecord samRecord, ReadMetaDataTracker readMetaDataTracker) {
+    public Integer map(ReferenceContext referenceContext, GATKSAMRecord samRecord, ReadMetaDataTracker readMetaDataTracker) {
         for ( ReadFeature feature : featuresToExtract ) {
             if ( feature.isDefinedFor(samRecord) ) {
                 GATKReportTable table = report.getTable(feature.getName());

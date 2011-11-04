@@ -27,7 +27,7 @@ public class RunningConsensus {
     private List<Byte> quals;
     private double mappingQuality;          // the average of the rms of the mapping qualities of all the reads that contributed to this consensus
 
-    // Information to produce a SAMRecord
+    // Information to produce a GATKSAMRecord
     private SAMFileHeader header;
     private Object readGroupAttribute;
     private String contig;
@@ -89,8 +89,8 @@ public class RunningConsensus {
         this.mappingQuality += mappingQuality;
     }
 
-    public SAMRecord close () {
-        SAMRecord samRecord = new SAMRecord(header);
+    public GATKSAMRecord close () {
+        GATKSAMRecord samRecord = new GATKSAMRecord(header);
         samRecord.setReferenceName(contig);
         samRecord.setReferenceIndex(contigIndex);
         samRecord.setReadPairedFlag(false);

@@ -3,7 +3,7 @@ package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
 import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 //g import org.broadinstitute.sting.gatk.walkers.recalibration.ExperimentalCovariate;
 //g import org.broadinstitute.sting.gatk.walkers.recalibration.RecalibrationArgumentCollection;
 
@@ -49,7 +49,7 @@ public class IndelCountCovariate implements ExperimentalCovariate {
 
 
     // Used to pick out the covariate's value from attributes of the read
-    public final Comparable getValue( final SAMRecord read ) {
+    public final Comparable getValue( final GATKSAMRecord read ) {
 
         Cigar c = read.getCigar();
 
@@ -78,7 +78,7 @@ public class IndelCountCovariate implements ExperimentalCovariate {
         return indelCount;
     }
 
-    public void getValues(SAMRecord read, Comparable[] comparable) {
+    public void getValues(GATKSAMRecord read, Comparable[] comparable) {
 /*        Comparable numIndels = getValue(read);
          for(int iii = 0; iii < read.getReadLength(); iii++) {
              comparable[iii] = numIndels; // BUGBUG: this can be optimized

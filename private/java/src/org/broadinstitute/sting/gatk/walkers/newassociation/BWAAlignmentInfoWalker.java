@@ -12,6 +12,7 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.File;
 import java.io.PrintStream;
@@ -52,11 +53,11 @@ public class BWAAlignmentInfoWalker extends ReadWalker<Integer,Integer> {
 
     public Integer reduce( Integer a, Integer b) { return 0; }
 
-    public boolean filter(ReferenceContext ref, SAMRecord read) {
+    public boolean filter(ReferenceContext ref, GATKSAMRecord read) {
         return read.getAttribute("AI") == null || read.getAttribute("AI").equals(0);
     }
 
-    public Integer map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker tracker) {
+    public Integer map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker tracker) {
 
         Iterable<SAMRecord[]> bwaAln = aligner.alignAll(read,header);
         out.printf("# Alignments for read: %s @ %s:%d-%d / %s %d%n",read.getReadName(),read.getReferenceName(),read.getAlignmentStart(),read.getAlignmentEnd(),read.getCigarString(),read.getMappingQuality());

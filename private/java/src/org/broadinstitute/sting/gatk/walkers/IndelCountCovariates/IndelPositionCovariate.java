@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 //g import org.broadinstitute.sting.gatk.walkers.recalibration.Covariate;
 //g import org.broadinstitute.sting.gatk.walkers.recalibration.RecalibrationArgumentCollection;
 
@@ -17,7 +17,7 @@ public class IndelPositionCovariate implements Covariate {
     }
 
     // Used to pick out the covariate's value from attributes of the read
-    public final Comparable getValue( final SAMRecord read, final int offset ) {
+    public final Comparable getValue( final GATKSAMRecord read, final int offset ) {
         int cycle = offset;
         if( read.getReadNegativeStrandFlag() ) {
             cycle = read.getReadLength() - (offset + 1);
@@ -30,7 +30,7 @@ public class IndelPositionCovariate implements Covariate {
         return Integer.parseInt( str );
     }
 
-    public void getValues(SAMRecord read, Comparable[] comparable) {
+    public void getValues(GATKSAMRecord read, Comparable[] comparable) {
         for(int iii = 0; iii < read.getReadLength(); iii++) {
             comparable[iii] = getValue(read, iii); // BUGBUG: this can be optimized
         }

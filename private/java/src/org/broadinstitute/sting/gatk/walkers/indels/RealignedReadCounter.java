@@ -25,12 +25,12 @@
 
 package org.broadinstitute.sting.gatk.walkers.indels;
 
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.By;
 import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 @By(DataSource.READS)
 // walker to count realigned reads
@@ -41,7 +41,7 @@ public class RealignedReadCounter extends ReadWalker<Integer, Integer> {
 
     private long updatedReads = 0;
 
-    public Integer map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public Integer map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
 
         if ( read.getAttribute(ORIGINAL_CIGAR_TAG) != null ) {
             String newCigar = (String)read.getAttribute(ORIGINAL_CIGAR_TAG);

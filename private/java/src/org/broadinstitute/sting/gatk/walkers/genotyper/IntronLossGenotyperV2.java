@@ -2,12 +2,10 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.CigarOperator;
-import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.StringUtil;
 import org.apache.commons.lang.ArrayUtils;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.samples.Sample;
 import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
@@ -27,10 +25,10 @@ import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.gatk.walkers.genotyper.IntronLossGenotypeLikelihoodCalculationModel;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -45,7 +43,7 @@ import java.util.*;
  * To change this template use File | Settings | File Templates.
  */
 @ReadFilters({DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class,MappingQualityZeroFilter.class})
-public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
+public class IntronLossGenotyperV2 extends ReadWalker<GATKSAMRecord,Integer> {
 
     /**
      * A raw, unfiltered, highly specific callset in VCF format.
@@ -172,7 +170,7 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
         ilglcm.initialize(refSeqRodBinding,getToolkit().getGenomeLocParser(),insertQualsByRG);
     }
 
-    public SAMRecord map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
         boolean overlapsExon = false;
         List<RefSeqFeature> refSeqFeatures = new ArrayList<RefSeqFeature>(16);
         for (GATKFeature feature : metaDataTracker.getAllCoveringRods() ) {
@@ -220,7 +218,7 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
 
         int leftHardClipAlready = read.getCigar().getCigarElement(0).getOperator().equals(CigarOperator.H) ? read.getCigar().getCigarElement(0).getLength() : 0;
         byte[] refBases = getToolkit().getReferenceDataSource().getReference().getSubsequenceAt(read.getReferenceName(),start, stop).getBases();
-        SAMRecord clippedRead = ReadUtils.unclipSoftClippedBases((new ReadClipper(read)).hardClipLowQualEnds((byte) 12));
+        GATKSAMRecord clippedRead = ReadUtils.unclipSoftClippedBases((new ReadClipper(read)).hardClipLowQualEnds((byte) 12));
 
         if( clippedRead.getCigar().isEmpty()) {
             return null;
@@ -231,7 +229,7 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
         return clippedRead;
     }
 
-    public boolean filter(ReferenceContext ref, SAMRecord read) {
+    public boolean filter(ReferenceContext ref, GATKSAMRecord read) {
         // kill off unmapped reads
         boolean filter = ! read.getReadUnmappedFlag() && read.getMappingQuality() > 0 && ((( read.getAttribute("MQ") != null && ((Integer)read.getAttribute("MQ")) > 0)));
         return filter;
@@ -241,7 +239,7 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
         return 0;
     }
 
-    public Integer reduce(SAMRecord read, Integer sum) {
+    public Integer reduce(GATKSAMRecord read, Integer sum) {
         if ( read == null )
             return sum;
         for ( PairedReadBin rb : readsToAssemble.values() ) {
@@ -273,9 +271,9 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
     }
 
     // private class copied from IndelRealigner, used to bin together a bunch of reads and then retrieve the reference overlapping the full extent of the bin
-    public class PairedReadBin implements HasGenomeLocation, Iterable<Pair<SAMRecord,SAMRecord>> {
+    public class PairedReadBin implements HasGenomeLocation, Iterable<Pair<GATKSAMRecord,GATKSAMRecord>> {
 
-        private final HashMap<String,Pair<SAMRecord,SAMRecord>> reads = new HashMap<String, Pair<SAMRecord, SAMRecord>>(3200);
+        private final HashMap<String,Pair<GATKSAMRecord,GATKSAMRecord>> reads = new HashMap<String, Pair<GATKSAMRecord, GATKSAMRecord>>(3200);
         private byte[] reference = null;
         private GenomeLoc loc = null;
 
@@ -283,7 +281,7 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
 
         // Return false if we can't process this read bin because the reads are not correctly overlapping.
         // This can happen if e.g. there's a large known indel with no overlapping reads.
-        public void add(SAMRecord read) {
+        public void add(GATKSAMRecord read) {
             if ( read.getCigarString().equals("*") ) {
                 return;
             }
@@ -298,12 +296,12 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
                 // mate is already in the map
                 reads.get(name).second = read;
             } else {
-                Pair<SAMRecord,SAMRecord> samPair = new Pair<SAMRecord,SAMRecord>(read,null);
+                Pair<GATKSAMRecord,GATKSAMRecord> samPair = new Pair<GATKSAMRecord,GATKSAMRecord>(read,null);
                 reads.put(name,samPair);
             }
         }
 
-        public Collection<Pair<SAMRecord,SAMRecord>> getReadPairs() { return reads.values(); }
+        public Collection<Pair<GATKSAMRecord,GATKSAMRecord>> getReadPairs() { return reads.values(); }
 
         public byte[] getReference(IndexedFastaSequenceFile referenceReader) {
             // set up the reference if we haven't done so yet
@@ -329,7 +327,7 @@ public class IntronLossGenotyperV2 extends ReadWalker<SAMRecord,Integer> {
             loc = null;
         }
 
-        public Iterator<Pair<SAMRecord,SAMRecord>> iterator() {
+        public Iterator<Pair<GATKSAMRecord,GATKSAMRecord>> iterator() {
             return  reads.values().iterator();
         }
     }

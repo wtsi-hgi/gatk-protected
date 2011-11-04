@@ -5,6 +5,7 @@ import org.broadinstitute.sting.gatk.walkers.reducereads.*;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.*;
 
@@ -29,7 +30,7 @@ public class TriggeringReadStash extends ReduceReadsStash {
     }
 
     @Override
-    public Iterable<SAMRecord> compress(SAMRecord read) {
+    public Iterable<GATKSAMRecord> compress(GATKSAMRecord read) {
         return super.compress(read);
     }
 }
@@ -64,17 +65,17 @@ class TriggeringMultiSampleConsensusReadCompressor extends MultiSampleConsensusR
     }
 
     @Override
-    public Iterable<SAMRecord> addAlignment(SAMRecord read) {
+    public Iterable<GATKSAMRecord> addAlignment(GATKSAMRecord read) {
         String sample = read.getReadGroup().getSample();
         SingleSampleConsensusReadCompressor compressor = compressorsPerSample.get(sample);
         if ( compressor == null )
             throw new ReviewedStingException("No compressor for sample " + sample);
-        TreeSet<SAMRecord> toReturn = new TreeSet<SAMRecord>(new AlignmentStartWithNoTiesComparator());
+        TreeSet<GATKSAMRecord> toReturn = new TreeSet<GATKSAMRecord>(new AlignmentStartWithNoTiesComparator());
         for ( Map.Entry<String,SingleSampleConsensusReadCompressor> compressorEntry : compressorsPerSample.entrySet() ) {
             if ( compressorEntry.getKey().equals(sample) ) {
-                toReturn.addAll( (Collection<SAMRecord>) compressorEntry.getValue().addAlignment(read));
+                toReturn.addAll( (Collection<GATKSAMRecord>) compressorEntry.getValue().addAlignment(read));
             } else {
-                toReturn.addAll( (Collection<SAMRecord>) ( (TriggeringSingleSampleConsensusReadCompressor) compressorEntry.getValue()).registerAlignment(read));
+                toReturn.addAll( (Collection<GATKSAMRecord>) ( (TriggeringSingleSampleConsensusReadCompressor) compressorEntry.getValue()).registerAlignment(read));
             }
         }
 
@@ -100,7 +101,7 @@ class TriggeringSingleSampleConsensusReadCompressor extends SingleSampleConsensu
     }
 
     @Override
-    protected void instantiateSlidingWindow(SAMRecord read) {
+    protected void instantiateSlidingWindow(GATKSAMRecord read) {
         slidingWindow = new TriggeringSlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getAttribute("RG"), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality,this);
     }
 
@@ -113,8 +114,8 @@ class TriggeringSingleSampleConsensusReadCompressor extends SingleSampleConsensu
             ( (TriggeringSlidingWindow) slidingWindow).markWherePossible(variantArray, startLoc, stopLoc, contextSize);
     }
 
-    public Iterable<SAMRecord> registerAlignment(SAMRecord read) {
-       return slidingWindow == null ? new ArrayList<SAMRecord>(0) : ( (TriggeringSlidingWindow) slidingWindow).registerAlignment(read);
+    public Iterable<GATKSAMRecord> registerAlignment(GATKSAMRecord read) {
+       return slidingWindow == null ? new ArrayList<GATKSAMRecord>(0) : ( (TriggeringSlidingWindow) slidingWindow).registerAlignment(read);
     }
 }
 
@@ -177,14 +178,14 @@ class TriggeringSlidingWindow extends SlidingWindow {
     }
 
     @Override
-    protected List<SAMRecord> addToConsensus(int start, int end) {
+    protected List<GATKSAMRecord> addToConsensus(int start, int end) {
         // reads that would die from the slide to start get added in
-        List<SAMRecord> consensus = new LinkedList<SAMRecord>();
+        List<GATKSAMRecord> consensus = new LinkedList<GATKSAMRecord>();
         return consensus;
     }
 
     @Override
-    protected SAMRecord finalizeConsensus() {
+    protected GATKSAMRecord finalizeConsensus() {
         runningConsensus = null;
         return null;
     }
@@ -195,7 +196,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
     }
 
     @Override
-        protected void updateHeaderCounts(SAMRecord read) {
+        protected void updateHeaderCounts(GATKSAMRecord read) {
         // Reads that don't pass the minimum mapping quality filter are not added to the
         // consensus, or count towards a variant region so no point in keeping track of
         // their base counts.
@@ -287,12 +288,12 @@ class TriggeringSlidingWindow extends SlidingWindow {
         }
     }
 
-    public List<SAMRecord> registerAlignment( SAMRecord read ) {
+    public List<GATKSAMRecord> registerAlignment( GATKSAMRecord read ) {
         // If this is the first read in the window, update startLocation
         if (startLocation < 0)
             startLocation = read.getAlignmentStart();
 
-        List<SAMRecord> finalizedReads = slideIfPossible(read.getUnclippedStart());
+        List<GATKSAMRecord> finalizedReads = slideIfPossible(read.getUnclippedStart());
 
         return finalizedReads;
     }

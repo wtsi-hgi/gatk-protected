@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -22,11 +22,11 @@ public class InsertSize extends ReadFeature {
 
     public String getDescription() { return "the insert size distribution among all valid reads"; }
 
-    public boolean isDefinedFor(SAMRecord read) {
+    public boolean isDefinedFor(GATKSAMRecord read) {
         return read.getReadPairedFlag() && ! read.getMateUnmappedFlag();
     }
 
-    public Object getFeature(SAMRecord read) {
+    public Object getFeature(GATKSAMRecord read) {
         return Math.abs(read.getInferredInsertSize());
     }
 }

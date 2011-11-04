@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 //g import org.broadinstitute.sting.gatk.walkers.recalibration.RecalibrationArgumentCollection;
 
 /*
@@ -41,7 +41,7 @@ import net.sf.samtools.SAMRecord;
 public interface Covariate {
     public void initialize( RecalibrationArgumentCollection RAC ); // Initialize any member variables using the command-line arguments passed to the walkers
     public Comparable getValue( String str ); // Used to get the covariate's value from input csv file in TableRecalibrationWalker
-    public void getValues( SAMRecord read, Comparable[] comparable ); //Takes an array of size (at least) read.getReadLength() and fills it with covariate
+    public void getValues( GATKSAMRecord read, Comparable[] comparable ); //Takes an array of size (at least) read.getReadLength() and fills it with covariate
         //values for each position in the read. This method was created as an optimization over calling getValue( read, offset ) for each offset and allows
         //read-specific calculations to be done just once rather than for each offset.
 }

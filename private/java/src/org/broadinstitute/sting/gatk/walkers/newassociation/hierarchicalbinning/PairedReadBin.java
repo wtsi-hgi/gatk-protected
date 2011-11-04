@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.hierarchicalbinning;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.HasGenomeLocation;
@@ -17,9 +17,9 @@ import java.util.Iterator;
  * Time: 6:57 PM
  * To change this template use File | Settings | File Templates.
  */
-public class PairedReadBin implements HasGenomeLocation, Iterable<Pair<SAMRecord,SAMRecord>> {
+public class PairedReadBin implements HasGenomeLocation, Iterable<Pair<GATKSAMRecord,GATKSAMRecord>> {
 
-    private final HashMap<String,Pair<SAMRecord,SAMRecord>> reads = new HashMap<String, Pair<SAMRecord, SAMRecord>>(3200);
+    private final HashMap<String,Pair<GATKSAMRecord,GATKSAMRecord>> reads = new HashMap<String, Pair<GATKSAMRecord, GATKSAMRecord>>(3200);
     private GenomeLoc loc = null;
     private GenomeLocParser parser;
 
@@ -27,7 +27,7 @@ public class PairedReadBin implements HasGenomeLocation, Iterable<Pair<SAMRecord
 
     // Return false if we can't process this read bin because the reads are not correctly overlapping.
     // This can happen if e.g. there's a large known indel with no overlapping reads.
-    public void add(SAMRecord read) {
+    public void add(GATKSAMRecord read) {
         if ( read.getCigarString().equals("*") ) {
             return;
         }
@@ -42,12 +42,12 @@ public class PairedReadBin implements HasGenomeLocation, Iterable<Pair<SAMRecord
             // mate is already in the map
             reads.get(name).second = read;
         } else {
-            Pair<SAMRecord,SAMRecord> samPair = new Pair<SAMRecord,SAMRecord>(read,null);
+            Pair<GATKSAMRecord,GATKSAMRecord> samPair = new Pair<GATKSAMRecord,GATKSAMRecord>(read,null);
             reads.put(name,samPair);
         }
     }
 
-    public Collection<Pair<SAMRecord,SAMRecord>> getReadPairs() { return reads.values(); }
+    public Collection<Pair<GATKSAMRecord,GATKSAMRecord>> getReadPairs() { return reads.values(); }
 
     public GenomeLoc getLocation() { return loc; }
 
@@ -58,7 +58,7 @@ public class PairedReadBin implements HasGenomeLocation, Iterable<Pair<SAMRecord
         loc = null;
     }
 
-    public Iterator<Pair<SAMRecord,SAMRecord>> iterator() {
+    public Iterator<Pair<GATKSAMRecord,GATKSAMRecord>> iterator() {
         return  reads.values().iterator();
     }
 }

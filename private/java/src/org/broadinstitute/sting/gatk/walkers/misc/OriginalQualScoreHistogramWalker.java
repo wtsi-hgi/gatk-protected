@@ -1,12 +1,11 @@
 package org.broadinstitute.sting.gatk.walkers.misc;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -35,11 +34,11 @@ public class OriginalQualScoreHistogramWalker extends ReadWalker<Boolean,Long> {
         return 0L;
     }
 
-    public boolean filter(SAMRecord read) {
+    public boolean filter(GATKSAMRecord read) {
         return read.getAttribute("OQ") != null;
     }
 
-    public Boolean map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public Boolean map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
         byte[] quals = read.getOriginalBaseQualities();
         for ( int offset = 0; offset < quals.length; offset++ ) {
             qualsByOffset.get(offset)[ (int) quals[offset]]++;

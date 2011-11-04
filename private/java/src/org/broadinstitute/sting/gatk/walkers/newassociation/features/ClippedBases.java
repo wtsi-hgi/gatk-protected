@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 
@@ -23,7 +23,7 @@ public class ClippedBases extends ReadFeature {
 
     public String getDescription() { return "the number of clipped bases with Q >= 14"; }
 
-    public Object getFeature(SAMRecord read) {
+    public Object getFeature(GATKSAMRecord read) {
          int firstClippedToAliStart = read.getUnclippedStart()-read.getAlignmentStart();
         int lastUnclippedToReadEnd = read.getUnclippedEnd()-read.getAlignmentEnd();
 
@@ -44,7 +44,7 @@ public class ClippedBases extends ReadFeature {
         return nClipped;
     }
 
-    public boolean isDefinedFor(SAMRecord read) {
+    public boolean isDefinedFor(GATKSAMRecord read) {
         return ! read.getReadUnmappedFlag();
     }
 }

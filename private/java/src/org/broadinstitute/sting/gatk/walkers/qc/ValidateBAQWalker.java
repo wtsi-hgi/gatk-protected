@@ -15,6 +15,7 @@ import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
 
@@ -73,7 +74,7 @@ public class ValidateBAQWalker extends ReadWalker<Integer, Integer> {
 
     long goodReads = 0, badReads = 0;
 
-    public Integer map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker tracker) {
+    public Integer map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker tracker) {
 
         if ( (readName == null || readName.equals(read.getReadName())) && read.getReadLength() <= maxReadLen && (includeReadsWithoutBAQTag || BAQ.hasBAQTag(read) ) ) {
             if ( baqHMM.excludeReadFromBAQ(read) )

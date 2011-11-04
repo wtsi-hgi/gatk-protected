@@ -25,10 +25,9 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.collections.NestedHashMap;
-import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.*;
 
@@ -153,7 +152,7 @@ public class LikelihoodCalculationEngine {
         }
     }
 
-    public void computeLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<SAMRecord> reads ) {
+    public void computeLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<GATKSAMRecord> reads ) {
         int numHaplotypes = haplotypes.size();
         double readLikelihoods[][] = new double[reads.size()][numHaplotypes];
         haplotypeLikehoodMatrix = new Double[numHaplotypes][numHaplotypes];
@@ -171,7 +170,7 @@ public class LikelihoodCalculationEngine {
         }
 
         for( int iii = 0; iii < reads.size(); iii++ ) {
-            final SAMRecord read = reads.get(iii);
+            final GATKSAMRecord read = reads.get(iii);
             final String readGroup = read.getReadGroup().getReadGroupId();
 
             // initialize path metric and traceback memories for likelihood computation
@@ -225,7 +224,12 @@ public class LikelihoodCalculationEngine {
                     if (Double.isInfinite(readLikelihoods[kkk][iii]) && Double.isInfinite(readLikelihoods[kkk][jjj])) {
                         continue;
                     }
-                    haplotypeLikehoodMatrix[iii][jjj] += ( MathUtils.softMax(readLikelihoods[kkk][iii], readLikelihoods[kkk][jjj]) + LOG_ONE_HALF );
+
+                    final GATKSAMRecord read = reads.get(kkk);
+                    final int mappingLength = read.getAlignmentEnd() - read.getAlignmentStart() + 1;
+                    final double mappingProb = 1.0 - Math.max(0.0, (76.0 - ((double)mappingLength)) / 76.0); //BUGBUG: 101!, needs to pull from the empirical read length distribution per read group
+
+                    haplotypeLikehoodMatrix[iii][jjj] += (mappingProb*mappingProb) * ( MathUtils.softMax(readLikelihoods[kkk][iii], readLikelihoods[kkk][jjj]) + LOG_ONE_HALF ); // BUGBUG: needs to be a logged probability
                 }
             }
         }

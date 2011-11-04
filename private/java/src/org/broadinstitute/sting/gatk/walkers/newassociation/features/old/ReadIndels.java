@@ -2,7 +2,7 @@ package org.broadinstitute.sting.gatk.walkers.newassociation.features.old;
 
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -14,7 +14,7 @@ import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollectio
  */
 public class ReadIndels extends BinaryFeatureAggregator {
 
-    public boolean extractFeature(SAMRecord record) {
+    public boolean extractFeature(GATKSAMRecord record) {
         for (CigarElement elem : record.getCigar().getCigarElements() ) {
             if ( elem.getOperator().equals(CigarOperator.INSERTION) || elem.getOperator().equals(CigarOperator.DELETION) ) {
                 return true;
@@ -25,7 +25,7 @@ public class ReadIndels extends BinaryFeatureAggregator {
     }
 
 
-    public boolean featureDefined(SAMRecord record) {
+    public boolean featureDefined(GATKSAMRecord record) {
         return true;
     }
 

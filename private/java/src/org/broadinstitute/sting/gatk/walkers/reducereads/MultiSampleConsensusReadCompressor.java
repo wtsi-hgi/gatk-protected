@@ -2,11 +2,11 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMReadGroupRecord;
-import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.*;
 
@@ -70,7 +70,7 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
     }
 
     @Override
-    public Iterable<SAMRecord> addAlignment(SAMRecord read) {
+    public Iterable<GATKSAMRecord> addAlignment(GATKSAMRecord read) {
         String sample = read.getReadGroup().getSample();
         SingleSampleConsensusReadCompressor compressor = compressorsPerSample.get(sample);
         if ( compressor == null )
@@ -79,10 +79,10 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
     }
 
     @Override
-    public Iterable<SAMRecord> close() {
-        SortedSet<SAMRecord> reads = new TreeSet<SAMRecord>(new AlignmentStartWithNoTiesComparator());
+    public Iterable<GATKSAMRecord> close() {
+        SortedSet<GATKSAMRecord> reads = new TreeSet<GATKSAMRecord>(new AlignmentStartWithNoTiesComparator());
         for ( SingleSampleConsensusReadCompressor comp : compressorsPerSample.values() )
-            for ( SAMRecord read : comp.close() )
+            for ( GATKSAMRecord read : comp.close() )
                 reads.add(read);
         return reads;
     }

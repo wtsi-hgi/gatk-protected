@@ -25,7 +25,6 @@
 
 package org.broadinstitute.sting.gatk.walkers;
 
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -37,6 +36,7 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
@@ -89,7 +89,7 @@ public class SnpCallRateByCoverageWalker extends LocusWalker<List<String>, Strin
 
                 ArrayList<String> GenotypeCalls = new ArrayList<String>();
 
-                List<SAMRecord> reads = context.getReads();
+                List<GATKSAMRecord> reads = context.getReads();
                 List<Integer> offsets = context.getOffsets();
 
                 int coverage_available = reads.size();
@@ -111,7 +111,7 @@ public class SnpCallRateByCoverageWalker extends LocusWalker<List<String>, Strin
 
                     for (int r=0; r < downsampling_repeats; r++) {
                         List<Integer> subset_indices = MathUtils.sampleIndicesWithReplacement(coverage_available, usableCoverage);
-                        List<SAMRecord> sub_reads = MathUtils.sliceListByIndices(subset_indices, reads);
+                        List<GATKSAMRecord> sub_reads = MathUtils.sliceListByIndices(subset_indices, reads);
                         List<Integer> sub_offsets = MathUtils.sliceListByIndices(subset_indices, offsets);
 
                         AlignmentContext subContext = new AlignmentContext(context.getLocation(), new ReadBackedPileupImpl(context.getLocation(),sub_reads, sub_offsets));

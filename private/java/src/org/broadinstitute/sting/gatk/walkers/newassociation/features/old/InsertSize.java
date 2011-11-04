@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features.old;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -17,11 +17,11 @@ public class InsertSize {
         //super(col);
     }
 
-    protected Integer extractFeature(SAMRecord record) {
+    protected Integer extractFeature(GATKSAMRecord record) {
         return Math.abs(record.getInferredInsertSize());
     }
 
-    protected boolean featureDefined(SAMRecord record) {
+    protected boolean featureDefined(GATKSAMRecord record) {
         return record.getReadPairedFlag() && record.getProperPairFlag();
     }
 }
