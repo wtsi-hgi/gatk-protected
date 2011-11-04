@@ -27,11 +27,12 @@ package org.broadinstitute.sting.gatk.walkers.performance;
 
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMFileWriter;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.util.ArrayList;
@@ -39,7 +40,7 @@ import java.util.ArrayList;
 /**
  * A performance assessing walker that reads and writes out very many BAM files
  */
-public class IOCrusherWalker extends ReadWalker<SAMRecord, ArrayList<SAMFileWriter>> {
+public class IOCrusherWalker extends ReadWalker<GATKSAMRecord, ArrayList<SAMFileWriter>> {
     @Argument(shortName="nWaysOut",doc="n ways out",required=false)
     public int nWaysOut = 1;
 
@@ -58,7 +59,7 @@ public class IOCrusherWalker extends ReadWalker<SAMRecord, ArrayList<SAMFileWrit
     /**
      *
      */
-    public SAMRecord map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
         nReadsRead++;
         return read;
     }
@@ -79,7 +80,7 @@ public class IOCrusherWalker extends ReadWalker<SAMRecord, ArrayList<SAMFileWrit
      * Summarize the error rate data.
      *
      */
-    public ArrayList<SAMFileWriter> reduce(SAMRecord read, ArrayList<SAMFileWriter> outputs) {
+    public ArrayList<SAMFileWriter> reduce(GATKSAMRecord read, ArrayList<SAMFileWriter> outputs) {
         for ( SAMFileWriter out : outputs ) {
             if ( readScaling >= 1.0 ) {
                 int nCopies = (int)Math.ceil(readScaling);

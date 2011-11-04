@@ -2,7 +2,7 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 /*
  * Copyright (c) 2009 The Broad Institute
@@ -50,7 +50,7 @@ public interface ConsensusReadCompressor {
      */
     @Requires("read != null")
     @Ensures("result != null")
-    Iterable<SAMRecord> addAlignment(SAMRecord read);
+    Iterable<GATKSAMRecord> addAlignment(GATKSAMRecord read);
 
     /**
      * Must be called after the last read has been added to finalize the compressor state
@@ -58,5 +58,5 @@ public interface ConsensusReadCompressor {
      * @return an iterator over the final compressed reads of this compressor
      */
     @Ensures("result != null")
-    Iterable<SAMRecord> close();
+    Iterable<GATKSAMRecord> close();
 }

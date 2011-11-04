@@ -27,7 +27,7 @@ package org.broadinstitute.sting.gatk.walkers.contamination;
 
 import cern.jet.stat.Probability;
 import net.sf.samtools.SAMReadGroupRecord;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -133,7 +133,7 @@ public class FindContaminatingReadGroupsWalker extends LocusWalker<Integer, Inte
         String colName = String.format("%s.%d", context.getContig(), context.getPosition());
 
         for (int i = 0; i < context.size(); i++) {
-            SAMRecord read = context.getReads().get(i);
+            GATKSAMRecord read = context.getReads().get(i);
             int offset = context.getOffsets().get(i);
 
             SAMReadGroupRecord rg = read.getReadGroup();

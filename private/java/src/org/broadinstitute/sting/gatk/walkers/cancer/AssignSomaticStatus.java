@@ -64,10 +64,15 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
     @Argument(shortName="somaticMinLOD", fullName="somaticMinLOD", required=false, doc="Phred-scaled min probability that a site should be called somatic mutation")
     public byte somaticMinLOD = 1;
 
+    @Argument(shortName="minimalVCF", fullName="minimalVCF", required=false, doc="If provided, the attributes of the output VCF will only contain the somatic status fields")
+    public boolean minimalVCF = false;
+
     @Output
     protected VCFWriter vcfWriter = null;
 
     private final String SOMATIC_LOD_TAG_NAME = "SOMATIC_LOD";
+    private final String SOMATIC_AC_TAG_NAME = "SOMATIC_AC";
+    private final String SOMATIC_NONREF_TAG_NAME = "SOMATIC_NNR";
     private final String SOURCE_NAME = "AssignSomaticStatus";
 
     private Set<String> tumorSamples = new HashSet<String>();
@@ -81,6 +86,7 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
         rodNames.add(variantCollection.variants.getName());
 
         Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
+        tumorSamplesArg = SampleUtils.getSamplesFromCommandLineInput(tumorSamplesArg);
         Set<String> vcfSamples = SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE);
 
         // set up tumor and normal samples
@@ -99,7 +105,9 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
         headerLines.addAll(VCFUtils.getHeaderFields(this.getToolkit()));
         headerLines.add(new VCFInfoHeaderLine(VCFConstants.SOMATIC_KEY, 0, VCFHeaderLineType.Flag, "Is this a confidently called somatic mutation"));
         headerLines.add(new VCFFormatHeaderLine(SOMATIC_LOD_TAG_NAME, 1, VCFHeaderLineType.Float, "log10 probability that the site is a somatic mutation"));
-        headerLines.add(new VCFHeaderLine("source", SOURCE_NAME));
+        headerLines.add(new VCFFormatHeaderLine(SOMATIC_AC_TAG_NAME, 1, VCFHeaderLineType.Integer, "Allele count of samples with somatic event"));
+        headerLines.add(new VCFFormatHeaderLine(SOMATIC_NONREF_TAG_NAME, 1, VCFHeaderLineType.Integer, "Number of samples with somatic event"));
+            headerLines.add(new VCFHeaderLine("source", SOURCE_NAME));
         vcfWriter.writeHeader(new VCFHeader(headerLines, vcfSamples));
     }
 
@@ -129,6 +137,29 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
         }
 
         return log10p;
+    }
+
+    private int calculateTumorAC(final VariantContext vc) {
+        int ac = 0;
+        for ( final String sample : tumorSamples ) {
+            switch ( vc.getGenotype(sample).getType() ) {
+                case HET:       ac += 1; break;
+                case HOM_VAR:   ac += 2; break;
+                case NO_CALL: case UNAVAILABLE: case HOM_REF: break;
+            }
+        }
+        return ac;
+    }
+
+    private int calculateTumorNNR(final VariantContext vc) {
+        int nnr = 0;
+        for ( final String sample : tumorSamples ) {
+            switch ( vc.getGenotype(sample).getType() ) {
+                case HET: case HOM_VAR: nnr += 1; break;
+                case NO_CALL: case UNAVAILABLE: case HOM_REF: break;
+            }
+        }
+        return nnr;
     }
 
     /**
@@ -184,9 +215,14 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
 
                 // write in the somatic status probability
                 Map<String, Object> attrs = new HashMap<String, Object>(); // vc.getAttributes());
+                if ( ! minimalVCF ) attrs.putAll(vc.getAttributes());
                 attrs.put(SOMATIC_LOD_TAG_NAME, log10pSomatic);
-                if ( log10pSomatic > somaticMinLOD )
+                if ( log10pSomatic > somaticMinLOD ) {
                     attrs.put(VCFConstants.SOMATIC_KEY, true);
+                    attrs.put(SOMATIC_NONREF_TAG_NAME, calculateTumorNNR(vc));
+                    attrs.put(SOMATIC_AC_TAG_NAME, calculateTumorAC(vc));
+
+                }
                 VariantContext newvc = VariantContext.modifyAttributes(vc, attrs);
 
                 vcfWriter.add(newvc);

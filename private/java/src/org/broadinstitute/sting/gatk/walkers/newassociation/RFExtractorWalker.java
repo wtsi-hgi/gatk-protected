@@ -1,24 +1,25 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.datasources.sample.Sample;
 import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.By;
 import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.walkers.newassociation.features.ReadFeatureAggregator;
+import org.broadinstitute.sting.gatk.walkers.newassociation.features.old.BinaryFeatureAggregator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -33,7 +34,7 @@ import java.util.*;
 @ReadFilters({MaxInsertSizeFilter.class,MappingQualityFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class,
         NotPrimaryAlignmentFilter.class,UnmappedReadFilter.class,AddAberrantInsertTagFilter.class})
 @By(DataSource.REFERENCE)
-public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
+public class RFExtractorWalker extends ReadWalker<GATKSAMRecord,RFWindow> {
 
     @ArgumentCollection
     public RFAArgumentCollection rfaArgs = new RFAArgumentCollection();
@@ -74,41 +75,41 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
     }
 
     public RFWindow reduceInit() {
-        Map <String,Boolean> allCase = new HashMap<String,Boolean>(getToolkit().getSamples().size());
-        for ( Sample s : getToolkit().getSAMFileSamples() ) {
-            allCase.put(s.getId(),true);
-            if ( s.getId() == null || s.getId().equals("null") ) {
-                throw new StingException("Sample IDs must not be null... " + s.toString() + " " + Boolean.toString(s.hasSAMFileEntry()));
+        Map <String,Boolean> allCase = new HashMap<String,Boolean>(getSampleDB().getSamples().size());
+        for ( final String s : SampleUtils.getSAMFileSamples(getToolkit()) ) {
+            allCase.put(s,true);
+            if ( s == null || s.equals("null") ) {
+                throw new StingException("Sample IDs must not be null... " + s);
             }
         }
 
-        Set<Class<? extends ReadFeatureAggregator>> aggregatorSet = getFeatureAggregators(rfaArgs.inputFeatures);
-        Set<ReadFeatureAggregator> rfHolder1 = new HashSet<ReadFeatureAggregator>(aggregatorSet.size());
+        Set<Class<? extends BinaryFeatureAggregator>> aggregatorSet = getFeatureAggregators(rfaArgs.inputFeatures);
+        Set<BinaryFeatureAggregator> rfHolder1 = new HashSet<BinaryFeatureAggregator>(aggregatorSet.size());
         try {
-            for ( Class<? extends ReadFeatureAggregator> featureClass : aggregatorSet ) {
-                ReadFeatureAggregator readFeature = featureClass.getConstructor(RFAArgumentCollection.class).newInstance(rfaArgs);
+            for ( Class<? extends BinaryFeatureAggregator> featureClass : aggregatorSet ) {
+                BinaryFeatureAggregator readFeature = featureClass.getConstructor(RFAArgumentCollection.class).newInstance(rfaArgs);
                 rfHolder1.add(readFeature);
             }
         } catch ( Exception e ) {
             throw new StingException("A read feature instantiation error occurred during initialization",e);
         }
 
-        ReadFeatureAggregator[] rfHolder2 = new ReadFeatureAggregator[rfHolder1.size()];
+        BinaryFeatureAggregator[] rfHolder2 = new BinaryFeatureAggregator[rfHolder1.size()];
         int idx = 0;
-        for ( ReadFeatureAggregator f : rfHolder1 ) {
+        for ( BinaryFeatureAggregator f : rfHolder1 ) {
             rfHolder2[idx++] = f;
         }
-        Arrays.sort(rfHolder2, new Comparator<ReadFeatureAggregator>() {
-            public int compare(ReadFeatureAggregator a, ReadFeatureAggregator b) {
+        Arrays.sort(rfHolder2, new Comparator<BinaryFeatureAggregator>() {
+            public int compare(BinaryFeatureAggregator a, BinaryFeatureAggregator b) {
                 return a.getClass().getSimpleName().compareTo(b.getClass().getSimpleName());
             }
         });
 
-        List<ReadFeatureAggregator> aggregators = Arrays.asList(rfHolder2);
+        List<BinaryFeatureAggregator> aggregators = Arrays.asList(rfHolder2);
 
         out.printf("HEADERchrm:start-stop");
         for ( String s : allCase.keySet() ) {
-            for ( ReadFeatureAggregator rfa : aggregators ) {
+            for ( BinaryFeatureAggregator rfa : aggregators ) {
                 out.printf("\t%s.%s",s,rfa.getClass().getSimpleName());
             }
         }
@@ -117,7 +118,7 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
         return new RFWindow(aggregators,rfaArgs,allCase,getToolkit().getGenomeLocParser());
     }
 
-    public SAMRecord map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
         if ( ref == null ) { return null; } // unmapped reads have null ref contexts
         //loc = getToolkit().getGenomeLocParser().createGenomeLoc(ref.getLocus().getContig(),read.getAlignmentStart());
         GenomeLoc newLoc = ref.getLocus().getStartLocation(); // can be problematic if read aligns prior to start of contig -- should never happen
@@ -131,7 +132,7 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
         return read;
     }
 
-    public RFWindow reduce(SAMRecord read, RFWindow prevReduce) {
+    public RFWindow reduce(GATKSAMRecord read, RFWindow prevReduce) {
         if ( iteratorLoc != null && iteratorLoc.isBefore(loc) ) {// test if read is past end of the user interval
             //logger.info(String.format("iteratorLoc: %s    loc: %s",iteratorLoc.toString(),loc.toString()));
             onIntervalDone(prevReduce);
@@ -143,11 +144,11 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
         } else if ( read != null ) {
             // todo -- what happens if first read of an interval is not before or at the start of the interval?
 
-            List<Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>>> completed = prevReduce.inc(read, loc, sample,iteratorLoc);
+            List<Pair<GenomeLoc,Map<String,List<BinaryFeatureAggregator>>>> completed = prevReduce.inc(read, loc, sample,iteratorLoc);
             if ( completed.size() > 0 ) {
                 // System.out.printf("At %s we have seen %d completed windows%n",loc,completed.size())
                 // bed format
-                for ( Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>> samWindow : completed ) {
+                for ( Pair<GenomeLoc,Map<String,List<BinaryFeatureAggregator>>> samWindow : completed ) {
                     GenomeLoc window = samWindow.first;
                     /*if ( prevPrint == null ) {
                         prevPrint = window;
@@ -157,8 +158,8 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
                         prevPrint = window;
                     }*/
                     out.printf("%s",window.toString());
-                    for ( Map.Entry<String,List<ReadFeatureAggregator>> samEntry : samWindow.second.entrySet() ) {
-                        for ( ReadFeatureAggregator aggregator : samEntry.getValue() ) {
+                    for ( Map.Entry<String,List<BinaryFeatureAggregator>> samEntry : samWindow.second.entrySet() ) {
+                        for ( BinaryFeatureAggregator aggregator : samEntry.getValue() ) {
                             if ( ! markerMode && ! countMode ) {
                                 out.printf("\t%.5e,%d",aggregator.getMean(),aggregator.getnReads());
                             } else if ( markerMode ) {
@@ -179,8 +180,8 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
 
     public RFWindow onIntervalDone(RFWindow rWindow) {
         //logger.info("In onIntervalDone at genome loc "+iteratorLoc.toString()+" with read loc "+loc.toString());
-        List<Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>>> completed = rWindow.flush(iteratorLoc);
-        for ( Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>> samWindow : completed ) {
+        List<Pair<GenomeLoc,Map<String,List<BinaryFeatureAggregator>>>> completed = rWindow.flush(iteratorLoc);
+        for ( Pair<GenomeLoc,Map<String,List<BinaryFeatureAggregator>>> samWindow : completed ) {
             GenomeLoc window = samWindow.first;
             /*if ( prevPrint == null ) {
                         prevPrint = window;
@@ -190,8 +191,8 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
                         prevPrint = window;
                     }*/
             out.printf("%s",window.toString());
-            for ( Map.Entry<String,List<ReadFeatureAggregator>> samEntry : samWindow.second.entrySet() ) {
-                for ( ReadFeatureAggregator aggregator : samEntry.getValue() ) {
+            for ( Map.Entry<String,List<BinaryFeatureAggregator>> samEntry : samWindow.second.entrySet() ) {
+                for ( BinaryFeatureAggregator aggregator : samEntry.getValue() ) {
                     if ( ! markerMode && ! countMode ) {
                         out.printf("\t%.5e,%d",aggregator.getMean(),aggregator.getnReads());
                     } else if ( markerMode ) {
@@ -207,9 +208,9 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
         return rWindow;
     }
 
-    public Set<Class<? extends ReadFeatureAggregator>> getFeatureAggregators(List<String> requestedFeatures) {
-        HashSet<Class<? extends ReadFeatureAggregator>> newFeatureSet = new HashSet<Class<? extends ReadFeatureAggregator>>();
-        List<Class<? extends ReadFeatureAggregator>> availableFeatures = new PluginManager<ReadFeatureAggregator>(ReadFeatureAggregator.class).getPlugins();
+    public Set<Class<? extends BinaryFeatureAggregator>> getFeatureAggregators(List<String> requestedFeatures) {
+        HashSet<Class<? extends BinaryFeatureAggregator>> newFeatureSet = new HashSet<Class<? extends BinaryFeatureAggregator>>();
+        List<Class<? extends BinaryFeatureAggregator>> availableFeatures = new PluginManager<BinaryFeatureAggregator>(BinaryFeatureAggregator.class).getPlugins();
 
         if ( rfaArgs.inputFeatures == null ) {
             newFeatureSet.addAll(availableFeatures);
@@ -217,8 +218,8 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
         }
 
 
-        Map<String,Class<? extends ReadFeatureAggregator>> classNameToClass = new HashMap<String,Class<? extends ReadFeatureAggregator>>(rfaArgs.inputFeatures.size());
-        for ( Class<? extends ReadFeatureAggregator> clazz : availableFeatures ) {
+        Map<String,Class<? extends BinaryFeatureAggregator>> classNameToClass = new HashMap<String,Class<? extends BinaryFeatureAggregator>>(rfaArgs.inputFeatures.size());
+        for ( Class<? extends BinaryFeatureAggregator> clazz : availableFeatures ) {
             classNameToClass.put(clazz.getSimpleName(),clazz);
         }
 
@@ -233,7 +234,7 @@ public class RFExtractorWalker extends ReadWalker<SAMRecord,RFWindow> {
         return newFeatureSet;
     }
 
-    public static boolean hasEvent(ReadFeatureAggregator aggregator, double lowThresh, double sigLevel) {
+    public static boolean hasEvent(BinaryFeatureAggregator aggregator, double lowThresh, double sigLevel) {
         return (aggregator.getMean() - lowThresh)*Math.sqrt(aggregator.getnReads())/aggregator.getVar() > sigLevel;
     }
 }

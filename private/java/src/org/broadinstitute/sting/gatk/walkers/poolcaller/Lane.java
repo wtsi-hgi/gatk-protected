@@ -25,14 +25,14 @@ public class Lane {
 
     public Lane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior,int maxAlleleCount, double minCallQual, double minPower) {
         this.name = name;
-        this.referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSampleName(referenceSampleName), trueReferenceBases);
+        this.referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSample(referenceSampleName), trueReferenceBases);
         this.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, referenceSample, minPower);
 
-        Collection<String> poolNames = lanePileup.getSampleNames();
+        Collection<String> poolNames = lanePileup.getSamples();
         poolNames.remove(referenceSampleName);
         this.pools = new LinkedList<Pool>();
         for (String poolName : poolNames) {
-            pools.add(new Pool(poolName, lanePileup.getPileupForSampleName(poolName),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual));
+            pools.add(new Pool(poolName, lanePileup.getPileupForSample(poolName),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual));
         }
 
         this.filters = new TreeSet<String>();
@@ -55,7 +55,7 @@ public class Lane {
     public static Lane debugLane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlleleCount, double minCallQual, double minPower) {
         Lane lane = new Lane();
         lane.name = name;
-        lane.referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSampleName(referenceSampleName), trueReferenceBases);
+        lane.referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSample(referenceSampleName), trueReferenceBases);
         lane.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, lane.referenceSample, minPower);
 
         lane.pools = new LinkedList<Pool>();

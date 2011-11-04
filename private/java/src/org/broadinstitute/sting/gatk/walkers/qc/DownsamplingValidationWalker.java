@@ -24,7 +24,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.qc;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Input;
@@ -67,8 +67,8 @@ public class DownsamplingValidationWalker extends LocusWalker<Integer,Long> {
                     unsampledReadsStartingAtThisLocus.add(feature);
             }
         }
-        Collection<SAMRecord> sampledReadsStartingAtThisLocus = new ArrayList<SAMRecord>();
-        for(SAMRecord read: pileup.getReads()) {
+        Collection<GATKSAMRecord> sampledReadsStartingAtThisLocus = new ArrayList<GATKSAMRecord>();
+        for(GATKSAMRecord read: pileup.getReads()) {
             if(read.getReferenceName().equals(ref.getLocus().getContig()) && read.getAlignmentStart() == ref.getLocus().getStart())
                 sampledReadsStartingAtThisLocus.add(read);
         }
@@ -81,7 +81,7 @@ public class DownsamplingValidationWalker extends LocusWalker<Integer,Long> {
         else {
             boolean foundMatch = false;
             for(SAMReadFeature unsampledRead: unsampledReadsStartingAtThisLocus) {
-                for(SAMRecord sampledRead: sampledReadsStartingAtThisLocus) {
+                for(GATKSAMRecord sampledRead: sampledReadsStartingAtThisLocus) {
                     if(unsampledRead.getReadName().equals(sampledRead.getReadName()) &&
                             Arrays.equals(unsampledRead.getReadBases(),sampledRead.getReadBases())) {
                         foundMatch = true;

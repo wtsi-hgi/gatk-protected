@@ -1,16 +1,16 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.walkers.newassociation.features.ReadFeatureAggregator;
+import org.broadinstitute.sting.gatk.walkers.newassociation.features.old.ReadFeatureAggregator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -93,7 +93,7 @@ public class RFDumperWalker extends ReadWalker<String[],ReadFeatureWindow> {
 
     public ReadFeatureWindow reduceInit() { return null; }
 
-    public String[] map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public String[] map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
         // TODO: THIS WILL BREAK IF FEATURE REQUIRES PAIRED READ
         if ( ref == null ) { return null; } // unmapped reads have null ref contexts
         loc = getToolkit().getGenomeLocParser().createGenomeLoc(ref.getLocus().getContig(),read.getAlignmentStart());

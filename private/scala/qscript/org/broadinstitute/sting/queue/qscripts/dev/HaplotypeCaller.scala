@@ -1,9 +1,6 @@
 package org.broadinstitute.sting.queue.qscripts
 
-import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
-
 class HaplotypeCallerScript extends QScript {
   qscript =>
 
@@ -15,6 +12,8 @@ class HaplotypeCallerScript extends QScript {
   var bam: String = "."
   @Argument(shortName="interval", doc="interval file", required=true)
   var interval: String = "."
+  @Argument(shortName="recalFile", doc="recal file", required=true)
+  var recalFile: String = "."
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     memoryLimit = 2;
@@ -25,8 +24,9 @@ class HaplotypeCallerScript extends QScript {
     val hc = new HaplotypeCaller with UNIVERSAL_GATK_ARGS
     hc.reference_sequence = new File(ref)
     hc.intervalsString ++= List(interval)
-    hc.scatterCount = 100
+    hc.scatterCount = 148
     hc.input_file :+= new File(bam)
+    hc.recalFile = new File(recalFile)
     hc.o = new File(out)
     add(hc)
   }

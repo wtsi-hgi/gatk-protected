@@ -29,7 +29,6 @@ import cern.jet.random.engine.MersenneTwister;
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMProgramRecord;
 import net.sf.samtools.SAMReadGroupRecord;
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -49,6 +48,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.text.TextFormattingUtils;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -231,7 +231,7 @@ public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
         // BED is zero based
         sitesWriter.printf("%s %d %d%n", ref.getLocus().getContig(), ref.getLocus().getStart()-1, ref.getLocus().getStart() );
         variantsWriter.add(vc);
-        for ( SAMRecord read : rbp.getReads() ) readWriter.addAlignment(read);
+        for ( GATKSAMRecord read : rbp.getReads() ) readWriter.addAlignment(read);
 
         parameters.incCount();
 
@@ -283,7 +283,7 @@ public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
     }
 
     private ReadBackedPileup generateRBPForVariant( GenomeLoc loc, VariantContext vc, byte[] refBases, ParameterSet params ) {
-        List<SAMRecord> reads = new ArrayList<SAMRecord>();
+        List<GATKSAMRecord> reads = new ArrayList<GATKSAMRecord>();
         int offset = (params.readLength - 1) / 2;
 
         int start = (int)(loc.getStart() - (params.readLength - 1) / 2);
@@ -299,7 +299,7 @@ public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
                 byte[] readBases = trueHaplotype(g, refHaplotype, altHaplotype);
                 addMachineErrors(readBases, params.errorRate);
 
-                SAMRecord read = new SAMRecord(header);
+                GATKSAMRecord read = new GATKSAMRecord(header);
                 read.setBaseQualities(params.readQuals);
                 read.setReadBases(readBases);
                 read.setReadName("FOO");

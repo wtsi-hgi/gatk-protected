@@ -2,11 +2,11 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMReadGroupRecord;
-import net.sf.samtools.SAMRecord;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.*;
 
@@ -42,34 +42,35 @@ import java.util.*;
 public class MultiSampleConsensusReadCompressor implements ConsensusReadCompressor {
     protected static final Logger logger = Logger.getLogger(MultiSampleConsensusReadCompressor.class);
 
-    private Map<String, SingleSampleConsensusReadCompressor> compressorsPerSample = new HashMap<String, SingleSampleConsensusReadCompressor>();
+    protected Map<String, SingleSampleConsensusReadCompressor> compressorsPerSample = new HashMap<String, SingleSampleConsensusReadCompressor>();
 
     public MultiSampleConsensusReadCompressor(SAMFileHeader header,
-                                              final int readContextSize,
-                                              final int AverageDepthAtVariableSites,
-                                              final int minMapQuality,
+                                              final int contextSize,
+                                              final int contextSizeIndels,
+                                              final int downsampleCoverage,
+                                              final int minMappingQuality,
                                               final double minAltProportionToTriggerVariant,
+                                              final double minIndelProportionToTriggerVariant,
                                               final int minBaseQual,
                                               final int maxQualCount) {
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
-                    new SingleSampleConsensusReadCompressor(name, readContextSize, AverageDepthAtVariableSites,
-                                    minMapQuality, minAltProportionToTriggerVariant, minBaseQual, maxQualCount));
+                    new SingleSampleConsensusReadCompressor(name, header.getReadGroup(name), contextSize, contextSizeIndels, downsampleCoverage,
+                                    minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
         }
     }
 
     public Collection<SAMReadGroupRecord> getReducedReadGroups() {
         List<SAMReadGroupRecord> rgs = new ArrayList<SAMReadGroupRecord>();
 
-        for ( SingleSampleConsensusReadCompressor comp : compressorsPerSample.values() ) {
+        for ( SingleSampleConsensusReadCompressor comp : compressorsPerSample.values() )
             rgs.add(comp.getReducedReadGroup());
-        }
 
         return rgs;
     }
 
     @Override
-    public Iterable<SAMRecord> addAlignment(SAMRecord read) {
+    public Iterable<GATKSAMRecord> addAlignment(GATKSAMRecord read) {
         String sample = read.getReadGroup().getSample();
         SingleSampleConsensusReadCompressor compressor = compressorsPerSample.get(sample);
         if ( compressor == null )
@@ -78,10 +79,10 @@ public class MultiSampleConsensusReadCompressor implements ConsensusReadCompress
     }
 
     @Override
-    public Iterable<SAMRecord> close() {
-        List<SAMRecord> reads = new LinkedList<SAMRecord>();
+    public Iterable<GATKSAMRecord> close() {
+        SortedSet<GATKSAMRecord> reads = new TreeSet<GATKSAMRecord>(new AlignmentStartWithNoTiesComparator());
         for ( SingleSampleConsensusReadCompressor comp : compressorsPerSample.values() )
-            for ( SAMRecord read : comp.close() )
+            for ( GATKSAMRecord read : comp.close() )
                 reads.add(read);
         return reads;
     }

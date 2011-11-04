@@ -1,7 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
-import net.sf.samtools.SAMRecord;
-import org.broadinstitute.sting.gatk.walkers.newassociation.features.ReadFeatureAggregator;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.gatk.walkers.newassociation.features.old.ReadFeatureAggregator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.collections.Pair;
@@ -56,7 +56,7 @@ public class ReadFeatureWindow {
      * @param sample - the sample ID from whom the read was sequenced
      * @return - those feature window(s) that need be tested (and then baleeted)
      */
-    public List<Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>>> inc(SAMRecord record, GenomeLoc loc, String sample) {
+    public List<Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>>> inc(GATKSAMRecord record, GenomeLoc loc, String sample) {
         List<Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>>> complete = new ArrayList<Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>>>(aggregators.size());
         if ( previousLoc == null ) {
             // first time, gotta instantiate stuff
@@ -137,7 +137,7 @@ public class ReadFeatureWindow {
      * @param record - the read
      * @param window - the particular window to be updated
      */
-    private void windowInc(String sample, SAMRecord record, Map<String,List<ReadFeatureAggregator>> window) {
+    private void windowInc(String sample, GATKSAMRecord record, Map<String,List<ReadFeatureAggregator>> window) {
         if ( sample == null || record == null ) { return; }
 
         for (ReadFeatureAggregator aggregator : window.get(sample) ) {
