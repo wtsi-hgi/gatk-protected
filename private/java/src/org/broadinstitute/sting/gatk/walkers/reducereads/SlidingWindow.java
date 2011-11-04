@@ -5,6 +5,7 @@ import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.clipreads.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
@@ -23,7 +24,7 @@ public class SlidingWindow {
     protected final static String RG_POSTFIX = ".ReducedReads";
 
     // Sliding Window data
-    protected LinkedList<SlidingRead> SlidingReads;
+    protected LinkedList<GATKSAMRecord> readsInWindow;
     protected LinkedList<HeaderElement> windowHeader;
     protected int contextSize;
     protected int contextSizeIndels;
@@ -60,7 +61,7 @@ public class SlidingWindow {
         this.MIN_MAPPING_QUALITY = minMappingQuality;
 
         this.windowHeader = new LinkedList<HeaderElement>();
-        this.SlidingReads = new LinkedList<SlidingRead>();
+        this.readsInWindow = new LinkedList<GATKSAMRecord>();
 
         this.consensusCounter = 0;
 
@@ -96,7 +97,7 @@ public class SlidingWindow {
         updateHeaderCounts(read);
 
         // add read to sliding reads
-        SlidingReads.add(new SlidingRead(read));
+        readsInWindow.add(read);
 
         return finalizedReads;
     }
@@ -242,13 +243,12 @@ public class SlidingWindow {
         }
         // Clipping operations are reference based, not read based
         int refStart = windowHeader.get(start).location;
-        int refEnd = windowHeader.get(end).location;         // update to refStart + end?
+        int refEnd = windowHeader.get(end).location;
 
-        for ( SlidingRead read: SlidingReads ) {
-            GATKSAMRecord SAM = read.trimToVariableRegion(refStart, refEnd);
-            //System.out.println("HardClippedEnds:  (" + refStart +","+ refStop +") " + SAM.getCigarString() + "\t" + SAM.getAlignmentStart() + "\t" + SAM.getAlignmentEnd());
-            if ( SAM.getReadLength() > 0 ) {
-                finalizedReads.add(SAM);
+        for ( GATKSAMRecord read: readsInWindow) {
+            GATKSAMRecord trimmedRead = trimToVariableRegion(read, refStart, refEnd);
+            if ( trimmedRead.getReadLength() > 0 ) {
+                finalizedReads.add(trimmedRead);
             }
         }
         return finalizedReads;
@@ -261,7 +261,7 @@ public class SlidingWindow {
      */
     protected void slide (int shift) {
         if (shift > 0) {
-            LinkedList<SlidingRead> newSlidingReads = new LinkedList<SlidingRead>();
+            LinkedList<GATKSAMRecord> newSlidingReads = new LinkedList<GATKSAMRecord>();
 
             // drop base baseCounts out of the window
             for (int i=0; i<shift; i++)
@@ -270,12 +270,12 @@ public class SlidingWindow {
 
             // clip reads to new window
             int refLeftPosition = windowHeader.peekFirst().location;  // should I just get startLocation ?  (works if there are no gaps)
-            for ( SlidingRead slidingRead: SlidingReads ) {
-                SlidingRead sr = slidingRead.clipStart(refLeftPosition);
-                if (sr != null)
-                    newSlidingReads.add(sr);
+            for ( GATKSAMRecord read: readsInWindow) {
+                GATKSAMRecord clippedRead = clipStart(read, refLeftPosition);
+                if (clippedRead != null)
+                    newSlidingReads.add(clippedRead);
             }
-            SlidingReads = newSlidingReads;
+            readsInWindow = newSlidingReads;
         }
     }
 
@@ -432,6 +432,37 @@ public class SlidingWindow {
     protected HeaderElement newHeaderElement(int index) {
         return new HeaderElement(index);
     }
+
+    protected GATKSAMRecord trimToVariableRegion(GATKSAMRecord read, int refStart, int refStop) {
+        int start = read.getAlignmentStart();
+        int stop = read.getAlignmentEnd();
+
+        ReadClipper clipper = new ReadClipper(read);
+
+        // check if the read is contained in region
+        GATKSAMRecord clippedRead = read;
+        if ( start <= refStop && stop >= refStart) {
+            if ( start < refStart && stop > refStop )
+                clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(refStart-1, refStop+1);
+            else if ( start < refStart )
+                clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(refStart-1);
+            else if ( stop > refStop )
+                clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(refStop+1);
+            return clippedRead;
+        }
+        else
+            return new GATKSAMRecord(read.getHeader());
+    }
+
+    protected GATKSAMRecord clipStart(GATKSAMRecord read, int refNewStart) {
+        if (refNewStart > read.getAlignmentEnd())
+            return null;
+        if (refNewStart <= read.getAlignmentStart())
+            return read;
+        ReadClipper readClipper = new ReadClipper(read);
+        return readClipper.hardClipByReferenceCoordinatesLeftTail(refNewStart-1);
+    }
+
 
     /**
      * The element the composes the header of the sliding window.
