@@ -247,7 +247,6 @@ public class SlidingWindow {
         for ( SlidingRead read: SlidingReads ) {
             GATKSAMRecord SAM = read.trimToVariableRegion(refStart, refEnd);
             //System.out.println("HardClippedEnds:  (" + refStart +","+ refStop +") " + SAM.getCigarString() + "\t" + SAM.getAlignmentStart() + "\t" + SAM.getAlignmentEnd());
-            SAM.setReadName(SAM.getReadName()+".trim");
             if ( SAM.getReadLength() > 0 ) {
                 finalizedReads.add(SAM);
             }

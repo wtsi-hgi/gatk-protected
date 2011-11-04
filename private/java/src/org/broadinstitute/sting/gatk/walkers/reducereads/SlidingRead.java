@@ -30,10 +30,8 @@ public class SlidingRead {
 
         // check to see if read is contained in region
         if ( start <= refStop && stop >= refStart) {
-            if ( start < refStart && stop > refStop ){
-                //System.out.println("HardClipBothEnds: (" + refStart +","+ refStop +") " + read.getCigarString() + "\t" + read.getAlignmentStart() + "\t" + read.getAlignmentEnd());
-                return clipper.hardClipBothEndsByReferenceCoordinates(refStart-1, refStop+1);
-            }
+            if ( start < refStart && stop > refStop )
+                clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(refStart-1, refStop+1);
             else if ( start < refStart )
                 clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(refStart-1);
             else if ( stop > refStop )
