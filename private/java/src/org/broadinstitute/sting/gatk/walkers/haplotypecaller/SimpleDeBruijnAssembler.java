@@ -1,11 +1,11 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
+import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import java.io.PrintStream;
-import java.lang.reflect.Array;
 import java.util.*;
 
 /**
@@ -159,11 +159,11 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         returnHaplotypes.add( refHaplotype );
 
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            final ArrayList<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 13);
+            final ArrayList<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 14);
 
             for ( final KBestPaths.Path path : bestPaths ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
-                if( h.bases != null ) {
+                if( h.getBases() != null ) {
                     if( getOutputStream() != null ) {
                         getOutputStream().println(h.toString());
                     }

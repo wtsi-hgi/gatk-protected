@@ -25,6 +25,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
+import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -165,7 +166,7 @@ public class LikelihoodCalculationEngine {
 
         int maxHaplotypeLength = 0;
         for( final Haplotype h : haplotypes ) {
-            int length = h.bases.length;
+            int length = h.getBases().length;
             if(length > maxHaplotypeLength) { maxHaplotypeLength = length; }
         }
 
@@ -181,8 +182,7 @@ public class LikelihoodCalculationEngine {
 
             for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
                 final Haplotype haplotype = haplotypes.get(jjj);
-                haplotype.extendHaplotype( maxHaplotypeLength );
-                final byte[] haplotypeBases = haplotype.extendedBases;
+                final byte[] haplotypeBases = haplotype.getBases();
                 final double[] contextLogGapOpenProbabilities = new double[haplotypeBases.length];
                 final double[] contextLogGapContinuationProbabilities = new double[haplotypeBases.length];
 
@@ -195,7 +195,6 @@ public class LikelihoodCalculationEngine {
                     YMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
                 }
 
-                //Arrays.fill(contextLogGapOpenProbabilities, logGapOpenProbability); // this should eventually be derived from the data
                 fillGapProbabilitiesFromQualityTables( readGroup, haplotypeBases, contextLogGapOpenProbabilities );
                 Arrays.fill(contextLogGapContinuationProbabilities, logGapContinuationProbability); // this should eventually be derived from the data
 
@@ -208,7 +207,6 @@ public class LikelihoodCalculationEngine {
                 }
                 previousHaplotypeSeen = haplotypeBases.clone();
                 previousGOP = contextLogGapOpenProbabilities.clone();
-
 
                 readLikelihoods[iii][jjj] = computeReadLikelihoodGivenHaplotypeAffineGaps(haplotypeBases, read.getReadBases(), read.getBaseQualities(),
                         contextLogGapOpenProbabilities, contextLogGapContinuationProbabilities, startIdx, matchMetricArray, XMetricArray, YMetricArray);
