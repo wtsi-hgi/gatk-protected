@@ -53,6 +53,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private void pruneGraphs() {
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
             for( final DeBruijnVertex v : graph.vertexSet() ) {
+                // If node has more than one outgoing path and some of those paths have very low weight then prune the low weight path
                 if( graph.outDegreeOf(v) > 1 ) {
                     ArrayList<DeBruijnEdge> edgesToRemove = new ArrayList<DeBruijnEdge>();
                     for( final DeBruijnEdge e : graph.outgoingEdgesOf(v) ) {
@@ -71,6 +72,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                 verticesToRemove.add(graph.vertexSet().iterator().next());
                 while( !verticesToRemove.isEmpty() ) {
                     verticesToRemove.clear();
+                    // We might have created new low weight root nodes in the graph, so need to prune those as well, iteratively
                     for( final DeBruijnVertex v : graph.vertexSet() ) {
                         if( graph.outDegreeOf(v) == 1 && graph.outgoingEdgesOf(v).iterator().next().getMultiplicity() < PRUNE_FACTOR ) {
                             graph.removeEdge(graph.outgoingEdgesOf(v).iterator().next());

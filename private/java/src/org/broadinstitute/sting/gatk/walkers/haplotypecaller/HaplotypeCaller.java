@@ -309,15 +309,10 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         if ( readsToAssemble.size() == 0 ) { return; } // No reads here so nothing to do!
 
         if( DEBUG ) { System.out.println("Assembling " + curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:"); }
-
         readsToAssemble.finalizeBin();
-
         final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble.getReads(), new Haplotype(readsToAssemble.getReferenceNoPadding(referenceReader) ) );
-
         if( DEBUG ) { System.out.println("Found " + haplotypes.size() + " candidate haplotypes to evaluate"); }
-
         genotypingEngine.createEventDictionaryAndFilterBadHaplotypes( haplotypes, readsToAssemble.getReference(referenceReader), readsToAssemble.getLocation(), curInterval );
-
         if( DEBUG ) { System.out.println(haplotypes.size() + " candidate haplotypes remain after filtering"); }
 
         if( haplotypes.size() == 0 ) {

@@ -79,7 +79,7 @@ public class GenotypingEngine {
         if( DEBUG ) { System.out.println(" ========  Top Haplotypes ======== "); }
         populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, false);
 
-        // walk along the haplotype in genomic order, genotyping the events as the come up
+        // walk along the haplotype in genomic order, genotyping the events as they come up
         final ArrayList<Integer> sortedKeySet = new ArrayList<Integer>();
         sortedKeySet.addAll(bestEventDictionary.keySet());
         Collections.sort(sortedKeySet);
@@ -155,30 +155,32 @@ public class GenotypingEngine {
         int sizeRefHaplotype = 0;
         int refStart = 0;
         final HashSet<Haplotype> haplotypesToRemove = new HashSet<Haplotype>();
-        for( Haplotype h : haplotypes ) {
+        final HashSet<Haplotype> haplotypesToAdd = new HashSet<Haplotype>();
+        if( filterBadHaplotypes ) {
+            for( final Haplotype h : haplotypes ) {
 
-            // Align the haplotype to the reference
-            SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
-            if( DEBUG && !filterBadHaplotypes ) {
-                System.out.println( h.toString() );
-                System.out.println( "Cigar = " + swConsensus.getCigar() );
-                System.out.println( "reflength = " + swConsensus.getCigar().getReferenceLength() );
-            }
-            if( swConsensus.getCigar().getReadLength() < 10 || swConsensus.getCigar().toString().contains("S") ) {
-                if( DEBUG ) { System.out.println("Filtered! -SW failure"); }
-                if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
-                continue; // Protection against SW failures
-            }
-            if( hIndex == 0 ) {
-                sizeRefHaplotype = swConsensus.getCigar().getReadLength();
-                refStart = swConsensus.getAlignmentStart2wrt1();
-            } else if ( Math.max(swConsensus.getCigar().getReadLength(), swConsensus.getCigar().getReferenceLength() ) < 0.65 * sizeRefHaplotype ) {
-                if( DEBUG ) { System.out.println("Filtered! -too short"); }
-                if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
-                continue; // Protection against assembly failures
-            }
+                // Align the haplotype to the reference
+                final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+                if( DEBUG ) {
+                    System.out.println( h.toString() );
+                    System.out.println( "Cigar = " + swConsensus.getCigar() );
+                }
+                if( swConsensus.getCigar().getReadLength() < 10 || swConsensus.getCigar().toString().contains("S") ) {
+                    if( DEBUG ) { System.out.println("Filtered! -SW failure"); }
+                    haplotypesToRemove.add(h);
+                    continue; // Protection against SW failures
+                }
+                if( hIndex == 0 ) {
+                    sizeRefHaplotype = swConsensus.getCigar().getReadLength();
+                    refStart = swConsensus.getAlignmentStart2wrt1();
+                } else if ( Math.max(swConsensus.getCigar().getReadLength(), swConsensus.getCigar().getReferenceLength() ) < 0.65 * sizeRefHaplotype ) {
+                    if( DEBUG ) { System.out.println("Filtered! -too short"); }
+                   haplotypesToRemove.add(h);
+                    continue; // Protection against assembly failures
+                }
 
-            if( filterBadHaplotypes ) {
+                // Need to extend haplotypes with extra bases pulled from the reference context based on the haplotype's alignment
+                // After this proceudre all haplotypes will be the same length as the reference haplotype and will be on an even footing the HMM likelihood evaluation
                 byte extendedHaplotype[] = new byte[sizeRefHaplotype];
                 int iii = 0;
                 int kkk;
@@ -197,16 +199,22 @@ public class GenotypingEngine {
                     iii++;
                     nnn++;
                 }
-                if( DEBUG ) {
-                    System.out.println( h.toString() );
-                    System.out.println( "Original Cigar = " + swConsensus.getCigar() );
-                }
-                h = new Haplotype( extendedHaplotype, h.getQuals() );
-                swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
-                if( DEBUG ) {
-                    System.out.println( h.toString() );
-                    System.out.println( "Cigar = " + swConsensus.getCigar() );
-                }
+                haplotypesToRemove.add(h);
+                haplotypesToAdd.add( new Haplotype( extendedHaplotype, h.getQuals() ) );
+                hIndex++;
+            }
+            haplotypes.removeAll( haplotypesToRemove );
+            haplotypes.addAll( haplotypesToAdd );
+        }
+
+        haplotypesToRemove.clear();
+        hIndex = 0;
+        for( final Haplotype h : haplotypes ) {
+
+            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+            if( DEBUG ) {
+                System.out.println( h.toString() );
+                System.out.println( "Cigar = " + swConsensus.getCigar() );
             }
 
             // Walk along the alignment and turn any difference from the reference into an event
@@ -217,7 +225,6 @@ public class GenotypingEngine {
                 if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
                 continue; // Protection against SW failures
             }
-
 
             // Separate all events into dictionaries partitioned by start location
             for( final VariantContext vc : vcs ) {
@@ -241,7 +248,9 @@ public class GenotypingEngine {
 
             hIndex++;
         }
-        if( filterBadHaplotypes ) { haplotypes.removeAll(haplotypesToRemove); }
+        if( filterBadHaplotypes ) {
+            haplotypes.removeAll( haplotypesToRemove );
+        }
     }
 
     private boolean tooManyClusteredVariantsOnHaplotype( final ArrayList<VariantContext> vcs ) {
@@ -259,7 +268,6 @@ public class GenotypingEngine {
     }
 
     private void correctAndExpandEventListWithRefEvents( final ArrayList<Event> inputEvents, final VariantContext mergedVC, final int maxHaplotypeIndex ) {
-        if( DEBUG ) { System.out.println( "! Merged event ref = " + mergedVC.getReference() ); }
         for(int iii = 0; iii < maxHaplotypeIndex; iii++) {
             Event myEvent = null;
             for( final Event e : inputEvents) {
@@ -273,7 +281,7 @@ public class GenotypingEngine {
                 e.index = iii;
                 inputEvents.add(e);
             } else { // might need to correct the alleles because of the potential merging of multiallelic records
-                if( DEBUG ) { System.out.println( "My Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
+                // if( DEBUG ) { System.out.println( "My Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
                 if( mergedVC.getAlternateAlleles().size() > 1 && !myEvent.refAllele.equals(mergedVC.getReference()) ) {
                     final int suffixSize = mergedVC.getReference().getBases().length - myEvent.refAllele.length();
                     if( suffixSize > 0 ) {
@@ -286,7 +294,7 @@ public class GenotypingEngine {
                         myEvent.refAllele = mergedVC.getReference();
                     }
                 }
-                if( DEBUG ) { System.out.println( "--> Updated Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
+                // if( DEBUG ) { System.out.println( "--> Updated Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
             }
         }
     }
