@@ -1,6 +1,8 @@
 package org.broadinstitute.sting.queue.qscripts
 
+import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
+
 class HaplotypeCallerScript extends QScript {
   qscript =>
 
@@ -20,7 +22,6 @@ class HaplotypeCallerScript extends QScript {
   }
 
   def script = {
-
     val hc = new HaplotypeCaller with UNIVERSAL_GATK_ARGS
     hc.reference_sequence = new File(ref)
     hc.intervalsString ++= List(interval)
@@ -30,5 +31,4 @@ class HaplotypeCallerScript extends QScript {
     hc.o = new File(out)
     add(hc)
   }
-
 }
