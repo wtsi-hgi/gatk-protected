@@ -7,10 +7,10 @@ import org.broadinstitute.sting.utils.sam.ReadUtils;
 import java.util.*;
 
 public class ReduceReadsStash {
-        protected MultiSampleConsensusReadCompressor compressor;
+        protected MultiSampleCompressor compressor;
         SortedSet<GATKSAMRecord> outOfOrderReads;
 
-        public ReduceReadsStash(MultiSampleConsensusReadCompressor compressor) {
+        public ReduceReadsStash(MultiSampleCompressor compressor) {
             this.compressor = compressor;
             this.outOfOrderReads = new TreeSet<GATKSAMRecord>(new AlignmentStartWithNoTiesComparator());
         }

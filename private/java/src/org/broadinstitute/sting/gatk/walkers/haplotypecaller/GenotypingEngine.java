@@ -37,7 +37,6 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -52,7 +51,6 @@ public class GenotypingEngine {
 
     private final boolean DEBUG;
 
-    private final static double LOG_ONE_HALF = -Math.log10(2.0);
     private final static List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
 
     final HashMap<Integer, ArrayList<Event>> allEventDictionary;
@@ -81,7 +79,7 @@ public class GenotypingEngine {
         if( DEBUG ) { System.out.println(" ========  Top Haplotypes ======== "); }
         populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, false);
 
-        // walk along the haplotype in genomic order, genotyping the events as the come up
+        // walk along the haplotype in genomic order, genotyping the events as they come up
         final ArrayList<Integer> sortedKeySet = new ArrayList<Integer>();
         sortedKeySet.addAll(bestEventDictionary.keySet());
         Collections.sort(sortedKeySet);
@@ -154,26 +152,76 @@ public class GenotypingEngine {
 
     private void populateEventDictionary(final HashMap<Integer, ArrayList<Event>> eventDictionary, final Collection<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final boolean filterBadHaplotypes ) {
         int hIndex = 0;
+        int sizeRefHaplotype = 0;
+        int refStart = 0;
         final HashSet<Haplotype> haplotypesToRemove = new HashSet<Haplotype>();
+        final HashSet<Haplotype> haplotypesToAdd = new HashSet<Haplotype>();
+        if( filterBadHaplotypes ) {
+            for( final Haplotype h : haplotypes ) {
+
+                // Align the haplotype to the reference
+                final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+                if( DEBUG ) {
+                    System.out.println( h.toString() );
+                    System.out.println( "Cigar = " + swConsensus.getCigar() );
+                }
+                if( swConsensus.getCigar().getReadLength() < 10 || swConsensus.getCigar().toString().contains("S") ) {
+                    if( DEBUG ) { System.out.println("Filtered! -SW failure"); }
+                    haplotypesToRemove.add(h);
+                    continue; // Protection against SW failures
+                }
+                if( hIndex == 0 ) {
+                    sizeRefHaplotype = swConsensus.getCigar().getReadLength();
+                    refStart = swConsensus.getAlignmentStart2wrt1();
+                } else if ( Math.max(swConsensus.getCigar().getReadLength(), swConsensus.getCigar().getReferenceLength() ) < 0.65 * sizeRefHaplotype ) {
+                    if( DEBUG ) { System.out.println("Filtered! -too short"); }
+                   haplotypesToRemove.add(h);
+                    continue; // Protection against assembly failures
+                }
+
+                // Need to extend haplotypes with extra bases pulled from the reference context based on the haplotype's alignment
+                // After this proceudre all haplotypes will be the same length as the reference haplotype and will be on an even footing the HMM likelihood evaluation
+                byte extendedHaplotype[] = new byte[sizeRefHaplotype];
+                int iii = 0;
+                int kkk;
+                for( kkk = refStart; kkk < swConsensus.getAlignmentStart2wrt1(); kkk++ ) {
+                    extendedHaplotype[iii++] = ref[kkk];
+                }
+                int jjj = 0;
+                while( jjj < h.getBases().length && iii < sizeRefHaplotype ) {
+                    extendedHaplotype[iii] = h.getBases()[jjj];
+                    iii++;
+                    jjj++;
+                }
+                int nnn = 0;
+                while( iii < sizeRefHaplotype && swConsensus.getAlignmentStart2wrt1()+swConsensus.getCigar().getReferenceLength()+nnn < ref.length ) {
+                    extendedHaplotype[iii] = ref[swConsensus.getAlignmentStart2wrt1()+swConsensus.getCigar().getReferenceLength()+nnn];
+                    iii++;
+                    nnn++;
+                }
+                haplotypesToRemove.add(h);
+                haplotypesToAdd.add( new Haplotype( extendedHaplotype, h.getQuals() ) );
+                hIndex++;
+            }
+            haplotypes.removeAll( haplotypesToRemove );
+            haplotypes.addAll( haplotypesToAdd );
+        }
+
+        haplotypesToRemove.clear();
+        hIndex = 0;
         for( final Haplotype h : haplotypes ) {
 
-            // Align the haplotype to the reference
-            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
             if( DEBUG ) {
                 System.out.println( h.toString() );
                 System.out.println( "Cigar = " + swConsensus.getCigar() );
             }
-            if( swConsensus.getCigar().getReadLength() < 10 ) {
-                if( DEBUG ) { System.out.println("Filtered!"); }
-                if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
-                continue; // Protection against SW failures
-            }
 
             // Walk along the alignment and turn any difference from the reference into an event
-            final ArrayList<VariantContext> vcs = generateVCsFromAlignment(swConsensus, ref, h.bases, loc);
+            final ArrayList<VariantContext> vcs = generateVCsFromAlignment(swConsensus, ref, h.getBases(), loc);
 
             if( vcs == null || tooManyClusteredVariantsOnHaplotype( vcs ) ) { // too many variants on this haplotype means it wasn't assembled very well
-                if( DEBUG ) { System.out.println("Filtered!"); }
+                if( DEBUG ) { System.out.println("Filtered! -too complex"); }
                 if( filterBadHaplotypes ) { haplotypesToRemove.add(h); }
                 continue; // Protection against SW failures
             }
@@ -200,7 +248,9 @@ public class GenotypingEngine {
 
             hIndex++;
         }
-        if( filterBadHaplotypes ) { haplotypes.removeAll(haplotypesToRemove); }
+        if( filterBadHaplotypes ) {
+            haplotypes.removeAll( haplotypesToRemove );
+        }
     }
 
     private boolean tooManyClusteredVariantsOnHaplotype( final ArrayList<VariantContext> vcs ) {
@@ -218,7 +268,6 @@ public class GenotypingEngine {
     }
 
     private void correctAndExpandEventListWithRefEvents( final ArrayList<Event> inputEvents, final VariantContext mergedVC, final int maxHaplotypeIndex ) {
-        if( DEBUG ) { System.out.println( "! Merged event ref = " + mergedVC.getReference() ); }
         for(int iii = 0; iii < maxHaplotypeIndex; iii++) {
             Event myEvent = null;
             for( final Event e : inputEvents) {
@@ -232,7 +281,7 @@ public class GenotypingEngine {
                 e.index = iii;
                 inputEvents.add(e);
             } else { // might need to correct the alleles because of the potential merging of multiallelic records
-                if( DEBUG ) { System.out.println( "My Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
+                // if( DEBUG ) { System.out.println( "My Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
                 if( mergedVC.getAlternateAlleles().size() > 1 && !myEvent.refAllele.equals(mergedVC.getReference()) ) {
                     final int suffixSize = mergedVC.getReference().getBases().length - myEvent.refAllele.length();
                     if( suffixSize > 0 ) {
@@ -245,7 +294,7 @@ public class GenotypingEngine {
                         myEvent.refAllele = mergedVC.getReference();
                     }
                 }
-                if( DEBUG ) { System.out.println( "--> Updated Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
+                // if( DEBUG ) { System.out.println( "--> Updated Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
             }
         }
     }
@@ -254,8 +303,7 @@ public class GenotypingEngine {
         final ArrayList<VariantContext> vcs = new ArrayList<VariantContext>();
 
         int refPos = swConsensus.getAlignmentStart2wrt1();
-        if( refPos==0 ) { return null; } // Protection against SW failures
-        if( swConsensus.getCigar().toString().contains("S") ) { return null; } // Protection against SW failures
+        if( refPos < 0 ) { return null; } // Protection against SW failures
         int readPos = 0;
         final int lookAhead = 3;
 
@@ -376,12 +424,12 @@ public class GenotypingEngine {
 
         int iii = 0;
         for( final Haplotype h : haplotypes ) {
-            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
             exampleRead.setReadName("Haplotype" + iii);
-            exampleRead.setReadBases(h.bases);
+            exampleRead.setReadBases(h.getBases());
             exampleRead.setAlignmentStart(loc.getStart() + swConsensus.getAlignmentStart2wrt1());
             exampleRead.setCigar(swConsensus.getCigar());
-            final byte[] quals = new byte[h.bases.length];
+            final byte[] quals = new byte[h.getBases().length];
             Arrays.fill(quals, (byte) 25);
             exampleRead.setBaseQualities(quals);
             writer.addAlignment(exampleRead);
@@ -392,10 +440,10 @@ public class GenotypingEngine {
 
     public void alignAllReads( final Pair<Haplotype,Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc, final ConstrainedMateFixingManager manager, final ArrayList<GATKSAMRecord> reads, final double[][] likelihoods ) {
 
-        final SWPairwiseAlignment swConsensus0 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.first.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
-        final SWPairwiseAlignment swConsensus1 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.second.bases, SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
-        final Consensus consensus0 = new Consensus(bestTwoHaplotypes.first.bases, swConsensus0.getCigar(), swConsensus0.getAlignmentStart2wrt1());
-        final Consensus consensus1 = new Consensus(bestTwoHaplotypes.second.bases, swConsensus1.getCigar(), swConsensus1.getAlignmentStart2wrt1());
+        final SWPairwiseAlignment swConsensus0 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.first.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+        final SWPairwiseAlignment swConsensus1 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.second.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+        final Consensus consensus0 = new Consensus(bestTwoHaplotypes.first.getBases(), swConsensus0.getCigar(), swConsensus0.getAlignmentStart2wrt1());
+        final Consensus consensus1 = new Consensus(bestTwoHaplotypes.second.getBases(), swConsensus1.getCigar(), swConsensus1.getAlignmentStart2wrt1());
 
         int iii = 0;
         for( final GATKSAMRecord read : reads ) {
