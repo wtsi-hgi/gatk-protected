@@ -127,6 +127,12 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
     @Argument(fullName="numValidationSites", shortName="numSites", doc="Number of output validation sites", required=true)
     private int numValidationSites;
 
+    @Argument(fullName="includeFilteredSites", shortName="ifs", doc="If true, will include filtered sites in set to choose variants from", required=false)
+    private boolean INCLUDE_FILTERED_SITES = false;
+
+    @Argument(fullName="ignoreGenotypes", shortName="ignoreGenotypes", doc="If true, will ignore genotypes in VCF, will take AC,AF from annotations and will make no sample selection", required=false)
+    private boolean IGNORE_GENOTYPES = false;
+
     @Hidden
     @Argument(fullName="numFrequencyBins", shortName="numBins", doc="Number of frequency bins if we're to match AF distribution", required=false)
     private int numFrequencyBins = 20;
@@ -218,13 +224,17 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
             if (!vc.isPolymorphic())
                 continue;
 
-            if (vc.filtersWereApplied() && vc.isFiltered())
+            if (!INCLUDE_FILTERED_SITES && vc.filtersWereApplied() && vc.isFiltered())
                 continue;
 
 
             // do anything required by frequency selector before we select for samples
-            VariantContext subVC = sampleSelector.subsetSiteToSamples(vc);
-            frequencyModeSelector.logCurrentSiteData(vc, subVC);
+            VariantContext subVC;
+            if (IGNORE_GENOTYPES)
+                subVC = vc;
+            else
+                subVC = sampleSelector.subsetSiteToSamples(vc);
+            frequencyModeSelector.logCurrentSiteData(vc, subVC, IGNORE_GENOTYPES);
         }
         return 1;
     }

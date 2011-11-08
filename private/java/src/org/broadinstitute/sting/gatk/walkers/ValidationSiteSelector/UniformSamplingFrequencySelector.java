@@ -25,6 +25,7 @@ package org.broadinstitute.sting.gatk.walkers.ValidationSiteSelector;
 
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
@@ -41,18 +42,25 @@ public class UniformSamplingFrequencySelector extends FrequencyModeSelector {
 
     }
 
-    public void logCurrentSiteData(VariantContext vc, VariantContext subVC) {
+    public void logCurrentSiteData(VariantContext vc, VariantContext subVC, boolean IGNORE_GENOTYPES) {
         HashMap<String, Object> attributes = new HashMap<String, Object>();
 
 
-        // recompute AF,AC,AN based on genotypes:
-        if (vc.hasGenotypes())
+        if (vc.hasGenotypes() && !IGNORE_GENOTYPES) {
+            // recompute AF,AC,AN based on genotypes:
             VariantContextUtils.calculateChromosomeCounts(vc, attributes, false);
+            if (!subVC.isPolymorphic())
+                return;
+        } else  {
+            if ( attributes.containsKey(VCFConstants.ALLELE_COUNT_KEY) )  {
+                int ac = vc.getAttributeAsInt(VCFConstants.ALLELE_COUNT_KEY, 0);
+                if (ac == 0) return; // site not polymorphic
+            }
+            else
+                return;
 
-        if (!subVC.isPolymorphic())
-            return;
-
-       // create bare-bones event and log in corresponding bin
+        }
+        // create bare-bones event and log in corresponding bin
         // attributes contains AC,AF,AN pulled from original vc, and we keep them here and log in output file for bookkeeping purposes
         GenomeEvent event = new GenomeEvent(parser, vc.getChr(), vc.getStart(), vc.getEnd(),vc.getAlleles(), attributes, vc.getReferenceBaseForIndel());
         binnedEventArray.add(event);
