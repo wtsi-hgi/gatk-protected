@@ -38,7 +38,10 @@ public abstract class FrequencyModeSelector  implements Cloneable{
     protected FrequencyModeSelector(GenomeLocParser parser) {
         this.parser = parser;
     }
-    protected abstract void logCurrentSiteData(VariantContext vc, VariantContext subVC);
+    protected void logCurrentSiteData(VariantContext vc, VariantContext subVC) {
+        logCurrentSiteData(vc, subVC, false);
+    }
+    protected abstract void logCurrentSiteData(VariantContext vc, VariantContext subVC, boolean IGNORE_GENOTYPES);
     protected abstract ArrayList<VariantContext> selectValidationSites(int numValidationSites);
 
 }
