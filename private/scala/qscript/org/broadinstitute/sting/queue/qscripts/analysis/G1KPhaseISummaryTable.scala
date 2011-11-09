@@ -69,12 +69,11 @@ class G1KPhaseISummaryTable extends QScript {
 
   val populations = List("EUR", "ASN", "AFR", "AMR", "ALL")
 
-  val callsets = Range(1,22).map(new File("/humgen/1kg/releases/main_project_phaseI/ALL.chr%d.merged_beagle_mach.20101123.snps_indels_svs.genotypes.vcf.gz".format(_)))
+  val callsets = Range(1,22).map("/humgen/1kg/releases/main_project_phaseI/ALL.chr%d.merged_beagle_mach.20101123.snps_indels_svs.genotypes.vcf.gz".format(_))
 
   def script = {
     for ( population <- populations )
-      add(new evalVariants(pop))
-    }
+      add(new evalVariants(population))
   }
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
@@ -87,11 +86,11 @@ class G1KPhaseISummaryTable extends QScript {
   // 5.) Variant Evaluation Base(OPTIONAL)
   class evalVariants(pop: String) extends VariantEval with UNIVERSAL_GATK_ARGS {
     for ( callset <- callsets )
-      this.eval :+= callset
+      this.eval :+= new File(callset)
     this.mergeEvals = true
     this.D = dbSNP_b37_129
     this.sample = List("%s.samples.list".format(pop))
-    this.out = List("%s.samples.eval".format(pop))
+    this.out = new File("%s.samples.eval".format(pop))
     this.noEV = true
     this.EV = List("G1KPhaseITable")
   }
