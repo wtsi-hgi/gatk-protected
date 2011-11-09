@@ -127,10 +127,10 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
 
         for (GenomeLoc interval : intervalList) {
 
-            if ( read.getReadLength() == 0 )       // nothing to do with an empty read (could have been fully clipped before)
+            if ( read.isEmpty() )                  // nothing to do with an empty read (could have been fully clipped before)
                 break;
 
-            GATKSAMRecord clippedRead = null;                 // this will hold the read clipped to the interval to be added in the end of the switch
+            GATKSAMRecord clippedRead = null;      // this will hold the read clipped to the interval to be added in the end of the switch
 
             switch (ReadUtils.getReadAndIntervalOverlapType(read, interval)) {
                 case NO_OVERLAP_RIGHT:             // no reads on this interval, check the next interval if this is the original read
@@ -228,7 +228,7 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
                 originalRead = false;
 
                 if (clippedRead.getReadLength() > 0)
-                    clippedReads.add(clippedRead);     // if the read overlaps the interval entirely within a deletion, it will be entirely clipped off
+                    clippedReads.add(clippedRead); // if the read overlaps the interval entirely within a deletion, it will be entirely clipped off
             }
 
             if (doneClipping)
