@@ -268,16 +268,19 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
 
         if (debugLevel == 1) System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
 
+
+        read.simplify();                                                          // Clear all unnecessary attributes
+
         ReadClipper clipper = new ReadClipper(read);
-        GATKSAMRecord clippedRead = clipper.hardClipLowQualEnds(minTailQuality);
+        GATKSAMRecord clippedRead = clipper.hardClipLowQualEnds(minTailQuality);  // Clip low quality tails
 
         clipper = new ReadClipper(clippedRead);
-        clippedRead = clipper.hardClipSoftClippedBases();
+        clippedRead = clipper.hardClipSoftClippedBases();                         // Hard clip everything that is soft clipped
 
         clipper = new ReadClipper(clippedRead);
-        clippedRead = clipper.hardClipLeadingInsertions();
+        clippedRead = clipper.hardClipLeadingInsertions();                        // Clean up leading insertions (because the sliding window can't handle them yet)
 
-        List<GATKSAMRecord> mappedReads = hardClipReadToInterval(clippedRead);
+        List<GATKSAMRecord> mappedReads = hardClipReadToInterval(clippedRead);    // Hard clip the remainder of the read to the desired interval
 
         if (debugLevel == 1) {
             for (GATKSAMRecord mappedRead : mappedReads)
