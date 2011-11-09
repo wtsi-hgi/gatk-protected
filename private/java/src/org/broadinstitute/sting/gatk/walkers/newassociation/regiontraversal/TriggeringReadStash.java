@@ -178,7 +178,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
     }
 
     @Override
-    protected List<GATKSAMRecord> addToConsensus(int start, int end) {
+    protected List<GATKSAMRecord> addToSyntheticReads(int start, int end) {
         // reads that would die from the slide to start get added in
         List<GATKSAMRecord> consensus = new LinkedList<GATKSAMRecord>();
         return consensus;
@@ -328,7 +328,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
         }
 
         protected double totalReads() {
-            return baseCounts.totalCount() + highQClippedBases;
+            return consensusBaseCounts.totalCount() + highQClippedBases;
         }
     }
 }

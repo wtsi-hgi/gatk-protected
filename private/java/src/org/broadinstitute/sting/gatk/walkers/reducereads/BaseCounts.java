@@ -68,7 +68,32 @@ final public class BaseCounts {
 
     @Ensures("result >= 0")
     public int getCount(byte base) {
-        return counts.get(BaseIndex.byteToBase(base));
+        return getCount(BaseIndex.byteToBase(base));
+    }
+
+    @Ensures("result >= 0")
+    public int getCount(BaseIndex base) {
+        return counts.get(base);
+    }
+
+    @Ensures("result >= 0")
+    public long getSumQuals(byte base) {
+        return getSumQuals(BaseIndex.byteToBase(base));
+    }
+
+    @Ensures("result >= 0")
+    public long getSumQuals(BaseIndex base) {
+        return sumQuals.get(base);
+    }
+
+    @Ensures("result >= 0")
+    public byte averageQuals(byte base) {
+        return (byte) (getSumQuals(base) / getCount(base));
+    }
+
+    @Ensures("result >= 0")
+    public byte averageQuals(BaseIndex base) {
+        return (byte) (getSumQuals(base) / getCount(base));
     }
 
     public byte baseWithMostCounts() {
