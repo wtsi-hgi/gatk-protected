@@ -25,8 +25,8 @@
 
 package org.broadinstitute.sting.utils.codecs;
 
+import org.broad.tribble.AbstractFeatureCodec;
 import org.broad.tribble.Feature;
-import org.broad.tribble.FeatureCodec;
 import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -60,7 +60,7 @@ import java.util.regex.Pattern;
  * @author Guillermo del Angel
  * @since 2010
  */
-public class MillsDevineCodec implements FeatureCodec {
+public class MillsDevineCodec extends AbstractFeatureCodec {
 
     private static final String DELETION_TYPE = "DEL";
     private static final String INSERTION_TYPE = "INS";

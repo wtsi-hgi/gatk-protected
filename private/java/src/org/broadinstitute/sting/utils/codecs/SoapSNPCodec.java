@@ -1,9 +1,6 @@
 package org.broadinstitute.sting.utils.codecs;
 
-import org.broad.tribble.Feature;
-import org.broad.tribble.FeatureCodec;
-import org.broad.tribble.NameAwareCodec;
-import org.broad.tribble.TribbleException;
+import org.broad.tribble.*;
 import org.broad.tribble.exception.CodecLineParsingException;
 import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
@@ -62,7 +59,7 @@ import java.util.*;
  * @author Mark DePristo
  * @since 2010
  */
-public class SoapSNPCodec implements FeatureCodec, NameAwareCodec {
+public class SoapSNPCodec extends AbstractFeatureCodec implements NameAwareCodec {
     private String[] parts;
 
     // we store a name to give to each of the variant contexts we emit
