@@ -64,19 +64,19 @@ public class SingleSampleCompressor implements Compressor {
     @Override
     public Iterable<GATKSAMRecord> addAlignment( GATKSAMRecord read ) {
         TreeSet<GATKSAMRecord> result = new TreeSet<GATKSAMRecord>(new AlignmentStartWithNoTiesComparator());
-        int position = read.getUnclippedStart();
+        int readOriginalStart = read.getUnclippedStart();
 
         // create a new window if:
         if ((slidingWindow != null) &&
-            ( ( read.getReferenceIndex() != slidingWindow.getContigIndex() ) ||     // this is a brand new contig
-              (position - contextSize > slidingWindow.getStopLocation()) ) ) {  // this read is too far away from the end of the current sliding window
+            ( ( read.getReferenceIndex() != slidingWindow.getContigIndex() ) ||        // this is a brand new contig
+              (readOriginalStart - contextSize > slidingWindow.getStopLocation()))) {  // this read is too far away from the end of the current sliding window
 
             // close the current sliding window
             result.addAll(slidingWindow.close());
-            slidingWindow = null;                                                   // so we create a new one on the next if
+            slidingWindow = null;                                                      // so we create a new one on the next if
         }
 
-        if ( slidingWindow == null) {       // this is the first read
+        if ( slidingWindow == null) {                                                  // this is the first read
             instantiateSlidingWindow(read);
             slidingWindowCounter++;
         }

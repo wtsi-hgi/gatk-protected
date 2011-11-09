@@ -360,7 +360,7 @@ public class SlidingWindow {
         // -- this may happen if the previous read was clipped and this alignment starts before the beginning of the window
         if (locationIndex < 0) {
             for(int i = 1; i <= -locationIndex; i++)
-                windowHeader.addFirst(newHeaderElement(startLocation - i));
+                windowHeader.addFirst(new HeaderElement(startLocation - i));
 
             // update start location accordingly
             startLocation = read.getAlignmentStart();
@@ -371,17 +371,18 @@ public class SlidingWindow {
         if (stopLocation < read.getAlignmentEnd()) {
             int elementsToAdd = (stopLocation < 0) ? read.getAlignmentEnd() - read.getAlignmentStart() + 1 : read.getAlignmentEnd() - stopLocation;
             while (elementsToAdd-- > 0)
-                windowHeader.addLast(newHeaderElement(read.getAlignmentEnd() - elementsToAdd));
+                windowHeader.addLast(new HeaderElement(read.getAlignmentEnd() - elementsToAdd));
 
             // update stopLocation accordingly
             stopLocation = read.getAlignmentEnd();
         }
 
+        Iterator<HeaderElement> headerElementIterator = windowHeader.listIterator(locationIndex);
+
         // Reads that don't pass the minimum mapping quality filter are not added to the
         // consensus, or count towards a variant region so no point in keeping track of
         // their base counts.
         if (read.getMappingQuality() < MIN_MAPPING_QUALITY) {
-            Iterator<HeaderElement> headerElementIterator = windowHeader.listIterator(locationIndex);
             for (int i = read.getAlignmentStart(); i <= read.getAlignmentEnd(); i++) {
                 if (!headerElementIterator.hasNext())
                     throw new ReviewedStingException("No header element for position: + " + read.getReferenceName() + ":" + i);
@@ -391,28 +392,23 @@ public class SlidingWindow {
             }
         }
         else {
-            // todo -- perhaps rewrite this iteration using list iterator to save time searching for each index.
-            // todo -- they should be consecutive (as far as I can tell)
+            HeaderElement headerElement;
             for (CigarElement cigarElement : cigar.getCigarElements()) {
                 switch (cigarElement.getOperator()) {
                     case H:
-                    case S:
-                        // nothing to add to the window
+                case S:                                                                       // nothing to add to the window
                         break;
-                    case I:
-                        // insertions are added to the base to the left (previous element) with the quality score of the first inserted base
-                        if (locationIndex > 0) {
-                            windowHeader.get(locationIndex - 1).addInsertionToTheRight();     // check if it's the first element in the read!
+                    case I:                                                                   // insertions are added to the base to the left (previous element) with the quality score of the first inserted base
+                        if (locationIndex > 0) {                                              // check if it's the first element in the read!
+                            windowHeader.get(locationIndex - 1).addInsertionToTheRight();
                             readBaseIndex += cigarElement.getLength();
                         }
-
-                        // just ignore the insertions at the beginning of the read
-                        break;
+                        break;                                                                // just ignore the insertions at the beginning of the read
                     case D:
-                        // deletions are added to the baseCounts with the read mapping quality as it's quality score
                         int nDeletionsToAdd = cigarElement.getLength();
-                        while(nDeletionsToAdd-- > 0) {
-                            windowHeader.get(locationIndex).addBase((byte) 'D', (byte) read.getMappingQuality(), read.getMappingQuality());
+                        while(nDeletionsToAdd-- > 0) {                                        // deletions are added to the baseCounts with the read mapping quality as it's quality score
+                            headerElement = headerElementIterator.next();
+                            headerElement.addBase((byte) 'D', (byte) read.getMappingQuality(), read.getMappingQuality());
                             locationIndex++;
                         }
                         break;
@@ -422,7 +418,8 @@ public class SlidingWindow {
                     case X:
                         int nBasesToAdd = cigarElement.getLength();
                         while(nBasesToAdd-- > 0) {
-                            windowHeader.get(locationIndex).addBase(bases[readBaseIndex], quals[readBaseIndex], read.getMappingQuality());
+                            headerElement = headerElementIterator.next();
+                            headerElement.addBase(bases[readBaseIndex], quals[readBaseIndex], read.getMappingQuality());
                             readBaseIndex++;
                             locationIndex++;
                         }
@@ -430,10 +427,6 @@ public class SlidingWindow {
                 }
             }
         }
-    }
-
-    protected HeaderElement newHeaderElement(int index) {
-        return new HeaderElement(index);
     }
 
     protected GATKSAMRecord trimToVariableRegion(GATKSAMRecord read, int refStart, int refStop) {
@@ -478,21 +471,24 @@ public class SlidingWindow {
         protected BaseCounts baseCounts;               // How many A,C,G,T (and D's) are in this site.
         protected int insertionsToTheRight;            // How many reads in this site had insertions to the immediate right
         protected int location;                        // Genome location of this site (the sliding window knows which contig we're at
-        protected LinkedList<Integer> mappingQuality;   // keeps the mapping quality of each read that contributed to this element (site)
+        protected LinkedList<Integer> mappingQuality;  // keeps the mapping quality of each read that contributed to this element (site)
 
 
         public HeaderElement() {
-            this.baseCounts = new BaseCounts();
-            this.insertionsToTheRight = 0;
-            this.location = 0;
-            this.mappingQuality = new LinkedList<Integer>();
+            this(new BaseCounts(), 0, 0, new LinkedList<Integer>());
         }
 
         public int getLocation() { return location; }
 
         public HeaderElement(int location) {
-            this();
+            this(new BaseCounts(), 0, location, new LinkedList<Integer>());
+        }
+
+        public HeaderElement(BaseCounts baseCounts, int insertionsToTheRight, int location, LinkedList<Integer> mappingQuality) {
+            this.baseCounts = baseCounts;
+            this.insertionsToTheRight = insertionsToTheRight;
             this.location = location;
+            this.mappingQuality = mappingQuality;
         }
 
         public boolean isVariant() {

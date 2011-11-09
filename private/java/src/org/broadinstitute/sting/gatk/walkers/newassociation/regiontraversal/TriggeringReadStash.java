@@ -191,11 +191,6 @@ class TriggeringSlidingWindow extends SlidingWindow {
     }
 
     @Override
-    protected HeaderElement newHeaderElement(int location) {
-        return new TriggeringHeaderElement(location);
-    }
-
-    @Override
         protected void updateHeaderCounts(GATKSAMRecord read) {
         // Reads that don't pass the minimum mapping quality filter are not added to the
         // consensus, or count towards a variant region so no point in keeping track of
@@ -215,7 +210,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
         // -- this may happen if the previous read was clipped and this alignment starts before the beginning of the window
         if (locationIndex < 0) {
             for(int i = 1; i <= -locationIndex; i++)
-                windowHeader.addFirst(newHeaderElement(startLocation - i));
+                windowHeader.addFirst(new TriggeringHeaderElement(startLocation - i));
 
             // update start location accordingly
             startLocation = read.getAlignmentStart();
@@ -226,7 +221,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
         if (stopLocation < read.getAlignmentEnd()) {
             int elementsToAdd = (stopLocation < 0) ? read.getAlignmentEnd() - read.getAlignmentStart() + 1 : read.getAlignmentEnd() - stopLocation;
             while (elementsToAdd-- > 0)
-                windowHeader.addLast(newHeaderElement(read.getAlignmentEnd() - elementsToAdd));
+                windowHeader.addLast(new TriggeringHeaderElement(read.getAlignmentEnd() - elementsToAdd));
 
             // update stopLocation accordingly
             stopLocation = read.getAlignmentEnd();
