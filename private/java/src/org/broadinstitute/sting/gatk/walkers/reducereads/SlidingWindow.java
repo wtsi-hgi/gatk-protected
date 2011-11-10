@@ -231,7 +231,7 @@ public class SlidingWindow {
                 if (endOfConsensus <= start)
                     throw new ReviewedStingException(String.format("next start is <= current start: (%d <= %d)", endOfConsensus, start));
 
-                addToSyntheticReads(endOfConsensus, end);
+                reads.addAll(addToSyntheticReads(endOfConsensus, end));
             }
 
             else if (headerElement.hasFilteredData()) {
@@ -243,7 +243,7 @@ public class SlidingWindow {
                 if (endOfFilteredData<= start)
                     throw new ReviewedStingException(String.format("next start is <= current start: (%d <= %d)", endOfFilteredData, start));
 
-                addToSyntheticReads(endOfFilteredData, end);
+                reads.addAll(addToSyntheticReads(endOfFilteredData, end));
             }
 
             else if (headerElement.isEmpty()) {
@@ -255,7 +255,7 @@ public class SlidingWindow {
                 if (endOfEmptyData<= start)
                     throw new ReviewedStingException(String.format("next start is <= current start: (%d <= %d)", endOfEmptyData, start));
 
-                addToSyntheticReads(endOfEmptyData, end);
+                reads.addAll(addToSyntheticReads(endOfEmptyData, end));
             }
 
             else
@@ -360,7 +360,7 @@ public class SlidingWindow {
      */
     private void addToFilteredData (int start, int end) {
         if (filteredDataConsensus == null)
-            filteredDataConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, filteredDataReadName + filteredDataConsensusCounter++, windowHeader.get(start).location, GATKSAMRecord.REDUCED_READ_FILTERED_TAG);
+            filteredDataConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, filteredDataReadName + filteredDataConsensusCounter++, windowHeader.get(start).location, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG);
 
         ListIterator<HeaderElement> headerElementIterator = windowHeader.listIterator(start);
         for (int index = start; index < end; index++) {
@@ -393,7 +393,7 @@ public class SlidingWindow {
      */
     private void addToRunningConsensus (int start, int end) {
         if (runningConsensus == null)
-            runningConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, filteredDataReadName + filteredDataConsensusCounter++, windowHeader.get(start).location, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG);
+            runningConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, consensusReadName + consensusCounter++, windowHeader.get(start).location, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG);
 
         Iterator<HeaderElement> headerElementIterator = windowHeader.listIterator(start);
         for (int index = start; index < end; index++) {
