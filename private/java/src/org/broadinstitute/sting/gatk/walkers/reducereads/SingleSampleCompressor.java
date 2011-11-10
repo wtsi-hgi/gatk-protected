@@ -1,6 +1,5 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import net.sf.samtools.SAMReadGroupRecord;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -22,7 +21,6 @@ public class SingleSampleCompressor implements Compressor {
     protected int slidingWindowCounter;
 
     protected final String sampleName;
-    protected final SAMReadGroupRecord reducedReadGroup;
 
     protected SlidingWindow slidingWindow;
     protected double minAltProportionToTriggerVariant;
@@ -32,7 +30,6 @@ public class SingleSampleCompressor implements Compressor {
 
 
     public SingleSampleCompressor(final String sampleName,
-                                  final SAMReadGroupRecord readGroupRecord,
                                   final int contextSize,
                                   final int contextSizeIndels,
                                   final int downsampleCoverage,
@@ -42,7 +39,6 @@ public class SingleSampleCompressor implements Compressor {
                                   final int minBaseQual,
                                   final int maxQualCount) {
         this.sampleName = sampleName;
-        this.reducedReadGroup = readGroupRecord;
         this.contextSize = contextSize;
         this.contextSizeIndels = contextSizeIndels;
         this.downsampleCoverage = downsampleCoverage;
@@ -54,29 +50,25 @@ public class SingleSampleCompressor implements Compressor {
         this.maxQualCount = maxQualCount;
     }
 
-    public SAMReadGroupRecord getReducedReadGroup() {
-        return reducedReadGroup;
-    }
-
     /**
      * @{inheritDoc}
      */
     @Override
     public Iterable<GATKSAMRecord> addAlignment( GATKSAMRecord read ) {
         TreeSet<GATKSAMRecord> result = new TreeSet<GATKSAMRecord>(new AlignmentStartWithNoTiesComparator());
-        int position = read.getUnclippedStart();
+        int readOriginalStart = read.getUnclippedStart();
 
         // create a new window if:
         if ((slidingWindow != null) &&
-            ( ( read.getReferenceIndex() != slidingWindow.getContigIndex() ) ||     // this is a brand new contig
-              (position - contextSize > slidingWindow.getStopLocation()) ) ) {  // this read is too far away from the end of the current sliding window
+            ( ( read.getReferenceIndex() != slidingWindow.getContigIndex() ) ||        // this is a brand new contig
+              (readOriginalStart - contextSize > slidingWindow.getStopLocation()))) {  // this read is too far away from the end of the current sliding window
 
             // close the current sliding window
             result.addAll(slidingWindow.close());
-            slidingWindow = null;                                                   // so we create a new one on the next if
+            slidingWindow = null;                                                      // so we create a new one on the next if
         }
 
-        if ( slidingWindow == null) {       // this is the first read
+        if ( slidingWindow == null) {                                                  // this is the first read
             instantiateSlidingWindow(read);
             slidingWindowCounter++;
         }
@@ -86,7 +78,7 @@ public class SingleSampleCompressor implements Compressor {
     }
 
     protected void instantiateSlidingWindow(GATKSAMRecord read) {
-        slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getAttribute("RG"), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
+        slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getReadGroup(), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
     }
 
     @Override

@@ -1,14 +1,16 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
 import net.sf.samtools.SAMFileHeader;
-import net.sf.samtools.SAMReadGroupRecord;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 /*
  * Copyright (c) 2009 The Broad Institute
@@ -55,18 +57,9 @@ public class MultiSampleCompressor implements Compressor {
                                  final int maxQualCount) {
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
-                    new SingleSampleCompressor(name, header.getReadGroup(name), contextSize, contextSizeIndels, downsampleCoverage,
+                    new SingleSampleCompressor(name, contextSize, contextSizeIndels, downsampleCoverage,
                                     minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
         }
-    }
-
-    public Collection<SAMReadGroupRecord> getReducedReadGroups() {
-        List<SAMReadGroupRecord> rgs = new ArrayList<SAMReadGroupRecord>();
-
-        for ( SingleSampleCompressor comp : compressorsPerSample.values() )
-            rgs.add(comp.getReducedReadGroup());
-
-        return rgs;
     }
 
     @Override

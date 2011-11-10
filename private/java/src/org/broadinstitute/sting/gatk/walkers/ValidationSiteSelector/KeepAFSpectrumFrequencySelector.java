@@ -60,20 +60,20 @@ public class KeepAFSpectrumFrequencySelector extends FrequencyModeSelector {
         postSampleSelectionHistogram = new int[NUM_BINS];
     }
 
-    public void logCurrentSiteData(VariantContext vc, VariantContext subVC) {
+    public void logCurrentSiteData(VariantContext vc, VariantContext subVC, boolean IGNORE_GENOTYPES) {
 
         // this method is called for every  variant of a selected type, regardless of  whether it will be selectable or not
         // get AC,AF,AN attributes from vc
         HashMap<String, Object> attributes = new HashMap<String, Object>();
         double[] afArray = null;
 
-        if (vc.hasGenotypes()) {
+        if (vc.hasGenotypes() && !IGNORE_GENOTYPES) {
             // recompute AF,AC,AN based on genotypes:
             // todo - - maybe too inefficient??
             VariantContextUtils.calculateChromosomeCounts(vc, attributes, false);
             afArray =  new double[] {Double.valueOf((String)attributes.get(VCFConstants.ALLELE_FREQUENCY_KEY))};
         }   else {
-            // sites-only vc; we trust the AF field if present
+            // sites-only vc or we explicitly tell to ignore genotypes; we trust the AF field if present
             if ( vc.hasAttribute(VCFConstants.ALLELE_FREQUENCY_KEY) )  {
                 String afo = vc.getAttributeAsString(VCFConstants.ALLELE_FREQUENCY_KEY, null);
 

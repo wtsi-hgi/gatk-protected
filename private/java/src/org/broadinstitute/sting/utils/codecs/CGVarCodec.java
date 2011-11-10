@@ -24,8 +24,8 @@
 
 package org.broadinstitute.sting.utils.codecs;
 
+import org.broad.tribble.AbstractFeatureCodec;
 import org.broad.tribble.Feature;
-import org.broad.tribble.FeatureCodec;
 import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -67,7 +67,7 @@ import java.util.regex.Pattern;
  * @author Eric Banks
  * @since 2011
  */
-public class CGVarCodec implements FeatureCodec {
+public class CGVarCodec extends AbstractFeatureCodec {
 
     private static final String REF_TYPE = "ref";
     private static final String SNP_TYPE = "snp";

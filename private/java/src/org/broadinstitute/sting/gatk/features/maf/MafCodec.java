@@ -26,8 +26,8 @@
 package org.broadinstitute.sting.gatk.features.maf;
 
 import org.apache.log4j.Logger;
+import org.broad.tribble.AbstractFeatureCodec;
 import org.broad.tribble.Feature;
-import org.broad.tribble.FeatureCodec;
 import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -42,7 +42,7 @@ import java.util.*;
  * Time: 12:04:10 PM
  * To change this template use File | Settings | File Templates.
  */
-public class MafCodec implements FeatureCodec {
+public class MafCodec extends AbstractFeatureCodec {
      private final static Logger log = Logger.getLogger(MafCodec.class);
 
      private int expectedTokenCount = -1;

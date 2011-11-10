@@ -12,7 +12,8 @@ public enum BaseIndex {
     G ( 'G', 2 ),
     T ( 'T', 3 ),
     D ( 'D', 4 ),
-    I ( 'I', 5 ); // insertion to the right of the base
+    I ( 'I', 5 ), // insertion to the right of the base
+    N ( 'N', 6 );
 
     final byte b;
     final int index;
@@ -45,6 +46,9 @@ public enum BaseIndex {
             case 'I':
             case 'i':
                 return I;
+            case 'N':
+            case 'n':
+                return N;
             default: return null;
         }
     }

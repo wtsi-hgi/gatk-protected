@@ -127,10 +127,10 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
 
         for (GenomeLoc interval : intervalList) {
 
-            if ( read.getReadLength() == 0 )       // nothing to do with an empty read (could have been fully clipped before)
+            if ( read.isEmpty() )                  // nothing to do with an empty read (could have been fully clipped before)
                 break;
 
-            GATKSAMRecord clippedRead = null;                 // this will hold the read clipped to the interval to be added in the end of the switch
+            GATKSAMRecord clippedRead = null;      // this will hold the read clipped to the interval to be added in the end of the switch
 
             switch (ReadUtils.getReadAndIntervalOverlapType(read, interval)) {
                 case NO_OVERLAP_RIGHT:             // no reads on this interval, check the next interval if this is the original read
@@ -228,7 +228,7 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
                 originalRead = false;
 
                 if (clippedRead.getReadLength() > 0)
-                    clippedReads.add(clippedRead);     // if the read overlaps the interval entirely within a deletion, it will be entirely clipped off
+                    clippedReads.add(clippedRead); // if the read overlaps the interval entirely within a deletion, it will be entirely clipped off
             }
 
             if (doneClipping)
@@ -268,16 +268,19 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
 
         if (debugLevel == 1) System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
 
+
+        read.simplify();                                                          // Clear all unnecessary attributes
+
         ReadClipper clipper = new ReadClipper(read);
-        GATKSAMRecord clippedRead = clipper.hardClipLowQualEnds(minTailQuality);
+        GATKSAMRecord clippedRead = clipper.hardClipLowQualEnds(minTailQuality);  // Clip low quality tails
 
         clipper = new ReadClipper(clippedRead);
-        clippedRead = clipper.hardClipSoftClippedBases();
+        clippedRead = clipper.hardClipSoftClippedBases();                         // Hard clip everything that is soft clipped
 
         clipper = new ReadClipper(clippedRead);
-        clippedRead = clipper.hardClipLeadingInsertions();
+        clippedRead = clipper.hardClipLeadingInsertions();                        // Clean up leading insertions (because the sliding window can't handle them yet)
 
-        List<GATKSAMRecord> mappedReads = hardClipReadToInterval(clippedRead);
+        List<GATKSAMRecord> mappedReads = hardClipReadToInterval(clippedRead);    // Hard clip the remainder of the read to the desired interval
 
         if (debugLevel == 1) {
             for (GATKSAMRecord mappedRead : mappedReads)
@@ -347,12 +350,12 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
         final int nm = SequenceUtil.countMismatches(read, ref, start - 1);
         final int readLen = read.getReadLength();
         final double nmFraction = nm / (1.0*readLen);
-        if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_QUALITY_TAG) != null)
+        if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG) != null)
             throw new ReviewedStingException("BUG: High mismatch fraction found in read " + read.getReadName() + " position: " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
     }
 
     private boolean isConsensus(GATKSAMRecord read) {
-        return read.getAttribute(GATKSAMRecord.REDUCED_READ_QUALITY_TAG) != null;
+        return read.getAttribute(GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG) != null;
     }
 
     private void outputRead(GATKSAMRecord read) {

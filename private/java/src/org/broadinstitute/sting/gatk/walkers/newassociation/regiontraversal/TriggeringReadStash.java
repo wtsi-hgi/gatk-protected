@@ -1,10 +1,17 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.regiontraversal;
 
-import net.sf.samtools.*;
-import org.broadinstitute.sting.gatk.walkers.reducereads.*;
+import net.sf.samtools.Cigar;
+import net.sf.samtools.CigarElement;
+import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMReadGroupRecord;
+import org.broadinstitute.sting.gatk.walkers.reducereads.MultiSampleCompressor;
+import org.broadinstitute.sting.gatk.walkers.reducereads.ReduceReadsStash;
+import org.broadinstitute.sting.gatk.walkers.reducereads.SingleSampleCompressor;
+import org.broadinstitute.sting.gatk.walkers.reducereads.SlidingWindow;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
+import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.*;
@@ -96,13 +103,13 @@ class TriggeringSingleSampleCompressor extends SingleSampleCompressor {
                                             final int minBaseQual,
                                             final int maxQualCount,
                                             final TriggeringMultiSampleCompressor parent) {
-        super(sampleName,readGroupRecord,contextSize,contextSizeIndels,downsampleCoverage,minMappingQuality,minAltProportionToTriggerVariant,minIndelProportionToTriggerVariant,minBaseQual,maxQualCount);
+        super(sampleName,contextSize,contextSizeIndels,downsampleCoverage,minMappingQuality,minAltProportionToTriggerVariant,minIndelProportionToTriggerVariant,minBaseQual,maxQualCount);
         parentMultiSampleCompressor = parent;
     }
 
     @Override
     protected void instantiateSlidingWindow(GATKSAMRecord read) {
-        slidingWindow = new TriggeringSlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getAttribute("RG"), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality,this);
+        slidingWindow = new TriggeringSlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getReadGroup(), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality,this);
     }
 
     protected boolean[] markRegion(int startLoc, int stopLoc, int contextSize) {
@@ -125,7 +132,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
     protected TriggeringSingleSampleCompressor parentCompressor;
 
     public TriggeringSlidingWindow(String contig, int contigIndex, int contextSize, int contextSizeIndels,
-                                   SAMFileHeader header, Object readGroupAttribute, int windowNumber,
+                                   SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber,
                                    final double minAltProportionToTriggerVariant,
                                    final double minIndelProportionToTriggerVariant, int minBaseQual,
                                    int maxQualCount, int minMappingQuality,
@@ -178,21 +185,16 @@ class TriggeringSlidingWindow extends SlidingWindow {
     }
 
     @Override
-    protected List<GATKSAMRecord> addToConsensus(int start, int end) {
+    protected List<GATKSAMRecord> addToSyntheticReads(int start, int end) {
         // reads that would die from the slide to start get added in
         List<GATKSAMRecord> consensus = new LinkedList<GATKSAMRecord>();
         return consensus;
     }
 
     @Override
-    protected GATKSAMRecord finalizeConsensus() {
+    protected GATKSAMRecord finalizeRunningConsensus() {
         runningConsensus = null;
         return null;
-    }
-
-    @Override
-    protected HeaderElement newHeaderElement(int location) {
-        return new TriggeringHeaderElement(location);
     }
 
     @Override
@@ -215,7 +217,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
         // -- this may happen if the previous read was clipped and this alignment starts before the beginning of the window
         if (locationIndex < 0) {
             for(int i = 1; i <= -locationIndex; i++)
-                windowHeader.addFirst(newHeaderElement(startLocation - i));
+                windowHeader.addFirst(new TriggeringHeaderElement(startLocation - i));
 
             // update start location accordingly
             startLocation = read.getAlignmentStart();
@@ -226,7 +228,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
         if (stopLocation < read.getAlignmentEnd()) {
             int elementsToAdd = (stopLocation < 0) ? read.getAlignmentEnd() - read.getAlignmentStart() + 1 : read.getAlignmentEnd() - stopLocation;
             while (elementsToAdd-- > 0)
-                windowHeader.addLast(newHeaderElement(read.getAlignmentEnd() - elementsToAdd));
+                windowHeader.addLast(new TriggeringHeaderElement(read.getAlignmentEnd() - elementsToAdd));
 
             // update stopLocation accordingly
             stopLocation = read.getAlignmentEnd();
@@ -333,7 +335,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
         }
 
         protected double totalReads() {
-            return baseCounts.totalCount() + highQClippedBases;
+            return consensusBaseCounts.totalCount() + highQClippedBases;
         }
     }
 }

@@ -5,12 +5,8 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 // the imports for unit testing.
 
 
-import net.sf.samtools.SAMRecord;
-import org.apache.commons.lang.StringUtils;
 import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.utils.sam.ArtificialSAMUtils;
 import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -44,7 +40,7 @@ public class BaseCountsUnitTest extends BaseTest {
         params.add(new SingleTest("AAC", 'A', 2 ));
         params.add(new SingleTest("AAA", 'A', 3 ));
         params.add(new SingleTest("AAAN", 'A', 3 ));
-        params.add(new SingleTest("AAANNNN", 'A', 3 ));
+        params.add(new SingleTest("AAANNNN", 'N', 4 ));
         params.add(new SingleTest("AACTG", 'A', 2 ));
         params.add(new SingleTest("D", 'D', 1 ));
         params.add(new SingleTest("DDAAD", 'D', 3));
@@ -66,7 +62,7 @@ public class BaseCountsUnitTest extends BaseTest {
             counts.incr(base);
 
         String name = String.format("Test-%s", params.bases);
-        Assert.assertEquals(counts.totalCount(), params.bases.length() - StringUtils.countMatches(params.bases, "N"), name);
+        Assert.assertEquals(counts.totalCount(), params.bases.length(), name);
         Assert.assertEquals(counts.countOfMostCommonBase(), params.mostCommonCount, name);
         Assert.assertEquals((char)counts.baseWithMostCounts(), (char)params.mostCountBase, name);
     }
