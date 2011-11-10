@@ -309,7 +309,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         if ( readsToAssemble.size() == 0 ) { return; } // No reads here so nothing to do!
 
         if( DEBUG ) { System.out.println("Assembling " + curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:"); }
-        readsToAssemble.finalizeBin();
+        readsToAssemble.finalizeBin( curInterval );
         final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble.getReads(), new Haplotype(readsToAssemble.getReferenceNoPadding(referenceReader) ) );
         if( DEBUG ) { System.out.println("Found " + haplotypes.size() + " candidate haplotypes to evaluate"); }
         genotypingEngine.createEventDictionaryAndFilterBadHaplotypes( haplotypes, readsToAssemble.getReference(referenceReader), readsToAssemble.getLocation(), curInterval );
@@ -384,27 +384,29 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
         // add each read to the bin and extend the reference genome loc if needed
         public void add( final GATKSAMRecord read ) {
-            if( reads.size() < 2000 ) {
-                final GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc( read );
-                if ( loc == null )
-                    loc = locForRead;
-                else if ( locForRead.getStop() > loc.getStop() )
-                    loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), loc.getStart(), locForRead.getStop());
+            final GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc( read );
+            if ( loc == null )
+                loc = locForRead;
+            else if ( locForRead.getStop() > loc.getStop() )
+                loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), loc.getStart(), locForRead.getStop());
 
-                reads.add( read );
-            }
+            reads.add( read );
         }
 
-        public void finalizeBin() {
+        public void finalizeBin( final GenomeLoc curInterval ) {
+            loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(),
+                    Math.min(loc.getStart(), curInterval.getStart()), Math.max(loc.getStop(), curInterval.getStop()));
             final ArrayList<GATKSAMRecord> finalizedReadList = new ArrayList<GATKSAMRecord>();
-            FragmentCollection<GATKSAMRecord> fragmentCollection = FragmentUtils.create( reads );
+            final FragmentCollection<GATKSAMRecord> fragmentCollection = FragmentUtils.create( reads );
             reads.clear();
 
             // Join overlapping paired reads to create a single longer read
             finalizedReadList.addAll( fragmentCollection.getSingletonReads() );
             for( final List<GATKSAMRecord> overlappingPair : fragmentCollection.getOverlappingPairs() ) {
-                finalizedReadList.add( mergeOverlappingPairedReads( overlappingPair ) );
+                finalizedReadList.addAll(mergeOverlappingPairedReads(overlappingPair));
             }
+
+            Collections.shuffle(finalizedReadList);
 
             // Loop through the reads hard clipping the adaptor and low quality tails
             for( final GATKSAMRecord myRead : finalizedReadList ) {
@@ -412,12 +414,11 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
                 if( postAdapterRead != null ) {
                     final GATKSAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
 
-                    if( clippedRead.getReadLength() > 0 ) {
+                    if( clippedRead.getReadLength() > 0 && reads.size() < 3000 ) {
+                        reads.add(clippedRead);
                     }
                 }
             }
-
-            reads.addAll(finalizedReadList);
         }
 
         public ArrayList<GATKSAMRecord> getReads() { return reads; }
@@ -428,21 +429,6 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
             for( final GATKSAMRecord rec : reads ) {
                 if( rec.getMappingQuality() > 18 && !BadMateFilter.hasBadMate(rec) ) {
                     readsOverlappingVariant.add(rec);
-                }
-            }
-
-            return readsOverlappingVariant;
-        }
-
-        public ArrayList<GATKSAMRecord> getReadsInWindow( final GenomeLoc window ) {
-            final ArrayList<GATKSAMRecord> readsOverlappingVariant = new ArrayList<GATKSAMRecord>();
-
-            for( final GATKSAMRecord rec : reads ) {
-                if( rec.getMappingQuality() > 18 && !BadMateFilter.hasBadMate(rec) ) {
-                    final GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc(rec);
-                    if( locForRead.overlapsP(window) ) {
-                        readsOverlappingVariant.add(rec);
-                    }
                 }
             }
 
@@ -480,7 +466,8 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         }
     }
 
-    private GATKSAMRecord mergeOverlappingPairedReads( List<GATKSAMRecord> overlappingPair ) {
+    // BUGBUG: move this function to ReadUtils or FragmentUtils
+    private List<GATKSAMRecord> mergeOverlappingPairedReads( List<GATKSAMRecord> overlappingPair ) {
         if( overlappingPair.size() != 2 ) { throw new ReviewedStingException("Found overlapping pair with " + overlappingPair.size() + " reads, but expecting exactly 2."); }
 
         GATKSAMRecord firstRead = overlappingPair.get(0);
@@ -489,53 +476,59 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
             firstRead = overlappingPair.get(1);
             secondRead = overlappingPair.get(0);
         }
+        if( !(secondRead.getUnclippedStart() <= firstRead.getUnclippedEnd() && secondRead.getUnclippedStart() >= firstRead.getUnclippedStart() && secondRead.getUnclippedEnd() >= firstRead.getUnclippedEnd()) ) {
+            return overlappingPair; // can't merge them, yet:  AAAAAAAAAAA-BBBBBBBBBBB-AAAAAAAAAAAAAA
+        }
 
-// DEBUG PRINTING
-//        System.out.println("1: " + firstRead.getUnclippedStart() + " - " + firstRead.getUnclippedEnd() + "  > " + firstRead.getCigar() + " " + firstRead.getReadGroup().getId());
-//        System.out.println("2: " + secondRead.getUnclippedStart() + " - " + secondRead.getUnclippedEnd() + "  > " + secondRead.getCigar()+ " " + firstRead.getReadGroup().getId());
-//        System.out.println(firstRead.getReadString());
-//        System.out.println(secondRead.getReadString());
+        // DEBUG PRINTING
+        //System.out.println("1: " + firstRead.getUnclippedStart() + " - " + firstRead.getUnclippedEnd() + "  > " + firstRead.getCigar() + " " + firstRead.getReadGroup().getId());
+        //System.out.println("2: " + secondRead.getUnclippedStart() + " - " + secondRead.getUnclippedEnd() + "  > " + secondRead.getCigar()+ " " + firstRead.getReadGroup().getId());
+        //System.out.println(firstRead.getReadString());
+        //System.out.println(secondRead.getReadString());
 
-        int firstReadStop = ReadUtils.getReadCoordinateForReferenceCoordinate(firstRead, secondRead.getUnclippedStart(), ReadUtils.ClippingTail.RIGHT_TAIL);
+        final int firstReadStop = ReadUtils.getReadCoordinateForReferenceCoordinate(firstRead, secondRead.getUnclippedStart(), ReadUtils.ClippingTail.RIGHT_TAIL);
         final int numBases = firstReadStop + secondRead.getReadLength();
         final byte[] bases = new byte[numBases];
         final byte[] quals = new byte[numBases];
-        int iii = 0;
+        final byte[] firstReadBases = firstRead.getReadBases();
+        final byte[] firstReadQuals = firstRead.getBaseQualities();
+        final byte[] secondReadBases = secondRead.getReadBases();
+        final byte[] secondReadQuals = secondRead.getBaseQualities();
+        for(int iii = 0; iii < firstReadStop; iii++) {
+            bases[iii] = firstReadBases[iii];
+            quals[iii] = firstReadQuals[iii];
+        }
+        for(int iii = firstReadStop; iii < firstRead.getReadLength(); iii++) {
+            bases[iii] = ( firstReadQuals[iii] > secondReadQuals[iii-firstReadStop] ? firstReadBases[iii] : secondReadBases[iii-firstReadStop] );
+            quals[iii] = ( firstReadQuals[iii] > secondReadQuals[iii-firstReadStop] ? firstReadQuals[iii] : secondReadQuals[iii-firstReadStop] );
+        }
+        for(int iii = firstRead.getReadLength(); iii < numBases; iii++) {
+            bases[iii] = secondReadBases[iii-firstReadStop];
+            quals[iii] = secondReadQuals[iii-firstReadStop];
+        }
 
-        for(iii = 0; iii < firstReadStop; iii++) {
-            bases[iii] = firstRead.getReadBases()[iii];
-            quals[iii] = firstRead.getBaseQualities()[iii];
-        }
-        int jjj = iii;
-        for(final Byte b : secondRead.getReadBases()) {
-            bases[iii++] = b;
-        }
-        for(final Byte b : secondRead.getBaseQualities()) {
-            quals[jjj++] = b;
-        }
-
-// DEBUG PRINTING
-/*
+        // DEBUG PRINTING
+        /*
         if( DEBUG ) {
             System.out.println("Created longer read by merging! " + bases.length);
             System.out.println(firstRead.getReadString());
-            for(jjj = 0; jjj < firstReadStop; jjj++) {
+            for(int jjj = 0; jjj < firstReadStop; jjj++) {
                 System.out.print(" ");
             }
             System.out.println(secondRead.getReadString());
             String displayString = "";
-            for(jjj = 0; jjj < bases.length; jjj++) {
+            for(int jjj = 0; jjj < bases.length; jjj++) {
                 displayString += (char) bases[jjj];
             }
             System.out.println(displayString);
         }
-*/
-
+        */
+        
         final GATKSAMRecord returnRead = new GATKSAMRecord(firstRead.getHeader());
         returnRead.setAlignmentStart(firstRead.getUnclippedStart());
         returnRead.setReadBases( bases );
         returnRead.setBaseQualities( quals );
-        returnRead.setReadGroup( (GATKSAMReadGroupRecord) firstRead.getReadGroup() );
+        returnRead.setReadGroup( firstRead.getReadGroup() );
         returnRead.setReferenceName( firstRead.getReferenceName() );
         final CigarElement c = new CigarElement(bases.length, CigarOperator.M);
         final ArrayList<CigarElement> cList = new ArrayList<CigarElement>();
@@ -543,6 +536,8 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         returnRead.setCigar( new Cigar( cList ));
         returnRead.setMappingQuality( firstRead.getMappingQuality() );
 
-        return returnRead;
+        final ArrayList<GATKSAMRecord> returnList = new ArrayList<GATKSAMRecord>();
+        returnList.add(returnRead);
+        return returnList;
     }
 }

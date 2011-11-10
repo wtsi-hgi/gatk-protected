@@ -181,7 +181,7 @@ public class GenotypingEngine {
 
                 // Need to extend haplotypes with extra bases pulled from the reference context based on the haplotype's alignment
                 // After this proceudre all haplotypes will be the same length as the reference haplotype and will be on an even footing the HMM likelihood evaluation
-                byte extendedHaplotype[] = new byte[sizeRefHaplotype];
+                final byte extendedHaplotype[] = new byte[sizeRefHaplotype];
                 int iii = 0;
                 int kkk;
                 for( kkk = refStart; kkk < swConsensus.getAlignmentStart2wrt1(); kkk++ ) {
@@ -204,7 +204,9 @@ public class GenotypingEngine {
                 hIndex++;
             }
             haplotypes.removeAll( haplotypesToRemove );
-            haplotypes.addAll( haplotypesToAdd );
+            for( final Haplotype h : haplotypesToAdd ) {
+                if( !haplotypes.contains(h) ) { haplotypes.add(h); }
+            }
         }
 
         haplotypesToRemove.clear();
@@ -305,7 +307,7 @@ public class GenotypingEngine {
         int refPos = swConsensus.getAlignmentStart2wrt1();
         if( refPos < 0 ) { return null; } // Protection against SW failures
         int readPos = 0;
-        final int lookAhead = 3;
+        final int lookAhead = 0;
 
         for( final CigarElement ce : swConsensus.getCigar().getCigarElements() ) {
             final int elementLength = ce.getLength();
