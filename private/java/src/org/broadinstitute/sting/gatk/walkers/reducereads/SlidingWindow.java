@@ -360,7 +360,7 @@ public class SlidingWindow {
      */
     private void addToFilteredData (int start, int end) {
         if (filteredDataConsensus == null)
-            filteredDataConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, filteredDataReadName + filteredDataConsensusCounter++, windowHeader.get(start).location, GATKSAMRecord.REDUCED_READ_FILTERED_TAG);
+            filteredDataConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, filteredDataReadName + filteredDataConsensusCounter++, windowHeader.get(start).location, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG);
 
         ListIterator<HeaderElement> headerElementIterator = windowHeader.listIterator(start);
         for (int index = start; index < end; index++) {
