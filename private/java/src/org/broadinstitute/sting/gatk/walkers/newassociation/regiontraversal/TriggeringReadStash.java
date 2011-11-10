@@ -1,7 +1,13 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.regiontraversal;
 
-import net.sf.samtools.*;
-import org.broadinstitute.sting.gatk.walkers.reducereads.*;
+import net.sf.samtools.Cigar;
+import net.sf.samtools.CigarElement;
+import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMReadGroupRecord;
+import org.broadinstitute.sting.gatk.walkers.reducereads.MultiSampleCompressor;
+import org.broadinstitute.sting.gatk.walkers.reducereads.ReduceReadsStash;
+import org.broadinstitute.sting.gatk.walkers.reducereads.SingleSampleCompressor;
+import org.broadinstitute.sting.gatk.walkers.reducereads.SlidingWindow;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
@@ -97,7 +103,7 @@ class TriggeringSingleSampleCompressor extends SingleSampleCompressor {
                                             final int minBaseQual,
                                             final int maxQualCount,
                                             final TriggeringMultiSampleCompressor parent) {
-        super(sampleName,readGroupRecord,contextSize,contextSizeIndels,downsampleCoverage,minMappingQuality,minAltProportionToTriggerVariant,minIndelProportionToTriggerVariant,minBaseQual,maxQualCount);
+        super(sampleName,contextSize,contextSizeIndels,downsampleCoverage,minMappingQuality,minAltProportionToTriggerVariant,minIndelProportionToTriggerVariant,minBaseQual,maxQualCount);
         parentMultiSampleCompressor = parent;
     }
 

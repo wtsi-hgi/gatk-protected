@@ -1,6 +1,5 @@
 package org.broadinstitute.sting.gatk.walkers.reducereads;
 
-import net.sf.samtools.SAMReadGroupRecord;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -22,7 +21,6 @@ public class SingleSampleCompressor implements Compressor {
     protected int slidingWindowCounter;
 
     protected final String sampleName;
-    protected final SAMReadGroupRecord reducedReadGroup;
 
     protected SlidingWindow slidingWindow;
     protected double minAltProportionToTriggerVariant;
@@ -32,7 +30,6 @@ public class SingleSampleCompressor implements Compressor {
 
 
     public SingleSampleCompressor(final String sampleName,
-                                  final SAMReadGroupRecord readGroupRecord,
                                   final int contextSize,
                                   final int contextSizeIndels,
                                   final int downsampleCoverage,
@@ -42,7 +39,6 @@ public class SingleSampleCompressor implements Compressor {
                                   final int minBaseQual,
                                   final int maxQualCount) {
         this.sampleName = sampleName;
-        this.reducedReadGroup = readGroupRecord;
         this.contextSize = contextSize;
         this.contextSizeIndels = contextSizeIndels;
         this.downsampleCoverage = downsampleCoverage;
@@ -52,10 +48,6 @@ public class SingleSampleCompressor implements Compressor {
         this.minIndelProportionToTriggerVariant = minIndelProportionToTriggerVariant;
         this.minBaseQual = minBaseQual;
         this.maxQualCount = maxQualCount;
-    }
-
-    public SAMReadGroupRecord getReducedReadGroup() {
-        return reducedReadGroup;
     }
 
     /**
