@@ -14,7 +14,7 @@ import java.util.Map;
 */
 
 final public class BaseCounts {
-    public final static BaseIndex MAX_BASE_INDEX_WITH_NO_COUNTS = BaseIndex.A;
+    public final static BaseIndex MAX_BASE_INDEX_WITH_NO_COUNTS = BaseIndex.N;
     public final static byte MAX_BASE_WITH_NO_COUNTS = MAX_BASE_INDEX_WITH_NO_COUNTS.getByte();
 
     private final Map<BaseIndex, Integer> counts;
@@ -97,17 +97,17 @@ final public class BaseCounts {
     }
 
     public byte baseWithMostCounts() {
-        return maxBaseIndex().getByte();
+        return baseIndexWithMostCounts().getByte();
     }
 
     @Ensures("result >= 0")
     public int countOfMostCommonBase() {
-        return counts.get(maxBaseIndex());
+        return counts.get(baseIndexWithMostCounts());
     }
 
     @Ensures("result >= 0")
     public long sumQualsOfMostCommonBase() {
-        return sumQuals.get(maxBaseIndex());
+        return sumQuals.get(baseIndexWithMostCounts());
     }
 
     @Ensures("result >= 0")
@@ -158,7 +158,7 @@ final public class BaseCounts {
     }
 
     @Ensures({"result != null", "totalCount() != 0 || result == MAX_BASE_INDEX_WITH_NO_COUNTS"})
-    public BaseIndex maxBaseIndex() {
+    public BaseIndex baseIndexWithMostCounts() {
         BaseIndex maxI = MAX_BASE_INDEX_WITH_NO_COUNTS;
         for ( BaseIndex i : counts.keySet() )
             if ( counts.get(i) > counts.get(maxI) )

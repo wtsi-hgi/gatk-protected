@@ -5,6 +5,7 @@ import org.broadinstitute.sting.gatk.walkers.reducereads.*;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
+import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.*;
@@ -102,7 +103,7 @@ class TriggeringSingleSampleCompressor extends SingleSampleCompressor {
 
     @Override
     protected void instantiateSlidingWindow(GATKSAMRecord read) {
-        slidingWindow = new TriggeringSlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getAttribute("RG"), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality,this);
+        slidingWindow = new TriggeringSlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getReadGroup(), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality,this);
     }
 
     protected boolean[] markRegion(int startLoc, int stopLoc, int contextSize) {
@@ -125,7 +126,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
     protected TriggeringSingleSampleCompressor parentCompressor;
 
     public TriggeringSlidingWindow(String contig, int contigIndex, int contextSize, int contextSizeIndels,
-                                   SAMFileHeader header, Object readGroupAttribute, int windowNumber,
+                                   SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber,
                                    final double minAltProportionToTriggerVariant,
                                    final double minIndelProportionToTriggerVariant, int minBaseQual,
                                    int maxQualCount, int minMappingQuality,
@@ -185,7 +186,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
     }
 
     @Override
-    protected GATKSAMRecord finalizeConsensus() {
+    protected GATKSAMRecord finalizeRunningConsensus() {
         runningConsensus = null;
         return null;
     }

@@ -350,12 +350,12 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
         final int nm = SequenceUtil.countMismatches(read, ref, start - 1);
         final int readLen = read.getReadLength();
         final double nmFraction = nm / (1.0*readLen);
-        if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_QUALITY_TAG) != null)
+        if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG) != null)
             throw new ReviewedStingException("BUG: High mismatch fraction found in read " + read.getReadName() + " position: " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
     }
 
     private boolean isConsensus(GATKSAMRecord read) {
-        return read.getAttribute(GATKSAMRecord.REDUCED_READ_QUALITY_TAG) != null;
+        return read.getAttribute(GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG) != null;
     }
 
     private void outputRead(GATKSAMRecord read) {
