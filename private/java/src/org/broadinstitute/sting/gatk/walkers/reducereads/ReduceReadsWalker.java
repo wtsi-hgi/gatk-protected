@@ -354,15 +354,12 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
             throw new ReviewedStingException("BUG: High mismatch fraction found in read " + read.getReadName() + " position: " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
     }
 
-    private boolean isConsensus(GATKSAMRecord read) {
-        return read.getAttribute(GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG) != null;
-    }
 
     private void outputRead(GATKSAMRecord read) {
         if (debugLevel == 2)
             checkForHighMismatch(read);
 
-        if (isConsensus(read))
+        if (read.isReducedRead())
             nCompressedReads++;
         else
             totalReads++;
@@ -382,7 +379,7 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
         }
 
         String name = read.getReadName();
-        String compressedName = isConsensus(read) ? "C" : "";
+        String compressedName = read.isReducedRead() ? "C" : "";
         if (readNameHash.containsKey(name))
             compressedName += readNameHash.get(name).toString();
         else {
