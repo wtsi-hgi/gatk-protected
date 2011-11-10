@@ -218,10 +218,6 @@ public class SlidingWindow {
 
             HeaderElement headerElement = headerElementIterator.next();
 
-    // FLAGRANT TEST THAT SHOULD BE REMOVED AFTER DEBUGGING
-            if (headerElement.getLocation() != windowHeader.get(start).getLocation())
-                throw new ReviewedStingException("NOT THE SAME ELEMENT!!!");
-
             if (headerElement.hasConsensusData()) {
                 finalizeAndAdd(reads, ConsensusType.FILTERED);
 
