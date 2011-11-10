@@ -231,7 +231,7 @@ public class SlidingWindow {
                 if (endOfConsensus <= start)
                     throw new ReviewedStingException(String.format("next start is <= current start: (%d <= %d)", endOfConsensus, start));
 
-                addToSyntheticReads(endOfConsensus, end);
+                reads.addAll(addToSyntheticReads(endOfConsensus, end));
             }
 
             else if (headerElement.hasFilteredData()) {
@@ -243,7 +243,7 @@ public class SlidingWindow {
                 if (endOfFilteredData<= start)
                     throw new ReviewedStingException(String.format("next start is <= current start: (%d <= %d)", endOfFilteredData, start));
 
-                addToSyntheticReads(endOfFilteredData, end);
+                reads.addAll(addToSyntheticReads(endOfFilteredData, end));
             }
 
             else if (headerElement.isEmpty()) {
@@ -255,7 +255,7 @@ public class SlidingWindow {
                 if (endOfEmptyData<= start)
                     throw new ReviewedStingException(String.format("next start is <= current start: (%d <= %d)", endOfEmptyData, start));
 
-                addToSyntheticReads(endOfEmptyData, end);
+                reads.addAll(addToSyntheticReads(endOfEmptyData, end));
             }
 
             else
