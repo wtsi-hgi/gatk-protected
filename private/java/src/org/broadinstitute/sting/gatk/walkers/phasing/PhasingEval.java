@@ -79,7 +79,7 @@ public class PhasingEval extends RodWalker<Integer, Integer> {
     List<PhasingByAC> phasingByACs = new ArrayList<PhasingByAC>();
 
     public void initialize() {
-        Set<String> samples = SampleUtils.getSampleList(VCFUtils.getVCFHeadersFromRods(getToolkit(), null));
+        Set<String> samples = SampleUtils.getSampleList(VCFUtils.getVCFHeadersFromRods(getToolkit()));
         int AN = 2 * samples.size();
         for (int i = 0; i <= AN; i++) {
             phasingByACs.add(new PhasingByAC(i, AN));

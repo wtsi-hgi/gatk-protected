@@ -80,7 +80,7 @@ public class CalcFullHaplotypesWalker extends RodWalker<Integer, Integer> {
 
     public static Set<String> getAllSamplesFromVCFHeaders(GenomeAnalysisEngine toolkit) {
         Set<String> samples = new HashSet<String>();
-        Map<String, VCFHeader> rodNameToHeader = getVCFHeadersFromRods(toolkit, null);
+        Map<String, VCFHeader> rodNameToHeader = getVCFHeadersFromRods(toolkit);
         for (VCFHeader header : rodNameToHeader.values()) {
             for (String sample : header.getGenotypeSamples())
                 samples.add(sample);
