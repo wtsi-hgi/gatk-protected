@@ -38,10 +38,7 @@ import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
 
@@ -193,7 +190,7 @@ public class AnnotateTrioPhasingInheritanceNoRecombinationWalker extends RodWalk
                     childInfo.put(INHERITANCE_KEY, sb.toString());
                     child = new Genotype(child.getSampleName(), child.getAlleles(), child.getNegLog10PError(), child.getFilters(), childInfo, child.isPhased());
 
-                    Map<String, Genotype> genotypes = trioVc.getGenotypes();
+                    GenotypeMap genotypes = trioVc.getGenotypes();
                     genotypes.put(SAMPLE_NAME_CHILD, child);
                     trioVc = VariantContext.modifyGenotypes(trioVc, genotypes);
 

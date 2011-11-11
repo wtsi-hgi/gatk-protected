@@ -70,7 +70,7 @@ public class FixGenotypesWalker extends RodWalker<Integer, Integer> {
     }
 
     private VariantContext modifyGLs(VariantContext vc, ReferenceContext ref) {
-        Map<String,Genotype> genotypes = new HashMap<String,Genotype> (vc.getGenotypes());
+        GenotypeMap genotypes = GenotypeMap.create(vc.getGenotypes());
         for (String sample: genotypes.keySet()) {
             Genotype g = genotypes.get(sample), newg = null;
             if (g.isCalled()) {

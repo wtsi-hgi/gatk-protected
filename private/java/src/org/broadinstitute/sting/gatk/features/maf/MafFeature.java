@@ -33,6 +33,7 @@ import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.GenotypeMap;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.util.*;
@@ -328,7 +329,7 @@ class MafAdaptor implements VariantContextAdaptors.VCAdaptor {
 
 //                String[] genotypeStrings = hapmap.getGenotypes();
 
-        Map<String, Genotype> genotypes = new HashMap<String, Genotype>(2);
+        GenotypeMap genotypes = GenotypeMap.create(2);
 
         addGenotype(genotypes, normalSample, maf.getObservedNormalAlleleList(),maf.getRefBases());
         addGenotype(genotypes,tumorSample,maf.getObservedTumorAlleleList(),maf.getRefBases());

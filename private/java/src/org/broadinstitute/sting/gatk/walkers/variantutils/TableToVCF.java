@@ -128,7 +128,7 @@ public class TableToVCF extends RodWalker<VariantContext,Integer> {
         logger.debug(alt);
 
         return new VariantContext("Table2VCF",featureLoc.getContig(),featureLoc.getStart(),end, Arrays.asList(ref,alt),
-                new HashMap<String,Genotype>(), 1.0, new HashSet<String>(), new HashMap<String,Object>());
+                VariantContext.NO_GENOTYPES, 1.0, new HashSet<String>(), new HashMap<String,Object>());
     }
 
     protected enum VariantType {

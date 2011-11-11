@@ -42,10 +42,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -147,7 +144,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
             return result;
 
         if (phasingSample == null) {
-            Map<String, Genotype> phasingSampleToGt = phasingVc.getGenotypes();
+            GenotypeMap phasingSampleToGt = phasingVc.getGenotypes();
             if (phasingSampleToGt.size() != 1)
                 throw new UserException("Must provide EXACTLY one sample in " + phasing.getName() + " track!");
             phasingSample = phasingSampleToGt.entrySet().iterator().next().getKey();
@@ -328,7 +325,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
                         }
 
                         if (useTrioPhase) { // trio phasing adds PREVIOUSLY UNKNOWN phase information:
-                            Map<String, Genotype> genotypes = phasingVc.getGenotypes();
+                            GenotypeMap genotypes = phasingVc.getGenotypes();
                             genotypes.put(phasingSample, phasedGt);
 
                             phasingVc = VariantContext.modifyGenotypes(phasingVc, genotypes);

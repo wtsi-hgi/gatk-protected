@@ -35,6 +35,7 @@ import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.GenotypeMap;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.util.*;
@@ -82,7 +83,7 @@ public class PrintReferenceVariantsWalker extends LocusWalker<Integer, Integer> 
         Set<Allele> alleles = new HashSet<Allele>();
         alleles.add(refAllele);
 
-        Map<String, Genotype> genotypes = new HashMap<String, Genotype>();
+        GenotypeMap genotypes = GenotypeMap.create();
         boolean isPhased = true; // trivially true for a haploid genotype
         Genotype haploidRefGt = new Genotype(REFERENCE, new LinkedList<Allele>(alleles), VCFConstants.MAX_GENOTYPE_QUAL, new HashSet<String>(), new HashMap<String, Object>(), isPhased);
         genotypes.put(REFERENCE, haploidRefGt);

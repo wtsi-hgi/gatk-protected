@@ -13,10 +13,8 @@ import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.*;
+
 import java.util.*;
 
 /**
@@ -84,7 +82,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
                     GLs.put(gl.getKey(), new MultiallelicGenotypeLikelihoods(gl.getKey(),new ArrayList<Allele>(Arrays.asList(ref,alt)),gl.getValue(),postulate.supportingPairs.size()));
                 }
                 Map<String,Object> attributes = new HashMap<String,Object>();
-                HashMap<String, Genotype> genotypes = new HashMap<String, Genotype>();
+                GenotypeMap genotypes = GenotypeMap.create();
                 for ( String s : samples ) {
                     Map<String,Object> genAttribs = new HashMap<String,Object>();
                     GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(newLikelihoods.get(s));
