@@ -1,17 +1,20 @@
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
+import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.By;
 import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocComparator;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.collections.Pair;
 
-import java.util.*;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Reports the ratio of coverage between the target (middle of the interval) and the average distribution of coverages in the interval.
@@ -49,6 +52,18 @@ import java.util.*;
  */
 @By(DataSource.REFERENCE)
 public class TargetCoverageEfficiency extends LocusWalker<Long, ArrayList<Long>> {
+    @Output
+    PrintStream out;
+
+    GATKReportTable reportTable;
+
+    public void initialize () {
+        reportTable = new GATKReportTable("TargetCoverageEfficiency", "A table with the values per interval for: target coverage, average interval coverage and the ratio between the two.", true);
+        reportTable.addPrimaryKey("Interval", true);
+        reportTable.addColumn("Target", 0, true);
+        reportTable.addColumn("Average", 0, true);
+        reportTable.addColumn("Ratio", 0, true);
+    }
 
     public boolean isReduceByInterval () {
         return true;
@@ -72,7 +87,6 @@ public class TargetCoverageEfficiency extends LocusWalker<Long, ArrayList<Long>>
 
     @Override
     public void onTraversalDone(List<Pair<GenomeLoc, ArrayList<Long>>> results) {
-        System.out.println(String.format("%25s\t%8s\t%11s\t%11s", "Interval", "Target", "average", "ratio"));
         for (Pair<GenomeLoc, ArrayList<Long>> intervalPair : results) {
             GenomeLoc interval = intervalPair.getFirst();
             List<Long> distribution = intervalPair.getSecond();
@@ -82,7 +96,10 @@ public class TargetCoverageEfficiency extends LocusWalker<Long, ArrayList<Long>>
             double averageCoverage = MathUtils.average(distribution);
             double ratio = (averageCoverage == 0) ? 0 : targetCoverage / averageCoverage;
 
-            System.out.println(String.format("%25s\t%8d\t%8.2f\t%8.2f", interval, targetCoverage, averageCoverage, ratio));
+            reportTable.set(interval.toString(), "Target", targetCoverage);
+            reportTable.set(interval.toString(), "Average", averageCoverage);
+            reportTable.set(interval.toString(), "Ratio", ratio);
         }
+        reportTable.write(out);
     }
 }
