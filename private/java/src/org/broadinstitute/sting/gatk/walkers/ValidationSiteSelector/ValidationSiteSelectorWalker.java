@@ -162,7 +162,7 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
 
     public void initialize() {
          // Get list of samples to include in the output
-         Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), null);
+         Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit());
          TreeSet<String> vcfSamples = new TreeSet<String>(SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE));
 
          Collection<String> samplesFromFile = SampleUtils.getSamplesFromFiles(sampleFiles);

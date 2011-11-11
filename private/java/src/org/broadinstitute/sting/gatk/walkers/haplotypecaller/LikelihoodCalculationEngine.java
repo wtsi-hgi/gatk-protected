@@ -154,8 +154,8 @@ public class LikelihoodCalculationEngine {
     }
 
     public void computeLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<GATKSAMRecord> reads ) {
-        int numHaplotypes = haplotypes.size();
-        double readLikelihoods[][] = new double[reads.size()][numHaplotypes];
+        final int numHaplotypes = haplotypes.size();
+        final double readLikelihoods[][] = new double[reads.size()][numHaplotypes];
         haplotypeLikehoodMatrix = new Double[numHaplotypes][numHaplotypes];
 
         for( int iii = 0; iii < numHaplotypes; iii++ ) {
@@ -178,6 +178,7 @@ public class LikelihoodCalculationEngine {
             double[][] matchMetricArray = null, XMetricArray = null, YMetricArray = null;
             byte[] previousHaplotypeSeen = null;
             double[] previousGOP = null;
+            double[] previousGCP = null;
             int startIdx;
 
             for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
@@ -196,17 +197,19 @@ public class LikelihoodCalculationEngine {
                 }
 
                 fillGapProbabilitiesFromQualityTables( readGroup, haplotypeBases, contextLogGapOpenProbabilities );
-                Arrays.fill(contextLogGapContinuationProbabilities, logGapContinuationProbability); // this should eventually be derived from the data
+                Arrays.fill( contextLogGapContinuationProbabilities, logGapContinuationProbability ); // this should eventually be derived from the data
 
                 if (previousHaplotypeSeen == null) {
                     startIdx = 0;
                 } else {
-                    int s1 = computeFirstDifferingPosition(haplotypeBases, previousHaplotypeSeen);
-                    int s2 = computeFirstDifferingPosition(contextLogGapOpenProbabilities, previousGOP);
-                    startIdx = Math.min(s1,s2);
+                    final int s1 = computeFirstDifferingPosition(haplotypeBases, previousHaplotypeSeen);
+                    final int s2 = computeFirstDifferingPosition(contextLogGapOpenProbabilities, previousGOP);
+                    final int s3 = computeFirstDifferingPosition(contextLogGapContinuationProbabilities, previousGCP);
+                    startIdx = Math.min(Math.min(s1, s2), s3);
                 }
                 previousHaplotypeSeen = haplotypeBases.clone();
                 previousGOP = contextLogGapOpenProbabilities.clone();
+                previousGCP = contextLogGapContinuationProbabilities.clone();
 
                 readLikelihoods[iii][jjj] = computeReadLikelihoodGivenHaplotypeAffineGaps(haplotypeBases, read.getReadBases(), read.getBaseQualities(),
                         contextLogGapOpenProbabilities, contextLogGapContinuationProbabilities, startIdx, matchMetricArray, XMetricArray, YMetricArray);
@@ -290,7 +293,7 @@ public class LikelihoodCalculationEngine {
         for(int i = 0; i < refBytes.length; i++) {
 
             Double gop = null;
-            final String bases = ( i-CONTEXT_SIZE < 0 ? null : new String(Arrays.copyOfRange(refBytes,i-CONTEXT_SIZE,i)) );
+            final String bases = ( i + 1 - CONTEXT_SIZE < 0 ? null : new String(Arrays.copyOfRange(refBytes,i + 1 - CONTEXT_SIZE, i + 1)) );
             if( bases != null ) {
                 key[1] = bases;
                 gop = (Double) kmerQualityTables.get( key );
@@ -299,15 +302,20 @@ public class LikelihoodCalculationEngine {
         }
     }
 
+
+    /********************************************************
+     * HMM functions copied from PairHMMIndelErrorModel
+     ********************************************************/
+
     private int computeFirstDifferingPosition(byte[] b1, byte[] b2) {
         if (b1.length != b2.length)
             return 0; // sanity check
 
         for (int i=0; i < b1.length; i++ ){
-            if ( b1[i] != b2[i] )
+            if ( b1[i]!= b2[i] )
                 return i;
         }
-        return 0; // sanity check
+        return b1.length;
     }
 
     private int computeFirstDifferingPosition(double[] b1, double[] b2) {
@@ -315,10 +323,10 @@ public class LikelihoodCalculationEngine {
             return 0; // sanity check
 
         for (int i=0; i < b1.length; i++ ){
-            if ( b1[i] != b2[i] )
+            if ( MathUtils.compareDoubles(b1[i], b2[i]) != 0 )
                 return i;
         }
-        return 0; // sanity check
+        return b1.length;
     }
 
     private void updateCell(final int indI, final int indJ, final int X_METRIC_LENGTH, final int Y_METRIC_LENGTH, byte[] readBases, byte[] readQuals, byte[] haplotypeBases,
@@ -353,7 +361,6 @@ public class LikelihoodCalculationEngine {
                                                                  double[][] matchMetricArray, double[][] XMetricArray, double[][] YMetricArray) {
 
         final boolean bandedLikelihoods = false;
-
         final int X_METRIC_LENGTH = readBases.length+1;
         final int Y_METRIC_LENGTH = haplotypeBases.length+1;
 
@@ -381,7 +388,7 @@ public class LikelihoodCalculationEngine {
 
 
         if (bandedLikelihoods) {
-            final double DIAG_TOL = 40; // means that max - min element in diags have to be > this number for banding to take effect.
+            final double DIAG_TOL = 20; // means that max - min element in diags have to be > this number for banding to take effect.
 
             final int numDiags = X_METRIC_LENGTH +  Y_METRIC_LENGTH -1;
             final int elemsInDiag = Math.min(X_METRIC_LENGTH, Y_METRIC_LENGTH);
@@ -467,6 +474,8 @@ public class LikelihoodCalculationEngine {
                             break;
                     }
                 }
+                // if (DEBUG)
+                //     System.out.format("Max:%4.1f el:%d\n",maxElementInDiag,  idxWithMaxElement);
             }
         }
         else {
@@ -480,7 +489,43 @@ public class LikelihoodCalculationEngine {
             }
         }
 
+
+
         final int bestI = X_METRIC_LENGTH - 1, bestJ = Y_METRIC_LENGTH - 1;
-        return MathUtils.softMax(matchMetricArray[bestI][bestJ], XMetricArray[bestI][bestJ], YMetricArray[bestI][bestJ]);
+        final double bestMetric = MathUtils.softMax(matchMetricArray[bestI][bestJ],
+                XMetricArray[bestI][bestJ],
+                YMetricArray[bestI][bestJ]);
+
+        /*
+        if (DEBUG) {
+            PrintStream outx, outy, outm, outs;
+            double[][] sumMetrics = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
+            try {
+                outx = new PrintStream("datax.txt");
+                outy = new PrintStream("datay.txt");
+                outm = new PrintStream("datam.txt");
+                outs = new PrintStream("datas.txt");
+                double metrics[] = new double[3];
+                for (int indI=0; indI < X_METRIC_LENGTH; indI++) {
+                    for (int indJ=0; indJ < Y_METRIC_LENGTH; indJ++) {
+                        metrics[0] = matchMetricArray[indI][indJ];
+                        metrics[1] = XMetricArray[indI][indJ];
+                        metrics[2] = YMetricArray[indI][indJ];
+                        //sumMetrics[indI][indJ] = MathUtils.softMax(metrics);
+                        outx.format("%4.1f ", metrics[1]);
+                        outy.format("%4.1f ", metrics[2]);
+                        outm.format("%4.1f ", metrics[0]);
+                        outs.format("%4.1f ", MathUtils.softMax(metrics));
+                    }
+                    outx.println();  outm.println();outy.println(); outs.println();
+                }
+                outm.close(); outx.close(); outy.close();
+            } catch (java.io.IOException e) { throw new UserException("bla");}
+        }
+        */
+
+        return bestMetric;
+
     }
+
 }
