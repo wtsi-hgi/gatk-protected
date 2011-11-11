@@ -77,12 +77,15 @@ class G1KPhaseISummaryTable extends QScript {
 
   val callsets = Range(1,22).map("/humgen/1kg/releases/main_project_phaseI/ALL.chr%d.merged_beagle_mach.20101123.snps_indels_svs.genotypes.vcf.gz".format(_))
 
-  // todo -- update me to gencode exons
-  val exonBed = new File("resources/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.bed")
+  val CCDS_BED = new File("resources/ucsc.ccds.bed")
+  val CAPTURE_BED = new File("resources/20110225.exome.consensus.annotation.bed")
+  val GENE_INTERVALS = Map("CCDS" -> CCDS_BED, "CAPTURE" -> CAPTURE_BED)
 
   def script = {
-    for ( population <- populations )
-      add(new evalVariants(population))
+    for ( population <- populations ) {
+      for ( (geneSetName, geneIntervals) <- GENE_INTERVALS )
+        add(new evalVariants(population, geneSetName, geneIntervals))
+    }
   }
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
@@ -93,19 +96,19 @@ class G1KPhaseISummaryTable extends QScript {
   }
 
   // 5.) Variant Evaluation Base(OPTIONAL)
-  class evalVariants(pop: String) extends VariantEval with UNIVERSAL_GATK_ARGS {
+  class evalVariants(pop: String, geneSetName: String, geneIntervals: File) extends VariantEval with UNIVERSAL_GATK_ARGS {
     for ( callset <- callsets )
       this.eval :+= new File(callset)
     this.mergeEvals = true
-    this.comp :+= new TaggedFile("dbsnp129", dbSNP_b37_129)
-    this.comp :+= new TaggedFile("pilot", pilot)
-    this.comp :+= new TaggedFile("dbsnp129+pilot", dbSNP_b37_129_with_pilot)
+    this.comp :+= new TaggedFile(dbSNP_b37_129, "dbsnp129")
+    this.comp :+= new TaggedFile(pilotCalls, "pilot")
+    this.comp :+= new TaggedFile(dbSNP_b37_129_with_pilot, "dbsnp129_and_pilot")
     this.sample = List("%s.samples.list".format(pop))
-    this.out = new File("%s.samples.eval".format(pop))
+    this.out = new File("%s.samples.genes_%s.eval".format(pop, geneSetName))
     this.noEV = true
     this.EV = List("G1KPhaseITable")
     this.noST = true
-    this.stratIntervals = exonBed
+    this.stratIntervals = geneIntervals
     this.ST = List("IntervalStratification")
     this.nt = NumThreads
   }
