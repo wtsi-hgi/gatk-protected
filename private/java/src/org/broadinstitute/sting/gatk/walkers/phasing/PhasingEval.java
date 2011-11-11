@@ -93,7 +93,7 @@ public class PhasingEval extends RodWalker<Integer, Integer> {
         Collection<VariantContext> vcs = tracker.getValues(variantCollection.variants);
         for (VariantContext vc : vcs) {
             if (sample != null)
-                vc = vc.subContextFromGenotypes(vc.getGenotype(sample));
+                vc = vc.subContextFromSample(sample);
 
             if (analysis == Analysis.PHASING_BY_AC) {
                 int homref = vc.getHomRefCount();
