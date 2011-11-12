@@ -230,7 +230,7 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
 
             // do anything required by frequency selector before we select for samples
             VariantContext subVC;
-            if (IGNORE_GENOTYPES)
+            if (IGNORE_GENOTYPES || samples.isEmpty())
                 subVC = vc;
             else
                 subVC = sampleSelector.subsetSiteToSamples(vc);
