@@ -380,7 +380,7 @@ class MafAdaptor implements VariantContextAdaptors.VCAdaptor {
         return vc;
     }
 
-    private void addGenotype(Map<String,Genotype> dest, String sampleId, List<String> alleles, String refAllele) {
+    private void addGenotype(GenotypeCollection dest, String sampleId, List<String> alleles, String refAllele) {
         List<Allele> myAlleles = new ArrayList<Allele>(2);
 
         boolean success = true;
@@ -389,7 +389,7 @@ class MafAdaptor implements VariantContextAdaptors.VCAdaptor {
             if ( a.isEmpty() || a.contains("N") || a.contains(".")) return; // bad allele found
             myAlleles.add(Allele.create(a,refAllele.equals(a)));
         }
-        dest.put(sampleId, new Genotype(sampleId,myAlleles));
+        dest.add(new Genotype(sampleId,myAlleles));
     }
 
 }

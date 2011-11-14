@@ -187,7 +187,7 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
                                                   ref.getLocus().getStart(),
                                                   ref.getLocus().getStop(),
                                                   site.getAlleles(),
-                                                  GenotypeCollection.copy(site.getGenotypes()),
+                                                  GenotypeCollection.copy(site.getGenotypes().values()),
                                                   site.getNegLog10PError(),
                                                   site.getFilters(),
                                                   site.getAttributes());

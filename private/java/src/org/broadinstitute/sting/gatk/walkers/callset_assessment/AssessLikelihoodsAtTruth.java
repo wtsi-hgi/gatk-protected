@@ -67,15 +67,14 @@ public class AssessLikelihoodsAtTruth extends RodWalker<Integer, Integer> {
         if ( truth == null )
             return 0;
 
-        for ( Map.Entry<String, Genotype> GLgenotypeEntry : variant.getGenotypes().entrySet() ) {
-            Genotype GLgenotype = GLgenotypeEntry.getValue();
+        for ( final Genotype GLgenotype : variant.getGenotypes() ) {
             if ( GLgenotype.isNoCall() )
                 continue;
 
-            if ( !truth.hasGenotype(GLgenotypeEntry.getKey()) )
+            if ( !truth.hasGenotype(GLgenotype.getSampleName()) )
                 continue;
 
-            Genotype truthGenotype = truth.getGenotype(GLgenotypeEntry.getKey());
+            Genotype truthGenotype = truth.getGenotype(GLgenotype.getSampleName());
             if ( truthGenotype.isNoCall() )
                 continue;
 

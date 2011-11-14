@@ -197,9 +197,9 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
                 if (writer != null) { // Phase the genotypes using the trio information:
                     String parent1 = null;
                     String parent2 = null;
-                    for (Map.Entry<String, Genotype> trioEntry : curTrioVc.getGenotypes().entrySet()) {
-                        String trioSample = trioEntry.getKey();
-                        if (trioEntry.getValue().getPloidy() != DIPLOID)
+                    for (final Genotype trio : curTrioVc.getGenotypes()) {
+                        String trioSample = trio.getSampleName();
+                        if (trio.getPloidy() != DIPLOID)
                             throw new UserException("Each sample in trio must be diploid!");
                         if (trioSample.equals(phasingSample))
                             continue;

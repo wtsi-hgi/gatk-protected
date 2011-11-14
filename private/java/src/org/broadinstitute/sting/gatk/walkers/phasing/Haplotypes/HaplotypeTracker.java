@@ -80,11 +80,10 @@ public class HaplotypeTracker {
             if (vc.isFiltered())
                 continue;
 
-            for (Map.Entry<String, Genotype> sampleGtEntry : vc.getGenotypes().entrySet()) {
-                String sample = sampleGtEntry.getKey();
+            for (final Genotype gt : vc.getGenotypes()) {
+                String sample = gt.getSampleName();
                 if (waitingHaplotypes.get(sample) == null) // an irrelevant sample
                     continue;
-                Genotype gt = sampleGtEntry.getValue();
 
                 if (gt.isHet()) {
                     Haplotype sampleHap = waitingHaplotypes.get(sample);

@@ -293,7 +293,7 @@ public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
         altHaplotype[(params.readLength - 1) / 2] = altBase;
 
         int gi = 0;
-        for ( Genotype g : vc.getGenotypes().values() ) {
+        for ( Genotype g : vc.getGenotypes() ) {
             int myDepth = sampleDepth(params);
             for ( int d = 0; d < myDepth; d++ ) {
                 byte[] readBases = trueHaplotype(g, refHaplotype, altHaplotype);
