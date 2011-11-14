@@ -6,7 +6,6 @@ import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgume
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.variantcontext.*;
@@ -70,12 +69,12 @@ public class FixGenotypesWalker extends RodWalker<Integer, Integer> {
     }
 
     private VariantContext modifyGLs(VariantContext vc, ReferenceContext ref) {
-        GenotypeMap genotypes = GenotypeMap.create(vc.getGenotypes());
-        for (String sample: genotypes.keySet()) {
-            Genotype g = genotypes.get(sample), newg = null;
+        GenotypeCollection genotypes = GenotypeCollection.create(vc.getGenotypes().size());
+
+        for (final Genotype g: vc.getGenotypes()) {
+            Genotype newg;
+
             if (g.isCalled()) {
-
-
                 GenotypeLikelihoods gls =  g.getLikelihoods();
                 double[] glvec = gls.getAsVector();
 
@@ -92,15 +91,14 @@ public class FixGenotypesWalker extends RodWalker<Integer, Integer> {
                     ArrayList<Allele> a = new ArrayList<Allele>();
                     a.add(Allele.NO_CALL);
                     a.add(Allele.NO_CALL);
-                    newg = new Genotype(sample,a);
+                    newg = new Genotype(g.getSampleName(),a);
                 }
                 else
                     newg = g;
             }
             else
                 newg = g;
-            genotypes.put(sample,newg);
-
+            genotypes.add(newg);
         }
 
         VariantContext sub =  new VariantContext( vc.getSource(), vc.getChr(), vc.getStart(), vc.getEnd(), vc.getAlleles(), genotypes, vc.getNegLog10PError(), vc.getFilters(), vc.getAttributes(), ref.getBase());

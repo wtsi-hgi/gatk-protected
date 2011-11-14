@@ -37,7 +37,7 @@ import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeMap;
+import org.broadinstitute.sting.utils.variantcontext.GenotypeCollection;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
@@ -110,10 +110,9 @@ public class CountHetPhasingInIntervalWalker extends RodWalker<Integer, Integer>
             intervalStats.startNewInterval(curInterval);
 
         for (VariantContext vc : tracker.getValues(variants, context.getLocation())) {
-            GenotypeMap sampToGenotypes = vc.getGenotypes();
-            for (Map.Entry<String, Genotype> sampEntry : sampToGenotypes.entrySet()) {
-                Genotype gt = sampEntry.getValue();
-                intervalStats.processHetSiteInInterval(sampEntry.getKey(), gt.isHet(), gt.isPhased());
+            GenotypeCollection sampToGenotypes = vc.getGenotypes();
+            for (final Genotype gt : sampToGenotypes ) {
+                intervalStats.processHetSiteInInterval(gt.getSampleName(), gt.isHet(), gt.isPhased());
             }
         }
 

@@ -102,7 +102,7 @@ public class GenotypingEngine {
 
             for( final VariantContext vcToGenotype : vcsToGenotype ) {
                 if( DEBUG ) { System.out.println("Genotyping event at " + key + " with alleles: " + vcToGenotype.getAlleles()); }
-                final GenotypeMap genotypes = GenotypeMap.create();
+                final GenotypeCollection genotypes = GenotypeCollection.create(haplotypeLikelihoodMatrixMap.keySet().size());
                 // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample
                 for( final String sample : haplotypeLikelihoodMatrixMap.keySet() ) {
                     final double[] genotypeLikelihoods = new double[(vcToGenotype.getAlleles().size() * (vcToGenotype.getAlleles().size()+1)) / 2];
@@ -136,7 +136,7 @@ public class GenotypingEngine {
                     final HashMap<String, Object> attributes = new HashMap<String, Object>();
                     attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((
                             new MultiallelicGenotypeLikelihoods(sample, vcToGenotype.getAlleles(), genotypeLikelihoods, 40)).getLikelihoods()));
-                    genotypes.put(sample, new Genotype(sample, noCall, Genotype.NO_NEG_LOG_10PERROR, null, attributes, false));
+                    genotypes.add(new Genotype(sample, noCall, Genotype.NO_NEG_LOG_10PERROR, null, attributes, false));
                 }
                 returnCallContexts.add( VariantContext.modifyGenotypes(vcToGenotype, genotypes) );
             }

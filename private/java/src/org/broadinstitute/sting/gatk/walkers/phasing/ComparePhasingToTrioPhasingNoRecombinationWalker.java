@@ -144,10 +144,10 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
             return result;
 
         if (phasingSample == null) {
-            GenotypeMap phasingSampleToGt = phasingVc.getGenotypes();
+            GenotypeCollection phasingSampleToGt = phasingVc.getGenotypes();
             if (phasingSampleToGt.size() != 1)
                 throw new UserException("Must provide EXACTLY one sample in " + phasing.getName() + " track!");
-            phasingSample = phasingSampleToGt.entrySet().iterator().next().getKey();
+            phasingSample = phasingSampleToGt.get(0).getSampleName();
         }
 
         Genotype curPhasingGt = phasingVc.getGenotype(phasingSample);
@@ -325,8 +325,8 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
                         }
 
                         if (useTrioPhase) { // trio phasing adds PREVIOUSLY UNKNOWN phase information:
-                            GenotypeMap genotypes = phasingVc.getGenotypes();
-                            genotypes.put(phasingSample, phasedGt);
+                            GenotypeCollection genotypes = phasingVc.getGenotypes();
+                            genotypes.add(phasedGt);
 
                             phasingVc = VariantContext.modifyGenotypes(phasingVc, genotypes);
                             result.phasedVc = phasingVc;

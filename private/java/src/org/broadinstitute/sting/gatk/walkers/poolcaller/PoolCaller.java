@@ -3,7 +3,6 @@ package org.broadinstitute.sting.gatk.walkers.poolcaller;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
@@ -11,7 +10,7 @@ import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeMap;
+import org.broadinstitute.sting.utils.variantcontext.GenotypeCollection;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.util.*;
@@ -188,7 +187,7 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
                                                   ref.getLocus().getStart(),
                                                   ref.getLocus().getStop(),
                                                   site.getAlleles(),
-                                                  GenotypeMap.create(site.getGenotypes()),
+                                                  GenotypeCollection.copy(site.getGenotypes()),
                                                   site.getNegLog10PError(),
                                                   site.getFilters(),
                                                   site.getAttributes());

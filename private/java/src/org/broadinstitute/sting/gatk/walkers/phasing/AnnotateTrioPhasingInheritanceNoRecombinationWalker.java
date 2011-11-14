@@ -190,8 +190,8 @@ public class AnnotateTrioPhasingInheritanceNoRecombinationWalker extends RodWalk
                     childInfo.put(INHERITANCE_KEY, sb.toString());
                     child = new Genotype(child.getSampleName(), child.getAlleles(), child.getNegLog10PError(), child.getFilters(), childInfo, child.isPhased());
 
-                    GenotypeMap genotypes = trioVc.getGenotypes();
-                    genotypes.put(SAMPLE_NAME_CHILD, child);
+                    GenotypeCollection genotypes = trioVc.getGenotypes();
+                    genotypes.add(child);
                     trioVc = VariantContext.modifyGenotypes(trioVc, genotypes);
 
                     annotated++;

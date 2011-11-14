@@ -82,12 +82,13 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
                     GLs.put(gl.getKey(), new MultiallelicGenotypeLikelihoods(gl.getKey(),new ArrayList<Allele>(Arrays.asList(ref,alt)),gl.getValue(),postulate.supportingPairs.size()));
                 }
                 Map<String,Object> attributes = new HashMap<String,Object>();
-                GenotypeMap genotypes = GenotypeMap.create();
-                for ( String s : samples ) {
+
+                GenotypeCollection genotypes = GenotypeCollection.create(samples.size());
+                for ( final String s : samples ) {
                     Map<String,Object> genAttribs = new HashMap<String,Object>();
                     GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(newLikelihoods.get(s));
                     genAttribs.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,likelihoods);
-                    genotypes.put(s,new Genotype(s, Arrays.asList(Allele.NO_CALL), Genotype.NO_NEG_LOG_10PERROR, null, genAttribs, false));
+                    genotypes.add(new Genotype(s, Arrays.asList(Allele.NO_CALL), Genotype.NO_NEG_LOG_10PERROR, null, genAttribs, false));
                 }
 
                 attributes.put("SR",postulate.supportingPairs.size());
