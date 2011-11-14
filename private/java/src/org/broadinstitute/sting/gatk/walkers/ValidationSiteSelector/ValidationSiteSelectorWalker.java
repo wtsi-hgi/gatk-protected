@@ -178,9 +178,8 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
              samples.addAll(vcfSamples);
 
          }
-        else {
-             sampleSelector = getSampleSelectorObject(sampleMode, samples);
-         }
+
+         sampleSelector = getSampleSelectorObject(sampleMode, samples);
 
         // initialize frequency mode selector
         frequencyModeSelector = getFrequencyModeSelectorObject(freqMode, getToolkit().getGenomeLocParser());
@@ -230,7 +229,7 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
 
             // do anything required by frequency selector before we select for samples
             VariantContext subVC;
-            if (IGNORE_GENOTYPES)
+            if (IGNORE_GENOTYPES || samples.isEmpty())
                 subVC = vc;
             else
                 subVC = sampleSelector.subsetSiteToSamples(vc);
