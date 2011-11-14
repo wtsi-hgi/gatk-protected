@@ -39,14 +39,14 @@ public class GenomeEvent implements Comparable {
     /** A set of the alleles segregating in this context */
     final protected List<Allele> alleles;
     final protected Byte refBase;
-    final protected HashMap<String, Object> attributes;
+//    final protected HashMap<String, Object> attributes;
 
     public GenomeEvent(GenomeLocParser parser, final String contig, final int start, final int stop, final List<Allele> alleles, HashMap<String, Object> attributes,
                        byte base) {
         this.loc = parser.createGenomeLoc(contig, start, stop);
         this.alleles = alleles;
         this.refBase = base;
-        this.attributes = attributes;
+//        this.attributes = attributes;
     }
 
     // Routine to compare two variant contexts (useful to sort collections of vc's).
@@ -65,7 +65,7 @@ public class GenomeEvent implements Comparable {
     }
 
     public VariantContext createVariantContextFromEvent() {
-        return new VariantContext("",loc.getContig(), loc.getStart(), loc.getStop(), alleles, 0.0,null, attributes, refBase);
+        return new VariantContext("",loc.getContig(), loc.getStart(), loc.getStop(), alleles, 0.0,null, null, refBase);
 
     }
 }
