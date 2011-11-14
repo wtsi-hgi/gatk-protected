@@ -178,9 +178,8 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
              samples.addAll(vcfSamples);
 
          }
-        else {
-             sampleSelector = getSampleSelectorObject(sampleMode, samples);
-         }
+
+         sampleSelector = getSampleSelectorObject(sampleMode, samples);
 
         // initialize frequency mode selector
         frequencyModeSelector = getFrequencyModeSelectorObject(freqMode, getToolkit().getGenomeLocParser());
