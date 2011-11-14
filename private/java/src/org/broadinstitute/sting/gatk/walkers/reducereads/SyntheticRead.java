@@ -102,42 +102,17 @@ public class SyntheticRead {
         return bases.size();
     }
 
+
     private byte [] convertBaseQualities() {
-        int readLength = bases.size();
-        for (BaseIndex baseIndex : bases)
-            if (baseIndex == BaseIndex.D)
-                readLength--;
-
-        byte [] qualsArray = new byte[readLength];
-        int i = 0;
-        Iterator<Byte> qualsIterator = quals.iterator();
-        for (BaseIndex baseIndex : bases) {
-            byte qual = qualsIterator.next();
-            if (baseIndex != BaseIndex.D)
-                qualsArray[i++] = qual;
-        }
-        return qualsArray;
-
+        return convertVariableGivenBases(bases, quals);
     }
 
     private byte [] convertBaseCounts() {
-        int readLength = bases.size();
-        byte [] countsArray = new byte[readLength];
-
-        int i = 0;
-        for (byte count : counts)
-            countsArray[i++] = count;
-
-        return countsArray;
+        return convertVariableGivenBases(bases, counts);
     }
 
     private byte [] convertReadBases() {
-        int readLength = bases.size();
-        for (BaseIndex baseIndex : bases)
-            if (baseIndex == BaseIndex.D)
-                readLength--;
-
-        byte [] readArray = new byte[readLength];
+        byte [] readArray = new byte[getReadLengthWithNoDeletions(bases)];
         int i = 0;
         for (BaseIndex baseIndex : bases)
             if (baseIndex != BaseIndex.D)
@@ -177,4 +152,41 @@ public class SyntheticRead {
             cigarElements.add(new CigarElement(length, cigarOperator));
         return new Cigar(cigarElements);
     }
+
+    /**
+     * Shared functionality for all conversion utilities
+     *
+     * @param bases
+     * @param variable
+     * @return a converted variable given the bases and skipping deletions
+     */
+
+    private static byte [] convertVariableGivenBases (List<BaseIndex> bases, List<Byte> variable) {
+        byte [] variableArray = new byte[getReadLengthWithNoDeletions(bases)];
+        int i = 0;
+        Iterator<Byte> variableIterator = variable.iterator();
+        for (BaseIndex baseIndex : bases) {
+            byte count = variableIterator.next();
+            if (baseIndex != BaseIndex.D)
+                variableArray[i++] = count;
+        }
+        return variableArray;
+
+    }
+
+    /**
+     * Shared functionality for all conversion utilities
+     *
+     * @param bases
+     * @return the length of the read with no deletions
+     */
+    private static int getReadLengthWithNoDeletions(List<BaseIndex> bases) {
+        int readLength = bases.size();
+        for (BaseIndex baseIndex : bases)
+            if (baseIndex == BaseIndex.D)
+                readLength--;
+        return readLength;
+    }
+
+
 }
