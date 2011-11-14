@@ -108,7 +108,17 @@ public class SyntheticRead {
     }
 
     private byte [] convertBaseCounts() {
-        return convertVariableGivenBases(bases, counts);
+        byte[] countsArray = convertVariableGivenBases(bases, counts);
+
+        if (countsArray.length == 0)
+            throw new ReviewedStingException("Reduced read has counts array of length 0");
+
+        byte[] compressedCountsArray = new byte [countsArray.length];
+        compressedCountsArray[0] = countsArray[0];
+        for (int i = 1; i < countsArray.length; i++)
+            compressedCountsArray[i] = (byte) Math.min(countsArray[i] - compressedCountsArray[0], Byte.MIN_VALUE);
+
+        return compressedCountsArray;
     }
 
     private byte [] convertReadBases() {
