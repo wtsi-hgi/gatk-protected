@@ -81,7 +81,18 @@ public class SyntheticRead {
         this.mappingQuality += mappingQuality;
     }
 
+    /**
+     * Creates a GATKSAMRecord of the synthetic read. Will return null if the read is invalid.
+     *
+     * Invalid reads are :
+     *   - exclusively composed of deletions
+     *
+     * @return a GATKSAMRecord or null
+     */
     public GATKSAMRecord close () {
+        if (isAllDeletions())
+            return null;
+
         GATKSAMRecord read = new GATKSAMRecord(header);
         read.setReferenceName(contig);
         read.setReferenceIndex(contigIndex);
@@ -98,46 +109,43 @@ public class SyntheticRead {
         return read;
     }
 
+    /**
+     * Checks if the synthetic read is composed exclusively of deletions
+     *
+     * @return true if it is, false if it isn't.
+     */
+    private boolean isAllDeletions() {
+        for (BaseIndex b : bases)
+            if (b != BaseIndex.D)
+                return false;
+        return true;
+    }
+
     public int size () {
         return bases.size();
     }
 
+
     private byte [] convertBaseQualities() {
-        int readLength = bases.size();
-        for (BaseIndex baseIndex : bases)
-            if (baseIndex == BaseIndex.D)
-                readLength--;
-
-        byte [] qualsArray = new byte[readLength];
-        int i = 0;
-        Iterator<Byte> qualsIterator = quals.iterator();
-        for (BaseIndex baseIndex : bases) {
-            byte qual = qualsIterator.next();
-            if (baseIndex != BaseIndex.D)
-                qualsArray[i++] = qual;
-        }
-        return qualsArray;
-
+        return convertVariableGivenBases(bases, quals);
     }
 
     private byte [] convertBaseCounts() {
-        int readLength = bases.size();
-        byte [] countsArray = new byte[readLength];
+        byte[] countsArray = convertVariableGivenBases(bases, counts);
 
-        int i = 0;
-        for (byte count : counts)
-            countsArray[i++] = count;
+        if (countsArray.length == 0)
+            throw new ReviewedStingException("Reduced read has counts array of length 0");
 
-        return countsArray;
+        byte[] compressedCountsArray = new byte [countsArray.length];
+        compressedCountsArray[0] = countsArray[0];
+        for (int i = 1; i < countsArray.length; i++)
+            compressedCountsArray[i] = (byte) Math.min(countsArray[i] - compressedCountsArray[0], Byte.MIN_VALUE);
+
+        return compressedCountsArray;
     }
 
     private byte [] convertReadBases() {
-        int readLength = bases.size();
-        for (BaseIndex baseIndex : bases)
-            if (baseIndex == BaseIndex.D)
-                readLength--;
-
-        byte [] readArray = new byte[readLength];
+        byte [] readArray = new byte[getReadLengthWithNoDeletions(bases)];
         int i = 0;
         for (BaseIndex baseIndex : bases)
             if (baseIndex != BaseIndex.D)
@@ -177,4 +185,41 @@ public class SyntheticRead {
             cigarElements.add(new CigarElement(length, cigarOperator));
         return new Cigar(cigarElements);
     }
+
+    /**
+     * Shared functionality for all conversion utilities
+     *
+     * @param bases
+     * @param variable
+     * @return a converted variable given the bases and skipping deletions
+     */
+
+    private static byte [] convertVariableGivenBases (List<BaseIndex> bases, List<Byte> variable) {
+        byte [] variableArray = new byte[getReadLengthWithNoDeletions(bases)];
+        int i = 0;
+        Iterator<Byte> variableIterator = variable.iterator();
+        for (BaseIndex baseIndex : bases) {
+            byte count = variableIterator.next();
+            if (baseIndex != BaseIndex.D)
+                variableArray[i++] = count;
+        }
+        return variableArray;
+
+    }
+
+    /**
+     * Shared functionality for all conversion utilities
+     *
+     * @param bases
+     * @return the length of the read with no deletions
+     */
+    private static int getReadLengthWithNoDeletions(List<BaseIndex> bases) {
+        int readLength = bases.size();
+        for (BaseIndex baseIndex : bases)
+            if (baseIndex == BaseIndex.D)
+                readLength--;
+        return readLength;
+    }
+
+
 }
