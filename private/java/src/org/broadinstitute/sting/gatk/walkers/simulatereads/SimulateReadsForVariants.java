@@ -279,7 +279,7 @@ public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
         attributes.put("MODE", params.mode);
         attributes.put("DP", params.readDepth);
         
-        return new VariantContext("anonymous", loc.getContig(), loc.getStart(), loc.getStart(), alleles, genotypes, VariantContext.NO_NEG_LOG_10PERROR, VariantContext.PASSES_FILTERS, attributes );
+        return new VariantContext("anonymous", VCFConstants.EMPTY_ID_FIELD, loc.getContig(), loc.getStart(), loc.getStart(), alleles, genotypes, VariantContext.NO_NEG_LOG_10PERROR, VariantContext.PASSES_FILTERS, attributes );
     }
 
     private ReadBackedPileup generateRBPForVariant( GenomeLoc loc, VariantContext vc, byte[] refBases, ParameterSet params ) {

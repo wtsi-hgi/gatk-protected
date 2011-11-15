@@ -12,6 +12,7 @@ import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.Window;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
@@ -127,7 +128,7 @@ public class TableToVCF extends RodWalker<VariantContext,Integer> {
         logger.debug(ref);
         logger.debug(alt);
 
-        return new VariantContext("Table2VCF",featureLoc.getContig(),featureLoc.getStart(),end, Arrays.asList(ref,alt),
+        return new VariantContext("Table2VCF", VCFConstants.EMPTY_ID_FIELD, featureLoc.getContig(),featureLoc.getStart(),end, Arrays.asList(ref,alt),
                 VariantContext.NO_GENOTYPES, 1.0, new HashSet<String>(), new HashMap<String,Object>());
     }
 

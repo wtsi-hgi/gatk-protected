@@ -89,7 +89,7 @@ public class PrintReferenceVariantsWalker extends LocusWalker<Integer, Integer> 
         genotypes.add(haploidRefGt);
 
         // Ensure that the genotype refers to alleles of length 1 (by using refLoc.getStart() as the stop position):
-        VariantContext vc = new VariantContext(REF_FILE_NAME, refLoc.getContig(), refLoc.getStart(), refLoc.getStart(), alleles, genotypes, REF_NEG_LOG_10_P_ERROR, new HashSet<String>(), new HashMap<String, Object>());
+        VariantContext vc = new VariantContext(REF_FILE_NAME, VCFConstants.EMPTY_ID_FIELD, refLoc.getContig(), refLoc.getStart(), refLoc.getStart(), alleles, genotypes, REF_NEG_LOG_10_P_ERROR, new HashSet<String>(), new HashMap<String, Object>());
 
         WriteVCF.writeVCF(vc, writer, logger);
 

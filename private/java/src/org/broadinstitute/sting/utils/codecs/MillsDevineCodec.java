@@ -28,6 +28,7 @@ package org.broadinstitute.sting.utils.codecs;
 import org.broad.tribble.AbstractFeatureCodec;
 import org.broad.tribble.Feature;
 import org.broad.tribble.readers.LineReader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
@@ -163,7 +164,6 @@ public class MillsDevineCodec extends AbstractFeatureCodec {
 
         HashMap<String, Object> attrs = new HashMap<String, Object>();
 
-        attrs.put(VariantContext.ID_KEY, INDEL_ID);
         attrs.put("CLASS", CLASS);
         attrs.put("NUM_TRACES",NUM_TRACES);
         attrs.put("DOUBLE_HIT",DOUBLE_HIT);
@@ -179,7 +179,7 @@ public class MillsDevineCodec extends AbstractFeatureCodec {
         // create a new feature given the array
 //        VariantContext vcCall = new VariantContext("UG_call", loc.getContig(), loc.getStart(), endLoc,
    //             myAlleles, genotypes, phredScaledConfidence/10.0, passesCallThreshold(phredScaledConfidence) ? null : filter, attributes, refContext.getBase());
-        VariantContext vc =  new VariantContext("Mills", CHR, start, end, alleles,null, VariantContext.NO_NEG_LOG_10PERROR, null, attrs,"N".getBytes()[0]);
+        VariantContext vc =  new VariantContext("Mills", INDEL_ID, CHR, start, end, alleles,null, VariantContext.NO_NEG_LOG_10PERROR, null, attrs,"N".getBytes()[0]);
 	    //System.out.println(vc.toString());
 	/*        if(array[1].equals("3") ) {
 	    System.out.format("%s %s %s\n",CHR,START,REF_TYPE);

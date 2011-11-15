@@ -327,7 +327,7 @@ public class GenotypingEngine {
                         alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, true));
                         alleles.add( Allele.create(insertionBases, false));
                         if( DEBUG ) { System.out.println("@ " + (loc.getStart() + refPos - 1) + " > Insertion: " + alleles); }
-                        vcs.add(new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos - 1,
+                        vcs.add(new VariantContext("HaplotypeCaller", VCFConstants.EMPTY_ID_FIELD, loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos - 1,
                                 alleles, VariantContext.NO_GENOTYPES, VariantContext.NO_NEG_LOG_10PERROR, null, null, ref[refPos-1]));
                     }
                     readPos += elementLength;
@@ -345,7 +345,7 @@ public class GenotypingEngine {
                     alleles.add( Allele.create(deletionBases, true) );
                     alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, false) );
                     if( DEBUG ) { System.out.println( "@ " + (loc.getStart() + refPos - 1) + " Deletion: " + alleles); }
-                    vcs.add( new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos + elementLength - 1,
+                    vcs.add( new VariantContext("HaplotypeCaller", VCFConstants.EMPTY_ID_FIELD, loc.getContig(), loc.getStart() + refPos - 1, loc.getStart() + refPos + elementLength - 1,
                             alleles, VariantContext.NO_GENOTYPES, VariantContext.NO_NEG_LOG_10PERROR, null, null, ref[refPos-1]) );
                     refPos += elementLength;
                     break;
@@ -380,7 +380,7 @@ public class GenotypingEngine {
                             alleles.add( Allele.create( refBases, true ) );
                             alleles.add( Allele.create( mismatchBases, false ) );
                             if( DEBUG ) { System.out.println( "@ " + (loc.getStart() + refPosStartOfMismatch) + " > SNP/MNP: " + alleles); }
-                            vcs.add( new VariantContext("HaplotypeCaller", loc.getContig(), loc.getStart() + refPosStartOfMismatch,
+                            vcs.add( new VariantContext("HaplotypeCaller", VCFConstants.EMPTY_ID_FIELD, loc.getContig(), loc.getStart() + refPosStartOfMismatch,
                                     loc.getStart() + refPosStartOfMismatch + (stopOfMismatch - startOfMismatch), alleles,
                                     VariantContext.NO_GENOTYPES, VariantContext.NO_NEG_LOG_10PERROR, null, null) );
                             numSinceMismatch = -1;

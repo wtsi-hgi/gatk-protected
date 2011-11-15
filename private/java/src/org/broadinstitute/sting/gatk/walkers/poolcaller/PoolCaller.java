@@ -182,7 +182,7 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         else
             site = new Site(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower);
 
-        VariantContext call = new VariantContext("PoolCaller",
+        VariantContext call = new VariantContext("PoolCaller", VCFConstants.EMPTY_ID_FIELD,
                                                   ref.getLocus().getContig(),
                                                   ref.getLocus().getStart(),
                                                   ref.getLocus().getStop(),

@@ -3,6 +3,7 @@ package org.broadinstitute.sting.utils.codecs;
 import org.broad.tribble.*;
 import org.broad.tribble.exception.CodecLineParsingException;
 import org.broad.tribble.readers.LineReader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -101,7 +102,7 @@ public class SoapSNPCodec extends AbstractFeatureCodec implements NameAwareCodec
             //System.out.printf("Alleles  = " + allelesAndGenotype.alleles);
             //System.out.printf("genotype = " + allelesAndGenotype.genotype);
             
-            VariantContext vc = new VariantContext(name, contig, start, start, allelesAndGenotype.alleles, allelesAndGenotype.genotype, negLog10PError, VariantContext.PASSES_FILTERS, attributes);
+            VariantContext vc = new VariantContext(name, VCFConstants.EMPTY_ID_FIELD, contig, start, start, allelesAndGenotype.alleles, allelesAndGenotype.genotype, negLog10PError, VariantContext.PASSES_FILTERS, attributes);
 
             //System.out.printf("line  = %s%n", line);
             //System.out.printf("vc    = %s%n", vc);
