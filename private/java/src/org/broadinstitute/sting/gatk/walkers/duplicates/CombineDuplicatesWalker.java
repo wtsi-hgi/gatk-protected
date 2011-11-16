@@ -26,13 +26,13 @@
 package org.broadinstitute.sting.gatk.walkers.duplicates;
 
 import net.sf.samtools.SAMFileWriter;
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.walkers.DuplicateWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.duplicates.DupUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -43,7 +43,7 @@ import java.util.Set;
  * Process the input bam file, optionally emitting all the unique reads found, and emitting the combined duplicate reads to
  * the specified output BAM location.  If no output location is specified, the reads are written to STDOUT. 
  */
-public class CombineDuplicatesWalker extends DuplicateWalker<List<SAMRecord>, SAMFileWriter> {
+public class CombineDuplicatesWalker extends DuplicateWalker<List<GATKSAMRecord>, SAMFileWriter> {
     @Output
     public PrintStream out;
 
@@ -65,8 +65,8 @@ public class CombineDuplicatesWalker extends DuplicateWalker<List<SAMRecord>, SA
     /**
      * emit the read that was produced by combining the dupplicates
      */
-    public SAMFileWriter reduce(List<SAMRecord> reads, SAMFileWriter output) {
-        for ( SAMRecord read : reads ) {
+    public SAMFileWriter reduce(List<GATKSAMRecord> reads, SAMFileWriter output) {
+        for ( GATKSAMRecord read : reads ) {
             if ( output != null ) {
                 output.addAlignment(read);
             } else {
@@ -97,18 +97,18 @@ public class CombineDuplicatesWalker extends DuplicateWalker<List<SAMRecord>, SA
      * @param readSets the set of unique reads list at this locus
      * @return a read that combines the dupplicate reads at this locus
      */
-    public List<SAMRecord> map(GenomeLoc loc, AlignmentContext context, Set<List<SAMRecord>> readSets ) {
-        List<SAMRecord> combinedReads = new ArrayList<SAMRecord>();
+    public List<GATKSAMRecord> map(GenomeLoc loc, AlignmentContext context, Set<List<GATKSAMRecord>> readSets ) {
+        List<GATKSAMRecord> combinedReads = new ArrayList<GATKSAMRecord>();
 
-        for ( List<SAMRecord> reads : readSets ) {
-            SAMRecord combinedRead = null;
+        for ( List<GATKSAMRecord> reads : readSets ) {
+            GATKSAMRecord combinedRead = null;
 
             if ( reads.size() == 1 && ! reads.get(0).getDuplicateReadFlag() ) {
                 // we are a unique read
                 combinedRead = reads.get(0);
             } else {
                 // actually call the combine function
-//                for (SAMRecord read : reads ) {
+//                for (GATKSAMRecord read : reads ) {
 //                    out.printf("Combining Read %s%n", read.format());
 //                }
 //

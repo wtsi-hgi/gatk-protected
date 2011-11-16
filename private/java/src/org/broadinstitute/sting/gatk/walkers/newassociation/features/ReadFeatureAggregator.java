@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -23,7 +23,7 @@ public abstract class ReadFeatureAggregator<X> {
         nReads = 0;
     }
 
-    public void aggregate(SAMRecord record) {
+    public void aggregate(GATKSAMRecord record) {
         if ( featureDefined(record) ) {
             aggregate(extractFeature(record));
         }
@@ -31,9 +31,9 @@ public abstract class ReadFeatureAggregator<X> {
 
     protected abstract void aggregate(X feature);
 
-    protected abstract boolean featureDefined(SAMRecord record);
+    protected abstract boolean featureDefined(GATKSAMRecord record);
 
-    protected abstract X extractFeature(SAMRecord record);
+    protected abstract X extractFeature(GATKSAMRecord record);
 
     public double getMean() { return mean; }
     public double getVar() { return var; }
@@ -42,7 +42,7 @@ public abstract class ReadFeatureAggregator<X> {
 
     public void init(RFAArgumentCollection collection) { }
 
-    public X parse(SAMRecord read) {
+    public X parse(GATKSAMRecord read) {
         if ( featureDefined(read) ) {
             return extractFeature(read);
         } else {
@@ -50,7 +50,7 @@ public abstract class ReadFeatureAggregator<X> {
         }
     }
 
-    public String parseStr(SAMRecord read) {
+    public String parseStr(GATKSAMRecord read) {
         if ( featureDefined(read) ) {
             return extractFeature(read).toString();
         } else {

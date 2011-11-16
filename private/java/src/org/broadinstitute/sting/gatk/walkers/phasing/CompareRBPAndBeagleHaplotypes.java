@@ -85,7 +85,7 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
                         start = VariantContextUtils.getLocation(this.getToolkit().getGenomeLocParser(), vc);
 
                     }
-                    double PQ = vc.getGenotype(sample).getAttributeAsDouble("PQ");
+                    double PQ = vc.getGenotype(sample).getAttributeAsDouble("PQ", -1);
 
                     if (PQ < minPQ) { minPQ = PQ; }
                     if (PQ > maxPQ) { maxPQ = PQ; }

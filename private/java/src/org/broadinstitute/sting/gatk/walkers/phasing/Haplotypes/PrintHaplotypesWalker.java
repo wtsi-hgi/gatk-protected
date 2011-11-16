@@ -99,7 +99,7 @@ public class PrintHaplotypesWalker extends RodWalker<Integer, Integer> {
             if (gt == null || gt.isFiltered() || gt.isNoCall() || !gt.isHet())
                 continue;
 
-            String inheritance = gt.getAttributeAsStringNoException(AnnotateTrioPhasingInheritanceNoRecombinationWalker.INHERITANCE_KEY);
+            String inheritance = gt.getAttributeAsString(AnnotateTrioPhasingInheritanceNoRecombinationWalker.INHERITANCE_KEY, null);
             if (!gt.isPhased() && (inheritance == null || !prevHadInheritanceInfo))
                 out.println("PHASE_BREAK");
 

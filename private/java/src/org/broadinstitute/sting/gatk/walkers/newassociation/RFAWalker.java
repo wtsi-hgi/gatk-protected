@@ -1,23 +1,29 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
 import cern.jet.math.Arithmetic;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.datasources.sample.Sample;
+import org.broadinstitute.sting.gatk.samples.Sample;
 import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.walkers.newassociation.features.ReadFeatureAggregator;
+import org.broadinstitute.sting.gatk.walkers.genotyper.ExactAFCalculationModel;
+import org.broadinstitute.sting.gatk.walkers.newassociation.features.old.BinaryFeatureAggregator;
+import org.broadinstitute.sting.gatk.walkers.newassociation.features.old.ReadFeatureAggregator;
 import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
+import org.broadinstitute.sting.utils.MathUtils;
 
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
@@ -25,15 +31,15 @@ import java.util.*;
 
 /**
  * Read feature association walker -- associates read features between dichotomized, or multi-group cohorts
- * todo -- need a heuristic to stop doing tests where there is certainly no signal
- * todo -- for most features there's a nuisance variable which is the proportion of *paired* reads, perhaps a pair-only setting for read features
  */
 
 @ReadFilters({MaxInsertSizeFilter.class,MappingQualityFilter.class,DuplicateReadFilter.class,
         FailsVendorQualityCheckFilter.class,NotPrimaryAlignmentFilter.class,UnmappedReadFilter.class,
         AddAberrantInsertTagFilter.class})
-public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
-    // todo -- this needs to be an argument collection that can get passed around to initialize read features etc
+public abstract class RFAWalker extends ReadWalker<GATKSAMRecord,RFWindow> {
+    /*    // todo -- marginalization over genotypes and tables
+    // todo -- segmenting the window to find max concentration of reads
+    // todo -- estimation of purity of the actual window selection for the event
     @ArgumentCollection
     private RFAArgumentCollection collection = new RFAArgumentCollection();
 
@@ -42,7 +48,7 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
 
     Map<String,Boolean> caseStatus;
 
-    protected List<ReadFeatureAggregator> aggregators; // no re-instantiation, use a list to ensure ordering
+    protected List<BinaryFeatureAggregator> aggregators; // no re-instantiation, use a list to ensure ordering
 
     protected Iterator<GenomeLoc> locusIterator;
     protected GenomeLoc iteratorLoc;
@@ -52,6 +58,12 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
 
     private short nCase;
     private short nControl;
+    private int[] caseR;
+    private int[] controlR;
+    private double[] caseA;
+    private double[] controlA;
+
+    private RFAGenotypeLikelihoodsCalculationModel rfaglcm = new RFAGenotypeLikelihoodsCalculationModel();
 
     public void initialize() {
         if ( collection.windowSize % collection.windowJump != 0 ) {
@@ -62,7 +74,7 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
             throw new UserException("You must provide both a case file (-case) and a control file (-control) each listing those samples belonging to the cohort");
         }
 
-        caseStatus = new HashMap<String,Boolean>(getToolkit().getSAMFileSamples().size());
+        caseStatus = new HashMap<String,Boolean>();
         nCase = 0;
         nControl = 0;
         try {
@@ -75,9 +87,9 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
                 ++nControl;
             }
 
-            for ( Sample sample : getToolkit().getSAMFileSamples() ) {
-                if ( ! caseStatus.containsKey(sample.getId())) {
-                    throw new UserException("No case/control status for sample "+sample.getId());
+            for ( final String sample : SampleUtils.getSAMFileSamples(getToolkit()) ) {
+                if ( ! caseStatus.containsKey(sample)) {
+                    throw new UserException("No case/control status for sample "+sample);
                 }
             }
 
@@ -85,24 +97,24 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
             throw new UserException("Unable to open a case/control file",e);
         }
 
-        Set<Class<? extends ReadFeatureAggregator>> aggregatorSet = getFeatureAggregators(collection.inputFeatures);
-        Set<ReadFeatureAggregator> rfHolder1 = new HashSet<ReadFeatureAggregator>(aggregatorSet.size());
+        Set<Class<? extends BinaryFeatureAggregator>> aggregatorSet = getFeatureAggregators(collection.inputFeatures);
+        Set<BinaryFeatureAggregator> rfHolder1 = new HashSet<BinaryFeatureAggregator>(aggregatorSet.size());
         try {
-            for ( Class<? extends ReadFeatureAggregator> featureClass : aggregatorSet ) {
-                ReadFeatureAggregator readFeature = featureClass.getConstructor(RFAArgumentCollection.class).newInstance(collection);
+            for ( Class<? extends BinaryFeatureAggregator> featureClass : aggregatorSet ) {
+                BinaryFeatureAggregator readFeature = featureClass.getConstructor(RFAArgumentCollection.class).newInstance(collection);
                 rfHolder1.add(readFeature);
             }
         } catch ( Exception e ) {
             throw new StingException("A read feature instantiation error occurred during initialization",e);
         }
 
-        ReadFeatureAggregator[] rfHolder2 = new ReadFeatureAggregator[rfHolder1.size()];
+        BinaryFeatureAggregator[] rfHolder2 = new BinaryFeatureAggregator[rfHolder1.size()];
         int idx = 0;
-        for ( ReadFeatureAggregator f : rfHolder1 ) {
+        for ( BinaryFeatureAggregator f : rfHolder1 ) {
             rfHolder2[idx++] = f;
         }
-        Arrays.sort(rfHolder2, new Comparator<ReadFeatureAggregator>() {
-            public int compare(ReadFeatureAggregator a, ReadFeatureAggregator b) {
+        Arrays.sort(rfHolder2, new Comparator<BinaryFeatureAggregator>() {
+            public int compare(BinaryFeatureAggregator a, BinaryFeatureAggregator b) {
                 return a.getClass().getSimpleName().compareTo(b.getClass().getSimpleName());
             }
         });
@@ -113,17 +125,21 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
         locusIterator = getToolkit().getIntervals().iterator();
         iteratorLoc = locusIterator.hasNext() ? locusIterator.next() : null;
 
+        caseR = new int[nCase];
+        controlR = new int[nControl];
+        caseA = new double[nCase];
+        controlA = new double[nControl];
     }
 
     public RFWindow reduceInit() {
-        Set<String> samples = new HashSet<String>(getToolkit().getSamples().size());
-        for ( Sample s : getToolkit().getSamples() ) {
-            samples.add(s.getId());
+        Set<String> samples = new HashSet<String>(getSampleDB().getSamples().size());
+        for ( Sample s : getSampleDB().getSamples() ) {
+            samples.add(s.getID());
         }
         return new RFWindow(aggregators,collection,caseStatus,getToolkit().getGenomeLocParser());
     }
 
-    public SAMRecord map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
         if ( ref == null ) { return null; } // unmapped reads have null ref contexts
         //loc = getToolkit().getGenomeLocParser().createGenomeLoc(ref.getLocus().getContig(),read.getAlignmentStart());
         GenomeLoc newLoc = ref.getLocus().getStartLocation(); // can be problematic if read aligns prior to start of contig -- should never happen
@@ -137,7 +153,7 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
         return read;
     }
 
-    public RFWindow reduce(SAMRecord read, RFWindow prevReduce) {
+    public RFWindow reduce(GATKSAMRecord read, RFWindow prevReduce) {
         if ( iteratorLoc != null && iteratorLoc.isBefore(loc) ) {// test if read is past end of the user interval
             //logger.info(String.format("iteratorLoc: %s    loc: %s",iteratorLoc.toString(),loc.toString()));
             onIntervalDone(prevReduce);
@@ -148,13 +164,13 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
             reduce(read,prevReduce);
         } else if ( read != null ) {
             // todo -- what happens if first read of an interval is not before or at the start of the interval?\
-            List<Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>>> completed = prevReduce.inc(read, loc, sample,iteratorLoc);
+            List<Pair<GenomeLoc,Map<String,List<BinaryFeatureAggregator>>>> completed = prevReduce.inc(read, loc, sample,iteratorLoc);
             // todo -- run tests here; for now just log that a window/multiple windows are complete
             if ( completed.size() > 0 ) {
                 // System.out.printf("At %s we have seen %d completed windows%n",loc,completed.size())
                 // bed format
                 int locShift = 0;
-                for ( Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>> samWindow : completed ) {
+                for ( Pair<GenomeLoc,Map<String,List<BinaryFeatureAggregator>>> samWindow : completed ) {
                     GenomeLoc window = samWindow.first;
                     runWindowTests(samWindow.second, window);
                     locShift += collection.windowJump;
@@ -167,9 +183,9 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
 
     public RFWindow onIntervalDone(RFWindow rWindow) {
         //logger.info("In onIntervalDone at genome loc "+iteratorLoc.toString()+" with read loc "+loc.toString());
-        List<Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>>> completed = rWindow.flush(iteratorLoc);
+        List<Pair<GenomeLoc,Map<String,List<BinaryFeatureAggregator>>>> completed = rWindow.flush(iteratorLoc);
         int locShift = 0;
-        for ( Pair<GenomeLoc,Map<String,List<ReadFeatureAggregator>>> samWindow : completed ) {
+        for ( Pair<GenomeLoc,Map<String,List<BinaryFeatureAggregator>>> samWindow : completed ) {
             GenomeLoc window = samWindow.first;
             runWindowTests(samWindow.second, window);
             locShift += collection.windowJump;
@@ -178,9 +194,9 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
         return rWindow;
     }
 
-    public Set<Class<? extends ReadFeatureAggregator>> getFeatureAggregators(List<String> requestedFeatures) {
-        HashSet<Class<? extends ReadFeatureAggregator>> newFeatureSet = new HashSet<Class<? extends ReadFeatureAggregator>>();
-        List<Class<? extends ReadFeatureAggregator>> availableFeatures = new PluginManager<ReadFeatureAggregator>(ReadFeatureAggregator.class).getPlugins();
+    public Set<Class<? extends BinaryFeatureAggregator>> getFeatureAggregators(List<String> requestedFeatures) {
+        HashSet<Class<? extends BinaryFeatureAggregator>> newFeatureSet = new HashSet<Class<? extends BinaryFeatureAggregator>>();
+        List<Class<? extends BinaryFeatureAggregator>> availableFeatures = new PluginManager<BinaryFeatureAggregator>(BinaryFeatureAggregator.class).getPlugins();
 
         if ( collection.inputFeatures == null ) {
             newFeatureSet.addAll(availableFeatures);
@@ -188,8 +204,8 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
         }
 
 
-        Map<String,Class<? extends ReadFeatureAggregator>> classNameToClass = new HashMap<String,Class<? extends ReadFeatureAggregator>>(collection.inputFeatures.size());
-        for ( Class<? extends ReadFeatureAggregator> clazz : availableFeatures ) {
+        Map<String,Class<? extends BinaryFeatureAggregator>> classNameToClass = new HashMap<String,Class<? extends BinaryFeatureAggregator>>(collection.inputFeatures.size());
+        for ( Class<? extends BinaryFeatureAggregator> clazz : availableFeatures ) {
             classNameToClass.put(clazz.getSimpleName(),clazz);
         }
 
@@ -204,181 +220,162 @@ public class RFAWalker extends ReadWalker<SAMRecord,RFWindow> {
         return newFeatureSet;
     }
 
-    public void runWindowTests(Map<String,List<ReadFeatureAggregator>> window, GenomeLoc loc) {
-        // two main tests: fixed-significance shift, and confidence-interval sum
-        //System.out.printf("Running tests...%n");
+    public void runWindowTests(Map<String,List<BinaryFeatureAggregator>> window, GenomeLoc loc) {
+        // two main tests: fixed-significance shift, and genotype-free skew
         // todo -- really the aggregators should be iterated over directly (rather than indirectly through the index)
         out.printf("%s\t%d\t%d",loc.getContig(),loc.getStart(),loc.getStop());
         for ( int agIdx = 0; agIdx < aggregators.size(); agIdx ++ ) {
             double fixedDelta = fixedSignificance(window.get("case").get(agIdx),window.get("control").get(agIdx));
-            //double weightedDelta = confidenceIntervalSum(window,agIdx);
-            //out.printf("\t%.2e\t%.2e",Double.isNaN(fixedDelta) ? 0.0 : fixedDelta,weightedDelta);
-            Pair<List<String>,List<String>> caseControlAffected = getAffectedSamples(window,agIdx,fixedDelta);
-            List<String> cases = caseControlAffected.getFirst();
-            List<String> controls = caseControlAffected.getSecond();
-            // please remind me to flog myself for ever using a binomial test here.
-            //double caseP = MathUtils.binomialProbability(cases.size()+controls.size(),cases.size(),((double) nCase)/(nCase+nControl));
-            double caseP = computePValue(new int[][] { new int[] {cases.size(),controls.size()}, new int[] {nCase-cases.size(),nControl-controls.size()} });
-            logger.debug(String.format("NCa:%d NCo:%d CaS:%d CoS:%d, P:%f%n",nCase,nControl,cases.size(),controls.size(),caseP));
-            out.printf("\t%.2e\t%d:%d\t%.2e\t%s;%s",fixedDelta,cases.size(),controls.size(), caseP,Utils.join(",",cases),Utils.join(",",controls));
+            double genotypeFreePVal = fixedDelta > 0 ? calculateGenotypeFreeSkew(window,agIdx) : 1.0 ;
+            out.printf("\t%.2e\t%.2e",fixedDelta,genotypeFreePVal);
 
         }
         out.printf("%n");
     }
 
-    public Pair<List<String>,List<String>> getAffectedSamples(Map<String,List<ReadFeatureAggregator>> aggregators, int idx, double fixedDelta) {
-        if ( fixedDelta == 0.0 ) { return new Pair<List<String>,List<String>>(EMPTY_LIST,EMPTY_LIST); } // todo -- too hacky
-
-        Pair<List<String>,List<String>> ccSampleList = new Pair<List<String>,List<String>>(new ArrayList<String>(), new ArrayList<String>());
-        for ( Map.Entry<String,List<ReadFeatureAggregator>> entry : aggregators.entrySet() ) {
-            if ( entry.getKey().equals("case") || entry.getKey().equals("control")) { continue; }
-            ReadFeatureAggregator aggregator = entry.getValue().get(idx);
-            // is this sending a truly significant signal
-            double zs = (aggregator.getMean() - collection.EPSILON) * Math.sqrt(aggregator.getnReads())/Math.sqrt(aggregator.getUnbiasedVar());
-            if ( zs > collection.sampleZThresh ) {
-                if ( caseStatus.get(entry.getKey()) ) {
-                    ccSampleList.first.add(entry.getKey());
-                } else {
-                    ccSampleList.second.add(entry.getKey());
-                }
-            }
-        }
-
-        return ccSampleList;
-    }
-
-    public double fixedSignificance(ReadFeatureAggregator caseAg, ReadFeatureAggregator controlAg) {
+    public double fixedSignificance(BinaryFeatureAggregator caseAg, BinaryFeatureAggregator controlAg) {
         if ( caseAg.getnReads() == 0 || controlAg.getnReads() == 0 ) {
             return 0.0;
         }
         double stat_num = caseAg.getMean() - controlAg.getMean();
         double stat_denom = Math.sqrt(caseAg.getUnbiasedVar()/caseAg.getnReads() + controlAg.getUnbiasedVar()/controlAg.getnReads());
         double stat = stat_num/stat_denom;
-        //System.out.printf("Mean_dif: %.2e Var: %.2e Stat: %.2f Z: %.2f SS-ZZ: %.2f%n",stat_num,stat_denom,stat, collection.fixedZ, stat*stat-collection.fixedZ*collection.fixedZ);
         if ( ! Double.isNaN(stat) && stat*stat < collection.fixedZ*collection.fixedZ ) {
             return 0.0;
         } else {
-            //System.out.printf("Calculating delta: %.2f%n",(stat < 0) ? stat_denom*(-1*collection.fixedZ-stat) : stat_denom*(stat-collection.fixedZ));
-            //return (stat > 0) ? stat_denom*(stat-collection.fixedZ) : stat_denom*(stat+collection.fixedZ);
 	    return stat_num;
         }
     }
 
-    public double confidenceIntervalSum(Map<String,List<ReadFeatureAggregator>> window, int offset) {
-        // this comment serves as an explicit normality assumption (e.g. that the DF will be large)
-        double caseWeightMean = 0.0;
-        double caseWeightVar = 0.0;
-        double caseSumWeight = 0.0;
-        double controlWeightMean = 0.0;
-        double controlWeightVar = 0.0;
-        double controlSumWeight = 0.0;
-        for ( Map.Entry<String,List<ReadFeatureAggregator>> sampleEntry : window.entrySet() ) {
-            if ( ! sampleEntry.getKey().equals("case") && ! sampleEntry.getKey().equals("control") ) {
-                // first check if the sample is shifted from zero (CI does not include zero)
-                // todo -- fixme. This will always be true for insert sizes, clipped reads, mapping quality...should have an avg value
+    private double calculateGenotypeFreeSkew(Map<String,List<BinaryFeatureAggregator>> window, int offset) {
+        Map<String,Genotype> caseGenotypeLikelihoods = rfaglcm.getLikelihoods(null,null,unwrap(window,offset,true));
+        Map<String,Genotype> controlGenotypeLikelihoos = rfaglcm.getLikelihoods(null,null,unwrap(window,offset,false));
+        double[] caseSpectrum = new double[nCase];
+        double[] controlSpectrum = new double[nControl];
+        // todo -- generalize to floating ploidy
+        ExactAFCalculationModel.linearExact(caseGenotypeLikelihoods,caseSpectrum.clone(),caseSpectrum,0,1,2);
+        ExactAFCalculationModel.linearExact(controlGenotypeLikelihoos,controlSpectrum.clone(),controlSpectrum,0,1,2);
+        return MathUtils.marginalizedFisherExact(caseSpectrum,controlSpectrum,nCase,nControl);
+    }
 
-                ReadFeatureAggregator aggregator = sampleEntry.getValue().get(offset);
-                if ( aggregator.getnReads() == 0 ) {
-                    continue;
-                }
+    private Map<String,BinaryFeatureAggregator> unwrap(Map<String,List<BinaryFeatureAggregator>> map, int o, boolean getCase) {
+        Map<String,BinaryFeatureAggregator> toRet = new HashMap<String,BinaryFeatureAggregator>(map.size());
+        for ( Map.Entry<String,List<BinaryFeatureAggregator>> entry : map.entrySet() ) {
+            if ( entry.getKey().equals("case") || entry.getKey().equals("control") ) {
+                continue;
+            }
 
-                boolean shifted;
-                int shiftThresh = 0;/*
-                // todo -- this is fucking awful
-                if ( aggregator instanceof InsertSize ) {
-                    shiftThresh = 150;
-                }
-                if ( aggregator instanceof ClippedBases ) {
-                    shiftThresh = 6;
-                }*/
-                if ( aggregator.getMean() < shiftThresh ) {
-                    // use fixedZ/4 to be a little bit less strenuous -- todo -- make an input?
-                    shifted = aggregator.getMean() + collection.fixedZ/4*Math.sqrt(aggregator.getUnbiasedVar())/aggregator.getnReads() < shiftThresh;
-                } else {
-                    shifted = aggregator.getMean() - collection.fixedZ/4*Math.sqrt(aggregator.getUnbiasedVar())/aggregator.getnReads() > shiftThresh;;
-                }
-                if ( shifted ) {
-                    double twoS2 = 2*aggregator.getUnbiasedVar()*aggregator.getUnbiasedVar();
-                    if ( caseStatus.get(sampleEntry.getKey())) {
-                        caseWeightMean += (aggregator.getnReads()-1.0)*aggregator.getMean()/(twoS2);
-                        caseWeightVar += aggregator.getUnbiasedVar()*Math.pow((aggregator.getnReads()-1.0)/(twoS2),2);
-                        caseSumWeight += (aggregator.getnReads()-1.0)/(twoS2);
-                    } else {
-                        controlWeightMean += (aggregator.getnReads()-1.0)*aggregator.getMean()/(twoS2);
-                        controlWeightVar += aggregator.getUnbiasedVar()*Math.pow((aggregator.getnReads()-1.0)/(twoS2),2);
-                        controlSumWeight += (aggregator.getnReads()-1.0)/(twoS2);
-                    }
-                }
+            if ( caseStatus.get(entry.getKey()).equals(getCase) ) {
+                toRet.put(entry.getKey(),entry.getValue().get(o));
             }
         }
 
-        double caseGaussianMean = caseWeightMean/caseSumWeight;
-        double controlGaussianMean = controlWeightMean/controlSumWeight;
-        double caseGaussianVar = caseWeightVar/(caseSumWeight*caseSumWeight);
-        double controlGaussianVar = controlWeightVar/(controlSumWeight*controlSumWeight);
-        // todo -- is the z-factor an appropriate statistic?
-        //return 1.0 - 3*(caseGaussianVar+controlGaussianVar)/Math.abs(caseGaussianMean-controlGaussianMean);
-        if ( caseGaussianMean > controlGaussianMean ) {
-            // want to examine the case lower fixedZ*stdev vs the control upper fixedZ*stev
-            return (caseGaussianMean-collection.fixedZ/4*Math.sqrt(caseGaussianVar)) - (controlGaussianMean + collection.fixedZ/4*Math.sqrt(controlGaussianVar));
-        } else {
-            // want to examine the case upper fixedZ*stev vs the control lower fixedZ*stev
-            return (controlGaussianMean-collection.fixedZ/4*Math.sqrt(controlGaussianVar)) - ( caseGaussianMean + collection.fixedZ/4*Math.sqrt(caseGaussianVar));
-        }
+        return toRet;
     }
 
     public void writeHeader() {
         // "%.2e\t%d:%d\t%s,%s\t%.2e"
         StringBuffer buf = new StringBuffer();
         buf.append("description=chr,start,stop");
-        for ( ReadFeatureAggregator f : aggregators ) {
+        for ( BinaryFeatureAggregator f : aggregators ) {
             buf.append(",");
             buf.append(f.getClass().getSimpleName());
             buf.append("-d,");
-            buf.append(f.getClass().getSimpleName());
-            buf.append("-r,");
-            buf.append(f.getClass().getSimpleName());
-            buf.append("-s,");
             buf.append(f.getClass().getSimpleName());
             buf.append("-p");
         }
         out.printf("track type=bedTable %s%n",buf);
     }
-
-    private static double computePValue(int[][] table) {
-
-        int[] rowSums = { sumRow(table, 0), sumRow(table, 1) };
-        int[] colSums = { sumColumn(table, 0), sumColumn(table, 1) };
-        int N = rowSums[0] + rowSums[1];
-
-        // calculate in log space so we don't die with high numbers
-        double pCutoff = Arithmetic.logFactorial(rowSums[0])
-                         + Arithmetic.logFactorial(rowSums[1])
-                         + Arithmetic.logFactorial(colSums[0])
-                         + Arithmetic.logFactorial(colSums[1])
-                         - Arithmetic.logFactorial(table[0][0])
-                         - Arithmetic.logFactorial(table[0][1])
-                         - Arithmetic.logFactorial(table[1][0])
-                         - Arithmetic.logFactorial(table[1][1])
-                         - Arithmetic.logFactorial(N);
-        return Math.exp(pCutoff);
-    }
-
-    private static int sumRow(int[][] table, int column) {
-        int sum = 0;
-        for (int r = 0; r < table.length; r++) {
-            sum += table[r][column];
-        }
-
-        return sum;
-    }
-
-    private static int sumColumn(int[][] table, int row) {
-        int sum = 0;
-        for (int c = 0; c < table[row].length; c++) {
-            sum += table[row][c];
-        }
-
-        return sum;
-    }
+    */
 }
+
+/*    DEAD CODE BELOW HERE
+
+    private double calculateGenotypeFreeSkew(Map<String,List<BinaryFeatureAggregator>> window, int rfaIndex) {
+        // two-step process. Step 1: identify the best simple state space (e.g. integer N) that can represent discrete
+        // genotypes within the data. N can vary because of subclonal populations or mixtures of CNVs in the data. For now
+        // assume N is the same between cases and controls.
+
+        // lots of iteration, so cast these to arrays first
+        int caseidx = 0;
+        int controlidx = 0;
+        for ( Map.Entry<String,Boolean> sample : caseStatus.entrySet() ) {
+            if ( sample.getValue() ) {
+                caseR[caseidx] = window.get(sample.getKey()).get(rfaIndex).getnReads();
+                caseA[caseidx] = window.get(sample.getKey()).get(rfaIndex).getMean();
+                caseidx++;
+            } else {
+                controlR[controlidx] = window.get(sample.getKey()).get(rfaIndex).getnReads();
+                controlA[controlidx] = window.get(sample.getKey()).get(rfaIndex).getMean();
+                controlidx++;
+            }
+        }
+
+        // find the maximum possible likelihood of the data under the binomial hypothesis by setting each samples 'frequency'
+        // to the observed frequency
+
+        double L_Star = 0;
+        for ( int i = 0; i < nCase; i ++ ) {
+            L_Star += MathUtils.log10BinomialProbability(caseR[i],(int)(0.5+caseR[i]*caseA[i]),caseA[i]);
+        }
+        for ( int j = 0; j < nControl; j++ ) {
+            L_Star += MathUtils.log10BinomialProbability(controlR[j],(int)(0.5+controlR[j]*controlA[j]),controlA[j]);
+        }
+
+        // calculate the base likelihood - binomial
+        // note that this is a heuristic proxy: likelihood is only calculated at the closest points (and not summed over all)
+        // this heuristic is used for speed.
+        double bestlikelihood = Double.NEGATIVE_INFINITY;
+        int bestN = 2;
+        int N = 1;
+        do {
+            double likelihood = 0;
+            logger.debug(String.format("likelihood:%.2f%n",likelihood));
+            N++;
+            for ( int i = 0; i < nCase; i++ ) {
+                // find the best k
+                int k = (int) (0.5+N*caseA[i]);
+                likelihood += MathUtils.log10BinomialProbability(caseR[i],(int)(0.5+caseR[i]*caseA[i]),Math.max(((double) k)/N,0.01));
+            }
+
+            for ( int j = 0; j < nControl; j++ ) {
+                int k = (int) (0.5+N*controlA[j]);
+                likelihood += MathUtils.log10BinomialProbability(controlR[j],(int)(0.5+controlR[j]*controlA[j]),Math.max(((double) k)/N,0.01));
+            }
+
+            if ( 2*(likelihood - bestlikelihood) > 3.8414 ) {
+                bestlikelihood = likelihood;
+                bestN = N;
+            }
+
+        } while ( N <= 10 && 2*(L_Star - bestlikelihood) > 3.8414);
+
+        return 1.0;
+    }
+
+    private double calculateGL(int indexToSwap, int newK, int bestN) {
+        double logLik = 0;
+        int idx = 0;
+        for ( int i = 0; i < nCase; i++ ) {
+            int k = idx == indexToSwap ? newK : (int) (0.5+bestN*caseA[i]);
+            double bprob = MathUtils.log10BinomialProbability(caseR[i],(int)(0.5+caseR[i]*caseA[i]),Math.log10(rectify(((double) k)/bestN)));
+            //logger.debug(String.format("N: %d K: %d P: %.2f Prob: %.2f",caseR[i],(int)(0.5+caseR[i]*caseA[i]),rectify(((double) k)/bestN),bprob));
+            logLik += bprob;
+            idx++;
+        }
+
+        for ( int i = 0; i < nControl; i++ ) {
+            int k = idx == indexToSwap ? newK : (int) (0.5+bestN*controlA[i]);
+            logLik += MathUtils.log10BinomialProbability(controlR[i],(int)(0.5+controlR[i]*controlA[i]),Math.log10(rectify(((double) k)/bestN)));
+            idx++;
+        }
+
+        return logLik;
+    }
+
+
+    private double rectify(double p) {
+        return Math.min(Math.max(p,0.005),0.995);
+    }
+
+ */

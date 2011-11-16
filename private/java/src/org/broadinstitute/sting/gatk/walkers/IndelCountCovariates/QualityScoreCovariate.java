@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 //g import org.broadinstitute.sting.gatk.walkers.recalibration.RecalibrationArgumentCollection;
 
 /*
@@ -44,13 +44,12 @@ public class QualityScoreCovariate implements RequiredCovariate {
 
     /*
     // Used to pick out the covariate's value from attributes of the read
-    public final Comparable getValue( final SAMRecord read, final int offset ) {
+    public final Comparable getValue( final GATKSAMRecord read, final int offset ) {
         return (int)(read.getBaseQualities()[offset]);
     }
     */
 
-    public void getValues(SAMRecord read, Comparable[] comparable) {
-        byte[] baseQualities = read.getBaseQualities();
+    public void getValues(GATKSAMRecord read, Comparable[] comparable) {
         for(int i = 0; i < read.getReadLength(); i++) {
 //            comparable[i] = (int) baseQualities[i];
             comparable[i] = (int) 45;

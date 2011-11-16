@@ -166,7 +166,7 @@ public class LocusMismatchWalker extends LocusWalker<String,Integer> implements 
 
     private boolean locusIsUsable( RefMetaDataTracker tracker, ReferenceContext ref, ReadBackedPileup pileup, AlignmentContext context ) {
         return BaseUtils.isRegularBase(ref.getBase()) &&
-                pileup.size() >= minDepth && pileup.size() < maxDepth &&
+                pileup.getNumberOfElements() >= minDepth && pileup.getNumberOfElements() < maxDepth &&
                 notCoveredByVariations(tracker, ref) &&
                 pileupContainsNoNs(pileup);
 //        pileupContainsNoNs(pileup) &&

@@ -187,41 +187,60 @@ class RecordDecoder:
                 bindings[field] = MISSING_VALUE
 
         return bindings
-    
+
 # def 
-class RecordAsTable(StageHandler):
+class AbstractRecordAsTable(StageHandler):
     def __init__(self, name, out):
         StageHandler.__init__(self, name, out)
         
     def initialize(self, args):
         self.decoder = RecordDecoder()
-        print >> self.out, "\t".join(self.decoder.fields)
+        print >> self.out, "\t".join(self.getFields())
+        
+    def getFields(self):
+        raise Expection("Abstract class cannot be run directly")
 
     def processRecord(self, record):
-        parsed = self.decoder.decode(record)
-
-        def oneField(field):
-            val = MISSING_VALUE
-            if field in parsed:
-                val = parsed[field]
-                if val == None:
-                    if OPTIONS.verbose: print >> sys.stderr, 'field', field, 'is missing in', parsed['id']
-                else:
-                    val = val.replace('"',"'")
-#                    if val.find("\t") != -1:
-#                        if OPTIONS.verbose: print >> sys.stderr, 'Warning -- val', val, 'contains tabs, droping field', field
-#                        raise Error
-                        #val = "value contained tabs, dropped"
-                    if val.find(" ") != -1:
-                        val = "\"" + val + "\""
-            return val
         try:
-            print >> self.out, "\t".join([ oneField(field) for field in self.decoder.fields ])
+            parsed = self.decoder.decode(record)
+
+            def oneField(field):
+                val = MISSING_VALUE
+                if field in parsed:
+                    val = parsed[field]
+                    if val == None:
+                        if OPTIONS.verbose: print >> sys.stderr, 'field', field, 'is missing in', parsed['id']
+                    else:
+                        val = val.replace('"',"'")
+                        if val.find(" ") != -1:
+                            val = "\"" + val + "\""
+                return val
+            
+            print >> self.out, "\t".join([ oneField(field) for field in self.getFields() ])
         except:
             #print 'Failed to convert to table ', parsed
+            print 'Failed to convert to table', record
             pass
+    
+# def 
+class RecordAsTable(AbstractRecordAsTable):
+    def __init__(self, name, out):
+        AbstractRecordAsTable.__init__(self, name, out)
+
+    def getFields(self):
+        return self.decoder.fields
             
 addHandler('table', RecordAsTable)
+
+class RecordAsMinimalTable(AbstractRecordAsTable):
+    FIELDS_TO_TAKE = ['walker-name', "start-time", "run-time", "host-name"]
+    def __init__(self, name, out):
+        AbstractRecordAsTable.__init__(self, name, out)
+
+    def getFields(self):
+        return self.FIELDS_TO_TAKE
+            
+addHandler('minimaltable', RecordAsMinimalTable)
 
 class CountRecords(StageHandler):
     def __init__(self, name, out):

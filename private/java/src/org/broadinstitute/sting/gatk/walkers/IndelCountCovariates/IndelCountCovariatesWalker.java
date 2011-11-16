@@ -459,9 +459,9 @@ public class IndelCountCovariatesWalker extends LocusWalker<IndelCountCovariates
      * Using the list of covariate values as a key, pick out the RecalDatum and increment,
      *   adding one to the number of observations and potentially one to the number of mismatches
      * Lots of things are passed as parameters to this method as a strategy for optimizing the covariate.getValue calls
-     *   because pulling things out of the SAMRecord is an expensive operation.
+     *   because pulling things out of the GATKSAMRecord is an expensive operation.
      * @param counter Data structure which holds the counted bases
-     * @param gatkRead The SAMRecord holding all the data for this read
+     * @param gatkRead The GATKSAMRecord holding all the data for this read
      * @param offset The offset in the read for this locus
      * @param refBase The reference base at this locus
      */

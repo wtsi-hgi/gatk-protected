@@ -73,6 +73,10 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
     @Argument(fullName="maximum_deletion_fraction", shortName="deletions", doc="Maximum deletion fraction for calling a genotype", required=false)
     private double deletions = -1;
+    @Argument(fullName="indels", shortName="indels", doc="Do indel evaluation", required=false)
+    private boolean doIndels = false;
+    @Argument(fullName="banded", shortName="banded", doc="Banded indel GL computation", required=false)
+    private boolean bandedIndelGLs = false;
 
     //@Argument(fullName="standard_min_confidence_threshold_for_calling", shortName="stand_call_conf", doc="the minimum phred-scaled Qscore threshold to separate high confidence from low confidence calls", required=false)
     private double callConf = 0;
@@ -138,8 +142,6 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         // We only operate over the samples in the BAM file
         samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         logger.info("Samples: " + samples);
-        if ( samples.size() > 1 ) // todo -- remove me when we support multiple samples
-            throw new UserException.BadInput("CalibrateGenotypeLikelihoods does not currently support comparison of multiple samples simulatenously.  To enable, see TODO in code");
 
         // Filling in SNP calling arguments for UG
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
@@ -148,17 +150,20 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         if (mbq >= 0) uac.MIN_BASE_QUALTY_SCORE = mbq;
         if (deletions >= 0) uac.MAX_DELETION_FRACTION = deletions;
         uac.STANDARD_CONFIDENCE_FOR_CALLING = callConf;
-        uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.SNP;
-        snpEngine = new UnifiedGenotyperEngine(getToolkit(), uac);
-
+        uac.alleles = alleles;
         // Adding the INDEL calling arguments for UG
-        uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
-        indelEngine = new UnifiedGenotyperEngine(getToolkit(), uac);
+        if (doIndels)  {
+            uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
+            uac.BANDED_INDEL_COMPUTATION = bandedIndelGLs;
+           indelEngine = new UnifiedGenotyperEngine(getToolkit(), uac);
+        }
+        else {
+            uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.SNP;
+            snpEngine = new UnifiedGenotyperEngine(getToolkit(), uac);
+
+        }
     }
 
-    @Override
-    // todo -- remove me when the new indel genotyping is done
-    public boolean generateExtendedEvents() { return true; }
 
     //---------------------------------------------------------------------------------------------------------------
     //
@@ -170,28 +175,36 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             return Data.EMPTY_DATA;
 
         // Grabs a usable VariantContext from the Alleles ROD
-        VariantContext vcComp = UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, snpEngine.getUAC().alleles );
+        VariantContext vcComp;
+
+        if (doIndels)
+            vcComp= UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, indelEngine.getUAC().alleles );
+        else
+            vcComp= UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, snpEngine.getUAC().alleles );
+
         if( vcComp == null )
             return Data.EMPTY_DATA;
 
+        Map <String,AlignmentContext> contextBySample = AlignmentContextUtils.splitContextBySampleName(context);
+
         Data data = new Data();
-        for ( String sample : samples ) {
-            // What's the genotype of our sample at this record?
+
+        for (Map.Entry<String,AlignmentContext> sAC : contextBySample.entrySet()) {
+            String sample = sAC.getKey();
+            AlignmentContext sampleAC = sAC.getValue();
             Genotype compGT = getGenotype(tracker, ref, sample);
             if ( compGT == null || compGT.isNoCall() )
                 continue;
 
-            // For each read group
-            // todo -- this only works with a single sample right now.  For multi-sample BAMs
-            // todo -- this loop needs to be refactored so that the spliting by read group only happens once
-            // todo -- and the read groups appropriate to each sample is used.
-            Map<SAMReadGroupRecord,AlignmentContext> byRG = AlignmentContextUtils.splitContextByReadGroup(context, getToolkit().getSAMFileHeader().getReadGroups());
-            //byRG.put(new SAMReadGroupRecord("ALL"), context);     // uncomment to include a synthetic RG for all RG for the sample
+
+            // now split by read group
+            Map<SAMReadGroupRecord,AlignmentContext> byRG = AlignmentContextUtils.splitContextByReadGroup(sampleAC, getToolkit().getSAMFileHeader().getReadGroups());
+            byRG.put(new SAMReadGroupRecord("ALL"), context);     // uncomment to include a synthetic RG for all RG for the sample
             for ( Map.Entry<SAMReadGroupRecord, AlignmentContext> rgAC : byRG.entrySet() ) {
                 VariantCallContext call;
                 if ( vcComp.isIndel() ) {
-                    throw new UserException.BadInput("CalibrateGenotypeLikelihoods does not currently support indel GL calibration.  This capability needs to be tested and verified to be working with the new genotyping code for indels in UG");
-                    //call = indelEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue());
+                    //throw new UserException.BadInput("CalibrateGenotypeLikelihoods does not currently support indel GL calibration.  This capability needs to be tested and verified to be working with the new genotyping code for indels in UG");
+                    call = indelEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue());
                 } else {
                     call = snpEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue());
                 }
@@ -202,7 +215,15 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
                 Genotype rgGT = call.getGenotype(sample);
 
                 if ( rgGT != null && ! rgGT.isNoCall() && rgGT.getLikelihoods().getAsVector() != null ) {
-                    Datum d = new Datum(vcComp.getReference().getBaseString(), vcComp.getAlternateAllele(0).getBaseString(),
+                    String refs,alts;
+                    if (vcComp.isIndel()) {
+                        refs = new String(new byte[]{ ref.getBase()})+ vcComp.getReference().getDisplayString();
+                        alts = new String(new byte[]{ ref.getBase()})+vcComp.getAlternateAllele(0).getDisplayString();
+                    }   else {
+                        refs = vcComp.getReference().getBaseString();
+                        alts = vcComp.getAlternateAllele(0).getBaseString();
+                    }
+                    Datum d = new Datum(refs, alts,
                             sample, rgAC.getKey().getReadGroupId(), rgGT.getLikelihoods(), vcComp.getType(), compGT.getType());
                     data.values.add(d);
                 }
@@ -221,7 +242,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
      * @return
      */
     private Genotype getGenotype(RefMetaDataTracker tracker, ReferenceContext ref, String sample) {
-        for ( VariantContext vc : tracker.getValues(alleles, ref.getLocus()) ) {
+        for ( VariantContext vc : tracker.getValues(indelEngine.getUAC().alleles, ref.getLocus()) ) {
             if ( vc.isNotFiltered() && vc.hasGenotype(sample) )
                 return vc.getGenotype(sample);
             else

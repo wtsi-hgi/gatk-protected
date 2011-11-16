@@ -31,7 +31,7 @@ public class Percent20xCoverage extends LocusWalker<Integer, Long> implements Tr
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         totalLoci++;
-        int coverage = context.getBasePileup().size();
+        int coverage = context.getBasePileup().getNumberOfElements();
         totalCoverage += coverage;
         if (coverage >= targetCoverage)
             return 1;

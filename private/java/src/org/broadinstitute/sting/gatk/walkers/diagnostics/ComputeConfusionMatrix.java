@@ -25,7 +25,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -105,7 +105,7 @@ public class ComputeConfusionMatrix extends LocusWalker<Integer, Integer> {
         //String rcAltBase = BaseUtils.simpleComplement(fwAltBase);
 
         for (int readIndex = 0; readIndex < context.getReads().size(); readIndex++) {
-            SAMRecord read = context.getReads().get(readIndex);
+            GATKSAMRecord read = context.getReads().get(readIndex);
             int offset = context.getOffsets().get(readIndex);
 
             char base = read.getReadString().charAt(offset);

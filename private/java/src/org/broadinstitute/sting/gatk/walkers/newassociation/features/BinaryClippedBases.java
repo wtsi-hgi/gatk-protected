@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
 
 /**
@@ -15,7 +15,7 @@ public class BinaryClippedBases extends BinaryFeatureAggregator {
     private short baseLim;
     private final byte baseQualLim = 20;
 
-    public Boolean extractFeature(SAMRecord read) {
+    public boolean extractFeature(GATKSAMRecord read) {
         int firstClippedToAliStart = read.getUnclippedStart()-read.getAlignmentStart();
         int lastUnclippedToReadEnd = read.getUnclippedEnd()-read.getAlignmentEnd();
 
@@ -36,7 +36,7 @@ public class BinaryClippedBases extends BinaryFeatureAggregator {
         return nClipped >= baseLim;
     }
 
-    public boolean featureDefined(SAMRecord rec) { return ! rec.getReadPairedFlag() || Math.abs(rec.getInferredInsertSize()) > 100; } // unpaired or no adaptor sequence
+    public boolean featureDefined(GATKSAMRecord rec) { return ! rec.getReadPairedFlag() || Math.abs(rec.getInferredInsertSize()) > 100; } // unpaired or no adaptor sequence
 
     public BinaryClippedBases(RFAArgumentCollection col) {
         super(col);

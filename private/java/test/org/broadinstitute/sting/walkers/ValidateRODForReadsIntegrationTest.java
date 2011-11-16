@@ -10,10 +10,10 @@ import java.util.Arrays;
  */
 public class ValidateRODForReadsIntegrationTest extends WalkerTest {
 
-    private final String vcfFile = validationDataLocation + "rodForReadsVCFCheck.vcf";
+    private final String vcfFile = validationDataLocation + "rodForReadsVCFCheck.withRG.vcf";
 
      public static String baseTestString() {
-            return "-T ValidateRODForReads -o %s -R " + hg18Reference + " -I " + validationDataLocation + "small_bam_for_rods_for_reads.bam";
+            return "-T ValidateRODForReads -o %s -R " + testDir + "exampleFASTA.fasta" + " -I " + testDir + "exampleBAM.bam";
         }
 
 

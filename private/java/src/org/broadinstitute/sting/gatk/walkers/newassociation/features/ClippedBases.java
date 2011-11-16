@@ -1,35 +1,50 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation.features;
 
-import net.sf.samtools.CigarElement;
-import net.sf.samtools.CigarOperator;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.walkers.newassociation.RFAArgumentCollection;
+import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 /**
  * Created by IntelliJ IDEA.
  * User: chartl
- * Date: 5/4/11
- * Time: 1:33 PM
+ * Date: 9/28/11
+ * Time: 12:13 PM
  * To change this template use File | Settings | File Templates.
  */
-public class ClippedBases {
-    // todo -- make a binary feature version of this
+public class ClippedBases extends ReadFeature {
 
-    public Integer extractFeature(SAMRecord record) {
+    public ClippedBases(RFAArgumentCollection col) {
+        super(col);
+    }
+
+    public String getName() { return "ClippedBases"; }
+
+    public String getKey() { return "clippedBases"; }
+
+    public String getDescription() { return "the number of clipped bases with Q >= 14"; }
+
+    public Object getFeature(GATKSAMRecord read) {
+         int firstClippedToAliStart = read.getUnclippedStart()-read.getAlignmentStart();
+        int lastUnclippedToReadEnd = read.getUnclippedEnd()-read.getAlignmentEnd();
+
+        byte[] quals = read.getBaseQualities();
         int nClipped = 0;
+        for ( int offset = 0; offset < firstClippedToAliStart; offset++ ) {
+            if ( quals[offset] >= 14 ) {
+                nClipped++;
+            }
+        }
 
-        for ( CigarElement e : record.getCigar().getCigarElements() ) {
-            if ( e.getOperator().equals(CigarOperator.SOFT_CLIP) || e.getOperator().equals(CigarOperator.HARD_CLIP) ) {
-                nClipped += e.getLength();
+        for ( int offset = quals.length - lastUnclippedToReadEnd; offset < quals.length ; offset++ ) {
+            if ( quals[offset] >= 14 ) {
+                nClipped ++;
             }
         }
 
         return nClipped;
     }
 
-    public boolean featureDefined(SAMRecord rec) { return true; }
-
-    public ClippedBases(RFAArgumentCollection col) {
-        //super(col);
+    public boolean isDefinedFor(GATKSAMRecord read) {
+        return ! read.getReadUnmappedFlag();
     }
 }

@@ -25,13 +25,13 @@
 
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
 import java.util.HashMap;
@@ -54,7 +54,7 @@ public class QualityScoreDistribution extends LocusWalker<Integer, Integer> {
     }
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        List<SAMRecord> reads = context.getReads();
+        List<GATKSAMRecord> reads = context.getReads();
         List<Integer> offsets = context.getOffsets();
 
         for (int i = 0; i < reads.size(); i++) {

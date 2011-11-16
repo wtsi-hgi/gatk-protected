@@ -141,7 +141,7 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
     public void initialize() {
 
         // Set the number of samples in the pools ( - reference sample)
-        nSamples = getToolkit().getSAMFileSamples().size() - 1;
+        nSamples = SampleUtils.getSAMFileSamples(getToolkit()).size() - 1;
 
         // Set the max allele count (defines the size of the error model array)
         maxAlleleCount = 2*nSamplesPerPool;

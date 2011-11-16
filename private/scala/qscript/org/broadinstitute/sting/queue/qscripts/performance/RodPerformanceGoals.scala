@@ -58,13 +58,16 @@ class RodPerformanceGoals extends QScript {
   @Argument(shortName = "dataDir", doc = "Directory holding all of our data files", required=false)
   val DATA_DIR: File = new File("/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/rodPerformanceGoals");
 
-  @Argument(shortName = "short", doc = "If provided, we will use the shorter tests", required=false)
+  @Argument(shortName = "short", doc = "If provided, we will use the shorter version of the tests", required=false)
   val SHORT: Boolean = false;
+
+  @Argument(shortName = "largeFile", doc = "If provided, we will use the large VCF file to test the GATK vs. Tribble", required=false)
+  val LARGE_FILE: Boolean = false;
 
   @Argument(shortName = "iterations", doc = "Number of iterations we should execute", required=false)
   val iterations: Int = 3;
 
-  @Argument(shortName = "test", doc = "If provided, we will use the shorter tests", required=false)
+  @Argument(shortName = "test", doc = "If provided, we will use only the basic test", required=false)
   val TEST: Boolean = false;
 
   @Argument(shortName = "multithreaded", doc = "If provided, we will include multi-threaded tests but this should only run on hosts with > 8 cores", required=false)
@@ -83,6 +86,7 @@ class RodPerformanceGoals extends QScript {
 
   def OMNI_GENOTYPES = withBundle("1000G_omni2.5.b37.vcf")
   def OMNI_SITES = withBundle("1000G_omni2.5.b37.sites.vcf")
+  def LARGE_1000G_FILE = new File("/humgen/1kg/processing/official_release/phase1/projectConsensus/ALL.wgs.projectConsensus_v2b.20101123.snps.sites.vcf");
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO";
@@ -98,7 +102,11 @@ class RodPerformanceGoals extends QScript {
       if ( ! TEST ) {
         countCovariatesTest(iteration)
         bigCombineVariantsTest(iteration)
-        lowLevelTribbleVsGATK(iteration)
+	if ( LARGE_FILE ) {
+	   lowLevelTribbleVsGATK(iteration, LARGE_1000G_FILE)
+	} else {
+           lowLevelTribbleVsGATK(iteration, OMNI_SITES)
+	}
       }
     }
   }
@@ -180,7 +188,7 @@ class RodPerformanceGoals extends QScript {
     def commandLine = "cat %s | grep -v \"#\" > %s".format(files, out)
   }
 
-  def lowLevelTribbleVsGATK(iteration:Int) {
+  def lowLevelTribbleVsGATK(iteration:Int, vcf:File) {
     val justTribbleMode = org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE
     val justGATKMode = org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_GATK
 
@@ -194,15 +202,15 @@ class RodPerformanceGoals extends QScript {
     }
 
     val justGATK = makeTest("GATK")
-    justGATK.vcf = OMNI_SITES
+    justGATK.vcf = vcf
     justGATK.mode = justGATKMode
 
     val justTribble = makeTest("Tribble")
-    justTribble.vcf = OMNI_SITES
+    justTribble.vcf = vcf
     justTribble.mode = justTribbleMode
 
     val justGATKStream = makeTest("GATK-STREAM")
-    justGATKStream.vcf = TaggedFile(OMNI_SITES,"storage=STREAM")
+    justGATKStream.vcf = TaggedFile(vcf,"storage=STREAM")
     justGATKStream.mode = justGATKMode
 
     add(justGATK)

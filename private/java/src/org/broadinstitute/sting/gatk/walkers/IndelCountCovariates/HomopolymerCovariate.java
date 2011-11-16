@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.IndelCountCovariates;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 //g import org.broadinstitute.sting.gatk.walkers.recalibration.ExperimentalCovariate;
 //g import org.broadinstitute.sting.gatk.walkers.recalibration.RecalibrationArgumentCollection;
 
@@ -51,7 +51,7 @@ public class HomopolymerCovariate implements ExperimentalCovariate {
     }
 
     // Used to pick out the covariate's value from attributes of the read
-    public final Comparable getValue( final SAMRecord read, final int offset ) {
+    public final Comparable getValue( final GATKSAMRecord read, final int offset ) {
 
         // This block of code is for if you don't want to only count consecutive bases
         // ATTGCCCCGTAAAAAAAAATA
@@ -125,7 +125,7 @@ public class HomopolymerCovariate implements ExperimentalCovariate {
             hrunArray[i] = hforward[i]+hreverse[i];
     }
 
-    public void getValues(SAMRecord read, Comparable[] comparable) {
+    public void getValues(GATKSAMRecord read, Comparable[] comparable) {
 
     //    getContextHomopolymerLength(read.getReadBases(), comparable);
         for(int iii = 0; iii < read.getReadLength(); iii++) {

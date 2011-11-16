@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import net.sf.samtools.SAMSequenceRecord;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -12,6 +12,7 @@ import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.ContigComparator;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 
 import java.io.PrintStream;
@@ -61,7 +62,7 @@ import java.util.*;
  */
 
 @ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
-public class ContigStatsWalker extends ReadWalker<SAMRecord, ContigStatsWalker.ContigStats> {
+public class ContigStatsWalker extends ReadWalker<GATKSAMRecord, ContigStatsWalker.ContigStats> {
 
     @Output(required = false)
     PrintStream out = System.out;
@@ -139,7 +140,7 @@ public class ContigStatsWalker extends ReadWalker<SAMRecord, ContigStatsWalker.C
     }
 
     @Override
-    public SAMRecord map(ReferenceContext ref, SAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
         return read;
     }
 
@@ -148,7 +149,7 @@ public class ContigStatsWalker extends ReadWalker<SAMRecord, ContigStatsWalker.C
         return new ContigStats();
     }
 
-    public ContigStats reduce(SAMRecord read, ContigStats stats) {
+    public ContigStats reduce(GATKSAMRecord read, ContigStats stats) {
         stats.addReadToContig(read.getReferenceName());
         return stats;
     }

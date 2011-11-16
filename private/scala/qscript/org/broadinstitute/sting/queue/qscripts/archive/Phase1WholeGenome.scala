@@ -50,8 +50,7 @@ class Phase1WholeGenome extends QScript {
     callSnps.stand_emit_conf = Some( 4.0 )
     callSnps.baq = Some(org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY)
     callSnps.jobName = qscript.outputTmpDir + "/calls/chr" + qscript.chr.toString + "/" +baseName + ".phase1.chr" + qscript.chr.toString + "." + jobNumber + ".raw.snps"
-    callSnps.exactCalculation = Some(org.broadinstitute.sting.gatk.walkers.genotyper.ExactAFCalculationModel.ExactCalculation.LINEAR_EXPERIMENTAL)
-    
+
     val callIndels = new UnifiedGenotyper with CommandLineGATKArgs
     callIndels.out = rawVCFindels
     callIndels.dcov = Some( 50 )
@@ -62,7 +61,6 @@ class Phase1WholeGenome extends QScript {
     callIndels.minIndelCnt = Some(5)
     callIndels.read_filter :+= "Platform454"
     callIndels.jobName = qscript.outputTmpDir + "/calls/chr" + qscript.chr.toString + "/" +baseName + ".phase1.chr" + qscript.chr.toString + "." + jobNumber + ".raw.indels"
-    callIndels.exactCalculation = Some(org.broadinstitute.sting.gatk.walkers.genotyper.ExactAFCalculationModel.ExactCalculation.LINEAR_EXPERIMENTAL)
     callIndels.abort_at_too_much_coverage = Some(4500)
   }
 

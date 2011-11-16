@@ -1,9 +1,10 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
-import net.sf.samtools.SAMRecord;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -29,6 +30,6 @@ public abstract class LocalAssemblyEngine {
 
     protected IndexedFastaSequenceFile getReferenceReader() { return referenceReader; }
 
-    public abstract List<Haplotype> runLocalAssembly(List<SAMRecord> reads);
+    public abstract ArrayList<Haplotype> runLocalAssembly(ArrayList<GATKSAMRecord> reads, Haplotype refHaplotype);
 
 }

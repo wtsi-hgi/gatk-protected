@@ -25,13 +25,13 @@
 
 package org.broadinstitute.sting.gatk.walkers.duplicates;
 
-import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.walkers.DuplicateWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -66,14 +66,14 @@ public class CountDuplicatesWalker extends DuplicateWalker<DuplicateCount, Dupli
      * @param readSets all the duplicate reads
      * @return a DuplicateCount object, with the appropriate stats
      */
-    public DuplicateCount map(GenomeLoc loc, AlignmentContext context, Set<List<SAMRecord>> readSets ) {
+    public DuplicateCount map(GenomeLoc loc, AlignmentContext context, Set<List<GATKSAMRecord>> readSets ) {
         if ( ! quiet ) out.printf("%s with %d read sets => ", loc, readSets.size());
 
         DuplicateCount dup = new DuplicateCount();
         dup.depth = 0;
-        for ( List<SAMRecord> reads : readSets) {
+        for ( List<GATKSAMRecord> reads : readSets) {
             List<String> names = new ArrayList<String>();
-            for ( SAMRecord read : reads ) {
+            for ( GATKSAMRecord read : reads ) {
                 names.add(read.getReadName());
             }
             if ( ! quiet ) out.printf("%d reads [%s] ", reads.size(), Utils.join(",", names));
