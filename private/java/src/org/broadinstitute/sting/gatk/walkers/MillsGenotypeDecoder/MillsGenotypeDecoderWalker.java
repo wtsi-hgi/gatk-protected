@@ -13,7 +13,7 @@ import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeCollection;
+import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
@@ -131,7 +131,7 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
             String id = vc.getID();
             if (recordData.containsKey(id)) {
                 HashMap<String,Integer> data =  recordData.get(id);
-                GenotypeCollection genotypes = GenotypeCollection.create(vc.getGenotypes().size());
+                GenotypesContext genotypes = GenotypesContext.create(vc.getGenotypes().size());
 
                 for (String sample : data.keySet()) {
                     Allele a = null,b = null;

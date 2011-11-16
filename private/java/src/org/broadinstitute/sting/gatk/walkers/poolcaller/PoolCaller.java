@@ -10,7 +10,7 @@ import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeCollection;
+import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.util.*;
@@ -187,7 +187,7 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
                                                   ref.getLocus().getStart(),
                                                   ref.getLocus().getStop(),
                                                   site.getAlleles(),
-                                                  GenotypeCollection.copy(site.getGenotypes().values()),
+                                                  GenotypesContext.copy(site.getGenotypes().values()),
                                                   site.getNegLog10PError(),
                                                   site.getFilters(),
                                                   site.getAttributes());

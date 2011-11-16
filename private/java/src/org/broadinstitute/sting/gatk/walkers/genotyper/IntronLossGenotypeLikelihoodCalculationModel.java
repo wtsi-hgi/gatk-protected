@@ -83,7 +83,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
                 }
                 Map<String,Object> attributes = new HashMap<String,Object>();
 
-                GenotypeCollection genotypes = GenotypeCollection.create(samples.size());
+                GenotypesContext genotypes = GenotypesContext.create(samples.size());
                 for ( final String s : samples ) {
                     Map<String,Object> genAttribs = new HashMap<String,Object>();
                     GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(newLikelihoods.get(s));

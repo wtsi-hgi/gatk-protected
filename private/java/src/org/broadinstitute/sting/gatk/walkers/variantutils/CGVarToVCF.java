@@ -38,7 +38,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeCollection;
+import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.util.*;
@@ -102,7 +102,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
     }
 
     private void write(VariantContext vc, Genotype g) {
-        GenotypeCollection genotypes = GenotypeCollection.create(1);
+        GenotypesContext genotypes = GenotypesContext.create(1);
         genotypes.add(g);
         vc = VariantContext.modifyGenotypes(vc, genotypes);
         if ( vc.isSNP() )

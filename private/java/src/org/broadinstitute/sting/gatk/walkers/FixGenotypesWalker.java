@@ -69,7 +69,7 @@ public class FixGenotypesWalker extends RodWalker<Integer, Integer> {
     }
 
     private VariantContext modifyGLs(VariantContext vc, ReferenceContext ref) {
-        GenotypeCollection genotypes = GenotypeCollection.create(vc.getGenotypes().size());
+        GenotypesContext genotypes = GenotypesContext.create(vc.getGenotypes().size());
 
         for (final Genotype g: vc.getGenotypes()) {
             Genotype newg;
