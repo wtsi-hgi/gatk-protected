@@ -81,7 +81,18 @@ public class SyntheticRead {
         this.mappingQuality += mappingQuality;
     }
 
+    /**
+     * Creates a GATKSAMRecord of the synthetic read. Will return null if the read is invalid.
+     *
+     * Invalid reads are :
+     *   - exclusively composed of deletions
+     *
+     * @return a GATKSAMRecord or null
+     */
     public GATKSAMRecord close () {
+        if (isAllDeletions())
+            return null;
+
         GATKSAMRecord read = new GATKSAMRecord(header);
         read.setReferenceName(contig);
         read.setReferenceIndex(contigIndex);
@@ -96,6 +107,18 @@ public class SyntheticRead {
         read.setReadGroup(readGroupRecord);
         read.setAttribute(readTag, convertBaseCounts());
         return read;
+    }
+
+    /**
+     * Checks if the synthetic read is composed exclusively of deletions
+     *
+     * @return true if it is, false if it isn't.
+     */
+    private boolean isAllDeletions() {
+        for (BaseIndex b : bases)
+            if (b != BaseIndex.D)
+                return false;
+        return true;
     }
 
     public int size () {
