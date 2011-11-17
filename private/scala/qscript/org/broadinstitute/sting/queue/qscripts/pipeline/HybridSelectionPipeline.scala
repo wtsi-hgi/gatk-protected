@@ -234,8 +234,8 @@ class HybridSelectionPipeline extends QScript {
 
     val snpEff = new SnpEff
     snpEff.inVcf = snpsIndelsVcf
-    snpEff.config = "/humgen/gsa-pipeline/resources/snpEff/v2_0_2/snpEff.config"
-    snpEff.genomeVersion = "GRCh37.63"
+    snpEff.config = "/humgen/gsa-pipeline/resources/snpEff/v2_0_4rc3/snpEff.config"
+    snpEff.genomeVersion = "GRCh37.64"
     snpEff.outVcf = projectBase + ".snpeff.vcf"
     snpEff.jobOutputFile = snpEff.outVcf + ".out"
     snpEff.memoryLimit = snpEffMemory
