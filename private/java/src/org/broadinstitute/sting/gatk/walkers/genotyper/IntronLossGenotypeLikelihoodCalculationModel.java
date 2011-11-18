@@ -95,7 +95,8 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
                 attributes.put("GN",geneFeature.getGeneName());
                 attributes.put("EL",postulate.exonLocs.first.getStopLocation().toString());
 
-                vcontexts.add(new VariantContext("ILGV2", VCFConstants.EMPTY_ID_FIELD, featureStop.getContig(),featureStop.getStop(),featureStop.getStop(),Arrays.asList(ref,alt),genotypes,-1,null,attributes,ref.getBases()[0]));
+                vcontexts.add(new VariantContextBuilder("ILGV2", featureStop.getContig(),featureStop.getStop(), featureStop.getStop(), Arrays.asList(ref,alt))
+                        .genotypes(genotypes).negLog10PError(-1).attributes(attributes).referenceBaseForIndel(ref.getBases()[0]).make());
             }
         }
 

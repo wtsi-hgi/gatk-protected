@@ -30,6 +30,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.util.HashMap;
 import java.util.List;
@@ -66,7 +67,8 @@ public class GenomeEvent implements Comparable {
     }
 
     public VariantContext createVariantContextFromEvent() {
-        return new VariantContext("", VCFConstants.EMPTY_ID_FIELD, loc.getContig(), loc.getStart(), loc.getStop(), alleles, 0.0,null, null, refBase);
+        return new VariantContextBuilder("", loc.getContig(), loc.getStart(), loc.getStop(), alleles)
+                .negLog10PError(0.0).referenceBaseForIndel(refBase).make();
 
     }
 }

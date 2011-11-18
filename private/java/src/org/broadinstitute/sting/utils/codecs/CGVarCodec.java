@@ -30,6 +30,7 @@ import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -145,7 +146,7 @@ public class CGVarCodec extends AbstractFeatureCodec {
         }
 
         // create a new feature given the array
-        return new VariantContext("CGI", RSID, array[3], start, end, alleles, VariantContext.NO_NEG_LOG_10PERROR, null, attrs, null);
+        return new VariantContextBuilder("CGI", array[3], start, end, alleles).id(RSID).attributes(attrs).make();
     }
 
     public Class<VariantContext> getFeatureType() {

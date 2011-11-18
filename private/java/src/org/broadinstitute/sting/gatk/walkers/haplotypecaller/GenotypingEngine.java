@@ -138,7 +138,7 @@ public class GenotypingEngine {
                             new MultiallelicGenotypeLikelihoods(sample, vcToGenotype.getAlleles(), genotypeLikelihoods, 40)).getLikelihoods()));
                     genotypes.add(new Genotype(sample, noCall, Genotype.NO_NEG_LOG_10PERROR, null, attributes, false));
                 }
-                returnCallContexts.add( VariantContext.modifyGenotypes(vcToGenotype, genotypes) );
+                returnCallContexts.add( new VariantContextBuilder(vcToGenotype).genotypes(genotypes).make() );
             }
         }
 

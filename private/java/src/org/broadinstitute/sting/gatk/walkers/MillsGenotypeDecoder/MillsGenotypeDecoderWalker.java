@@ -11,10 +11,7 @@ import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -160,7 +157,8 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
                     genotypes.add(gt);
                 }
 
-                VariantContext vcnew = new VariantContext("GMIlls",vc.getChr(), id, vc.getStart(), vc.getEnd(), vc.getAlleles(),  genotypes, 99.0, null, null) ;
+                VariantContext vcnew = new VariantContextBuilder(vc).source("GMIlls").id(id)
+                        .genotypes(genotypes).negLog10PError(99.0).make();
                 vcfWriter.add(vcnew);
             }
         }

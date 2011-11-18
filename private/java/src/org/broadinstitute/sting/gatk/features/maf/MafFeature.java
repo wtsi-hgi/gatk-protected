@@ -31,10 +31,7 @@ import org.broadinstitute.sting.gatk.refdata.VariantContextAdaptors;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
 
@@ -373,10 +370,9 @@ class MafAdaptor implements VariantContextAdaptors.VCAdaptor {
 
         attrs.put("VT",maf.getType());
 
-//                attrs.put(VariantContext.ID_KEY, hapmap.getName());
         int end = maf.getEnd();
-        VariantContext vc = new VariantContext(name, maf.getChr(), maf.getStart(), end, alleles,
-                genotypes, VariantContext.NO_NEG_LOG_10PERROR, null, attrs);
+        VariantContext vc = new VariantContextBuilder(name, maf.getChr(), maf.getStart(), end, alleles)
+                .genotypes(genotypes).attributes(attrs).make();
         return vc;
     }
 

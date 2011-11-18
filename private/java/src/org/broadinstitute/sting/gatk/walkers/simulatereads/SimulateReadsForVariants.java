@@ -53,6 +53,7 @@ import org.broadinstitute.sting.utils.text.TextFormattingUtils;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.io.PrintWriter;
 import java.util.*;
@@ -279,7 +280,8 @@ public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
         attributes.put("MODE", params.mode);
         attributes.put("DP", params.readDepth);
         
-        return new VariantContext("anonymous", VCFConstants.EMPTY_ID_FIELD, loc.getContig(), loc.getStart(), loc.getStart(), alleles, genotypes, VariantContext.NO_NEG_LOG_10PERROR, VariantContext.PASSES_FILTERS, attributes );
+        return new VariantContextBuilder("anonymous", loc.getContig(), loc.getStart(), loc.getStart(), alleles)
+                .genotypes(genotypes).passFilters().attributes(attributes).make();
     }
 
     private ReadBackedPileup generateRBPForVariant( GenomeLoc loc, VariantContext vc, byte[] refBases, ParameterSet params ) {

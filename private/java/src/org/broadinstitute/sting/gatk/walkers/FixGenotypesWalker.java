@@ -101,12 +101,10 @@ public class FixGenotypesWalker extends RodWalker<Integer, Integer> {
             genotypes.add(newg);
         }
 
-        VariantContext sub =  new VariantContext( vc.getSource(), vc.getID(), vc.getChr(), vc.getStart(), vc.getEnd(), vc.getAlleles(), genotypes, vc.getNegLog10PError(), vc.getFilters(), vc.getAttributes(), ref.getBase());
+        VariantContext sub = new VariantContextBuilder(vc).genotypes(genotypes).make();
         HashMap<String, Object> attributes = new HashMap<String, Object>(sub.getAttributes());
-
         VariantContextUtils.calculateChromosomeCounts(sub, attributes, false);
-
-        return VariantContext.modifyAttributes(sub, attributes);
+        return new VariantContextBuilder(sub).attributes(attributes).make();
 
     }
 }

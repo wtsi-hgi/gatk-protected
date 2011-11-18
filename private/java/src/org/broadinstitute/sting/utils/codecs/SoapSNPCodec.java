@@ -7,6 +7,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.util.*;
 
@@ -102,7 +103,7 @@ public class SoapSNPCodec extends AbstractFeatureCodec implements NameAwareCodec
             //System.out.printf("Alleles  = " + allelesAndGenotype.alleles);
             //System.out.printf("genotype = " + allelesAndGenotype.genotype);
             
-            VariantContext vc = new VariantContext(name, VCFConstants.EMPTY_ID_FIELD, contig, start, start, allelesAndGenotype.alleles, allelesAndGenotype.genotype, negLog10PError, VariantContext.PASSES_FILTERS, attributes);
+            VariantContext vc = new VariantContextBuilder(name, contig, start, start, allelesAndGenotype.alleles).genotypes(allelesAndGenotype.genotype).negLog10PError(negLog10PError).passFilters().attributes(attributes).make();
 
             //System.out.printf("line  = %s%n", line);
             //System.out.printf("vc    = %s%n", vc);
