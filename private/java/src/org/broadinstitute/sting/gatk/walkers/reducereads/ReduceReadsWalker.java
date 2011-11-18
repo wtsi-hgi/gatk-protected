@@ -249,7 +249,8 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
         readNameHash = new HashMap<String, Long>();
 
         intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator ());
-        intervalList.addAll(getToolkit().getIntervals());
+        if (getToolkit().getIntervals() != null)
+            intervalList.addAll(getToolkit().getIntervals());
 
         out.setPresorted(false);
 
@@ -308,7 +309,7 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
     public ReduceReadsStash reduce( List<GATKSAMRecord> mappedReads, ReduceReadsStash stash ) {
         boolean firstRead = true;
         for (GATKSAMRecord read : mappedReads) {
-            boolean originalRead = firstRead && ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
+            boolean originalRead = firstRead && isOriginalRead(mappedReads, read);
 
             if (read.getReadLength() == 0)
                 throw new ReviewedStingException("Empty read sent to reduce, this should never happen! " + read.getReadName() + " -- " + read.getCigar() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() );
@@ -390,5 +391,17 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
 
         compressedRead.setReadName(compressedName);
         return compressedRead;
+    }
+
+    /**
+     * Returns true if the read is the original read that went through map().
+     *
+     * This is important to know so we can decide what reads to pull from the stash. Only reads that came before the original read should be pulled.
+     * @param list
+     * @param read
+     * @return Returns true if the read is the original read that went through map().
+     */
+    private boolean isOriginalRead(List<GATKSAMRecord> list, GATKSAMRecord read) {
+         return list.size() == 1 || ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
     }
 }

@@ -219,7 +219,7 @@ public class SlidingWindow {
             HeaderElement headerElement = headerElementIterator.next();
 
             if (headerElement.hasConsensusData()) {
-                finalizeAndAdd(reads, ConsensusType.FILTERED);
+                reads.addAll(finalizeAndAdd(ConsensusType.FILTERED));
 
                 int endOfConsensus = findNextNonConsensusElement(start, end);
                 addToRunningConsensus(start, endOfConsensus);
@@ -231,7 +231,7 @@ public class SlidingWindow {
             }
 
             else if (headerElement.hasFilteredData()) {
-                finalizeAndAdd(reads, ConsensusType.CONSENSUS);
+                reads.addAll(finalizeAndAdd(ConsensusType.CONSENSUS));
 
                 int endOfFilteredData = findNextNonFilteredDataElement(start, end);
                 addToFilteredData(start, endOfFilteredData);
@@ -243,8 +243,7 @@ public class SlidingWindow {
             }
 
             else if (headerElement.isEmpty()) {
-                finalizeAndAdd(reads, ConsensusType.FILTERED);
-                finalizeAndAdd(reads, ConsensusType.CONSENSUS);
+                reads.addAll(finalizeAndAdd(ConsensusType.BOTH));
 
                 int endOfEmptyData = findNextNonEmptyElement(start, end);
 
@@ -262,8 +261,10 @@ public class SlidingWindow {
         return reads;
     }
 
-    private void finalizeAndAdd(List<GATKSAMRecord> list, ConsensusType type) {
+    private List<GATKSAMRecord> finalizeAndAdd(ConsensusType type) {
         GATKSAMRecord read = null;
+        List<GATKSAMRecord> list = new LinkedList<GATKSAMRecord>();
+
         switch (type) {
             case CONSENSUS:
                 read = finalizeRunningConsensus();
@@ -271,9 +272,14 @@ public class SlidingWindow {
             case FILTERED:
                 read = finalizeFilteredDataConsensus();
                 break;
+            case BOTH:
+                read = finalizeRunningConsensus();
+                if (read != null) list.add(read);
+                read = finalizeFilteredDataConsensus();
         }
-        if (read != null)
-            list.add(read);
+        if (read != null) list.add(read);
+
+        return list;
     }
 
     /**
@@ -413,11 +419,8 @@ public class SlidingWindow {
         List<GATKSAMRecord> finalizedReads = new LinkedList<GATKSAMRecord>();
 
         // Finalize consensus if there is one to finalize before the Variant Region
-        if (runningConsensus != null) {
-            GATKSAMRecord consensus = finalizeRunningConsensus();
-            if (consensus != null)
-                finalizedReads.add(consensus);
-        }
+        finalizedReads.addAll(finalizeAndAdd(ConsensusType.BOTH));
+
         // Clipping operations are reference based, not read based
         int refStart = windowHeader.get(start).location;
         int refEnd = windowHeader.get(end).location;
@@ -489,19 +492,8 @@ public class SlidingWindow {
             }
 
             // if it ended in running consensus, finish it up
-            if (runningConsensus != null) {
-                GATKSAMRecord consensus = finalizeRunningConsensus();
-                if (consensus != null)
-                    finalizedReads.add(consensus);
-            }
+           finalizedReads.addAll(finalizeAndAdd(ConsensusType.BOTH));
 
-            // if it ended in a filtered data consensus, finish it up
-            if (filteredDataConsensus != null) {
-                GATKSAMRecord filteredDataRead = finalizeFilteredDataConsensus();
-                if (filteredDataRead != null)
-                    finalizedReads.add(filteredDataRead);
-
-            }
         }
         return finalizedReads;
     }
@@ -733,7 +725,8 @@ public class SlidingWindow {
 
     private enum ConsensusType {
         CONSENSUS,
-        FILTERED
+        FILTERED,
+        BOTH
     }
 
 
