@@ -53,7 +53,7 @@ public class FixGenotypesWalker extends RodWalker<Integer, Integer> {
              if (vc.isIndel())
                  vc = modifyGLs(vc, ref);
 
-            if (vc.isPolymorphic())
+            if (vc.isPolymorphicInSamples())
                 vcfWriter.add(vc);
          }
         return 1;

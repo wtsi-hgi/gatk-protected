@@ -49,7 +49,7 @@ public class UniformSamplingFrequencySelector extends FrequencyModeSelector {
         if (vc.hasGenotypes() && !IGNORE_GENOTYPES) {
             // recompute AF,AC,AN based on genotypes:
             VariantContextUtils.calculateChromosomeCounts(vc, attributes, false);
-            if (!subVC.isPolymorphic())
+            if (!subVC.isPolymorphicInSamples())
                 return;
         } else  {
             if ( attributes.containsKey(VCFConstants.ALLELE_COUNT_KEY) )  {

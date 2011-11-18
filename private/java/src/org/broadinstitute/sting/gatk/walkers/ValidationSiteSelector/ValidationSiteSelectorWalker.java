@@ -220,7 +220,7 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
             if (!selectedTypes.contains(vc.getType()))
                 continue;
 
-            if (!vc.isPolymorphic())
+            if (!vc.isPolymorphicInSamples())
                 continue;
 
             if (!INCLUDE_FILTERED_SITES && vc.filtersWereApplied() && vc.isFiltered())
