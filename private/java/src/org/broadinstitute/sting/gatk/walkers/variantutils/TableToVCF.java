@@ -21,6 +21,7 @@ import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.util.*;
 
@@ -128,8 +129,7 @@ public class TableToVCF extends RodWalker<VariantContext,Integer> {
         logger.debug(ref);
         logger.debug(alt);
 
-        return new VariantContext("Table2VCF", VCFConstants.EMPTY_ID_FIELD, featureLoc.getContig(),featureLoc.getStart(),end, Arrays.asList(ref,alt),
-                VariantContext.NO_GENOTYPES, 1.0, new HashSet<String>(), new HashMap<String,Object>());
+        return new VariantContextBuilder("Table2VCF", featureLoc.getContig(), featureLoc.getStart(), end, Arrays.asList(ref,alt)).make();
     }
 
     protected enum VariantType {

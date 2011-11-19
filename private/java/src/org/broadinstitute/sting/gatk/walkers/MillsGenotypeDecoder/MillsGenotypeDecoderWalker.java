@@ -158,7 +158,7 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
                 }
 
                 VariantContext vcnew = new VariantContextBuilder(vc).source("GMIlls").id(id)
-                        .genotypes(genotypes).negLog10PError(99.0).make();
+                        .genotypes(genotypes).log10PError(-99.0).make();
                 vcfWriter.add(vcnew);
             }
         }

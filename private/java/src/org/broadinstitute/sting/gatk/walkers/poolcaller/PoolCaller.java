@@ -8,10 +8,7 @@ import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
 
@@ -182,15 +179,15 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         else
             site = new Site(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower);
 
-        VariantContext call = new VariantContext("PoolCaller", VCFConstants.EMPTY_ID_FIELD,
-                                                  ref.getLocus().getContig(),
-                                                  ref.getLocus().getStart(),
-                                                  ref.getLocus().getStop(),
-                                                  site.getAlleles(),
-                                                  GenotypesContext.copy(site.getGenotypes().values()),
-                                                  site.getNegLog10PError(),
-                                                  site.getFilters(),
-                                                  site.getAttributes());
+        VariantContext call = new VariantContextBuilder("PoolCaller",
+                ref.getLocus().getContig(),
+                ref.getLocus().getStart(),
+                ref.getLocus().getStop(),
+                site.getAlleles())
+                .genotypes(GenotypesContext.copy(site.getGenotypes().values()))
+                .log10PError(-1 * site.getNegLog10PError())
+                .filters(site.getFilters())
+                .attributes(site.getAttributes()).make();
 
 
         vcfWriter.add(call);

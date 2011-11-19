@@ -88,7 +88,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
                     Map<String,Object> genAttribs = new HashMap<String,Object>();
                     GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(newLikelihoods.get(s));
                     genAttribs.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,likelihoods);
-                    genotypes.add(new Genotype(s, Arrays.asList(Allele.NO_CALL), Genotype.NO_NEG_LOG_10PERROR, null, genAttribs, false));
+                    genotypes.add(new Genotype(s, Arrays.asList(Allele.NO_CALL), Genotype.NO_LOG10_PERROR, null, genAttribs, false));
                 }
 
                 attributes.put("SR",postulate.supportingPairs.size());
@@ -96,7 +96,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
                 attributes.put("EL",postulate.exonLocs.first.getStopLocation().toString());
 
                 vcontexts.add(new VariantContextBuilder("ILGV2", featureStop.getContig(),featureStop.getStop(), featureStop.getStop(), Arrays.asList(ref,alt))
-                        .genotypes(genotypes).negLog10PError(-1).attributes(attributes).referenceBaseForIndel(ref.getBases()[0]).make());
+                        .genotypes(genotypes).attributes(attributes).referenceBaseForIndel(ref.getBases()[0]).make());
             }
         }
 

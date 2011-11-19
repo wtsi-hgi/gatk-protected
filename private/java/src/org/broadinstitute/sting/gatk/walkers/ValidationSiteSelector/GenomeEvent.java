@@ -68,7 +68,7 @@ public class GenomeEvent implements Comparable {
 
     public VariantContext createVariantContextFromEvent() {
         return new VariantContextBuilder("", loc.getContig(), loc.getStart(), loc.getStop(), alleles)
-                .negLog10PError(0.0).referenceBaseForIndel(refBase).make();
+                .log10PError(0.0).referenceBaseForIndel(refBase).make();
 
     }
 }

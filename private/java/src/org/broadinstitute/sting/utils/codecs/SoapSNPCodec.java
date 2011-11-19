@@ -92,7 +92,7 @@ public class SoapSNPCodec extends AbstractFeatureCodec implements NameAwareCodec
             long start = Long.valueOf(parts[1]);
             AlleleAndGenotype allelesAndGenotype = parseAlleles(parts[2], parts[3], line);
 
-            double negLog10PError = Integer.valueOf(parts[4]) / 10.0;
+            double log10PError = Integer.valueOf(parts[4]) / -10.0;
 
             Map<String, Object> attributes = new HashMap<String, Object>();
             attributes.put("BestBaseQ", parts[6]);
@@ -103,7 +103,7 @@ public class SoapSNPCodec extends AbstractFeatureCodec implements NameAwareCodec
             //System.out.printf("Alleles  = " + allelesAndGenotype.alleles);
             //System.out.printf("genotype = " + allelesAndGenotype.genotype);
             
-            VariantContext vc = new VariantContextBuilder(name, contig, start, start, allelesAndGenotype.alleles).genotypes(allelesAndGenotype.genotype).negLog10PError(negLog10PError).passFilters().attributes(attributes).make();
+            VariantContext vc = new VariantContextBuilder(name, contig, start, start, allelesAndGenotype.alleles).genotypes(allelesAndGenotype.genotype).log10PError(log10PError).passFilters().attributes(attributes).make();
 
             //System.out.printf("line  = %s%n", line);
             //System.out.printf("vc    = %s%n", vc);

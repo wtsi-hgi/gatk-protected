@@ -138,7 +138,7 @@ public class LocusMismatchWalker extends LocusWalker<String,Integer> implements 
             }
             return String.format("%s %c %10s %5.2f %d %d %d %s",
                     pileup.getLocation(), ref.getBaseAsChar(),
-                    getGenotypeClass(g), 10 * g.getNegLog10PError(),
+                    getGenotypeClass(g), -10 * g.getLog10PError(),
                     usableDepth, nMismatches, qSumMismatches, baseCountString.toString());
         }
 
@@ -208,8 +208,8 @@ public class LocusMismatchWalker extends LocusWalker<String,Integer> implements 
 //            return false;
 //        else {
 //            VariationCall var = calls.getFirst();
-//            return var.isReference() && var.getNegLog10PError() > confidentRefThreshold;
-//            //return  ( var.isReference() > 0 && !calls.second.get(0).isVariant(ref.getBase()) && calls.second.get(0).getNegLog10PError() > confidentRefThreshold );
+//            return var.isReference() && var.getLog10PError() > confidentRefThreshold;
+//            //return  ( var.isReference() > 0 && !calls.second.get(0).isVariant(ref.getBase()) && calls.second.get(0).getLog10PError() > confidentRefThreshold );
 //        }
 //    }
 
