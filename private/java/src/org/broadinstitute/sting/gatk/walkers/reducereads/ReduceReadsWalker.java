@@ -250,9 +250,6 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
             intervalList.addAll(getToolkit().getIntervals());
 
         out.setPresorted(false);
-
-//        for ( SAMReadGroupRecord rg : getToolkit().getSAMFileHeader().getReadGroups())
-//            out.getFileHeader().addReadGroup(rg);
     }
 
     @Override
@@ -396,6 +393,11 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
      * @return Returns true if the read is the original read that went through map().
      */
     private boolean isOriginalRead(List<GATKSAMRecord> list, GATKSAMRecord read) {
-         return list.size() == 1 || ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
+         return isWholeGenome() || ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
     }
+
+    private boolean isWholeGenome() {
+        return intervalList.isEmpty();
+    }
+
 }
