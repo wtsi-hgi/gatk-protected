@@ -53,12 +53,11 @@ public class MultiSampleCompressor implements Compressor {
                                  final int minMappingQuality,
                                  final double minAltProportionToTriggerVariant,
                                  final double minIndelProportionToTriggerVariant,
-                                 final int minBaseQual,
-                                 final int maxQualCount) {
+                                 final int minBaseQual) {
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
                     new SingleSampleCompressor(name, contextSize, contextSizeIndels, downsampleCoverage,
-                                    minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
+                                    minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual));
         }
     }
 

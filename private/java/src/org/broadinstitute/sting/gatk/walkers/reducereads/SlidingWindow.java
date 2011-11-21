@@ -50,11 +50,10 @@ public class SlidingWindow {
     protected double MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT;    // proportion has to be greater than this value to trigger variant region due to mismatches
     protected double MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;  // proportion has to be greater than this value to trigger variant region due to deletions
     protected int MIN_BASE_QUAL_TO_COUNT;                           // qual has to be greater than or equal to this value
-    protected int MAX_QUAL_COUNT;                                   // to avoid blowing up the qual field of a consensus site
     protected int MIN_MAPPING_QUALITY;
 
 
-    public SlidingWindow(String contig, int contigIndex, int contextSize, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int maxQualCount, int minMappingQuality) {
+    public SlidingWindow(String contig, int contigIndex, int contextSize, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality) {
         this.startLocation = -1;
         this.stopLocation = -1;
         this.contextSize = contextSize;
@@ -62,7 +61,6 @@ public class SlidingWindow {
 
         this.MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT = minAltProportionToTriggerVariant;
         this.MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT = minIndelProportionToTriggerVariant;
-        this.MAX_QUAL_COUNT = maxQualCount;
         this.MIN_BASE_QUAL_TO_COUNT = minBaseQual;
         this.MIN_MAPPING_QUALITY = minMappingQuality;
 
@@ -377,7 +375,7 @@ public class SlidingWindow {
                 throw new ReviewedStingException("No filtered data in " + index);
 
             BaseIndex base  = headerElement.filteredBaseCounts.baseIndexWithMostCounts();
-            byte count = (byte) Math.min(headerElement.filteredBaseCounts.countOfMostCommonBase(), MAX_QUAL_COUNT);
+            byte count = (byte) Math.min(headerElement.filteredBaseCounts.countOfMostCommonBase(), Byte.MAX_VALUE);
             byte qual  = headerElement.filteredBaseCounts.averageQualsOfMostCommonBase();
             filteredDataConsensus.add(base, count, qual, headerElement.getRMS());
         }
@@ -407,7 +405,7 @@ public class SlidingWindow {
                 throw new ReviewedStingException("No CONSENSUS data in " + index);
 
             BaseIndex base  = headerElement.consensusBaseCounts.baseIndexWithMostCounts();
-            byte count = (byte) Math.min(headerElement.consensusBaseCounts.countOfMostCommonBase(), MAX_QUAL_COUNT);
+            byte count = (byte) Math.min(headerElement.consensusBaseCounts.countOfMostCommonBase(), Byte.MAX_VALUE);
             byte qual  = headerElement.consensusBaseCounts.averageQualsOfMostCommonBase();
             runningConsensus.add(base, count, qual, headerElement.getRMS());
         }

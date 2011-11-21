@@ -26,7 +26,6 @@ public class SingleSampleCompressor implements Compressor {
     protected double minAltProportionToTriggerVariant;
     protected double minIndelProportionToTriggerVariant;
     protected int minBaseQual;
-    protected int maxQualCount;
 
 
     public SingleSampleCompressor(final String sampleName,
@@ -36,8 +35,7 @@ public class SingleSampleCompressor implements Compressor {
                                   final int minMappingQuality,
                                   final double minAltProportionToTriggerVariant,
                                   final double minIndelProportionToTriggerVariant,
-                                  final int minBaseQual,
-                                  final int maxQualCount) {
+                                  final int minBaseQual) {
         this.sampleName = sampleName;
         this.contextSize = contextSize;
         this.contextSizeIndels = contextSizeIndels;
@@ -47,7 +45,6 @@ public class SingleSampleCompressor implements Compressor {
         this.minAltProportionToTriggerVariant = minAltProportionToTriggerVariant;
         this.minIndelProportionToTriggerVariant = minIndelProportionToTriggerVariant;
         this.minBaseQual = minBaseQual;
-        this.maxQualCount = maxQualCount;
     }
 
     /**
@@ -78,7 +75,7 @@ public class SingleSampleCompressor implements Compressor {
     }
 
     protected void instantiateSlidingWindow(GATKSAMRecord read) {
-        slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getReadGroup(), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount, minMappingQuality);
+        slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getReadGroup(), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, minMappingQuality);
     }
 
     @Override
