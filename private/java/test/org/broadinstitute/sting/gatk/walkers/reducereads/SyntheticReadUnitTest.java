@@ -8,9 +8,7 @@ import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Random;
 
 public class SyntheticReadUnitTest extends BaseTest {
@@ -21,88 +19,55 @@ public class SyntheticReadUnitTest extends BaseTest {
     final String artificialReadName = "synth";
     final int artificialRefStart = 1;
     final double artificialMappingQuality = 60;
+
     final Random random = new Random(8854875);
 
 
 @Test
 public void testBaseCounts() {
-    for (int i=0; i<10; i++) {
-        SyntheticRead syntheticRead = new SyntheticRead(artificialSAMHeader, artificialGATKRG, artificialContig, artificialContigIndex, artificialReadName, artificialRefStart, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG);
-        ReadInfo readInfo = new ReadInfo();
-        for (BaseInfo baseInfo : readInfo)
-            syntheticRead.add(baseInfo.getBase(), baseInfo.getCounts(), baseInfo.getQual(), artificialMappingQuality);
+        BaseIndex [] bases = new BaseIndex[] {BaseIndex.A,BaseIndex.A,BaseIndex.A,BaseIndex.A};
+        Byte[] quals = new Byte[] {20, 20, 20, 20 };
 
-        byte [] expectedBaseCounts = readInfo.getCounts();
-        byte [] compressedBaseCounts = syntheticRead.convertBaseCounts();
+        TestRead [] testReads = new TestRead [] {
+                new TestRead(bases, quals, new Byte[] {100, 100, 100, 101}, new byte [] {100, 0, 0, 1}),
+                new TestRead(bases, quals, new Byte[] {1, 100, 100, 0},     new byte [] {1, 99, 99, -1}),
+                new TestRead(bases, quals, new Byte[] {127, 100, 0, 1},     new byte [] {127, -27, -127, -126}),
+                new TestRead(bases, quals, new Byte[] {1, 127, 51, 126},    new byte [] {1, 126, 50, 125})};
 
-        // This reverts back to the original quals, causing overflows on the byte.
-        // this works because we're also overflowing in the very same way in the compression.
-        byte firstBase = expectedBaseCounts[0];
-        for (int j=1; j<expectedBaseCounts.length; j++)
-            compressedBaseCounts[j] += firstBase;
-
-        Assert.assertEquals(compressedBaseCounts, expectedBaseCounts);
-    }
-}
-
-private class ReadInfo implements Iterable<BaseInfo> {
-    private BaseIndex [] bases;
-    private byte [] quals;
-    private byte [] counts;
-
-    private ReadInfo() {
-        final BaseIndex[] values = new BaseIndex []{BaseIndex.A, BaseIndex.C, BaseIndex.G, BaseIndex.T};
-        final int size = 1 + random.nextInt(99);
-
-        bases = new BaseIndex[size];
-        quals = new byte[size];
-        counts = new byte[size];
-
-        for (int i = 0; i < bases.length; i++) {
-            bases[i] = values[random.nextInt(values.length)];
-            quals[i] = (byte) random.nextInt(64);
-            counts[i] = (byte) random.nextInt(Byte.MAX_VALUE);
+        for (TestRead testRead : testReads) {
+            SyntheticRead syntheticRead = new SyntheticRead(Arrays.asList(testRead.getBases()), Arrays.asList(testRead.getCounts()), Arrays.asList(testRead.getQuals()), artificialMappingQuality, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG, artificialSAMHeader, artificialGATKRG, artificialContig, artificialContigIndex, artificialReadName, artificialRefStart);
+            Assert.assertEquals(syntheticRead.convertBaseCounts(), testRead.getExpectedCounts());
         }
-    }
-
-    public byte[] getCounts() {
-        return counts;
-    }
-
-    @Override
-    public Iterator<BaseInfo> iterator() {
-        List<BaseInfo> list = new ArrayList<BaseInfo>();
-        for (int i=0; i<bases.length; i++)
-            list.add(new BaseInfo(bases[i], quals[i], counts[i]));
-        return list.iterator();
-    }
 }
 
-private class BaseInfo {
-    private BaseIndex base;
-    private byte qual;
-    private byte counts;
+private class TestRead {
+    BaseIndex[] bases;
+    Byte[] quals;
+    Byte[] counts;
+    byte [] expectedCounts;
 
-    private BaseInfo(BaseIndex base, byte qual, byte counts) {
-        this.base = base;
-        this.qual = qual;
+    private TestRead(BaseIndex[] bases, Byte[] quals, Byte[] counts, byte[] expectedCounts) {
+        this.bases = bases;
+        this.quals = quals;
         this.counts = counts;
+        this.expectedCounts = expectedCounts;
     }
 
-    public BaseIndex getBase() {
-        return base;
+    public BaseIndex[] getBases() {
+        return bases;
     }
 
-
-    public byte getQual() {
-        return qual;
+    public Byte[] getQuals() {
+        return quals;
     }
 
-
-    public byte getCounts() {
+    public Byte[] getCounts() {
         return counts;
     }
 
+    public byte[] getExpectedCounts() {
+        return expectedCounts;
+    }
 }
 
 }
