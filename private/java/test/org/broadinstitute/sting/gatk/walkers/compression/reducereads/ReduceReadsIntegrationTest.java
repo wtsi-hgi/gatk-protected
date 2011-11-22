@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.reducereads;
+package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
 import org.broadinstitute.sting.WalkerTest;
 import org.testng.annotations.DataProvider;

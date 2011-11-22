@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.reducereads;
+package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
 import net.sf.samtools.SAMFileHeader;
 import org.apache.log4j.Logger;

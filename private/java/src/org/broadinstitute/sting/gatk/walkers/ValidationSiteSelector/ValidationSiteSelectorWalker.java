@@ -264,6 +264,8 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
              case POLY_BASED_ON_GT:
                  sm = new GTBasedSampleSelector(samples);
                  break;
+             case NONE:
+                 throw new IllegalArgumentException("Unsupported Sample Selection Mode: " + sampleMode);
              default: throw new IllegalArgumentException("Unexpected Sample Selection Mode: " + sampleMode);
          }
 
