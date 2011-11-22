@@ -26,87 +26,126 @@
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
 import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.LocusWalker;
+import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 /**
- * Compute quality score distribution
+ * Reports the distribution of quality scores of bases in the BAM file(s).
+ * <p>
+ * Runs through every read counting the number of times a Q score has occurred.
+ * </p>
+ * <h2>Input</h2>
+ * <p>
+ * One or more BAM files.
+ * </p>
+ * <h2>Output</h2>
+ * <p>
+ * A table with the counts per PHRED scaled quality score from 0 to MAX_QUAL (defined in picard tools - currently 90)
+ * </p>
+ * <h2>Examples</h2>
+ * <pre>
+ *    java
+ *      -jar GenomeAnalysisTK.jar
+ *      -T QualityScoreDistribution
+ *      -R reference.fasta
+ *      -I input.bam
+ *      -o output.tbl
+ *  </pre>
+ *
+ * @author Mauricio Carneiro
+ * @since 11/22/11
  */
-public class QualityScoreDistribution extends LocusWalker<Integer, Integer> {
+public class QualityScoreDistribution extends ReadWalker<HashMap<Byte, Long>, HashMap<Byte, Long>> {
     @Output
     PrintStream out;
 
-    private HashMap<String, long[]> qualDists;
 
-    public void initialize() {
-        qualDists = new HashMap<String, long[]>();
-
-        qualDists.put("all", new long[QualityUtils.MAX_QUAL_SCORE]);
+    public HashMap<Byte, Long> reduceInit() {
+        HashMap<Byte, Long> qualsMap = new HashMap<Byte, Long>(QualityUtils.MAX_QUAL_SCORE);
+        return initQualsMap(qualsMap);
     }
 
-    public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        List<GATKSAMRecord> reads = context.getReads();
-        List<Integer> offsets = context.getOffsets();
+    @Override
+    public HashMap<Byte, Long> map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
+        HashMap<Byte, Long> qualsMap = new HashMap<Byte, Long>(QualityUtils.MAX_QUAL_SCORE);
+        byte [] quals = read.getBaseQualities();
+        initQualsMap(qualsMap);
+        for (int i = 0; i < quals.length; i++) {
+            byte q = quals[i];
+            if (!qualsMap.containsKey(q))
+                throw new ReviewedStingException(String.format("Invalid quality score %d on read %s", q, read));
 
-        for (int i = 0; i < reads.size(); i++) {
-            byte qual = reads.get(i).getBaseQualities()[offsets.get(i)];
-            String name = reads.get(i).getReadGroup().getReadGroupId();
-
-            if (!qualDists.containsKey(name)) {
-                qualDists.put(name, new long[QualityUtils.MAX_QUAL_SCORE]);
-            }
-
-            qualDists.get(name)[qual]++;
-            qualDists.get("all")[qual]++;
+            int count = read.isReducedRead() ? read.getReducedCount(i) : 1;
+            qualsMap.put(q, qualsMap.get(q) + count);
         }
 
-        return null;
+        return qualsMap;
     }
 
-    public Integer reduceInit() {
-        return null;
+    @Override
+    public HashMap<Byte, Long> reduce(HashMap<Byte, Long> value, HashMap<Byte, Long> sum) {
+        return combineHashes(value, sum);
     }
 
-    public Integer reduce(Integer value, Integer sum) {
-        return null;
+    @Override
+    public void onTraversalDone(HashMap<Byte, Long> result) {
+        super.onTraversalDone(result);
+
+        GATKReportTable table = new GATKReportTable("QualityScoreDistribution", "Distribution of all quality scores found in the input BAM(s)");
+        table.addPrimaryKey("Qual", true);
+        table.addColumn("Count", true);
+
+        for (Map.Entry<Byte, Long> entry : result.entrySet())
+            table.set(entry.getKey(), "Count", entry.getValue());
+
+        table.write(out);
     }
 
-    public void onTraversalDone(Integer result) {
-        Set<String> names = qualDists.keySet();
-        HashMap<String, Long> norms = new HashMap<String, Long>();
+    /**
+     * Initializes the HashMap with all Quality Scores from 0 to MAX_QUAL and sets all counts to zero
+     *
+     * @param map
+     * @return it returns the initialized map as a convenience
+     */
+    private static HashMap<Byte, Long> initQualsMap (HashMap<Byte, Long> map) {
+        for (byte i=0; i<=QualityUtils.MAX_QUAL_SCORE; i++)
+            map.put(i, 0L);
+        return map;
+    }
 
-        for (String name : names) {
-            long norm = 0;
-            for (int qual = 0; qual < QualityUtils.MAX_QUAL_SCORE; qual++) {
-                norm += qualDists.get(name)[qual];
-            }
+    /**
+     * Adds up the two hashes.
+     *
+     * it assumes that both hashes have exactly the same set of keys (which should be okay because they are all initialized
+     * the same way)
+     *
+     * @param map1
+     * @param map2
+     * @return the sume of the two hashes
+     */
+    private static HashMap<Byte, Long> combineHashes (HashMap<Byte, Long> map1, HashMap<Byte, Long> map2) {
+        for (Map.Entry<Byte, Long> entry : map1.entrySet()) {
+            Byte qual = entry.getKey();
+            Long entryCount = entry.getValue();
+            Long sumCount = map2.get(qual);
 
-            norms.put(name, norm);
+            if (sumCount == null)
+                sumCount = 0L;
+
+            map2.put(qual, sumCount + entryCount);
         }
-
-        out.printf("Q");
-        for (String name : names) {
-            out.printf("\t%s", name);
-        }
-        out.println();
-
-        for (int qual = 0; qual < QualityUtils.MAX_QUAL_SCORE; qual++) {
-            out.printf("%d", qual);
-
-            for (String name : names) {
-                out.printf("\t%f", ((float) qualDists.get(name)[qual])/((float) norms.get(name)));
-            }
-
-            out.println();
-        }
+        return map2;
     }
+
+
+
 }
