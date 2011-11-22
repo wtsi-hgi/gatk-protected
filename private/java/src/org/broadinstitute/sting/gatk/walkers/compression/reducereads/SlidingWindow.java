@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.reducereads;
+package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
 import com.google.java.contract.Requires;
 import net.sf.samtools.Cigar;

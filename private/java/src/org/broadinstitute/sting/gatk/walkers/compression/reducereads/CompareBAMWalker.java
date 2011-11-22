@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.reducereads;
+package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;

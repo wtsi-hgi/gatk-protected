@@ -1,5 +1,5 @@
 // our package
-package org.broadinstitute.sting.gatk.walkers.reducereads;
+package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
 
 // the imports for unit testing.

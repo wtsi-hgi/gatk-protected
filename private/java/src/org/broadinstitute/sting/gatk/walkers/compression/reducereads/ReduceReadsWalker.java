@@ -23,7 +23,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.gatk.walkers.reducereads;
+package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
 import net.sf.samtools.SAMUtils;
 import net.sf.samtools.util.SequenceUtil;

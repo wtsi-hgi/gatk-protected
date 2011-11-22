@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.reducereads;
+package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
