@@ -53,7 +53,7 @@ import java.util.*;
 
 @PartitionBy(PartitionType.INTERVAL)
 @ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
-public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceReadsStash> {
+public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, ReduceReadsStash> {
 
     @Output
     protected StingSAMFileWriter out;
@@ -109,8 +109,8 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
      * @param read the read to be hard clipped to the interval.
      * @return a shallow copy of the read hard clipped to the interval
      */
-    private List<GATKSAMRecord> hardClipReadToInterval(GATKSAMRecord read) {
-        List<GATKSAMRecord> clippedReads = new LinkedList<GATKSAMRecord>();
+    private LinkedList<GATKSAMRecord> hardClipReadToInterval(GATKSAMRecord read) {
+        LinkedList<GATKSAMRecord> clippedReads = new LinkedList<GATKSAMRecord>();
         ReadClipper clipper = new ReadClipper(read);
 
         GenomeLoc intervalOverlapped = null;       // marks the interval to which the original read overlapped (so we can cut all previous intervals from the list)
@@ -253,7 +253,7 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
     }
 
     @Override
-    public List<GATKSAMRecord> map( ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker ) {
+    public LinkedList<GATKSAMRecord> map( ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker ) {
         totalReads++;
         if (!debugRead.isEmpty() && read.getReadName().contains(debugRead))
             System.out.println("Found debug read!");
@@ -272,7 +272,7 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
         clipper = new ReadClipper(clippedRead);
         clippedRead = clipper.hardClipLeadingInsertions();                        // Clean up leading insertions (because the sliding window can't handle them yet)
 
-        List<GATKSAMRecord> mappedReads = hardClipReadToInterval(clippedRead);    // Hard clip the remainder of the read to the desired interval
+        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(clippedRead);    // Hard clip the remainder of the read to the desired interval
 
         if (debugLevel == 1) {
             for (GATKSAMRecord mappedRead : mappedReads)
@@ -297,7 +297,7 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
     /**
      * given a read and an output location, reduce by emitting the read
      */
-    public ReduceReadsStash reduce( List<GATKSAMRecord> mappedReads, ReduceReadsStash stash ) {
+    public ReduceReadsStash reduce( LinkedList<GATKSAMRecord> mappedReads, ReduceReadsStash stash ) {
         boolean firstRead = true;
         for (GATKSAMRecord read : mappedReads) {
             boolean originalRead = firstRead && isOriginalRead(mappedReads, read);
@@ -392,8 +392,8 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
      * @param read
      * @return Returns true if the read is the original read that went through map().
      */
-    private boolean isOriginalRead(List<GATKSAMRecord> list, GATKSAMRecord read) {
-         return isWholeGenome() || ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
+    private boolean isOriginalRead(LinkedList<GATKSAMRecord> list, GATKSAMRecord read) {
+         return isWholeGenome() || (list.getFirst().equals(read) && ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED);
     }
 
     private boolean isWholeGenome() {
