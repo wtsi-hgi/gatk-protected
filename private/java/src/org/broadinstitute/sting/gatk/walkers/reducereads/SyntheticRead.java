@@ -3,6 +3,7 @@ package org.broadinstitute.sting.gatk.walkers.reducereads;
 import com.google.java.contract.Requires;
 import net.sf.samtools.*;
 import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -57,6 +58,20 @@ public class SyntheticRead {
         quals = new LinkedList<Byte>();
         mappingQuality = 0.0;
 
+        this.readTag = readTag;
+        this.header = header;
+        this.readGroupRecord = readGroupRecord;
+        this.contig = contig;
+        this.contigIndex = contigIndex;
+        this.readName = readName;
+        this.refStart = refStart;
+    }
+
+    public SyntheticRead(List<BaseIndex> bases, List<Byte> counts, List<Byte> quals, double mappingQuality, String readTag, SAMFileHeader header, GATKSAMReadGroupRecord readGroupRecord, String contig, int contigIndex, String readName, Integer refStart) {
+        this.bases = bases;
+        this.counts = counts;
+        this.quals = quals;
+        this.mappingQuality = mappingQuality;
         this.readTag = readTag;
         this.header = header;
         this.readGroupRecord = readGroupRecord;
@@ -130,7 +145,7 @@ public class SyntheticRead {
         return convertVariableGivenBases(bases, quals);
     }
 
-    private byte [] convertBaseCounts() {
+    protected byte [] convertBaseCounts() {
         byte[] countsArray = convertVariableGivenBases(bases, counts);
 
         if (countsArray.length == 0)
@@ -139,7 +154,7 @@ public class SyntheticRead {
         byte[] compressedCountsArray = new byte [countsArray.length];
         compressedCountsArray[0] = countsArray[0];
         for (int i = 1; i < countsArray.length; i++)
-            compressedCountsArray[i] = (byte) Math.min(countsArray[i] - compressedCountsArray[0], Byte.MIN_VALUE);
+            compressedCountsArray[i] = (byte) MathUtils.bound(countsArray[i] - compressedCountsArray[0], Byte.MIN_VALUE, Byte.MAX_VALUE);
 
         return compressedCountsArray;
     }

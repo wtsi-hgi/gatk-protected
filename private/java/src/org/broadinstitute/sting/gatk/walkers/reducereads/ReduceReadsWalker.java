@@ -79,9 +79,6 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
     @Argument(fullName = "minimum_base_quality_to_consider", shortName = "minqual", doc = "", required = false)
     protected int minBaseQual = 20;
 
-    @Argument(fullName = "maximum_consensus_base_qual", shortName = "maxqual", doc = "", required = false)
-    protected byte maxQualCount = SAMUtils.MAX_PHRED_SCORE;
-
     @Hidden
     @Argument(fullName = "", shortName = "dl", doc = "", required = false)
     protected int debugLevel = 0;
@@ -253,12 +250,6 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
             intervalList.addAll(getToolkit().getIntervals());
 
         out.setPresorted(false);
-
-//        for ( SAMReadGroupRecord rg : getToolkit().getSAMFileHeader().getReadGroups())
-//            out.getFileHeader().addReadGroup(rg);
-
-        if ( maxQualCount > SAMUtils.MAX_PHRED_SCORE )
-            throw new UserException.BadArgumentValue("maximum_consensus_base_qual", "Maximum allowed quality score in a SAM file is " + SAMUtils.MAX_PHRED_SCORE);
     }
 
     @Override
@@ -300,7 +291,7 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
      */
     @Override
     public ReduceReadsStash reduceInit() {
-        return new ReduceReadsStash(new MultiSampleCompressor(getToolkit().getSAMFileHeader(), contextSize, contextSizeIndels, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, maxQualCount));
+        return new ReduceReadsStash(new MultiSampleCompressor(getToolkit().getSAMFileHeader(), contextSize, contextSizeIndels, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual));
     }
 
     /**
@@ -402,6 +393,11 @@ public class ReduceReadsWalker extends ReadWalker<List<GATKSAMRecord>, ReduceRea
      * @return Returns true if the read is the original read that went through map().
      */
     private boolean isOriginalRead(List<GATKSAMRecord> list, GATKSAMRecord read) {
-         return list.size() == 1 || ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
+         return isWholeGenome() || ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED;
     }
+
+    private boolean isWholeGenome() {
+        return intervalList.isEmpty();
+    }
+
 }

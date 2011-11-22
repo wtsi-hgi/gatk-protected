@@ -26,7 +26,6 @@ class ReduceReads extends QScript {
   @Argument(shortName = "minvar", fullName = "minimum_alt_proportion_to_trigger_variant", doc = "", required = false) protected var minAltProportionToTriggerVariant: Option[Double] = None
   @Argument(shortName = "mindel", fullName = "minimum_del_proportion_to_trigger_variant", doc = "", required = false) protected var minIndelProportionToTriggerVariant: Option[Double] = None
   @Argument(shortName = "minqual",fullName = "minimum_base_quality_to_consider", doc = "", required = false) protected var minBaseQual: Option[Int] = None
-  @Argument(shortName = "maxqual",fullName = "maximum_consensus_base_qual", doc = "", required = false) protected var maxQualCount: Option[Byte] = None
   @Argument(shortName = "dl",     fullName = "", doc = "", required = false) protected var debugLevel: Option[Int] = None
   @Argument(shortName = "dr",     fullName = "", doc = "", required = false) protected var debugRead: String = ""
   @Argument(shortName = "ds",     fullName = "downsample_coverage", doc = "", required = false) protected var downsampleCoverage: Option[Int] = None
@@ -66,7 +65,6 @@ class ReduceReads extends QScript {
       if (minAltProportionToTriggerVariant != None) rr.minimum_alt_proportion_to_trigger_variant = Some(minAltProportionToTriggerVariant)
       if (minIndelProportionToTriggerVariant != None) rr.minimum_del_proportion_to_trigger_variant = Some(minIndelProportionToTriggerVariant)
       if (minBaseQual != None) rr.minimum_base_quality_to_consider = Some(minBaseQual)
-      if (maxQualCount != None) rr.maximum_consensus_base_qual = Some(maxQualCount)
       if (debugLevel != None) rr.debuglevel = Some(debugLevel)
       if (!debugRead.isEmpty) rr.debugread = debugRead
       if (downsampleCoverage != None) rr.downsample_coverage = Some(downsampleCoverage)
