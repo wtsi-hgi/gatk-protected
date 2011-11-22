@@ -78,8 +78,9 @@ class G1KPhaseISummaryTable extends QScript {
   val callsets = Range(1,22).map("/humgen/1kg/releases/main_project_phaseI/ALL.chr%d.merged_beagle_mach.20101123.snps_indels_svs.genotypes.vcf.gz".format(_))
 
   val CCDS_BED = new File("resources/ucsc.ccds.bed")
-  val CAPTURE_BED = new File("resources/20110225.exome.consensus.annotation.bed")
-  val GENE_INTERVALS = Map("CCDS" -> CCDS_BED, "CAPTURE" -> CAPTURE_BED)
+  //val CAPTURE_BED = new File("resources/20110225.exome.consensus.annotation.bed")
+  val GENCODE_BED = new File("resources/gencode7.coding.bed")
+  val GENE_INTERVALS = Map("CCDS" -> CCDS_BED, "GENCODE" -> GENCODE_BED) // "CAPTURE" -> CAPTURE_BED,
 
   def script = {
     for ( population <- populations ) {
