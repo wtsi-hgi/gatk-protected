@@ -107,7 +107,7 @@ public class KeepAFSpectrumFrequencySelector extends FrequencyModeSelector {
         numTotalSites++;
 
         // now process VC subsetted to samples of interest
-        if (!subVC.isPolymorphic() && !IGNORE_POLYMORPHIC)
+        if (!subVC.isPolymorphicInSamples() && !IGNORE_POLYMORPHIC)
             return;
 
         //System.out.format("Post:%4.4f %d\n",af0, binIndex);

@@ -26,9 +26,11 @@ package org.broadinstitute.sting.gatk.walkers.ValidationSiteSelector;
 
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.util.HashMap;
 import java.util.List;
@@ -65,7 +67,8 @@ public class GenomeEvent implements Comparable {
     }
 
     public VariantContext createVariantContextFromEvent() {
-        return new VariantContext("",loc.getContig(), loc.getStart(), loc.getStop(), alleles, 0.0,null, null, refBase);
+        return new VariantContextBuilder("event", loc.getContig(), loc.getStart(), loc.getStop(), alleles)
+                .log10PError(0.0).referenceBaseForIndel(refBase).make();
 
     }
 }

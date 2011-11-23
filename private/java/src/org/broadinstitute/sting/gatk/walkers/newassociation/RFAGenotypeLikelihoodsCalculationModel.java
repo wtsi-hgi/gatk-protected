@@ -1,15 +1,8 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
-import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypePriors;
-import org.broadinstitute.sting.gatk.walkers.genotyper.MultiallelicGenotypeLikelihoods;
 import org.broadinstitute.sting.gatk.walkers.newassociation.features.old.BinaryFeatureAggregator;
-import org.broadinstitute.sting.gatk.walkers.newassociation.features.old.ReadFeatureAggregator;
-import org.broadinstitute.sting.gatk.walkers.varianteval.stratifications.Sample;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
@@ -18,7 +11,6 @@ import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -98,7 +90,7 @@ public class RFAGenotypeLikelihoodsCalculationModel  {
         for ( Map.Entry<String,GenotypeLikelihoods> entry : bestLikelihoods.entrySet() ) {
             HashMap<String,Object> attributes = new HashMap<String,Object>(1);
             attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,entry.getValue());
-            Genotype g = new Genotype(entry.getKey(),alleles,Genotype.NO_NEG_LOG_10PERROR,null,attributes,false);
+            Genotype g = new Genotype(entry.getKey(),alleles,Genotype.NO_LOG10_PERROR,null,attributes,false);
             bestGenos.put(entry.getKey(),g);
         }
 

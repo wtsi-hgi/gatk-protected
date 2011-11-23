@@ -224,7 +224,7 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
                 continue;
 
             // skip if site isn't polymorphic and if user didn't request to ignore polymorphic status
-            if (!vc.isPolymorphic() && !IGNORE_POLYMORPHIC)
+            if (!vc.isPolymorphicInSamples() && !IGNORE_POLYMORPHIC)
                 continue;
 
             if (!INCLUDE_FILTERED_SITES && vc.filtersWereApplied() && vc.isFiltered())
@@ -271,7 +271,8 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
              case NONE:
                  sm = new NullSampleSelector(samples);
                  break;
-             default: throw new IllegalArgumentException("Unexpected Sample Selection Mode: " + sampleMode);
+             default:
+                 throw new IllegalArgumentException("Unsupported Sample Selection Mode: " + sampleMode);
          }
 
          return sm;

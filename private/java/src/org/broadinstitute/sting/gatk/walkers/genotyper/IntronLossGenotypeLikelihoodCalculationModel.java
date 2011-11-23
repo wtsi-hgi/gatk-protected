@@ -13,10 +13,8 @@ import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.*;
+
 import java.util.*;
 
 /**
@@ -84,19 +82,21 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
                     GLs.put(gl.getKey(), new MultiallelicGenotypeLikelihoods(gl.getKey(),new ArrayList<Allele>(Arrays.asList(ref,alt)),gl.getValue(),postulate.supportingPairs.size()));
                 }
                 Map<String,Object> attributes = new HashMap<String,Object>();
-                HashMap<String, Genotype> genotypes = new HashMap<String, Genotype>();
-                for ( String s : samples ) {
+
+                GenotypesContext genotypes = GenotypesContext.create(samples.size());
+                for ( final String s : samples ) {
                     Map<String,Object> genAttribs = new HashMap<String,Object>();
                     GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(newLikelihoods.get(s));
                     genAttribs.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,likelihoods);
-                    genotypes.put(s,new Genotype(s, Arrays.asList(Allele.NO_CALL), Genotype.NO_NEG_LOG_10PERROR, null, genAttribs, false));
+                    genotypes.add(new Genotype(s, Arrays.asList(Allele.NO_CALL), Genotype.NO_LOG10_PERROR, null, genAttribs, false));
                 }
 
                 attributes.put("SR",postulate.supportingPairs.size());
                 attributes.put("GN",geneFeature.getGeneName());
                 attributes.put("EL",postulate.exonLocs.first.getStopLocation().toString());
 
-                vcontexts.add(new VariantContext("ILGV2",featureStop.getContig(),featureStop.getStop(),featureStop.getStop(),Arrays.asList(ref,alt),genotypes,-1,null,attributes,ref.getBases()[0]));
+                vcontexts.add(new VariantContextBuilder("ILGV2", featureStop.getContig(),featureStop.getStop(), featureStop.getStop(), Arrays.asList(ref,alt))
+                        .genotypes(genotypes).attributes(attributes).referenceBaseForIndel(ref.getBases()[0]).make());
             }
         }
 
