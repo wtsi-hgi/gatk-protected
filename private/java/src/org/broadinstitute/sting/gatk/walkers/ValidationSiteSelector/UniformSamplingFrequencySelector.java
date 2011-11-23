@@ -42,14 +42,14 @@ public class UniformSamplingFrequencySelector extends FrequencyModeSelector {
 
     }
 
-    public void logCurrentSiteData(VariantContext vc, VariantContext subVC, boolean IGNORE_GENOTYPES) {
+    public void logCurrentSiteData(VariantContext vc, VariantContext subVC, boolean IGNORE_GENOTYPES, boolean IGNORE_POLYMORPHIC) {
         HashMap<String, Object> attributes = new HashMap<String, Object>();
 
 
         if (vc.hasGenotypes() && !IGNORE_GENOTYPES) {
             // recompute AF,AC,AN based on genotypes:
             VariantContextUtils.calculateChromosomeCounts(vc, attributes, false);
-            if (!subVC.isPolymorphic())
+            if (!subVC.isPolymorphic() && !IGNORE_POLYMORPHIC)
                 return;
         } else  {
             if ( attributes.containsKey(VCFConstants.ALLELE_COUNT_KEY) )  {
