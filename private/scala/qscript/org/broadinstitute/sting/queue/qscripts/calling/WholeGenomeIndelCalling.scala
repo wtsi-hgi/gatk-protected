@@ -148,7 +148,7 @@ class WholeGenomeIndelCalling extends QScript {
       eval.dbsnp = qscript.dbSNP
       eval.doNotUseAllStandardStratifications = true
       eval.doNotUseAllStandardModules = true
-      eval.evalModule = List("SimpleMetricsByAC", "CountVariants","CompOverlap")
+      eval.evalModule = List("CountVariants","CompOverlap")
       eval.stratificationModule = List("EvalRod", "CompRod", "Novelty","Sample")
       eval.out = swapExt(ar.out, ".vcf", ".eval")
       eval.jobOutputFile = eval.out + ".out"

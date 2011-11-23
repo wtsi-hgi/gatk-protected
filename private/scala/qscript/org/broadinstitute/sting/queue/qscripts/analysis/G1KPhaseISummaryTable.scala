@@ -54,6 +54,7 @@ import java.io.FileWriter
 import org.broadinstitute.sting.utils.exceptions.UserException
 import org.broadinstitute.sting.utils.variantcontext.VariantContext
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel
+import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.VariantSummary
 
 class G1KPhaseISummaryTable extends QScript {
   qscript =>
@@ -107,7 +108,7 @@ class G1KPhaseISummaryTable extends QScript {
     this.sample = List("%s.samples.list".format(pop))
     this.out = new File("%s.samples.genes_%s.eval".format(pop, geneSetName))
     this.noEV = true
-    this.EV = List("G1KPhaseITable")
+    this.EV = List(VariantSummary.class.getSimpleName)
     this.noST = true
     this.stratIntervals = geneIntervals
     this.ST = List("IntervalStratification")

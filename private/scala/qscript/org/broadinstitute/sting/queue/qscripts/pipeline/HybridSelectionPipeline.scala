@@ -254,7 +254,7 @@ class HybridSelectionPipeline extends QScript {
     targetEval.dbsnp = qscript.pipeline.getProject.getEvalDbsnp
     targetEval.doNotUseAllStandardStratifications = true
     targetEval.doNotUseAllStandardModules = true
-    targetEval.evalModule = List("SimpleMetricsByAC", "TiTvVariantEvaluator", "CountVariants")
+    targetEval.evalModule = List("TiTvVariantEvaluator", "CountVariants")
     targetEval.stratificationModule = List("EvalRod", "CompRod", "Novelty", "Filter", "FunctionalClass", "Sample")
     targetEval.out = projectBase + ".eval"
     targetEval.jobOutputFile = targetEval.out + ".out"
@@ -267,7 +267,7 @@ class HybridSelectionPipeline extends QScript {
       flanksEval.intervals = List(flankIntervals)
       flanksEval.doNotUseAllStandardStratifications = true
       flanksEval.doNotUseAllStandardModules = true
-      flanksEval.evalModule = List("SimpleMetricsByAC", "TiTvVariantEvaluator", "CountVariants")
+      flanksEval.evalModule = List("TiTvVariantEvaluator", "CountVariants")
       flanksEval.stratificationModule = List("EvalRod", "CompRod", "Novelty", "Filter", "FunctionalClass", "Sample")
       flanksEval.out = projectBase + ".flanks.eval"
       flanksEval.jobOutputFile = flanksEval.out + ".out"
