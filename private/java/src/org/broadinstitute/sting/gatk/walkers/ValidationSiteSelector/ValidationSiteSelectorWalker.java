@@ -133,6 +133,9 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
     @Argument(fullName="ignoreGenotypes", shortName="ignoreGenotypes", doc="If true, will ignore genotypes in VCF, will take AC,AF from annotations and will make no sample selection", required=false)
     private boolean IGNORE_GENOTYPES = false;
 
+    @Argument(fullName="ignorePolymorphicStatus", shortName="ignorePolymorphicStatus", doc="If true, will ignore polymorphic status in VCF, and will take VCF record directly without pre-selection", required=false)
+    private boolean IGNORE_POLYMORPHIC = false;
+
     @Hidden
     @Argument(fullName="numFrequencyBins", shortName="numBins", doc="Number of frequency bins if we're to match AF distribution", required=false)
     private int numFrequencyBins = 20;
@@ -220,7 +223,8 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
             if (!selectedTypes.contains(vc.getType()))
                 continue;
 
-            if (!vc.isPolymorphicInSamples())
+            // skip if site isn't polymorphic and if user didn't request to ignore polymorphic status
+            if (!vc.isPolymorphicInSamples() && !IGNORE_POLYMORPHIC)
                 continue;
 
             if (!INCLUDE_FILTERED_SITES && vc.filtersWereApplied() && vc.isFiltered())
@@ -229,11 +233,11 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
 
             // do anything required by frequency selector before we select for samples
             VariantContext subVC;
-            if (IGNORE_GENOTYPES || samples.isEmpty())
+            if (samples.isEmpty())
                 subVC = vc;
             else
                 subVC = sampleSelector.subsetSiteToSamples(vc);
-            frequencyModeSelector.logCurrentSiteData(vc, subVC, IGNORE_GENOTYPES);
+            frequencyModeSelector.logCurrentSiteData(vc, subVC, IGNORE_GENOTYPES, IGNORE_POLYMORPHIC);
         }
         return 1;
     }
@@ -265,8 +269,10 @@ public class ValidationSiteSelectorWalker extends RodWalker<Integer, Integer> {
                  sm = new GTBasedSampleSelector(samples);
                  break;
              case NONE:
+                 sm = new NullSampleSelector(samples);
+                 break;
+             default:
                  throw new IllegalArgumentException("Unsupported Sample Selection Mode: " + sampleMode);
-             default: throw new IllegalArgumentException("Unexpected Sample Selection Mode: " + sampleMode);
          }
 
          return sm;

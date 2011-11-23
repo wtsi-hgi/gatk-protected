@@ -21,27 +21,20 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  */
+
 package org.broadinstitute.sting.gatk.walkers.ValidationSiteSelector;
 
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
+import java.util.TreeSet;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 
-public abstract class FrequencyModeSelector  implements Cloneable{
-
-    protected GenomeLocParser parser;
-
-    protected FrequencyModeSelector(GenomeLocParser parser) {
-        this.parser = parser;
+public class NullSampleSelector extends SampleSelector{
+    public NullSampleSelector(TreeSet<String> sm) {
+        super(sm);
     }
-    protected void logCurrentSiteData(VariantContext vc, VariantContext subVC) {
-        logCurrentSiteData(vc, subVC, false, false);
-    }
-    protected abstract void logCurrentSiteData(VariantContext vc, VariantContext subVC, boolean IGNORE_GENOTYPES, boolean IGNORE_POLYMORPHIC);
-    protected abstract ArrayList<VariantContext> selectValidationSites(int numValidationSites);
 
+    public VariantContext subsetSiteToSamples(VariantContext vc) {
+         return vc;
+
+    }
 }
