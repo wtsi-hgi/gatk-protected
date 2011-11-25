@@ -257,7 +257,7 @@ class WholeGenomePipeline extends QScript {
       eval.rodBind :+= RodBind("dbsnp", "VCF", dbsnp)
       eval.doNotUseAllStandardStratifications = true
       eval.doNotUseAllStandardModules = true
-      eval.evalModule = List("SimpleMetricsByAC", "TiTvVariantEvaluator", "CountVariants")
+      eval.evalModule = List("TiTvVariantEvaluator", "CountVariants")
       eval.stratificationModule = List("EvalRod", "CompRod", "Novelty")
       eval.out = swapExt(ar.out, ".vcf", ".eval")
       eval.jobOutputFile = eval.out + ".out"

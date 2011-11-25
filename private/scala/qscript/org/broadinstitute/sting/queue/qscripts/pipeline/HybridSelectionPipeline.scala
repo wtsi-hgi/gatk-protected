@@ -26,7 +26,6 @@ import org.broadinstitute.sting.pipeline.{PicardPipeline, Pipeline}
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
 import org.broadinstitute.sting.queue.function.ListWriterFunction
-import org.broadinstitute.sting.queue.library.ipf.intervals.ExpandIntervals
 import org.broadinstitute.sting.queue.QScript
 import collection.JavaConversions._
 
@@ -103,17 +102,13 @@ class HybridSelectionPipeline extends QScript {
     val flankIntervals = projectBase + ".flanks.intervals"
 
     if (qscript.expandIntervals > 0) {
-      val ei = new ExpandIntervals(
-        qscript.pipeline.getProject.getIntervalList,
-        1,
-        qscript.expandIntervals,
-        flankIntervals,
-        qscript.pipeline.getProject.getReferenceFile,
-        "INTERVALS",
-        "INTERVALS")
-      ei.jobOutputFile = ei.outList + ".out"
-
-      add(ei)
+      val writeFlanks = new WriteFlankingIntervalsFunction
+      writeFlanks.reference = qscript.pipeline.getProject.getReferenceFile
+      writeFlanks.inputIntervals = qscript.pipeline.getProject.getIntervalList
+      writeFlanks.flankSize = qscript.expandIntervals
+      writeFlanks.outputIntervals = flankIntervals
+      writeFlanks.jobOutputFile = writeFlanks.outputIntervals + ".out"
+      add(writeFlanks)
     }
 
     trait ExpandedIntervals extends CommandLineGATK {
@@ -239,8 +234,8 @@ class HybridSelectionPipeline extends QScript {
 
     val snpEff = new SnpEff
     snpEff.inVcf = snpsIndelsVcf
-    snpEff.config = "/humgen/gsa-pipeline/resources/snpEff/v2_0_2/snpEff.config"
-    snpEff.genomeVersion = "GRCh37.63"
+    snpEff.config = "/humgen/gsa-pipeline/resources/snpEff/v2_0_4rc3/snpEff.config"
+    snpEff.genomeVersion = "GRCh37.64"
     snpEff.outVcf = projectBase + ".snpeff.vcf"
     snpEff.jobOutputFile = snpEff.outVcf + ".out"
     snpEff.memoryLimit = snpEffMemory
@@ -259,7 +254,7 @@ class HybridSelectionPipeline extends QScript {
     targetEval.dbsnp = qscript.pipeline.getProject.getEvalDbsnp
     targetEval.doNotUseAllStandardStratifications = true
     targetEval.doNotUseAllStandardModules = true
-    targetEval.evalModule = List("SimpleMetricsByAC", "TiTvVariantEvaluator", "CountVariants")
+    targetEval.evalModule = List("TiTvVariantEvaluator", "CountVariants")
     targetEval.stratificationModule = List("EvalRod", "CompRod", "Novelty", "Filter", "FunctionalClass", "Sample")
     targetEval.out = projectBase + ".eval"
     targetEval.jobOutputFile = targetEval.out + ".out"
@@ -272,7 +267,7 @@ class HybridSelectionPipeline extends QScript {
       flanksEval.intervals = List(flankIntervals)
       flanksEval.doNotUseAllStandardStratifications = true
       flanksEval.doNotUseAllStandardModules = true
-      flanksEval.evalModule = List("SimpleMetricsByAC", "TiTvVariantEvaluator", "CountVariants")
+      flanksEval.evalModule = List("TiTvVariantEvaluator", "CountVariants")
       flanksEval.stratificationModule = List("EvalRod", "CompRod", "Novelty", "Filter", "FunctionalClass", "Sample")
       flanksEval.out = projectBase + ".flanks.eval"
       flanksEval.jobOutputFile = flanksEval.out + ".out"

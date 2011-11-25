@@ -132,7 +132,7 @@ public class SnpCallRateByCoverageWalker extends LocusWalker<List<String>, Strin
 
                     out.printf("%s\t%s\t\t%d\t%f\t%d\t%c\t%s\t%s\t%d\t%d%n",
                                context.getLocation(),
-                               vc.hasAttribute(VariantContext.ID_KEY) ? vc.getAttribute(VariantContext.ID_KEY) : "?",
+                               vc.hasID() ? vc.getID() : "?",
                                coverage,
                                ((float) coverage)/((float) reads.size()),
                                goodIterations,

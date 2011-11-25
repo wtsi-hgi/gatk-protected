@@ -45,13 +45,7 @@ public class GTBasedSampleSelector extends SampleSelector{
         if ( samples == null || samples.isEmpty() )
             return vc;
 
-        ArrayList<Genotype> genotypes = new ArrayList<Genotype>();
-        for ( Map.Entry<String, Genotype> genotypePair : vc.getGenotypes().entrySet() ) {
-            if ( samples.contains(genotypePair.getKey()) )
-                genotypes.add(genotypePair.getValue());
-        }
-
-        return vc.subContextFromGenotypes(genotypes, vc.getAlleles());
+        return vc.subContextFromSamples(samples, vc.getAlleles());
 
     }
 }

@@ -39,6 +39,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.util.*;
 
@@ -101,7 +102,7 @@ public class AssessMissingBroadCalls extends RodWalker<Integer, Integer> {
             attrs.put(status_key, sb.toString());
         }
 
-        vc = VariantContext.modifyAttributes(vc, attrs);
+        vc = new VariantContextBuilder(vc).attributes(attrs).make();
         writer.add(vc);
 
         return 1;
