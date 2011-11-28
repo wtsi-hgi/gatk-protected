@@ -190,7 +190,7 @@ class HybridSelectionPipeline extends QScript {
         val filterSNPs = new VariantFiltration with CommandLineGATKArgs with ExpandedIntervals
         filterSNPs.variant = selectSNPs.out
         filterSNPs.filterName = List("SNP_QD", "SNP_MQ", "SNP_HaplotypeScore", "SNP_MQRankSum", "SNP_ReadPosRankSum", "SNP_FS")
-        filterSNPs.filterExpression = List("\"QD<2.0\"", "\"MQ<40.0\"", "\"HaplotypeScore>13.0\"", "\"MQRankSum<-12.5\"", "\"ReadPosRankSum<-8.0\"", "\"FS>60.0\"")
+        filterSNPs.filterExpression = List("QD<2.0", "MQ<40.0", "HaplotypeScore>13.0", "MQRankSum<-12.5", "ReadPosRankSum<-8.0", "FS>60.0")
         filterSNPs.out = projectBase + ".snps.filtered.vcf"
         filterSNPs.jobOutputFile = filterSNPs.out + ".out"
         add(filterSNPs)
@@ -204,7 +204,7 @@ class HybridSelectionPipeline extends QScript {
     val filterIndels = new VariantFiltration with CommandLineGATKArgs with ExpandedIntervals
     filterIndels.variant = selectIndels.out
     filterIndels.filterName = List("Indel_FS", "Indel_QD", "Indel_ReadPosRankSum", "Indel_InbreedingCoeff")
-    filterIndels.filterExpression = List("\"FS>200.0\"", "\"QD<2.0\"", "\"ReadPosRankSum<-20.0\"", "\"InbreedingCoeff<-0.8\"")
+    filterIndels.filterExpression = List("FS>200.0", "QD<2.0", "ReadPosRankSum<-20.0", "InbreedingCoeff<-0.8")
     filterIndels.out = projectBase + ".indels.filtered.vcf"
     filterIndels.jobOutputFile = filterIndels.out + ".out"
     add(filterIndels)

@@ -204,7 +204,7 @@ class WholeGenomePipeline extends QScript {
     val filterIndels = new VariantFiltration with CommandLineGATKArgs
     filterIndels.variantVCF = selectIndels.out
     filterIndels.filterName = List("Indel_QUAL", "Indel_SB", "Indel_QD", "Indel_HRun", "Indel_HaplotypeScore")
-    filterIndels.filterExpression = List("\"QUAL<30.0\"", "\"SB>-1.0\"", "\"QD<2.0\"", "\"HRun>15\"", "\"HaplotypeScore>20.0\"")
+    filterIndels.filterExpression = List("QUAL<30.0", "SB>-1.0", "QD<2.0", "HRun>15", "HaplotypeScore>20.0")
     filterIndels.out = projectBase + ".indels.filtered.vcf"
     filterIndels.jobOutputFile = filterIndels.out + ".out"
     add(filterIndels)
