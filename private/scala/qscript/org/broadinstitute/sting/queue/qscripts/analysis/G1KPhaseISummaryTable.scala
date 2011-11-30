@@ -73,6 +73,7 @@ class G1KPhaseISummaryTable extends QScript {
   val dbSNP_b37_129 = new File(bundle.getPath + "/dbsnp_132.b37.excluding_sites_after_129.vcf")
   val dbSNP_b37_129_with_pilot = new File("resources/dbsnp129_with_pilot.vcf")
   val pilotCalls = new File("resources/pilotSites.vcf")
+  val knownCNVsFile = new File("resources/known_deletions.bed")
 
   val populations = List("EUR", "ASN", "AFR", "AMR", "ALL")
 
@@ -92,7 +93,7 @@ class G1KPhaseISummaryTable extends QScript {
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     logging_level = "INFO";
-    memoryLimit = 2;
+    memoryLimit = 8;
     reference_sequence = b37
     intervalsString = myIntervals
   }
@@ -108,10 +109,11 @@ class G1KPhaseISummaryTable extends QScript {
     this.sample = List("%s.samples.list".format(pop))
     this.out = new File("%s.samples.genes_%s.eval".format(pop, geneSetName))
     this.noEV = true
-    this.EV = List(VariantSummary.class.getSimpleName)
+    this.EV = List("VariantSummary")
     this.noST = true
     this.stratIntervals = geneIntervals
     this.ST = List("IntervalStratification")
     this.nt = NumThreads
+    this.knownCNVs = knownCNVsFile
   }
 }
