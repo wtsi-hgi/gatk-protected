@@ -52,6 +52,10 @@ class AsyncIOPerformance extends QScript {
   @Argument(shortName = "indels", doc="1kG indels file to use with IR",required = false)
   val indels = "/humgen/gsa-pipeline/resources/b37/v2/1000G_indels_for_realignment.b37.vcf"
 
+  // Default range should be over chr20: first 10Mb, 10M-11M, near the centromere
+  @Argument(shortName = "L",doc = "Subset of intervals to use",required = false)
+  var intervals: List[String] = List("20:1-10000000","20:10000000-11000000","20:26000000-27000000")
+
   @Argument(shortName="nt", doc="Number of CPU threads; allows the UG joint test to be run with sets of different threads.", required=false)
   var numThreads: List[Int] = Nil
 
@@ -164,8 +168,7 @@ class AsyncIOPerformance extends QScript {
       add(caller)
     }
 
-    // Call everything on the entire fileset, both tagged and untagged.  Range should be over chr20: first 10Mb, 10M-11M, near the centromere
-    val intervals: List[String] = List("20:1-10000000","20:10000000-11000000","20:26000000-27000000")
+    // Call everything on the entire fileset, both tagged and untagged.
     // Run RTC / IR on the entire merged dataset
     for(interval <- intervals) {
       // Add the single-CPU thread calling job
