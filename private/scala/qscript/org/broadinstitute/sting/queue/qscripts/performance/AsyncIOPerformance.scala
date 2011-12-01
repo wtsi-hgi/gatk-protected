@@ -22,6 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import _root_.scala._
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.gatk.RodBind._
 import org.broadinstitute.sting.queue.function.ListWriterFunction
@@ -51,6 +52,9 @@ class AsyncIOPerformance extends QScript {
   @Argument(shortName = "indels", doc="1kG indels file to use with IR",required = false)
   val indels = "/humgen/gsa-pipeline/resources/b37/v2/1000G_indels_for_realignment.b37.vcf"
 
+  @Argument(shortName="nt", doc="Number of CPU threads; allows the UG joint test to be run with sets of different threads.", required=false)
+  var numThreads: List[Int] = Nil
+
   val outputDirectory = new File(projectDirectory,"output");
   val logDirectory = new File(projectDirectory,"logs")
 
@@ -61,14 +65,21 @@ class AsyncIOPerformance extends QScript {
     this.memoryLimit = 4
   }
 
-  def buildCallingJob(bamList: File, interval: String, synchronicity: IOType, uniquifier: String) : UnifiedGenotyper = {
+  def buildCallingJob(bamList: File, interval: String, synchronicity: IOType, uniquifier: String, numCPUThreads: Int = 1) : UnifiedGenotyper = {
     var caller = new UnifiedGenotyper with UNIVERSAL_ARGS
     caller.input_file = List(bamList)
     if(interval != null)
       caller.intervalsString = List(interval)
     caller.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
-    caller.out = new File(outputDirectory,"ug." + synchronicity + ".calls." + uniquifier + ".vcf")
-    caller.jobOutputFile = new File(logDirectory,"ug." + synchronicity + ".calls." + uniquifier + ".log")
+
+    var outputBase = "ug." + synchronicity + ".calls." + uniquifier;
+    if(numCPUThreads != 1) {
+      caller.num_threads = numCPUThreads
+      outputBase += ".nt" + numCPUThreads
+    }
+
+    caller.out = new File(outputDirectory,outputBase + ".vcf")
+    caller.jobOutputFile = new File(logDirectory,outputBase + ".log")
 
     if(synchronicity == IOType.ASYNC)
       makeJobIOThreaded(caller)
@@ -109,7 +120,10 @@ class AsyncIOPerformance extends QScript {
 
   def makeJobIOThreaded(job: CommandLineGATK) {
     // add in the num threads and num io threads parameters.
-    job.num_threads = 2
+    if(job.num_threads != None)
+      job.num_threads += 2
+    else
+      job.num_threads = 2
     job.num_io_threads = 2
   }
 
@@ -152,13 +166,19 @@ class AsyncIOPerformance extends QScript {
 
     // Call everything on the entire fileset, both tagged and untagged.  Range should be over chr20: first 10Mb, 10M-11M, near the centromere
     val intervals: List[String] = List("20:1-10000000","20:10000000-11000000","20:26000000-27000000")
-    for(interval <- intervals) {
-      add(buildCallingJob(writeBamList.listFile,interval,IOType.SYNC,"joint."+interval))
-      add(buildCallingJob(writeBamList.listFile,interval,IOType.ASYNC,"joint."+interval))
-    }
-
     // Run RTC / IR on the entire merged dataset
     for(interval <- intervals) {
+      // Add the single-CPU thread calling job
+      add(buildCallingJob(writeBamList.listFile,interval,IOType.SYNC,"joint."+interval))
+      add(buildCallingJob(writeBamList.listFile,interval,IOType.ASYNC,"joint."+interval))
+
+      // If specified, add the multi-CPU threaded job
+      for(threadCount <- numThreads) {
+        add(buildCallingJob(writeBamList.listFile,interval,IOType.SYNC,"joint."+interval,threadCount))
+        add(buildCallingJob(writeBamList.listFile,interval,IOType.ASYNC,"joint."+interval,threadCount))
+      }
+
+
       var (rtcSync,cleanSync) = buildRealignmentJob(writeBamList.listFile,interval,IOType.SYNC)
       add(rtcSync)
       add(cleanSync)
