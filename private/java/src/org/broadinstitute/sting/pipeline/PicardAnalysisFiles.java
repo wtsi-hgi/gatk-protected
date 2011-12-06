@@ -24,12 +24,11 @@
 
 package org.broadinstitute.sting.pipeline;
 
+import org.apache.commons.io.LineIterator;
 import org.apache.commons.lang.ArrayUtils;
 import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.sting.utils.io.IOUtils;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -45,38 +44,44 @@ public class PicardAnalysisFiles {
     private String path;
     private Map<String,Set<String>> headerValues = new HashMap<String,Set<String>>();
 
-    public PicardAnalysisFiles(String project, String sample) throws FileNotFoundException {
+    public PicardAnalysisFiles(String project, String sample) {
         this(PicardAggregationUtils.getSampleDir(project, sample) + ANALYSIS_FILES);
     }
 
-    public PicardAnalysisFiles(String project, String sample, int version) throws FileNotFoundException {
+    public PicardAnalysisFiles(String project, String sample, int version) {
         this(PicardAggregationUtils.getSampleDir(project, sample, version) + ANALYSIS_FILES);
     }
 
-    public PicardAnalysisFiles(String path) throws FileNotFoundException {
+    public PicardAnalysisFiles(String path) {
         this.path = path;
         HashMap<String,Integer> headerIndexes = null;
-        for (String line: new XReadLines(new File(path))) {
-            if (line.length() == 0 || line.startsWith("#"))
-                continue;
-            String[] values = line.split("\t");
-            if (headerIndexes == null) {
-                headerIndexes = new HashMap<String,Integer>();
-                for (String header: ANALYSIS_HEADERS) {
-                    headerIndexes.put(header, ArrayUtils.indexOf(values, header));
-                    headerValues.put(header, new HashSet<String>());
-                }
-            } else {
-                for (String header: ANALYSIS_HEADERS) {
-                    int index = headerIndexes.get(header);
-                    if (index < 0)
-                        continue;
-                    if (values.length <= index)
-                        throw new StingException(String.format("Unable to parse line in %s: %n%s", path, line));
-                    String value = values[index];
-                    headerValues.get(header).add(value);
+        LineIterator it = IOUtils.lineIterator(path);
+        try {
+            while (it.hasNext()) {
+                String line = it.nextLine();
+                if (line.length() == 0 || line.startsWith("#"))
+                    continue;
+                String[] values = line.split("\t");
+                if (headerIndexes == null) {
+                    headerIndexes = new HashMap<String,Integer>();
+                    for (String header: ANALYSIS_HEADERS) {
+                        headerIndexes.put(header, ArrayUtils.indexOf(values, header));
+                        headerValues.put(header, new HashSet<String>());
+                    }
+                } else {
+                    for (String header: ANALYSIS_HEADERS) {
+                        int index = headerIndexes.get(header);
+                        if (index < 0)
+                            continue;
+                        if (values.length <= index)
+                            throw new StingException(String.format("Unable to parse line in %s: %n%s", path, line));
+                        String value = values[index];
+                        headerValues.get(header).add(value);
+                    }
                 }
             }
+        } finally {
+            it.close();
         }
     }
 
