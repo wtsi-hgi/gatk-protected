@@ -43,6 +43,9 @@ class AsyncIOPerformance extends QScript {
   @Argument(shortName = "bams", doc="BAMs", required=false)
   var bamListFile: File = new File("/humgen/gsa-pipeline/PA56S/T2DGO_Freeze2/wg/v3/T2DGO_Freeze2.bam.list");
 
+  @Argument(fullName = "num_bams", shortName = "nb", doc="How many BAMs should be processed in one go.", required = false)
+  var numBams: List[Int] = List(-1)
+
   @Argument(shortName = "logging_directory", doc="The target directory for log files", required=false)
   var projectDirectory: File = new File("/humgen/gsa-scr1/hanna/asyncio")
 
@@ -56,8 +59,13 @@ class AsyncIOPerformance extends QScript {
   @Argument(shortName = "L",doc = "Subset of intervals to use",required = false)
   var intervals: List[String] = List("20:1-10000000","20:10000000-11000000","20:26000000-27000000")
 
-  @Argument(shortName="nt", doc="Number of CPU threads; allows the UG joint test to be run with sets of different threads.", required=false)
+  @Argument(shortName="nt", doc="Number of CPU threads.  Applicable to the UG joint test only.", required=false)
   var numThreads: List[Int] = Nil
+
+  @Argument(fullName = "read_buffer_size", shortName = "rbs", doc="Number of reads for read shard to hold in memory.  Applicable to Indel Realigner only.", required = false)
+  var readBufferSizes: List[Int] = List(-1)
+
+
 
   val outputDirectory = new File(projectDirectory,"output");
   val logDirectory = new File(projectDirectory,"logs")
@@ -91,7 +99,7 @@ class AsyncIOPerformance extends QScript {
     caller
   }
 
-  def buildRealignmentJob(bamList: File, interval: String, synchronicity: IOType): (RealignerTargetCreator,IndelRealigner) =  {
+  def buildRTCJob(bamList: File, interval: String, synchronicity: IOType): RealignerTargetCreator =  {
     val rtc = new RealignerTargetCreator with UNIVERSAL_ARGS
     rtc.input_file = List(bamList)
     rtc.intervalsString = List(interval)
@@ -102,24 +110,41 @@ class AsyncIOPerformance extends QScript {
     rtc.out = new File(projectDirectory,synchronicity + ".target." + interval + ".intervals")
     rtc.jobOutputFile = new File(logDirectory,"rtc." + synchronicity + ".joint." + interval + ".log")
 
+    if(synchronicity == IOType.ASYNC) {
+      makeJobIOThreaded(rtc)
+    }
+
+    rtc
+  }
+
+  def buildCleaningJob(bamList: File, numBams: Int, interval: String, dirtyIntervals: File, readBufferSize: Int, synchronicity: IOType): IndelRealigner =  {
     val clean = new IndelRealigner with UNIVERSAL_ARGS
     clean.input_file = List(bamList)
     clean.intervalsString = List(interval)
-    clean.targetIntervals = rtc.out
+    clean.targetIntervals = dirtyIntervals
+    clean.read_buffer_size = readBufferSize
     clean.known :+= dbsnp
     clean.known :+= indels
     clean.consensusDeterminationModel = org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel.USE_READS
     clean.simplifyBAM = true
     clean.bam_compression = 1
-    clean.out = new File(outputDirectory,"clean." + synchronicity + ".joint." + interval + ".bam")
-    clean.jobOutputFile = new File(logDirectory,"clean." + synchronicity + ".joint." + interval + ".log")
+    var baseName: String = ""
+
+    if(readBufferSize != -1)
+      baseName = "clean." + synchronicity + ".joint." + interval + ".rbs" + readBufferSize
+    else
+      baseName = "clean." + synchronicity + ".joint." + interval
+    if(numBams != -1)
+      baseName += ".nb" + numBams
+
+    clean.out = new File(outputDirectory,baseName + ".bam")
+    clean.jobOutputFile = new File(logDirectory,baseName + ".log")
 
     if(synchronicity == IOType.ASYNC) {
-      makeJobIOThreaded(rtc)
       makeJobIOThreaded(clean)
     }
 
-    (rtc,clean);
+    clean
   }
 
   def makeJobIOThreaded(job: CommandLineGATK) {
@@ -181,15 +206,31 @@ class AsyncIOPerformance extends QScript {
         add(buildCallingJob(writeBamList.listFile,interval,IOType.ASYNC,"joint."+interval,threadCount))
       }
 
-
-      var (rtcSync,cleanSync) = buildRealignmentJob(writeBamList.listFile,interval,IOType.SYNC)
+      var rtcSync = buildRTCJob(writeBamList.listFile,interval,IOType.SYNC)
       add(rtcSync)
-      add(cleanSync)
-
-      var (rtcAsync,cleanAsync) = buildRealignmentJob(writeBamList.listFile,interval,IOType.ASYNC)
-
+      var rtcAsync = buildRTCJob(writeBamList.listFile,interval,IOType.ASYNC)
       add(rtcAsync)
-      add(cleanAsync)
+
+      for(bamCount <- numBams; readBufferSize <- readBufferSizes) {
+        println("bamCount = " + bamCount + ", readBufferSize = " + readBufferSize)
+        var bamWorkingSet = writeBamList.listFile
+        var workingSetSize = bamFiles.size
+
+        if(bamCount != -1) {
+          val writeBamListSubset = new ListWriterFunction
+          writeBamListSubset.inputFiles = bamFiles.take(bamCount)
+          writeBamListSubset.listFile = new File(projectDirectory,"present_bams."+ bamCount + ".list")
+          writeBamListSubset.run
+
+          bamWorkingSet = writeBamListSubset.listFile
+          workingSetSize = bamCount
+        }
+
+        var cleanSync = buildCleaningJob(bamWorkingSet,workingSetSize,interval,rtcSync.out,readBufferSize,IOType.SYNC)
+        add(cleanSync)
+        var cleanAsync = buildCleaningJob(bamWorkingSet,workingSetSize,interval,rtcAsync.out,readBufferSize,IOType.ASYNC)
+        add(cleanAsync)
+      }
     }
 
   }
