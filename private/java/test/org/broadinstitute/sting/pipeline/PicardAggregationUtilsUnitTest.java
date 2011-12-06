@@ -24,10 +24,16 @@
 
 package org.broadinstitute.sting.pipeline;
 
+import org.apache.commons.io.FileUtils;
+import org.broadinstitute.sting.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 public class PicardAggregationUtilsUnitTest {
     public static final String PROJECT = "C474";
@@ -49,32 +55,26 @@ public class PicardAggregationUtilsUnitTest {
 
     @Test(dependsOnMethods = "testGetLatestVersion")
     public void testGetSampleBam() throws Exception {
-        String test = PicardAggregationUtils.getSampleBam(PROJECT, SAMPLE);
-        String latest = PicardAggregationUtils.getSampleBam(PROJECT, SAMPLE, latestVersion);
-        Assert.assertEquals(test, latest);
+        File sampleBam = new File(PicardAggregationUtils.getSampleBam(PROJECT, SAMPLE, latestVersion));
+        Assert.assertTrue(sampleBam.exists());
+        File latestSampleBam = new File(PicardAggregationUtils.getSampleBam(PROJECT, SAMPLE));
+        Assert.assertTrue(latestSampleBam.exists());
+        Assert.assertEquals(latestSampleBam, sampleBam);
     }
 
     @Test(dependsOnMethods = "testGetLatestVersion")
     public void testGetSampleDir() throws Exception {
-        String test = PicardAggregationUtils.getSampleDir(PROJECT, SAMPLE);
-        String latest = PicardAggregationUtils.getSampleDir(PROJECT, SAMPLE, latestVersion);
-        Assert.assertEquals(test, latest);
+        File sampleDir = new File(PicardAggregationUtils.getSampleDir(PROJECT, SAMPLE, latestVersion));
+        Assert.assertTrue(sampleDir.exists());
+        File latestSampleDir = new File(PicardAggregationUtils.getSampleDir(PROJECT, SAMPLE));
+        Assert.assertTrue(latestSampleDir.exists());
+        Assert.assertEquals(latestSampleDir, sampleDir);
     }
 
     @Test(dependsOnMethods = "testGetLatestVersion")
     public void testIsFinished() {
         Assert.assertTrue(PicardAggregationUtils.isFinished(PROJECT, SAMPLE, latestVersion));
         Assert.assertFalse(PicardAggregationUtils.isFinished(PROJECT, SAMPLE, latestVersion + 1));
-    }
-
-    @Test(expectedExceptions = FileNotFoundException.class)
-    public void testMissingSampleBam() throws Exception {
-        PicardAggregationUtils.getSampleBam(MISSING_PROJECT, MISSING_SAMPLE);
-    }
-
-    @Test(expectedExceptions = FileNotFoundException.class)
-    public void testMissingSampleDir() throws Exception {
-        PicardAggregationUtils.getSampleDir(MISSING_PROJECT, MISSING_SAMPLE);
     }
 
     @Test
@@ -84,11 +84,50 @@ public class PicardAggregationUtilsUnitTest {
 
     @Test
     public void testSafeFileNames() throws FileNotFoundException {
-        Assert.assertTrue(PicardAggregationUtils.getLatestVersion(SLASH_PROJECT, SLASH_SAMPLE) > 0);
-        Assert.assertTrue(PicardAggregationUtils.getLatestVersion(SPACE_PROJECT, SPACE_SAMPLE) > 0);
-        PicardAggregationUtils.getSampleDir(SLASH_PROJECT, SLASH_SAMPLE);
-        PicardAggregationUtils.getSampleBam(SLASH_PROJECT, SLASH_SAMPLE);
-        PicardAggregationUtils.getSampleDir(SPACE_PROJECT, SPACE_SAMPLE);
-        PicardAggregationUtils.getSampleBam(SPACE_PROJECT, SPACE_SAMPLE);
+        int slashLatest = PicardAggregationUtils.getLatestVersion(SLASH_PROJECT, SLASH_SAMPLE);
+        int spaceLatest = PicardAggregationUtils.getLatestVersion(SPACE_PROJECT, SPACE_SAMPLE);
+        Assert.assertTrue(slashLatest > 0);
+        Assert.assertTrue(spaceLatest > 0);
+        PicardAggregationUtils.getSampleDir(SLASH_PROJECT, SLASH_SAMPLE, slashLatest);
+        PicardAggregationUtils.getSampleBam(SLASH_PROJECT, SLASH_SAMPLE, slashLatest);
+        PicardAggregationUtils.getSampleDir(SPACE_PROJECT, SPACE_SAMPLE, spaceLatest);
+        PicardAggregationUtils.getSampleBam(SPACE_PROJECT, SPACE_SAMPLE, spaceLatest);
+    }
+
+    @Test
+    public void testParseTsv() throws IOException {
+        File tsv = writeTsv(PROJECT, SAMPLE);
+        List<PicardSample> picardSamples = PicardAggregationUtils.parseSamples(tsv);
+        Assert.assertEquals(picardSamples.size(), 1);
+
+        PicardIntervals intervals = PicardAggregationUtils.readAnalysisIntervals(picardSamples);
+        Assert.assertEquals(intervals.getReference(), BaseTest.hg19Reference);
+        // BaseTest.hg19Intervals and the test are the same intervals, but in a different location. For now just testing the name.
+        Assert.assertEquals(new File(intervals.getTargets()).getName(), new File(BaseTest.hg19Intervals).getName());
+
+        List<String> bams = PicardAggregationUtils.getSampleBams(picardSamples);
+        for (String bam: bams)
+            Assert.assertTrue(new File(bam).exists(), "bam does not exist: " + bam);
+    }
+
+    @Test
+    public void testParseTsvWithPicardComments() throws Exception {
+        File tsv = writeTsv("C460", "HG01359");
+        List<PicardSample> picardSamples = PicardAggregationUtils.parseSamples(tsv);
+
+        PicardIntervals intervals = PicardAggregationUtils.readAnalysisIntervals(picardSamples);
+        Assert.assertEquals(intervals.getReference(), BaseTest.hg19Reference);
+        // BaseTest.hg19Intervals and the test are the same intervals, but in a different location. For now just testing the name.
+        Assert.assertEquals(new File(intervals.getTargets()).getName(), new File(BaseTest.hg19Intervals).getName());
+
+        List<String> bams = PicardAggregationUtils.getSampleBams(picardSamples);
+        for (String bam: bams)
+            Assert.assertTrue(new File(bam).exists(), "bam does not exist: " + bam);
+    }
+
+    private File writeTsv(String project, String sample) throws IOException {
+        File tsv = BaseTest.createTempFile("pipeline", ".tsv");
+        FileUtils.writeLines(tsv, Collections.singletonList(project + "\t" + sample));
+        return tsv;
     }
 }

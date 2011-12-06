@@ -25,9 +25,10 @@
 package org.broadinstitute.sting.queue.pipeline
 
 import org.testng.annotations.{DataProvider, Test}
-import org.broadinstitute.sting.pipeline.{PipelineSample, Pipeline}
-import org.broadinstitute.sting.utils.yaml.YamlUtils
 import org.broadinstitute.sting.BaseTest
+import org.apache.commons.io.FileUtils
+import org.broadinstitute.sting.pipeline.PicardAggregationUtils
+import collection.JavaConversions._
 
 class HybridSelectionPipelineTest {
   def datasets = List(k1gChr20Dataset)
@@ -35,22 +36,19 @@ class HybridSelectionPipelineTest {
   val k1gChr20Dataset = {
     val dataset = newK1gDataset("Barcoded_1000G_WEx_chr20", BaseTest.hg19Chr20Intervals)
 
-    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.called.all.all.all", "nCalledLoci", 1463)
-    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.called.all.known.all", "nCalledLoci", 1196)
-    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.called.all.novel.all", "nCalledLoci", 267)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.called.all.all.all", "tiTvRatio", 3.5633)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.called.all.known.all", "tiTvRatio", 3.7976)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.called.all.novel.all", "tiTvRatio", 2.7246)
+    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.all.all", "nCalledLoci", 1464)
+    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.known.all", "nCalledLoci", 1196)
+    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.novel.all", "nCalledLoci", 268)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.all.all", "tiTvRatio", 3.56)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.known.all", "tiTvRatio", 3.80)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.novel.all", "tiTvRatio", 2.72)
 
     dataset
   }
 
   def newK1gDataset(projectName: String, intervals: String) = {
-    val project = K1gPipelineTest.createHg19Project(projectName, intervals)
-    var samples = List.empty[PipelineSample]
-    for (k1gBam <- K1gPipelineTest.k1gBams)
-      samples :+= K1gPipelineTest.createK1gSample(projectName, k1gBam)
-    new PipelineDataset(K1gPipelineTest.createPipeline(project, samples))
+    val bams = K1gPipelineTest.k1gBams.map(ps => PicardAggregationUtils.getSampleBam(ps.project, ps.sample))
+    new PipelineDataset(projectName, intervals, bams)
   }
 
   @DataProvider(name="datasets")//, parallel=true)
@@ -59,17 +57,18 @@ class HybridSelectionPipelineTest {
 
   @Test(dataProvider="datasets")
   def testHybridSelectionPipeline(dataset: PipelineDataset) {
-    val projectName = dataset.pipeline.getProject.getName
-    val testName = "HybridSelectionPipeline-" + projectName
-    val yamlFile = writeYaml(testName, dataset.pipeline)
+    val testName = "HybridSelectionPipeline-" + dataset.projectName
+    val bamList = writeBamList(dataset.projectName, dataset.bams)
 
     // Run the pipeline with the expected inputs.
     val pipelineCommand =
       ("-retry 1" +
         " -S private/scala/qscript/org/broadinstitute/sting/queue/qscripts/pipeline/HybridSelectionPipeline.scala" +
-        " -Y %s" +
+        " -P %s" +
+        " -L %s" +
+        " -I %s" +
         " -varFilter HARD")
-        .format(yamlFile)
+        .format(dataset.projectName, dataset.intervals, bamList)
 
     val pipelineSpec = new PipelineTestSpec
     pipelineSpec.name = testName
@@ -77,21 +76,23 @@ class HybridSelectionPipelineTest {
     pipelineSpec.jobQueue = dataset.jobQueue
 
     pipelineSpec.evalSpec = new PipelineTestEvalSpec
-    pipelineSpec.evalSpec.evalReport = projectName + ".eval"
+    pipelineSpec.evalSpec.evalReport = dataset.projectName + ".by_sample_functionalclass.eval"
     pipelineSpec.evalSpec.validations = dataset.validations
 
     PipelineTest.executeTest(pipelineSpec)
   }
 
-  private def writeYaml(testName: String, pipeline: Pipeline) = {
-    val yamlFile = BaseTest.createTempFile(pipeline.getProject.getName + ".", ".yaml")
-    YamlUtils.dump(pipeline, yamlFile)
-    yamlFile
+  private def writeBamList(projectName: String, bams: List[String]) = {
+    val bamList = BaseTest.createNetworkTempFile(projectName + ".", ".list")
+    FileUtils.writeLines(bamList, bams)
+    bamList
   }
 
-  class PipelineDataset(var pipeline: Pipeline = null,
+  class PipelineDataset(var projectName: String,
+                        var intervals: String,
+                        var bams: List[String],
                         var validations: List[PipelineValidation[_]] = Nil,
                         var jobQueue: String = null) {
-    override def toString = pipeline.getProject.getName
+    override def toString = projectName
   }
 }
