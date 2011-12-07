@@ -27,8 +27,7 @@ package org.broadinstitute.sting.queue.pipeline
 import org.broadinstitute.sting.BaseTest
 import org.broadinstitute.sting.queue.util.Logging
 import java.io.{FileNotFoundException, File}
-import collection.JavaConversions._
-import org.broadinstitute.sting.pipeline.{PicardAggregationUtils, Pipeline, PipelineProject, PipelineSample}
+import org.broadinstitute.sting.pipeline.PicardAggregationUtils
 
 object K1gPipelineTest extends BaseTest with Logging {
 
@@ -50,49 +49,6 @@ object K1gPipelineTest extends BaseTest with Logging {
     new K1gBam("C474", "NA19654"))
 
   validateK1gBams()
-
-  /**
-   * Creates a new pipeline from a project.
-   * @param project Pipeline project info.
-   * @param samples List of samples.
-   * @return a new pipeline project.
-   */
-  def createPipeline(project: PipelineProject, samples: List[PipelineSample]) = {
-    val pipeline = new Pipeline
-    pipeline.setProject(project)
-    pipeline.setSamples(samples)
-    pipeline
-  }
-
-  /**
-   * Creates a new pipeline project for hg19 with b37 132 dbsnp for genotyping, and b37 129 dbsnp for eval.
-   * @param projectName Name of the project.
-   * @param intervals The intervals file to use.
-   * @return a new pipeline project.
-   */
-  def createHg19Project(projectName: String, intervals: String) = {
-    val project = new PipelineProject
-    project.setName(projectName)
-    project.setReferenceFile(new File(BaseTest.hg19Reference))
-    project.setGenotypeDbsnp(new File(BaseTest.b37dbSNP132))
-    project.setEvalDbsnp(new File(BaseTest.b37dbSNP129))
-    project.setRefseqTable(new File(BaseTest.hg19Refseq))
-    project.setIntervalList(new File(intervals))
-    project
-  }
-
-  /**
-   * Creates a 1000G pipeline sample from one of the bams.
-   * @param idPrefix Text to prepend to the sample name.
-   * @param k1gBam bam to create the sample for.
-   * @return the created pipeline sample.
-   */
-  def createK1gSample(idPrefix: String, k1gBam: K1gBam) = {
-    val sample = new PipelineSample
-    sample.setId(idPrefix + "_" + k1gBam.sample)
-    sample.setBamFiles(Map("cleaned" -> getPicardBam(k1gBam)))
-    sample
-  }
 
    /**
    * Throws an exception if any of the 1000G bams do not exist.
