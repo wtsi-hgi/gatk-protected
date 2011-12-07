@@ -116,7 +116,7 @@ public class KBestPaths {
                 bestPaths.add(path);
             }
 
-        } else if( n.val > 20000) {
+        } else if( n.val > 10000) {
             // do nothing, just return
         } else {
             // recursively run DFS
