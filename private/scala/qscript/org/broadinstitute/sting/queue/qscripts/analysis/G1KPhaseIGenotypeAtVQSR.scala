@@ -95,7 +95,7 @@ class G1KPhaseIGenotypeAtVQSR extends QScript {
 
     val eval = new VariantEval with UNIVERSAL_GATK_ARGS;
     eval.eval :+= caller.out
-    eval.comp :+= new TaggedFile(b37.getPath + "/1000G_omni2.5.b37.vcf", "OMNI")
+    eval.comp :+= new TaggedFile("/humgen/gsa-hpprojects/GATK/bundle/current/b37/1000G_omni2.5.b37.vcf", "OMNI")
     eval.out = new File("vqsr.gatk.genotypes.vcf.eval")
     eval.noEV = true
     eval.EV = List("GenotypeConcordance")
