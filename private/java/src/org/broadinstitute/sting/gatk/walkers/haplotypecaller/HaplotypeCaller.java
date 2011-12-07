@@ -33,13 +33,11 @@ import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.*;
-import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
-import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;
 import org.broadinstitute.sting.gatk.walkers.recalibration.TableRecalibrationWalker;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.clipreads.ReadClipper;
@@ -48,12 +46,10 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.fragments.FragmentCollection;
 import org.broadinstitute.sting.utils.fragments.FragmentUtils;
-import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.text.XReadLines;
@@ -103,12 +99,6 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
     @Output(fullName="graphOutput", shortName="graph", doc="File to which debug assembly graph information should be written", required = false)
     protected PrintStream graphWriter = null;
-
-    @Output(fullName="debugBam", shortName="debugBam", doc="File to which all possible haplotypes in bam format (aligned via SW) should be written", required = false)
-    protected StingSAMFileWriter bamWriter = null;
-
-    @Argument(fullName="realignReads", shortName="realignReads", doc="If provided, the debugBam will contain all reads in the interval realigned to the new haplotype", required = false)
-    protected boolean realignReads = false;
 
     /**
      * After the header, data records occur one per line until the end of the file. The first several items on a line are the
@@ -170,10 +160,9 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
     // bases with quality less than or equal to this value are trimmed off the tails of the reads
     private static final byte MIN_TAIL_QUALITY = 8;
 
-    protected ConstrainedMateFixingManager manager = null;
-
     private NestedHashMap kmerQualityTables = new NestedHashMap();
-    private int contextSize = 0;
+    private int contextSize = 0; // to be set when reading in the recal k-mer tables
+    private Set<String> samples;
 
     public void initialize() {
 
@@ -181,7 +170,8 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         parseInputRecalData();
 
         // get all of the unique sample names
-        final Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
+        samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
+        // initialize the UnifiedGenotyper Engine which is used to call into the exact model
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
         // initialize the header
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
@@ -189,18 +179,13 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         try {
             // fasta reference reader to supplement the edges of the reference sequence
             referenceReader = new CachingIndexedFastaSequenceFile(getToolkit().getArguments().referenceFile);
-        }
-        catch(FileNotFoundException ex) {
-            throw new UserException.CouldNotReadInputFile(getToolkit().getArguments().referenceFile,ex);
+        } catch( FileNotFoundException e ) {
+            throw new UserException.CouldNotReadInputFile(getToolkit().getArguments().referenceFile, e);
         }
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
         likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, false, true, false, kmerQualityTables, contextSize);
         genotypingEngine = new GenotypingEngine( true, gopSW, gcpSW );
-
-        if( realignReads ) {
-            manager = new ConstrainedMateFixingManager(bamWriter, getToolkit().getGenomeLocParser(), 3000, 200, 150000);
-        }
 
         GenomeLocSortedSet intervalsToAssemble = getToolkit().getIntervals();
         if ( intervalsToAssemble == null || intervalsToAssemble.isEmpty() )
@@ -299,10 +284,6 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         processReadBin( currentInterval );
         result++;
         logger.info("Ran local assembly on " + result + " intervals");
-
-        if( realignReads ) {
-            manager.close();
-        }
     }
 
     private void processReadBin( final GenomeLoc curInterval ) {
@@ -320,11 +301,6 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
             return;
         }
 
-        if( bamWriter != null && !realignReads ) {
-            genotypingEngine.alignAllHaplotypes( haplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), bamWriter, readsToAssemble.getReads().get(0) );
-            return; // in assembly debug mode, so no need to run the rest of the procedure
-        }
-
         final HashMap<String, Double[][]> haplotypeLikehoodMatrixMap = new HashMap<String, Double[][]>();
         final HashSet<Haplotype> bestTwoHaplotypesPerSample = new HashSet<Haplotype>();
         final HashMap<String, ArrayList<GATKSAMRecord>> readListMap = splitReadsBySample( readsToAssemble.getPassingReads() );
@@ -337,10 +313,6 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         }
 
         final ArrayList<VariantContext> vcs = genotypingEngine.alignAndAssignGenotypeLikelihoods( getToolkit().getGenomeLocParser(), haplotypes, bestTwoHaplotypesPerSample, readsToAssemble.getReference(referenceReader), readsToAssemble.getLocation(), curInterval, haplotypeLikehoodMatrixMap );
-
-        //if( bamWriter != null && realignReads ) {
-        //    genotypingEngine.alignAllReads( bestTwoHaplotypes, readsToAssemble.getReference( referenceReader ), readsToAssemble.getLocation(), manager, readsToAssemble.getReadsInWindow( evalWindow ), likelihoodCalculationEngine.readLikelihoodsForBestHaplotypes );
-        //}
 
         for( final VariantContext vc : vcs ) {
             if( curInterval.containsP(getToolkit().getGenomeLocParser().createGenomeLoc(vc).getStartLocation()) ) {
@@ -359,13 +331,16 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
     private HashMap<String, ArrayList<GATKSAMRecord>> splitReadsBySample( final ArrayList<GATKSAMRecord> reads ) {
         final HashMap<String, ArrayList<GATKSAMRecord>> returnMap = new HashMap<String, ArrayList<GATKSAMRecord>>();
-        for( final GATKSAMRecord read : reads ) {
-            final String sample = read.getReadGroup().getSample();
+        for( final String sample : samples) {
             ArrayList<GATKSAMRecord> readList = returnMap.get( sample );
             if( readList == null ) {
                 readList = new ArrayList<GATKSAMRecord>();
                 returnMap.put(sample, readList);
             }
+        }
+        for( final GATKSAMRecord read : reads ) {
+            final String sample = read.getReadGroup().getSample();
+            ArrayList<GATKSAMRecord> readList = returnMap.get( sample );
             readList.add(read);
         }
 
@@ -414,7 +389,8 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
                 if( postAdapterRead != null ) {
                     final GATKSAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
 
-                    if( clippedRead.getReadLength() > 0 && reads.size() < 3000 ) {
+                    // protect against INTERVALS with abnormally high coverage
+                    if( clippedRead.getReadLength() > 0 && reads.size() < samples.size() * 1000 ) {
                         reads.add(clippedRead);
                     }
                 }
@@ -424,15 +400,15 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         public ArrayList<GATKSAMRecord> getReads() { return reads; }
 
         public ArrayList<GATKSAMRecord> getPassingReads() {
-            final ArrayList<GATKSAMRecord> readsOverlappingVariant = new ArrayList<GATKSAMRecord>();
+            final ArrayList<GATKSAMRecord> passingReads = new ArrayList<GATKSAMRecord>();
 
             for( final GATKSAMRecord rec : reads ) {
                 if( rec.getMappingQuality() > 18 && !BadMateFilter.hasBadMate(rec) ) {
-                    readsOverlappingVariant.add(rec);
+                    passingReads.add(rec);
                 }
             }
 
-            return readsOverlappingVariant;
+            return passingReads;
         }
 
         public byte[] getReference(IndexedFastaSequenceFile referenceReader) {
@@ -510,7 +486,6 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         // DEBUG PRINTING
         /*
         if( DEBUG ) {
-            System.out.println("Created longer read by merging! " + bases.length);
             System.out.println(firstRead.getReadString());
             for(int jjj = 0; jjj < firstReadStop; jjj++) {
                 System.out.print(" ");
