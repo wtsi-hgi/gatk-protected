@@ -344,7 +344,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
         for( final VariantContext vc : vcs ) {
             if( curInterval.containsP(getToolkit().getGenomeLocParser().createGenomeLoc(vc).getStartLocation()) ) {
-                final VariantCallContext vcOut = UG_engine.calculateGenotypes(vc, getToolkit().getGenomeLocParser().createGenomeLoc(vc), UG_engine.getUAC().GLmodel);
+                final VariantCallContext vcOut = UG_engine.calculateGenotypes(vc, UG_engine.getUAC().GLmodel);
                 if(vcOut != null) {
                     if( DEBUG ) { System.out.println(vcOut); }
                     vcfWriter.add(vcOut);
