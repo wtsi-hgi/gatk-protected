@@ -65,14 +65,17 @@ class G1KPhaseISummaryTable extends QScript {
   @Argument(shortName = "nt", fullName = "nt", doc="Number of threads to use", required=false)
   val NumThreads: Int = 1;
 
+  @Argument(shortName = "pop", fullName = "pop", doc="Only run population", required=false)
+  val OnlyPop: String = null;
+
 //  val b37_decoy = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
   val bundle = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/")
   val b37 = new File(bundle.getPath + "/human_g1k_v37.fasta")
   val dbSNP_b37 = new File(bundle.getPath + "/dbsnp_132.b37.vcf")
 
   val dbSNP_b37_129 = new File(bundle.getPath + "/dbsnp_132.b37.excluding_sites_after_129.vcf")
-  val dbSNP_b37_129_with_pilot = new File("resources/dbsnp129_with_pilot.vcf")
-  val pilotCalls = new File("resources/pilotSites.vcf")
+  //val pilotCalls = new File("resources/pilotSites.vcf")
+  val knownCNVsFile = new File("resources/known_deletions.bed")
 
   val populations = List("EUR", "ASN", "AFR", "AMR", "ALL")
 
@@ -84,7 +87,7 @@ class G1KPhaseISummaryTable extends QScript {
   val GENE_INTERVALS = Map("CCDS" -> CCDS_BED, "GENCODE" -> GENCODE_BED) // "CAPTURE" -> CAPTURE_BED,
 
   def script = {
-    for ( population <- populations ) {
+    for ( population <- if ( OnlyPop != null ) List(OnlyPop) else populations ) {
       for ( (geneSetName, geneIntervals) <- GENE_INTERVALS )
         add(new evalVariants(population, geneSetName, geneIntervals))
     }
@@ -92,7 +95,7 @@ class G1KPhaseISummaryTable extends QScript {
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     logging_level = "INFO";
-    memoryLimit = 2;
+    memoryLimit = 8;
     reference_sequence = b37
     intervalsString = myIntervals
   }
@@ -102,16 +105,17 @@ class G1KPhaseISummaryTable extends QScript {
     for ( callset <- callsets )
       this.eval :+= new File(callset)
     this.mergeEvals = true
-    this.comp :+= new TaggedFile(dbSNP_b37_129, "dbsnp129")
-    this.comp :+= new TaggedFile(pilotCalls, "pilot")
-    this.comp :+= new TaggedFile(dbSNP_b37_129_with_pilot, "dbsnp129_and_pilot")
+    this.comp :+= new TaggedFile(dbSNP_b37_129, "dbSNP_129")
+    //this.comp :+= new TaggedFile(pilotCalls, "pilot")
+    this.comp :+= new TaggedFile(dbSNP_b37, "dbSNP_132")
     this.sample = List("%s.samples.list".format(pop))
     this.out = new File("%s.samples.genes_%s.eval".format(pop, geneSetName))
     this.noEV = true
-    this.EV = List(VariantSummary.class.getSimpleName)
+    this.EV = List("VariantSummary")
     this.noST = true
     this.stratIntervals = geneIntervals
     this.ST = List("IntervalStratification")
     this.nt = NumThreads
+    this.knownCNVs = knownCNVsFile
   }
 }

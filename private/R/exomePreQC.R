@@ -23,7 +23,7 @@ require('ggplot2')
 require('gplots')
 require('tools')
 
-data <- read.table(inputTSV,header=T)
+data <- read.table(inputTSV,header=T,sep='\t')
 
 trim_to_95_pct <- function(column) {
   mean <- mean(column,na.rm=T)
