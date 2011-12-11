@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, The Broad Institute
+ * Copyright (c) 2011, The Broad Institute
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -24,39 +24,26 @@
 
 package org.broadinstitute.sting.pipeline;
 
-import java.util.ArrayList;
-import java.util.List;
+public class PicardSample {
+    private final String project;
+    private final String sample;
+    private final int version;
 
-/**
- * Java bean for storing a list of samples for a pipeline.
- *
- * NOTE: This class is used in a very similar way to the classes in
- * org.broadinstitute.sting.gatk.datasources.sample.
- *
- * Both store / load sample information from the file system as YAML.
- *
- * This package will likely be refactored to share common functionality
- * with the other at a future date as requirements coalesce.
- *
- * - kshakir September 22, 2010
- */
-public class Pipeline {
-    private PipelineProject project = new PipelineProject();
-    private List<PipelineSample> samples = new ArrayList<PipelineSample>();
+    public PicardSample(String project, String sample, int version) {
+        this.project = project;
+        this.sample = sample;
+        this.version = version;
+    }
 
-    public PipelineProject getProject() {
+    public String getProject() {
         return project;
     }
 
-    public void setProject(PipelineProject project) {
-        this.project = project;
+    public String getSample() {
+        return sample;
     }
 
-    public List<PipelineSample> getSamples() {
-        return samples;
-    }
-
-    public void setSamples(List<PipelineSample> samples) {
-        this.samples = samples;
+    public int getVersion() {
+        return version;
     }
 }

@@ -1,12 +1,10 @@
-require("gsalib")
-require("ggplot2")
-require("gplots")
-require("tools")
+library(gsalib)
+library(ggplot2)
+library(gplots)
+library(tools)
 
 # TODOs:
 #  Assumes you have indels in your call set.  If not you will get errors
-#  Create pre/post calling sections
-#  Allow conditional use of the preQCFile (where it's not available)
 
 args <- commandArgs(TRUE)
 
@@ -18,30 +16,28 @@ parseHighlightSamples <- function(s) {
   return(unlist(strsplit(s, ",", fixed=T)))
 }
 
-preQCFile <- NA
 if ( onCMDLine ) {
-  ProjectName <- args[1]
-  VariantEvalRoot <- args[2]
-  outputPDF <- args[3]
-  if ( ! is.na(args[4]) ) 
-    preQCFile <- args[4]
-  if ( ! is.na(args[5]) ) 
+  projectName <- args[1]
+  bySiteEval <- args[2]
+  byACEval <- args[3]
+  outputPDF <- args[4]
+  if ( ! is.na(args[5]) )
     highlightSamples <- parseHighlightSamples(args[5])
   else
     highlightSamples <- c()
 } else {
-  ProjectName <- "InDevelopmentInR"
-  VariantEvalRoot <- "t2dChr20Eval/ALL.chr20.freeze20110608_umich.genotypes.vcf.gz"
+  projectName <- "InDevelopmentInR"
+  bySiteEval <- "t2dChr20Eval/ALL.chr20.freeze20110608_umich.genotypes.bySampleByFunctionalClass.eval"
+  byACEval <- "t2dChr20Eval/ALL.chr20.freeze20110608_umich.genotypes.byAC.eval"
   outputPDF <- "variantCallQC.pdf"
-  preQCFile <- NA # "~/Desktop/broadLocal/GATK/trunk/qcTestData/GoT2D_exomes_batch_005_per_sample_metrics.tsv"
   highlightSamples <- c() # parseHighlightSamples("29029,47243")
 }
 
 print("Report")
-print(paste("Project          :", ProjectName))
-print(paste("VariantEvalRoot  :", VariantEvalRoot))
+print(paste("Project          :", projectName))
+print(paste("bySiteEval       :", bySiteEval))
+print(paste("byACEval         :", byACEval))
 print(paste("outputPDF        :", outputPDF))
-print(paste("preQCFile        :", preQCFile))
 print(paste("highlightSamples :", highlightSamples))
 
 # -------------------------------------------------------
@@ -87,13 +83,13 @@ selectCumulativeMetrics <- function(data,column) {
   lapply(data,function(x) { subset(x,x[column]=='all') })
 }
 
-createMetricsBySites <- function(VariantEvalRoot, PreQCMetrics) {
+createMetricsBySites <- function(bySiteEval, byACEval) {
   # Metrics by sites:
   #  bySite -> counts of SNPs and Indels by novelty, with expectations
   #  byAC -> snps and indels (known / novel)
-  bySiteEval <- expandVEReport(selectCumulativeMetrics(gsa.read.gatkreport(paste(VariantEvalRoot, ".bySampleByFunctionalClass.eval", sep="")),'Sample'))
-  byACEval <- gsa.read.gatkreport(paste(VariantEvalRoot, ".byAC.eval", sep=""))
-  r <- list(bySite = bySiteEval,byAC = byACEval)
+  bySite <- expandVEReport(selectCumulativeMetrics(gsa.read.gatkreport(bySiteEval),'Sample'))
+  byAC <- gsa.read.gatkreport(byACEval)
+  r <- list(bySite = bySite,byAC = byAC)
   r$byAC$CountVariants$nIndels <- r$byAC$CountVariants$nInsertions + r$byAC$CountVariants$nDeletions
   r$byAC$TiTvVariantEvaluator$nSNPs <- r$byAC$TiTvVariantEvaluator$nTi + r$byAC$TiTvVariantEvaluator$nTv
   r$byAC$CountVariants$AC <- r$byAC$CountVariants$AlleleCount
@@ -224,14 +220,10 @@ addSection <- function(name) {
 # read functions
 # -------------------------------------------------------
 
-createMetricsBySamples <- function(VariantEvalRoot) {
-  bySampleEval <- expandVEReport(selectCumulativeMetrics(gsa.read.gatkreport(paste(VariantEvalRoot,".bySampleByFunctionalClass.eval", sep="")),'FunctionalClass'))
-  r <- merge(bySampleEval$TiTvVariantEvaluator, bySampleEval$CountVariants)
-  r <- merge(r, bySampleEval$CompOverlap)
-  if ( ! is.na(preQCFile) ) {
-    preQCMetrics <- read.table(preQCFile, header=T)
-    r <- merge(r, preQCMetrics)
-  }
+createMetricsBySamples <- function(bySampleEval) {
+  bySample <- expandVEReport(selectCumulativeMetrics(gsa.read.gatkreport(bySampleEval),'FunctionalClass'))
+  r <- merge(bySample$TiTvVariantEvaluator, bySample$CountVariants)
+  r <- merge(r, bySample$CompOverlap)
   # order the samples by nSNPs -- it's the natural ordering.
   x <- subset(r, Novelty=="all")
   r$Sample <- factor(x$Sample, levels=x$Sample[order(x$nSNPs)])
@@ -239,7 +231,6 @@ createMetricsBySamples <- function(VariantEvalRoot) {
   # add highlight info
   r$highlight <- r$Sample %in% highlightSamples
 
-  #r <- merge(merge(preQCMetrics, byACEval$TiTvVariantEvaluator), byACEval$CountVariants)
   return(subset(r, Sample != "all"))
 }
 
@@ -344,8 +335,8 @@ perSamplePlots <- function(metricsBySamples) {
 
 # load the data.
 if ( onCMDLine || LOAD_DATA ) {
-  metricsBySites <- createMetricsBySites(VariantEvalRoot)
-  metricsBySamples <- createMetricsBySamples(VariantEvalRoot)
+  metricsBySites <- createMetricsBySites(bySiteEval, byACEval)
+  metricsBySamples <- createMetricsBySamples(bySiteEval)
 }
 
 if ( ! is.na(outputPDF) ) {
@@ -354,7 +345,7 @@ if ( ! is.na(outputPDF) ) {
 
 # Table of overall counts and quality
 textplot(overallSummaryTable(metricsBySites, metricsBySamples), show.rownames=F)
-title(paste("Summary metrics for project", ProjectName), cex=3)
+title(paste("Summary metrics for project", projectName), cex=3)
 
 summaryPlots(metricsBySites)
 perSamplePlots(metricsBySamples)

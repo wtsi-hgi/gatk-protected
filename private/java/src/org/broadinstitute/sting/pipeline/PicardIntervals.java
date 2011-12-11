@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, The Broad Institute
+ * Copyright (c) 2011, The Broad Institute
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -24,39 +24,39 @@
 
 package org.broadinstitute.sting.pipeline;
 
-import java.io.File;
-import java.util.Map;
-import java.util.TreeMap;
+public class PicardIntervals {
+    private final String reference;
+    private final String targets;
 
-/**
- * Java bean defining a sample for a pipeline.
- */
-public class PipelineSample {
-    private String id;
-    private Map<String, File> bamFiles = new TreeMap<String, File>();
-    private Map<String, String> tags = new TreeMap<String, String>();
-
-    public String getId() {
-        return id;
+    public PicardIntervals(String reference, String targets) {
+        if (reference == null)
+            throw new IllegalArgumentException("reference is null");
+        this.reference = reference;
+        this.targets = targets;
     }
 
-    public void setId(String id) {
-        this.id = id;
+    public String getReference() {
+        return reference;
     }
 
-    public Map<String, File> getBamFiles() {
-        return bamFiles;
+    public String getTargets() {
+        return targets;
     }
 
-    public void setBamFiles(Map<String, File> bamFiles) {
-        this.bamFiles = bamFiles;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        PicardIntervals that = (PicardIntervals) o;
+
+        return reference.equals(that.reference) && (targets == null ? that.targets == null : targets.equals(that.targets));
     }
 
-    public Map<String, String> getTags() {
-        return tags;
-    }
-
-    public void setTags(Map<String, String> tags) {
-        this.tags = tags;
+    @Override
+    public int hashCode() {
+        int result = reference.hashCode();
+        result = 31 * result + (targets != null ? targets.hashCode() : 0);
+        return result;
     }
 }
