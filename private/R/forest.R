@@ -6,15 +6,15 @@ onCommandLine <- ! is.na(args[1])
 
 # variables controlling the system behavior:
 BIG_MEMORY <- grepl("gsa", Sys.info()[4])
-CHR20_ONLY = F
+CHR20_ONLY = T
 EXPLORE_EXAMPLES = F
-ANALYZE_BY_N_TRAINING_SITES <- T
+ANALYZE_BY_N_TRAINING_SITES <- F
 ANALYZE_BY_N_ANNOTATIONS <- F
 ANALYZE_ROBUSTNESS_TO_NOISE_ANNOTATIONS <- F
 ANALYZE_SENSITIVITY_TO_NEGATIVE_TRAINING_SET <- F
-MAX_POLY_SITES_TO_EVAL = 10000000
+MAX_POLY_SITES_TO_EVAL = 10000
 DEFAULT_MAX_NEG_TRAINING_FRACTION = 0.25
-nRocPoints = 500
+nRocPoints = 1000
 FORCE_RELOAD = F
 
 #N_TREES <- 1000
@@ -59,36 +59,32 @@ addDerivedColumns <- function(data) {
   data
 }
 
-if ( onCommandLine | (! loaded | FORCE_RELOAD) ) {
-  if ( ! exists("allSites") ) {
-    print("Loading allSites")
-    if ( CHR20_ONLY ) {
-      allSites <- read.table("combined.phase1.wgs.recal.snps.20.dat", header=T)
-    } else {
-      allSites <- read.table("combined.phase1.wgs.recal.snps.training.dat", header=T)
-    }
-    allSites <- addDerivedColumns(allSites)
+if ( ! exists("allSites") ) {
+  print("Loading allSites")
+  if ( CHR20_ONLY ) {
+    allSites <- read.table("combined.phase1.wgs.recal.snps.20.dat", header=T)
+  } else {
+    allSites <- read.table("combined.phase1.wgs.recal.snps.training.dat", header=T)
   }
+  allSites <- addDerivedColumns(allSites)
+}
+
+if ( ! exists("omniSites") ) {
+  print("Loading omniSites")
+  omniSites <- read.table("combined.phase1.wgs.recal.snps.omni.dat", header=T)
+  omniSites <- addDerivedColumns(omniSites)
+
+  nonOmniMono = subset(allSites, status != "POLY" & status != "UNKNOWN" & status != "MONO")
+  omniSites <- rbind(omniSites, nonOmniMono)
+
+  omniSites <- na.omit(omniSites[,c(trainingAnn, "VQSLOD", "FILTER", "TrainingLabel", "status")])
   
-  if ( ! exists("omniSites") ) {
-    print("Loading omniSites")
-    omniSites <- read.table("combined.phase1.wgs.recal.snps.omni.dat", header=T)
-    omniSites <- addDerivedColumns(omniSites)
-  
-    nonOmniMono = subset(allSites, status != "POLY" & status != "UNKNOWN" & status != "MONO")
-    omniSites <- rbind(omniSites, nonOmniMono)
-  
-    omniSites <- na.omit(omniSites[,c(trainingAnn, "VQSLOD", "FILTER", "TrainingLabel", "status")])
-    
-    nPoly = sum(omniSites$status == "POLY")
-    if ( nPoly > MAX_POLY_SITES_TO_EVAL ) {
-      poly = subset(omniSites, status == "POLY")
-      polysub = sample(1:nPoly, MAX_POLY_SITES_TO_EVAL)
-      omniSites = rbind(poly[polysub,], subset(omniSites, status != "POLY" ))
-    }
+  nPoly = sum(omniSites$status == "POLY")
+  if ( nPoly > MAX_POLY_SITES_TO_EVAL ) {
+    poly = subset(omniSites, status == "POLY")
+    polysub = sample(1:nPoly, MAX_POLY_SITES_TO_EVAL)
+    omniSites = rbind(poly[polysub,], subset(omniSites, status != "POLY" ))
   }
-  
-  #t <- allSites[1:100000, ]
 }
 
 #LABEL = "status"
@@ -110,18 +106,27 @@ roc <- function(nChunks, data, scoreLabel, name) {
   sorted <- data[order(scores, decreasing=T),]
   
   n <- dim(data)[1]
-  chunks = c(seq(1, n, n / nChunks), n)
+  chunks = round(c(seq(1, n, n / nChunks), n))
   
+  lastChunk = 0
+  lastPoly = 0
+  lastMono = 0
   for ( chunk in chunks ) {
-    sub = sorted[1:chunk,]
+    #print(list(last=lastChunk, c=chunk))
+    sub = sorted[(lastChunk+1):chunk,]
 
-    nPoly <- sum(sub$status == "POLY")
-    nMono <- sum(sub$status != "POLY")
+    nPoly <- lastPoly + sum(sub$status == "POLY")
+    nMono <- lastMono + sum(sub$status != "POLY")
     
     sensitivity = nPoly / nAllPoly
     specificity = 1 - nMono / nAllMono
     one <- data.frame(sensitivity = sensitivity, specificity = specificity, name = name, nTrees = NA, nTrainingSites=NA, nAnn = 8)
     df <- rbind(df, one)
+    
+    # update
+    lastChunk = chunk
+    lastPoly = nPoly
+    lastMono= nMono
   }
   
   df
@@ -434,3 +439,13 @@ if ( ANALYZE_SENSITIVITY_TO_NEGATIVE_TRAINING_SET ) {
   by.neg.training.fraction <- byNegTrainingFraction()
 }
 
+#
+# performance of new roc calculation
+# 
+# MAG = 10
+# big <- data.frame()
+# for ( i in 1:MAG ) big <- rbind(big, omniSites)
+# print(dim(big))
+# vqsr.mar.roc <- rocMarginal(nRocPoints, big, "VQSLOD", "VQSR.mar")
+# vqsr.brute.roc <- rocOriginal(nRocPoints, big, "VQSLOD", "VQSR.brute")
+# plotRocs(rbind(vqsr.brute.roc, vqsr.mar.roc))
