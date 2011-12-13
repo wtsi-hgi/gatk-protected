@@ -294,20 +294,25 @@ public class GenotypingEngine {
                 e.index = iii;
                 inputEvents.add(e);
             } else { // might need to correct the alleles because of the potential merging of multiallelic records
-                // if( DEBUG ) { System.out.println( "My Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
-                if( mergedVC.getAlternateAlleles().size() > 1 && !myEvent.refAllele.equals(mergedVC.getReference()) ) {
-                    final int suffixSize = mergedVC.getReference().getBases().length - myEvent.refAllele.length();
-                    if( suffixSize > 0 ) {
-                        if( (myEvent.vc.isSimpleInsertion() || myEvent.vc.isSimpleDeletion()) && mergedVC.isMixed() ) { // the special case of combining a SNP and an in/del (one has padded reference but the other doesn't)
-                            myEvent.altAllele = Allele.extend(myEvent.altAllele, Arrays.copyOfRange(mergedVC.getReference().getBases(), myEvent.refAllele.getBases().length + 1, myEvent.refAllele.getBases().length + suffixSize));
-                            myEvent.altAllele = Allele.create(mergedVC.getReference().getBaseString().charAt(0) + myEvent.altAllele.getBaseString());
-                        } else {
-                            myEvent.altAllele = Allele.extend(myEvent.altAllele, Arrays.copyOfRange(mergedVC.getReference().getBases(), myEvent.refAllele.getBases().length, myEvent.refAllele.getBases().length + suffixSize));
+                for( final Event e : inputEvents ) {
+                    if( e.index == iii ) {
+                        myEvent = e;
+                        //if( DEBUG ) { System.out.println( "My Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
+                        if( mergedVC.getAlternateAlleles().size() > 1 && !myEvent.refAllele.equals(mergedVC.getReference()) ) {
+                            final int suffixSize = mergedVC.getReference().getBases().length - myEvent.refAllele.length();
+                            if( suffixSize > 0 ) {
+                                if( (myEvent.vc.isSimpleInsertion() || myEvent.vc.isSimpleDeletion()) && mergedVC.isMixed() ) { // the special case of combining a SNP and an in/del (one has padded reference but the other doesn't)
+                                    myEvent.altAllele = Allele.extend(myEvent.altAllele, Arrays.copyOfRange(mergedVC.getReference().getBases(), myEvent.refAllele.getBases().length + 1, myEvent.refAllele.getBases().length + suffixSize));
+                                    myEvent.altAllele = Allele.create(mergedVC.getReference().getBaseString().charAt(0) + myEvent.altAllele.getBaseString());
+                                } else {
+                                    myEvent.altAllele = Allele.extend(myEvent.altAllele, Arrays.copyOfRange(mergedVC.getReference().getBases(), myEvent.refAllele.getBases().length, myEvent.refAllele.getBases().length + suffixSize));
+                                }
+                                myEvent.refAllele = mergedVC.getReference();
+                            }
                         }
-                        myEvent.refAllele = mergedVC.getReference();
+                        //if( DEBUG ) { System.out.println( "--> Updated Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
                     }
                 }
-                // if( DEBUG ) { System.out.println( "--> Updated Event = " + myEvent.refAllele + "/" + myEvent.altAllele ); }
             }
         }
     }
