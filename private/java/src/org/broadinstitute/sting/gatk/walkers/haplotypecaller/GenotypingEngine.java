@@ -30,7 +30,6 @@ import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
-import org.broadinstitute.sting.gatk.walkers.genotyper.MultiallelicGenotypeLikelihoods;
 import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
@@ -134,8 +133,7 @@ public class GenotypingEngine {
                         }
                     }
                     final HashMap<String, Object> attributes = new HashMap<String, Object>();
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((
-                            new MultiallelicGenotypeLikelihoods(sample, vcToGenotype.getAlleles(), genotypeLikelihoods, 40)).getLikelihoods())); // BUGBUG: 40 hard-coded because I don't have access to the real values to provide here.
+                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((genotypeLikelihoods)));
                     genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
                 }
                 returnCallContexts.add( new VariantContextBuilder(vcToGenotype).genotypes(genotypes).make() );
