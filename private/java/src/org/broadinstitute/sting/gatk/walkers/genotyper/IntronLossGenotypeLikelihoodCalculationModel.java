@@ -77,10 +77,6 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
                 Allele ref = Allele.create(refFile.getSubsequenceAt(featureStop.getContig(), featureStop.getStop(), featureStop.getStop()).getBases(), true);
                 Allele alt = Allele.create(String.format("<:%s:>",postulate),false);
                 Map<String,double[]> newLikelihoods = createPostulateLikelihoodsNew(samples,postulate,postulates.get("NONE"),geneFeature,refFile);
-                Map<String,MultiallelicGenotypeLikelihoods> GLs = new HashMap<String,MultiallelicGenotypeLikelihoods>(samples.size());
-                for ( Map.Entry<String,double[]> gl : samLikelihoods.entrySet() ) {
-                    GLs.put(gl.getKey(), new MultiallelicGenotypeLikelihoods(gl.getKey(),new ArrayList<Allele>(Arrays.asList(ref,alt)),gl.getValue(),postulate.supportingPairs.size()));
-                }
                 Map<String,Object> attributes = new HashMap<String,Object>();
 
                 GenotypesContext genotypes = GenotypesContext.create(samples.size());
