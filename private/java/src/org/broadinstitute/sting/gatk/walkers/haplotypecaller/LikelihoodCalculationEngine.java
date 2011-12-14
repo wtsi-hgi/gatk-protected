@@ -260,13 +260,13 @@ public class LikelihoodCalculationEngine {
         }
     }
 
-    public Set<Haplotype> chooseBestHaplotypes( final ArrayList<Haplotype> haplotypes ) {
+    public ArrayList<Haplotype> chooseBestHaplotypes( final ArrayList<Haplotype> haplotypes ) {
 
         // For now we choose the top two haplotypes by finding the max value of the pairwise matrix
         // in the future we could use AIC or some other criterion to select more haplotypes to best explain the read data
 
         final int numHaplotypes = haplotypes.size();
-        final HashSet<Haplotype> returnHaplotypeSet = new HashSet<Haplotype>();
+        final ArrayList<Haplotype> bestHaplotypesList = new ArrayList<Haplotype>();
         double maxElement = Double.NEGATIVE_INFINITY;
         int hap1 = -1;
         int hap2 = -1;
@@ -280,10 +280,10 @@ public class LikelihoodCalculationEngine {
             }
         }
 
-        returnHaplotypeSet.add(haplotypes.get(hap1));
-        returnHaplotypeSet.add(haplotypes.get(hap2));
+        if( !bestHaplotypesList.contains(haplotypes.get(hap1)) ) { bestHaplotypesList.add(haplotypes.get(hap1)); }
+        if( !bestHaplotypesList.contains(haplotypes.get(hap2)) ) { bestHaplotypesList.add(haplotypes.get(hap2)); }
 
-        return returnHaplotypeSet;
+        return bestHaplotypesList;
     }
 
     private void fillGapProbabilitiesFromQualityTables( final String readGroup, final byte[] refBytes, final double[] contextLogGapOpenProbabilities ) {

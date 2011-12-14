@@ -8,7 +8,8 @@ import java.util.Arrays;
 
 public class HaplotypeCallerIntegrationTest extends WalkerTest {
     final static String REF = b37KGReference;
-    final String BAM = validationDataLocation + "NA12878.HiSeq.b37.chr20.10_11mb.bam";
+    final String NA12878_BAM = validationDataLocation + "NA12878.HiSeq.b37.chr20.10_11mb.bam";
+    final String CEUTRIO_BAM = validationDataLocation + "CEUTrio.HiSeq.b37.chr20.10_11mb.bam";
     final String INTERVALS_FILE = validationDataLocation + "NA12878.HiSeq.b37.chr20.10_11mb.test.intervals";
     final String RECAL_FILE = validationDataLocation + "NA12878.kmer.7.recal_data.csv";
 
@@ -20,7 +21,12 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
 
     @Test
     public void testHaplotypeCallerSingleSample() {
-        HCTest(BAM, "-rf UnmappedRead", "5157c024edd60ec342357b13c6baae3d");
+        HCTest(NA12878_BAM, "-rf UnmappedRead", "c33459464def6c70528e449e65fe6413");
+    }
+
+    @Test
+    public void testHaplotypeCallerMultiSample() {
+        HCTest(CEUTRIO_BAM, "-rf UnmappedRead", "509d4d46827b8ab23d63093c073c6252");
     }
 }
 

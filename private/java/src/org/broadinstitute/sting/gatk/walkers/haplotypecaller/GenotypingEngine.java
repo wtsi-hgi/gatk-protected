@@ -69,7 +69,7 @@ public class GenotypingEngine {
         allEventDictionary = new HashMap<Integer, ArrayList<Event>>();
     }
 
-    public ArrayList<VariantContext> alignAndAssignGenotypeLikelihoods( final GenomeLocParser genomeLocParser, final ArrayList<Haplotype> allHaplotypes, final Set<Haplotype> bestHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final HashMap<String,Double[][]> haplotypeLikelihoodMatrixMap ) {
+    public ArrayList<VariantContext> alignAndAssignGenotypeLikelihoods( final GenomeLocParser genomeLocParser, final ArrayList<Haplotype> allHaplotypes, final ArrayList<Haplotype> bestHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final HashMap<String,Double[][]> haplotypeLikelihoodMatrixMap ) {
 
         final HashMap<Integer, ArrayList<Event>> bestEventDictionary = new HashMap<Integer, ArrayList<Event>>(); // These are the events we will actually be genotyping
         final ArrayList<VariantContext> returnCallContexts = new ArrayList<VariantContext>();
@@ -152,8 +152,8 @@ public class GenotypingEngine {
         int hIndex = 0;
         int sizeRefHaplotype = 0;
         int refStart = 0;
-        final HashSet<Haplotype> haplotypesToRemove = new HashSet<Haplotype>();
-        final HashSet<Haplotype> haplotypesToAdd = new HashSet<Haplotype>();
+        final ArrayList<Haplotype> haplotypesToRemove = new ArrayList<Haplotype>();
+        final ArrayList<Haplotype> haplotypesToAdd = new ArrayList<Haplotype>();
         if( filterBadHaplotypes ) {
             for( final Haplotype h : haplotypes ) {
 
