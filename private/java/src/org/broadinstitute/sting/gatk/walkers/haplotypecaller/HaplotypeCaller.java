@@ -162,7 +162,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
     private NestedHashMap kmerQualityTables = new NestedHashMap();
     private int contextSize = 0; // to be set when reading in the recal k-mer tables
-    private Set<String> samples;
+    private ArrayList<String> samplesList = new ArrayList<String>();
 
     public void initialize() {
 
@@ -170,7 +170,8 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         parseInputRecalData();
 
         // get all of the unique sample names
-        samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
+        Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
+        samplesList.addAll( samples );
         // initialize the UnifiedGenotyper Engine which is used to call into the exact model
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
         // initialize the header
@@ -302,7 +303,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         }
 
         final HashMap<String, Double[][]> haplotypeLikehoodMatrixMap = new HashMap<String, Double[][]>();
-        final HashSet<Haplotype> bestTwoHaplotypesPerSample = new HashSet<Haplotype>();
+        final ArrayList<Haplotype> bestTwoHaplotypesPerSample = new ArrayList<Haplotype>();
         final HashMap<String, ArrayList<GATKSAMRecord>> readListMap = splitReadsBySample( readsToAssemble.getPassingReads() );
 
         for( final String sample : readListMap.keySet() ) {
@@ -331,7 +332,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
     private HashMap<String, ArrayList<GATKSAMRecord>> splitReadsBySample( final ArrayList<GATKSAMRecord> reads ) {
         final HashMap<String, ArrayList<GATKSAMRecord>> returnMap = new HashMap<String, ArrayList<GATKSAMRecord>>();
-        for( final String sample : samples) {
+        for( final String sample : samplesList) {
             ArrayList<GATKSAMRecord> readList = returnMap.get( sample );
             if( readList == null ) {
                 readList = new ArrayList<GATKSAMRecord>();
@@ -390,7 +391,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
                     final GATKSAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
 
                     // protect against INTERVALS with abnormally high coverage
-                    if( clippedRead.getReadLength() > 0 && reads.size() < samples.size() * 1000 ) {
+                    if( clippedRead.getReadLength() > 0 && reads.size() < samplesList.size() * 1000 ) {
                         reads.add(clippedRead);
                     }
                 }

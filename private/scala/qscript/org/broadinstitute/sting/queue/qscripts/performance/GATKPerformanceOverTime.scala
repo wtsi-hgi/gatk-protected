@@ -1,9 +1,9 @@
 package org.broadinstitute.sting.queue.qscripts.performance
 
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.samtools.SamtoolsIndexFunction
 import org.broadinstitute.sting.queue.extensions.gatk._
 import java.lang.Math
+import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 
 class GATKPerformanceOverTime extends QScript {
   val STD_RESULTS_DIR = "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime"
@@ -11,13 +11,26 @@ class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "results", doc="results", required=false)
   val resultsDir: File = new File("runResults");
 
+  @Argument(shortName = "myJarFile", doc="Path to the current GATK jar file", required=false)
+  val myJarFile: String = "/home/unix/depristo/dev/GenomeAnalysisTK/projects/gatkPerformance/dist/GenomeAnalysisTK.jar"
+
   @Argument(shortName = "iterations", doc="it", required=false)
   val iterations: Int = 3;
 
   @Argument(shortName = "steps", doc="steps", required=false)
   val steps: Int = 10;
 
+  @Argument(shortName = "maxNSamples", doc="maxNSamples", required=false)
+  val maxNSamples: Int = 1000000;
+
+  val RECAL_BAM = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam")
+  val dbSNP = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_132.b37.vcf")
+  val RECAL_FILE = new File("resources/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.csv")
   val b37: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
+
+  def makeChunk(x: Int): File = new File("resources/chunk_%d.vcf".format(x))
+  val COMBINE_FILES: List[File] = Range(1,10).map(makeChunk).toList
+  val OMNI_VCF: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/1000G_omni2.5.b37.vcf")
 
   class AssessmentParameters(val name: String, val bamList: File, val intervals: File, val nSamples: Int, val dcov: Int)
 
@@ -28,11 +41,10 @@ class GATKPerformanceOverTime extends QScript {
 
   val GATK12 = "/humgen/gsa-hpprojects/GATK/bin/GenomeAnalysisTK-1.2-65-ge4a583a/GenomeAnalysisTK.jar"
   val GATK13 = "/humgen/gsa-hpprojects/GATK/bin/GenomeAnalysisTK-1.3-23-g13905c0/GenomeAnalysisTK.jar"
-  val myJarFile = "/home/unix/depristo/dev/GenomeAnalysisTK/projects/gatkPerformance/dist/GenomeAnalysisTK.jar"
   val GATKs = Map(
     "v1.2" -> GATK12,
     "v1.3" -> GATK13,
-    "this" -> myJarFile) // TODO -- how do I get this value?
+    "v1.cur" -> myJarFile) // TODO -- how do I get this value?
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO";
@@ -55,7 +67,6 @@ class GATKPerformanceOverTime extends QScript {
               this.jarFile = gatkJar
               this.dcov = assess.dcov
               this.intervals :+= assess.intervals
-              //this.analysisName = name
               this.configureJobReport(Map(
                 "iteration" -> iteration,
                 "gatk" -> gatkName,
@@ -68,16 +79,55 @@ class GATKPerformanceOverTime extends QScript {
 
             // CountLoci
             add(new MyCountLoci(sublist.list, nSamples, name) with VersionOverrides)
+
+            //add(new CallWithSamtools(sublist.list, nSamples, name, assess.intervals))
           }
         }
+      }
+    }
 
-        //add(new CallWithSamtools(sublist.list, nSamples, name, assess.intervals))
+    for ( iteration <- 1 until iterations + 1 ) {
+      for ( (gatkName, gatkJar) <- GATKs ) {
+        if ( gatkName != "1.2" ) { // todo generalize
+          trait VersionOverrides extends CommandLineGATK {
+            this.jarFile = gatkJar
+            this.dcov = 50
+            this.intervalsString :+= "20:10,000,000-20,000,000"
+            this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
+          }
+
+          add(new CountCov(RECAL_BAM) with VersionOverrides)
+          add(new Recal(RECAL_BAM) with VersionOverrides)
+        }
+      }
+    }
+
+    for ( iteration <- 1 until iterations + 1 ) {
+      for ( (gatkName, gatkJar) <- GATKs ) {
+        if ( gatkName != "1.2" ) { // todo generalize
+          trait VersionOverrides extends CommandLineGATK {
+            this.jarFile = gatkJar
+            this.intervalsString :+= "1"
+            this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
+          }
+
+          val CV = new CombineVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
+          CV.variant = COMBINE_FILES
+          CV.out = new File("/dev/null")
+          add(CV)
+
+          val SV = new SelectVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
+          SV.variant = OMNI_VCF
+          SV.sample_name = List("NA12878")
+          SV.out = new File("/dev/null")
+          add(SV)
+        }
       }
     }
   }
 
   def divideSamples(nTotalSamples: Int): List[Int] = {
-    val maxLog10: Double = Math.log10(nTotalSamples)
+    val maxLog10: Double = Math.log10(Math.min(maxNSamples, nTotalSamples))
     val stepSize: Double = maxLog10 / steps
     val ten: Double = 10.0
     def deLog(x: Int): Int = Math.round(Math.pow(ten, stepSize * x)).toInt
@@ -108,6 +158,21 @@ class GATKPerformanceOverTime extends QScript {
     this.analysisName = "samtools"
     @Output(doc="foo") var outVCF: File = new File("%s/%s.%d.%s.bcf".format(resultsDir.getPath, bamList.getName, n, name))
     def commandLine = "./samtools mpileup -ub %s -f %s -l %s | ./bcftools view -vcg -l %s - > %s".format(bamList, b37, intervals, intervals, outVCF)
+  }
+
+  class CountCov(inBam: File) extends CountCovariates with UNIVERSAL_GATK_ARGS {
+    this.knownSites :+= dbSNP
+    this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "DinucCovariate")
+    this.input_file :+= inBam
+    this.recal_file = new File("/dev/null")
+  }
+
+
+  class Recal(inBam: File) extends TableRecalibration with UNIVERSAL_GATK_ARGS {
+    this.input_file :+= inBam
+    this.recal_file = RECAL_FILE
+    this.baq = CalculationMode.CALCULATE_AS_NECESSARY
+    this.out = new File("/dev/null")
   }
 
   def dedupe(elements:List[Int]):List[Int] = {
