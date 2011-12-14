@@ -130,8 +130,8 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
     // the calculation arguments
     private UnifiedGenotyperEngine UG_engine = null;
 
-    // should we print out verbose debug information about each triggering interval
-    private final boolean DEBUG = true;
+    @Argument(fullName="debug", shortName="debug", doc="If specified print out very verbose debug information about each triggering interval", required = false)
+    protected boolean DEBUG;
 
     // the assembly engine
     LocalAssemblyEngine assemblyEngine = null;
@@ -184,8 +184,8 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         }
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
-        likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, false, true, false, kmerQualityTables, contextSize);
-        genotypingEngine = new GenotypingEngine( true, gopSW, gcpSW );
+        likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG, true, false, kmerQualityTables, contextSize);
+        genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
 
         GenomeLocSortedSet intervalsToAssemble = getToolkit().getIntervals();
         if ( intervalsToAssemble == null || intervalsToAssemble.isEmpty() )
