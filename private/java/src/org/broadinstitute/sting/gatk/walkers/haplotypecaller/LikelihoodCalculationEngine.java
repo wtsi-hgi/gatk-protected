@@ -109,12 +109,12 @@ public class LikelihoodCalculationEngine {
         }
     }
 
-    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean deb, boolean doCDP, boolean dovit, final NestedHashMap kmerQualityTables, final int contextSize ) {
-        this(indelGOP, indelGCP, deb, doCDP, kmerQualityTables, contextSize);
+    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean debug, boolean doCDP, boolean dovit, final NestedHashMap kmerQualityTables, final int contextSize ) {
+        this(indelGOP, indelGCP, debug, doCDP, kmerQualityTables, contextSize);
         this.doViterbi = dovit;
     }
 
-    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean deb, boolean doCDP, final NestedHashMap kmerQualityTables, final int contextSize ) {
+    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean debug, boolean doCDP, final NestedHashMap kmerQualityTables, final int contextSize ) {
 
         this.kmerQualityTables = kmerQualityTables;
         this.CONTEXT_SIZE = contextSize;
@@ -122,7 +122,7 @@ public class LikelihoodCalculationEngine {
         this.logGapOpenProbability = -indelGOP/10.0; // QUAL to log prob
         this.logGapContinuationProbability = -indelGCP/10.0; // QUAL to log prob
         this.doContextDependentPenalties = doCDP;
-        this.DEBUG = deb;
+        this.DEBUG = debug;
 
         // fill gap penalty table, affine naive model:
         this.GAP_CONT_PROB_TABLE = new double[MAX_HRUN_GAP_IDX];
