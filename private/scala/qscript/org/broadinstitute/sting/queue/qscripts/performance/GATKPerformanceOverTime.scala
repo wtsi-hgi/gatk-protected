@@ -17,6 +17,9 @@ class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "iterations", doc="it", required=false)
   val iterations: Int = 3;
 
+  @Argument(shortName = "maxThreads", doc="maxThreads", required=false)
+  val maxThreads: Int = 4;
+
   @Argument(shortName = "steps", doc="steps", required=false)
   val steps: Int = 10;
 
@@ -80,6 +83,9 @@ class GATKPerformanceOverTime extends QScript {
             // CountLoci
             add(new MyCountLoci(sublist.list, nSamples, name) with VersionOverrides)
 
+            if ( nSamples == assess.nSamples )
+              addMultiThreadedTest(() => new Call(sublist.list, nSamples, name) with VersionOverrides)
+
             //add(new CallWithSamtools(sublist.list, nSamples, name, assess.intervals))
           }
         }
@@ -98,6 +104,8 @@ class GATKPerformanceOverTime extends QScript {
 
           add(new CountCov(RECAL_BAM) with VersionOverrides)
           add(new Recal(RECAL_BAM) with VersionOverrides)
+
+          addMultiThreadedTest(() => new CountCov(RECAL_BAM) with VersionOverrides)
         }
       }
     }
@@ -126,6 +134,18 @@ class GATKPerformanceOverTime extends QScript {
     }
   }
 
+  def addMultiThreadedTest(makeCommand: () => CommandLineGATK) {
+    if ( maxThreads > 1 ) {
+      for ( nt <- Range(1,maxThreads+1) ) {
+        val cmd = makeCommand()
+        cmd.nt = nt
+        cmd.addJobReportBinding("nt", nt)
+        cmd.analysisName = cmd.analysisName + ".nt"
+        add(cmd)
+      }
+    }
+  }
+
   def divideSamples(nTotalSamples: Int): List[Int] = {
     val maxLog10: Double = Math.log10(Math.min(maxNSamples, nTotalSamples))
     val stepSize: Double = maxLog10 / steps
@@ -135,7 +155,7 @@ class GATKPerformanceOverTime extends QScript {
   }
 
   class Call(@Input(doc="foo") bamList: File, n: Int, name: String) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
-    @Output(doc="foo") var outVCF: File = new File("%s/%s.%d.%s.vcf".format(resultsDir.getPath, bamList.getName, n, name))
+    @Output(doc="foo") var outVCF: File = new File("/dev/null")
     this.input_file :+= bamList
     this.stand_call_conf = 10.0
     this.o = outVCF
@@ -143,7 +163,7 @@ class GATKPerformanceOverTime extends QScript {
   }
 
   class MyCountLoci(@Input(doc="foo") bamList: File, n: Int, name: String) extends CountLoci with UNIVERSAL_GATK_ARGS {
-    @Output(doc="foo") var outFile: File = new File("%s/%s.%d.%s.txt".format(resultsDir.getPath, bamList.getName, n, name))
+    @Output(doc="foo") var outFile: File = new File("/dev/null")
     this.input_file :+= bamList
     this.o = outFile
   }
