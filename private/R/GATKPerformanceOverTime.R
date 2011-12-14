@@ -12,7 +12,7 @@ if ( onCMDLine ) {
   file <- args[1]
   outputPDF <- args[2]
 } else {
-  file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-5126@gsa1.jobreport.txt"
+  file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-1389@gsa1.jobreport.txt"
   outputPDF <- NA
 }
 
@@ -64,6 +64,16 @@ plotNormalizedByNSamples <- function(report) {
   print(p)
 }
 
+plotByGATKVersion <- function(report) {
+  #report$runtime <- replicate(length(report$runtime), rnorm(1))
+  p = ggplot(data=report, aes(x=gatk, y=runtime, group=gatk, color=gatk))
+  p = p + geom_jitter()
+  p = p + geom_boxplot()
+  #p = p + scale_x_log10()# + scale_y_log10()
+  p = p + xlab("GATK version") + ylab(paste("Runtime", RUNTIME_UNITS))
+  p = p + opts(title=paste("Runtime", report$analysisName))
+  print(p)
+}
 
 convertUnits <- function(gatkReportData) {
   convertGroup <- function(g) {
@@ -92,13 +102,18 @@ if ( ! is.na(outputPDF) ) {
   pdf(outputPDF, height=8.5, width=11)
 }
 
-# actually do something
+# Create reports for per N sample CountLoci and UG
 for ( report in list(allReports$CountLoci, allReports$UnifiedGenotyper) ) {
   print(head(report))
   plotByNSamples(report)
   plotNormalizedByNSamples(report)
 }
 
+# Create reports just doing runtime vs. GATK version
+for ( report in list(allReports$TableRecalibration, allReports$CountCovariates, allReports$SelectVariants, allReports$CombineVariants) ) {
+  print(head(report))
+  plotByGATKVersion(report)
+}
 
 if ( ! is.na(outputPDF) ) {
   dev.off()
