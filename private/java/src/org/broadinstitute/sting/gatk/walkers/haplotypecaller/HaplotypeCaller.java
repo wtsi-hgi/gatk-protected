@@ -124,6 +124,9 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
     @Argument(fullName="gcpSW", shortName="gcpSW", doc="gcpSW", required = false)
     protected double gcpSW = 1.4;
 
+    @Argument(fullName="downsampleRegion", shortName="dr", doc="coverage per sample to downsample each region to", required = false)
+    protected int DOWNSAMPLE_PER_SAMPLE_PER_REGION = 1000;
+
     @ArgumentCollection
     private UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
 
@@ -391,7 +394,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
                     final GATKSAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
 
                     // protect against INTERVALS with abnormally high coverage
-                    if( clippedRead.getReadLength() > 0 && reads.size() < samplesList.size() * 1000 ) {
+                    if( clippedRead.getReadLength() > 0 && reads.size() < samplesList.size() * DOWNSAMPLE_PER_SAMPLE_PER_REGION ) {
                         reads.add(clippedRead);
                     }
                 }
