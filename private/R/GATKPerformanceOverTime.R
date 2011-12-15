@@ -8,11 +8,16 @@ args <- commandArgs(TRUE)
 onCMDLine <- ! is.na(args[1])
 LOAD_DATA <- ! exists("allReports")
 
+RUNTIME_UNITS = "(hours)"
+ORIGINAL_UNITS_TO_RUNTIME_UNITS = 1/1000/60/60
+MIN_RUN_TIME_FOR_SUCCESSFUL_JOB = 10^-6
+
 if ( onCMDLine ) {
   file <- args[1]
   outputPDF <- args[2]
 } else {
-  file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-1389@gsa1.jobreport.txt"
+  file <- "/Users/depristo/Desktop/broadLocal/GATK/unstable/Q-24937@gsa2.jobreport.txt"
+  #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-24937@gsa1.jobreport.txt"
   outputPDF <- NA
 }
 
@@ -47,7 +52,7 @@ plotByNSamples <- function(report) {
   p = p + geom_smooth()
   p = p + scale_x_log10() + scale_y_log10()
   p = p + opts(title=report$analysisName)
-  p = p + geom_boxplot(aes(group=interaction(nSamples, gatk)), outlier.colour="blue")
+  p = p + geom_boxplot(aes(group=interaction(nSamples, gatk)))
   print(p)
 }
 
@@ -80,7 +85,7 @@ convertUnits <- function(gatkReportData) {
     g$runtime = g$runtime * ORIGINAL_UNITS_TO_RUNTIME_UNITS
     g$startTime = g$startTime * ORIGINAL_UNITS_TO_RUNTIME_UNITS
     g$doneTime = g$doneTime * ORIGINAL_UNITS_TO_RUNTIME_UNITS
-    g
+    subset(g, runtime > MIN_RUN_TIME_FOR_SUCCESSFUL_JOB)
   }
   lapply(gatkReportData, convertGroup)
 }
@@ -88,9 +93,6 @@ convertUnits <- function(gatkReportData) {
 # -------------------------------------------------------
 # Actually invoke the above plotting functions 
 # -------------------------------------------------------
-
-RUNTIME_UNITS = "(hours)"
-ORIGINAL_UNITS_TO_RUNTIME_UNITS = 1/1000/60/60
 
 # load the data.
 if ( onCMDLine || LOAD_DATA ) {
