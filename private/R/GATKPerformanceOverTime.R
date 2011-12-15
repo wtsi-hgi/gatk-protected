@@ -10,7 +10,7 @@ LOAD_DATA <- ! exists("allReports")
 
 RUNTIME_UNITS = "(hours)"
 ORIGINAL_UNITS_TO_RUNTIME_UNITS = 1/1000/60/60
-MIN_RUN_TIME_FOR_SUCCESSFUL_JOB = 10^-6
+MIN_RUN_TIME_FOR_SUCCESSFUL_JOB = 10^-3
 
 if ( onCMDLine ) {
   file <- args[1]
@@ -45,35 +45,50 @@ distributeLogGraph <- function(graph, xName) {
 }
 
 plotByNSamples <- function(report) {
-  p = ggplot(data=report, aes(x=nSamples, y=runtime, group=gatk, color=gatk))
-  p = p + facet_grid(. ~ assessment, scales="free")
+  plotCmdByX(report, "nSamples", T, logUnit = 10)
+}
+
+plotByNT <- function(report, includeFacet = F) {
+  plotCmdByX(report, "nt", includeFacet, logUnit = 2)
+}
+
+plotCmdByX <- function(report, X, includeFacet = F, logUnit = 10) {
+  report$X <- report[[X]]
+  p = ggplot(data=report, aes(x=X, y=runtime, group=gatk, color=gatk))
+  if ( includeFacet ) 
+    p = p + facet_grid(. ~ assessment, scales="free")
   #p = p + geom_jitter()
   #p = p + geom_point()
   p = p + geom_smooth()
-  p = p + scale_x_log10() + scale_y_log10()
+  if ( logUnit == 10 ) {
+    p = p + scale_x_log10() + scale_y_log10()
+  } else if ( logUnit == 2 ) {
+    p = p + scale_x_log2() + scale_y_log2()
+  }
+  p = p + xlab(X) + ylab(paste("Runtime", RUNTIME_UNITS))
   p = p + opts(title=report$analysisName)
-  p = p + geom_boxplot(aes(group=interaction(nSamples, gatk)))
-  print(p)
+  p = p + geom_boxplot(aes(group=interaction(X, gatk)))
+  p
 }
 
 plotNormalizedByNSamples <- function(report) {
   norm = ddply(report, .(nSamples, assessment), transform, normRuntime = runtime / mean(runtime))
   p = ggplot(data=norm, aes(x=nSamples, y=normRuntime, group=gatk, color=gatk))
   p = p + facet_grid(. ~ assessment, scales="free")
-  p = p + geom_jitter()
+  p = p + geom_boxplot(aes(group=interaction(nSamples, gatk)), outlier.colour="blue")
+  #p = p + geom_jitter()
   #p = p + geom_point()
   p = p + geom_smooth()
   p = p + scale_x_log10()# + scale_y_log10()
   p = p + opts(title=paste("Runtime per nSamples relative to nSamples mean value", report$analysisName))
-  #p = p + geom_boxplot(aes(group=interaction(nSamples, gatk)), outlier.colour="blue")
   print(p)
 }
 
 plotByGATKVersion <- function(report) {
   #report$runtime <- replicate(length(report$runtime), rnorm(1))
   p = ggplot(data=report, aes(x=gatk, y=runtime, group=gatk, color=gatk))
-  p = p + geom_jitter()
   p = p + geom_boxplot()
+  p = p + geom_jitter()
   #p = p + scale_x_log10()# + scale_y_log10()
   p = p + xlab("GATK version") + ylab(paste("Runtime", RUNTIME_UNITS))
   p = p + opts(title=paste("Runtime", report$analysisName))
@@ -107,15 +122,26 @@ if ( ! is.na(outputPDF) ) {
 # Create reports for per N sample CountLoci and UG
 for ( report in list(allReports$CountLoci, allReports$UnifiedGenotyper) ) {
   print(head(report))
-  plotByNSamples(report)
+  print(plotByNSamples(report))
   plotNormalizedByNSamples(report)
 }
 
 # Create reports just doing runtime vs. GATK version
-for ( report in list(allReports$TableRecalibration, allReports$CountCovariates, allReports$SelectVariants, allReports$CombineVariants) ) {
+for ( report in list(allReports$TableRecalibration, allReports$CountCovariates, 
+                     allReports$SelectVariants, allReports$CombineVariants)) {
+                    # allReports$VariantEval) ) {
   print(head(report))
   plotByGATKVersion(report)
 }
+
+for ( assess in unique(allReports$UnifiedGenotyper.nt$assessment)) {
+  p = plotByNT(allReports$UnifiedGenotyper.nt[allReports$UnifiedGenotyper.nt$assessment == assess,])
+  p = p + opts(title=paste("UnifiedGenotyper performance as a function of nt for", assess))
+  print(p)
+}
+
+print(plotByNT(allReports$CountCovariates.nt))
+#print(plotByNT(allReports$VariantEval.nt))
 
 if ( ! is.na(outputPDF) ) {
   dev.off()
