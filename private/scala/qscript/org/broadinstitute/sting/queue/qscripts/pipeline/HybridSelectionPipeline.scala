@@ -36,17 +36,14 @@ class HybridSelectionPipeline extends QScript {
   private final val FILTER_VQSR = "VQSR"
   private final val FILTER_HARD = "HARD"
 
-  @Input(doc="Tab separated squid projects and samples.", shortName="tsv", exclusiveOf="projectSampleName", required=false)
+  @Input(doc="Tab separated squid projects and samples. Name must be <projectName>.tsv", shortName="tsv", exclusiveOf="bamList", required=false)
   var projectSampleTsv: File = _
 
-  @Input(doc="Project name. Used to prefix the output VCF and associated files.", shortName="P", exclusiveOf="projectSampleTsv", required=false)
-  var projectName: String = _
+  @Input(doc="BAM list files. Name must be <projectName>.bam.list", shortName="I", exclusiveOf="projectSampleTsv", required=false)
+  var bamList: File = _
 
   @Input(doc="GATK or Picard intervals file.", shortName="L", exclusiveOf="projectSampleTsv", required=false)
   var intervals: File = _
-
-  @Input(doc="BAM list files", shortName="I", exclusiveOf="projectSampleTsv", required=false)
-  var bamList: File = _
 
   @Input(doc="Level of parallelism for UnifiedGenotyper. By default set to 20.", shortName="varScatter", required=false)
   var variantCallerScatterCount = 20
@@ -78,11 +75,15 @@ class HybridSelectionPipeline extends QScript {
     var reference = resources + "human_g1k_v37.fasta"
     var useK1gExomes = false
 
+    var projectName: String = null
+
     if (projectSampleTsv == null) {
-      require(projectName != null, "-P/--projectname must be specified")
+      require(bamList != null && bamList.getName.endsWith(".bam.list"), "-I/--bamList must be specified as <projectName>.bam.list")
       require(intervals != null, "-L/--intervals must be specified")
-      require(bamList != null, "-I/--bamList must be specified")
+      projectName = bamList.getName.stripSuffix(".bam.list")
     } else {
+      projectName = FilenameUtils.getBaseName(projectSampleTsv)
+
       val picardSamples = PicardAggregationUtils.parseSamples(projectSampleTsv)
       val picardIntervals = PicardAggregationUtils.readAnalysisIntervals(picardSamples)
 
@@ -92,7 +93,6 @@ class HybridSelectionPipeline extends QScript {
       writeBamList.jobOutputFile = writeBamList.listFile + ".out"
       add(writeBamList)
 
-      projectName = FilenameUtils.getBaseName(projectSampleTsv)
       // Use the Picard reference instead of the 1000 Genomes version
       reference = picardIntervals.getReference
       intervals = picardIntervals.getTargets
