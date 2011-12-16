@@ -18,6 +18,8 @@ class HaplotypeCallerScript extends QScript {
   var recalFile: String = "."
   @Argument(shortName="sc", doc="scatter count", required=false)
   var scatterCount: Int = 135
+  @Argument(shortName="dr", doc="downsampling", required=false)
+  var downsampling: Int = 1000
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     memoryLimit = 2;
@@ -31,6 +33,7 @@ class HaplotypeCallerScript extends QScript {
     hc.input_file :+= new File(bam)
     hc.recalFile = new File(recalFile)
     hc.o = new File(out)
+    hc.dr = downsampling
     add(hc)
   }
 }
