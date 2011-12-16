@@ -15,7 +15,7 @@ class GATKPerformanceOverTime extends QScript {
   val myJarFile: String = "/home/unix/depristo/dev/GenomeAnalysisTK/projects/gatkPerformance/dist/GenomeAnalysisTK.jar"
 
   @Argument(shortName = "iterations", doc="it", required=false)
-  val iterations: Int = 3;
+  val iterations: Int = 10;
 
   val nIterationsForSingleTestsPerIteration: Int = 5;
 
@@ -115,7 +115,7 @@ class GATKPerformanceOverTime extends QScript {
           { // Standard VCF tools
             trait VersionOverrides extends CommandLineGATK {
               this.jarFile = gatkJar
-              this.intervalsString = List("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")
+              this.intervalsString = List("1", "2", "3", "4", "5")
               this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
             }
 
