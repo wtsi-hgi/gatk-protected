@@ -15,9 +15,9 @@ class GATKPerformanceOverTime extends QScript {
   val myJarFile: String = "/home/unix/depristo/dev/GenomeAnalysisTK/projects/gatkPerformance/dist/GenomeAnalysisTK.jar"
 
   @Argument(shortName = "iterations", doc="it", required=false)
-  val iterations: Int = 10;
+  val iterations: Int = 3;
 
-  val nIterationsForSingleTestsPerIteration: Int = 5;
+  val nIterationsForSingleTestsPerIteration: Int = 6;
 
   @Argument(shortName = "maxThreads", doc="maxThreads", required=false)
   val maxThreads: Int = 6;
