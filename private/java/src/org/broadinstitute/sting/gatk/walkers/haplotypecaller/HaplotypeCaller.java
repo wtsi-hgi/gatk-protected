@@ -26,7 +26,6 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
-import net.sf.samtools.*;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Input;
@@ -40,7 +39,7 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.sting.gatk.walkers.recalibration.TableRecalibrationWalker;
 import org.broadinstitute.sting.utils.*;
-import org.broadinstitute.sting.utils.clipreads.ReadClipper;
+import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;

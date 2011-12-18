@@ -25,7 +25,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
-import net.sf.samtools.SAMUtils;
 import net.sf.samtools.util.SequenceUtil;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Hidden;
@@ -43,9 +42,8 @@ import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocComparator;
-import org.broadinstitute.sting.utils.clipreads.ReadClipper;
+import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 
