@@ -6,19 +6,20 @@ onCommandLine <- ! is.na(args[1])
 
 # variables controlling the system behavior:
 BIG_MEMORY <- grepl("gsa", Sys.info()[4])
-CHR20_ONLY = T
+CHR20_ONLY = F
 EXPLORE_EXAMPLES = F
-ANALYZE_BY_N_TRAINING_SITES <- F
+ANALYZE_BY_N_TRAINING_SITES <- T
 ANALYZE_BY_N_ANNOTATIONS <- F
 ANALYZE_ROBUSTNESS_TO_NOISE_ANNOTATIONS <- F
 ANALYZE_SENSITIVITY_TO_NEGATIVE_TRAINING_SET <- F
-MAX_POLY_SITES_TO_EVAL = 10000
+MAX_POLY_SITES_TO_EVAL = 1000000
 DEFAULT_MAX_NEG_TRAINING_FRACTION = 0.25
 nRocPoints = 1000
 FORCE_RELOAD = F
+MAX_ROWS_TO_READ = -1 # 100000
 
-#N_TREES <- 1000
-N_TREES <- 100
+N_TREES <- 1000
+#N_TREES <- 100
 
 dataDir = "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/VQSRv2"
 setwd(dataDir)
@@ -62,16 +63,16 @@ addDerivedColumns <- function(data) {
 if ( ! exists("allSites") ) {
   print("Loading allSites")
   if ( CHR20_ONLY ) {
-    allSites <- read.table("combined.phase1.wgs.recal.snps.20.dat", header=T)
+    allSites <- read.table("combined.phase1.wgs.recal.snps.20.dat", header=T, nrows=MAX_ROWS_TO_READ)
   } else {
-    allSites <- read.table("combined.phase1.wgs.recal.snps.training.dat", header=T)
+    allSites <- read.table("combined.phase1.wgs.recal.snps.training.dat", header=T, nrows=MAX_ROWS_TO_READ)
   }
   allSites <- addDerivedColumns(allSites)
 }
 
 if ( ! exists("omniSites") ) {
   print("Loading omniSites")
-  omniSites <- read.table("combined.phase1.wgs.recal.snps.omni.dat", header=T)
+  omniSites <- read.table("combined.phase1.wgs.recal.snps.omni.dat", header=T, nrows=MAX_ROWS_TO_READ)
   omniSites <- addDerivedColumns(omniSites)
 
   nonOmniMono = subset(allSites, status != "POLY" & status != "UNKNOWN" & status != "MONO")
@@ -142,6 +143,7 @@ trainTree <- function(name, nTrees, nTrainingSites, trainingAnn, maxNegTrainingF
   trainingData <- trainingData[, c(trainingAnn, moreLabels)]
   trainingData <- na.omit(trainingData)
 
+  # if required, take only the worst maxNegTrainingFraction of the negative training data 
   if ( maxNegTrainingFraction != -1 ) {
     print(table(trainingData$TrainingLabel))
     pos = subset(trainingData, TrainingLabel == "positive")
@@ -154,44 +156,43 @@ trainTree <- function(name, nTrees, nTrainingSites, trainingAnn, maxNegTrainingF
     print(table(trainingData$TrainingLabel))
   }
   
+  # If requested, sample only nTrainingSites from the total training set
   if ( nTrainingSites != -1 & nTrainingSites < dim(trainingData)[1]) {
     indices = sample(1:dim(trainingData)[1], nTrainingSites)
     trainingData <- trainingData[indices,]
     print(table(trainingData$TrainingLabel))
   }
-  
-  trainingData[[LABEL]] <- factor(trainingData[[LABEL]])
-  #trainingData <- trainingData[,trainingAnn]
-  #trainingData <- subset(trainingData, ! is.na(InbreedingCoeff))
-  
-  training.urf <- randomForest(x=trainingData[,trainingAnn], 
-                               y=trainingData[[LABEL]], 
-                               importance=TRUE, 
-                               proximity=F,
-                               ntree=nTrees,
-                               keep.forest=TRUE,
-                               do.trace=10)
-  #cols = rainbow(length(levels(trainingSites$status)))
-  print(training.urf)
-  print(round(importance(training.urf), 2))
-  varImpPlot(training.urf)
-  
-#   plotMDS <- function(urf, label) {
-#     response <- trainingData[[label]]
-#     cols = rainbow(length(levels(response)))
-#     MDSplot(urf, response, palette=cols)
-#     legend("topleft", legend=levels(response), fill=cols)
-#   }
-#   
-#   if ( PLOT_MDS ) {
-#     par(mfrow=c(2,2))
-#     plotMDS(training.urf, LABEL)
-#     plotMDS(training.urf, "status")
-#     plotMDS(training.urf, "known")
-#     plotMDS(training.urf, "FILTER")
-#   }
+  trainingData[[LABEL]] <- factor(trainingData[[LABEL]]) # refactor the label, so that missing levels are eliminated
 
-  list(name=name, rf=training.urf, trainingAnn = trainingAnn, nTrees = nTrees, nTrainingSites = nTrainingSites)
+  # create the name of the tree, and if it already exists on disk read it in and use it instead
+  nActuaTrainingSites = dim(trainingData)[1]
+  annotationString = do.call("paste", c(sep="_", as.list(trainingAnn)))
+  name = paste(sep=".", name, paste(sep="_", "nTrees", nTrees, "nActualTrainingSites", nActuaTrainingSites, "annotations", annotationString), "tree")
+  print(name)
+  
+  if ( file.exists(name) ) {
+    print(paste("Tree cached on disk, loading", name))
+    loadTree(name)
+  } else {
+    print(paste("Building tree", name))
+    # actually do the work to build the tree, and write it out to disk
+    training.urf <- randomForest(x=trainingData[,trainingAnn], 
+                                 y=trainingData[[LABEL]], 
+                                 importance=TRUE, 
+                                 proximity=F,
+                                 ntree=nTrees,
+                                 keep.forest=TRUE,
+                                 do.trace=10)
+    l = list(name=name, rf=training.urf, trainingAnn = trainingAnn, nTrees = nTrees, nTrainingSites = nTrainingSites)
+    save(l, file=name)
+    loadTree(name)
+  }
+}
+
+loadTree <- function(filename) {
+  env = new.env()
+  load(file=filename, env=env)
+  get(ls(env), env)
 }
 
 rocForTree <- function(tree) {
@@ -280,17 +281,17 @@ standardSensSpecTargets <- function(rocs) {
 #
 # ------------------------------------------------------------------------------------------
 byNTrainingSites <- function(arg = 1) {
-  trees = list()
-  for ( nTrainingSites in c(100, 500, 1000, 2500, 5000, 10000, 50000, 100000, 1000000) ) {
+  rocs = data.frame()
+  for ( nTrainingSites in c(100, 500, 1000, 2500, 5000, 10000, 50000, 100000, 250000, 500000, 750000, 1000000) ) {
   #for ( nTrainingSites in c(10, 100, 500, 1000, 2000, 3000, 5000, 7500, 10000, 20000) ) {
     name = paste("tree.", nTrainingSites, sep="")
-    tree = trainTree(name, N_TREES, nTrainingSites, trainingAnn)
+    # with 1M training sites we can only build 100 trees
+    tree = trainTree(name, 100, nTrainingSites, trainingAnn)
     trees = c(list(tree), trees)
+    rocs = rbind(rocs, rocForTree(tree))
   }
-  print(trees)
-  rocs = do.call("rbind", lapply(trees, rocForTree))
   plotRocCuts("nTrainingSites", rocs)
-  list(trees=trees, rocs=rocs)
+  rocs
 }
 
 distributeGraphRows <- function(graphs, heights = c()) {
@@ -333,8 +334,8 @@ plotRocCuts <- function(xfield, rocs, log=T) {
 }
 
 if ( ANALYZE_BY_N_TRAINING_SITES ) {
-  x <- byNTrainingSites() 
-  plotRocCuts("nTrainingSites", x$rocs)
+  x <- byNTrainingSites()
+  plotRocs(rbind(vqsr.roc, x))
 }
 
 
@@ -449,3 +450,6 @@ if ( ANALYZE_SENSITIVITY_TO_NEGATIVE_TRAINING_SET ) {
 # vqsr.mar.roc <- rocMarginal(nRocPoints, big, "VQSLOD", "VQSR.mar")
 # vqsr.brute.roc <- rocOriginal(nRocPoints, big, "VQSLOD", "VQSR.brute")
 # plotRocs(rbind(vqsr.brute.roc, vqsr.mar.roc))
+
+#tree1 = trainTree("foo", 500, 100000, trainingAnn)
+#tree2 = trainTree("foo", 1000, 10000, trainingAnn)

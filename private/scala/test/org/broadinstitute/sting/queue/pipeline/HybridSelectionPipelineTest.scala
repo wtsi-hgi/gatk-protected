@@ -58,17 +58,16 @@ class HybridSelectionPipelineTest {
   @Test(dataProvider="datasets")
   def testHybridSelectionPipeline(dataset: PipelineDataset) {
     val testName = "HybridSelectionPipeline-" + dataset.projectName
-    val bamList = writeBamList(dataset.projectName, dataset.bams)
+    val bamList = writeBamList(dataset.projectName + ".bam.list", dataset.bams)
 
     // Run the pipeline with the expected inputs.
     val pipelineCommand =
       ("-retry 1" +
         " -S private/scala/qscript/org/broadinstitute/sting/queue/qscripts/pipeline/HybridSelectionPipeline.scala" +
-        " -P %s" +
-        " -L %s" +
         " -I %s" +
+        " -L %s" +
         " -varFilter HARD")
-        .format(dataset.projectName, dataset.intervals, bamList)
+        .format(bamList, dataset.intervals)
 
     val pipelineSpec = new PipelineTestSpec
     pipelineSpec.name = testName
@@ -82,8 +81,8 @@ class HybridSelectionPipelineTest {
     PipelineTest.executeTest(pipelineSpec)
   }
 
-  private def writeBamList(projectName: String, bams: List[String]) = {
-    val bamList = BaseTest.createNetworkTempFile(projectName + ".", ".list")
+  private def writeBamList(fileName: String, bams: List[String]) = {
+    val bamList = BaseTest.createNetworkTempFile(fileName)
     FileUtils.writeLines(bamList, bams)
     bamList
   }

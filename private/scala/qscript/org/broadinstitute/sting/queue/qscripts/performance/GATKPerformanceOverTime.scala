@@ -17,6 +17,11 @@ class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "iterations", doc="it", required=false)
   val iterations: Int = 3;
 
+  val nIterationsForSingleTestsPerIteration: Int = 6;
+
+  @Argument(shortName = "maxThreads", doc="maxThreads", required=false)
+  val maxThreads: Int = 6;
+
   @Argument(shortName = "steps", doc="steps", required=false)
   val steps: Int = 10;
 
@@ -80,48 +85,75 @@ class GATKPerformanceOverTime extends QScript {
             // CountLoci
             add(new MyCountLoci(sublist.list, nSamples, name) with VersionOverrides)
 
+            if ( nSamples == assess.nSamples )
+              addMultiThreadedTest(() => new Call(sublist.list, nSamples, name) with VersionOverrides)
+
             //add(new CallWithSamtools(sublist.list, nSamples, name, assess.intervals))
           }
         }
       }
     }
 
-    for ( iteration <- 1 until iterations + 1 ) {
+    for ( iteration <- 1 until (nIterationsForSingleTestsPerIteration * iterations) + 1 ) {
       for ( (gatkName, gatkJar) <- GATKs ) {
         if ( gatkName != "1.2" ) { // todo generalize
-          trait VersionOverrides extends CommandLineGATK {
-            this.jarFile = gatkJar
-            this.dcov = 50
-            this.intervalsString :+= "20:10,000,000-20,000,000"
-            this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
+
+          { // BQSR
+            trait VersionOverrides extends CommandLineGATK {
+              this.jarFile = gatkJar
+              this.dcov = 50
+              this.intervalsString :+= "20:10,000,000-20,000,000"
+              this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
+            }
+
+            add(new CountCov(RECAL_BAM) with VersionOverrides)
+            add(new Recal(RECAL_BAM) with VersionOverrides)
+
+            addMultiThreadedTest(() => new CountCov(RECAL_BAM) with VersionOverrides)
           }
 
-          add(new CountCov(RECAL_BAM) with VersionOverrides)
-          add(new Recal(RECAL_BAM) with VersionOverrides)
+          { // Standard VCF tools
+            trait VersionOverrides extends CommandLineGATK {
+              this.jarFile = gatkJar
+              this.intervalsString = List("1", "2", "3", "4", "5")
+              this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
+            }
+
+            val CV = new CombineVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
+            CV.variant = COMBINE_FILES
+            CV.out = new File("/dev/null")
+            add(CV)
+
+            val SV = new SelectVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
+            SV.variant = OMNI_VCF
+            SV.sample_name = List("NA12878")
+            SV.out = new File("/dev/null")
+            add(SV)
+
+            def makeVE(): CommandLineGATK = {
+              val VE = new VariantEval with UNIVERSAL_GATK_ARGS with VersionOverrides
+              VE.eval :+= OMNI_VCF
+              VE.out = new File("/dev/null")
+              VE.comp :+= new TaggedFile(dbSNP, "dbSNP")
+              VE
+            }
+
+            add(makeVE())
+            addMultiThreadedTest(makeVE)
+          }
         }
       }
     }
+  }
 
-    for ( iteration <- 1 until iterations + 1 ) {
-      for ( (gatkName, gatkJar) <- GATKs ) {
-        if ( gatkName != "1.2" ) { // todo generalize
-          trait VersionOverrides extends CommandLineGATK {
-            this.jarFile = gatkJar
-            this.intervalsString :+= "1"
-            this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
-          }
-
-          val CV = new CombineVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
-          CV.variant = COMBINE_FILES
-          CV.out = new File("/dev/null")
-          add(CV)
-
-          val SV = new SelectVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
-          SV.variant = OMNI_VCF
-          SV.sample_name = List("NA12878")
-          SV.out = new File("/dev/null")
-          add(SV)
-        }
+  def addMultiThreadedTest(makeCommand: () => CommandLineGATK) {
+    if ( maxThreads > 1 ) {
+      for ( nt <- Range(1,maxThreads+1) ) {
+        val cmd = makeCommand()
+        cmd.nt = nt
+        cmd.addJobReportBinding("nt", nt)
+        cmd.analysisName = cmd.analysisName + ".nt"
+        add(cmd)
       }
     }
   }
@@ -135,7 +167,7 @@ class GATKPerformanceOverTime extends QScript {
   }
 
   class Call(@Input(doc="foo") bamList: File, n: Int, name: String) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
-    @Output(doc="foo") var outVCF: File = new File("%s/%s.%d.%s.vcf".format(resultsDir.getPath, bamList.getName, n, name))
+    @Output(doc="foo") var outVCF: File = new File("/dev/null")
     this.input_file :+= bamList
     this.stand_call_conf = 10.0
     this.o = outVCF
@@ -143,7 +175,7 @@ class GATKPerformanceOverTime extends QScript {
   }
 
   class MyCountLoci(@Input(doc="foo") bamList: File, n: Int, name: String) extends CountLoci with UNIVERSAL_GATK_ARGS {
-    @Output(doc="foo") var outFile: File = new File("%s/%s.%d.%s.txt".format(resultsDir.getPath, bamList.getName, n, name))
+    @Output(doc="foo") var outFile: File = new File("/dev/null")
     this.input_file :+= bamList
     this.o = outFile
   }
