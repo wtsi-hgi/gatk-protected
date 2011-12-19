@@ -1,12 +1,6 @@
-import net.sf.picard.reference.FastaSequenceFile
-import org.broadinstitute.sting.pipeline.Pipeline
-import org.broadinstitute.sting.gatk.DownsampleType
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.samtools._
+import org.broadinstitute.sting.queue.extensions.gatk.TaggedFile._
 import org.broadinstitute.sting.queue.{QException, QScript}
-import collection.JavaConversions._
-import org.broadinstitute.sting.utils.yaml.YamlUtils
-//import org.broadinstitute.sting.utils.report.VE2ReportFactory.VE2TemplateType
 
 class Phase1IndelProjectConsensus extends QScript {
   qscript =>
@@ -52,9 +46,8 @@ class Phase1IndelProjectConsensus extends QScript {
   val populations = List("ASW","CEU","CHB","CHS","CLM","FIN","GBR","IBS","JPT","LWK","MXL","PUR","TSI","YRI")
   private val snpAlleles: String = "/humgen/1kg/processing/production_wgs_phase1/consensus/ALL.phase1.wgs.union.pass.sites.vcf"
 
-  private val subJobsPerJob:Int = 20
+  private val subJobsPerJob:Int = 1
 
-  private var pipeline: Pipeline = _
 
   trait CommandLineGATKArgs extends CommandLineGATK {
     this.jarFile = qscript.gatkJar
@@ -66,8 +59,6 @@ class Phase1IndelProjectConsensus extends QScript {
 
   class AnalysisPanel(val baseName: String, val pops: List[String], val jobNumber: Int, val subJobNumber: Int, val chr: String) {
     val rawVCFindels = new File(qscript.outputDir + "/calls/chr" + chr + "/" + baseName + "/" + baseName + ".phase1.chr" + chr + "." + subJobNumber + ".raw.indels.vcf")
-    val chunkAlleles = new File(qscript.outputTmpDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + subJobNumber + ".raw.indels.vcf")
-
 
     val callIndels = new UnifiedGenotyper with CommandLineGATKArgs
     callIndels.out = rawVCFindels
@@ -78,9 +69,9 @@ class Phase1IndelProjectConsensus extends QScript {
     callIndels.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" +baseName + ".phase1.chr" + chr + "." + subJobNumber + ".raw.indels"
     callIndels.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
     callIndels.genotyping_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
-    // callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
-    callIndels.rodBind :+= RodBind("alleles", "VCF", chunkAlleles)
-    callIndels.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
+    callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    callIndels.alleles = qscript.indelAlleles
+    callIndels.dbsnp = qscript.dbSNP
     //callIndels.A ++= List("TechnologyComposition")
     callIndels.sites_only = false
 
@@ -103,7 +94,8 @@ class Phase1IndelProjectConsensus extends QScript {
 
   def script = {
 
-    var chrList =  List(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23)
+//    var chrList =  List(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23)
+    var chrList =  List(1,2)
     if (qscript.onlyOneChr) {
       chrList = List(qscript.chrToProcess)
     }
@@ -118,19 +110,11 @@ class Phase1IndelProjectConsensus extends QScript {
       var subJobNumber: Int = 1
       while( subJobNumber < (lastBase.toFloat / basesPerSubJob.toFloat) + 1.0) {
         if( chr != 23 ) {
-          if (qscript.createTargets) {
-            createAlleleTarget("%d:%d-%d".format(chr, start, stop), subJobNumber, chr, chrObject)
-          }
-
           callThisChunk("%d:%d-%d".format(chr, start, stop), subJobNumber, chr, chrObject)
 
         }
         else {
-          if (qscript.createTargets) {
-            createAlleleTarget("X:%d-%d".format(start, stop), subJobNumber, chr, chrObject)
-          }
           callThisChunk("X:%d-%d".format(start, stop), subJobNumber, chr, chrObject)
-
         }
         start += basesPerSubJob
         stop += basesPerSubJob
@@ -143,29 +127,12 @@ class Phase1IndelProjectConsensus extends QScript {
     }
   }
 
-  def createAlleleTarget(interval: String, jobNumber: Int, inputChr: Int, chrObject: Chromosome) = {
-
-    var chr: String = inputChr.toString
-    if(inputChr == 23) { chr = "X" }
-    val selectTargets = new SelectVariants with CommandLineGATKArgs
-    val alleleTargets = new File(qscript.outputTmpDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + jobNumber + ".raw.indels.vcf")
-    selectTargets.intervalsString :+= interval
-    selectTargets.o = alleleTargets
-    selectTargets.rodBind :+= RodBind("variant", "VCF", qscript.indelAlleles )
-    selectTargets.jobName =    qscript.outputTmpDir + "/calls/chr" + chr + "/" + "alleles.chr" + chr + "." + jobNumber + ".raw.indels"
-    add(selectTargets)
-
-  }
-  def callThisChunk(interval: String, subJobNumber: Int, inputChr: Int, chrObject: Chromosome) = {
+   def callThisChunk(interval: String, subJobNumber: Int, inputChr: Int, chrObject: Chromosome) = {
 
     var chr: String = inputChr.toString
     if(inputChr == 23) { chr = "X" }
 
 
-    // jobs 1-100 get input BAM and VCF 1
-    // jobs 101-200 get input BAM and VCF 2
-    // 201-300 get 3
-    // etc
 
     var jobNumber = ( ( subJobNumber -1)  / qscript.subJobsPerJob  ) + 1
 
@@ -198,8 +165,10 @@ class Phase1IndelProjectConsensus extends QScript {
     for( population <- qscript.populations ) {
       val baseTmpName: String = qscript.outputTmpDir + "/calls/chr" + chr + "/" + population + ".phase1.chr" + chr + "." + jobNumber.toString + "."
       //     val cleanedBam = new File(baseTmpName + "cleaned.bam")
-      val cleanedBam = new File("/humgen/1kg/phase1_cleaned_bams/bams/chr" + chr + "/" + population + ".phase1.chr"+chr + "." +jobNumber.toString+".cleaned.bam")
-
+      var cleanedBam = new File("/humgen/1kg/phase1_cleaned_bams/bams/chr" + chr + "/" + population + ".phase1.chr"+chr + "." +jobNumber.toString+".cleaned.bam")
+      if (chr.equals("1") || chr.equals("2")) {
+        cleanedBam = new File("/broad/shptmp/temporary_1000G_bams/chr" + chr + "/" + population + ".phase1.chr"+chr + "." +jobNumber.toString+".cleaned.bam")
+      }
       for( a <- analysisPanels ) {
         for( p <- a.pops) {
           if( p == population ) {
@@ -219,11 +188,11 @@ class Phase1IndelProjectConsensus extends QScript {
 
       add(a.callIndels)
 
-      indelCombine.rodBind :+= RodBind(a.baseName, "VCF", a.callIndels.out)
+      indelCombine.variant :+= TaggedFile(a.callIndels.out, a.baseName)
     }
 
     add(indelCombine)
 
-    chrObject.indelCombine.rodBind :+= RodBind("ALL" + subJobNumber.toString, "VCF", indelCombine.out)
+    chrObject.indelCombine.variant :+= TaggedFile( indelCombine.out,"ALL" + subJobNumber.toString)
   }
 }
