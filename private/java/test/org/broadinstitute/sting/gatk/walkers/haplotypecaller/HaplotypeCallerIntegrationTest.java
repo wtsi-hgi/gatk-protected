@@ -21,7 +21,7 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
 
     @Test
     public void testHaplotypeCallerMultiSample() {
-        HCTest(CEUTRIO_BAM, "-rf UnmappedRead", "e8cbda98e37662f40fcf17b9e5cd7741");
+        HCTest(CEUTRIO_BAM, "-rf UnmappedRead", "01e09d108dc2f5b46b938703a10b67bd");
     }
 
     @Test

@@ -62,6 +62,6 @@ class PostCallingQC extends QScript {
     @Output var pdf: File = swapExt(vcf, ".vcf", ".pdf")
     private val project = vcf.getName.stripSuffix(".vcf")
     this.jobOutputFile = pdf + ".out"
-    def commandLine = "Rscript %s/variantCallQC.R %s %s %s".format(RPath, project, bySite, byAC, pdf)
+    def commandLine = "Rscript %s/variantCallQC.R %s %s %s %s".format(RPath, project, bySite, byAC, pdf)
   }
 }

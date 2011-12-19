@@ -1,12 +1,11 @@
 #!/bin/sh
 
-SAMPLE_SET=$1
+PROJECT_NAME=$1
 JOB_QUEUE=week
 RUN_DIR=`dirname $0`
 TMP_DIR=$RUN_DIR/tmp
 RETRY=2
-SCATTER_COUNT=400
-SCATTER_MEMORY=2
+SCATTER_COUNT=1200
 
 shift
 
@@ -22,7 +21,7 @@ cd $RUN_DIR
 
 $BSUB \
 java -Xmx1g -Djava.io.tmpdir=$TMP_DIR -jar Queue.jar \
-  -jobQueue $JOB_QUEUE -Y $RUN_DIR/$SAMPLE_SET.tsv \
+  -jobQueue $JOB_QUEUE -tsv $RUN_DIR/$PROJECT_NAME.tsv \
   -S $RUN_DIR/HybridSelectionPipeline.scala -log $RUN_DIR/queue_log.txt \
-  -retry $RETRY -varScatter $SCATTER_COUNT -varMemory $SCATTER_MEMORY \
+  -retry $RETRY -varScatter $SCATTER_COUNT \
   -bsub $RUN $@
