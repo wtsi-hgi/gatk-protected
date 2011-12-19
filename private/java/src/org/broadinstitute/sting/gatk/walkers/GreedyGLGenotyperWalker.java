@@ -60,7 +60,7 @@ public class GreedyGLGenotyperWalker extends RodWalker<Integer, Integer>  implem
             for ( int i = 0; i < vc.getAlternateAlleles().size(); i++ ) {
                 altAllelesToUse[i] = true;
             }
-            GenotypesContext genotypes = engine.assignGenotypes(vc, altAllelesToUse, vc.getAlleles());
+            GenotypesContext genotypes = engine.assignGenotypes(vc, altAllelesToUse);
 
             // finish constructing the resulting VC
             GenomeLoc loc = getToolkit().getGenomeLocParser().createGenomeLoc(vc);
