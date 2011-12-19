@@ -26,6 +26,9 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
+import net.sf.samtools.Cigar;
+import net.sf.samtools.CigarElement;
+import net.sf.samtools.CigarOperator;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Input;
