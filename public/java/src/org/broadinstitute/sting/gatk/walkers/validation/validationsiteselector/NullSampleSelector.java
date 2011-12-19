@@ -21,20 +21,20 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  */
-package org.broadinstitute.sting.gatk.walkers.ValidationSiteSelector;
+
+package org.broadinstitute.sting.gatk.walkers.validation.validationsiteselector;
 
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import java.util.TreeSet;
 
 
-public abstract class SampleSelector implements Cloneable {
-
-    TreeSet<String> samples;
-    protected SampleSelector(TreeSet<String> sm) {
-        samples = new TreeSet<String>(sm);
+public class NullSampleSelector extends SampleSelector{
+    public NullSampleSelector(TreeSet<String> sm) {
+        super(sm);
     }
 
-    protected abstract  VariantContext subsetSiteToSamples(VariantContext vc);
+    public VariantContext subsetSiteToSamples(VariantContext vc) {
+         return vc;
 
-
+    }
 }

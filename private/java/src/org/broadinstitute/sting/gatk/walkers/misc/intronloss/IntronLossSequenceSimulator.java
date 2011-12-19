@@ -125,7 +125,7 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
                 } else {
                     xrl.close();
                     GATKReport report = new GATKReport(readGroupInsertHistogram);
-                    GATKReportTable reportTable = report.getTable("InsertSizeDistribution");
+                    GATKReportTable reportTable = report.getTable("InsertSizeDistributionByReadGroup");
                     // rows are insert sizes, columns are read groups
                     for (GATKReportColumn reportColumn : reportTable.getColumns() ) {
                         // annoyingly, the column has no knowledge of its own rows
@@ -133,16 +133,16 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
                         for ( int row = 0; row < reportTable.getNumRows(); row++ ) {
                             sum += Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
                         }
-                        int remain = sum;
-                        double[] rgHist = new double[MAX_INSERT_SIZE];
+                        byte[] rgHist = new byte[MAX_INSERT_SIZE];
                         for ( int row = 0; row < rgHist.length; row++) {
-                            rgHist[row] = ((double)remain)/sum;
+                            int val = 1;
                             if ( reportTable.containsKey(row) ) {
-                                remain -= Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
+                                val = Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
                             }
+                            rgHist[row] = QualityUtils.probToQual( 1.0-( ( (double) val )/sum ), Math.pow(10,-25.4) );
                         }
 
-                        insertSizeDistribution = rgHist;
+                        insertSizeDistribution = qualToDouble(rgHist);
                     }
                 }
             } catch ( Exception e ) {
@@ -168,6 +168,15 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
                 throw new UserException("File could not be opened",e);
             }
         }
+    }
+
+    private double[] qualToDouble(byte[] hist) {
+        double[] d = new double[hist.length];
+        for ( int i = 0; i < d.length; i++) {
+            d[i] = QualityUtils.qualToErrorProb(hist[i]);
+        }
+
+        return d;
     }
 
     public Pair<StringBuffer,StringBuffer> reduceInit() {
@@ -354,7 +363,6 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
         double q = GenomeAnalysisEngine.getRandomGenerator().nextDouble();
         int offset = 0;
         double cumsum = 0.0;
-        //logger.debug(Arrays.deepToString(org.apache.commons.lang.ArrayUtils.toObject(histogram)));
         do {
            // logger.debug(String.format("%f\t%f",cumsum,q));
             cumsum+= histogram[offset++];

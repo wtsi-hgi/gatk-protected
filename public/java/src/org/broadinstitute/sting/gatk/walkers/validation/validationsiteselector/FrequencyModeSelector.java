@@ -21,23 +21,27 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  */
-package org.broadinstitute.sting.gatk.walkers.ValidationSiteSelector;
+package org.broadinstitute.sting.gatk.walkers.validation.validationsiteselector;
 
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
-import java.util.TreeSet;
+import java.util.ArrayList;
+import java.util.HashMap;
 
+public abstract class FrequencyModeSelector  implements Cloneable{
 
-public class GLBasedSampleSelector extends SampleSelector {
-    public GLBasedSampleSelector(TreeSet<String> sm) {
-        super(sm);
+    protected GenomeLocParser parser;
+
+    protected FrequencyModeSelector(GenomeLocParser parser) {
+        this.parser = parser;
     }
-
-    public  VariantContext subsetSiteToSamples(VariantContext vc) {
-        /* todo - Look at sample array, and create a new vc with samples for which GL's indicate they should be included.
-          For example, include all samples (and corresponding genotypes) whose GL's are such that argmax(GL) = HET or HOMVAR. */
-        throw new ReviewedStingException("GLBasedSampleSelector not implemented yet!");
-        //return true;
+    protected void logCurrentSiteData(VariantContext vc, VariantContext subVC) {
+        logCurrentSiteData(vc, subVC, false, false);
     }
+    protected abstract void logCurrentSiteData(VariantContext vc, VariantContext subVC, boolean IGNORE_GENOTYPES, boolean IGNORE_POLYMORPHIC);
+    protected abstract ArrayList<VariantContext> selectValidationSites(int numValidationSites);
+
 }

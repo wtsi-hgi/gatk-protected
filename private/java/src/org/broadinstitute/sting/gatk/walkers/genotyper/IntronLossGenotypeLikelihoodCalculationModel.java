@@ -24,6 +24,8 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
 
     public static final int PLOIDY = 2;
     public static final int ALIGNMENT_QUAL_CAP = 500;
+    private static final double NEGLOG2 = -Math.log10(2);
+    private static final double NEGLOG4 = 2*NEGLOG2;
     private static final double GARBAGE_COLLECT_THRESHOLD = -20; // Q200
     private GenomeLocParser genomeLocParser;
     private Map<String,byte[]> insertSizeQualHistograms;
@@ -44,161 +46,78 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         samples =s;
     }
 
+    private void updateLikelihoods(double[] likelihoods, double pH0Lik, double pH1Lik) {
+        // (AC/AN)*P(read|H1) + ( (AN-AC)/AN)*P(read|H0)
+        // todo -- there is an unaccounted-for alignment bias
+        // 0 -- AC0 -- zero retrocopies
+        likelihoods[0] += pH0Lik;
+        // 1 -- AC1 -- 1 of 4 reads should be retrocopy
+        likelihoods[1] += MathUtils.log10sumLog10(new double[]{ NEGLOG4 + pH1Lik,NEGLOG4 + Math.log10(3)+pH0Lik});
+        // 2 -- AC2 -- 2 of 4 reads should be retrocopy
+        likelihoods[2] += MathUtils.log10sumLog10(new double[]{NEGLOG2 + pH1Lik,NEGLOG2 +pH0Lik});
+    }
+
+    public Pair<String,double[]> getLikelihoods(JunctionHypothesis hypothesis, GATKSAMRecord read) {
+        // get the probabilities of the pair, if this is the first read (don't double count)
+        double[] likelihoods = new double[3];
+        double pInsertH0 = 0.0;
+        double pInsertH1 = 0.0;
+        if ( read.getReadPairedFlag() && ! read.getMateUnmappedFlag() && read.getFirstOfPairFlag() ) {
+            // check to see if read and mate overlap one or more exons in the hypothesis
+            GenomeLoc readLoc = getGenomeLoc(read);
+            GenomeLoc mateLoc = genomeLocParser.createGenomeLoc(read.getMateReferenceName(),read.getMateAlignmentStart(),read.getMateAlignmentStart()+read.getReadLength());
+            int insertAdjustment = hypothesis.getInsertAdjustment(readLoc,mateLoc);
+            if ( insertAdjustment > 0 ) {
+                pInsertH0 += insertSizeProbability(read,0);
+                pInsertH1 += insertSizeProbability(read,insertAdjustment);
+            }
+        }
+
+        if ( hypothesis.overlapsExonIntron(genomeLocParser.createGenomeLoc(read)) ) {
+            pInsertH0 += scoreAlignment(read);
+            pInsertH1 += scoreRealignment(read,hypothesis.getSequence().getBytes());
+        }
+
+        if ( pInsertH0 > GARBAGE_COLLECT_THRESHOLD || pInsertH1 > GARBAGE_COLLECT_THRESHOLD ) {
+            updateLikelihoods(likelihoods,pInsertH0,pInsertH1);
+        }
+
+        logger.debug(String.format("%s :: (%f,%f) -- [0] : %f  [1] : %f  [2] : %f",read.getReadName() + (read.getReadUnmappedFlag() ? " (u)" : "(m)"),pInsertH0,pInsertH1,likelihoods[0],likelihoods[1],likelihoods[2]));
+
+        return new Pair<String, double[]>(read.getReadGroup().getSample(),likelihoods);
+    }
+
+    private double scoreAlignment(GATKSAMRecord read) {
+        // aligned reads are equipped already with necessary metrics
+        double logScore = 0.0;
+        if ( read == null )
+            throw new StingException("Read cannot be null here");
+        if ( read.getReadUnmappedFlag() ) {
+            return -50.0;
+        }
+        logScore += ( (Integer) read.getAttribute("NM") )*(-1.2);
+        for ( CigarElement e : read.getCigar().getCigarElements() ) {
+            if ( e.getOperator().equals(CigarOperator.D) || e.getOperator().equals(CigarOperator.I) ) {
+                logScore += -1*(2.0-Math.pow(2,1-e.getLength()));
+            } else if ( e.getOperator().equals(CigarOperator.S) ) {
+                logScore += -0.50*e.getLength();
+            }
+        }
+
+        return logScore;
+    }
+
+    private double scoreRealignment(GATKSAMRecord read, byte[] sequence) {
+        SWPairwiseAlignment alignment = new SWPairwiseAlignment(sequence,read.getReadBases());
+        return scoreRealignment(alignment.getCigar().getCigarElements(),alignment.getAlignmentStart2wrt1(),read.getReadBases(),sequence);
+    }
+
     public GenomeLoc getGenomeLoc(GATKSAMRecord read) {
         if ( read == null )
             return null;
         int start =  ReadUtils.getRefCoordSoftUnclippedStart(read);
         int end =  Math.max(start, ReadUtils.getRefCoordSoftUnclippedEnd(read));
         return genomeLocParser.createGenomeLoc(read.getReferenceName(),start,end);
-    }
-
-    public List<VariantContext> getLikelihoods(IntronLossGenotyperV2.PairedReadBin readBin, RefSeqFeature geneFeature, IndexedFastaSequenceFile refFile) {
-        Map<String,double[]> samLikelihoods = new HashMap<String,double[]>(samples.size());
-        for ( String s : samples ) {
-            samLikelihoods.put(s,new double[1+PLOIDY]);
-        }
-        GenomeLoc featureStop = genomeLocParser.createGenomeLoc(geneFeature);
-
-        Map<String,IntronLossPostulate> postulates = new HashMap<String,IntronLossPostulate>(36);
-        // first postulate events
-        for ( Pair<GATKSAMRecord,GATKSAMRecord> pair : readBin ) {
-            IntronLossPostulate p = new IntronLossPostulate(geneFeature.getExons(),getGenomeLoc(pair.first),getGenomeLoc(pair.second));
-            if ( ! postulates.containsKey(p.toString()) ) {
-                postulates.put(p.toString(),p);
-            }
-            postulates.get(p.toString()).supportingPairs.add(pair);
-        }
-
-        List<VariantContext> vcontexts = new ArrayList<VariantContext>(Math.max(0,postulates.size()-1));
-
-        for  ( IntronLossPostulate postulate : postulates.values() ) {
-            if ( postulate.clazz != PostulateClass.NONE && postulate.isValid()) {
-                GenomeLoc eventLoc = geneFeature.getLocation();
-                Allele ref = Allele.create(refFile.getSubsequenceAt(featureStop.getContig(), featureStop.getStop(), featureStop.getStop()).getBases(), true);
-                Allele alt = Allele.create(String.format("<:%s:>",postulate),false);
-                Map<String,double[]> newLikelihoods = createPostulateLikelihoodsNew(samples,postulate,postulates.get("NONE"),geneFeature,refFile);
-                Map<String,Object> attributes = new HashMap<String,Object>();
-
-                GenotypesContext genotypes = GenotypesContext.create(samples.size());
-                for ( final String s : samples ) {
-                    Map<String,Object> genAttribs = new HashMap<String,Object>();
-                    GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(newLikelihoods.get(s));
-                    genAttribs.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,likelihoods);
-                    genotypes.add(new Genotype(s, Arrays.asList(Allele.NO_CALL), Genotype.NO_LOG10_PERROR, null, genAttribs, false));
-                }
-
-                attributes.put("SR",postulate.supportingPairs.size());
-                attributes.put("GN",geneFeature.getGeneName());
-                attributes.put("EL",postulate.exonLocs.first.getStopLocation().toString());
-
-                vcontexts.add(new VariantContextBuilder("ILGV2", featureStop.getContig(),featureStop.getStop(), featureStop.getStop(), Arrays.asList(ref,alt))
-                        .genotypes(genotypes).attributes(attributes).referenceBaseForIndel(ref.getBases()[0]).make());
-            }
-        }
-
-        return vcontexts;
-    }
-
-    public Map<String,double[]> createPostulateLikelihoodsNew(Set<String> samples, IntronLossPostulate myPostulate, IntronLossPostulate nonePostulate, RefSeqFeature geneFeature, IndexedFastaSequenceFile refFile) {
-        Map<String,double[]> samLikelihoods = new HashMap<String,double[]>(samples.size());
-        for ( String s : samples ) {
-            samLikelihoods.put(s,new double[1+PLOIDY]);
-        }
-        // note: reads at this point have an accurate NM tag
-
-        byte[] junctionSeq = myPostulate.getSequence(refFile);
-
-
-        for ( Pair<GATKSAMRecord,GATKSAMRecord> supportingPair : myPostulate.supportingPairs ) {
-            double lossScore = 0.0;
-            double noLossScore = 0.0;
-            double realignmentScore = scoreRealignment(supportingPair,junctionSeq);
-            double initialScore = scoreAlignment(supportingPair);
-            double rawInsertScore = insertSizeProbability(supportingPair.first,0);
-            double adjInsertScore = insertSizeProbability(supportingPair.second,myPostulate.getEventSize());
-            lossScore += realignmentScore;
-            lossScore += adjInsertScore;
-            noLossScore += initialScore;
-            noLossScore += rawInsertScore;
-            for ( int ac = 0; ac <= PLOIDY; ac ++ ) {
-                double logAc = Math.log10(ac);
-                double logAnMAc = Math.log10(PLOIDY-ac);
-                double logPloidy = Math.log10(PLOIDY); // todo -- should be global constant
-                // todo -- numerically unstable: delta can be negative infinity
-                double delta = MathUtils.log10sumLog10(new double[]{logAc + lossScore - logPloidy, logAnMAc + noLossScore - logPloidy});
-                String sam = supportingPair.first.getReadGroup().getSample();
-                samLikelihoods.get(sam)[ac] += delta;
-            }
-        }
-
-        // Note: Early abort if we are more likely to be ref from SUPPORTING READS
-        boolean probRef = true;
-        for ( double[] lik : samLikelihoods.values() ) {
-            probRef &= MathUtils.compareDoubles(MathUtils.arrayMax(lik),lik[0],1e-5) == 0;
-        }
-        if ( probRef ) {
-            return samLikelihoods;
-        }
-
-        if ( nonePostulate == null ) {
-            return samLikelihoods;
-        }
-
-        for ( Pair<GATKSAMRecord,GATKSAMRecord> nonePair : nonePostulate.supportingPairs ) {
-            double lossScore = 0.0;
-            double noLossScore = 0.0;
-            if ( myPostulate.isRelevant(getGenomeLoc(nonePair.first),getGenomeLoc(nonePair.second)) ) {
-                double realignmentScore = scoreRealignment(nonePair,junctionSeq);
-                double initialScore = scoreAlignment(nonePair);
-                lossScore += realignmentScore;
-                noLossScore += initialScore;
-                if ( lossScore < GARBAGE_COLLECT_THRESHOLD && noLossScore < GARBAGE_COLLECT_THRESHOLD ) {
-                    continue;
-                }
-                for ( int ac = 0; ac <= PLOIDY; ac ++ ) {
-                    double logAc = Math.log10(ac);
-                    double logAnMAc = Math.log10(PLOIDY-ac);
-                    double logPloidy = Math.log10(PLOIDY); // todo -- should be global constant
-                    // todo -- numerically unstable: delta can be negative infinity
-                    double delta = MathUtils.log10sumLog10(new double[]{logAc + lossScore - logPloidy, logAnMAc + noLossScore - logPloidy});
-                    String sam = nonePair.first.getReadGroup().getSample();
-                    samLikelihoods.get(sam)[ac] += delta;
-                }
-            }
-        }
-
-        return samLikelihoods;
-    }
-
-    private double scoreAlignment(Pair<GATKSAMRecord,GATKSAMRecord> initiallyAlignedPair) {
-        // aligned reads are equipped already with necessary metrics
-        double logScore = 0.0;
-        for ( GATKSAMRecord read : Arrays.asList(initiallyAlignedPair.first,initiallyAlignedPair.second) ) {
-            if ( read == null )
-                continue;
-            logScore += ( (Integer) read.getAttribute("NM") )*(-1.2);
-            for ( CigarElement e : read.getCigar().getCigarElements() ) {
-                if ( e.getOperator().equals(CigarOperator.D) || e.getOperator().equals(CigarOperator.I) ) {
-                    logScore += -1*(2.0-Math.pow(2,1-e.getLength()));
-                } else if ( e.getOperator().equals(CigarOperator.S) ) {
-                    logScore += -0.50*e.getLength();
-                }
-            }
-        }
-
-        return logScore;
-    }
-
-    private double scoreRealignment(Pair<GATKSAMRecord,GATKSAMRecord> inPair, byte[] sequence) {
-        double logScore = 0.0;
-        for ( GATKSAMRecord rec : Arrays.asList(inPair.first,inPair.second) ) {
-            if ( rec == null )
-                continue;
-            SWPairwiseAlignment alignment = new SWPairwiseAlignment(sequence,rec.getReadBases());
-            logScore += scoreRealignment(alignment.getCigar().getCigarElements(),alignment.getAlignmentStart2wrt1(),rec.getReadBases(),sequence);
-        }
-
-        return logScore;
     }
 
     private double scoreRealignment(Collection<CigarElement> elements, int offset, byte[] readBases, byte[] exonBases) {
