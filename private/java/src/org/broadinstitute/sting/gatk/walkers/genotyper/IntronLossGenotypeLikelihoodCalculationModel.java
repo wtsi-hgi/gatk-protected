@@ -31,9 +31,11 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
     private Map<String,byte[]> insertSizeQualHistograms;
     private Set<String> samples;
     private Logger logger;
+    private boolean fullSmithWaterman;
 
-    public IntronLossGenotypeLikelihoodCalculationModel(Logger logger) {
+    public IntronLossGenotypeLikelihoodCalculationModel(Logger logger, boolean fullSW) {
         this.logger = logger;
+        fullSmithWaterman = fullSW;
     }
 
     public void initialize(RodBinding<RefSeqFeature> refSeqBinding,
@@ -73,9 +75,11 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
             }
         }
 
-        if ( hypothesis.overlapsExonIntron(genomeLocParser.createGenomeLoc(read)) ) {
+        GenomeLoc readLoc = read.getReadUnmappedFlag() ? null : genomeLocParser.createGenomeLoc(read);
+
+        if ( read.getReadUnmappedFlag() || hypothesis.overlapsExonIntron(readLoc) ) {
             pInsertH0 += scoreAlignment(read);
-            pInsertH1 += scoreRealignment(read,hypothesis.getSequence().getBytes());
+            pInsertH1 += scoreRealignment(read,readLoc,hypothesis);
         }
 
         if ( pInsertH0 > GARBAGE_COLLECT_THRESHOLD || pInsertH1 > GARBAGE_COLLECT_THRESHOLD ) {
@@ -107,9 +111,35 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         return logScore;
     }
 
-    private double scoreRealignment(GATKSAMRecord read, byte[] sequence) {
-        SWPairwiseAlignment alignment = new SWPairwiseAlignment(sequence,read.getReadBases());
-        return scoreRealignment(alignment.getCigar().getCigarElements(),alignment.getAlignmentStart2wrt1(),read.getReadBases(),sequence);
+    private double scoreRealignment(GATKSAMRecord read, GenomeLoc readLoc, JunctionHypothesis hypothesis) {
+        if ( fullSmithWaterman || read.getReadUnmappedFlag() ) {
+            SWPairwiseAlignment alignment = new SWPairwiseAlignment(hypothesis.getSequence().getBytes(),read.getReadBases());
+            double score = scoreRealignment(alignment.getCigar().getCigarElements(),alignment.getAlignmentStart2wrt1(),read.getReadBases(),hypothesis.getSequence().getBytes());
+            hypothesis.updateBestScore(score,true);
+            return score;
+        } else {
+            // want to use the BWA alignment of the read at its present position to score the alignment
+            // this makes the somewhat unfortunate assumption that the cigar operator will just be M for all the
+            // overhanging bases. Combined with the GARBAGE_COLLECT_THRESHOLD above, this could easily drop
+            // reads from consideration entirely, as every base will mismatch following any indel. Perhaps
+            // it would be worth adding in a check for many reads being dropped and recommending that the user
+            // run the algorithm with fullSmithWaterman turned on.
+
+            int offset = hypothesis.getBaseOffset(readLoc.getStartLocation());
+            // trailing or starting soft-clips want to become Ms
+            Collection<CigarElement> oldElements = read.getCigar().getCigarElements();
+            List<CigarElement> newElements = new ArrayList<CigarElement>(oldElements.size());
+            for ( CigarElement e : oldElements ) {
+                if ( e.getOperator().equals(CigarOperator.S) ) {
+                    newElements.add(new CigarElement(e.getLength(),CigarOperator.M));
+                } else {
+                    newElements.add(e);
+                }
+            }
+            double score =  scoreRealignment(newElements,offset,read.getReadBases(),hypothesis.getSequence().getBytes());
+            hypothesis.updateBestScore(score,true);
+            return score;
+        }
     }
 
     public GenomeLoc getGenomeLoc(GATKSAMRecord read) {

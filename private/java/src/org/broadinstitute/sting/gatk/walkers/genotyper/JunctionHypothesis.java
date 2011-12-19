@@ -67,6 +67,26 @@ public class JunctionHypothesis implements Comparable, HasGenomeLocation {
         return sequence;
     }
 
+    private Map<GenomeLoc,Integer> baseBeforeCache = new HashMap<GenomeLoc,Integer>(exonJunctionLocs.size());
+    public int getBaseOffset(GenomeLoc position) {
+        // count up the number of bases in exons prior to this position (involved in the hypothesis)
+        if ( baseBeforeCache.size() == 0 ) {
+            // fill in the cache
+            boolean first = true;
+            for ( Pair<GenomeLoc,GenomeLoc> jun : exonJunctionLocs ) {
+                if ( first ) {
+                    baseBeforeCache.put(jun.first,0);
+                    first = false;
+                }
+                baseBeforeCache.put(jun.second,baseBeforeCache.get(jun.first)+ (int)jun.first.size());
+            }
+        }
+
+        GenomeLoc exon = getExonLoc(position);
+        int nBefore = baseBeforeCache.get(exon);
+        return nBefore + position.getStart()-exon.getStart();
+    }
+
     public GenomeLoc getLocation() {
         GenomeLoc exonStart = exons.get(0).getStartLocation();
         GenomeLoc exonStop = exons.get(exons.size()-1).getStopLocation();
@@ -81,6 +101,21 @@ public class JunctionHypothesis implements Comparable, HasGenomeLocation {
             }
         }
         return Integer.MIN_VALUE;
+    }
+
+    private double bestUnmappedScore = Double.POSITIVE_INFINITY;
+    private double bestMappedScore = Double.POSITIVE_INFINITY;
+
+    public void updateBestScore(double score, boolean unmapped) {
+        if ( unmapped ) {
+            bestUnmappedScore = score < bestUnmappedScore ? score : bestUnmappedScore;
+        } else {
+            bestMappedScore = score < bestMappedScore ? score : bestMappedScore;
+        }
+    }
+
+    public double getScoreDifference() {
+        return bestUnmappedScore - bestMappedScore;
     }
 
     public int getInsertAdjustment(GenomeLoc read, GenomeLoc mate) {
