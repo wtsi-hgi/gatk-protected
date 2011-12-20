@@ -21,6 +21,7 @@ public class JunctionHypothesis implements Comparable, HasGenomeLocation {
 
     List<Pair<Integer,Integer>> exonJunctionNumbers;
     List<Pair<GenomeLoc,GenomeLoc>> exonJunctionLocs;
+    private Map<GenomeLoc,Integer> baseBeforeCache;
     List<GenomeLoc> exons;
     boolean isForward;
     String sequence;
@@ -61,13 +62,13 @@ public class JunctionHypothesis implements Comparable, HasGenomeLocation {
         sequence = seqBuilder.toString();
         isForward = feature.getStrand() == 1;
         name = transcript;
+        baseBeforeCache = new HashMap<GenomeLoc,Integer>(exonJunctionLocs.size());
     }
 
     public String getSequence() {
         return sequence;
     }
 
-    private Map<GenomeLoc,Integer> baseBeforeCache = new HashMap<GenomeLoc,Integer>(exonJunctionLocs.size());
     public int getBaseOffset(GenomeLoc position) {
         // count up the number of bases in exons prior to this position (involved in the hypothesis)
         if ( baseBeforeCache.size() == 0 ) {
@@ -152,11 +153,15 @@ public class JunctionHypothesis implements Comparable, HasGenomeLocation {
                     // make sure that eloc isn't hte first
                     if ( ! eLoc.equals(exons.get(0)) ) {
                         return true;
+                    } else {
+                        return false;
                     }
                 } else if ( eLoc.startsBefore(loc) ) {
                     // make sure that eloc isn't hte last
                     if ( ! eLoc.equals(exons.get(exons.size()-1))) {
                         return true;
+                    } else {
+                        return false;
                     }
                 }
             }

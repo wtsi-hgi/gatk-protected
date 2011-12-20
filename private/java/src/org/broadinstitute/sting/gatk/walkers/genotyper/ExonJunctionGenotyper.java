@@ -111,7 +111,11 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                 hypotheses.add((TableFeature) feature.getUnderlyingObject());
             }
         }
-        logger.debug("Tracker Size "+Integer.toString(metaDataTracker.getAllCoveringRods().size())+" Hyp: "+hypotheses.size());
+        //logger.debug("Tracker Size "+Integer.toString(metaDataTracker.getAllCoveringRods().size())+" Hyp: "+hypotheses.size());
+
+        if ( read.getReadName().equals("ILSS-SRR:4") ) {
+            logger.debug("here"); // for tracing
+        }
 
         if ( hypotheses.size() == 0 ) {
             return null;
@@ -131,11 +135,9 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             return null;
         }
 
-        boolean overlapsExon = false;
         for (GATKFeature feature : metaDataTracker.getAllCoveringRods() ) {
             if ( feature.getUnderlyingObject().getClass().isAssignableFrom(RefSeqFeature.class) ) {
                 refSeqFeatures.put(((RefSeqFeature) feature.getUnderlyingObject()).getTranscriptUniqueGeneName(),(RefSeqFeature) feature.getUnderlyingObject());
-                overlapsExon |= ( (RefSeqFeature) feature.getUnderlyingObject()).overlapsExonP(readLoc);
             }
         }
 
@@ -342,7 +344,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             AlleleFrequencyCalculationResult result = new AlleleFrequencyCalculationResult(1,2*GLs.size());
             double[][] prior = computeAlleleFrequencyPriors(GLs.size()*2+1);
             // gls, num alt, priors, result, preserve
-            ExactAFCalculationModel.linearExactMultiAllelic(GLs,1,prior,result,false);
+            ExactAFCalculationModel.linearExactMultiAllelic(GLs,1,prior,result,true);
             VariantContextBuilder vcb = new VariantContextBuilder("EJG",refPos.getContig(),refPos.getStop(),refPos.getStop(),Arrays.asList(ref,alt));
             vcb.genotypes(GLs);
             vcb.attributes(attributes);
