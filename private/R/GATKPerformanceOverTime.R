@@ -121,7 +121,7 @@ if ( ! is.na(outputPDF) ) {
 
 # Create reports for per N sample CountLoci and UG
 for ( report in list(allReports$CountLoci, allReports$UnifiedGenotyper) ) {
-  print(head(report))
+  #print(head(report))
   print(plotByNSamples(report))
   plotNormalizedByNSamples(report)
 }
@@ -130,7 +130,7 @@ for ( report in list(allReports$CountLoci, allReports$UnifiedGenotyper) ) {
 for ( report in list(allReports$TableRecalibration, allReports$CountCovariates, 
                      allReports$SelectVariants, allReports$CombineVariants,
                      allReports$VariantEval))  {
-  print(head(report))
+  #print(head(report))
   plotByGATKVersion(report)
 }
 
