@@ -16,7 +16,7 @@ if ( onCMDLine ) {
   file <- args[1]
   outputPDF <- args[2]
 } else {
-  file <- "/Users/depristo/Desktop/broadLocal/GATK/unstable/Q-24937@gsa2.jobreport.txt"
+  file <- "/Users/depristo/Desktop/broadLocal/GATK/unstable/Q-20675@gsa4.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-24937@gsa1.jobreport.txt"
   outputPDF <- NA
 }
@@ -121,16 +121,16 @@ if ( ! is.na(outputPDF) ) {
 
 # Create reports for per N sample CountLoci and UG
 for ( report in list(allReports$CountLoci, allReports$UnifiedGenotyper) ) {
-  print(head(report))
+  #print(head(report))
   print(plotByNSamples(report))
   plotNormalizedByNSamples(report)
 }
 
 # Create reports just doing runtime vs. GATK version
 for ( report in list(allReports$TableRecalibration, allReports$CountCovariates, 
-                     allReports$SelectVariants, allReports$CombineVariants)) {
-                    # allReports$VariantEval) ) {
-  print(head(report))
+                     allReports$SelectVariants, allReports$CombineVariants,
+                     allReports$VariantEval))  {
+  #print(head(report))
   plotByGATKVersion(report)
 }
 
@@ -141,7 +141,7 @@ for ( assess in unique(allReports$UnifiedGenotyper.nt$assessment)) {
 }
 
 print(plotByNT(allReports$CountCovariates.nt))
-#print(plotByNT(allReports$VariantEval.nt))
+print(plotByNT(allReports$VariantEval.nt))
 
 if ( ! is.na(outputPDF) ) {
   dev.off()

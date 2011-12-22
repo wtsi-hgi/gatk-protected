@@ -8,12 +8,9 @@ import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
-import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
 
@@ -145,8 +142,8 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
     public GenomeLoc getGenomeLoc(GATKSAMRecord read) {
         if ( read == null )
             return null;
-        int start =  ReadUtils.getRefCoordSoftUnclippedStart(read);
-        int end =  Math.max(start, ReadUtils.getRefCoordSoftUnclippedEnd(read));
+        int start =  read.getSoftStart();
+        int end =  Math.max(start, read.getSoftEnd());
         return genomeLocParser.createGenomeLoc(read.getReferenceName(),start,end);
     }
 

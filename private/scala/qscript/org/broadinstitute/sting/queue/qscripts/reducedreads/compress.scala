@@ -14,7 +14,7 @@ import org.broadinstitute.sting.utils.exceptions.UserException
  */
 
 
-class ReduceReads extends QScript {
+class Compress extends QScript {
   @Argument(shortName = "ref",    fullName = "reference", doc = "Reference sequence", required=true) protected val reference: File = null
   @Argument(shortName = "bam",    fullName = "bam_file", doc = "", required=false) protected val bam: File = null
   @Argument(shortName = "ls",     fullName = "list", doc ="", required=false) protected val list: File = null
@@ -29,6 +29,7 @@ class ReduceReads extends QScript {
   @Argument(shortName = "dl",     fullName = "", doc = "", required = false) protected var debugLevel: Option[Int] = None
   @Argument(shortName = "dr",     fullName = "", doc = "", required = false) protected var debugRead: String = ""
   @Argument(shortName = "ds",     fullName = "downsample_coverage", doc = "", required = false) protected var downsampleCoverage: Option[Int] = None
+  @Argument(shortName = "e",      fullName = "expand_intervals", doc = "Expand each target in input intervals by the specified number of bases. By default set to 50 bases.") protected var expandIntervals: Int = 0
 
     trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO";
@@ -48,17 +49,30 @@ class ReduceReads extends QScript {
     else
       throw new UserException("You have to provide either a BAM or a LIST of bams.")
 
+    val flankIntervals: File = new File("expanded_interval.list")
+    var intervalList = List(intervals)
+
+    if (expandIntervals > 0) {
+      val writeFlanks = new WriteFlankingIntervalsFunction
+      writeFlanks.reference = reference
+      writeFlanks.inputIntervals = intervals
+      writeFlanks.flankSize = expandIntervals
+      writeFlanks.outputIntervals = flankIntervals
+      writeFlanks.jobOutputFile = writeFlanks.outputIntervals + ".out"
+      add(writeFlanks)
+      intervalList :+= flankIntervals
+    }
 
 
     for (file <- bamList) {
       val reducedBAM = swapExt(file.getName, ".bam", ".reduced.bam")
 
       // reduce
-      val rr = new org.broadinstitute.sting.queue.extensions.gatk.ReduceReads() with UNIVERSAL_GATK_ARGS
+      val rr = new ReduceReads() with UNIVERSAL_GATK_ARGS
       rr.input_file :+= file
       rr.out = reducedBAM
       rr.scatterCount = scatterCount
-      if (intervals != null) rr.intervals :+= intervals
+      if (intervals != null) rr.intervals = intervalList
       if (contextSize != None) rr.context_size = Some(contextSize)
       if (minMappingQuality != None) rr.minimum_mapping_quality = Some(minMappingQuality)
       if (minTailQuality != None) rr.minimum_tail_qualities = Some(minTailQuality)

@@ -23,10 +23,10 @@ class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "iterations", doc="it", required=false)
   val iterations: Int = 3;
 
-  val nIterationsForSingleTestsPerIteration: Int = 1;
+  val nIterationsForSingleTestsPerIteration: Int = 2;
 
   @Argument(shortName = "maxThreads", doc="maxThreads", required=false)
-  val maxThreads: Int = 6;
+  val maxThreads: Int = 12;
 
   @Argument(shortName = "steps", doc="steps", required=false)
   val steps: Int = 10;
@@ -83,7 +83,7 @@ class GATKPerformanceOverTime extends QScript {
               if ( TEST )
                 this.intervalsString :+= "20:10,000,000-10,001,000"
               else
-                this.intervals :+= assess.intervals
+                this.intervals :+= makeResource(assess.intervals)
 
               this.configureJobReport(Map(
                 "iteration" -> iteration,

@@ -391,7 +391,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
             // Loop through the reads hard clipping the adaptor and low quality tails
             for( final GATKSAMRecord myRead : finalizedReadList ) {
-                final GATKSAMRecord postAdapterRead = ReadUtils.hardClipAdaptorSequence( myRead );
+                final GATKSAMRecord postAdapterRead = ReadClipper.hardClipAdaptorSequence( myRead );
                 if( postAdapterRead != null && postAdapterRead.getCigar().getReadLength() > 0 ) {
                     final GATKSAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
 

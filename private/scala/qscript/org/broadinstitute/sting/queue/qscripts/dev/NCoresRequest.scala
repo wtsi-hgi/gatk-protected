@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.queue.pipeline
+package org.broadinstitute.sting.queue.qscripts.dev
 
 /*
  * Copyright (c) 2011, The Broad Institute
@@ -24,23 +24,21 @@ package org.broadinstitute.sting.queue.pipeline
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import org.testng.annotations.Test
-import org.broadinstitute.sting.BaseTest
+import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.sting.queue.extensions.gatk._
 
-class PacbioProcessingPipelineTest {
-  @Test
-  def testPacbioProcessingPipeline {
-    val testOut = "exampleBAM.recal.bam"
-    val spec = new PipelineTestSpec
-    spec.name = "pacbioProcessingPipeline"
-    spec.args = Array(
-      " -S public/scala/qscript/org/broadinstitute/sting/queue/qscripts/PacbioProcessingPipeline.scala",
-      " -R " + BaseTest.testDir + "exampleFASTA.fasta",
-      " -i " + BaseTest.testDir + "exampleBAM.bam",
-      " -blasr ",
-      " -test ",
-      " -D " + BaseTest.testDir + "exampleDBSNP.vcf").mkString
-    spec.fileMD5s += testOut -> "cf147e7f56806598371f8d5d6794b852"
-    PipelineTest.executeTest(spec)
+class NCoresRequest extends QScript {
+  def script = {
+    for ( nt <- List(1, 2, 4) ) {
+      val UG = new UnifiedGenotyper
+      UG.logging_level = "INFO";
+      UG.reference_sequence = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/human_g1k_v37.fasta");
+      UG.memoryLimit = 4
+      UG.nt = nt
+      UG.input_file = List("/humgen/gsa-hpprojects/GATK/bundle/current/b37/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam")
+      UG.intervalsString = List("20:10,000,000-10,010,000")
+      UG.out = new File("/dev/null")
+      add(UG)
+    }
   }
 }
