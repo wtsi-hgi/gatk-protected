@@ -15,21 +15,21 @@ import org.broadinstitute.sting.utils.exceptions.UserException
 
 
 class Compress extends QScript {
-  @Argument(shortName = "ref",    fullName = "reference", doc = "Reference sequence", required=true) protected val reference: File = null
-  @Argument(shortName = "bam",    fullName = "bam_file", doc = "", required=false) protected val bam: File = null
-  @Argument(shortName = "ls",     fullName = "list", doc ="", required=false) protected val list: File = null
-  @Argument(shortName = "int",    fullName = "intervals", doc = "", required=false) protected val intervals: File = null
-  @Argument(shortName = "sg",     fullName = "scatterCount", doc ="", required = false) protected val scatterCount = 50
-  @Argument(shortName = "cs",     fullName = "context_size", doc = "", required = false) protected var contextSize: Option[Int] = None
-  @Argument(shortName = "minmap", fullName = "minimum_mapping_quality", doc = "", required = false) protected var minMappingQuality: Option[Int] = None
-  @Argument(shortName = "mintail",fullName = "minimum_tail_qualities", doc = "", required = false) protected var minTailQuality: Option[Byte] = None
-  @Argument(shortName = "minvar", fullName = "minimum_alt_proportion_to_trigger_variant", doc = "", required = false) protected var minAltProportionToTriggerVariant: Option[Double] = None
-  @Argument(shortName = "mindel", fullName = "minimum_del_proportion_to_trigger_variant", doc = "", required = false) protected var minIndelProportionToTriggerVariant: Option[Double] = None
-  @Argument(shortName = "minqual",fullName = "minimum_base_quality_to_consider", doc = "", required = false) protected var minBaseQual: Option[Int] = None
-  @Argument(shortName = "dl",     fullName = "", doc = "", required = false) protected var debugLevel: Option[Int] = None
-  @Argument(shortName = "dr",     fullName = "", doc = "", required = false) protected var debugRead: String = ""
-  @Argument(shortName = "ds",     fullName = "downsample_coverage", doc = "", required = false) protected var downsampleCoverage: Option[Int] = None
-  @Argument(shortName = "e",      fullName = "expand_intervals", doc = "Expand each target in input intervals by the specified number of bases. By default set to 50 bases.") protected var expandIntervals: Int = 0
+  @Argument(shortName = "ref",    required = true,  fullName = "reference", doc = "Reference sequence") protected val reference: File = null
+  @Argument(shortName = "bam",    required = false, fullName = "bam_file", doc = "") protected val bam: File = null
+  @Argument(shortName = "ls",     required = false, fullName = "list", doc ="") protected val list: File = null
+  @Argument(shortName = "int",    required = false, fullName = "intervals", doc = "") protected val intervals: File = null
+  @Argument(shortName = "sg",     required = false, fullName = "scatterCount", doc ="") protected val scatterCount = 50
+  @Argument(shortName = "cs",     required = false, fullName = "context_size", doc = "") protected var contextSize: Option[Int] = None
+  @Argument(shortName = "minmap", required = false, fullName = "minimum_mapping_quality"required = false) protected var minMappingQuality: Option[Int] = None
+  @Argument(shortName = "mintail",required = false, fullName = "minimum_tail_qualities"required = false) protected var minTailQuality: Option[Byte] = None
+  @Argument(shortName = "minvar", required = false, fullName = "minimum_alt_proportion_to_trigger_variant", doc = "") protected var minAltProportionToTriggerVariant: Option[Double] = None
+  @Argument(shortName = "mindel", required = false, fullName = "minimum_del_proportion_to_trigger_variant", doc = "") protected var minIndelProportionToTriggerVariant: Option[Double] = None
+  @Argument(shortName = "minqual",required = false, fullName = "minimum_base_quality_to_consider", doc = "") protected var minBaseQual: Option[Int] = None
+  @Argument(shortName = "dl",     required = false, fullName = "", doc = "") protected var debugLevel: Option[Int] = None
+  @Argument(shortName = "dr",     required = false, fullName = "", doc = "") protected var debugRead: String = ""
+  @Argument(shortName = "ds",     required = false, fullName = "downsample_coverage", doc = "") protected var downsampleCoverage: Option[Int] = None
+  @Argument(shortName = "e",      required = false, fullName = "expand_intervals", doc = "Expand each target in input intervals by the specified number of bases. By default set to 50 bases.") protected var expandIntervals: Int = 0
 
     trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO";
