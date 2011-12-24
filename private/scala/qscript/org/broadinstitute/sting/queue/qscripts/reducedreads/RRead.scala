@@ -14,7 +14,7 @@ import org.broadinstitute.sting.utils.exceptions.UserException
  */
 
 
-class Compress extends QScript {
+class RRead extends QScript {
   @Argument(shortName = "ref",    required = true,  fullName = "reference", doc = "Reference sequence") protected val reference: File = null
   @Argument(shortName = "bam",    required = false, fullName = "bam_file", doc = "") protected val bam: File = null
   @Argument(shortName = "ls",     required = false, fullName = "list", doc ="") protected val list: File = null
