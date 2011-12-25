@@ -1,7 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
 import org.broadinstitute.sting.WalkerTest;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -17,17 +16,17 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
         executeTest("testReduceReads1: args=" + args, spec);
     }
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void testDefaultCompression() {
         RRTest("", "da5fe1fb4132ce9884ea118f1abda2aa");
     }
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void testHighCompression() {
         RRTest(" -cs 10 -minvar 0.3 -mindel 0.3", "828e0e4fa5d973252b08cb73faf148fb");
     }
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void testLowCompression() {
         RRTest(" -cs 30 -minvar 0.01 -mindel 0.01 -minmap 5 -minqual 5", "1cad9627d7d13ce9ad6281caae7170fe");
     }

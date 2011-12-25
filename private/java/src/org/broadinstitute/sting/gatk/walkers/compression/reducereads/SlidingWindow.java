@@ -501,7 +501,6 @@ public class SlidingWindow {
      *
      * @return the read contained in the running consensus
      */
-    @Requires("runningConsensus != null")
     protected GATKSAMRecord finalizeRunningConsensus() {
         GATKSAMRecord finalizedRead = null;
         if (runningConsensus != null) {
@@ -520,7 +519,6 @@ public class SlidingWindow {
      *
      * @return the read contained in the running consensus
      */
-    @Requires("filteredDataConsensus != null")
     protected GATKSAMRecord finalizeFilteredDataConsensus() {
         GATKSAMRecord finalizedRead = null;
         if (filteredDataConsensus != null) {
