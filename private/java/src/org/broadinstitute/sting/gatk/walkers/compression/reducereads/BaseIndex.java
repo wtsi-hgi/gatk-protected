@@ -3,6 +3,7 @@ package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 /**
  * Simple byte / base index conversions
  *
+ *
  * @author carneiro
  * @since 8/26/11
  */
@@ -18,13 +19,19 @@ public enum BaseIndex {
     final byte b;
     final int index;
 
+    public byte getByte() { return b; }
+
     private BaseIndex(char base, int index) {
         this.b = (byte)base;
         this.index = index;
     }
 
-    public byte getByte() { return b; }
-
+    /**
+     * Converts a byte representation of a base to BaseIndex
+     *
+     * @param base the byte representation of the base
+     * @return the BaseIndex representation of the base;
+     */
     public static BaseIndex byteToBase(final byte base) {
         switch (base) {
             case 'A':
@@ -51,5 +58,25 @@ public enum BaseIndex {
                 return N;
             default: return null;
         }
+    }
+
+    /**
+     * Definition of a nucleotide for the BaseIndex is anything that has been read as a base
+     * by the machine (A,C,G,T), even if it couldn't tell which base it was, but it knows
+     * there is a base there (N).
+     *
+     * @return whether or not it is a nucleotide, given the definition above
+     */
+    public boolean isNucleotide() {
+        return this == A || this == C || this == G || this == T || this == N;
+    }
+
+    /**
+     * Whether or not this base is an insertion or a deletion
+     *
+     * @return true for I or D, false otherwise
+     */
+    public boolean isIndel() {
+        return this == D || this == I;
     }
 }

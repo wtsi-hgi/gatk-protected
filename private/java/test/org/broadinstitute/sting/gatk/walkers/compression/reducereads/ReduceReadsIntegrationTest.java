@@ -18,17 +18,24 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
 
     @Test(enabled = true)
     public void testDefaultCompression() {
-        RRTest("", "da5fe1fb4132ce9884ea118f1abda2aa");
+        RRTest("", "3c9f9862cb30fa90435d6a8d5ecbed93");
     }
 
     @Test(enabled = true)
     public void testHighCompression() {
-        RRTest(" -cs 10 -minvar 0.3 -mindel 0.3", "828e0e4fa5d973252b08cb73faf148fb");
+        RRTest(" -cs 10 -minvar 0.3 -mindel 0.3", "0529ed6df16b686783da390814d5e0a2");
     }
 
     @Test(enabled = true)
     public void testLowCompression() {
-        RRTest(" -cs 30 -minvar 0.01 -mindel 0.01 -minmap 5 -minqual 5", "1cad9627d7d13ce9ad6281caae7170fe");
+        RRTest(" -cs 30 -minvar 0.01 -mindel 0.01 -minmap 5 -minqual 5", "d546511caab933ae83f9bf9e81e95886");
+    }
+
+    @Test(enabled = true)
+    public void testIndelCompression() {
+        String base = String.format("-T ReduceReads -R %s -I %s -L 20:10,100,500-10,100,600 ", REF, BAM) + " -o %s ";
+        WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("bc8873df0f7bfeb539e73321aa9a23b9"));
+        executeTest("testIndelCompression ", spec);
     }
 
 }

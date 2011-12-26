@@ -26,8 +26,9 @@ public class SlidingWindow {
     // Sliding Window data
     protected LinkedList<GATKSAMRecord> readsInWindow;
     protected LinkedList<HeaderElement> windowHeader;
-    protected int contextSize;
+    protected int contextSizeMismatches;
     protected int contextSizeIndels;
+    protected int contextSize;                                      // the largest context size (between mismatches and indels)
     protected int startLocation;
     protected int stopLocation;
     protected String contig;
@@ -52,12 +53,17 @@ public class SlidingWindow {
     protected int MIN_BASE_QUAL_TO_COUNT;                           // qual has to be greater than or equal to this value
     protected int MIN_MAPPING_QUALITY;
 
+    public int getStopLocation() { return stopLocation; }
+    public String getContig() { return contig; }
+    public int getContigIndex() { return contigIndex; }
 
-    public SlidingWindow(String contig, int contigIndex, int contextSize, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality) {
+
+    public SlidingWindow(String contig, int contigIndex, int contextSizeMismatches, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality) {
         this.startLocation = -1;
         this.stopLocation = -1;
-        this.contextSize = contextSize;
+        this.contextSizeMismatches = contextSizeMismatches;
         this.contextSizeIndels = contextSizeIndels;
+        this.contextSize = Math.max(contextSizeIndels, contextSizeMismatches);
 
         this.MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT = minAltProportionToTriggerVariant;
         this.MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT = minIndelProportionToTriggerVariant;
@@ -82,23 +88,11 @@ public class SlidingWindow {
         this.filteredDataConsensus = null;
     }
 
-    public int getStopLocation() {
-        return stopLocation;
-    }
-
-    public String getContig() {
-        return contig;
-    }
-
-    public int getContigIndex() {
-        return contigIndex;
-    }
-
     /**
      * Add a read to the sliding window and slides the window accordingly.
      *
      * Reads are assumed to be in order, therefore, when a read is added the sliding window can
-     * assume that no more reads will affect read.getUnclippedStart() - contextSize. The window
+     * assume that no more reads will affect read.getUnclippedStart() - contextSizeMismatches. The window
      * slides forward to that position and returns all reads that may have been finalized in the
      * sliding process.
      *
@@ -173,7 +167,7 @@ public class SlidingWindow {
      * returns an array marked with variant and non-variant regions (it uses
      * markVariantRegions to make the marks)
      *
-     * @param stop check the window from start to 'upto'
+     * @param stop check the window from start to stop (not-inclusive)
      * @return a boolean array with 'true' marking variant regions and false marking consensus sites
      */
     protected boolean [] markSites(int stop) {
@@ -184,8 +178,18 @@ public class SlidingWindow {
         for (int i = startLocation; i < stop; i++) {
             if (headerElementIterator.hasNext()) {
                 HeaderElement headerElement = headerElementIterator.next();
-                if (headerElement.isVariant())
-                    markVariantRegion(markedSites, i - startLocation);
+                int context = 0;
+
+                if (headerElement.isVariantFromDeletions() || headerElement.isVariantFromInsertions())
+                    context = Math.max(context, contextSizeIndels);
+
+                // if context has been set to indels, only do mismatches if contextSize is bigger
+                if ((context > 0 && contextSizeMismatches > contextSizeIndels) || headerElement.isVariantFromMismatches() )
+                    context = Math.max(context, contextSizeMismatches);
+
+                if (context > 0)
+                    markVariantRegion(markedSites, i - startLocation, context);
+
             }
             else
                 break;
@@ -194,14 +198,15 @@ public class SlidingWindow {
     }
 
     /**
-     * performs the variant region marks (true) around a variant site
+     * Marks the sites around the variant site (as true)
      *
      * @param markedSites the boolean array to bear the marks
      * @param variantSiteLocation the location where a variant site was found
+     * @param context the number of bases to mark on each side of the variant site
      */
-    protected void markVariantRegion (boolean [] markedSites, int variantSiteLocation) {
-        int from = (variantSiteLocation < contextSize) ? 0 : variantSiteLocation - contextSize;
-        int to = (variantSiteLocation + contextSize + 1 > markedSites.length) ? markedSites.length : variantSiteLocation + contextSize + 1;
+    protected void markVariantRegion(boolean[] markedSites, int variantSiteLocation, int context) {
+        int from = (variantSiteLocation < context) ? 0 : variantSiteLocation - context;
+        int to = (variantSiteLocation + context + 1 > markedSites.length) ? markedSites.length : variantSiteLocation + context + 1;
         for (int i=from; i<to; i++)
             markedSites[i] = true;
     }
@@ -820,7 +825,8 @@ public class SlidingWindow {
          * @return whether or not the HeaderElement is variant due to excess insertions
          */
         private boolean isVariantFromMismatches() {
-            return consensusBaseCounts.baseCountProportion(consensusBaseCounts.baseWithMostCounts()) < (1 - MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT);
+            BaseIndex mostCommon = consensusBaseCounts.baseIndexWithMostCountsWithoutIndels();
+            return consensusBaseCounts.baseCountProportionWithoutIndels(mostCommon) < (1 - MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT);
         }
 
     }

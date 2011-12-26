@@ -4,7 +4,7 @@ import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMReadGroupRecord;
-import org.broadinstitute.sting.gatk.walkers.compression.reducereads.*;
+import org.broadinstitute.sting.gatk.walkers.compression.reducereads.MultiSampleCompressor;
 import org.broadinstitute.sting.gatk.walkers.compression.reducereads.ReduceReadsStash;
 import org.broadinstitute.sting.gatk.walkers.compression.reducereads.SingleSampleCompressor;
 import org.broadinstitute.sting.gatk.walkers.compression.reducereads.SlidingWindow;
@@ -140,9 +140,9 @@ class TriggeringSlidingWindow extends SlidingWindow {
 
     @Override
     protected boolean [] markSites(int stop) {
-        return parentCompressor.markRegion(startLocation,stop,contextSize);
+        return parentCompressor.markRegion(startLocation,stop, contextSizeMismatches);
         /* old code
-        boolean [] markedSites = new boolean [stop - startLocation + contextSize + 1];
+        boolean [] markedSites = new boolean [stop - startLocation + contextSizeMismatches + 1];
 
         Iterator<HeaderElement> headerElementIterator = windowHeader.iterator();
         for (int i = startLocation; i < stop; i++) {
