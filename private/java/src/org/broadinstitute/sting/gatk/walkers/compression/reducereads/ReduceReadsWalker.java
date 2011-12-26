@@ -49,6 +49,37 @@ import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.util.*;
 
+/**
+ * Reduces the BAM file using read based compression that keeps only essential information for variant calling
+ *
+ * <p>
+ * This walker will generated reduced versions of the BAM files that still follow the BAM spec
+ * and contain all the information necessary for the GSA variant calling pipeline. Some options
+ * allow you to tune in how much compression you want to achieve. The default values have been
+ * shown to reduce a typical whole exome BAM file 100x. The higher the coverage, the bigger the
+ * savings in file size and performance of the downstream tools.
+ *
+ * <h2>Input</h2>
+ * <p>
+ * The BAM file to be compressed
+ * </p>
+ *
+ * <h2>Output</h2>
+ * <p>
+ * The compressed (reduced) BAM file.
+ * </p>
+ *
+ * <h2>Examples</h2>
+ * <pre>
+ * java -Xmx4g -jar GenomeAnalysisTK.jar \
+ *   -R ref.fasta \
+ *   -T ReduceReads \
+ *   -I myData.bam \
+ *   -o myData.reduced.bam
+* </pre>
+ *
+ */
+
 @PartitionBy(PartitionType.INTERVAL)
 @ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
 public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, ReduceReadsStash> {
@@ -56,26 +87,54 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     @Output
     protected StingSAMFileWriter out;
 
+    /**
+     * The number of bases to keep around mismatches (potential variation)
+     */
     @Argument(fullName = "context_size", shortName = "cs", doc = "", required = false)
     protected int contextSize = 10;
 
+    /**
+     * The number of bases to keep around indels (potential variation)
+     */
     @Argument(fullName = "context_size_indels", shortName = "csindel", doc = "", required = false)
     protected int contextSizeIndels = 50;
 
+    /**
+     * The minimum mapping quality to be considered for the consensus synthetic read. Reads that have
+     * mapping quality below this threshold will not be counted towards consensus, but are still counted
+     * towards variable regions.
+     */
     @Argument(fullName = "minimum_mapping_quality", shortName = "minmap", doc = "", required = false)
     protected int minMappingQuality = 20;
 
+    /**
+     * The minimum base quality to be considered for the consensus synthetic read. Reads that have
+     * base quality below this threshold will not be counted towards consensus, but are still counted
+     * towards variable regions.
+     */
+    @Argument(fullName = "minimum_base_quality_to_consider", shortName = "minqual", doc = "", required = false)
+    protected int minBaseQual = 20;
+
+    /**
+     * Reads have notoriously low quality bases on the tails (left and right). Consecutive bases with quality
+     * lower than this threshold will be hard clipped off before entering the reduce reads algorithm.
+     */
     @Argument(fullName = "minimum_tail_qualities", shortName = "mintail", doc = "", required = false)
     protected byte minTailQuality = 2;
 
+    /**
+     * Minimum proportion of mismatches in a site to trigger a variant region. Anything below this will be
+     * considered consensus.
+     */
     @Argument(fullName = "minimum_alt_proportion_to_trigger_variant", shortName = "minvar", doc = "", required = false)
     protected double minAltProportionToTriggerVariant = 0.05;
 
+    /**
+     * Minimum proportion of indels in a site to trigger a variant region. Anything below this will be
+     * considered consensus.
+     */
     @Argument(fullName = "minimum_del_proportion_to_trigger_variant", shortName = "mindel", doc = "", required = false)
     protected double minIndelProportionToTriggerVariant = 0.01;
-
-    @Argument(fullName = "minimum_base_quality_to_consider", shortName = "minqual", doc = "", required = false)
-    protected int minBaseQual = 20;
 
     @Hidden
     @Argument(fullName = "", shortName = "dl", doc = "", required = false)
@@ -100,9 +159,10 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
 
     /**
-     * Hard clips the read around the edges of the interval it overlaps with.
-     * Note: If read overlaps more than one interval, it will be hard clipped at the end of the first interval it overlaps.
-     *   (maybe split in two reads and treat it specially in the future?)
+     * Hard clips away all parts of the read that doesn't agree with the intervals selected.
+     *
+     * Note: If read overlaps more than one interval, it will be hard clipped to all
+     * the intervals it overlaps with
      *
      * @param read the read to be hard clipped to the interval.
      * @return a shallow copy of the read hard clipped to the interval
@@ -237,12 +297,19 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     }
 
 
+    /**
+     * Basic generic initialization of the readNameHash and the intervalList. Output initialization
+     * is done at the reduceInit method
+     */
     @Override
     public void initialize() {
         super.initialize();
 
+        // prepare the read name hash to keep track of what reads have had their read names compressed
         readNameHash = new HashMap<String, Long>();
 
+        // get the interval list from the engine. If no interval list was provided, the walker will
+        // work in WGS mode
         intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator ());
         if (getToolkit().getIntervals() != null)
             intervalList.addAll(getToolkit().getIntervals());
@@ -250,6 +317,19 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         out.setPresorted(false);
     }
 
+    /**
+     * Takes in a read and prepares it for the SlidingWindow machinery by performing the
+     * following clipping operations:
+     *  1. Hard clip low quality tails
+     *  2. Hard clip all remaining soft clipped bases
+     *  3. Hard clip all leading insertions
+     *  4. Hard clip read to the intervals in the interval list (this step may produce multiple reads)
+     *
+     * @param ref default map parameter
+     * @param read default map parameter
+     * @param metaDataTracker default map parameter
+     * @return a linked list with all the reads produced by the clipping operations
+     */
     @Override
     public LinkedList<GATKSAMRecord> map( ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker ) {
         totalReads++;
@@ -259,18 +339,18 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         if (debugLevel == 1) System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
 
 
-        read.simplify();                                                          // Clear all unnecessary attributes
+        read.simplify();                                                              // Clear all unnecessary attributes
 
         ReadClipper clipper = new ReadClipper(read);
-        GATKSAMRecord clippedRead = clipper.hardClipLowQualEnds(minTailQuality);  // Clip low quality tails
+        GATKSAMRecord clippedRead = clipper.hardClipLowQualEnds(minTailQuality);      // Clip low quality tails
 
         clipper = new ReadClipper(clippedRead);
-        clippedRead = clipper.hardClipSoftClippedBases();                         // Hard clip everything that is soft clipped
+        clippedRead = clipper.hardClipSoftClippedBases();                             // Hard clip everything that is soft clipped
 
         clipper = new ReadClipper(clippedRead);
-        clippedRead = clipper.hardClipLeadingInsertions();                        // Clean up leading insertions (because the sliding window can't handle them yet)
+        clippedRead = clipper.hardClipLeadingInsertions();                            // Clean up leading insertions (because the sliding window can't handle them yet)
 
-        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(clippedRead);    // Hard clip the remainder of the read to the desired interval
+        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(clippedRead);  // Hard clip the remainder of the read to the desired interval
 
         if (debugLevel == 1) {
             for (GATKSAMRecord mappedRead : mappedReads)
@@ -281,11 +361,13 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
     }
 
-
     /**
-     * reduceInit is called once before any calls to the map function.  We use it here to setup the output
-     * bam file, if it was specified on the command line
-     * @return SAMFileWriter, set to the BAM output file if the command line option was set, null otherwise
+     * Initializes the ReduceReadsStash that keeps track of all reads that are waiting to
+     * enter the SlidingWindow machinery. The stash makes sure reads are served in order
+     * even though map() may generate reads that are only supposed to enter the machinery
+     * in the future.
+     *
+     * @return the empty stash
      */
     @Override
     public ReduceReadsStash reduceInit() {
@@ -293,7 +375,13 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     }
 
     /**
-     * given a read and an output location, reduce by emitting the read
+     * Takes the list of reads produced by map(), adds them to the stash (which keeps them sorted) and process
+     * all reads that come before the original read (the read that was passed to map) including the original
+     * read. This is where we send reads, in order, to the SlidingWindow machinery.
+     *
+     * @param mappedReads the list of reads sent by map
+     * @param stash the stash that keeps the reads in order for processing
+     * @return the stash with all reads that have not been processed yet
      */
     public ReduceReadsStash reduce( LinkedList<GATKSAMRecord> mappedReads, ReduceReadsStash stash ) {
         boolean firstRead = true;
@@ -325,6 +413,11 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         return stash;
     }
 
+    /**
+     * Now that now more reads will come, we process all the remaining reads in the stash, in order.
+     *
+     * @param stash the ReduceReadsStash with all unprocessed reads (from reduce)
+     */
     @Override
     public void onTraversalDone(ReduceReadsStash stash) {
 
@@ -333,18 +426,12 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
             outputRead(read);
     }
 
-    private void checkForHighMismatch(GATKSAMRecord read) {
-        final int start = read.getAlignmentStart();
-        final int stop = read.getAlignmentEnd();
-        final byte[] ref = getToolkit().getReferenceDataSource().getReference().getSubsequenceAt(read.getReferenceName(), start, stop).getBases();
-        final int nm = SequenceUtil.countMismatches(read, ref, start - 1);
-        final int readLen = read.getReadLength();
-        final double nmFraction = nm / (1.0*readLen);
-        if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG) != null)
-            throw new ReviewedStingException("BUG: High mismatch fraction found in read " + read.getReadName() + " position: " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
-    }
-
-
+    /**
+     * Compresses the read name and adds it to output BAM file (reduced BAM)
+     * after performing some quality control
+     *
+     * @param read any read
+     */
     private void outputRead(GATKSAMRecord read) {
         if (debugLevel == 2)
             checkForHighMismatch(read);
@@ -359,6 +446,32 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         out.addAlignment(compressReadName(read));
     }
 
+    /**
+     * Quality control procedure that checks if the consensus reads contains too many
+     * mismatches with the reference. This should never happen and is a good trigger for
+     * errors with the algorithm.
+     *
+     * @param read any read
+     */
+    private void checkForHighMismatch(GATKSAMRecord read) {
+        final int start = read.getAlignmentStart();
+        final int stop = read.getAlignmentEnd();
+        final byte[] ref = getToolkit().getReferenceDataSource().getReference().getSubsequenceAt(read.getReferenceName(), start, stop).getBases();
+        final int nm = SequenceUtil.countMismatches(read, ref, start - 1);
+        final int readLen = read.getReadLength();
+        final double nmFraction = nm / (1.0*readLen);
+        if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG) != null)
+            throw new ReviewedStingException("BUG: High mismatch fraction found in read " + read.getReadName() + " position: " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
+    }
+
+
+    /**
+     * Compresses the read name using the readNameHash if we have already compressed
+     * this read name before.
+     *
+      *@param read any read
+     * @return a new read, with a compressed version of the read name
+     */
     private GATKSAMRecord compressReadName(GATKSAMRecord read) {
         GATKSAMRecord compressedRead;
 
@@ -394,6 +507,10 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
          return isWholeGenome() || (list.getFirst().equals(read) && ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED);
     }
 
+    /**
+     * Checks whether or not the intervalList is empty, meaning we're running in WGS mode.
+     * @return
+     */
     private boolean isWholeGenome() {
         return intervalList.isEmpty();
     }
