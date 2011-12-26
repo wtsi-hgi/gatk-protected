@@ -250,6 +250,8 @@ class HybridSelectionPipeline extends QScript {
         removeK1gSamples.out
       }
 
+// SnpEff annotation is disabled in the pipeline pending the outcome of a QC analysis of the available SnpEff versions
+/*
     val snpEff = new SnpEff
     snpEff.inVcf = snpsIndelsVcf
     snpEff.config = "/humgen/gsa-pipeline/resources/snpEff/v2_0_4rc3/snpEff.config"
@@ -266,14 +268,15 @@ class HybridSelectionPipeline extends QScript {
     annotate.out = projectName + ".vcf"
     annotate.jobOutputFile = annotate.out + ".out"
     add(annotate)
-
+*/
     for (strats <- List(
       List("AlleleCount"),
       List("Sample","FunctionalClass")
     )) {
       def newStratsEval(suffix: String): VariantEval = {
         val eval = new VariantEval with CommandLineGATKArgs
-        eval.eval :+= annotate.out
+        //eval.eval :+= annotate.out
+        eval.eval :+= snpsIndelsVcf
         eval.dbsnp = dbsnp129
         eval.doNotUseAllStandardModules = true
         eval.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
