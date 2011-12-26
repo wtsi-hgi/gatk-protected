@@ -641,17 +641,15 @@ public class SlidingWindow {
         int start = read.getAlignmentStart();
         int stop = read.getAlignmentEnd();
 
-        ReadClipper clipper = new ReadClipper(read);
-
         // check if the read is contained in region
         GATKSAMRecord clippedRead = read;
         if ( start <= refStop && stop >= refStart) {
             if ( start < refStart && stop > refStop )
-                clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(refStart-1, refStop+1);
+                clippedRead = ReadClipper.hardClipBothEndsByReferenceCoordinates(read, refStart-1, refStop+1);
             else if ( start < refStart )
-                clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(refStart-1);
+                clippedRead = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refStart-1);
             else if ( stop > refStop )
-                clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(refStop+1);
+                clippedRead = ReadClipper.hardClipByReferenceCoordinatesRightTail(read, refStop+1);
             return clippedRead;
         }
         else
@@ -671,8 +669,7 @@ public class SlidingWindow {
             return null;
         if (refNewStart <= read.getAlignmentStart())
             return read;
-        ReadClipper readClipper = new ReadClipper(read);
-        return readClipper.hardClipByReferenceCoordinatesLeftTail(refNewStart-1);
+        return ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refNewStart-1);
     }
 
 

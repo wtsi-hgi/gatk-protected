@@ -169,7 +169,6 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      */
     private LinkedList<GATKSAMRecord> hardClipReadToInterval(GATKSAMRecord read) {
         LinkedList<GATKSAMRecord> clippedReads = new LinkedList<GATKSAMRecord>();
-        ReadClipper clipper = new ReadClipper(read);
 
         GenomeLoc intervalOverlapped = null;       // marks the interval to which the original read overlapped (so we can cut all previous intervals from the list)
 
@@ -241,25 +240,23 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
                     break;
 
                 case OVERLAP_LEFT:                 // clip the left tail of the read
-                    clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStart() - 1);
+                    clippedRead = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, interval.getStart() - 1);
 
                     overlap = true;
                     doneClipping = true;
                     break;
 
                 case OVERLAP_RIGHT:                // clip the right tail of the read and try to match it to the next interval
-                    clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(interval.getStop() + 1);
-                    read = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStop());
-                    clipper = new ReadClipper(read);
+                    clippedRead = ReadClipper.hardClipByReferenceCoordinatesRightTail(read, interval.getStop() + 1);
+                    read = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, interval.getStop());
 
                     overlap = true;
                     doneClipping = false;
                     break;
 
                 case OVERLAP_LEFT_AND_RIGHT:       // clip both left and right ends of the read
-                    clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(interval.getStart()-1, interval.getStop()+1);
-                    read = clipper.hardClipByReferenceCoordinatesLeftTail(interval.getStop());
-                    clipper = new ReadClipper(read);
+                    clippedRead = ReadClipper.hardClipBothEndsByReferenceCoordinates(read, interval.getStart()-1, interval.getStop()+1);
+                    read = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, interval.getStop());
 
                     overlap = true;
                     doneClipping = false;
@@ -339,18 +336,11 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         if (debugLevel == 1) System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
 
 
-        read.simplify();                                                              // Clear all unnecessary attributes
-
-        ReadClipper clipper = new ReadClipper(read);
-        GATKSAMRecord clippedRead = clipper.hardClipLowQualEnds(minTailQuality);      // Clip low quality tails
-
-        clipper = new ReadClipper(clippedRead);
-        clippedRead = clipper.hardClipSoftClippedBases();                             // Hard clip everything that is soft clipped
-
-        clipper = new ReadClipper(clippedRead);
-        clippedRead = clipper.hardClipLeadingInsertions();                            // Clean up leading insertions (because the sliding window can't handle them yet)
-
-        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(clippedRead);  // Hard clip the remainder of the read to the desired interval
+        read.simplify();                                                       // Clear all unnecessary attributes
+        read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);          // Clip low quality tails
+        read = ReadClipper.hardClipSoftClippedBases(read);                     // Hard clip everything that is soft clipped
+        read = ReadClipper.hardClipLeadingInsertions(read);                    // Clean up leading insertions (because the sliding window can't handle them yet)
+        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(read);  // Hard clip the remainder of the read to the desired interval
 
         if (debugLevel == 1) {
             for (GATKSAMRecord mappedRead : mappedReads)
