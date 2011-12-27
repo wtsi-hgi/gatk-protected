@@ -123,6 +123,41 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     protected byte minTailQuality = 2;
 
     /**
+     * Do not simplify read (strip away all extra information of the read -- anything other than bases, quals
+     * and read group).
+     */
+    @Argument(fullName = "dont_simplify_reads", shortName = "nosimplify", doc = "", required = false)
+    protected boolean DONT_SIMPLIFY_READS = false;
+
+    /**
+     * Do not hard clip adaptor sequences. Note: You don't have to turn this on for reads that are not mate paired.
+     * The program will behave correctly in those cases.
+     */
+    @Argument(fullName = "dont_hardclip_adaptor_sequences", shortName = "noclip_ad", doc = "", required = false)
+    protected boolean DONT_CLIP_ADAPTOR_SEQUENCES = false;
+
+    /**
+     * Do not hard clip the low quality tails of the reads. This option overrides the argument of minimum tail
+     * quality.
+     */
+    @Argument(fullName = "dont_hardclip_low_qual_tails", shortName = "noclip_tail", doc = "", required = false)
+    protected boolean DONT_CLIP_LOW_QUAL_TAILS = false;
+
+    /**
+     * Do not hard clip away soft clipped bases. By default, ReduceReads will hard clip away any soft clipped
+     * base left by the aligner.
+     */
+    @Argument(fullName = "dont_hardclip_softclipped_bases", shortName = "noclip_soft", doc = "", required = false)
+    protected boolean DONT_CLIP_SOFTCLIPPED_BASES = false;
+
+    /**
+     * Do not hard clip leading insertions (for reads that start with insertions). By default ReduceReads will strip
+     * away all leading insertions.
+     */
+    @Argument(fullName = "dont_hardclip_leading_insertions", shortName = "noclip_ins", doc = "", required = false)
+    protected boolean DONT_CLIP_LEADING_INSERTIONS = false;
+
+    /**
      * Minimum proportion of mismatches in a site to trigger a variant region. Anything below this will be
      * considered consensus.
      */
@@ -335,12 +370,14 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
         if (debugLevel == 1) System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
 
+        // prepare the read with the hard clips
+        if (!DONT_SIMPLIFY_READS)          read.simplify();                                               // Clear all unnecessary attributes
+        if (!DONT_CLIP_ADAPTOR_SEQUENCES)  read = ReadClipper.hardClipAdaptorSequence(read);              // Strip away adaptor sequences, if any.
+        if (!DONT_CLIP_LOW_QUAL_TAILS)     read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);  // Clip low quality tails
+        if (!DONT_CLIP_SOFTCLIPPED_BASES)  read = ReadClipper.hardClipSoftClippedBases(read);             // Hard clip everything that is soft clipped
+        if (!DONT_CLIP_LEADING_INSERTIONS) read = ReadClipper.hardClipLeadingInsertions(read);            // Clean up leading insertions (because the sliding window can't handle them yet)
 
-        read.simplify();                                                       // Clear all unnecessary attributes
-        read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);          // Clip low quality tails
-        read = ReadClipper.hardClipSoftClippedBases(read);                     // Hard clip everything that is soft clipped
-        read = ReadClipper.hardClipLeadingInsertions(read);                    // Clean up leading insertions (because the sliding window can't handle them yet)
-        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(read);  // Hard clip the remainder of the read to the desired interval
+        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(read);                             // Hard clip the remainder of the read to the desired interval
 
         if (debugLevel == 1) {
             for (GATKSAMRecord mappedRead : mappedReads)
