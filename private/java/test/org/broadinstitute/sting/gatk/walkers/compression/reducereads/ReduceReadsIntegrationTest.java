@@ -23,12 +23,12 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
 
     @Test(enabled = true)
     public void testHighCompression() {
-        RRTest(" -cs 10 -minvar 0.3 -mindel 0.3", "a68ccfa29fa037ed126caeacd3388c30");
+        RRTest(" -csmm 10 -minvar 0.3 -mindel 0.3", "a68ccfa29fa037ed126caeacd3388c30");
     }
 
     @Test(enabled = true)
     public void testLowCompression() {
-        RRTest(" -cs 30 -minvar 0.01 -mindel 0.01 -minmap 5 -minqual 5", "8efe7819d764807718305759c2f9c141");
+        RRTest(" -csmm 30 -minvar 0.01 -mindel 0.01 -minmap 5 -minqual 5", "8efe7819d764807718305759c2f9c141");
     }
 
     @Test(enabled = true)

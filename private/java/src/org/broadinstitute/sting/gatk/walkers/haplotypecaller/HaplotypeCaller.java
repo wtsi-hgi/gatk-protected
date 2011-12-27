@@ -393,7 +393,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
             for( final GATKSAMRecord myRead : finalizedReadList ) {
                 final GATKSAMRecord postAdapterRead = ReadClipper.hardClipAdaptorSequence( myRead );
                 if( postAdapterRead != null && postAdapterRead.getCigar().getReadLength() > 0 ) {
-                    final GATKSAMRecord clippedRead = (new ReadClipper(postAdapterRead)).hardClipLowQualEnds( MIN_TAIL_QUALITY );
+                    final GATKSAMRecord clippedRead = ReadClipper.hardClipLowQualEnds(postAdapterRead, MIN_TAIL_QUALITY );
 
                     // protect against INTERVALS with abnormally high coverage
                     if( clippedRead.getReadLength() > 0 && reads.size() < samplesList.size() * DOWNSAMPLE_PER_SAMPLE_PER_REGION ) {
