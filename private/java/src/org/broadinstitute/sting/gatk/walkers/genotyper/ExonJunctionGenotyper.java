@@ -146,12 +146,11 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             int stop= read.getUnclippedEnd();
             int leftHardClipAlready = read.getCigar().getCigarElement(0).getOperator().equals(CigarOperator.H) ? read.getCigar().getCigarElement(0).getLength() : 0;
             byte[] refBases = getToolkit().getReferenceDataSource().getReference().getSubsequenceAt(read.getReferenceName(),start, stop).getBases();
-            GATKSAMRecord initRead = (new ReadClipper(read)).hardClipLowQualEnds((byte) 12);
+            GATKSAMRecord initRead = ReadClipper.hardClipLowQualEnds(read, (byte) 12);
             if ( initRead.getCigarString() == null ) {
                 return null;
             }
-            ReadClipper clipper = new ReadClipper(initRead);
-            GATKSAMRecord clippedRead = clipper.revertSoftClippedBases();
+            GATKSAMRecord clippedRead = ReadClipper.revertSoftClippedBases(initRead);
 
             if( clippedRead.getCigar().isEmpty()) {
                 return null;
@@ -161,7 +160,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
 
             ec.read = clippedRead;
         } else {
-            ec.read = ( new ReadClipper(read)).hardClipLowQualEnds((byte) 12);
+            ec.read = ReadClipper.hardClipLowQualEnds(read, (byte) 12);
         }
 
         ec.refSeqByName = refSeqFeatures;

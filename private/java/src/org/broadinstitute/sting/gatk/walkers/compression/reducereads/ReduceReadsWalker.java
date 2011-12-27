@@ -90,8 +90,8 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     /**
      * The number of bases to keep around mismatches (potential variation)
      */
-    @Argument(fullName = "context_size", shortName = "cs", doc = "", required = false)
-    protected int contextSize = 10;
+    @Argument(fullName = "context_size_mismatches", shortName = "csmm", doc = "", required = false)
+    protected int contextSizeMismatches = 10;
 
     /**
      * The number of bases to keep around indels (potential variation)
@@ -121,6 +121,41 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      */
     @Argument(fullName = "minimum_tail_qualities", shortName = "mintail", doc = "", required = false)
     protected byte minTailQuality = 2;
+
+    /**
+     * Do not simplify read (strip away all extra information of the read -- anything other than bases, quals
+     * and read group).
+     */
+    @Argument(fullName = "dont_simplify_reads", shortName = "nosimplify", doc = "", required = false)
+    protected boolean DONT_SIMPLIFY_READS = false;
+
+    /**
+     * Do not hard clip adaptor sequences. Note: You don't have to turn this on for reads that are not mate paired.
+     * The program will behave correctly in those cases.
+     */
+    @Argument(fullName = "dont_hardclip_adaptor_sequences", shortName = "noclip_ad", doc = "", required = false)
+    protected boolean DONT_CLIP_ADAPTOR_SEQUENCES = false;
+
+    /**
+     * Do not hard clip the low quality tails of the reads. This option overrides the argument of minimum tail
+     * quality.
+     */
+    @Argument(fullName = "dont_hardclip_low_qual_tails", shortName = "noclip_tail", doc = "", required = false)
+    protected boolean DONT_CLIP_LOW_QUAL_TAILS = false;
+
+    /**
+     * Do not hard clip away soft clipped bases. By default, ReduceReads will hard clip away any soft clipped
+     * base left by the aligner.
+     */
+    @Argument(fullName = "dont_hardclip_softclipped_bases", shortName = "noclip_soft", doc = "", required = false)
+    protected boolean DONT_CLIP_SOFTCLIPPED_BASES = false;
+
+    /**
+     * Do not hard clip leading insertions (for reads that start with insertions). By default ReduceReads will strip
+     * away all leading insertions.
+     */
+    @Argument(fullName = "dont_hardclip_leading_insertions", shortName = "noclip_ins", doc = "", required = false)
+    protected boolean DONT_CLIP_LEADING_INSERTIONS = false;
 
     /**
      * Minimum proportion of mismatches in a site to trigger a variant region. Anything below this will be
@@ -153,10 +188,133 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     int nCompressedReads = 0;
 
     HashMap<String, Long> readNameHash;  // This hash will keep the name of the original read the new compressed name (a number).
-    Long nextReadNumber = 1L;             // The next number to use for the compressed read name.
+    Long nextReadNumber = 1L;            // The next number to use for the compressed read name.
 
     SortedSet<GenomeLoc> intervalList;
 
+    /**
+     * Basic generic initialization of the readNameHash and the intervalList. Output initialization
+     * is done at the reduceInit method
+     */
+    @Override
+    public void initialize() {
+        super.initialize();
+
+        // prepare the read name hash to keep track of what reads have had their read names compressed
+        readNameHash = new HashMap<String, Long>();
+
+        // get the interval list from the engine. If no interval list was provided, the walker will
+        // work in WGS mode
+        intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator ());
+        if (getToolkit().getIntervals() != null)
+            intervalList.addAll(getToolkit().getIntervals());
+
+        out.setPresorted(false);
+    }
+
+    /**
+     * Takes in a read and prepares it for the SlidingWindow machinery by performing the
+     * following clipping operations:
+     *  1. Hard clip low quality tails
+     *  2. Hard clip all remaining soft clipped bases
+     *  3. Hard clip all leading insertions
+     *  4. Hard clip read to the intervals in the interval list (this step may produce multiple reads)
+     *
+     * @param ref default map parameter
+     * @param read default map parameter
+     * @param metaDataTracker default map parameter
+     * @return a linked list with all the reads produced by the clipping operations
+     */
+    @Override
+    public LinkedList<GATKSAMRecord> map( ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker ) {
+        totalReads++;
+        if (!debugRead.isEmpty() && read.getReadName().contains(debugRead))
+            System.out.println("Found debug read!");
+
+        if (debugLevel == 1) System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
+
+        // prepare the read with the hard clips
+        if (!DONT_SIMPLIFY_READS)          read.simplify();                                               // Clear all unnecessary attributes
+        if (!DONT_CLIP_ADAPTOR_SEQUENCES)  read = ReadClipper.hardClipAdaptorSequence(read);              // Strip away adaptor sequences, if any.
+        if (!DONT_CLIP_LOW_QUAL_TAILS)     read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);  // Clip low quality tails
+        if (!DONT_CLIP_SOFTCLIPPED_BASES)  read = ReadClipper.hardClipSoftClippedBases(read);             // Hard clip everything that is soft clipped
+        if (!DONT_CLIP_LEADING_INSERTIONS) read = ReadClipper.hardClipLeadingInsertions(read);            // Clean up leading insertions (because the sliding window can't handle them yet)
+
+        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(read);                             // Hard clip the remainder of the read to the desired interval
+
+        if (debugLevel == 1) {
+            for (GATKSAMRecord mappedRead : mappedReads)
+                System.out.printf("MAPPED: %s %d %d\n", mappedRead.getCigar(), mappedRead.getAlignmentStart(), mappedRead.getAlignmentEnd());
+        }
+
+        return mappedReads;
+
+    }
+
+    /**
+     * Initializes the ReduceReadsStash that keeps track of all reads that are waiting to
+     * enter the SlidingWindow machinery. The stash makes sure reads are served in order
+     * even though map() may generate reads that are only supposed to enter the machinery
+     * in the future.
+     *
+     * @return the empty stash
+     */
+    @Override
+    public ReduceReadsStash reduceInit() {
+        return new ReduceReadsStash(new MultiSampleCompressor(getToolkit().getSAMFileHeader(), contextSizeMismatches, contextSizeIndels, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual));
+    }
+
+    /**
+     * Takes the list of reads produced by map(), adds them to the stash (which keeps them sorted) and process
+     * all reads that come before the original read (the read that was passed to map) including the original
+     * read. This is where we send reads, in order, to the SlidingWindow machinery.
+     *
+     * @param mappedReads the list of reads sent by map
+     * @param stash the stash that keeps the reads in order for processing
+     * @return the stash with all reads that have not been processed yet
+     */
+    public ReduceReadsStash reduce( LinkedList<GATKSAMRecord> mappedReads, ReduceReadsStash stash ) {
+        boolean firstRead = true;
+        for (GATKSAMRecord read : mappedReads) {
+            boolean originalRead = firstRead && isOriginalRead(mappedReads, read);
+
+            if (read.getReadLength() == 0)
+                throw new ReviewedStingException("Empty read sent to reduce, this should never happen! " + read.getReadName() + " -- " + read.getCigar() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() );
+
+            if (originalRead) {
+                List<GATKSAMRecord> readsReady = new LinkedList<GATKSAMRecord>();
+                readsReady.addAll(stash.getAllReadsBefore(read));
+                readsReady.add(read);
+
+                for (GATKSAMRecord readReady : readsReady) {
+                    if (debugLevel == 1) System.out.println("REDUCE: " + readReady.getCigar() + " " + readReady.getAlignmentStart() + " " + readReady.getAlignmentEnd());
+
+                    for ( GATKSAMRecord compressedRead : stash.compress(readReady))
+                        outputRead(compressedRead);
+
+                }
+            }
+            else
+                stash.add(read);
+
+            firstRead = false;
+        }
+
+        return stash;
+    }
+
+    /**
+     * Now that now more reads will come, we process all the remaining reads in the stash, in order.
+     *
+     * @param stash the ReduceReadsStash with all unprocessed reads (from reduce)
+     */
+    @Override
+    public void onTraversalDone(ReduceReadsStash stash) {
+
+        // output any remaining reads in the compressor
+        for ( GATKSAMRecord read : stash.close() )
+            outputRead(read);
+    }
 
     /**
      * Hard clips away all parts of the read that doesn't agree with the intervals selected.
@@ -291,129 +449,6 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
             intervalList = intervalList.tailSet(intervalOverlapped);
 
         return clippedReads;
-    }
-
-
-    /**
-     * Basic generic initialization of the readNameHash and the intervalList. Output initialization
-     * is done at the reduceInit method
-     */
-    @Override
-    public void initialize() {
-        super.initialize();
-
-        // prepare the read name hash to keep track of what reads have had their read names compressed
-        readNameHash = new HashMap<String, Long>();
-
-        // get the interval list from the engine. If no interval list was provided, the walker will
-        // work in WGS mode
-        intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator ());
-        if (getToolkit().getIntervals() != null)
-            intervalList.addAll(getToolkit().getIntervals());
-
-        out.setPresorted(false);
-    }
-
-    /**
-     * Takes in a read and prepares it for the SlidingWindow machinery by performing the
-     * following clipping operations:
-     *  1. Hard clip low quality tails
-     *  2. Hard clip all remaining soft clipped bases
-     *  3. Hard clip all leading insertions
-     *  4. Hard clip read to the intervals in the interval list (this step may produce multiple reads)
-     *
-     * @param ref default map parameter
-     * @param read default map parameter
-     * @param metaDataTracker default map parameter
-     * @return a linked list with all the reads produced by the clipping operations
-     */
-    @Override
-    public LinkedList<GATKSAMRecord> map( ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker ) {
-        totalReads++;
-        if (!debugRead.isEmpty() && read.getReadName().contains(debugRead))
-            System.out.println("Found debug read!");
-
-        if (debugLevel == 1) System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
-
-
-        read.simplify();                                                       // Clear all unnecessary attributes
-        read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);          // Clip low quality tails
-        read = ReadClipper.hardClipSoftClippedBases(read);                     // Hard clip everything that is soft clipped
-        read = ReadClipper.hardClipLeadingInsertions(read);                    // Clean up leading insertions (because the sliding window can't handle them yet)
-        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(read);  // Hard clip the remainder of the read to the desired interval
-
-        if (debugLevel == 1) {
-            for (GATKSAMRecord mappedRead : mappedReads)
-                System.out.printf("MAPPED: %s %d %d\n", mappedRead.getCigar(), mappedRead.getAlignmentStart(), mappedRead.getAlignmentEnd());
-        }
-
-        return mappedReads;
-
-    }
-
-    /**
-     * Initializes the ReduceReadsStash that keeps track of all reads that are waiting to
-     * enter the SlidingWindow machinery. The stash makes sure reads are served in order
-     * even though map() may generate reads that are only supposed to enter the machinery
-     * in the future.
-     *
-     * @return the empty stash
-     */
-    @Override
-    public ReduceReadsStash reduceInit() {
-        return new ReduceReadsStash(new MultiSampleCompressor(getToolkit().getSAMFileHeader(), contextSize, contextSizeIndels, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual));
-    }
-
-    /**
-     * Takes the list of reads produced by map(), adds them to the stash (which keeps them sorted) and process
-     * all reads that come before the original read (the read that was passed to map) including the original
-     * read. This is where we send reads, in order, to the SlidingWindow machinery.
-     *
-     * @param mappedReads the list of reads sent by map
-     * @param stash the stash that keeps the reads in order for processing
-     * @return the stash with all reads that have not been processed yet
-     */
-    public ReduceReadsStash reduce( LinkedList<GATKSAMRecord> mappedReads, ReduceReadsStash stash ) {
-        boolean firstRead = true;
-        for (GATKSAMRecord read : mappedReads) {
-            boolean originalRead = firstRead && isOriginalRead(mappedReads, read);
-
-            if (read.getReadLength() == 0)
-                throw new ReviewedStingException("Empty read sent to reduce, this should never happen! " + read.getReadName() + " -- " + read.getCigar() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() );
-
-            if (originalRead) {
-                List<GATKSAMRecord> readsReady = new LinkedList<GATKSAMRecord>();
-                readsReady.addAll(stash.getAllReadsBefore(read));
-                readsReady.add(read);
-
-                for (GATKSAMRecord readReady : readsReady) {
-                    if (debugLevel == 1) System.out.println("REDUCE: " + readReady.getCigar() + " " + readReady.getAlignmentStart() + " " + readReady.getAlignmentEnd());
-
-                    for ( GATKSAMRecord compressedRead : stash.compress(readReady))
-                        outputRead(compressedRead);
-
-                }
-            }
-            else
-                stash.add(read);
-
-            firstRead = false;
-        }
-
-        return stash;
-    }
-
-    /**
-     * Now that now more reads will come, we process all the remaining reads in the stash, in order.
-     *
-     * @param stash the ReduceReadsStash with all unprocessed reads (from reduce)
-     */
-    @Override
-    public void onTraversalDone(ReduceReadsStash stash) {
-
-        // output any remaining reads in the compressor
-        for ( GATKSAMRecord read : stash.close() )
-            outputRead(read);
     }
 
     /**
