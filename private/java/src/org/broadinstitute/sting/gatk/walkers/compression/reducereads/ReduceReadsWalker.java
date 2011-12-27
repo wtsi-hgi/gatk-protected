@@ -356,7 +356,8 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
                 case NO_OVERLAP_HARDCLIPPED_RIGHT: // read used to overlap but got hard clipped and doesn't overlap anymore
                     if (originalRead) {
                         overlap = true;            // effectively, we have found the read's location and now we are going to try and match it's tail (which happens to be the entire read).
-                        clippedRead = new GATKSAMRecord(read.getHeader());
+//                        clippedRead = new GATKSAMRecord(read.getHeader());
+                        clippedRead = GATKSAMRecord.emptyRead(read);
                     }
                     else
                         overlap = false;

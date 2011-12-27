@@ -658,7 +658,9 @@ public class SlidingWindow {
             return clippedRead;
         }
         else
-            return new GATKSAMRecord(read.getHeader());
+            return GATKSAMRecord.emptyRead(read);
+//            return new GATKSAMRecord(read.getHeader());
+
     }
 
     /**
