@@ -51,24 +51,24 @@ import java.util.*;
 
 /**
  * Reduces the BAM file using read based compression that keeps only essential information for variant calling
- *
+ * <p/>
  * <p>
  * This walker will generated reduced versions of the BAM files that still follow the BAM spec
  * and contain all the information necessary for the GSA variant calling pipeline. Some options
  * allow you to tune in how much compression you want to achieve. The default values have been
  * shown to reduce a typical whole exome BAM file 100x. The higher the coverage, the bigger the
  * savings in file size and performance of the downstream tools.
- *
+ * <p/>
  * <h2>Input</h2>
  * <p>
  * The BAM file to be compressed
  * </p>
- *
+ * <p/>
  * <h2>Output</h2>
  * <p>
  * The compressed (reduced) BAM file.
  * </p>
- *
+ * <p/>
  * <h2>Examples</h2>
  * <pre>
  * java -Xmx4g -jar GenomeAnalysisTK.jar \
@@ -76,12 +76,11 @@ import java.util.*;
  *   -T ReduceReads \
  *   -I myData.bam \
  *   -o myData.reduced.bam
-* </pre>
- *
+ * </pre>
  */
 
 @PartitionBy(PartitionType.INTERVAL)
-@ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
+@ReadFilters({UnmappedReadFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class})
 public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, ReduceReadsStash> {
 
     @Output
@@ -151,13 +150,6 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     protected boolean DONT_CLIP_SOFTCLIPPED_BASES = false;
 
     /**
-     * Do not hard clip leading insertions (for reads that start with insertions). By default ReduceReads will strip
-     * away all leading insertions.
-     */
-    @Argument(fullName = "dont_hardclip_leading_insertions", shortName = "noclip_ins", doc = "", required = false)
-    protected boolean DONT_CLIP_LEADING_INSERTIONS = false;
-
-    /**
      * Minimum proportion of mismatches in a site to trigger a variant region. Anything below this will be
      * considered consensus.
      */
@@ -205,7 +197,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
         // get the interval list from the engine. If no interval list was provided, the walker will
         // work in WGS mode
-        intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator ());
+        intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator());
         if (getToolkit().getIntervals() != null)
             intervalList.addAll(getToolkit().getIntervals());
 
@@ -215,32 +207,35 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     /**
      * Takes in a read and prepares it for the SlidingWindow machinery by performing the
      * following clipping operations:
-     *  1. Hard clip low quality tails
-     *  2. Hard clip all remaining soft clipped bases
-     *  3. Hard clip all leading insertions
-     *  4. Hard clip read to the intervals in the interval list (this step may produce multiple reads)
+     * 1. Hard clip low quality tails
+     * 2. Hard clip all remaining soft clipped bases
+     * 3. Hard clip all leading insertions
+     * 4. Hard clip read to the intervals in the interval list (this step may produce multiple reads)
      *
-     * @param ref default map parameter
-     * @param read default map parameter
+     * @param ref             default map parameter
+     * @param read            default map parameter
      * @param metaDataTracker default map parameter
      * @return a linked list with all the reads produced by the clipping operations
      */
     @Override
-    public LinkedList<GATKSAMRecord> map( ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker ) {
+    public LinkedList<GATKSAMRecord> map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
         totalReads++;
         if (!debugRead.isEmpty() && read.getReadName().contains(debugRead))
             System.out.println("Found debug read!");
 
-        if (debugLevel == 1) System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
+        if (debugLevel == 1)
+            System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
 
-        // prepare the read with the hard clips
-        if (!DONT_SIMPLIFY_READS)          read.simplify();                                               // Clear all unnecessary attributes
-        if (!DONT_CLIP_ADAPTOR_SEQUENCES)  read = ReadClipper.hardClipAdaptorSequence(read);              // Strip away adaptor sequences, if any.
-        if (!DONT_CLIP_LOW_QUAL_TAILS)     read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);  // Clip low quality tails
-        if (!DONT_CLIP_SOFTCLIPPED_BASES)  read = ReadClipper.hardClipSoftClippedBases(read);             // Hard clip everything that is soft clipped
-        if (!DONT_CLIP_LEADING_INSERTIONS) read = ReadClipper.hardClipLeadingInsertions(read);            // Clean up leading insertions (because the sliding window can't handle them yet)
+        if (!DONT_SIMPLIFY_READS)
+            read.simplify();                                                  // Clear all unnecessary attributes
+        if (!DONT_CLIP_ADAPTOR_SEQUENCES)
+            read = ReadClipper.hardClipAdaptorSequence(read);                 // Strip away adaptor sequences, if any.
+        if (!DONT_CLIP_LOW_QUAL_TAILS)
+            read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);     // Clip low quality tails
+        if (!DONT_CLIP_SOFTCLIPPED_BASES)
+            read = ReadClipper.hardClipSoftClippedBases(read);                // Hard clip everything that is soft clipped
 
-        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(read);                             // Hard clip the remainder of the read to the desired interval
+        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(read); // Hard clip the remainder of the read to the desired interval
 
         if (debugLevel == 1) {
             for (GATKSAMRecord mappedRead : mappedReads)
@@ -270,16 +265,16 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      * read. This is where we send reads, in order, to the SlidingWindow machinery.
      *
      * @param mappedReads the list of reads sent by map
-     * @param stash the stash that keeps the reads in order for processing
+     * @param stash       the stash that keeps the reads in order for processing
      * @return the stash with all reads that have not been processed yet
      */
-    public ReduceReadsStash reduce( LinkedList<GATKSAMRecord> mappedReads, ReduceReadsStash stash ) {
+    public ReduceReadsStash reduce(LinkedList<GATKSAMRecord> mappedReads, ReduceReadsStash stash) {
         boolean firstRead = true;
         for (GATKSAMRecord read : mappedReads) {
             boolean originalRead = firstRead && isOriginalRead(mappedReads, read);
 
             if (read.getReadLength() == 0)
-                throw new ReviewedStingException("Empty read sent to reduce, this should never happen! " + read.getReadName() + " -- " + read.getCigar() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() );
+                throw new ReviewedStingException("Empty read sent to reduce, this should never happen! " + read.getReadName() + " -- " + read.getCigar() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
 
             if (originalRead) {
                 List<GATKSAMRecord> readsReady = new LinkedList<GATKSAMRecord>();
@@ -287,14 +282,14 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
                 readsReady.add(read);
 
                 for (GATKSAMRecord readReady : readsReady) {
-                    if (debugLevel == 1) System.out.println("REDUCE: " + readReady.getCigar() + " " + readReady.getAlignmentStart() + " " + readReady.getAlignmentEnd());
+                    if (debugLevel == 1)
+                        System.out.println("REDUCE: " + readReady.getCigar() + " " + readReady.getAlignmentStart() + " " + readReady.getAlignmentEnd());
 
-                    for ( GATKSAMRecord compressedRead : stash.compress(readReady))
+                    for (GATKSAMRecord compressedRead : stash.compress(readReady))
                         outputRead(compressedRead);
 
                 }
-            }
-            else
+            } else
                 stash.add(read);
 
             firstRead = false;
@@ -312,13 +307,13 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     public void onTraversalDone(ReduceReadsStash stash) {
 
         // output any remaining reads in the compressor
-        for ( GATKSAMRecord read : stash.close() )
+        for (GATKSAMRecord read : stash.close())
             outputRead(read);
     }
 
     /**
      * Hard clips away all parts of the read that doesn't agree with the intervals selected.
-     *
+     * <p/>
      * Note: If read overlaps more than one interval, it will be hard clipped to all
      * the intervals it overlaps with
      *
@@ -339,7 +334,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
         for (GenomeLoc interval : intervalList) {
 
-            if ( read.isEmpty() )                  // nothing to do with an empty read (could have been fully clipped before)
+            if (read.isEmpty())                    // nothing to do with an empty read (could have been fully clipped before)
                 break;
 
             GATKSAMRecord clippedRead = null;      // this will hold the read clipped to the interval to be added in the end of the switch
@@ -356,10 +351,8 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
                 case NO_OVERLAP_HARDCLIPPED_RIGHT: // read used to overlap but got hard clipped and doesn't overlap anymore
                     if (originalRead) {
                         overlap = true;            // effectively, we have found the read's location and now we are going to try and match it's tail (which happens to be the entire read).
-//                        clippedRead = new GATKSAMRecord(read.getHeader());
                         clippedRead = GATKSAMRecord.emptyRead(read);
-                    }
-                    else
+                    } else
                         overlap = false;
 
                     doneClipping = false;
@@ -378,8 +371,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
                         if (read.getReferenceIndex() < interval.getContigIndex()) {
                             overlap = false;
                             doneClipping = true;
-                        }
-                        else
+                        } else
                             throw new ReviewedStingException("Tail read is in bigger contig than interval traversal. " + read.getReadName() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() + " x " + interval.getLocation().toString());
 
                     }
@@ -414,7 +406,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
                     break;
 
                 case OVERLAP_LEFT_AND_RIGHT:       // clip both left and right ends of the read
-                    clippedRead = ReadClipper.hardClipBothEndsByReferenceCoordinates(read, interval.getStart()-1, interval.getStop()+1);
+                    clippedRead = ReadClipper.hardClipBothEndsByReferenceCoordinates(read, interval.getStart() - 1, interval.getStop() + 1);
                     read = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, interval.getStop());
 
                     overlap = true;
@@ -467,7 +459,8 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         else
             totalReads++;
 
-        if (debugLevel == 1) System.out.println("BAM: " + read.getCigar() + " " + read.getAlignmentStart() + " " + read.getAlignmentEnd());
+        if (debugLevel == 1)
+            System.out.println("BAM: " + read.getCigar() + " " + read.getAlignmentStart() + " " + read.getAlignmentEnd());
 
         out.addAlignment(compressReadName(read));
     }
@@ -485,8 +478,8 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         final byte[] ref = getToolkit().getReferenceDataSource().getReference().getSubsequenceAt(read.getReferenceName(), start, stop).getBases();
         final int nm = SequenceUtil.countMismatches(read, ref, start - 1);
         final int readLen = read.getReadLength();
-        final double nmFraction = nm / (1.0*readLen);
-        if ( nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG) != null)
+        final double nmFraction = nm / (1.0 * readLen);
+        if (nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG) != null)
             throw new ReviewedStingException("BUG: High mismatch fraction found in read " + read.getReadName() + " position: " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
     }
 
@@ -495,7 +488,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      * Compresses the read name using the readNameHash if we have already compressed
      * this read name before.
      *
-      *@param read any read
+     * @param read any read
      * @return a new read, with a compressed version of the read name
      */
     private GATKSAMRecord compressReadName(GATKSAMRecord read) {
@@ -523,18 +516,20 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
     /**
      * Returns true if the read is the original read that went through map().
-     *
+     * <p/>
      * This is important to know so we can decide what reads to pull from the stash. Only reads that came before the original read should be pulled.
+     *
      * @param list
      * @param read
      * @return Returns true if the read is the original read that went through map().
      */
     private boolean isOriginalRead(LinkedList<GATKSAMRecord> list, GATKSAMRecord read) {
-         return isWholeGenome() || (list.getFirst().equals(read) && ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED);
+        return isWholeGenome() || (list.getFirst().equals(read) && ReadUtils.getReadAndIntervalOverlapType(read, intervalList.first()) == ReadUtils.ReadAndIntervalOverlap.OVERLAP_CONTAINED);
     }
 
     /**
      * Checks whether or not the intervalList is empty, meaning we're running in WGS mode.
+     *
      * @return
      */
     private boolean isWholeGenome() {

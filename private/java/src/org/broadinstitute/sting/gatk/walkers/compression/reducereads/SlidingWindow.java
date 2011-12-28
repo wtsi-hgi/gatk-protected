@@ -9,6 +9,7 @@ import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -53,9 +54,17 @@ public class SlidingWindow {
     protected int MIN_BASE_QUAL_TO_COUNT;                           // qual has to be greater than or equal to this value
     protected int MIN_MAPPING_QUALITY;
 
-    public int getStopLocation() { return stopLocation; }
-    public String getContig() { return contig; }
-    public int getContigIndex() { return contigIndex; }
+    public int getStopLocation() {
+        return stopLocation;
+    }
+
+    public String getContig() {
+        return contig;
+    }
+
+    public int getContigIndex() {
+        return contigIndex;
+    }
 
 
     public SlidingWindow(String contig, int contigIndex, int contextSizeMismatches, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality) {
@@ -90,7 +99,7 @@ public class SlidingWindow {
 
     /**
      * Add a read to the sliding window and slides the window accordingly.
-     *
+     * <p/>
      * Reads are assumed to be in order, therefore, when a read is added the sliding window can
      * assume that no more reads will affect read.getUnclippedStart() - contextSizeMismatches. The window
      * slides forward to that position and returns all reads that may have been finalized in the
@@ -99,7 +108,7 @@ public class SlidingWindow {
      * @param read
      * @return a list of reads that have been finished by sliding the window.
      */
-    public List<GATKSAMRecord> addRead( GATKSAMRecord read ) {
+    public List<GATKSAMRecord> addRead(GATKSAMRecord read) {
         // If this is the first read in the window, update startLocation
         if (startLocation < 0)
             startLocation = read.getAlignmentStart();
@@ -117,20 +126,20 @@ public class SlidingWindow {
 
     /**
      * Determines if the window can be slid given the new incoming read.
-     *
+     * <p/>
      * We check from the start of the window to the (unclipped) start of the new incoming read if there
      * is any variant.
-     *
+     * <p/>
      * If there are no variant sites, we slide the left side of the window to the unclipped start of the
      * new incoming read minus the context size (we can only guarantee that the reads before this point
      * will not be in any variant region ever)
-     *
+     * <p/>
      * If there are variant sites, we check if it's time to close the variant region.
      *
      * @param incomingReadUnclippedStart the incoming read's start position. Must be the unclipped start!
      * @return all reads that have fallen to the left of the sliding window after the slide
      */
-    protected List<GATKSAMRecord> slideIfPossible (int incomingReadUnclippedStart) {
+    protected List<GATKSAMRecord> slideIfPossible(int incomingReadUnclippedStart) {
 
         List<GATKSAMRecord> finalizedReads = new LinkedList<GATKSAMRecord>();
 
@@ -138,7 +147,7 @@ public class SlidingWindow {
         // the start of the window
         if (incomingReadUnclippedStart - contextSize > startLocation) {
             int positionShift = incomingReadUnclippedStart - startLocation;
-            boolean [] variantSite = markSites(startLocation + positionShift);
+            boolean[] variantSite = markSites(startLocation + positionShift);
 
             // this is the limit of what we can close/send to consensus (non-inclusive)
             int breakpoint = Math.max(positionShift - contextSize, 0);
@@ -146,13 +155,13 @@ public class SlidingWindow {
             int i = 0;
 
             while (i < breakpoint) {
-                while (i<breakpoint && !variantSite[i]) i++;
+                while (i < breakpoint && !variantSite[i]) i++;
                 finalizedReads.addAll(addToSyntheticReads(start, i));
 
                 start = i;
-                while(i<breakpoint && variantSite[i]) i++;
-                if ( i < breakpoint || (i-1 > 0 && variantSite[i-1] && !variantSite[i]) ) {
-                    finalizedReads.addAll(closeVariantRegion(start, i-1));
+                while (i < breakpoint && variantSite[i]) i++;
+                if (i < breakpoint || (i - 1 > 0 && variantSite[i - 1] && !variantSite[i])) {
+                    finalizedReads.addAll(closeVariantRegion(start, i - 1));
                     start = i;
                 }
             }
@@ -170,9 +179,9 @@ public class SlidingWindow {
      * @param stop check the window from start to stop (not-inclusive)
      * @return a boolean array with 'true' marking variant regions and false marking consensus sites
      */
-    protected boolean [] markSites(int stop) {
+    protected boolean[] markSites(int stop) {
 
-        boolean [] markedSites = new boolean [stop - startLocation + contextSize + 1];
+        boolean[] markedSites = new boolean[stop - startLocation + contextSize + 1];
 
         Iterator<HeaderElement> headerElementIterator = windowHeader.iterator();
         for (int i = startLocation; i < stop; i++) {
@@ -184,14 +193,13 @@ public class SlidingWindow {
                     context = Math.max(context, contextSizeIndels);
 
                 // if context has been set to indels, only do mismatches if contextSize is bigger
-                if ((context > 0 && contextSizeMismatches > contextSizeIndels) || headerElement.isVariantFromMismatches() )
+                if ((context > 0 && contextSizeMismatches > contextSizeIndels) || headerElement.isVariantFromMismatches())
                     context = Math.max(context, contextSizeMismatches);
 
                 if (context > 0)
                     markVariantRegion(markedSites, i - startLocation, context);
 
-            }
-            else
+            } else
                 break;
         }
         return markedSites;
@@ -200,24 +208,24 @@ public class SlidingWindow {
     /**
      * Marks the sites around the variant site (as true)
      *
-     * @param markedSites the boolean array to bear the marks
+     * @param markedSites         the boolean array to bear the marks
      * @param variantSiteLocation the location where a variant site was found
-     * @param context the number of bases to mark on each side of the variant site
+     * @param context             the number of bases to mark on each side of the variant site
      */
     protected void markVariantRegion(boolean[] markedSites, int variantSiteLocation, int context) {
         int from = (variantSiteLocation < context) ? 0 : variantSiteLocation - context;
         int to = (variantSiteLocation + context + 1 > markedSites.length) ? markedSites.length : variantSiteLocation + context + 1;
-        for (int i=from; i<to; i++)
+        for (int i = from; i < to; i++)
             markedSites[i] = true;
     }
 
     /**
      * Adds bases to the running consensus or filtered data accordingly
-     *
+     * <p/>
      * If adding a sequence with gaps, it will finalize multiple consensus reads and keep the last running consensus
      *
      * @param start the first header index to add to consensus
-     * @param end the first header index NOT TO add to consensus
+     * @param end   the first header index NOT TO add to consensus
      * @return a list of consensus reads generated by this call. Empty list if no consensus was generated.
      */
     protected List<GATKSAMRecord> addToSyntheticReads(int start, int end) {
@@ -241,32 +249,26 @@ public class SlidingWindow {
                     throw new ReviewedStingException(String.format("next start is <= current start: (%d <= %d)", endOfConsensus, start));
 
                 reads.addAll(addToSyntheticReads(endOfConsensus, end));
-            }
-
-            else if (headerElement.hasFilteredData()) {
+            } else if (headerElement.hasFilteredData()) {
                 reads.addAll(finalizeAndAdd(ConsensusType.CONSENSUS));
 
                 int endOfFilteredData = findNextNonFilteredDataElement(start, end);
                 addToFilteredData(start, endOfFilteredData);
 
-                if (endOfFilteredData<= start)
+                if (endOfFilteredData <= start)
                     throw new ReviewedStingException(String.format("next start is <= current start: (%d <= %d)", endOfFilteredData, start));
 
                 reads.addAll(addToSyntheticReads(endOfFilteredData, end));
-            }
-
-            else if (headerElement.isEmpty()) {
+            } else if (headerElement.isEmpty()) {
                 reads.addAll(finalizeAndAdd(ConsensusType.BOTH));
 
                 int endOfEmptyData = findNextNonEmptyElement(start, end);
 
-                if (endOfEmptyData<= start)
+                if (endOfEmptyData <= start)
                     throw new ReviewedStingException(String.format("next start is <= current start: (%d <= %d)", endOfEmptyData, start));
 
                 reads.addAll(addToSyntheticReads(endOfEmptyData, end));
-            }
-
-            else
+            } else
                 throw new ReviewedStingException(String.format("Header Element %d is neither Consensus, Data or Empty. Something is wrong.", start));
 
         }
@@ -305,13 +307,13 @@ public class SlidingWindow {
      * Looks for the next position without consensus data
      *
      * @param start beginning of the filtered region
-     * @param upTo limit to search for another consensus element
+     * @param upTo  limit to search for another consensus element
      * @return next position with consensus data or empty
      */
-    private int findNextNonConsensusElement (int start, int upTo) {
+    private int findNextNonConsensusElement(int start, int upTo) {
         Iterator<HeaderElement> headerElementIterator = windowHeader.listIterator(start);
         int index = start;
-        while(index < upTo) {
+        while (index < upTo) {
             if (!headerElementIterator.hasNext())
                 throw new ReviewedStingException("There are no more header elements in this window");
 
@@ -327,13 +329,13 @@ public class SlidingWindow {
      * Looks for the next position without filtered data
      *
      * @param start beginning of the region
-     * @param upTo limit to search for
+     * @param upTo  limit to search for
      * @return next position with no filtered data
      */
-    private int findNextNonFilteredDataElement (int start, int upTo) {
+    private int findNextNonFilteredDataElement(int start, int upTo) {
         Iterator<HeaderElement> headerElementIterator = windowHeader.listIterator(start);
         int index = start;
-        while(index < upTo) {
+        while (index < upTo) {
             if (!headerElementIterator.hasNext())
                 throw new ReviewedStingException("There are no more header elements in this window");
 
@@ -349,13 +351,13 @@ public class SlidingWindow {
      * Looks for the next non-empty header element
      *
      * @param start beginning of the region
-     * @param upTo limit to search for
+     * @param upTo  limit to search for
      * @return next position with non-empty element
      */
-    private int findNextNonEmptyElement (int start, int upTo) {
+    private int findNextNonEmptyElement(int start, int upTo) {
         ListIterator<HeaderElement> headerElementIterator = windowHeader.listIterator(start);
         int index = start;
-        while(index < upTo) {
+        while (index < upTo) {
             if (!headerElementIterator.hasNext())
                 throw new ReviewedStingException("There are no more header elements in this window");
 
@@ -368,18 +370,17 @@ public class SlidingWindow {
     }
 
 
-
     /**
      * Adds bases to the filtered data synthetic read.
-     *
+     * <p/>
      * Different from the addToConsensus method, this method assumes a contiguous sequence of filteredData
      * bases.
      *
      * @param start the first header index to add to consensus
-     * @param end the first header index NOT TO add to consensus
+     * @param end   the first header index NOT TO add to consensus
      * @return a list of consensus reads generated by this call. Empty list if no consensus was generated.
      */
-    private void addToFilteredData (int start, int end) {
+    private void addToFilteredData(int start, int end) {
         if (filteredDataConsensus == null)
             filteredDataConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, filteredDataReadName + filteredDataConsensusCounter++, windowHeader.get(start).location, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG);
 
@@ -395,24 +396,24 @@ public class SlidingWindow {
             if (!headerElement.hasFilteredData())
                 throw new ReviewedStingException("No filtered data in " + index);
 
-            BaseIndex base  = headerElement.filteredBaseCounts.baseIndexWithMostCounts();
+            BaseIndex base = headerElement.filteredBaseCounts.baseIndexWithMostCounts();
             byte count = (byte) Math.min(headerElement.filteredBaseCounts.countOfMostCommonBase(), Byte.MAX_VALUE);
-            byte qual  = headerElement.filteredBaseCounts.averageQualsOfMostCommonBase();
+            byte qual = headerElement.filteredBaseCounts.averageQualsOfMostCommonBase();
             filteredDataConsensus.add(base, count, qual, headerElement.getRMS());
         }
     }
 
     /**
      * Adds bases to the filtered data synthetic read.
-     *
+     * <p/>
      * Different from the addToConsensus method, this method assumes a contiguous sequence of filteredData
      * bases.
      *
      * @param start the first header index to add to consensus
-     * @param end the first header index NOT TO add to consensus
+     * @param end   the first header index NOT TO add to consensus
      * @return a list of consensus reads generated by this call. Empty list if no consensus was generated.
      */
-    private void addToRunningConsensus (int start, int end) {
+    private void addToRunningConsensus(int start, int end) {
         if (runningConsensus == null)
             runningConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, consensusReadName + consensusCounter++, windowHeader.get(start).location, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG);
 
@@ -425,9 +426,9 @@ public class SlidingWindow {
             if (!headerElement.hasConsensusData())
                 throw new ReviewedStingException("No CONSENSUS data in " + index);
 
-            BaseIndex base  = headerElement.consensusBaseCounts.baseIndexWithMostCounts();
+            BaseIndex base = headerElement.consensusBaseCounts.baseIndexWithMostCounts();
             byte count = (byte) Math.min(headerElement.consensusBaseCounts.countOfMostCommonBase(), Byte.MAX_VALUE);
-            byte qual  = headerElement.consensusBaseCounts.averageQualsOfMostCommonBase();
+            byte qual = headerElement.consensusBaseCounts.averageQualsOfMostCommonBase();
             runningConsensus.add(base, count, qual, headerElement.getRMS());
         }
     }
@@ -437,7 +438,7 @@ public class SlidingWindow {
      * Finalizes a variant region, any adjacent synthetic reads.
      *
      * @param start the first position in the variant region (inclusive)
-     * @param end the last position of the variant region (inclusive)
+     * @param end   the last position of the variant region (inclusive)
      * @return all reads contained in the variant region plus any adjacent synthetic reads
      */
     @Requires("start <= end")
@@ -451,9 +452,9 @@ public class SlidingWindow {
         int refStart = windowHeader.get(start).location;
         int refEnd = windowHeader.get(end).location;
 
-        for ( GATKSAMRecord read: readsInWindow) {
+        for (GATKSAMRecord read : readsInWindow) {
             GATKSAMRecord trimmedRead = trimToVariableRegion(read, refStart, refEnd);
-            if ( trimmedRead.getReadLength() > 0 ) {
+            if (trimmedRead.getReadLength() > 0) {
                 finalizedReads.add(trimmedRead);
             }
         }
@@ -465,18 +466,18 @@ public class SlidingWindow {
      *
      * @param shift the new starting location of the window
      */
-    protected void slide (int shift) {
+    protected void slide(int shift) {
         if (shift > 0) {
             LinkedList<GATKSAMRecord> newSlidingReads = new LinkedList<GATKSAMRecord>();
 
             // drop base baseCounts out of the window
-            for (int i=0; i<shift; i++)
+            for (int i = 0; i < shift; i++)
                 windowHeader.remove();
             startLocation += shift;
 
             // clip reads to new window
-            int refLeftPosition = windowHeader.peekFirst().location;  // should I just get startLocation ?  (works if there are no gaps)
-            for ( GATKSAMRecord read: readsInWindow) {
+            int refLeftPosition = windowHeader.peekFirst().location;  // todo -- should I just get startLocation ?  (works if there are no gaps)
+            for (GATKSAMRecord read : readsInWindow) {
                 GATKSAMRecord clippedRead = clipStart(read, refLeftPosition);
                 if (clippedRead != null)
                     newSlidingReads.add(clippedRead);
@@ -497,7 +498,7 @@ public class SlidingWindow {
         List<GATKSAMRecord> finalizedReads = new LinkedList<GATKSAMRecord>();
 
         if (!windowHeader.isEmpty()) {
-            boolean [] variantSite = markSites(stopLocation+1);
+            boolean[] variantSite = markSites(stopLocation + 1);
 
             // close everything (+1 to include the last site) -- consensus or variant region
             int sitesToClose = stopLocation - startLocation + 1;
@@ -505,20 +506,20 @@ public class SlidingWindow {
             int i = 0;
 
             while (i < sitesToClose) {
-                while (i<sitesToClose && !variantSite[i]) i++;
+                while (i < sitesToClose && !variantSite[i]) i++;
                 finalizedReads.addAll(addToSyntheticReads(start, i));
                 start = i;
 
                 // close all variant regions regardless of having enough for context size
                 // on the last one
-                while(i<sitesToClose && variantSite[i]) i++;
-                if (start <= i-1)
-                    finalizedReads.addAll(closeVariantRegion(start, i-1));
+                while (i < sitesToClose && variantSite[i]) i++;
+                if (start <= i - 1)
+                    finalizedReads.addAll(closeVariantRegion(start, i - 1));
                 start = i;
             }
 
             // if it ended in running consensus, finish it up
-           finalizedReads.addAll(finalizeAndAdd(ConsensusType.BOTH));
+            finalizedReads.addAll(finalizeAndAdd(ConsensusType.BOTH));
 
         }
         return finalizedReads;
@@ -579,7 +580,7 @@ public class SlidingWindow {
         // Do we need to add extra elements before the start of the header?
         // -- this may happen if the previous read was clipped and this alignment starts before the beginning of the window
         if (locationIndex < 0) {
-            for(int i = 1; i <= -locationIndex; i++)
+            for (int i = 1; i <= -locationIndex; i++)
                 windowHeader.addFirst(new HeaderElement(startLocation - i));
 
             // update start location accordingly
@@ -597,22 +598,27 @@ public class SlidingWindow {
             stopLocation = read.getAlignmentEnd();
         }
 
+        // Special case for leading insertions before the beginning of the sliding read
+        if (ReadUtils.readStartsWithInsertion(read).getFirst() && read.getAlignmentStart() == startLocation) {
+            windowHeader.addFirst(new HeaderElement(startLocation - 1));          // create a new first element to the window header with no bases added
+            startLocation--;                                                      // moving the start of the window back one position to the dummy head
+            locationIndex = 1;                                                    // This allows the first element (I) to look at locationIndex - 1 in the subsequent switch and do the right thing.
+        }
+
         Iterator<HeaderElement> headerElementIterator = windowHeader.listIterator(locationIndex);
         HeaderElement headerElement;
         for (CigarElement cigarElement : cigar.getCigarElements()) {
             switch (cigarElement.getOperator()) {
                 case H:
-            case S:                                                                       // nothing to add to the window
+                case S:                                                           // nothing to add to the window
                     break;
-                case I:                                                                   // insertions are added to the base to the left (previous element) with the quality score of the first inserted base
-                    if (locationIndex > 0) {                                              // check if it's the first element in the read!
-                        windowHeader.get(locationIndex - 1).addInsertionToTheRight();
-                        readBaseIndex += cigarElement.getLength();
-                    }
-                    break;                                                                // just ignore the insertions at the beginning of the read
+                case I:                                                           // insertions are added to the base to the left (previous element)
+                    windowHeader.get(locationIndex - 1).addInsertionToTheRight();
+                    readBaseIndex += cigarElement.getLength();
+                    break;                                                        // just ignore the insertions at the beginning of the read
                 case D:
                     int nDeletionsToAdd = cigarElement.getLength();
-                    while(nDeletionsToAdd-- > 0) {                                        // deletions are added to the baseCounts with the read mapping quality as it's quality score
+                    while (nDeletionsToAdd-- > 0) {                               // deletions are added to the baseCounts with the read mapping quality as it's quality score
                         headerElement = headerElementIterator.next();
                         headerElement.addBase((byte) 'D', (byte) read.getMappingQuality(), read.getMappingQuality());
                         locationIndex++;
@@ -623,7 +629,7 @@ public class SlidingWindow {
                 case EQ:
                 case X:
                     int nBasesToAdd = cigarElement.getLength();
-                    while(nBasesToAdd-- > 0) {
+                    while (nBasesToAdd-- > 0) {
                         headerElement = headerElementIterator.next();
                         headerElement.addBase(bases[readBaseIndex], quals[readBaseIndex], read.getMappingQuality());
                         readBaseIndex++;
@@ -637,9 +643,9 @@ public class SlidingWindow {
     /**
      * Hard clip the read to the variable region (from refStart to refStop)
      *
-     * @param read the read to be clipped
+     * @param read     the read to be clipped
      * @param refStart the beginning of the variant region (inclusive)
-     * @param refStop the end of the variant region (inclusive)
+     * @param refStop  the end of the variant region (inclusive)
      * @return the read hard clipped to the variant region
      */
     protected GATKSAMRecord trimToVariableRegion(GATKSAMRecord read, int refStart, int refStop) {
@@ -648,18 +654,16 @@ public class SlidingWindow {
 
         // check if the read is contained in region
         GATKSAMRecord clippedRead = read;
-        if ( start <= refStop && stop >= refStart) {
-            if ( start < refStart && stop > refStop )
-                clippedRead = ReadClipper.hardClipBothEndsByReferenceCoordinates(read, refStart-1, refStop+1);
-            else if ( start < refStart )
-                clippedRead = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refStart-1);
-            else if ( stop > refStop )
-                clippedRead = ReadClipper.hardClipByReferenceCoordinatesRightTail(read, refStop+1);
+        if (start <= refStop && stop >= refStart) {
+            if (start < refStart && stop > refStop)
+                clippedRead = ReadClipper.hardClipBothEndsByReferenceCoordinates(read, refStart - 1, refStop + 1);
+            else if (start < refStart)
+                clippedRead = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refStart - 1);
+            else if (stop > refStop)
+                clippedRead = ReadClipper.hardClipByReferenceCoordinatesRightTail(read, refStop + 1);
             return clippedRead;
-        }
-        else
+        } else
             return GATKSAMRecord.emptyRead(read);
-//            return new GATKSAMRecord(read.getHeader());
 
     }
 
@@ -667,7 +671,7 @@ public class SlidingWindow {
      * Hard clips the beginning of the read if necessary. This function is used over and over
      * as the sliding window slides forward.
      *
-     * @param read the read to be clipped
+     * @param read        the read to be clipped
      * @param refNewStart the new beginning of the sliding window
      * @return the original read if refNewStart < read.getAlignmentStart, null if refNewStart > read.getAlignmentEd, or the clipped read
      */
@@ -676,13 +680,13 @@ public class SlidingWindow {
             return null;
         if (refNewStart <= read.getAlignmentStart())
             return read;
-        return ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refNewStart-1);
+        return ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refNewStart - 1);
     }
 
 
     /**
      * The element that describes the header of the sliding window.
-     *
+     * <p/>
      * Each site has a header element containing the counts of each base, it's reference based location and whether or not the site
      * has insertions (to it's right). It also contains information about the bases that have been filtered out due to mapping or base
      * quality.
@@ -694,7 +698,9 @@ public class SlidingWindow {
         protected int location;                        // Genome location of this site (the sliding window knows which contig we're at
         protected LinkedList<Integer> mappingQuality;  // keeps the mapping quality of each read that contributed to this element (site)
 
-        public int getLocation() { return location; }
+        public int getLocation() {
+            return location;
+        }
 
         /**
          * Creates a new HeaderElement with the default location 0
@@ -705,10 +711,10 @@ public class SlidingWindow {
 
         /**
          * Creates a new HeaderElement with the following default values:
-         *  - empty consensusBaseCounts
-         *  - empty filteredBaseCounts
-         *  - 0 insertions to the right
-         *  - empty mappingQuality list
+         * - empty consensusBaseCounts
+         * - empty filteredBaseCounts
+         * - 0 insertions to the right
+         * - empty mappingQuality list
          *
          * @param location the reference location for the new element
          */
@@ -719,11 +725,11 @@ public class SlidingWindow {
         /**
          * Creates a new HeaderElement with all given parameters
          *
-         * @param consensusBaseCounts the BaseCounts object for the running consensus synthetic read
-         * @param filteredBaseCounts the BaseCounts object for the filtered data synthetic read
+         * @param consensusBaseCounts  the BaseCounts object for the running consensus synthetic read
+         * @param filteredBaseCounts   the BaseCounts object for the filtered data synthetic read
          * @param insertionsToTheRight number of insertions to the right of this HeaderElement
-         * @param location the reference location of this reference element
-         * @param mappingQuality the list of mapping quality values of all reads that contributed to this HeaderElement
+         * @param location             the reference location of this reference element
+         * @param mappingQuality       the list of mapping quality values of all reads that contributed to this HeaderElement
          */
         public HeaderElement(BaseCounts consensusBaseCounts, BaseCounts filteredBaseCounts, int insertionsToTheRight, int location, LinkedList<Integer> mappingQuality) {
             this.consensusBaseCounts = consensusBaseCounts;
@@ -746,17 +752,17 @@ public class SlidingWindow {
         /**
          * Adds a new base to the HeaderElement updating all counts accordingly
          *
-         * @param base the base to add
-         * @param qual the base quality
+         * @param base           the base to add
+         * @param qual           the base quality
          * @param mappingQuality the mapping quality of the read this base belongs to
          */
         public void addBase(byte base, byte qual, int mappingQuality) {
-            if ( qual >= MIN_BASE_QUAL_TO_COUNT && mappingQuality >= MIN_MAPPING_QUALITY)
-                consensusBaseCounts.incr(base, qual);   // If the base passes filters, it is included in the consensus base counts
+            if (qual >= MIN_BASE_QUAL_TO_COUNT && mappingQuality >= MIN_MAPPING_QUALITY)
+                consensusBaseCounts.incr(base, qual); // If the base passes filters, it is included in the consensus base counts
             else
-                filteredBaseCounts.incr(base,qual);     // If the base fails filters, it is included with the filtered data base counts
+                filteredBaseCounts.incr(base, qual);  // If the base fails filters, it is included with the filtered data base counts
 
-            this.mappingQuality.add(mappingQuality);    // Filtered or not, the RMS mapping quality includes all bases in this site
+            this.mappingQuality.add(mappingQuality);  // Filtered or not, the RMS mapping quality includes all bases in this site
         }
 
         /**
@@ -809,7 +815,14 @@ public class SlidingWindow {
          * @return whether or not the HeaderElement is variant due to excess insertions
          */
         private boolean isVariantFromInsertions() {
-            return ((double) insertionsToTheRight / consensusBaseCounts.totalCount()) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
+            int numberOfBases = consensusBaseCounts.totalCount();
+            if (numberOfBases == 0 && insertionsToTheRight > 0)
+                return true;  // we only have insertions
+            else if (numberOfBases == 0)
+                return false; // we don't have anything
+
+            // if we have bases and insertions, check the ratio
+            return ((double) insertionsToTheRight / numberOfBases) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
         }
 
         /**
@@ -818,7 +831,7 @@ public class SlidingWindow {
          * @return whether or not the HeaderElement is variant due to excess insertions
          */
         private boolean isVariantFromDeletions() {
-            return consensusBaseCounts.baseWithMostCounts() == BaseIndex.D.getByte() || consensusBaseCounts.baseCountProportion(BaseIndex.D) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
+            return consensusBaseCounts.baseIndexWithMostCounts() == BaseIndex.D || consensusBaseCounts.baseCountProportion(BaseIndex.D) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
         }
 
         /**
@@ -828,7 +841,8 @@ public class SlidingWindow {
          */
         private boolean isVariantFromMismatches() {
             BaseIndex mostCommon = consensusBaseCounts.baseIndexWithMostCountsWithoutIndels();
-            return consensusBaseCounts.baseCountProportionWithoutIndels(mostCommon) < (1 - MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT);
+            double mostCommonProportion = consensusBaseCounts.baseCountProportionWithoutIndels(mostCommon);
+            return mostCommonProportion != 0.0 && mostCommonProportion < (1 - MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT);
         }
 
     }
