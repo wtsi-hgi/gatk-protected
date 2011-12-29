@@ -114,7 +114,7 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
 
         for (String RG : readGroupIds) {
             // This pileup is null when empty so a check must be added
-            ReadBackedPileup RGpileup = pileup.getPileupForSample(RG);
+            ReadBackedPileup RGpileup = pileup.getPileupForReadGroup(RG);
             output.put(RG, (RGpileup == null) ? 0L : (long) RGpileup.depthOfCoverage());
         }
 
