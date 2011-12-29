@@ -21,8 +21,8 @@ class RRead extends QScript {
   @Argument(shortName = "int",    required = false, fullName = "intervals", doc = "") protected val intervals: File = null
   @Argument(shortName = "sg",     required = false, fullName = "scatterCount", doc ="") protected val scatterCount = 50
   @Argument(shortName = "cs",     required = false, fullName = "context_size", doc = "") protected var contextSize: Option[Int] = None
-  @Argument(shortName = "minmap", required = false, fullName = "minimum_mapping_quality"required = false) protected var minMappingQuality: Option[Int] = None
-  @Argument(shortName = "mintail",required = false, fullName = "minimum_tail_qualities"required = false) protected var minTailQuality: Option[Byte] = None
+  @Argument(shortName = "minmap", required = false, fullName = "minimum_mapping_quality", doc ="") protected var minMappingQuality: Option[Int] = None
+  @Argument(shortName = "mintail",required = false, fullName = "minimum_tail_qualities", doc ="") protected var minTailQuality: Option[Byte] = None
   @Argument(shortName = "minvar", required = false, fullName = "minimum_alt_proportion_to_trigger_variant", doc = "") protected var minAltProportionToTriggerVariant: Option[Double] = None
   @Argument(shortName = "mindel", required = false, fullName = "minimum_del_proportion_to_trigger_variant", doc = "") protected var minIndelProportionToTriggerVariant: Option[Double] = None
   @Argument(shortName = "minqual",required = false, fullName = "minimum_base_quality_to_consider", doc = "") protected var minBaseQual: Option[Int] = None

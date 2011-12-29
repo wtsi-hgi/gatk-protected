@@ -7,18 +7,19 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
-* Created by IntelliJ IDEA.
-* User: depristo
-* Date: 4/8/11
-* Time: 2:55 PM
-*/
+ * An object to keep track of the number of occurences of each base and it's quality.
+ *
+ * User: depristo
+ * Date: 4/8/11
+ * Time: 2:55 PM
+ */
 
 final public class BaseCounts {
     public final static BaseIndex MAX_BASE_INDEX_WITH_NO_COUNTS = BaseIndex.N;
     public final static byte MAX_BASE_WITH_NO_COUNTS = MAX_BASE_INDEX_WITH_NO_COUNTS.getByte();
 
-    private final Map<BaseIndex, Integer> counts;
-    private final Map<BaseIndex, Long> sumQuals;
+    private final Map<BaseIndex, Integer> counts;   // keeps track of the base counts
+    private final Map<BaseIndex, Long> sumQuals;    // keeps track of teh quals of each base
 
     public BaseCounts() {
         counts = new EnumMap<BaseIndex, Integer>(BaseIndex.class);
@@ -119,10 +120,8 @@ final public class BaseCounts {
     @Ensures("result >= 0")
     public int totalCount() {
         int sum = 0;
-
-        for ( int c : counts.values() ) {
+        for ( int c : counts.values() )
             sum += c;
-        }
 
         return sum;
     }
@@ -164,5 +163,32 @@ final public class BaseCounts {
             if ( counts.get(i) > counts.get(maxI) )
                 maxI = i;
         return maxI;
+    }
+
+    public BaseIndex baseIndexWithMostCountsWithoutIndels() {
+        BaseIndex mostCounts = BaseIndex.N;
+        for (BaseIndex index : counts.keySet())
+            if (index.isNucleotide() && counts.get(index) > counts.get(mostCounts))
+                mostCounts = index;
+        return mostCounts;
+    }
+
+    public int totalCountWithoutIndels() {
+        int sum = 0;
+        for ( BaseIndex index : counts.keySet() )
+            if (index.isNucleotide())
+                sum += counts.get(index);
+        return sum;
+    }
+
+    /**
+     * Calculates the proportional count of a base compared to all other bases except indels (I and D)
+     * @param index
+     * @return the proportion of this base over all other bases except indels
+     */
+    @Requires("index.isNucleotide()")
+    @Ensures("result >=0")
+    public double baseCountProportionWithoutIndels(BaseIndex index) {
+        return (double) counts.get(index) / totalCountWithoutIndels();
     }
 }

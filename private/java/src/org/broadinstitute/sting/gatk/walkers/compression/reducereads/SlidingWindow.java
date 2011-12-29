@@ -26,8 +26,9 @@ public class SlidingWindow {
     // Sliding Window data
     protected LinkedList<GATKSAMRecord> readsInWindow;
     protected LinkedList<HeaderElement> windowHeader;
-    protected int contextSize;
+    protected int contextSizeMismatches;
     protected int contextSizeIndels;
+    protected int contextSize;                                      // the largest context size (between mismatches and indels)
     protected int startLocation;
     protected int stopLocation;
     protected String contig;
@@ -52,12 +53,17 @@ public class SlidingWindow {
     protected int MIN_BASE_QUAL_TO_COUNT;                           // qual has to be greater than or equal to this value
     protected int MIN_MAPPING_QUALITY;
 
+    public int getStopLocation() { return stopLocation; }
+    public String getContig() { return contig; }
+    public int getContigIndex() { return contigIndex; }
 
-    public SlidingWindow(String contig, int contigIndex, int contextSize, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality) {
+
+    public SlidingWindow(String contig, int contigIndex, int contextSizeMismatches, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality) {
         this.startLocation = -1;
         this.stopLocation = -1;
-        this.contextSize = contextSize;
+        this.contextSizeMismatches = contextSizeMismatches;
         this.contextSizeIndels = contextSizeIndels;
+        this.contextSize = Math.max(contextSizeIndels, contextSizeMismatches);
 
         this.MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT = minAltProportionToTriggerVariant;
         this.MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT = minIndelProportionToTriggerVariant;
@@ -82,14 +88,17 @@ public class SlidingWindow {
         this.filteredDataConsensus = null;
     }
 
-    public int getStopLocation() {
-        return stopLocation;
-    }
-
-    public String getContig() {
-        return contig;
-    }
-
+    /**
+     * Add a read to the sliding window and slides the window accordingly.
+     *
+     * Reads are assumed to be in order, therefore, when a read is added the sliding window can
+     * assume that no more reads will affect read.getUnclippedStart() - contextSizeMismatches. The window
+     * slides forward to that position and returns all reads that may have been finalized in the
+     * sliding process.
+     *
+     * @param read
+     * @return a list of reads that have been finished by sliding the window.
+     */
     public List<GATKSAMRecord> addRead( GATKSAMRecord read ) {
         // If this is the first read in the window, update startLocation
         if (startLocation < 0)
@@ -104,10 +113,6 @@ public class SlidingWindow {
         readsInWindow.add(read);
 
         return finalizedReads;
-    }
-
-    public int getContigIndex() {
-        return contigIndex;
     }
 
     /**
@@ -155,7 +160,6 @@ public class SlidingWindow {
             slide(start);
         }
 
-
         return finalizedReads;
     }
 
@@ -163,7 +167,7 @@ public class SlidingWindow {
      * returns an array marked with variant and non-variant regions (it uses
      * markVariantRegions to make the marks)
      *
-     * @param stop check the window from start to 'upto'
+     * @param stop check the window from start to stop (not-inclusive)
      * @return a boolean array with 'true' marking variant regions and false marking consensus sites
      */
     protected boolean [] markSites(int stop) {
@@ -174,8 +178,18 @@ public class SlidingWindow {
         for (int i = startLocation; i < stop; i++) {
             if (headerElementIterator.hasNext()) {
                 HeaderElement headerElement = headerElementIterator.next();
-                if (headerElement.isVariant())
-                    markVariantRegion(markedSites, i - startLocation);
+                int context = 0;
+
+                if (headerElement.isVariantFromDeletions() || headerElement.isVariantFromInsertions())
+                    context = Math.max(context, contextSizeIndels);
+
+                // if context has been set to indels, only do mismatches if contextSize is bigger
+                if ((context > 0 && contextSizeMismatches > contextSizeIndels) || headerElement.isVariantFromMismatches() )
+                    context = Math.max(context, contextSizeMismatches);
+
+                if (context > 0)
+                    markVariantRegion(markedSites, i - startLocation, context);
+
             }
             else
                 break;
@@ -184,14 +198,15 @@ public class SlidingWindow {
     }
 
     /**
-     * performs the variant region marks (true) around a variant site
+     * Marks the sites around the variant site (as true)
      *
      * @param markedSites the boolean array to bear the marks
      * @param variantSiteLocation the location where a variant site was found
+     * @param context the number of bases to mark on each side of the variant site
      */
-    protected void markVariantRegion (boolean [] markedSites, int variantSiteLocation) {
-        int from = (variantSiteLocation < contextSize) ? 0 : variantSiteLocation - contextSize;
-        int to = (variantSiteLocation + contextSize + 1 > markedSites.length) ? markedSites.length : variantSiteLocation + contextSize + 1;
+    protected void markVariantRegion(boolean[] markedSites, int variantSiteLocation, int context) {
+        int from = (variantSiteLocation < context) ? 0 : variantSiteLocation - context;
+        int to = (variantSiteLocation + context + 1 > markedSites.length) ? markedSites.length : variantSiteLocation + context + 1;
         for (int i=from; i<to; i++)
             markedSites[i] = true;
     }
@@ -259,6 +274,12 @@ public class SlidingWindow {
         return reads;
     }
 
+    /**
+     * Finalizes one or more synthetic reads.
+     *
+     * @param type the synthetic reads you want to close
+     * @return the GATKSAMRecords generated by finalizing the synthetic reads
+     */
     private List<GATKSAMRecord> finalizeAndAdd(ConsensusType type) {
         GATKSAMRecord read = null;
         List<GATKSAMRecord> list = new LinkedList<GATKSAMRecord>();
@@ -412,6 +433,13 @@ public class SlidingWindow {
     }
 
 
+    /**
+     * Finalizes a variant region, any adjacent synthetic reads.
+     *
+     * @param start the first position in the variant region (inclusive)
+     * @param end the last position of the variant region (inclusive)
+     * @return all reads contained in the variant region plus any adjacent synthetic reads
+     */
     @Requires("start <= end")
     protected List<GATKSAMRecord> closeVariantRegion(int start, int end) {
         List<GATKSAMRecord> finalizedReads = new LinkedList<GATKSAMRecord>();
@@ -501,7 +529,6 @@ public class SlidingWindow {
      *
      * @return the read contained in the running consensus
      */
-    @Requires("runningConsensus != null")
     protected GATKSAMRecord finalizeRunningConsensus() {
         GATKSAMRecord finalizedRead = null;
         if (runningConsensus != null) {
@@ -520,7 +547,6 @@ public class SlidingWindow {
      *
      * @return the read contained in the running consensus
      */
-    @Requires("filteredDataConsensus != null")
     protected GATKSAMRecord finalizeFilteredDataConsensus() {
         GATKSAMRecord finalizedRead = null;
         if (filteredDataConsensus != null) {
@@ -608,34 +634,49 @@ public class SlidingWindow {
         }
     }
 
+    /**
+     * Hard clip the read to the variable region (from refStart to refStop)
+     *
+     * @param read the read to be clipped
+     * @param refStart the beginning of the variant region (inclusive)
+     * @param refStop the end of the variant region (inclusive)
+     * @return the read hard clipped to the variant region
+     */
     protected GATKSAMRecord trimToVariableRegion(GATKSAMRecord read, int refStart, int refStop) {
         int start = read.getAlignmentStart();
         int stop = read.getAlignmentEnd();
-
-        ReadClipper clipper = new ReadClipper(read);
 
         // check if the read is contained in region
         GATKSAMRecord clippedRead = read;
         if ( start <= refStop && stop >= refStart) {
             if ( start < refStart && stop > refStop )
-                clippedRead = clipper.hardClipBothEndsByReferenceCoordinates(refStart-1, refStop+1);
+                clippedRead = ReadClipper.hardClipBothEndsByReferenceCoordinates(read, refStart-1, refStop+1);
             else if ( start < refStart )
-                clippedRead = clipper.hardClipByReferenceCoordinatesLeftTail(refStart-1);
+                clippedRead = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refStart-1);
             else if ( stop > refStop )
-                clippedRead = clipper.hardClipByReferenceCoordinatesRightTail(refStop+1);
+                clippedRead = ReadClipper.hardClipByReferenceCoordinatesRightTail(read, refStop+1);
             return clippedRead;
         }
         else
-            return new GATKSAMRecord(read.getHeader());
+            return GATKSAMRecord.emptyRead(read);
+//            return new GATKSAMRecord(read.getHeader());
+
     }
 
+    /**
+     * Hard clips the beginning of the read if necessary. This function is used over and over
+     * as the sliding window slides forward.
+     *
+     * @param read the read to be clipped
+     * @param refNewStart the new beginning of the sliding window
+     * @return the original read if refNewStart < read.getAlignmentStart, null if refNewStart > read.getAlignmentEd, or the clipped read
+     */
     protected GATKSAMRecord clipStart(GATKSAMRecord read, int refNewStart) {
         if (refNewStart > read.getAlignmentEnd())
             return null;
         if (refNewStart <= read.getAlignmentStart())
             return read;
-        ReadClipper readClipper = new ReadClipper(read);
-        return readClipper.hardClipByReferenceCoordinatesLeftTail(refNewStart-1);
+        return ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refNewStart-1);
     }
 
 
@@ -653,15 +694,37 @@ public class SlidingWindow {
         protected int location;                        // Genome location of this site (the sliding window knows which contig we're at
         protected LinkedList<Integer> mappingQuality;  // keeps the mapping quality of each read that contributed to this element (site)
 
+        public int getLocation() { return location; }
 
+        /**
+         * Creates a new HeaderElement with the default location 0
+         */
         public HeaderElement() {
             this(0);
         }
 
+        /**
+         * Creates a new HeaderElement with the following default values:
+         *  - empty consensusBaseCounts
+         *  - empty filteredBaseCounts
+         *  - 0 insertions to the right
+         *  - empty mappingQuality list
+         *
+         * @param location the reference location for the new element
+         */
         public HeaderElement(int location) {
             this(new BaseCounts(), new BaseCounts(), 0, location, new LinkedList<Integer>());
         }
 
+        /**
+         * Creates a new HeaderElement with all given parameters
+         *
+         * @param consensusBaseCounts the BaseCounts object for the running consensus synthetic read
+         * @param filteredBaseCounts the BaseCounts object for the filtered data synthetic read
+         * @param insertionsToTheRight number of insertions to the right of this HeaderElement
+         * @param location the reference location of this reference element
+         * @param mappingQuality the list of mapping quality values of all reads that contributed to this HeaderElement
+         */
         public HeaderElement(BaseCounts consensusBaseCounts, BaseCounts filteredBaseCounts, int insertionsToTheRight, int location, LinkedList<Integer> mappingQuality) {
             this.consensusBaseCounts = consensusBaseCounts;
             this.filteredBaseCounts = filteredBaseCounts;
@@ -670,10 +733,23 @@ public class SlidingWindow {
             this.mappingQuality = mappingQuality;
         }
 
+        /**
+         * Whether or not the site represented by this HeaderElement is variant according to the
+         * definitions of variant by insertion, deletion and mismatches.
+         *
+         * @return true if site is variant by any definition. False otherwise.
+         */
         public boolean isVariant() {
             return hasConsensusData() && (isVariantFromInsertions() || isVariantFromMismatches() || isVariantFromDeletions());
         }
 
+        /**
+         * Adds a new base to the HeaderElement updating all counts accordingly
+         *
+         * @param base the base to add
+         * @param qual the base quality
+         * @param mappingQuality the mapping quality of the read this base belongs to
+         */
         public void addBase(byte base, byte qual, int mappingQuality) {
             if ( qual >= MIN_BASE_QUAL_TO_COUNT && mappingQuality >= MIN_MAPPING_QUALITY)
                 consensusBaseCounts.incr(base, qual);   // If the base passes filters, it is included in the consensus base counts
@@ -683,44 +759,83 @@ public class SlidingWindow {
             this.mappingQuality.add(mappingQuality);    // Filtered or not, the RMS mapping quality includes all bases in this site
         }
 
-        protected boolean isVariantFromInsertions() {
-            return ((double) insertionsToTheRight / consensusBaseCounts.totalCount()) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
-        }
-
-        protected boolean isVariantFromDeletions() {
-            return consensusBaseCounts.baseWithMostCounts() == BaseIndex.D.getByte() || consensusBaseCounts.baseCountProportion(BaseIndex.D) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
-        }
-
-        protected boolean isVariantFromMismatches() {
-            return consensusBaseCounts.baseCountProportion(consensusBaseCounts.baseWithMostCounts()) < (1 - MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT);
-        }
-
+        /**
+         * Adds an insertions to the right of the HeaderElement and updates all counts accordingly.
+         * All insertions should be added to the right of the element.
+         */
         public void addInsertionToTheRight() {
             insertionsToTheRight++;
         }
 
+        /**
+         * Does this HeaderElement contain consensus data?
+         *
+         * @return whether or not this HeaderElement contains consensus data
+         */
         public boolean hasConsensusData() {
             return consensusBaseCounts.totalCount() > 0;
         }
 
+        /**
+         * Does this HeaderElement contain filtered data?
+         *
+         * @return whether or not this HeaderElement contains filtered data
+         */
         public boolean hasFilteredData() {
             return filteredBaseCounts.totalCount() > 0;
         }
 
+        /**
+         * A HeaderElement is empty if it has no consensus or filtered data
+         *
+         * @return whether or not this HeaderElement has no data
+         */
         public boolean isEmpty() {
             return (!hasFilteredData() && !hasConsensusData());
         }
 
+        /**
+         * The RMS of the mapping qualities of all reads that contributed to this HeaderElement
+         *
+         * @return the RMS of the mapping qualities of all reads that contributed to this HeaderElement
+         */
         public double getRMS() {
             return MathUtils.rms(mappingQuality);
         }
 
-        public int getLocation() {
-            return location;
+        /**
+         * Whether or not the HeaderElement is variant due to excess insertions
+         *
+         * @return whether or not the HeaderElement is variant due to excess insertions
+         */
+        private boolean isVariantFromInsertions() {
+            return ((double) insertionsToTheRight / consensusBaseCounts.totalCount()) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
+        }
+
+        /**
+         * Whether or not the HeaderElement is variant due to excess deletions
+         *
+         * @return whether or not the HeaderElement is variant due to excess insertions
+         */
+        private boolean isVariantFromDeletions() {
+            return consensusBaseCounts.baseWithMostCounts() == BaseIndex.D.getByte() || consensusBaseCounts.baseCountProportion(BaseIndex.D) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
+        }
+
+        /**
+         * Whether or not the HeaderElement is variant due to excess mismatches
+         *
+         * @return whether or not the HeaderElement is variant due to excess insertions
+         */
+        private boolean isVariantFromMismatches() {
+            BaseIndex mostCommon = consensusBaseCounts.baseIndexWithMostCountsWithoutIndels();
+            return consensusBaseCounts.baseCountProportionWithoutIndels(mostCommon) < (1 - MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT);
         }
 
     }
 
+    /**
+     * The types of synthetic to use in the finalizeAndAdd method
+     */
     private enum ConsensusType {
         CONSENSUS,
         FILTERED,
