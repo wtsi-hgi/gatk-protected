@@ -6,15 +6,13 @@ import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.ListIterator;
+import java.util.*;
 
 /**
  * Created by IntelliJ IDEA.
@@ -36,6 +34,7 @@ public class SlidingWindow {
     protected int contigIndex;
     protected SAMFileHeader header;
     protected GATKSAMReadGroupRecord readGroupAttribute;
+    protected int downsampleCoverage;
 
     // Running consensus data
     protected SyntheticRead runningConsensus;
@@ -67,12 +66,13 @@ public class SlidingWindow {
     }
 
 
-    public SlidingWindow(String contig, int contigIndex, int contextSizeMismatches, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality) {
+    public SlidingWindow(String contig, int contigIndex, int contextSizeMismatches, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality, int downsampleCoverage) {
         this.startLocation = -1;
         this.stopLocation = -1;
         this.contextSizeMismatches = contextSizeMismatches;
         this.contextSizeIndels = contextSizeIndels;
         this.contextSize = Math.max(contextSizeIndels, contextSizeMismatches);
+        this.downsampleCoverage = downsampleCoverage;
 
         this.MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT = minAltProportionToTriggerVariant;
         this.MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT = minIndelProportionToTriggerVariant;
@@ -438,28 +438,96 @@ public class SlidingWindow {
      * Finalizes a variant region, any adjacent synthetic reads.
      *
      * @param start the first position in the variant region (inclusive)
-     * @param end   the last position of the variant region (inclusive)
+     * @param stop   the last position of the variant region (inclusive)
      * @return all reads contained in the variant region plus any adjacent synthetic reads
      */
-    @Requires("start <= end")
-    protected List<GATKSAMRecord> closeVariantRegion(int start, int end) {
-        List<GATKSAMRecord> finalizedReads = new LinkedList<GATKSAMRecord>();
+    @Requires("start <= stop")
+    protected List<GATKSAMRecord> closeVariantRegion(int start, int stop) {
+        List<GATKSAMRecord> syntheticReads = new LinkedList<GATKSAMRecord>();
+        List<GATKSAMRecord> allReads = new LinkedList<GATKSAMRecord>();
 
-        // Finalize consensus if there is one to finalize before the Variant Region
-        finalizedReads.addAll(finalizeAndAdd(ConsensusType.BOTH));
+        syntheticReads.addAll(finalizeAndAdd(ConsensusType.BOTH));                                       // Finalize consensus if there is one to finalize before the Variant Region
 
-        // Clipping operations are reference based, not read based
-        int refStart = windowHeader.get(start).location;
-        int refEnd = windowHeader.get(end).location;
+        int refStart = windowHeader.get(start).location;                                                 // Clipping operations are reference based, not read based
+        int refStop = windowHeader.get(stop).location;
 
         for (GATKSAMRecord read : readsInWindow) {
-            GATKSAMRecord trimmedRead = trimToVariableRegion(read, refStart, refEnd);
+            GATKSAMRecord trimmedRead = trimToVariableRegion(read, refStart, refStop);
             if (trimmedRead.getReadLength() > 0) {
-                finalizedReads.add(trimmedRead);
+                allReads.add(trimmedRead);
             }
         }
-        return finalizedReads;
+
+        List<GATKSAMRecord> result = (downsampleCoverage > 0) ? downsampleVariantRegion(allReads, refStart, refStop) : allReads;
+        result.addAll(syntheticReads);
+        return result;                                                                           // finalized reads will be downsampled if necessary
     }
+
+
+    /**
+     * Downsamples a variant region to the downsample coverage of the sliding window.
+     *
+     * This function will select reads at random from the given pool of reads starting from the middle loci
+     * (likely where the variation is) guaranteeing the minimum coverage to be >= downsampleCoverage and
+     * expands to the adjacent loci increasing their coverage as needed (by selecting more reads at random)
+     * until all loci in the window are covered to the downsampleCoverage level.
+     *
+     * @param allReads the reads to select from (all reads that cover the window)
+     * @param refStart start of the window (inclusive)
+     * @param refStop end of the window (inclusive)
+     * @return a list of reads selected by the downsampler to cover the window to at least the desired coverage
+     */
+    protected List<GATKSAMRecord> downsampleVariantRegion(final List<GATKSAMRecord> allReads, final int refStart, final int refStop) {
+        LinkedList<GATKSAMRecord> readList = new LinkedList<GATKSAMRecord>();
+        HashSet<GATKSAMRecord> downsampledReads = new HashSet<GATKSAMRecord>();
+
+        Pair<HashMap<Integer, HashSet<GATKSAMRecord>>, HashMap<GATKSAMRecord, Boolean[]>> mappings = ReadUtils.getBothReadToLociMappings(allReads, refStart, refStop);
+        HashMap<Integer, HashSet<GATKSAMRecord>> locusToReadMap = mappings.getFirst();               // a map from every locus in the window to the reads that cover it
+        HashMap<GATKSAMRecord, Boolean[]> readToLocusMap = mappings.getSecond();                     // a map from every read in the window to the loci it covers
+        int [] fullCoverage = ReadUtils.getCoverageDistributionOfReads(allReads, refStart, refStop); // the full coverage distribution array for the variant region with all the reads
+        int [] downsampledCoverageDistribution = new int [fullCoverage.length];                      // the downsampled distribution array with only the selected reads
+
+        int middle = downsampledCoverageDistribution.length / 2;                                     // start covering with randomly selected reads from the middle of the window
+        for (int i=middle; i < downsampledCoverageDistribution.length; i++) {                        // cover the entire window forward and backward
+            downsampleLocus(i, refStart, locusToReadMap, readToLocusMap, downsampledCoverageDistribution, downsampledReads);
+            if (middle - i >= 0)
+                downsampleLocus(middle - i, refStart, locusToReadMap, readToLocusMap, downsampledCoverageDistribution, downsampledReads);
+        }
+        readList.addAll(downsampledReads);                                                           // add the downsampled reads
+
+        return readList;
+    }
+
+    /**
+     * Internal function to downsample a given locus given all the necessary parameters.
+     *
+     * Note: This function WILL change (update) downsampledCoverageDistribution and downsampledReads accordingly.
+     *
+     * @param lucusIndex the index of the loci in the array
+     * @param refStart the alignment position at the start of the array so we can use lucusIndex appropriately
+     * @param locusToReadMap a map that returns for a given loci all the reads that cover it
+     * @param readToLocusMap a map that returns for a given read all the loci that it covers
+     * @param downsampledCoverageDistribution the current coverage distribution with the selected reads so far -- will be updated in this function
+     * @param downsampledReads the list of reads selected by the downsampler so far -- will be updated in this function
+     */
+    protected void downsampleLocus(final int lucusIndex, final int refStart, final HashMap<Integer, HashSet<GATKSAMRecord>> locusToReadMap, final HashMap<GATKSAMRecord, Boolean[]> readToLocusMap, int[] downsampledCoverageDistribution, HashSet<GATKSAMRecord> downsampledReads) {
+        HashSet readsOnThisLocus = locusToReadMap.get(refStart+lucusIndex);                                       // Get the reads that are represented in this loci
+        readsOnThisLocus.removeAll(downsampledReads);                                                             // Remove all reads that have already been chosen by previous loci
+        int numberOfReadsToAdd = downsampleCoverage - downsampledCoverageDistribution[lucusIndex];                // we need to add this many reads to achieve the minimum downsampleCoverage
+        if (numberOfReadsToAdd > 0) {                                                                             // no need to add reads if we're already covered or over covered.
+            GATKSAMRecord [] readArray = convertArray(readsOnThisLocus.toArray());                                // convert to array so we can get a random subset
+            GATKSAMRecord [] selectedReads = convertArray(MathUtils.randomSubset(readArray, numberOfReadsToAdd)); // get a random subset of the reads with the exact (or less if not available) number of reads we need to hit the downsample coverage
+            downsampledReads.addAll(Arrays.asList(selectedReads));                                                // add the selected reads to the final set of reads
+
+            for (GATKSAMRecord selectedRead : selectedReads) {                                                    // update the coverage distribution with the newly added reads
+                Boolean [] lociAffected = readToLocusMap.get(selectedRead);                                       // get the boolean array to know which loci the read affected
+
+                for (int j=0; j<downsampledCoverageDistribution.length; j++)
+                    downsampledCoverageDistribution[j] += lociAffected[j] ? 1 : 0;                                // if it affects, increase coverage by one (no reduced reads in this pileup)
+            }
+        }
+    }
+
 
     /**
      * Slides the window to the new position
@@ -683,7 +751,6 @@ public class SlidingWindow {
         return ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refNewStart - 1);
     }
 
-
     /**
      * The element that describes the header of the sliding window.
      * <p/>
@@ -856,6 +923,19 @@ public class SlidingWindow {
         BOTH
     }
 
+    /**
+     * workaround function to convert an object array to a GATKSAMRecord array since we
+     * can't typecast collections
+     *
+     * @param array a GATKSAMRecord array that has been typecasted to Object array
+     * @return a new array with the typecasts to GATKSAMRecord
+     */
+    private static GATKSAMRecord [] convertArray (Object [] array ) {
+        GATKSAMRecord [] result = new GATKSAMRecord [array.length];
+        for (int i=0; i<array.length; i++)
+            result[i] = (GATKSAMRecord) array[i];
+        return result;
+    }
 
 }
 

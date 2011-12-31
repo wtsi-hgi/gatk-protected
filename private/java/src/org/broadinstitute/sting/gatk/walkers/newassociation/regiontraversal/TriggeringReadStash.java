@@ -134,7 +134,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
                                    final double minAltProportionToTriggerVariant,
                                    final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality,
                                    TriggeringSingleSampleCompressor parent) {
-        super(contig, contigIndex, contextSize, contextSizeIndels, header, readGroupAttribute, windowNumber, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, minMappingQuality);
+        super(contig, contigIndex, contextSize, contextSizeIndels, header, readGroupAttribute, windowNumber, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, minMappingQuality, 0);
         parentCompressor = parent;
     }
 

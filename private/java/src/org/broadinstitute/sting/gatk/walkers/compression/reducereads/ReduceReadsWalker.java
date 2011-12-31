@@ -96,7 +96,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      * The number of bases to keep around indels (potential variation)
      */
     @Argument(fullName = "context_size_indels", shortName = "csindel", doc = "", required = false)
-    protected int contextSizeIndels = 50;
+    protected int contextSizeIndels = 10;
 
     /**
      * The minimum mapping quality to be considered for the consensus synthetic read. Reads that have
@@ -163,6 +163,13 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     @Argument(fullName = "minimum_del_proportion_to_trigger_variant", shortName = "mindel", doc = "", required = false)
     protected double minIndelProportionToTriggerVariant = 0.01;
 
+    /**
+     * Downsamples the coverage of a variable region approximately (guarantees the minimum to be equal to this).
+     * A value of 0 turns downsampling off.
+     */
+    @Argument(fullName = "downsample_coverage", shortName = "ds", doc = "", required = false)
+    protected int downsampleCoverage = 0;
+
     @Hidden
     @Argument(fullName = "", shortName = "dl", doc = "", required = false)
     protected int debugLevel = 0;
@@ -170,10 +177,6 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     @Hidden
     @Argument(fullName = "", shortName = "dr", doc = "", required = false)
     protected String debugRead = "";
-
-    @Hidden //todo -- not yet implemented
-    @Argument(fullName = "downsample_coverage", shortName = "ds", doc = "", required = false)
-    protected int downsampleCoverage = 500;
 
 
     protected int totalReads = 0;
