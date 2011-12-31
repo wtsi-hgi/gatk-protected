@@ -25,6 +25,7 @@
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
 import net.sf.samtools.SAMReadGroupRecord;
+import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -74,21 +75,38 @@ import java.util.List;
  *   -I input1.bam \
  *   -I input2.bam \
  *   -o output.txt \
+ *   -g "ReadGroupID1 ReadGroupID2"
  *   -L input.intervals
  * </pre>
  */
-public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, LinkedHashMap<String, Long>> {
+public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, LinkedHashMap<String, Long>> /*implements TreeReducible<LinkedHashMap<String, Long>> */ {
+
 
     @Output
     PrintStream out;
 
+    @Argument(fullName = "groupRGs", shortName = "g", doc = "This parameter will take the Read Groups provided (separated by a space) and sum them up in a new column", required = false)
+    private List<String> groups = new LinkedList<String>();
+
+    List<String[]> readGroupSums;
     GATKReportTable reportTable;
     List<String> readGroupIds;
+
+    /*
+    @Override
+    public LinkedHashMap<String, Long> treeReduce(LinkedHashMap<String, Long> left, LinkedHashMap<String, Long> right) {
+        // Add everything in right to left
+        for ( String key : right.keySet() ) {
+            left.put(key, left.get(key) + right.get(key) );
+        }
+        return left;
+    }
+    */
 
 
     public void initialize() {
         //Sets up our report table columns (by Read Groups + GCcontent)
-
+        readGroupSums = new LinkedList<String[]>();
         readGroupIds = new LinkedList<String>();
 
         reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", true);
@@ -98,6 +116,15 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
             reportTable.addColumn(RG.getReadGroupId(), 0, true);
         }
         reportTable.addColumn("GCContent", 0, true);
+
+        for (int i = 0; i < groups.size(); i++)
+            reportTable.addColumn("-g" + i, 0, true);
+
+        for (String RGs : groups) {
+            readGroupSums.add(RGs.split(" "));
+        }
+
+
     }
 
     public boolean isReduceByInterval() {
@@ -153,6 +180,20 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
             // Get coverage by taking total counts and diving by interval length
             for (String key : counts.keySet()) {
                 reportTable.set(interval.toString(), key, (double) counts.get(key) / (double) interval.size());
+            }
+            // I is the counter for our summed columns, This will go through every -g argument
+            int i = 0;
+            for (String[] toSum : readGroupSums) {
+
+                // Add every counts from the array of strings
+                double sum = 0;
+                for (String RG : toSum) {
+                    sum += (double) counts.get(RG) / (double) interval.size();
+                }
+
+                //Add the total to the table
+                reportTable.set(interval.toString(), "-g" + i, sum);
+                i++;
             }
 
         }
