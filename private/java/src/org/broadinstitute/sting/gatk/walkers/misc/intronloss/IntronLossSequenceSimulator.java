@@ -24,8 +24,10 @@
 
 package org.broadinstitute.sting.gatk.walkers.misc.intronloss;
 
+import ca.mcgill.mcb.pcingola.fastq.Fastq;
 import net.sf.picard.fastq.FastqRecord;
 import net.sf.picard.fastq.FastqWriter;
+import net.sf.picard.fastq.FastqWriterFactory;
 import org.apache.commons.math.stat.descriptive.rank.Max;
 import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Argument;
@@ -101,9 +103,10 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
     private final int MAX_INSERT_SIZE = 1000;
 
     public void initialize() {
-        readWriter = new FastqWriter(m1OutputFastQ);
-        mateWriter = new FastqWriter(m2OutputFastQ);
-        widowedWriter = new FastqWriter(widowedOutputFASTQ);
+        FastqWriterFactory fastqWriterFactory = new FastqWriterFactory();
+        readWriter = fastqWriterFactory.newWriter(m1OutputFastQ);
+        mateWriter = fastqWriterFactory.newWriter(m2OutputFastQ);
+        widowedWriter = fastqWriterFactory.newWriter(widowedOutputFASTQ);
         if (readGroupInsertHistogram != null ) {
             try {
 
