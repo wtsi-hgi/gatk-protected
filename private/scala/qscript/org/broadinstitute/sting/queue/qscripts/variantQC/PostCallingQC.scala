@@ -24,60 +24,44 @@ class PostCallingQC extends QScript {
   val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_132.b37.vcf")
 
   @Argument(shortName = "nt", doc="nt", required=false)
-  val nt: Int = 1
-
-  trait UniversalGATKArgs extends CommandLineGATK {
-    this.reference_sequence = referenceFile
-    this.memoryLimit = 2
-  }
-
-  // TODO -- should include "standard" eval for plotting expectations
+  val num_cpu_threads: Int = 1
 
   def script() {
     for ( evalVCF <- evalVCFs ) {
       // The basic summary eval
       // The basic summary eval, by AF
-      val byAC = createEval(evalVCF, ".byAC",
-        List("TiTvVariantEvaluator", "CountVariants", "CompOverlap"),
-        List("AlleleCount"))
+      val byAC = new Eval(evalVCF, ".byAC", List("AlleleCount"))
+      add(byAC)
 
       // The basic summary eval, broken down by sample as well as functional class
-      val bySampleByFunctionalClass = createEval(evalVCF, ".bySampleByFunctionalClass",
-        List("TiTvVariantEvaluator", "CountVariants", "CompOverlap"),
-        List("Sample","FunctionalClass"))
+      val bySampleByFunctionalClass = new Eval(evalVCF, ".bySampleByFunctionalClass", List("Sample","FunctionalClass"))
+      add(bySampleByFunctionalClass)
 
-      val evals = List(byAC.out, bySampleByFunctionalClass.out)
-
-      val qc = new QCRScript(evalVCF, evals)
-      qc.jobOutputFile = qc.pdf + ".out"
-      add(qc)
-
+      val qc = new QCRScript(evalVCF, byAC.out, bySampleByFunctionalClass.out)
       add(qc)
     }
   }
 
-  def createEval(evalVCF: File, prefix: String, evalModules: List[String], extraStrats: List[String]) = {
-    val eval = new Eval(evalVCF)
-    eval.out = swapExt(evalVCF,".vcf", prefix + ".eval")
-    eval.evalModule = evalModules
-    eval.stratificationModule = List("EvalRod", "CompRod", "Novelty") ::: extraStrats
-    eval.nt = qscript.nt
-    add(eval)
-    eval
-  }
-
-  class Eval(@Input var vcf: File) extends VariantEval with UniversalGATKArgs {
-    this.eval :+= vcf
-    this.dbsnp = dbSNP
-    this.doNotUseAllStandardStratifications = true
-    this.doNotUseAllStandardModules = true
+  class Eval(evalVCF: File, prefix: String, extraStrats: List[String]) extends VariantEval {
+    this.reference_sequence = referenceFile
     this.intervalsString = myIntervals
     this.excludeIntervalsString = myExcludeIntervals
+    this.eval :+= evalVCF
+    this.dbsnp = dbSNP
+    this.doNotUseAllStandardModules = true
+    this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
+    this.doNotUseAllStandardStratifications = true
+    this.stratificationModule = List("EvalRod", "CompRod", "Novelty") ::: extraStrats
+    this.num_cpu_threads = qscript.num_cpu_threads
+    this.memoryLimit = 2
+    this.out = swapExt(evalVCF, ".vcf", prefix + ".eval")
+    this.jobOutputFile = out + ".out"
   }
 
-  class QCRScript(@Input var vcf: File, @Input var evals: List[File]) extends CommandLineFunction {
+  class QCRScript(@Input var vcf: File, @Input var byAC: File, @Input var bySite: File) extends CommandLineFunction {
     @Output var pdf: File = swapExt(vcf, ".vcf", ".pdf")
-    val root = swapExt(vcf,".vcf", "") // remove the prefix
-    def commandLine = "Rscript %s/variantCallQC.R %s %s %s".format(RPath, root, root, pdf)
+    private val project = vcf.getName.stripSuffix(".vcf")
+    this.jobOutputFile = pdf + ".out"
+    def commandLine = "Rscript %s/variantCallQC.R %s %s %s %s".format(RPath, project, bySite, byAC, pdf)
   }
 }

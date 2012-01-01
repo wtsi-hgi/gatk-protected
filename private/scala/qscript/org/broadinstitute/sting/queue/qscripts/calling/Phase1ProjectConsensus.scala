@@ -1,11 +1,7 @@
-import net.sf.picard.reference.FastaSequenceFile
-import org.broadinstitute.sting.pipeline.Pipeline
-import org.broadinstitute.sting.gatk.DownsampleType
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.samtools._
+import org.broadinstitute.sting.queue.extensions.gatk.TaggedFile._
 import org.broadinstitute.sting.queue.{QException, QScript}
-import collection.JavaConversions._
-import org.broadinstitute.sting.utils.yaml.YamlUtils
+import scala.Some
 
 class Phase1ProjectConsensus extends QScript {
   qscript =>
@@ -26,12 +22,11 @@ class Phase1ProjectConsensus extends QScript {
   val populations = List("ASW","CEU","CHB","CHS","CLM","FIN","GBR","IBS","JPT","LWK","MXL","PUR","TSI","YRI")
   private val alleles: String = "/humgen/1kg/processing/production_wgs_phase1/consensus/ALL.phase1.wgs.union.pass.sites.vcf"
 
-  private var pipeline: Pipeline = _
-
   trait CommandLineGATKArgs extends CommandLineGATK {
     this.jarFile = qscript.gatkJar
     this.reference_sequence = qscript.reference
-    this.memoryLimit = Some(3)
+    this.memoryLimit = Some(2)
+    this.jobQueue = "gsa"
   }
 
   class AnalysisPanel(val baseName: String, val pops: List[String], val jobNumber: Int, val chr: String) {
@@ -47,8 +42,8 @@ class Phase1ProjectConsensus extends QScript {
     callSnps.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
     callSnps.genotyping_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
     //callSnps.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
-    callSnps.rodBind :+= RodBind("alleles", "VCF", qscript.alleles)
-    callSnps.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
+    callSnps.alleles = qscript.alleles
+    callSnps.dbsnp = qscript.dbSNP
     callSnps.sites_only = true
   }
 
@@ -64,7 +59,8 @@ class Phase1ProjectConsensus extends QScript {
 
   def script = {
 
-    for(chr <- List(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23)) {
+//    for(chr <- List(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23)) {
+    for(chr <- List(1,2)) {
       val chrObject = new Chromosome(chr)
       val basesPerJob: Int = 3000000
       val lastBase: Int = qscript.chromosomeLength(chr - 1)
@@ -83,7 +79,7 @@ class Phase1ProjectConsensus extends QScript {
         if( stop > lastBase ) { stop = lastBase }
         jobNumber += 1
       }
-      add(chrObject.combine)
+     // add(chrObject.combine)
     }
   }
 
@@ -116,38 +112,37 @@ class Phase1ProjectConsensus extends QScript {
 
     for( population <- qscript.populations ) {
       val baseTmpName: String = qscript.outputTmpDir + "/calls/chr" + chr + "/" + population + ".phase1.chr" + chr + "." + jobNumber.toString + "."
-      val bamList: File = new File("/humgen/1kg/processing/production_wgs_phase1/bam_lists/%s.list".format(population))
+      val bamList: File = new File("/humgen/1kg/processing/production_wgs_phase1/bam_lists/%s.bam.list".format(population))
       val targetIntervals: File = new File(baseTmpName + "target.intervals")
 
       // 1.) Create cleaning targets
       val target = new RealignerTargetCreator with CommandLineGATKArgs
-      target.memoryLimit = 4
+     // target.memoryLimit = 4
       target.input_file :+= bamList
       target.intervalsString :+= interval
       target.out = targetIntervals
       target.mismatchFraction = 0.0
       target.maxIntervalSize = 700
-      target.rodBind :+= RodBind("indels1", "VCF", qscript.dindelCalls)
+      target.known  :+=  qscript.dindelCalls
       target.jobName = baseTmpName + "target"
       //target.isIntermediate = true
-      target.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
+      target.known :+= qscript.dbSNP
 
       // 2.) Clean without SW
       val clean = new IndelRealigner with CommandLineGATKArgs
       val cleanedBam = new File(baseTmpName + "cleaned.bam")
-      clean.memoryLimit = 6
+      clean.memoryLimit = 8
       clean.input_file :+= bamList
       clean.intervalsString :+= interval
       clean.targetIntervals = targetIntervals
       clean.out = cleanedBam
-      clean.doNotUseSW = true
+      clean.consensusDeterminationModel = org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel.USE_READS
       clean.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
       clean.simplifyBAM = true
-      clean.rodBind :+= RodBind("indels1", "VCF", qscript.dindelCalls)
+      clean.known :+= qscript.dindelCalls
       clean.jobName = baseTmpName + "clean"
       //clean.isIntermediate = true
-      clean.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP )
-
+      clean.known  :+= qscript.dbSNP
       add(target, clean)
 
       for( a <- analysisPanels ) {
@@ -162,11 +157,11 @@ class Phase1ProjectConsensus extends QScript {
     for( a <- analysisPanels ) {
       a.callSnps.intervalsString :+= interval
       if(a.baseName == "ALL") { a.callSnps.memoryLimit = 4 }
-      add(a.callSnps)
-      combine.rodBind :+= RodBind(a.baseName, "VCF", a.callSnps.out)
+      //add(a.callSnps)
+      combine.variant :+= TaggedFile(a.callSnps.out, a.baseName)
     }
 
-    add(combine)
-    chrObject.combine.rodBind :+= RodBind("ALL" + jobNumber.toString, "VCF", combine.out)
+    //add(combine)
+    chrObject.combine.variant :+= TaggedFile( combine.out,"ALL" + jobNumber.toString)
   }
 }

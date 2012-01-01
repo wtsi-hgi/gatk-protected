@@ -24,11 +24,13 @@
 
 package org.broadinstitute.sting.utils.codecs;
 
+import org.broad.tribble.AbstractFeatureCodec;
 import org.broad.tribble.Feature;
-import org.broad.tribble.FeatureCodec;
 import org.broad.tribble.readers.LineReader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -67,7 +69,7 @@ import java.util.regex.Pattern;
  * @author Eric Banks
  * @since 2011
  */
-public class CGVarCodec implements FeatureCodec {
+public class CGVarCodec extends AbstractFeatureCodec {
 
     private static final String REF_TYPE = "ref";
     private static final String SNP_TYPE = "snp";
@@ -138,12 +140,13 @@ public class CGVarCodec implements FeatureCodec {
 
         HashMap<String, Object> attrs = new HashMap<String, Object>();
         String id = array[array.length - 1];
+        String RSID = VCFConstants.EMPTY_ID_FIELD;
         if ( id.indexOf("dbsnp") != -1 ) {
-            attrs.put(VariantContext.ID_KEY, parseID(id));
+            RSID = parseID(id);
         }
 
         // create a new feature given the array
-        return new VariantContext("CGI", array[3], start, end, alleles, VariantContext.NO_NEG_LOG_10PERROR, null, attrs, null);
+        return new VariantContextBuilder("CGI", array[3], start, end, alleles).id(RSID).attributes(attrs).make();
     }
 
     public Class<VariantContext> getFeatureType() {

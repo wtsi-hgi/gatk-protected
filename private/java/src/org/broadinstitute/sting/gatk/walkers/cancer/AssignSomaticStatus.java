@@ -39,10 +39,7 @@ import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.text.XReadLines;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -223,7 +220,7 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
                     attrs.put(SOMATIC_AC_TAG_NAME, calculateTumorAC(vc));
 
                 }
-                VariantContext newvc = VariantContext.modifyAttributes(vc, attrs);
+                VariantContext newvc =  new VariantContextBuilder(vc).attributes(attrs).make();
 
                 vcfWriter.add(newvc);
             }

@@ -13,7 +13,7 @@ public class DuplicatesWalkersIntegrationTest extends WalkerTest {
                 "-T CountDuplicates" +
                         " -R " + hg18Reference +
                         " -I /humgen/gsa-hpprojects/GATK/data/Validation_Data/TCGA-06-0188.aligned.duplicates_marked.bam" +
-                        " -o %s " + args,
+                        " -o %s -rbs 10000 " + args,
                 1, // just one output file
                 Arrays.asList("tmp"),
                 Arrays.asList(md5));
@@ -28,7 +28,7 @@ public class DuplicatesWalkersIntegrationTest extends WalkerTest {
                 "-T CombineDuplicates" +
                         " -R " + hg18Reference +
                         " -I /humgen/gsa-hpprojects/GATK/data/Validation_Data/TCGA-06-0188.aligned.duplicates_marked.bam" +
-                        " -o %s --outputBAM %s " + args,
+                        " -o %s --outputBAM %s -rbs 10000 " + args,
                 2, // just one output file
                 Arrays.asList("tmp", "bam"),
                 Arrays.asList(md51, md52));

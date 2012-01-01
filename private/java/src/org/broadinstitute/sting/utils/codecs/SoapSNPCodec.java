@@ -1,14 +1,13 @@
 package org.broadinstitute.sting.utils.codecs;
 
-import org.broad.tribble.Feature;
-import org.broad.tribble.FeatureCodec;
-import org.broad.tribble.NameAwareCodec;
-import org.broad.tribble.TribbleException;
+import org.broad.tribble.*;
 import org.broad.tribble.exception.CodecLineParsingException;
 import org.broad.tribble.readers.LineReader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.util.*;
 
@@ -62,7 +61,7 @@ import java.util.*;
  * @author Mark DePristo
  * @since 2010
  */
-public class SoapSNPCodec implements FeatureCodec, NameAwareCodec {
+public class SoapSNPCodec extends AbstractFeatureCodec implements NameAwareCodec {
     private String[] parts;
 
     // we store a name to give to each of the variant contexts we emit
@@ -93,7 +92,7 @@ public class SoapSNPCodec implements FeatureCodec, NameAwareCodec {
             long start = Long.valueOf(parts[1]);
             AlleleAndGenotype allelesAndGenotype = parseAlleles(parts[2], parts[3], line);
 
-            double negLog10PError = Integer.valueOf(parts[4]) / 10.0;
+            double log10PError = Integer.valueOf(parts[4]) / -10.0;
 
             Map<String, Object> attributes = new HashMap<String, Object>();
             attributes.put("BestBaseQ", parts[6]);
@@ -104,7 +103,7 @@ public class SoapSNPCodec implements FeatureCodec, NameAwareCodec {
             //System.out.printf("Alleles  = " + allelesAndGenotype.alleles);
             //System.out.printf("genotype = " + allelesAndGenotype.genotype);
             
-            VariantContext vc = new VariantContext(name, contig, start, start, allelesAndGenotype.alleles, allelesAndGenotype.genotype, negLog10PError, VariantContext.PASSES_FILTERS, attributes);
+            VariantContext vc = new VariantContextBuilder(name, contig, start, start, allelesAndGenotype.alleles).genotypes(allelesAndGenotype.genotype).log10PError(log10PError).passFilters().attributes(attributes).make();
 
             //System.out.printf("line  = %s%n", line);
             //System.out.printf("vc    = %s%n", vc);

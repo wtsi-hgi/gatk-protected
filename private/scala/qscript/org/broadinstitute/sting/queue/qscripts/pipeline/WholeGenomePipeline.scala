@@ -204,7 +204,7 @@ class WholeGenomePipeline extends QScript {
     val filterIndels = new VariantFiltration with CommandLineGATKArgs
     filterIndels.variantVCF = selectIndels.out
     filterIndels.filterName = List("Indel_QUAL", "Indel_SB", "Indel_QD", "Indel_HRun", "Indel_HaplotypeScore")
-    filterIndels.filterExpression = List("\"QUAL<30.0\"", "\"SB>-1.0\"", "\"QD<2.0\"", "\"HRun>15\"", "\"HaplotypeScore>20.0\"")
+    filterIndels.filterExpression = List("QUAL<30.0", "SB>-1.0", "QD<2.0", "HRun>15", "HaplotypeScore>20.0")
     filterIndels.out = projectBase + ".indels.filtered.vcf"
     filterIndels.jobOutputFile = filterIndels.out + ".out"
     add(filterIndels)
@@ -257,7 +257,7 @@ class WholeGenomePipeline extends QScript {
       eval.rodBind :+= RodBind("dbsnp", "VCF", dbsnp)
       eval.doNotUseAllStandardStratifications = true
       eval.doNotUseAllStandardModules = true
-      eval.evalModule = List("SimpleMetricsByAC", "TiTvVariantEvaluator", "CountVariants")
+      eval.evalModule = List("TiTvVariantEvaluator", "CountVariants")
       eval.stratificationModule = List("EvalRod", "CompRod", "Novelty")
       eval.out = swapExt(ar.out, ".vcf", ".eval")
       eval.jobOutputFile = eval.out + ".out"

@@ -26,14 +26,87 @@ package org.broadinstitute.sting.pipeline;
 
 import edu.mit.broad.picard.util.PicardAggregationFsUtil;
 import net.sf.picard.io.IoUtil;
+import org.apache.commons.io.LineIterator;
+import org.apache.log4j.Logger;
+import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.io.IOUtils;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 public class PicardAggregationUtils {
+    private static final Logger log = Logger.getLogger(PicardAggregationUtils.class);
+
     private static final PicardAggregationFsUtil aggregationFsUtil = new PicardAggregationFsUtil();
     public static final String PICARD_AGGREGATION_DIR = aggregationFsUtil.AGGREGATION_DIRECTORY.getAbsolutePath() + "/";
+
+    public static List<PicardSample> parseSamples(File tsv) {
+        List<PicardSample> picardSamples = new ArrayList<PicardSample>();
+        int errors = 0;
+
+        LineIterator it = IOUtils.lineIterator(tsv);
+        try {
+            for (int lineNum = 1; it.hasNext(); lineNum++) {
+                String line = it.nextLine();
+                String[] tokens = line.split("\t");
+
+                if (tokens.length != 2) {
+                    log.error(String.format("Line %d: Does not contain two tab separated values a project/sample: %s", lineNum, line));
+                    errors++;
+                    continue;
+                }
+
+                String project = tokens[0];
+                String sample = tokens[1];
+                int version = PicardAggregationUtils.getLatestVersion(project, sample);
+
+                if (version == 0) {
+                    log.error(String.format("Line %d: Unable to find a latest version: %s", lineNum, line));
+                    errors++;
+                    continue;
+                }
+
+                picardSamples.add(new PicardSample(project, sample, version));
+            }
+        } finally {
+            it.close();
+        }
+
+        if (errors > 0)
+            throw new UserException.CouldNotReadInputFile(tsv, String.format("See logger errors for problematic lines."));
+
+        return picardSamples;
+    }
+
+    public static PicardIntervals readAnalysisIntervals(List<PicardSample> picardSamples) {
+        Set<PicardIntervals> seenIntervals = new LinkedHashSet<PicardIntervals>();
+
+        for (PicardSample picardSample: picardSamples) {
+            PicardAnalysisFiles analysis = new PicardAnalysisFiles(picardSample.getProject(), picardSample.getSample(), picardSample.getVersion());
+            PicardIntervals picardIntervals = new PicardIntervals(analysis.getReferenceSequence(), analysis.getTargetIntervals());
+            seenIntervals.add(picardIntervals);
+        }
+
+        if (seenIntervals.isEmpty())
+            return null;
+
+        if (seenIntervals.size() == 1)
+            return seenIntervals.iterator().next();
+
+        throw new UserException.BadArgumentValue("picardSamples", String.format("%d intervals found: %s", seenIntervals.size(), seenIntervals));
+    }
+
+    public static List<String> getSampleBams(List<PicardSample> picardSamples) {
+        List<String> bams = new ArrayList<String>();
+        for (PicardSample picardSample: picardSamples) {
+            bams.add(PicardAggregationUtils.getSampleBam(picardSample.getProject(), picardSample.getSample(), picardSample.getVersion()));
+        }
+        return bams;
+    }
 
     /**
      * Returns the path to the sample BAM.
@@ -51,9 +124,8 @@ public class PicardAggregationUtils {
      * @param project Project
      * @param sample Sample
      * @return The path to the latest BAM.
-     * @throws FileNotFoundException If a finished directory cannot be found for a sample.
      */
-    public static String getSampleBam(String project, String sample) throws FileNotFoundException {
+    public static String getSampleBam(String project, String sample) {
         return getSampleDir(project, sample) + IoUtil.makeFileNameSafe(sample) + ".bam";
     }
 
@@ -73,12 +145,11 @@ public class PicardAggregationUtils {
      * @param project Project
      * @param sample Sample
      * @return The path to the latest finished directory.
-     * @throws FileNotFoundException If a finished directory cannot be found for a sample.
      */
-    public static String getSampleDir(String project, String sample) throws FileNotFoundException {
+    public static String getSampleDir(String project, String sample) {
         int latestVersion = getLatestVersion(project, sample);
         if (latestVersion == 0)
-            throw new FileNotFoundException("Unable to find a finished directory for project sample " + project + "/" + sample);
+            throw new UserException.BadArgumentValue("project/sample", "Unable to find a finished directory for project sample " + project + "/" + sample);
         return getSampleDir(project, sample, latestVersion);
     }
 

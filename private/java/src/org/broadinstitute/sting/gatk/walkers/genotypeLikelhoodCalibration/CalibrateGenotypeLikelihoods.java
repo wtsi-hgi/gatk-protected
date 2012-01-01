@@ -33,7 +33,6 @@ import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.genotyper.*;
@@ -42,7 +41,6 @@ import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -192,7 +190,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         for (Map.Entry<String,AlignmentContext> sAC : contextBySample.entrySet()) {
             String sample = sAC.getKey();
             AlignmentContext sampleAC = sAC.getValue();
-            Genotype compGT = getGenotype(tracker, ref, sample);
+            Genotype compGT = getGenotype(tracker, ref, sample, snpEngine != null ? snpEngine : indelEngine);
             if ( compGT == null || compGT.isNoCall() )
                 continue;
 
@@ -241,8 +239,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
      * @param sample
      * @return
      */
-    private Genotype getGenotype(RefMetaDataTracker tracker, ReferenceContext ref, String sample) {
-        for ( VariantContext vc : tracker.getValues(indelEngine.getUAC().alleles, ref.getLocus()) ) {
+    private static Genotype getGenotype(RefMetaDataTracker tracker, ReferenceContext ref, String sample, UnifiedGenotyperEngine engine) {
+        for ( VariantContext vc : tracker.getValues(engine.getUAC().alleles, ref.getLocus()) ) {
             if ( vc.isNotFiltered() && vc.hasGenotype(sample) )
                 return vc.getGenotype(sample);
             else
