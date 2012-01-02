@@ -43,9 +43,15 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
     }
 
     @Test(enabled = true)
-    public void testDownsampling() {
-        RRTest("testDownsampling ", " -ds 25 " + L, "d5a45e855a1ba0cf51347ceda541b31b");
+    public void testNormalDownsampling() {
+        RRTest("testNormalDownsampling ", " -ds 25 " + L, "d5a45e855a1ba0cf51347ceda541b31b");
     }
+
+    @Test(enabled = true)
+    public void testAdaptieDownsampling() {
+        RRTest("testAdaptiveDownsampling ", " -ds 25 -dm Adaptive " + L, "42d8f766da6b91a6e0d0623397771f57");
+    }
+
 
 }
 

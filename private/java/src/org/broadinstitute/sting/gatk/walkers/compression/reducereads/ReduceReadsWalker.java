@@ -178,7 +178,15 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     @Argument(fullName = "", shortName = "dr", doc = "", required = false)
     protected String debugRead = "";
 
+    @Hidden
+    @Argument(fullName = "downsample_strategy", shortName = "dm", doc = "", required = false)
+    protected DownsampleStrategy downsampleStrategy = DownsampleStrategy.Normal;
 
+    public enum DownsampleStrategy {
+        Normal,
+        Adaptive
+    }
+    
     protected int totalReads = 0;
     int nCompressedReads = 0;
 
@@ -264,7 +272,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      */
     @Override
     public ReduceReadsStash reduceInit() {
-        return new ReduceReadsStash(new MultiSampleCompressor(getToolkit().getSAMFileHeader(), contextSizeMismatches, contextSizeIndels, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual));
+        return new ReduceReadsStash(new MultiSampleCompressor(getToolkit().getSAMFileHeader(), contextSizeMismatches, contextSizeIndels, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, downsampleStrategy));
     }
 
     /**

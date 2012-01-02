@@ -4,10 +4,7 @@ import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMReadGroupRecord;
-import org.broadinstitute.sting.gatk.walkers.compression.reducereads.MultiSampleCompressor;
-import org.broadinstitute.sting.gatk.walkers.compression.reducereads.ReduceReadsStash;
-import org.broadinstitute.sting.gatk.walkers.compression.reducereads.SingleSampleCompressor;
-import org.broadinstitute.sting.gatk.walkers.compression.reducereads.SlidingWindow;
+import org.broadinstitute.sting.gatk.walkers.compression.reducereads.*;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentStartWithNoTiesComparator;
@@ -52,7 +49,7 @@ class TriggeringMultiSampleCompressor extends MultiSampleCompressor {
                                            final double minAltProportionToTriggerVariant,
                                            final double minIndelProportionToTriggerVariant,
                                            final int minBaseQual) {
-        super(header,contextSize,contextSizeIndels,downsampleCoverage,minMappingQuality,minAltProportionToTriggerVariant,minIndelProportionToTriggerVariant,minBaseQual);
+        super(header,contextSize,contextSizeIndels,downsampleCoverage,minMappingQuality,minAltProportionToTriggerVariant,minIndelProportionToTriggerVariant,minBaseQual, ReduceReadsWalker.DownsampleStrategy.Normal);
         compressorsPerSample.clear(); // out with the bad, in with the good
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
@@ -101,7 +98,7 @@ class TriggeringSingleSampleCompressor extends SingleSampleCompressor {
                                             final double minIndelProportionToTriggerVariant,
                                             final int minBaseQual,
                                             final TriggeringMultiSampleCompressor parent) {
-        super(sampleName,contextSize,contextSizeIndels,downsampleCoverage,minMappingQuality,minAltProportionToTriggerVariant,minIndelProportionToTriggerVariant,minBaseQual);
+        super(sampleName,contextSize,contextSizeIndels,downsampleCoverage,minMappingQuality,minAltProportionToTriggerVariant,minIndelProportionToTriggerVariant,minBaseQual, ReduceReadsWalker.DownsampleStrategy.Normal);
         parentMultiSampleCompressor = parent;
     }
 
@@ -134,7 +131,7 @@ class TriggeringSlidingWindow extends SlidingWindow {
                                    final double minAltProportionToTriggerVariant,
                                    final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality,
                                    TriggeringSingleSampleCompressor parent) {
-        super(contig, contigIndex, contextSize, contextSizeIndels, header, readGroupAttribute, windowNumber, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, minMappingQuality, 0);
+        super(contig, contigIndex, contextSize, contextSizeIndels, header, readGroupAttribute, windowNumber, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, minMappingQuality, 0, ReduceReadsWalker.DownsampleStrategy.Normal);
         parentCompressor = parent;
     }
 

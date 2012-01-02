@@ -8,6 +8,7 @@ import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
@@ -53,6 +54,8 @@ public class SlidingWindow {
     protected int MIN_BASE_QUAL_TO_COUNT;                           // qual has to be greater than or equal to this value
     protected int MIN_MAPPING_QUALITY;
 
+    protected ReduceReadsWalker.DownsampleStrategy downsampleStrategy;
+    
     public int getStopLocation() {
         return stopLocation;
     }
@@ -66,7 +69,7 @@ public class SlidingWindow {
     }
 
 
-    public SlidingWindow(String contig, int contigIndex, int contextSizeMismatches, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality, int downsampleCoverage) {
+    public SlidingWindow(String contig, int contigIndex, int contextSizeMismatches, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality, int downsampleCoverage, final ReduceReadsWalker.DownsampleStrategy downsampleStrategy) {
         this.startLocation = -1;
         this.stopLocation = -1;
         this.contextSizeMismatches = contextSizeMismatches;
@@ -95,6 +98,8 @@ public class SlidingWindow {
 
         this.runningConsensus = null;
         this.filteredDataConsensus = null;
+        
+        this.downsampleStrategy = downsampleStrategy;
     }
 
     /**
@@ -438,7 +443,7 @@ public class SlidingWindow {
      * Finalizes a variant region, any adjacent synthetic reads.
      *
      * @param start the first position in the variant region (inclusive)
-     * @param stop   the last position of the variant region (inclusive)
+     * @param stop  the last position of the variant region (inclusive)
      * @return all reads contained in the variant region plus any adjacent synthetic reads
      */
     @Requires("start <= stop")
@@ -446,9 +451,9 @@ public class SlidingWindow {
         List<GATKSAMRecord> syntheticReads = new LinkedList<GATKSAMRecord>();
         List<GATKSAMRecord> allReads = new LinkedList<GATKSAMRecord>();
 
-        syntheticReads.addAll(finalizeAndAdd(ConsensusType.BOTH));                                       // Finalize consensus if there is one to finalize before the Variant Region
+        syntheticReads.addAll(finalizeAndAdd(ConsensusType.BOTH));  // Finalize consensus if there is one to finalize before the Variant Region
 
-        int refStart = windowHeader.get(start).location;                                                 // Clipping operations are reference based, not read based
+        int refStart = windowHeader.get(start).location;            // Clipping operations are reference based, not read based
         int refStop = windowHeader.get(stop).location;
 
         for (GATKSAMRecord read : readsInWindow) {
@@ -460,42 +465,77 @@ public class SlidingWindow {
 
         List<GATKSAMRecord> result = (downsampleCoverage > 0) ? downsampleVariantRegion(allReads, refStart, refStop) : allReads;
         result.addAll(syntheticReads);
-        return result;                                                                           // finalized reads will be downsampled if necessary
+        return result;                                              // finalized reads will be downsampled if necessary
     }
 
 
     /**
      * Downsamples a variant region to the downsample coverage of the sliding window.
      *
+     * It will use the downsampling strategy defined by the SlidingWindow
+     *
+     * @param allReads the reads to select from (all reads that cover the window)
+     * @param refStart start of the window (inclusive)
+     * @param refStop  end of the window (inclusive)
+     * @return a list of reads selected by the downsampler to cover the window to at least the desired coverage
+     */
+    protected List<GATKSAMRecord> downsampleVariantRegion(final List<GATKSAMRecord> allReads, final int refStart, final int refStop) {
+        LinkedList<GATKSAMRecord> readList = new LinkedList<GATKSAMRecord>();
+
+        Pair<HashMap<Integer, HashSet<GATKSAMRecord>>, HashMap<GATKSAMRecord, Boolean[]>> mappings = ReadUtils.getBothReadToLociMappings(allReads, refStart, refStop);
+        int [] coverageDistribution = ReadUtils.getCoverageDistributionOfReads(allReads, refStart, refStop); // the full coverage distribution array for the variant region with all the reads
+        switch (downsampleStrategy) {
+            case Normal:
+                readList.addAll(downsampleVariantRegionNormally(mappings, refStart, coverageDistribution));   // todo -- maybe return the set to avoid going through the list every time?
+                break;
+            case Adaptive:
+                readList.addAll(downsampleVariantRegionAdaptively(mappings, refStart, coverageDistribution));   // todo -- maybe return the set to avoid going through the list every time?
+                break;
+            default:
+                throw new UserException.BadArgumentValue("dm" + downsampleStrategy.toString(), "Invalid value for downsample strategy");
+        }
+
+        return readList;
+    }
+
+    /**
+     * Downsampling using the Normally Distributed strategy (this function is called by downsampleVariantRegion)
+     *
      * This function will select reads at random from the given pool of reads starting from the middle loci
      * (likely where the variation is) guaranteeing the minimum coverage to be >= downsampleCoverage and
      * expands to the adjacent loci increasing their coverage as needed (by selecting more reads at random)
      * until all loci in the window are covered to the downsampleCoverage level.
      *
-     * @param allReads the reads to select from (all reads that cover the window)
-     * @param refStart start of the window (inclusive)
-     * @param refStop end of the window (inclusive)
-     * @return a list of reads selected by the downsampler to cover the window to at least the desired coverage
+     * @param mappings             the two maps from read=>locus and loci=>read
+     * @param refStart             the alignment position at the start of the array so we can use locusIndex appropriately
+     * @param coverageDistribution the distribution of coverage before downsampling
+     * @return all reads that pass the downsampling filtering process
      */
-    protected List<GATKSAMRecord> downsampleVariantRegion(final List<GATKSAMRecord> allReads, final int refStart, final int refStop) {
-        LinkedList<GATKSAMRecord> readList = new LinkedList<GATKSAMRecord>();
+    protected Set<GATKSAMRecord> downsampleVariantRegionNormally(final Pair<HashMap<Integer, HashSet<GATKSAMRecord>>, HashMap<GATKSAMRecord, Boolean[]>> mappings, int refStart, int [] coverageDistribution ) {
+        int [] downsampledCoverageDistribution = new int [coverageDistribution.length];              // the downsampled distribution array with only the selected reads
         HashSet<GATKSAMRecord> downsampledReads = new HashSet<GATKSAMRecord>();
-
-        Pair<HashMap<Integer, HashSet<GATKSAMRecord>>, HashMap<GATKSAMRecord, Boolean[]>> mappings = ReadUtils.getBothReadToLociMappings(allReads, refStart, refStop);
-        HashMap<Integer, HashSet<GATKSAMRecord>> locusToReadMap = mappings.getFirst();               // a map from every locus in the window to the reads that cover it
-        HashMap<GATKSAMRecord, Boolean[]> readToLocusMap = mappings.getSecond();                     // a map from every read in the window to the loci it covers
-        int [] fullCoverage = ReadUtils.getCoverageDistributionOfReads(allReads, refStart, refStop); // the full coverage distribution array for the variant region with all the reads
-        int [] downsampledCoverageDistribution = new int [fullCoverage.length];                      // the downsampled distribution array with only the selected reads
 
         int middle = downsampledCoverageDistribution.length / 2;                                     // start covering with randomly selected reads from the middle of the window
         for (int i=middle; i < downsampledCoverageDistribution.length; i++) {                        // cover the entire window forward and backward
-            downsampleLocus(i, refStart, locusToReadMap, readToLocusMap, downsampledCoverageDistribution, downsampledReads);
+            downsampleLocus(mappings, i, refStart, downsampleCoverage, downsampledCoverageDistribution, downsampledReads);
             if (middle - i >= 0)
-                downsampleLocus(middle - i, refStart, locusToReadMap, readToLocusMap, downsampledCoverageDistribution, downsampledReads);
+                downsampleLocus(mappings, middle - i, refStart, downsampleCoverage, downsampledCoverageDistribution, downsampledReads);
         }
-        readList.addAll(downsampledReads);                                                           // add the downsampled reads
+        return downsampledReads;
+    }
 
-        return readList;
+    protected Set<GATKSAMRecord> downsampleVariantRegionAdaptively(final Pair<HashMap<Integer, HashSet<GATKSAMRecord>>, HashMap<GATKSAMRecord, Boolean[]>> mappings, int refStart, int [] coverageDistribution ) {
+        int [] downsampledCoverageDistribution = new int [coverageDistribution.length];
+        HashSet<GATKSAMRecord> downsampledReads = new HashSet<GATKSAMRecord>();
+        
+        int minCoverage = MathUtils.arrayMin(coverageDistribution);    // find the base with the least coverage in the region
+        int transform = Math.max(minCoverage-downsampleCoverage, 0);   // define our transformation to be subtraction that takes the minimum coverage point and brings it to the downsampleCoverage level
+
+        for (int i=0; i < coverageDistribution.length; i++) {
+            int goalCoverage = coverageDistribution[i] - transform;    // find our goal coverage for this locus and downsample it
+            downsampleLocus(mappings, i, refStart, goalCoverage, downsampledCoverageDistribution, downsampledReads);
+        }
+        return downsampledReads;
     }
 
     /**
@@ -503,17 +543,19 @@ public class SlidingWindow {
      *
      * Note: This function WILL change (update) downsampledCoverageDistribution and downsampledReads accordingly.
      *
-     * @param lucusIndex the index of the loci in the array
-     * @param refStart the alignment position at the start of the array so we can use lucusIndex appropriately
-     * @param locusToReadMap a map that returns for a given loci all the reads that cover it
-     * @param readToLocusMap a map that returns for a given read all the loci that it covers
+     * @param mappings                        the two maps from read=>locus and loci=>read
+     * @param locusIndex                      the index of the loci in the array
+     * @param refStart                        the alignment position at the start of the array so we can use locusIndex appropriately
+     * @param coverageGoal                    the number of coverage we want to achieve for this site
      * @param downsampledCoverageDistribution the current coverage distribution with the selected reads so far -- will be updated in this function
-     * @param downsampledReads the list of reads selected by the downsampler so far -- will be updated in this function
+     * @param downsampledReads                the list of reads selected by the downsampler so far -- will be updated in this function
      */
-    protected void downsampleLocus(final int lucusIndex, final int refStart, final HashMap<Integer, HashSet<GATKSAMRecord>> locusToReadMap, final HashMap<GATKSAMRecord, Boolean[]> readToLocusMap, int[] downsampledCoverageDistribution, HashSet<GATKSAMRecord> downsampledReads) {
-        HashSet readsOnThisLocus = locusToReadMap.get(refStart+lucusIndex);                                       // Get the reads that are represented in this loci
+    protected void downsampleLocus(final Pair<HashMap<Integer, HashSet<GATKSAMRecord>>, HashMap<GATKSAMRecord, Boolean[]>> mappings, final int locusIndex, final int refStart, int coverageGoal, int[] downsampledCoverageDistribution, HashSet<GATKSAMRecord> downsampledReads) {
+        HashMap<Integer, HashSet<GATKSAMRecord>> locusToReadMap = mappings.getFirst();                            // a map from every locus in the window to the reads that cover it
+        HashMap<GATKSAMRecord, Boolean[]> readToLocusMap = mappings.getSecond();                                  // a map from every read in the window to the loci it covers
+        HashSet readsOnThisLocus = locusToReadMap.get(refStart+locusIndex);                                       // Get the reads that are represented in this loci
         readsOnThisLocus.removeAll(downsampledReads);                                                             // Remove all reads that have already been chosen by previous loci
-        int numberOfReadsToAdd = downsampleCoverage - downsampledCoverageDistribution[lucusIndex];                // we need to add this many reads to achieve the minimum downsampleCoverage
+        int numberOfReadsToAdd = coverageGoal - downsampledCoverageDistribution[locusIndex];                      // we need to add this many reads to achieve the minimum downsampleCoverage
         if (numberOfReadsToAdd > 0) {                                                                             // no need to add reads if we're already covered or over covered.
             GATKSAMRecord [] readArray = convertArray(readsOnThisLocus.toArray());                                // convert to array so we can get a random subset
             GATKSAMRecord [] selectedReads = convertArray(MathUtils.randomSubset(readArray, numberOfReadsToAdd)); // get a random subset of the reads with the exact (or less if not available) number of reads we need to hit the downsample coverage

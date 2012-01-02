@@ -5,6 +5,7 @@ import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import io.Source._
 import org.broadinstitute.sting.utils.exceptions.UserException
+import org.broadinstitute.sting.gatk.walkers.compression.reducereads.ReduceReadsWalker.DownsampleStrategy
 
 /**
  * Created by IntelliJ IDEA.
@@ -28,6 +29,7 @@ class RRead extends QScript {
   @Argument(shortName = "mindel",   required = false, fullName = "minimum_del_proportion_to_trigger_variant", doc = "") protected var minIndelProportionToTriggerVariant: Option[Double] = None
   @Argument(shortName = "minqual",  required = false, fullName = "minimum_base_quality_to_consider", doc = "") protected var minBaseQual: Option[Int] = None
   @Argument(shortName = "ds",       required = false, fullName = "downsample_coverage", doc = "") protected var downsampleCoverage: Option[Int] = None
+  @Argument(shortName = "dm",       required = false, fullName = "downsample_strategy", doc = "") protected var downsampleStrategy: DownsampleStrategy = null
   @Argument(shortName = "dl",       required = false, fullName = "", doc = "") protected var debugLevel: Option[Int] = None
   @Argument(shortName = "dr",       required = false, fullName = "", doc = "") protected var debugRead: String = ""
   @Argument(shortName = "e",        required = false, fullName = "expand_intervals", doc = "Expand each target in input intervals by the specified number of bases. By default set to 50 bases.") protected var expandIntervals: Int = 0
@@ -84,6 +86,7 @@ class RRead extends QScript {
       if (debugLevel != None) rr.debuglevel = Some(debugLevel)
       if (!debugRead.isEmpty) rr.debugread = debugRead
       if (downsampleCoverage != None) rr.downsample_coverage = Some(downsampleCoverage)
+      if (downsampleStrategy != null) rr.downsamplestrategy = downsampleStrategy
 
       add(rr)
     }
