@@ -27,7 +27,7 @@ class GATKPerformanceOverTime extends QScript {
   val nIterationsForSingleTestsPerIteration: Int = 3;
 
   @Argument(shortName = "ntTest", doc="For each value provided we will use -nt VALUE in the multi-threaded tests", required=false)
-  val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8, 10, 12, 16);
+  val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8, 10, 12);
 
   @Argument(shortName = "steps", doc="steps", required=false)
   val steps: Int = 10;
@@ -123,7 +123,8 @@ class GATKPerformanceOverTime extends QScript {
             add(new CountCov(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
             add(new Recal(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
 
-            addMultiThreadedTest(() => new CountCov(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
+            if ( subiteration == 0 )
+              addMultiThreadedTest(() => new CountCov(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
           }
 
           { // Standard VCF tools
@@ -155,7 +156,8 @@ class GATKPerformanceOverTime extends QScript {
             }
 
             add(makeVE())
-            addMultiThreadedTest(makeVE)
+            if ( subiteration == 0 )
+              addMultiThreadedTest(makeVE)
             //            }
           }
         }
