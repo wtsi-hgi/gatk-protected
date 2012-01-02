@@ -4,6 +4,7 @@ import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import java.lang.Math
 import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
+import org.broadinstitute.sting.utils.PathUtils
 
 class GATKPerformanceOverTime extends QScript {
   val STD_RESULTS_DIR = "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime"
@@ -23,10 +24,10 @@ class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "iterations", doc="it", required=false)
   val iterations: Int = 3;
 
-  val nIterationsForSingleTestsPerIteration: Int = 2;
+  val nIterationsForSingleTestsPerIteration: Int = 3;
 
-  @Argument(shortName = "maxThreads", doc="maxThreads", required=false)
-  val maxThreads: Int = 12;
+  @Argument(shortName = "ntTest", doc="For each value provided we will use -nt VALUE in the multi-threaded tests", required=false)
+  val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8, 10, 12, 16);
 
   @Argument(shortName = "steps", doc="steps", required=false)
   val steps: Int = 10;
@@ -51,11 +52,11 @@ class GATKPerformanceOverTime extends QScript {
 
   val assessments = List(WGSAssessment, WExAssessment)
 
-  val GATK12 = "/humgen/gsa-hpprojects/GATK/bin/GenomeAnalysisTK-1.2-65-ge4a583a/GenomeAnalysisTK.jar"
-  val GATK13 = "/humgen/gsa-hpprojects/GATK/bin/GenomeAnalysisTK-1.3-23-g13905c0/GenomeAnalysisTK.jar"
-  val GATKs = Map(
-    "v1.2" -> GATK12,
-    "v1.3" -> GATK13,
+  val GATK_RELEASE_DIR = new File("/humgen/gsa-hpprojects/GATK/bin/")
+  val GATKs: Map[String, File] = Map(
+    "v1.2" -> findMostRecentGATKVersion("1.2"),
+    "v1.3" -> findMostRecentGATKVersion("1.3"),
+    "v1.4" -> findMostRecentGATKVersion("1.4"),
     "v1.cur" -> myJarFile) // TODO -- how do I get this value?
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
@@ -108,53 +109,54 @@ class GATKPerformanceOverTime extends QScript {
 
       for ( subiteration <- 0 until nIterationsForSingleTestsPerIteration ) {
         for ( (gatkName, gatkJar) <- GATKs ) {
-          if ( gatkName != "1.2" ) { // todo generalize
-
-            { // BQSR
-              trait VersionOverrides extends CommandLineGATK {
-                this.jarFile = gatkJar
-                this.dcov = 50
-                this.intervalsString :+= (if ( TEST ) "20:10,000,000-10,001,000" else "20:10,000,000-20,000,000")
-                this.configureJobReport(Map( "iteration" ->
-                  (subiteration + (iteration * nIterationsForSingleTestsPerIteration)).toString,
-                  "gatk" -> gatkName))
-              }
-
-              add(new CountCov(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
-              add(new Recal(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
-
-              addMultiThreadedTest(() => new CountCov(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
+          //          if ( gatkName != "1.2" ) { // todo generalize
+          { // BQSR
+            trait VersionOverrides extends CommandLineGATK {
+              this.jarFile = gatkJar
+              this.dcov = 50
+              this.intervalsString :+= (if ( TEST ) "20:10,000,000-10,001,000" else "20:10,000,000-20,000,000")
+              this.configureJobReport(Map( "iteration" ->
+                (subiteration + (iteration * nIterationsForSingleTestsPerIteration)).toString,
+                "gatk" -> gatkName))
             }
 
-            { // Standard VCF tools
-              trait VersionOverrides extends CommandLineGATK {
-                this.jarFile = gatkJar
-                this.intervalsString = (if ( TEST ) List("1:10,000,000-10,010,000") else List("1", "2", "3", "4", "5"))
-                this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
-              }
+            add(new CountCov(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
+            add(new Recal(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
 
-              val CV = new CombineVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
-              CV.variant = COMBINE_FILES
-              CV.out = new File("/dev/null")
-              add(CV)
+            addMultiThreadedTest(() => new CountCov(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
+          }
 
-              val SV = new SelectVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
-              SV.variant = makeResource("chunk_1.vcf")
-              SV.sample_name = List("HG00096") // IMPORTANT THAT THIS SAMPLE BE IN CHUNK ONE
-              SV.out = new File("/dev/null")
-              add(SV)
-
-              def makeVE(): CommandLineGATK = {
-                val VE = new VariantEval with UNIVERSAL_GATK_ARGS with VersionOverrides
-                VE.eval :+= makeResource("chunk_1.vcf")
-                VE.out = new File("/dev/null")
-                VE.comp :+= new TaggedFile(makeResource(dbSNP_FILENAME), "dbSNP")
-                VE
-              }
-
-              add(makeVE())
-              addMultiThreadedTest(makeVE)
+          { // Standard VCF tools
+            trait VersionOverrides extends CommandLineGATK {
+              this.jarFile = gatkJar
+              this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
             }
+
+            val CV = new CombineVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
+            CV.variant = COMBINE_FILES
+            CV.intervalsString = (if ( TEST ) List("1:10,000,000-10,010,000") else List("1", "2", "3", "4", "5"))
+            CV.out = new File("/dev/null")
+            add(CV)
+
+            val SV = new SelectVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
+            SV.variant = makeResource("chunk_1.vcf")
+            SV.sample_name = List("HG00096") // IMPORTANT THAT THIS SAMPLE BE IN CHUNK ONE
+            if ( TEST ) SV.intervalsString = List("1:10,000,000-10,010,000")
+            SV.out = new File("/dev/null")
+            add(SV)
+
+            def makeVE(): CommandLineGATK = {
+              val VE = new VariantEval with UNIVERSAL_GATK_ARGS with VersionOverrides
+              VE.eval :+= makeResource("chunk_1.vcf")
+              if ( TEST ) VE.intervalsString = List("1:10,000,000-10,010,000")
+              VE.out = new File("/dev/null")
+              VE.comp :+= new TaggedFile(makeResource(dbSNP_FILENAME), "dbSNP")
+              VE
+            }
+
+            add(makeVE())
+            addMultiThreadedTest(makeVE)
+            //            }
           }
         }
       }
@@ -162,8 +164,8 @@ class GATKPerformanceOverTime extends QScript {
   }
 
   def addMultiThreadedTest(makeCommand: () => CommandLineGATK) {
-    if ( maxThreads > 1 ) {
-      for ( nt <- Range(1,maxThreads+1) ) {
+    if ( ntTests.size > 1 ) {
+      for ( nt <- ntTests ) {
         val cmd = makeCommand()
         cmd.nt = nt
         cmd.addJobReportBinding("nt", nt)
@@ -226,5 +228,15 @@ class GATKPerformanceOverTime extends QScript {
       elements
     else
       elements.head :: dedupe(for (x <- elements.tail if x != elements.head) yield x)
+  }
+
+  /**
+   * Walk over the GATK released directories to find the most recent JAR files corresponding
+   * to the version prefix.  For example, providing input "GenomeAnalysisTK-1.2" will
+   * return the full path to the most recent GenomeAnalysisTK.jar in the GATK_RELEASE_DIR
+   * in directories that match GATK_RELEASE_DIR/GenomeAnalysisTK-1.2*
+   */
+  def findMostRecentGATKVersion(version: String): File = {
+    PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, version)
   }
 }
