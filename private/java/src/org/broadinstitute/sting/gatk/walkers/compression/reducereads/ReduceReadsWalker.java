@@ -222,6 +222,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      */
     @Override
     public LinkedList<GATKSAMRecord> map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
+        LinkedList<GATKSAMRecord> mappedReads;
         totalReads++;
         if (!debugRead.isEmpty() && read.getReadName().contains(debugRead))
             System.out.println("Found debug read!");
@@ -237,13 +238,17 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
             read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);     // Clip low quality tails
         if (!DONT_CLIP_SOFTCLIPPED_BASES)
             read = ReadClipper.hardClipSoftClippedBases(read);                // Hard clip everything that is soft clipped
-
-        LinkedList<GATKSAMRecord> mappedReads = hardClipReadToInterval(read); // Hard clip the remainder of the read to the desired interval
-
-        if (debugLevel == 1) {
+        if (!isWholeGenome()) 
+            mappedReads = hardClipReadToInterval(read);                       // Hard clip the remainder of the read to the desired interval
+        else {
+            mappedReads = new LinkedList<GATKSAMRecord>();
+            if (!read.isEmpty())
+                mappedReads.add(read);
+        }
+        
+        if (debugLevel == 1) 
             for (GATKSAMRecord mappedRead : mappedReads)
                 System.out.printf("MAPPED: %s %d %d\n", mappedRead.getCigar(), mappedRead.getAlignmentStart(), mappedRead.getAlignmentEnd());
-        }
 
         return mappedReads;
 
@@ -332,7 +337,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         boolean overlap;                           // keeps track of the interval that overlapped the original read
         boolean doneClipping;                      // triggers an early exit if we are done clipping this read
 
-        if (intervalList.isEmpty())
+        if (isWholeGenome())
             clippedReads.add(read);                // if we don't have intervals (wgs) the read goes in unchanged
 
         for (GenomeLoc interval : intervalList) {
@@ -433,7 +438,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
             if (clippedRead != null) {
                 originalRead = false;
 
-                if (clippedRead.getReadLength() > 0)
+                if (!clippedRead.isEmpty())
                     clippedReads.add(clippedRead); // if the read overlaps the interval entirely within a deletion, it will be entirely clipped off
             }
 
