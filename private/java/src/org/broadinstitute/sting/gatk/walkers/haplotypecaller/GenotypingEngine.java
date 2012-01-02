@@ -50,6 +50,8 @@ public class GenotypingEngine {
 
     private final boolean DEBUG;
 
+    private final int MAX_ALTERNATE_ALLELES;
+
     private final static List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
 
     final HashMap<Integer, ArrayList<Event>> allEventDictionary;
@@ -61,12 +63,13 @@ public class GenotypingEngine {
         public int index;
     }
 
-    public GenotypingEngine( final boolean DEBUG, final double gop, final double gcp ) {
+    public GenotypingEngine( final boolean DEBUG, final double gop, final double gcp, final int MAX_ALTERNATE_ALLELES ) {
         this.DEBUG = DEBUG;
         SW_GAP = -1.0 * gop;
         SW_GAP_EXTEND = -1.0 * gcp;
         noCall.add(Allele.NO_CALL);
         allEventDictionary = new HashMap<Integer, ArrayList<Event>>();
+        this.MAX_ALTERNATE_ALLELES = MAX_ALTERNATE_ALLELES;
     }
 
     public ArrayList<VariantContext> alignAndAssignGenotypeLikelihoods( final GenomeLocParser genomeLocParser, final ArrayList<Haplotype> allHaplotypes, final ArrayList<Haplotype> bestHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final HashMap<String,Double[][]> haplotypeLikelihoodMatrixMap ) {
@@ -96,48 +99,49 @@ public class GenotypingEngine {
             // Also add reference events to the dictionary for every haplotype that doesn't have any event to make the for loop below very easy to write
             final VariantContext mergedVC = VariantContextUtils.simpleMerge(genomeLocParser, vcsToGenotype, null, VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED, VariantContextUtils.GenotypeMergeType.UNSORTED, false, false, null, false, false);
             correctAndExpandEventListWithRefEvents(allEventList, mergedVC, haplotypeLikelihoodMatrixMap.values().iterator().next()[0].length);
-            vcsToGenotype.clear();
-            vcsToGenotype.add( mergedVC );
 
-            for( final VariantContext vcToGenotype : vcsToGenotype ) {
-                if( DEBUG ) { System.out.println("Genotyping event at " + key + " with alleles: " + vcToGenotype.getAlleles()); }
-                final GenotypesContext genotypes = GenotypesContext.create(haplotypeLikelihoodMatrixMap.keySet().size());
-                // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample
-                for( final String sample : haplotypeLikelihoodMatrixMap.keySet() ) {
-                    final double[] genotypeLikelihoods = new double[(vcToGenotype.getAlleles().size() * (vcToGenotype.getAlleles().size()+1)) / 2];
-                    final Double[][] haplotypeLikelihoodMatrix = haplotypeLikelihoodMatrixMap.get( sample );
-                    int glIndex = 0;
-                    for( int iii = 0; iii < vcToGenotype.getAlleles().size(); iii++ ) {
-                        for( int jjj = 0; jjj <= iii; jjj++ ) {
-                            double likelihood = Double.NEGATIVE_INFINITY;
-                            final Pair<Allele, Allele> allelePair1 = new Pair<Allele, Allele>(vcToGenotype.getReference(), vcToGenotype.getAlleles().get(jjj));
-                            final Pair<Allele, Allele> allelePair2 = new Pair<Allele, Allele>(vcToGenotype.getReference(), vcToGenotype.getAlleles().get(iii));
+            if( DEBUG ) { System.out.println("Genotyping event at " + key + " with alleles: " + mergedVC.getAlleles()); }
 
-                            // Loop through all haplotype pairs and find the max likelihood that has this given combination of events on the pair of haplotypes
-                            for( final Event e1 : allEventList ) {
-                                if( allelePair1.equals( new Pair<Allele, Allele>(e1.refAllele, e1.altAllele) ) ) {
-                                    for( final Event e2 : allEventList ) {
-                                        if( allelePair2.equals( new Pair<Allele, Allele>(e2.refAllele, e2.altAllele) ) ) {
-                                            likelihood = Math.max( likelihood, haplotypeLikelihoodMatrix[e1.index][e2.index] );
-                                        }
+            if( mergedVC.getAlternateAlleles().size() > MAX_ALTERNATE_ALLELES ) {
+                 if( DEBUG ) { System.out.println("\tWARN: too many alternate alleles. Skipping site."); }
+                 continue;
+            }
+
+            final GenotypesContext genotypes = GenotypesContext.create(haplotypeLikelihoodMatrixMap.keySet().size());
+            // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample
+            for( final String sample : haplotypeLikelihoodMatrixMap.keySet() ) {
+                final double[] genotypeLikelihoods = new double[(mergedVC.getAlleles().size() * (mergedVC.getAlleles().size()+1)) / 2];
+                final Double[][] haplotypeLikelihoodMatrix = haplotypeLikelihoodMatrixMap.get( sample );
+                int glIndex = 0;
+                for( int iii = 0; iii < mergedVC.getAlleles().size(); iii++ ) {
+                    for( int jjj = 0; jjj <= iii; jjj++ ) {
+                        double likelihood = Double.NEGATIVE_INFINITY;
+                        final Pair<Allele, Allele> allelePair1 = new Pair<Allele, Allele>(mergedVC.getReference(), mergedVC.getAlleles().get(jjj));
+                        final Pair<Allele, Allele> allelePair2 = new Pair<Allele, Allele>(mergedVC.getReference(), mergedVC.getAlleles().get(iii));
+
+                        // Loop through all haplotype pairs and find the max likelihood that has this given combination of events on the pair of haplotypes
+                        for( final Event e1 : allEventList ) {
+                            if( allelePair1.equals( new Pair<Allele, Allele>(e1.refAllele, e1.altAllele) ) ) {
+                                for( final Event e2 : allEventList ) {
+                                    if( allelePair2.equals( new Pair<Allele, Allele>(e2.refAllele, e2.altAllele) ) ) {
+                                        likelihood = Math.max( likelihood, haplotypeLikelihoodMatrix[e1.index][e2.index] );
                                     }
                                 }
                             }
-
-                            if( Double.isInfinite(likelihood) ) {
-                                throw new ReviewedStingException("Infinite likelihood detected. Maybe the correct event wasn't found in the event dictionary.");
-                            }
-
-                            genotypeLikelihoods[glIndex++] = likelihood;
-                            if( DEBUG ) { System.out.println(iii + ", " + jjj + ": " + likelihood); }
                         }
+
+                        if( Double.isInfinite(likelihood) ) {
+                            throw new ReviewedStingException("Infinite likelihood detected. Maybe the correct event wasn't found in the event dictionary.");
+                        }
+
+                        genotypeLikelihoods[glIndex++] = likelihood;
                     }
-                    final HashMap<String, Object> attributes = new HashMap<String, Object>();
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((genotypeLikelihoods)));
-                    genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
                 }
-                returnCallContexts.add( new VariantContextBuilder(vcToGenotype).genotypes(genotypes).make() );
+                final HashMap<String, Object> attributes = new HashMap<String, Object>();
+                attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((genotypeLikelihoods)));
+                genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
             }
+            returnCallContexts.add( new VariantContextBuilder(mergedVC).genotypes(genotypes).make() );
         }
 
         return returnCallContexts;

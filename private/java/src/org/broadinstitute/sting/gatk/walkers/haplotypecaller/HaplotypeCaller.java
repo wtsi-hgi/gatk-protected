@@ -191,7 +191,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
         likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG, true, false, kmerQualityTables, contextSize);
-        genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
+        genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW, 4 );
 
         GenomeLocSortedSet intervalsToAssemble = getToolkit().getIntervals();
         if ( intervalsToAssemble == null || intervalsToAssemble.isEmpty() )
@@ -314,7 +314,11 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         for( final String sample : readListMap.keySet() ) {
             if( DEBUG ) { System.out.println("Evaluating sample " + sample + " with " + readListMap.get( sample ).size() + " passing reads"); }
             likelihoodCalculationEngine.computeLikelihoods( haplotypes, readListMap.get( sample ) );
-            bestTwoHaplotypesPerSample.addAll( likelihoodCalculationEngine.chooseBestHaplotypes(haplotypes) );
+            for( final Haplotype bestHaplotype : likelihoodCalculationEngine.chooseBestHaplotypes(haplotypes) ) {
+                if( !bestTwoHaplotypesPerSample.contains( bestHaplotype ) ) {
+                    bestTwoHaplotypesPerSample.add( bestHaplotype );
+                }
+            }
             haplotypeLikehoodMatrixMap.put( sample, likelihoodCalculationEngine.haplotypeLikehoodMatrix );
         }
 
