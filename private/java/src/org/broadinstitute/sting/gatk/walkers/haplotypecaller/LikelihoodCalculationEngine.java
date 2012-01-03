@@ -280,8 +280,8 @@ public class LikelihoodCalculationEngine {
             }
         }
 
-        if( !bestHaplotypesList.contains(haplotypes.get(hap1)) ) { bestHaplotypesList.add(haplotypes.get(hap1)); }
-        if( !bestHaplotypesList.contains(haplotypes.get(hap2)) ) { bestHaplotypesList.add(haplotypes.get(hap2)); }
+        bestHaplotypesList.add(haplotypes.get(hap1));
+        if( hap1 != hap2 ) { bestHaplotypesList.add(haplotypes.get(hap2)); }
 
         return bestHaplotypesList;
     }
