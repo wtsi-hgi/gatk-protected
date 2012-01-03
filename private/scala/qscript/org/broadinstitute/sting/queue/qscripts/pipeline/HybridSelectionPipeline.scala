@@ -61,7 +61,7 @@ class HybridSelectionPipeline extends QScript {
   var expandIntervals = 50
 
   def script() {
-    val exomeIntervals = "/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list"
+    val exomeIntervals = new File("/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
     val resources = "/humgen/gsa-pipeline/resources/b37/v3/"
     val k1gExomesBam = resources + "1000_Genomes_Whole_Exome_50_Samples.bam"
     val k1gExomesSamples = resources + "1000_Genomes_Whole_Exome_50_Samples.samples"
@@ -98,9 +98,9 @@ class HybridSelectionPipeline extends QScript {
       intervals = picardIntervals.getTargets
       bamList = writeBamList.listFile
 
-      if (intervals == exomeIntervals) {
+      if (intervals == exomeIntervals && writeBamList.inputFiles.size < 50) {
         // Allow the HSPTest to explicitly use hard filters. Adding 50 other 1KG exomes increases test runtime.
-        useK1gExomes = (writeBamList.inputFiles.size < 50 && variantFilterType == FILTER_VQSR)
+        useK1gExomes = (variantFilterType == null || variantFilterType == FILTER_VQSR)
       }
     }
 
