@@ -111,10 +111,6 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
         }
         //logger.debug("Tracker Size "+Integer.toString(metaDataTracker.getAllCoveringRods().size())+" Hyp: "+hypotheses.size());
 
-        if ( read.getReadName().equals("ILSS-SRR:4") ) {
-            logger.debug("here"); // for tracing
-        }
-
         if ( hypotheses.size() == 0 ) {
             return null;
         }
@@ -325,9 +321,9 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                 //logger.info(gl.getKey() + Arrays.deepToString(ArrayUtils.toObject(gl.getValue())));
                 HashMap<String, Object> attributes = new HashMap<String, Object>();
                 if ( rawLiks.containsKey(s) ) {
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, rawLiks.get(s));
+                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(MathUtils.normalizeFromLog10(rawLiks.get(s), false, true)));
                 } else {
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,new double[3]);
+                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,VCFConstants.MISSING_VALUE_v4);
                 }
                 GLs.add(new Genotype(s, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
             }
@@ -345,10 +341,13 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             ExactAFCalculationModel.linearExactMultiAllelic(GLs,1,prior,result,true);
             VariantContextBuilder vcb = new VariantContextBuilder("EJG",refPos.getContig(),refPos.getStop(),refPos.getStop(),Arrays.asList(ref,alt));
             vcb.genotypes(GLs);
-            vcb.attributes(attributes);
             vcb.referenceBaseForIndel(paddingBase);
+            List<Allele> alleles = new ArrayList<Allele>(2);
+            alleles.add(ref);
+            alleles.add(Allele.create(hypothesis.toString()));
+            vcb.alleles(alleles);
             VariantContext asCon = vcb.make();
-            GenotypesContext genAssigned = UnifiedGenotyperEngine.assignGenotypes(asCon, new boolean[]{true,true});
+            GenotypesContext genAssigned = UnifiedGenotyperEngine.assignGenotypes(asCon, new boolean[]{true});
             vcb.genotypes(genAssigned);
             double[] normPost= MathUtils.normalizeFromLog10(result.log10AlleleFrequencyLikelihoods[0],true);
             logger.debug(normPost[0]);
@@ -359,6 +358,9 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                 log10err = normPost[0];
             }
             vcb.log10PError(log10err);
+            attributes.put("MLEAC",MathUtils.maxElementIndex(result.log10AlleleFrequencyLikelihoods[0]));
+            VariantContextUtils.calculateChromosomeCounts(vcb.make(),attributes,false);
+            vcb.attributes(attributes);
             vcfWriter.add(vcb.make());
         }
 
@@ -443,6 +445,12 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             for ( JunctionHypothesis hypothesis : context.hypotheses ) {
                 if ( ! likelihoods.containsKey(hypothesis) ) {
                     likelihoods.put(hypothesis,new HashMap<String,double[]>());
+                }
+                // early return if the read is off the edge of the hypothesized sequence
+                boolean offEdge = context.read.getUnclippedStart() < hypothesis.getLocation().getStart() ||
+                        context.read.getUnclippedEnd() > hypothesis.getLocation().getStop();
+                if ( offEdge ) {
+                    continue;
                 }
                 Pair<String,double[]> lik = ilglcm.getLikelihoods(hypothesis,context.read);
                 if ( ! likelihoods.get(hypothesis).containsKey(lik.first) ) {
