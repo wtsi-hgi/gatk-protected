@@ -54,6 +54,8 @@ public class BaitRedesignWalker extends RodWalker<Integer,Integer> {
         File targetReferenceFile = getToolkit().getArguments().referenceFile;
         BWTFiles bwtFiles = new BWTFiles(targetReferenceFile.getAbsolutePath());
         BWAConfiguration configuration = new BWAConfiguration();
+        configuration.maximumEditDistance = 0.30f;
+        configuration.mismatchPenalty = 1;
         aligner = new BWACAligner(bwtFiles,configuration);
         header = new SAMFileHeader();
         SAMSequenceDictionary referenceDictionary =
@@ -75,6 +77,9 @@ public class BaitRedesignWalker extends RodWalker<Integer,Integer> {
         } else {
             // exactly one bait, as per contract
             TableFeature bait = baitFeatures.get(0);
+            if ( ref.getLocus().getStart() != bait.getLocation().getStart() ) {
+                return 0;
+            }
             byte[] baitBases = Arrays.copyOfRange(ref.getBases(), 0, bait.getEnd() - bait.getStart());
             byte[] optimalBases = BaitRedesignUtils.getOptimalBases(aligner,baitBases,bait.getLocation());
             sampleAndPrint(baitBases, optimalBases,bait.getLocation());
@@ -84,7 +89,10 @@ public class BaitRedesignWalker extends RodWalker<Integer,Integer> {
 
     private void sampleAndPrint(byte[] initial, byte[] optimal,GenomeLoc pos) {
         // todo -- implement sampling along the path from intial -> optimal and tabulating metadata for output
-        baitSeq.printf("%s:%d-%d\t%s%n",pos.getContig(),pos.getStart(),pos.getStop(),new String(optimal));
+        baitSeq.printf("%s:%d-%d\t%.2f\t%.2f\t%.2f\t%s%n",pos.getContig(),pos.getStart(),pos.getStop(),
+                BaitRedesignUtils.calculateGC(initial),
+                BaitRedesignUtils.calculateGC(optimal),
+                BaitRedesignUtils.editDist(initial,optimal),new String(optimal));
     }
 
     public Integer reduce(Integer map, Integer prevReduce) {
