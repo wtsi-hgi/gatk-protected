@@ -1,7 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import org.broadinstitute.sting.WalkerTest;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -21,7 +20,9 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
 
     @Test
     public void testHaplotypeCallerMultiSample() {
-        HCTest(CEUTRIO_BAM, "-rf UnmappedRead", "0884d3d07942d65c02d58044d01ec437");
+
+        HCTest(CEUTRIO_BAM, "-rf UnmappedRead", "7fdfdad4feffd27a00f076e13a32408c");
+//        HCTest(CEUTRIO_BAM, "-rf UnmappedRead", "0884d3d07942d65c02d58044d01ec437");
     }
 
     @Test

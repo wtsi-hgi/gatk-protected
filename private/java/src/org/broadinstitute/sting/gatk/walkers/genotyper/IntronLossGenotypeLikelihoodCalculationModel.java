@@ -22,7 +22,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
     public static final int PLOIDY = 2;
     public static final int ALIGNMENT_QUAL_CAP = 500;
     private static final double NEGLOG2 = -Math.log10(2);
-    private static final double NEGLOG4 = 2*NEGLOG2;
+    private static final double NEGLOG3 = -Math.log10(3);
     private static final double GARBAGE_COLLECT_THRESHOLD = -20; // Q200
     private GenomeLocParser genomeLocParser;
     private Map<String,byte[]> insertSizeQualHistograms;
@@ -50,8 +50,8 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         // todo -- there is an unaccounted-for alignment bias
         // 0 -- AC0 -- zero retrocopies
         likelihoods[0] += pH0Lik;
-        // 1 -- AC1 -- 1 of 4 reads should be retrocopy
-        likelihoods[1] += MathUtils.log10sumLog10(new double[]{ NEGLOG4 + pH1Lik,NEGLOG4 + Math.log10(3)+pH0Lik});
+        // 1 -- AC1 -- 1 of 3 reads should be retrocopy
+        likelihoods[1] += MathUtils.log10sumLog10(new double[]{ NEGLOG3 + pH1Lik,NEGLOG3 - NEGLOG2 +pH0Lik});
         // 2 -- AC2 -- 2 of 4 reads should be retrocopy
         likelihoods[2] += MathUtils.log10sumLog10(new double[]{NEGLOG2 + pH1Lik,NEGLOG2 +pH0Lik});
     }
@@ -122,7 +122,12 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
             // it would be worth adding in a check for many reads being dropped and recommending that the user
             // run the algorithm with fullSmithWaterman turned on.
 
-            int offset = hypothesis.getBaseOffset(readLoc.getStartLocation());
+            int offset = hypothesis.getBaseOffset(readLoc);
+            if ( offset < 0 || offset > hypothesis.size() ) {
+                // this occurs if the first exon is <60bp, the read aligned into the intron with
+                // small overlap to second exon, so the offset is off the hypothesis
+                return -30.0;
+            }
             // trailing or starting soft-clips want to become Ms
             Collection<CigarElement> oldElements = read.getCigar().getCigarElements();
             List<CigarElement> newElements = new ArrayList<CigarElement>(oldElements.size());
@@ -155,7 +160,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
             if ( elem.getOperator().equals(CigarOperator.M) ) {
                 for ( int ct = elem.getLength(); ct > 0; ct-- ) {
                     int pos = b + offset;
-                    if (BaseUtils.basesAreEqual(readBases[b],exonBases[pos])) {
+                    if (pos >= exonBases.length || BaseUtils.basesAreEqual(readBases[b],exonBases[pos])) {
                         // bases match, don't do anything
                     } else {
                         // read clipped at Q15, with e/3 this goes to Q12
@@ -180,8 +185,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
                 offset -= elem.getLength();
                 phredBasesAreExonBases += 10*elem.getLength();
             } else if ( elem.getOperator().equals(CigarOperator.H) ) {
-                b += elem.getLength();
-                offset -= elem.getLength();
+               // offset -= elem.getLength();
             } else {
                 throw new StingException("Unsupported operator: "+elem.getOperator().toString());
             }

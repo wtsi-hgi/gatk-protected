@@ -5,12 +5,13 @@ import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.utils.exceptions.UserException
 
 class CompareCalls extends QScript {
-  @Argument(shortName = "rb", doc = "Reduced BAM / BAM list", required=true) val reducedBAM: File = null
-  @Argument(shortName = "fb", doc = "Full BAM / BAM list", required=true) val fullBAM: File = null
-  @Argument(shortName = "g", doc = "Goldstandard callset from the Full BAMs", required=false) val truthCallset: File = null
-  @Argument(shortName = "r", doc = "Reference sequence", required=false) val referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
-  @Argument(shortName = "i", doc = "Intervals file", required=false) val intervalsFile: File = new File("/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
-  @Argument(shortName = "s", doc = "scatterCount", required=false) val scatterCount: Int = 400
+  @Argument(shortName = "rb",doc = "Reduced BAM / BAM list", required=true) var reducedBAM: File = null
+  @Argument(shortName = "fb",doc = "Full BAM / BAM list", required=true)    var fullBAM: File = null
+  @Argument(shortName = "g", doc = "Goldstandard callset", required=false)  var truthCallset: File = null
+  @Argument(shortName = "r", doc = "Reference sequence", required=false)    var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
+  @Argument(shortName = "i", doc = "Intervals file", required=false)        var intervalsFile: File = new File("/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
+  @Argument(shortName = "s", doc = "scatterCount", required=false)          var scatterCount: Int = 400
+  @Argument(shortName = "ms",doc = "multi-sample", required=false)          var isMultiSample: Boolean = false;
 
 
   val hapmap = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/HapMap/3.3/sites_r27_nr.b37_fwd.vcf"
@@ -67,7 +68,9 @@ class CompareCalls extends QScript {
     vqsr.resource :+= new TaggedFile( training_1000G, "training=true,prior=10.0" )
     vqsr.resource :+= new TaggedFile( dbsnp, "known=true,prior=2.0" )
     vqsr.resource :+= new TaggedFile( projectConsensus_1000G, "prior=8.0" )
-    vqsr.use_annotation ++= List("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "MQ", "FS", "InbreedingCoeff")
+    vqsr.use_annotation ++= List("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "MQ", "FS")
+    if (isMultiSample)
+      vqsr.use_annotation :+= "InbreedingCoeff"
     vqsr.resource :+= new TaggedFile( badSites_1000G, "bad=true,prior=2.0")
     vqsr.mG = 6
     vqsr.tranches_file = tranchesFile

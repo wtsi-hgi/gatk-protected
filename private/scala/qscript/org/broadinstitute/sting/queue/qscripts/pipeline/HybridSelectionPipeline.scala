@@ -61,7 +61,7 @@ class HybridSelectionPipeline extends QScript {
   var expandIntervals = 50
 
   def script() {
-    val exomeIntervals = "/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list"
+    val exomeIntervals = new File("/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
     val resources = "/humgen/gsa-pipeline/resources/b37/v3/"
     val k1gExomesBam = resources + "1000_Genomes_Whole_Exome_50_Samples.bam"
     val k1gExomesSamples = resources + "1000_Genomes_Whole_Exome_50_Samples.samples"
@@ -98,9 +98,9 @@ class HybridSelectionPipeline extends QScript {
       intervals = picardIntervals.getTargets
       bamList = writeBamList.listFile
 
-      if (intervals == exomeIntervals) {
+      if (intervals == exomeIntervals && writeBamList.inputFiles.size < 50) {
         // Allow the HSPTest to explicitly use hard filters. Adding 50 other 1KG exomes increases test runtime.
-        useK1gExomes = (writeBamList.inputFiles.size < 50 && variantFilterType == FILTER_VQSR)
+        useK1gExomes = (variantFilterType == null || variantFilterType == FILTER_VQSR)
       }
     }
 
@@ -250,11 +250,9 @@ class HybridSelectionPipeline extends QScript {
         removeK1gSamples.out
       }
 
-// SnpEff annotation is disabled in the pipeline pending the outcome of a QC analysis of the available SnpEff versions
-/*
     val snpEff = new SnpEff
     snpEff.inVcf = snpsIndelsVcf
-    snpEff.config = "/humgen/gsa-pipeline/resources/snpEff/v2_0_4rc3/snpEff.config"
+    snpEff.config = "/humgen/gsa-pipeline/resources/snpEff/v2_0_5/snpEff.config"
     snpEff.genomeVersion = "GRCh37.64"
     snpEff.outVcf = projectName + ".snpeff.vcf"
     snpEff.jobOutputFile = snpEff.outVcf + ".out"
@@ -268,15 +266,14 @@ class HybridSelectionPipeline extends QScript {
     annotate.out = projectName + ".vcf"
     annotate.jobOutputFile = annotate.out + ".out"
     add(annotate)
-*/
+
     for (strats <- List(
       List("AlleleCount"),
       List("Sample","FunctionalClass")
     )) {
       def newStratsEval(suffix: String): VariantEval = {
         val eval = new VariantEval with CommandLineGATKArgs
-        //eval.eval :+= annotate.out
-        eval.eval :+= snpsIndelsVcf
+        eval.eval :+= annotate.out
         eval.dbsnp = dbsnp129
         eval.doNotUseAllStandardModules = true
         eval.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap")

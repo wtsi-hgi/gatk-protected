@@ -27,6 +27,7 @@ public class SingleSampleCompressor implements Compressor {
     protected double minIndelProportionToTriggerVariant;
     protected int minBaseQual;
 
+    protected ReduceReadsWalker.DownsampleStrategy downsampleStrategy;
 
     public SingleSampleCompressor(final String sampleName,
                                   final int contextSize,
@@ -35,7 +36,8 @@ public class SingleSampleCompressor implements Compressor {
                                   final int minMappingQuality,
                                   final double minAltProportionToTriggerVariant,
                                   final double minIndelProportionToTriggerVariant,
-                                  final int minBaseQual) {
+                                  final int minBaseQual,
+                                  final ReduceReadsWalker.DownsampleStrategy downsampleStrategy) {
         this.sampleName = sampleName;
         this.contextSize = contextSize;
         this.contextSizeIndels = contextSizeIndels;
@@ -45,6 +47,7 @@ public class SingleSampleCompressor implements Compressor {
         this.minAltProportionToTriggerVariant = minAltProportionToTriggerVariant;
         this.minIndelProportionToTriggerVariant = minIndelProportionToTriggerVariant;
         this.minBaseQual = minBaseQual;
+        this.downsampleStrategy = downsampleStrategy;
     }
 
     /**
@@ -75,7 +78,7 @@ public class SingleSampleCompressor implements Compressor {
     }
 
     protected void instantiateSlidingWindow(GATKSAMRecord read) {
-        slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getReadGroup(), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, minMappingQuality);
+        slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getReadGroup(), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, minMappingQuality, downsampleCoverage, downsampleStrategy);
     }
 
     @Override
