@@ -165,7 +165,7 @@ class xhmmCNVpipeline extends QScript {
       " --start " + START_BIN + " --stop " + MAX_DEPTH + " --nBins " + NUM_BINS +
       " -o " + commandLineSuppliedOutputFilesPrefix
 
-    override def dotString = "DOC: " + t.DoC_output
+    override def shortDescription = "DOC: " + t.DoC_output
 
     this.jobOutputFile = commandLineSuppliedOutputFilesPrefix + ".out"
   }
