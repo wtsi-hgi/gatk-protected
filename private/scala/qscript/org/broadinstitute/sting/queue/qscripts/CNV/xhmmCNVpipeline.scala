@@ -62,6 +62,9 @@ class xhmmCNVpipeline extends QScript {
   @Argument(shortName = "xhmmParams", doc = "xhmm model parameters file", required = true)
   var xhmmParamsArg: File = _
 
+  @Argument(shortName = "longJobQueue", doc = "Job queue to run the 'long' commands", required = false)
+  var longJobQueue: String = ""
+
   val DOC_OUTPUT_SUFFIX: String = ".sample_interval_summary"
 
   val RD_OUTPUT_SUFFIX: String = ".RD.txt"
@@ -386,5 +389,8 @@ class xhmmCNVpipeline extends QScript {
     def commandLine = command
 
     override def description = "Genotypes discovered CNVs in all samples: " + command
+
+    if (longJobQueue != "")
+      this.jobQueue = longJobQueue
   }
 }
