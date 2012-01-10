@@ -86,7 +86,7 @@ class RRead extends QScript {
       if (debugLevel != None) rr.debuglevel = Some(debugLevel)
       if (!debugRead.isEmpty) rr.debugread = debugRead
       if (downsampleCoverage != None) rr.downsample_coverage = Some(downsampleCoverage)
-      if (downsampleStrategy != null) rr.downsamplestrategy = downsampleStrategy
+      if (downsampleStrategy != null) rr.downsample_strategy = downsampleStrategy
 
       add(rr)
     }
