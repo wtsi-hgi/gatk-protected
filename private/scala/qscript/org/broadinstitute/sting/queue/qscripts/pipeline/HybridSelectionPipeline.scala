@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, The Broad Institute
+ * Copyright (c) 2012, The Broad Institute
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -269,7 +269,7 @@ class HybridSelectionPipeline extends QScript {
 
     for (strats <- List(
       List("AlleleCount"),
-      List("Sample","FunctionalClass")
+      List("Sample")
     )) {
       def newStratsEval(suffix: String): VariantEval = {
         val eval = new VariantEval with CommandLineGATKArgs
@@ -278,7 +278,7 @@ class HybridSelectionPipeline extends QScript {
         eval.doNotUseAllStandardModules = true
         eval.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
         eval.doNotUseAllStandardStratifications = true
-        eval.stratificationModule = List("EvalRod", "CompRod", "Novelty") ::: strats
+        eval.stratificationModule = List("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ strats
         eval.out = projectName + strats.map(_.toLowerCase).mkString(".by_", "_", "") + suffix
         eval.jobOutputFile = eval.out + ".out"
         eval

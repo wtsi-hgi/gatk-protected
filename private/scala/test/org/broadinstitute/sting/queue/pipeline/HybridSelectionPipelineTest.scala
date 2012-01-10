@@ -75,7 +75,7 @@ class HybridSelectionPipelineTest {
     pipelineSpec.jobQueue = dataset.jobQueue
 
     pipelineSpec.evalSpec = new PipelineTestEvalSpec
-    pipelineSpec.evalSpec.evalReport = dataset.projectName + ".by_sample_functionalclass.eval"
+    pipelineSpec.evalSpec.evalReport = dataset.projectName + ".by_sample.eval"
     pipelineSpec.evalSpec.validations = dataset.validations
 
     PipelineTest.executeTest(pipelineSpec)
