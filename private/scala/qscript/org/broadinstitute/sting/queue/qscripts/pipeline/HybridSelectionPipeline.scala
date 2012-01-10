@@ -271,7 +271,7 @@ class HybridSelectionPipeline extends QScript {
 
     for (strats <- Seq(
       Seq("AlleleCount"),
-      Seq("Sample","FunctionalClass")
+      Seq("Sample")
     )) {
       def newStratsEval(suffix: String): VariantEval = {
         val eval = new VariantEval with CommandLineGATKArgs
@@ -280,7 +280,7 @@ class HybridSelectionPipeline extends QScript {
         eval.doNotUseAllStandardModules = true
         eval.evalModule = Seq("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
         eval.doNotUseAllStandardStratifications = true
-        eval.stratificationModule = Seq("EvalRod", "CompRod", "Novelty") ++ strats
+        eval.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ strats
         eval.out = projectName + strats.map(_.toLowerCase).mkString(".by_", "_", "") + suffix
         eval.jobOutputFile = eval.out + ".out"
         eval
