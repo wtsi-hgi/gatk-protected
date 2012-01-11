@@ -26,9 +26,11 @@ python $GATK/python/analyzeRunReports.py archive $DIR/submitted -o $ARCHIVE.gz -
 #python $GATK/python/analyzeRunReports.py summary $ARCHIVE_DIR/*.gz --rev $GATK_RELEASE_VERSION >> $REPORT_TXT
 #python $GATK/python/analyzeRunReports.py exceptions $ARCHIVE_DIR/*.gz -E sting --rev $GATK_RELEASE_VERSION >> $REPORT_TXT
 
-echo "\n####################\nLast day, all versions" >> $REPORT_TXT
-python $GATK/python/analyzeRunReports.py summary $ARCHIVE.gz --max_days 1 --no-dev >> $REPORT_TXT
-python $GATK/python/analyzeRunReports.py exceptions $ARCHIVE.gz --max_days 1 -E sting --no-dev >> $REPORT_TXT
+echo "\n####################\nLast day, all versions summary" >> $REPORT_TXT
+python $GATK/python/analyzeRunReports.py summary $ARCHIVE.gz --no-dev >> $REPORT_TXT
+
+echo "\n####################\nLast day exceptions for rev $GATK_RELEASE_VERSION" >> $REPORT_TXT
+python $GATK/python/analyzeRunReports.py exceptions $ARCHIVE.gz -E sting --no-dev --rev $GATK_RELEASE_VERSION >> $REPORT_TXT
 
 #echo "GATK daily run report" | mutt -a $SUMMARY.30_days.pdf -a $SUMMARY.360_days.pdf -a $SUMMARY.7_days.pdf -s "GATK Run report PDFs for $DATE" gsamembers
 #cat $REPORT_TXT | mutt -a $REPORT_TXT -a $SUMMARY.30_days.pdf -a $SUMMARY.360_days.pdf -s "GATK run report for $DATE" gsamembers
