@@ -212,7 +212,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
                 Genotype rgGT = call.getGenotype(sample);
 
-                if ( rgGT != null && ! rgGT.isNoCall() && rgGT.getLikelihoods().getAsVector() != null ) {
+                if ( rgGT != null && ! rgGT.isNoCall() && rgGT.hasLikelihoods() ) {
                     String refs,alts;
                     if (vcComp.isIndel()) {
                         refs = new String(new byte[]{ ref.getBase()})+ vcComp.getReference().getDisplayString();
