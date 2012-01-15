@@ -1,8 +1,8 @@
 #!/bin/env Rscript
 
-require("lattice")
-require("ggplot2")
-require("splines")
+library("lattice")
+library("ggplot2")
+library("splines")
 
 ##########################################
 ### Accessory functions
