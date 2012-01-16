@@ -117,12 +117,16 @@ def parseException(elt):
     msgElt = elt.find("message")
     msgText = "MISSING"
     userException = "NA"
-    if msgElt != None: msgText = msgElt.text
+    runStatus = "completed"
+    if msgElt != None: 
+        msgText = msgElt.text
+        runStatus = "sting-exception"
     stackTrace = elt.find("stacktrace").find("string").text
     if elt.find("is-user-exception") != None:
         #print elt.find("is-user-exception")
         userException = elt.find("is-user-exception").text
-    return msgText, stackTrace, userException
+        if userException: runStatus = "user-exception"
+    return msgText, stackTrace, userException, runStatus
 
 def javaExceptionFile(javaException):
     m = re.search("\((.*\.java:.*)\)", javaException)
@@ -139,6 +143,22 @@ class RecordDecoder:
         def id(elt): return elt.text
         def toString(elt): return '%s' % elt.text
         
+        def formatMajorVersion(elt):
+            text = elt.text
+            # maps svn numbers 1.0.Vxxx to 0.V.xxx
+            svnMatch = re.match("1\.0\.(\d)\d*", text)
+            if svnMatch != None:
+                val = "0.%s" % svnMatch.group(1)
+            else:
+                # maps git numbers 1.3-22-g1bfe280 to 1.3
+                gitMatch = re.match("(\d).(\d)($|\w*)", text)
+                if gitMatch != None:
+                    val = "%s.%s" % gitMatch.group(1,2)
+                else:
+                    val = "unknown"
+            #print text, "=>", val
+            return val
+        
         def formatExceptionMsg(elt):
             return '%s' % parseException(elt)[0]
 
@@ -150,6 +170,10 @@ class RecordDecoder:
 
         def formatExceptionUser(elt):
             return '%s' % parseException(elt)[2]
+
+        def formatRunStatus(elt):
+            #print 'formatRunStatus', parseException(elt)
+            return parseException(elt)[3]
             
         def formatDomainName(elt):
             if elt != None:
@@ -167,14 +191,15 @@ class RecordDecoder:
             self.fields.extend(fields)
             self.formatters[key] = zip(fields, funcs)
     
-        add(["id", "walker-name", "svn-version", "phone-home-type"], id)
+        add(["id", "walker-name", "phone-home-type"], id)
+        addComplex("svn-version", ["svn-version", "gatk-version"], [id, formatMajorVersion])
         add(["start-time", "end-time"], toString)      
         add(["run-time", "java-tmp-directory", "working-directory", "user-name"], id)
         addComplex("host-name", ["host-name", "domain-name"], [id, formatDomainName])
         add(["java", "machine"], toString)
         add(["max-memory", "total-memory", "iterations", "reads"], id)
-        addComplex("exception", ["exception-msg", "exception-at", "exception-at-brief", "is-user-exception"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser])
-        # add(["command-line"], toString)          
+        addComplex("exception", ["exception-msg", "exception-at", "exception-at-brief", "is-user-exception", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatRunStatus])
+        add(["command-line"], toString)          
         
     def decode(self, report):
         bindings = dict()
@@ -452,7 +477,7 @@ class SQLRecordHandler(StageHandler):
         pass
 
     def getFields(self):
-        return ["id", "walker-name", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "exception-at-brief"]
+        return ["id", "walker-name", "gatk-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "exception-at-brief", "is-user-exception", "run-status", "command-line"]
         #, exceptionmsg VARCHAR(2048), exceptionat VARCHAR(2048), exceptionatbrief VARCHAR(2048), isuserexception VARCHAR(2048))
         #return self.decoder.fields
         
@@ -472,7 +497,7 @@ class InsertRecordIntoTable(SQLRecordHandler):
     def processRecord(self, record):
         try:
             parsed = self.decoder.decode(record)
-
+            
             def oneField(field):
                 val = MISSING_VALUE
                 if field in parsed:
@@ -480,9 +505,12 @@ class InsertRecordIntoTable(SQLRecordHandler):
                     if val == None:
                         if OPTIONS.verbose: print >> sys.stderr, 'field', field, 'is missing in', parsed['id']
                     else:
+                        if field == "run-status" and val == MISSING_VALUE:
+                            val = "success"
                         val = val.replace('"',"'")
                         #if val.find(" ") != -1:
                         val = "\"" + val + "\""
+
                 return val
 
             values = [ oneField(field) for field in self.getFields() ]            
@@ -494,7 +522,7 @@ class InsertRecordIntoTable(SQLRecordHandler):
             pass
 
 DEFAULT_SIZE = 128
-SIZE_OVERRIDES = {"domainname" : 256, "exceptionatbrief" : 1024}            
+SIZE_OVERRIDES = {"domain-name" : 256, "exception-at-brief" : 1024, "command-line" : 4096}            
 class SQLSetupTable(SQLRecordHandler):
     def __init__(self, name, out):
         SQLRecordHandler.__init__(self, name, out)
@@ -512,6 +540,7 @@ class SQLSetupTable(SQLRecordHandler):
         desc = field.replace("-", "_")
 
         size = DEFAULT_SIZE
+        #print 'field', field, SIZE_OVERRIDES
         if field in SIZE_OVERRIDES:
             size = SIZE_OVERRIDES[field]
         desc = desc + " VARCHAR(%d)" % size
