@@ -34,6 +34,9 @@ class ScatteredFullVariantAnnotator extends QScript {
   @Argument(fullName="annotation", shortName="A", doc="One or more specific annotations to apply to variant calls", required=false)
   var annotation: List[String] = Nil
 
+  @Argument(fullName="excludeAnnotation", shortName="XA", doc="One or more specific annotations to exclude", required=false)
+  var excludeAnnotation: List[String] = Nil
+
   @Argument(fullName="group", shortName="G", doc="One or more classes/groups of annotations to apply to variant calls", required=false)
   var group: List[String] = Nil
 
@@ -64,6 +67,7 @@ class ScatteredFullVariantAnnotator extends QScript {
 
       this.useAllAnnotations = !qscript.requireExplicitAnnotations
       this.annotation = qscript.annotation
+      this.excludeAnnotation = qscript.excludeAnnotation
       this.group = qscript.group
 
       this.dbsnp = qscript.dbsnp
