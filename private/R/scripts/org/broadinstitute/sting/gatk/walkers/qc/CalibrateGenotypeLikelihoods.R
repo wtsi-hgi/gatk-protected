@@ -1,12 +1,12 @@
 #!/bin/env Rscript
 
+require("lattice")
 require("ggplot2")
+require("splines")
 
-args <- commandArgs(TRUE)
-verbose = TRUE
-
-inputDataFile = args[1]
-onCmdLine = ! is.na(inputDataFile)
+##########################################
+### Accessory functions
+##########################################
 
 addEmpiricalPofG <- function(d) {
   r = c()
@@ -37,7 +37,6 @@ genotypeCounts <- function(x) {
   return(t)
 }
 
-
 digestTable <- function(inputDataFile) {
   d = subset(read.table(inputDataFile, header=T), rg != "ALL")
   d$technology <- factor(1, levels=c("HiSeq-paper", "GA2-1000G", "HiSeq-recent"))
@@ -45,18 +44,28 @@ digestTable <- function(inputDataFile) {
   d$technology[grepl("20.*", d$rg)] <- "HiSeq-paper"
   d$technology[grepl("B00EG.*", d$rg)] <- "HiSeq-recent"
   print(summary(d$technology))
-  
+
   eByComp = addEmpiricalPofG(ddply(d, .(rg, technology, pGGivenDType, pGGivenD), genotypeCounts))
   return(list(d=d, eByComp = eByComp))
   #countsByTech = addEmpiricalPofG(ddply(d, .(technology, pGGivenDType, pGGivenD), genotypeCounts))
 }
-  
-writeMyTable <- function(t, name) {
-  write.table(t,file=paste(inputDataFile, ".", name, ".tsv", sep=""))
-}
 
+##########################################
+### The script
+##########################################
+
+args <- commandArgs(TRUE)
+inputDataFile = args[1]
+onCmdLine = ! is.na(inputDataFile)
 if ( onCmdLine ) {
-  r <- digestTable(inputDataFile)
-  writeMyTable(r$eByComp, "eByComp")
+  eByComp <- digestTable(inputDataFile)$eByComp
 }
+pdf(paste(inputDataFile, ".pdf", sep=""))
 
+ymax = xmax = 30
+goodEByComp = subset(eByComp, Sum > 10 & EmpiricalPofGQ < Inf)
+
+print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, size=log10(Sum), facets = pGGivenDType ~ technology, color=pGGivenDType, geom=c("point", "smooth"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2))
+print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ technology, color=rg, geom=c("blank"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2) + geom_smooth(se=F, aes(weight=Sum)))
+print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ technology, color=rg, geom=c("blank"), group=rg, xlim=c(0,xmax), ylim=c(-10,10)) + geom_abline(slope=0, linetype=2) + geom_smooth(se=F, method=lm, formula = y ~ ns(x,1), aes(weight=Sum)))
+print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., color=technology, geom=c("blank"), group=technology, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2) + geom_smooth(se=T, size=1.5, aes(weight=Sum)))

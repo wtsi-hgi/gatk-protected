@@ -168,7 +168,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      * A value of 0 turns downsampling off.
      */
     @Argument(fullName = "downsample_coverage", shortName = "ds", doc = "", required = false)
-    protected int downsampleCoverage = 0;
+    protected int downsampleCoverage = 100;
 
     @Hidden
     @Argument(fullName = "", shortName = "dl", doc = "", required = false)
@@ -180,7 +180,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
     @Hidden
     @Argument(fullName = "downsample_strategy", shortName = "dm", doc = "", required = false)
-    protected DownsampleStrategy downsampleStrategy = DownsampleStrategy.Normal;
+    protected DownsampleStrategy downsampleStrategy = DownsampleStrategy.Adaptive;
 
     public enum DownsampleStrategy {
         Normal,

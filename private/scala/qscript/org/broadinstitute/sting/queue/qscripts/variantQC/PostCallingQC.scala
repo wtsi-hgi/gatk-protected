@@ -24,25 +24,24 @@ class PostCallingQC extends QScript {
   val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_132.b37.vcf")
 
   @Argument(shortName = "nt", doc="nt", required=false)
-  val num_cpu_threads: Int = 1
+  val num_threads: Int = 1
 
   def script() {
     for ( evalVCF <- evalVCFs ) {
-      // The basic summary eval
-      // The basic summary eval, by AF
-      val byAC = new Eval(evalVCF, ".byAC", List("AlleleCount"))
+      // The basic summary eval, by AC
+      val byAC = new Eval(evalVCF, ".byAC", Seq("AlleleCount"))
       add(byAC)
 
-      // The basic summary eval, broken down by sample as well as functional class
-      val bySampleByFunctionalClass = new Eval(evalVCF, ".bySampleByFunctionalClass", List("Sample","FunctionalClass"))
-      add(bySampleByFunctionalClass)
+      // The basic summary eval broken down by sample
+      val bySample = new Eval(evalVCF, ".bySample", Seq("Sample"))
+      add(bySample)
 
-      val qc = new QCRScript(evalVCF, byAC.out, bySampleByFunctionalClass.out)
+      val qc = new QCRScript(evalVCF, byAC.out, bySample.out)
       add(qc)
     }
   }
 
-  class Eval(evalVCF: File, prefix: String, extraStrats: List[String]) extends VariantEval {
+  class Eval(evalVCF: File, prefix: String, extraStrats: Seq[String]) extends VariantEval {
     this.reference_sequence = referenceFile
     this.intervalsString = myIntervals
     this.excludeIntervalsString = myExcludeIntervals
@@ -51,17 +50,15 @@ class PostCallingQC extends QScript {
     this.doNotUseAllStandardModules = true
     this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
     this.doNotUseAllStandardStratifications = true
-    this.stratificationModule = List("EvalRod", "CompRod", "Novelty") ::: extraStrats
-    this.num_cpu_threads = qscript.num_cpu_threads
+    this.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ extraStrats
+    this.num_threads = qscript.num_threads
     this.memoryLimit = 2
     this.out = swapExt(evalVCF, ".vcf", prefix + ".eval")
-    this.jobOutputFile = out + ".out"
   }
 
   class QCRScript(@Input var vcf: File, @Input var byAC: File, @Input var bySite: File) extends CommandLineFunction {
     @Output var pdf: File = swapExt(vcf, ".vcf", ".pdf")
     private val project = vcf.getName.stripSuffix(".vcf")
-    this.jobOutputFile = pdf + ".out"
     def commandLine = "Rscript %s/variantCallQC.R %s %s %s %s".format(RPath, project, bySite, byAC, pdf)
   }
 }

@@ -6,6 +6,7 @@ from xml.etree.cElementTree import *
 import gzip
 import datetime
 import re
+import MySQLdb
 
 MISSING_VALUE = "NA"
 RUN_REPORT_LIST = "GATK-run-reports"
@@ -43,7 +44,9 @@ def main():
     parser.add_option("", "--max_days", dest="maxDays",
                         type='int', default=None,
                         help="if provided, only records generated within X days of today will be included")
-
+    parser.add_option("", "--updateFreq", dest="updateFreq",
+                        type='int', default=-1,
+                        help="if provided, print progress every updateFreq records")
     parser.add_option("-D", "--delete_while_archiving", dest="reallyDeleteInArchiveMode",
                         action='store_true', default=False,
                         help="if provided, we'll actually delete records when running in archive mode")
@@ -73,6 +76,7 @@ def main():
         handler.processRecord(report)
         counter += 1
         report.clear()
+        if OPTIONS.updateFreq > 0 and counter % OPTIONS.updateFreq == 0: print 'Processed records:', counter 
 
     handler.finalize(files)
     if OPTIONS.output != None: out.close()
@@ -113,12 +117,16 @@ def parseException(elt):
     msgElt = elt.find("message")
     msgText = "MISSING"
     userException = "NA"
-    if msgElt != None: msgText = msgElt.text
+    runStatus = "completed"
+    if msgElt != None: 
+        msgText = msgElt.text
+        runStatus = "sting-exception"
     stackTrace = elt.find("stacktrace").find("string").text
     if elt.find("is-user-exception") != None:
         #print elt.find("is-user-exception")
         userException = elt.find("is-user-exception").text
-    return msgText, stackTrace, userException
+        if userException: runStatus = "user-exception"
+    return msgText, stackTrace, userException, runStatus
 
 def javaExceptionFile(javaException):
     m = re.search("\((.*\.java:.*)\)", javaException)
@@ -135,6 +143,22 @@ class RecordDecoder:
         def id(elt): return elt.text
         def toString(elt): return '%s' % elt.text
         
+        def formatMajorVersion(elt):
+            text = elt.text
+            # maps svn numbers 1.0.Vxxx to 0.V.xxx
+            svnMatch = re.match("1\.0\.(\d)\d*", text)
+            if svnMatch != None:
+                val = "0.%s" % svnMatch.group(1)
+            else:
+                # maps git numbers 1.3-22-g1bfe280 to 1.3
+                gitMatch = re.match("(\d).(\d)($|\w*)", text)
+                if gitMatch != None:
+                    val = "%s.%s" % gitMatch.group(1,2)
+                else:
+                    val = "unknown"
+            #print text, "=>", val
+            return val
+        
         def formatExceptionMsg(elt):
             return '%s' % parseException(elt)[0]
 
@@ -146,6 +170,10 @@ class RecordDecoder:
 
         def formatExceptionUser(elt):
             return '%s' % parseException(elt)[2]
+
+        def formatRunStatus(elt):
+            #print 'formatRunStatus', parseException(elt)
+            return parseException(elt)[3]
             
         def formatDomainName(elt):
             if elt != None:
@@ -163,15 +191,16 @@ class RecordDecoder:
             self.fields.extend(fields)
             self.formatters[key] = zip(fields, funcs)
     
-        add(["id", "walker-name", "svn-version", "phone-home-type"], id)
+        add(["id", "walker-name", "phone-home-type"], id)
+        addComplex("svn-version", ["svn-version", "gatk-version"], [id, formatMajorVersion])
         add(["start-time", "end-time"], toString)      
         add(["run-time", "java-tmp-directory", "working-directory", "user-name"], id)
         addComplex("host-name", ["host-name", "domain-name"], [id, formatDomainName])
         add(["java", "machine"], toString)
         add(["max-memory", "total-memory", "iterations", "reads"], id)
-        addComplex("exception", ["exception-msg", "exception-at", "exception-at-brief", "is-user-exception"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser])
-        # add(["command-line"], toString)          
-    
+        addComplex("exception", ["exception-msg", "exception-at", "exception-at-brief", "is-user-exception", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatRunStatus])
+        add(["command-line"], toString)          
+        
     def decode(self, report):
         bindings = dict()
         for elt in report:
@@ -428,6 +457,102 @@ def isUserException(rec):
 
 addHandler('summary', SummaryReport)  
   
+# def 
+DB_EXISTS = True
+class SQLRecordHandler(StageHandler):
+    def __init__(self, name, out):
+        StageHandler.__init__(self, name, out)
+        
+    def initialize(self, args):
+        self.decoder = RecordDecoder()
+        self.name = "GATK_LOGS"
+        if DB_EXISTS: 
+            self.db = MySQLdb.connect( host="calcium.broadinstitute.org", db="gatk", port=3306, user="gsamember", passwd="gsamember" )
+            print 'self.db', self.db
+        if DB_EXISTS: 
+            self.dbc = self.db.cursor() 
+            print 'self.dbc', self.dbc
+
+    def processRecord(self, record):
+        pass
+
+    def getFields(self):
+        return ["id", "walker-name", "gatk-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "exception-at-brief", "is-user-exception", "run-status", "command-line"]
+        #, exceptionmsg VARCHAR(2048), exceptionat VARCHAR(2048), exceptionatbrief VARCHAR(2048), isuserexception VARCHAR(2048))
+        #return self.decoder.fields
+        
+    def finalize(self, args):
+        if DB_EXISTS: self.dbc.close()
+        if DB_EXISTS: self.db.close()
+        
+    def execute(self, command):
+        if OPTIONS.verbose: print "EXECUTING: ", command
+        if DB_EXISTS: self.dbc.execute(command)
+        if OPTIONS.verbose: print '  DONE'        
+
+class InsertRecordIntoTable(SQLRecordHandler):
+    def __init__(self, name, out):
+        SQLRecordHandler.__init__(self, name, out)
+        
+    def processRecord(self, record):
+        try:
+            parsed = self.decoder.decode(record)
+            
+            def oneField(field):
+                val = MISSING_VALUE
+                if field in parsed:
+                    val = parsed[field]
+                    if val == None:
+                        if OPTIONS.verbose: print >> sys.stderr, 'field', field, 'is missing in', parsed['id']
+                    else:
+                        if field == "run-status" and val == MISSING_VALUE:
+                            val = "success"
+                        val = val.replace('"',"'")
+                        #if val.find(" ") != -1:
+                        val = "\"" + val + "\""
+
+                return val
+
+            values = [ oneField(field) for field in self.getFields() ]            
+            #print >> self.out, "\t".join(values)
+            
+            self.execute("INSERT INTO " + self.name + " VALUES(" + ", ".join(values) + ")")
+        except:
+            print 'Skipping excepting record', record
+            pass
+
+DEFAULT_SIZE = 128
+SIZE_OVERRIDES = {"domain-name" : 256, "exception-at-brief" : 1024, "command-line" : 4096}            
+class SQLSetupTable(SQLRecordHandler):
+    def __init__(self, name, out):
+        SQLRecordHandler.__init__(self, name, out)
+        
+    def initialize(self, args):
+        SQLRecordHandler.initialize(self, args)
+
+        self.execute("DROP TABLE " + self.name)
+        self.execute("CREATE TABLE " + self.name + " (" + ", ".join(map(self.fieldDescription, self.getFields())) + ")")
+        # initialize database
+        SQLRecordHandler.finalize(self, args)
+        sys.exit(0)
+
+    def fieldDescription(self, field):
+        desc = field.replace("-", "_")
+
+        size = DEFAULT_SIZE
+        #print 'field', field, SIZE_OVERRIDES
+        if field in SIZE_OVERRIDES:
+            size = SIZE_OVERRIDES[field]
+        desc = desc + " VARCHAR(%d)" % size
+
+        if field == "id":
+            desc = desc + " PRIMARY KEY"
+
+        return desc
+
+addHandler('loadToDB', InsertRecordIntoTable)
+addHandler('setupDB', SQLSetupTable)
+        
 #
 # utilities
 #

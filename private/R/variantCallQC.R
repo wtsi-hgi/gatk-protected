@@ -9,7 +9,7 @@ library(tools)
 args <- commandArgs(TRUE)
 
 onCMDLine <- ! is.na(args[1])
-LOAD_DATA <- F
+LOAD_DATA <- T
 
 # creates an array of c(sampleName1, ..., sampleNameN)
 parseHighlightSamples <- function(s) {
@@ -18,7 +18,7 @@ parseHighlightSamples <- function(s) {
 
 if ( onCMDLine ) {
   projectName <- args[1]
-  bySiteEval <- args[2]
+  bySampleEval <- args[2]
   byACEval <- args[3]
   outputPDF <- args[4]
   if ( ! is.na(args[5]) )
@@ -27,15 +27,15 @@ if ( onCMDLine ) {
     highlightSamples <- c()
 } else {
   projectName <- "InDevelopmentInR"
-  bySiteEval <- "t2dChr20Eval/ALL.chr20.freeze20110608_umich.genotypes.bySampleByFunctionalClass.eval"
-  byACEval <- "t2dChr20Eval/ALL.chr20.freeze20110608_umich.genotypes.byAC.eval"
-  outputPDF <- "variantCallQC.pdf"
+  bySampleEval <- "/humgen/gsa-hpprojects/dev/kshakir/scratch/postqc/1kg_example.bySample.eval"
+  byACEval <- "/humgen/gsa-hpprojects/dev/kshakir/scratch/postqc/1kg_example.byAC.eval"
+  outputPDF <- "1kg_example.test.pdf"
   highlightSamples <- c() # parseHighlightSamples("29029,47243")
 }
 
 print("Report")
 print(paste("Project          :", projectName))
-print(paste("bySiteEval       :", bySiteEval))
+print(paste("bySampleEval     :", bySampleEval))
 print(paste("byACEval         :", byACEval))
 print(paste("outputPDF        :", outputPDF))
 print(paste("highlightSamples :", highlightSamples))
@@ -83,13 +83,13 @@ selectCumulativeMetrics <- function(data,column) {
   lapply(data,function(x) { subset(x,x[column]=='all') })
 }
 
-createMetricsBySites <- function(bySiteEval, byACEval) {
+createMetricsBySites <- function(bySampleReport, byACReport) {
   # Metrics by sites:
-  #  bySite -> counts of SNPs and Indels by novelty, with expectations
+  #  bySample -> counts of SNPs and Indels by novelty, with expectations
   #  byAC -> snps and indels (known / novel)
-  bySite <- expandVEReport(selectCumulativeMetrics(gsa.read.gatkreport(bySiteEval),'Sample'))
-  byAC <- gsa.read.gatkreport(byACEval)
-  r <- list(bySite = bySite,byAC = byAC)
+  bySample <- expandVEReport(selectCumulativeMetrics(bySampleReport,'Sample'))
+  byAC <- byACReport
+  r <- list(bySample = bySample,byAC = byAC)
   r$byAC$CountVariants$nIndels <- r$byAC$CountVariants$nInsertions + r$byAC$CountVariants$nDeletions
   r$byAC$TiTvVariantEvaluator$nSNPs <- r$byAC$TiTvVariantEvaluator$nTi + r$byAC$TiTvVariantEvaluator$nTv
   r$byAC$CountVariants$AC <- r$byAC$CountVariants$AlleleCount
@@ -99,42 +99,55 @@ createMetricsBySites <- function(bySiteEval, byACEval) {
 
 summaryTable <- function(metricsBySites, metricsBySample) {
   # SNP summary statistics
-  merged <- merge(metricsBySites$bySite$CountVariants, metricsBySites$bySite$TiTvVariantEvaluator)
+  merged <- merge(metricsBySites$bySample$CountVariants, metricsBySites$bySample$TiTvVariantEvaluator)
   sub <- subset(merged, FunctionalClass=="all")
   raw <- melt(sub, id.vars=c("Novelty"), measure.vars=c("nProcessedLoci", "nSNPs", "tiTvRatio", "nIndels", "deletionInsertionRatio"))
+
+    # Create a data.frame with a column for missense/silent ratio by Novelty
+  countMissenseSilent <- subset(metricsBySites$bySample$CountVariants, FunctionalClass %in% c("silent", "missense"))
+  noveltyMissenseSilent <- recast(countMissenseSilent, Novelty ~ FunctionalClass, id.var=c("Novelty","FunctionalClass"), measure.var=c("nCalledLoci"))
+  noveltyMissenseSilent$missenseSilentRatio <- round(noveltyMissenseSilent$missense / noveltyMissenseSilent$silent, 2)
+
+  raw <- rbind(data.frame(raw), melt.data.frame(noveltyMissenseSilent, id.vars=c("Novelty"), measure.vars=c("missenseSilentRatio")))
   table <- cast(raw, Novelty ~ ...)
   # doesn't work with textplot
-  colnames(table) <- c("Novelty", "Target size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "deletion/insertion ratio")
+  colnames(table) <- c("Novelty", "Target Size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "Del/Ins Ratio", "Ka/Ks")
   return(table)
 }
 
-sampleSummaryTable <- function(metricsBySamples) {
+sampleSummaryTable <- function(metricsBySamples, missenseSilentSummary) {
   # SNP summary statistics
   raw <- melt(metricsBySamples, id.vars=c("Novelty", "Sample"), measure.vars=c("nProcessedLoci", "nSNPs", "tiTvRatio", "nIndels", "deletionInsertionRatio"))
-  table <- cast(raw, Novelty ~ variable, mean)
+  table <- cast(rbind(raw, missenseSilentSummary), Novelty ~ variable, mean)
   table$nSNPs <- round(table$nSNPs, 0)
   table$nIndels <- round(table$nIndels, 0)
   table$tiTvRatio <- round(table$tiTvRatio, 2)
   table$deletionInsertionRatio <- round(table$deletionInsertionRatio, 2)
-  colnames(table) <- c("Novelty", "Target size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "deletion/insertion ratio")
+  table$missenseSilentRatio <- round(table$missenseSilentRatio, 2)
+  colnames(table) <- c("Novelty", "Target Size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "Del/Ins Ratio", "Ka/Ks")
   return(table)
 }
 
-overallSummaryTable <- function(metricsBySites, metricsBySamples) {
+overallSummaryTable <- function(metricsBySites, metricsBySamples, missenseSilentSummary) {
   sitesSummary <- as.data.frame(summaryTable(metricsBySites, metricsBySamples))
-  sitesSummary$Metric.Type <- "Sites"
-  sampleSummary <- as.data.frame(sampleSummaryTable(metricsBySamples))
-  sampleSummary$Metric.Type <- "Per-sample avg."
+  sitesSummary$"Metric Type" <- "Sites"
+  sampleSummary <- as.data.frame(sampleSummaryTable(metricsBySamples, missenseSilentSummary))
+  sampleSummary$"Metric Type" <- "Per-sample avg."
   # that last item puts the metric.type second in the list
-  return(rbind(sitesSummary, sampleSummary)[, c(1,7,2,3,4,5,6)])
+  table <- rbind(sitesSummary, sampleSummary)[, c(1,8,2,3,4,7,5,6)]
+  # remove columns with all NA/NaN
+  table <- table <- table[,colSums(is.na(table))<nrow(table)]
+  return(table)
 }
 
 summaryPlots <- function(metricsBySites) {
   # See note about ggplot with less than two points in perSamplePlots.
   numAC <- max(metricsBySites$byAC$TiTvVariantEvaluator$AC)
+  countVariants <- subset(metricsBySites$byAC$CountVariants, FunctionalClass == "all")
+  tiTvVariantEvaluator <- subset(metricsBySites$byAC$TiTvVariantEvaluator, FunctionalClass == "all")
 
-  name <- "SNP and Indel count by novelty and allele frequency" 
-  molten <- melt(subset(metricsBySites$byAC$CountVariants, Novelty != "all" & AC > 0), id.vars=c("Novelty", "AC"), measure.vars=c(c("nSNPs", "nIndels")))
+  name <- "SNP and Indel count by novelty and allele count"
+  molten <- melt(subset(countVariants, Novelty != "all" & AC > 0), id.vars=c("Novelty", "AC"), measure.vars=c(c("nSNPs", "nIndels")))
   acGraph <- ggplot(data=molten, aes(x=AC, y=value+1, color=Novelty, fill=Novelty), group=variable)
   acGraph <- acGraph + opts(title = name)
   acGraph <- acGraph + scale_y_log10("Number of variants")
@@ -146,7 +159,7 @@ summaryPlots <- function(metricsBySites) {
   # Counts vs. Allele frequency 
   name <- "Variant counts by allele count"
   for ( measure in c("nSNPs", "nIndels")) {
-    molten <- melt(subset(metricsBySites$byAC$CountVariants, AC > 0), id.vars=c("Novelty", "AC"), measure.vars=c(measure))
+    molten <- melt(subset(countVariants, AC > 0), id.vars=c("Novelty", "AC"), measure.vars=c(measure))
     if ( sum(molten$value > 0) ) {
       p <- ggplot(data=molten, aes(x=AC, y=value+1, color=Novelty), group=variable)
       p <- p + opts(title = paste(name, ":", measure))
@@ -166,8 +179,8 @@ summaryPlots <- function(metricsBySites) {
   name <- "Transition / transversion ratio by allele count"
   # nSNPs > 0 => requires that we have some data here, otherwise Ti/Tv is zero from VE  
   minSNPsToInclude <- 0
-  if (sum(metricsBySites$byAC$TiTvVariantEvaluator$nSNPs) > 0) {
-    byACNoAll <- subset(metricsBySites$byAC$TiTvVariantEvaluator, Novelty != "all" & AC > 0 & nSNPs > minSNPsToInclude)
+  if (sum(tiTvVariantEvaluator$nSNPs) > 0) {
+    byACNoAll <- subset(tiTvVariantEvaluator, Novelty != "all" & AC > 0 & nSNPs > minSNPsToInclude)
     acGraph <- ggplot(data=byACNoAll, aes(x=AC, y=tiTvRatio, color=Novelty))
     acGraph <- acGraph + scale_y_continuous("Transition / transversion ratio", limits=c(0,4))
     acGraph <- acGraph + opts(title = name)
@@ -181,11 +194,11 @@ summaryPlots <- function(metricsBySites) {
   }
  
   # SNPs to indels ratio by allele frequency
-  name <- "SNPs to indels ratio by allele frequency" 
-  if ( sum(metricsBySites$byAC$CountVariants$nIndels) > 0 & sum(metricsBySites$byAC$CountVariants$nSNPs) > 0 ) {
-    metricsBySites$byAC$CountVariants$SNP.Indel.Ratio <- metricsBySites$byAC$CountVariants$nSNPs / metricsBySites$byAC$CountVariants$nIndels
-    metricsBySites$byAC$CountVariants$SNP.Indel.Ratio[metricsBySites$byAC$CountVariants$nIndels == 0] <- NaN
-    p <- ggplot(data=subset(metricsBySites$byAC$CountVariants, Novelty == "all" & nSNPs > 0), aes(x=AC, y=SNP.Indel.Ratio))
+  name <- "SNPs to indels ratio by allele count"
+  if ( sum(countVariants$nIndels) > 0 & sum(countVariants$nSNPs) > 0 ) {
+    countVariants$SNP.Indel.Ratio <- countVariants$nSNPs / countVariants$nIndels
+    countVariants$SNP.Indel.Ratio[countVariants$nIndels == 0] <- NaN
+    p <- ggplot(data=subset(countVariants, Novelty == "all" & nSNPs > 0), aes(x=AC, y=SNP.Indel.Ratio))
     p <- p + opts(title = name)
     p <- p + scale_y_continuous("SNP to indel ratio")
     if (numAC > 2) {
@@ -197,15 +210,25 @@ summaryPlots <- function(metricsBySites) {
     print(p)
   }
   
+  countFunctional <- subset(metricsBySites$byAC$CountVariants, FunctionalClass != "all" & AlleleCount > 0)
+
   name <- "SNP counts by functional class" 
-  if (sum(metricsBySites$byAC$CountVariants$nSNPs) > 0) {
-    molten <- melt(subset(metricsBySites$bySite$CountVariants, Novelty != "all" & FunctionalClass != "all"), id.vars=c("Novelty", "FunctionalClass"), measure.vars=c(c("nSNPs")))
+  if (sum(countVariants$nSNPs) > 0) {
+    molten <- melt(subset(countFunctional, Novelty != "all"), id.vars=c("Novelty", "FunctionalClass"), measure.vars=c(c("nSNPs")))
     if ( sum(molten$value) > 0 ) {
-      p <- ggplot(data=molten, aes(x=FunctionalClass, y=value, fill=Novelty), group=FunctionalClass)
+      p <- ggplot(data=cast(molten, Novelty + FunctionalClass ~ ..., sum), aes(x=FunctionalClass, y=nSNPs, fill=Novelty), group=FunctionalClass)
       p <- p + opts(title = name)
       p <- p + scale_y_log10("No. of SNPs")
       p <- p + geom_bar(position="dodge")
       print(p)
+
+      countNoNonsense = subset(countFunctional, Novelty == "all" & FunctionalClass != "nonsense")
+      p <- ggplot(data=countNoNonsense, aes(x=AlleleCount, y=nCalledLoci, color=FunctionalClass))
+      p <- p + opts(title = "Functional Class by allele count")
+      p <- p + geom_point(alpha=0.5, size=3)
+      p <- p + geom_line(size=1)
+      p <- p + scale_y_log10("No. of SNPs")
+      distributeLogGraph(p, "Allele count (AC)")
     }
   }
 }
@@ -220,8 +243,8 @@ addSection <- function(name) {
 # read functions
 # -------------------------------------------------------
 
-createMetricsBySamples <- function(bySampleEval) {
-  bySample <- expandVEReport(selectCumulativeMetrics(gsa.read.gatkreport(bySampleEval),'FunctionalClass'))
+createMetricsBySamples <- function(bySampleReport) {
+  bySample <- expandVEReport(selectCumulativeMetrics(bySampleReport,'FunctionalClass'))
   r <- merge(bySample$TiTvVariantEvaluator, bySample$CountVariants)
   r <- merge(r, bySample$CompOverlap)
   # order the samples by nSNPs -- it's the natural ordering.
@@ -232,6 +255,13 @@ createMetricsBySamples <- function(bySampleEval) {
   r$highlight <- r$Sample %in% highlightSamples
 
   return(subset(r, Sample != "all"))
+}
+
+createMissenseSilentSummary <- function(bySampleReport) {
+  raw <- melt(subset(bySampleReport$CountVariants, FunctionalClass %in% c("silent", "missense") & Sample != "all"), id.vars=c("FunctionalClass", "Novelty", "Sample"), measure.vars=c("nVariantLoci"))
+  table <- data.frame(cast(raw, Novelty + Sample ~ FunctionalClass))
+  table$missenseSilentRatio <- table$missense / table$silent
+  return(melt(table, id.vars=c("Novelty", "Sample"), measure.vars=c("missenseSilentRatio")))
 }
 
 # -------------------------------------------------------
@@ -335,8 +365,11 @@ perSamplePlots <- function(metricsBySamples) {
 
 # load the data.
 if ( onCMDLine || LOAD_DATA ) {
-  metricsBySites <- createMetricsBySites(bySiteEval, byACEval)
-  metricsBySamples <- createMetricsBySamples(bySiteEval)
+  bySampleReport <- gsa.read.gatkreport(bySampleEval)
+  byACReport <- gsa.read.gatkreport(byACEval)
+  metricsBySites <- createMetricsBySites(bySampleReport, byACReport)
+  metricsBySamples <- createMetricsBySamples(bySampleReport)
+  missenseSilentSummary <- createMissenseSilentSummary(bySampleReport)
 }
 
 if ( ! is.na(outputPDF) ) {
@@ -344,7 +377,7 @@ if ( ! is.na(outputPDF) ) {
 }
 
 # Table of overall counts and quality
-textplot(overallSummaryTable(metricsBySites, metricsBySamples), show.rownames=F)
+textplot(overallSummaryTable(metricsBySites, metricsBySamples, missenseSilentSummary), show.rownames=F)
 title(paste("Summary metrics for project", projectName), cex=3)
 
 summaryPlots(metricsBySites)

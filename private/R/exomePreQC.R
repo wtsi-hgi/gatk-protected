@@ -6,6 +6,10 @@
 # To run:
 #   Rscript exomePreQC.R <input tsv> <output pdf>
 #
+library(ggplot2)
+library(gplots)
+library(tools)
+
 args = commandArgs(TRUE)
 onCMDLine = ! is.na(args[1])
 
@@ -15,20 +19,16 @@ if ( onCMDLine ) {
   outputPDF = args[2]
 } else {
   reference_dataset = '/humgen/gsa-scr1/GATK_Data/preqc.database'
-  inputTSV = 'GWASeq_batches.metrics'
-  outputPDF = 'GWASeq_batches.pdf'
+  inputTSV = 'GSAcaller.WEx_earlybait.C286_C300_C613_metrics.metrics'
+  outputPDF = 'GSAcaller.WEx_earlybait.C286_C300_C613_metrics.pdf'
 }
-
-require('ggplot2')
-require('gplots')
-require('tools')
 
 data <- read.table(inputTSV,header=T,sep='\t')
 
 trim_to_95_pct <- function(column) {
   mean <- mean(column,na.rm=T)
   sd <- sd(column,na.rm=T)
-  if(sd > 0) {
+  if(!is.na(sd) & sd > 0) {
       min <- mean - 2*sd
       max <- mean + 2*sd
       not_within_bounds <- function(value) {
@@ -72,22 +72,31 @@ create_base_plot <- function(title,reference_dataset,new_dataset,column_name,inc
 
 create_density_plot <- function(reference_dataset,new_dataset,column_name) {
   merged_dataset <- rbind(data.frame(sample=reference_dataset$sample,data=reference_dataset[,column_name],type='reference'),data.frame(sample=new_dataset$sample,data=new_dataset[,column_name],type=new_dataset$INITIATIVE))
-  density_plot <- ggplot(merged_dataset,aes_string(x='data',y='..density..',fill='type')) + geom_density(na.rm=T) + ylab(column_name)
-  density_plot <- density_plot + scale_fill_manual(values=c(alpha('black',0.1),alpha('red',0.5))) 
-  density_plot <- density_plot + xlab(NULL) + ylab(NULL) + opts(legend.text=theme_text(size=6)) + labs(x=NULL,y=NULL)
-  return(density_plot)
+  merged_dataset <- subset(merged_dataset, !is.na(data))
+  if (nrow(merged_dataset) == 0) {
+    return(NA)
+  } else {
+    density_plot <- ggplot(merged_dataset,aes_string(x='data',y='..density..',fill='type')) + geom_density(na.rm=T) + ylab(column_name)
+    density_plot <- density_plot + scale_fill_manual(values=c(alpha('black',0.1),alpha('red',0.5))) 
+    density_plot <- density_plot + xlab(NULL) + ylab(NULL) + opts(legend.text=theme_text(size=6)) + labs(x=NULL,y=NULL)
+    return(density_plot)
+  }
 }
 
 create_stock_plots <- function(title,reference_dataset,new_dataset,column_name) {
   base_plot <- create_base_plot(title,reference_dataset,new_dataset,column_name)
   density_plot <- create_density_plot(reference_dataset,new_dataset,column_name)
 
-  layout <- grid.layout(nrow=2,ncol=1,heights=c(2,1))
-  grid.newpage()
-  pushViewport(viewport(layout=layout))
-  subplot <- function(x) viewport(layout.pos.row=x,layout.pos.col=1)
-  print(base_plot,vp=subplot(1))
-  print(density_plot,vp=subplot(2))
+  if (is.na(density_plot)) {
+    print(base_plot)
+  } else {
+    layout <- grid.layout(nrow=2,ncol=1,heights=c(2,1))
+    grid.newpage()
+    pushViewport(viewport(layout=layout))
+    subplot <- function(x) viewport(layout.pos.row=x,layout.pos.col=1)
+    print(base_plot,vp=subplot(1))
+    print(density_plot,vp=subplot(2))
+  }
 }
 
 # Return the number of months in the difference date-reference
@@ -118,6 +127,7 @@ violations <- violations + trim_to_95_pct(novel_sampled$MEAN_TARGET_COVERAGE)
 violations <- violations + trim_to_95_pct(novel_sampled$ZERO_CVG_TARGETS_PCT)
 violations <- violations + trim_to_95_pct(novel_sampled$PCT_TARGET_BASES_20X)
 violations <- violations + trim_to_95_pct(novel_sampled$PCT_PF_READS)
+violations <- violations + trim_to_95_pct(novel_sampled$PCT_PF_READS_ALIGNED)
 violations <- violations + trim_to_95_pct(novel_sampled$PF_HQ_ERROR_RATE)
 violations <- violations + trim_to_95_pct(novel_sampled$PF_INDEL_RATE)
 violations <- violations + trim_to_95_pct(novel_sampled$MEAN_READ_LENGTH)
@@ -135,7 +145,7 @@ data$sample <- factor(paste(data$sample,data$Last_Sequenced_WR_Created_Date),lev
 data$PF_INDEL_RATE[data$PF_INDEL_RATE==0] <- NA
 
 # Write to PDF as necessary.
-if(onCMDLine) {
+if(!is.na(outputPDF)) {
     pdf(outputPDF, height=8.5, width=11)
 }
 
@@ -193,7 +203,9 @@ create_stock_plots('# of Indels per PF Read by Sample',novel_sampled,data,'PF_IN
 
 create_stock_plots('% Target Bases Achieving >20x Coverage per Sample',novel_sampled,data,'PCT_TARGET_BASES_20X')
 
-create_stock_plots('% PF Reads Aligned per Sample',novel_sampled,data,'PCT_PF_READS')
+create_stock_plots('% PF Reads per Sample',novel_sampled,data,'PCT_PF_READS')
+
+create_stock_plots('% PF Reads Aligned per Sample',novel_sampled,data,'PCT_PF_READS_ALIGNED')
 
 create_stock_plots('% HQ Bases mismatching the Reference per Sample',novel_sampled,data,'PF_HQ_ERROR_RATE')
 
@@ -237,7 +249,7 @@ create_stock_plots('# Novel SNPs called per Sample',novel_sampled,data,'NOVEL_SN
 
 create_stock_plots('TiTv of SNPs in dbSNP per Sample',novel_sampled,data,'DBSNP_TITV')
 
-if(onCMDLine) {
+if(!is.na(outputPDF)) {
     dev.off()
     if (exists("compactPDF")) {
         compactPDF(outputPDF)

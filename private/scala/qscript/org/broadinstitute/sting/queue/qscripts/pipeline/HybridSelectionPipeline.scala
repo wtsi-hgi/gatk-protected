@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, The Broad Institute
+ * Copyright (c) 2012, The Broad Institute
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -88,7 +88,7 @@ class HybridSelectionPipeline extends QScript {
       val picardIntervals = PicardAggregationUtils.readAnalysisIntervals(picardSamples)
 
       val writeBamList = new ListWriterFunction
-      writeBamList.inputFiles = PicardAggregationUtils.getSampleBams(picardSamples).toList
+      writeBamList.inputFiles = PicardAggregationUtils.getSampleBams(picardSamples).toSeq
       writeBamList.listFile = projectName +".bam.list"
       writeBamList.jobOutputFile = writeBamList.listFile + ".out"
       add(writeBamList)
@@ -103,6 +103,8 @@ class HybridSelectionPipeline extends QScript {
         useK1gExomes = (variantFilterType == null || variantFilterType == FILTER_VQSR)
       }
     }
+
+    qSettings.runName = projectName
 
     variantFilterType = {
       if (variantFilterType != null)
@@ -127,7 +129,7 @@ class HybridSelectionPipeline extends QScript {
 
     trait CommandLineGATKArgs extends CommandLineGATK {
       this.reference_sequence = reference
-      this.intervals = List(qscript.intervals)
+      this.intervals = Seq(qscript.intervals)
       this.memoryLimit = pipelineMemoryLimit
     }
 
@@ -137,7 +139,7 @@ class HybridSelectionPipeline extends QScript {
     }
 
     val call = new UnifiedGenotyper with CommandLineGATKArgs with ExpandedIntervals
-    call.input_file = List(bamList)
+    call.input_file = Seq(bamList)
     if (useK1gExomes)
       call.input_file :+= k1gExomesBam
     call.dbsnp = dbsnp132
@@ -164,7 +166,7 @@ class HybridSelectionPipeline extends QScript {
 
     val filteredSNPsVcf = variantFilterType match {
       case FILTER_VQSR =>
-        val trancheLevels = List(
+        val trancheLevels = Seq(
           "100.0", "99.9", "99.5", "99.3",
           "99.0", "98.9", "98.8",
           "98.5", "98.4", "98.3", "98.2", "98.1",
@@ -181,7 +183,7 @@ class HybridSelectionPipeline extends QScript {
         buildSNPModel.resource :+= TaggedFile(k1gTrainingHighQuality, "training=true,prior=12.0")
         buildSNPModel.resource :+= TaggedFile(k1gTrainingTerrible, "bad=true,prior=2.0")
         buildSNPModel.resource :+= TaggedFile(dbsnp129, "known=true,prior=4.0")
-        buildSNPModel.use_annotation = List("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "MQ", "FS", "InbreedingCoeff")
+        buildSNPModel.use_annotation = Seq("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "MQ", "FS", "InbreedingCoeff")
         buildSNPModel.trustAllPolymorphic = true
         buildSNPModel.maxGaussians = 6
         buildSNPModel.stdThreshold = 14
@@ -206,8 +208,8 @@ class HybridSelectionPipeline extends QScript {
       case FILTER_HARD =>
         val filterSNPs = new VariantFiltration with CommandLineGATKArgs with ExpandedIntervals
         filterSNPs.variant = selectSNPs.out
-        filterSNPs.filterName = List("SNP_QD", "SNP_MQ", "SNP_HaplotypeScore", "SNP_MQRankSum", "SNP_ReadPosRankSum", "SNP_FS")
-        filterSNPs.filterExpression = List("QD<2.0", "MQ<40.0", "HaplotypeScore>13.0", "MQRankSum<-12.5", "ReadPosRankSum<-8.0", "FS>60.0")
+        filterSNPs.filterName = Seq("SNP_QD", "SNP_MQ", "SNP_HaplotypeScore", "SNP_MQRankSum", "SNP_ReadPosRankSum", "SNP_FS")
+        filterSNPs.filterExpression = Seq("QD<2.0", "MQ<40.0", "HaplotypeScore>13.0", "MQRankSum<-12.5", "ReadPosRankSum<-8.0", "FS>60.0")
         filterSNPs.out = projectName + ".snps.filtered.vcf"
         filterSNPs.jobOutputFile = filterSNPs.out + ".out"
         add(filterSNPs)
@@ -220,8 +222,8 @@ class HybridSelectionPipeline extends QScript {
 
     val filterIndels = new VariantFiltration with CommandLineGATKArgs with ExpandedIntervals
     filterIndels.variant = selectIndels.out
-    filterIndels.filterName = List("Indel_FS", "Indel_QD", "Indel_ReadPosRankSum", "Indel_InbreedingCoeff")
-    filterIndels.filterExpression = List("FS>200.0", "QD<2.0", "ReadPosRankSum<-20.0", "InbreedingCoeff<-0.8")
+    filterIndels.filterName = Seq("Indel_FS", "Indel_QD", "Indel_ReadPosRankSum", "Indel_InbreedingCoeff")
+    filterIndels.filterExpression = Seq("FS>200.0", "QD<2.0", "ReadPosRankSum<-20.0", "InbreedingCoeff<-0.8")
     filterIndels.out = projectName + ".indels.filtered.vcf"
     filterIndels.jobOutputFile = filterIndels.out + ".out"
     add(filterIndels)
@@ -267,18 +269,18 @@ class HybridSelectionPipeline extends QScript {
     annotate.jobOutputFile = annotate.out + ".out"
     add(annotate)
 
-    for (strats <- List(
-      List("AlleleCount"),
-      List("Sample","FunctionalClass")
+    for (strats <- Seq(
+      Seq("AlleleCount"),
+      Seq("Sample")
     )) {
       def newStratsEval(suffix: String): VariantEval = {
         val eval = new VariantEval with CommandLineGATKArgs
         eval.eval :+= annotate.out
         eval.dbsnp = dbsnp129
         eval.doNotUseAllStandardModules = true
-        eval.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
+        eval.evalModule = Seq("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
         eval.doNotUseAllStandardStratifications = true
-        eval.stratificationModule = List("EvalRod", "CompRod", "Novelty") ::: strats
+        eval.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ strats
         eval.out = projectName + strats.map(_.toLowerCase).mkString(".by_", "_", "") + suffix
         eval.jobOutputFile = eval.out + ".out"
         eval
@@ -289,7 +291,7 @@ class HybridSelectionPipeline extends QScript {
 
       if (qscript.expandIntervals > 0) {
         val flanksEval = newStratsEval(".flanks.eval")
-        flanksEval.intervals = List(flankIntervals)
+        flanksEval.intervals = Seq(flankIntervals)
         add(flanksEval)
       }
     }

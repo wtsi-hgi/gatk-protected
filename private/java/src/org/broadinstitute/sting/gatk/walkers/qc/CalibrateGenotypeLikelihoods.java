@@ -23,7 +23,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.gatk.walkers.genotypeLikelhoodCalibration;
+package org.broadinstitute.sting.gatk.walkers.qc;
 
 import net.sf.samtools.SAMReadGroupRecord;
 import org.broadinstitute.sting.commandline.Argument;
@@ -33,23 +33,77 @@ import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.gatk.walkers.genotyper.*;
+import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
+import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.utils.R.RScriptExecutor;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.io.Resource;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.*;
 
 /**
  * Computes raw GL calibration data for read groups in BAMs against a comp VCF track of genotypes
+ *
+ * <p>
+ *  This walker generates plots that display the empirical accuracy of the likelihoods of the genotypes calculated in a
+ *  given BAM file. To calculate the empirical error, this walker needs a truth ROD (e.g. OMNI or a gold standard callset)
+ *  and it is <i>essential</i> that the truth callset includes all possible genotypes (AA, AB, BB).
+ * </p>
+ *
+ *
+ * <h2>Input</h2>
+ * <p>
+ *  This walker takes two inputs:
+ *  <ul>
+ *      <li>The BAM file to genotype (given truth alleles) and evaluate the accuracy</li>
+ *      <li>A truth ROD with the gold standard genotypes</li>
+ *  </ul>
+ *  <b>Warning: The truth ROD MUST include all possible genotypes to build the error model appropriately (AA, AB, BB)</b>
+ * </p>
+ *
+ * <h2>Output</h2>
+ *  <p>
+ *      Two intermediate tables:
+ *      <ul>
+ *          <li>Raw ouput of all sites with the three genotypes and their likelihoods</li>
+ *          <li>A digested table stratified by read group and platforms (for plotting)</li>
+ *      </ul>
+ *
+ *      Three plots:
+ *      <ul>
+ *          <li>The calibration curve of the three possible genotypes (AA, AB, BB)</li>
+ *          <li>The calibration curve stratified by read group</li>
+ *          <li>The calibration curve stratified by platform</li>
+ *      </ul>
+ *  <p>
+ *
+ * <h2>Example</h2>
+ * <pre>
+ * java -Xmx4g -jar GenomeAnalysisTK.jar \
+ *   -T CalibrateGenotypeLikelihoods \
+ *   -R reference/human_g1k_v37.fasta \
+ *   -alleles omni.vcf \
+ *   -I testBAM.bam \
+ *   -o calibration
+ * </pre>
+ *
  *
  * @author depristo
  * @since May, 2011
@@ -63,7 +117,7 @@ import java.util.*;
 @Reference(window=@Window(start=-200,stop=200))
 public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLikelihoods.Data, CalibrateGenotypeLikelihoods.Data> implements TreeReducible<CalibrateGenotypeLikelihoods.Data> {
 
-    @Input(fullName="alleles", shortName = "alleles", doc="The set of alleles at which to genotype when in GENOTYPE_MODE = GENOTYPE_GIVEN_ALLELES", required=false)
+    @Input(fullName="alleles", shortName = "alleles", doc="The set of alleles at which to genotype when in GENOTYPE_MODE = GENOTYPE_GIVEN_ALLELES", required=true)
     public RodBinding<VariantContext> alleles;
 
     @Argument(fullName="minimum_base_quality_score", shortName="mbq", doc="Minimum base quality score for calling a genotype", required=false)
@@ -71,18 +125,22 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
     @Argument(fullName="maximum_deletion_fraction", shortName="deletions", doc="Maximum deletion fraction for calling a genotype", required=false)
     private double deletions = -1;
+    
     @Argument(fullName="indels", shortName="indels", doc="Do indel evaluation", required=false)
     private boolean doIndels = false;
-    @Argument(fullName="banded", shortName="banded", doc="Banded indel GL computation", required=false)
-    private boolean bandedIndelGLs = false;
+    
+    @Argument(fullName="noBanded", shortName="noBanded", doc="No Banded indel GL computation", required=false)
+    private boolean noBandedIndelGLs = false;
 
     //@Argument(fullName="standard_min_confidence_threshold_for_calling", shortName="stand_call_conf", doc="the minimum phred-scaled Qscore threshold to separate high confidence from low confidence calls", required=false)
     private double callConf = 0;
 
-    @Output(doc="File to which results should be written",required=true)
-    protected PrintStream out;
+    @Output(doc="The name of the output files for both tables and pdf (name will be prepended to the appropriate extensions)", required=true)
+    private File moltenDatasetFileName;
 
+    PrintStream moltenDataset;
     Set<String> samples;
+    final String SCRIPT_FILE = "CalibrateGenotypeLikelihoods.R";
 
     /**
      * Trivial wrapper class.  Data is a collection of Datum.
@@ -137,9 +195,59 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     //---------------------------------------------------------------------------------------------------------------
 
     public void initialize() {
-        // We only operate over the samples in the BAM file
+        try {
+            moltenDataset = new PrintStream(moltenDatasetFileName);
+        } catch (FileNotFoundException e) {
+            throw new UserException.CouldNotCreateOutputFile(moltenDatasetFileName, e);
+        }
+        
+        // Get the samples from the BAM file
         samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
-        logger.info("Samples: " + samples);
+        if (samples.isEmpty())
+            throw new UserException.BadInput("Bam file has no samples in the ReadGroup tag");
+        logger.info("Samples in your BAM file: " + samples);
+
+        // Get the samples from the VCF file
+        Set<String> vcfSamples = null;
+        List<ReferenceOrderedDataSource> rods = getToolkit().getRodDataSources();
+        for (ReferenceOrderedDataSource rod : rods) {
+            VCFHeader header =  (VCFHeader) rod.getHeader();
+            vcfSamples = new HashSet<String>();
+            vcfSamples.addAll(header.getGenotypeSamples());
+        }
+
+        // Assert that the user provided a VCF (not some other tribble format)
+        if (vcfSamples == null)
+            throw new UserException.BadInput("Must provide a VCF. This walker is designed to work with VCFs only");
+
+        // Assert that the VCFs have samples and genotypes
+        if (vcfSamples.isEmpty())
+            throw new UserException.MalformedVCFHeader("The VCF must have samples so we can find the correct genotype for the samples in the BAM file");
+
+        // This is the list of samples represented in both the BAM and the VCF
+        vcfSamples.retainAll(samples);
+
+        // An empty list means the VCF doesn't have any samples from the BAM file
+        if (vcfSamples.isEmpty())
+            throw new UserException.BadInput("The VCF file does not contain any of the samples in your BAM file");
+
+        // Uneven sets means there are some samples missing from the BAM in the VCF -- warn the user but don't throw exception
+        if (vcfSamples.size() < samples.size()) {
+            logger.warn("VCF file does not contain ALL samples in your BAM file");
+            Set<String> samplesPresent = new HashSet<String>();
+            samplesPresent.addAll(samples);
+            samplesPresent.removeAll(vcfSamples);
+            String missingSamples = "";
+            boolean addComma = true;
+            for (String sample : samplesPresent) {
+                    missingSamples += sample;
+                    if (!addComma)
+                        missingSamples += ",";
+                    else
+                        addComma = false;
+            }
+            logger.warn("Missing samples: " + missingSamples);
+        }
 
         // Filling in SNP calling arguments for UG
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
@@ -152,7 +260,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         // Adding the INDEL calling arguments for UG
         if (doIndels)  {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
-            uac.BANDED_INDEL_COMPUTATION = bandedIndelGLs;
+            uac.DONT_DO_BANDED_INDEL_COMPUTATION = noBandedIndelGLs;
            indelEngine = new UnifiedGenotyperEngine(getToolkit(), uac);
         }
         else {
@@ -212,7 +320,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
                 Genotype rgGT = call.getGenotype(sample);
 
-                if ( rgGT != null && ! rgGT.isNoCall() && rgGT.getLikelihoods().getAsVector() != null ) {
+                if ( rgGT != null && ! rgGT.isNoCall() && rgGT.hasLikelihoods() ) {
                     String refs,alts;
                     if (vcComp.isIndel()) {
                         refs = new String(new byte[]{ ref.getBase()})+ vcComp.getReference().getDisplayString();
@@ -277,7 +385,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         // print the header
         List<String> pGNames = Arrays.asList("QofAAGivenD", "QofABGivenD", "QofBBGivenD");
         List<String> fields = Arrays.asList("sample", "rg", "ref", "alt", "siteType", "pls", "comp", "pGGivenDType", "pGGivenD");
-        out.println(Utils.join("\t", fields));
+        moltenDataset.println(Utils.join("\t", fields));
 
         // determine the priors by counting all of the events we've seen in comp
         double[] counts = new double[]{1, 1, 1};
@@ -296,11 +404,18 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             for ( int i = 0; i < pGNames.size(); i++ ) {
                 int q = QualityUtils.probToQual(pOfGGivenD[i], Math.pow(10.0, -9.9));
                 if ( q > 1 ) { // tons of 1s, and not interesting
-                    out.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d%n",
+                    moltenDataset.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d%n",
                             d.sample, d.rgID, d.ref, d.alt, d.siteType, d.pl.getAsString(), d.genotypeType.toString(),
                             pGNames.get(i), q);
                 }
             }
         }
+
+        moltenDataset.close();
+        RScriptExecutor executor = new RScriptExecutor();
+        executor.addScript(new Resource(SCRIPT_FILE, CalibrateGenotypeLikelihoods.class));
+        executor.addArgs(moltenDatasetFileName.getAbsolutePath());
+        logger.info("Generating plots...");
+        executor.exec();
     }
 }
