@@ -203,9 +203,9 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
     public void initialize() {
         // because either can be specified, check that exactly one was
-        if ( externalLikelihoods == null && alleles == null ) {
+        if ( ! externalLikelihoods.isBound() && ! alleles.isBound()  ) {
             throw new UserException("No input VCF was given. Please provide either both external likelihoods and alleles VCFs, or alleles VCF and read data.");
-        } else if ( externalLikelihoods != null && alleles == null ) {
+        } else if ( externalLikelihoods.isBound() && ! alleles.isBound() ) {
             throw new UserException("Alleles VCF not provided to compare against external likelihoods.");
         }
 
@@ -300,7 +300,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             return Data.EMPTY_DATA;
 
         Data data = new Data();
-        if ( externalLikelihoods == null ) {
+        if ( ! externalLikelihoods.isBound() ) {
             data = calculateGenotypeDataFromAlignments(tracker,ref,context,vcComp);
         } else {
             data = calculateGenotypeDataFromExternalVC(tracker,ref,context,vcComp);
