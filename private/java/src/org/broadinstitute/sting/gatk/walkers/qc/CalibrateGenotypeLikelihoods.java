@@ -26,6 +26,7 @@
 package org.broadinstitute.sting.gatk.walkers.qc;
 
 import net.sf.samtools.SAMReadGroupRecord;
+import org.apache.commons.lang.NotImplementedException;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
@@ -117,8 +118,14 @@ import java.util.*;
 @Reference(window=@Window(start=-200,stop=200))
 public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLikelihoods.Data, CalibrateGenotypeLikelihoods.Data> implements TreeReducible<CalibrateGenotypeLikelihoods.Data> {
 
-    @Input(fullName="alleles", shortName = "alleles", doc="The set of alleles at which to genotype when in GENOTYPE_MODE = GENOTYPE_GIVEN_ALLELES", required=true)
+    @Input(fullName="alleles", shortName = "alleles", doc="The set of alleles at which to genotype when in GENOTYPE_MODE = GENOTYPE_GIVEN_ALLELES", required=false)
     public RodBinding<VariantContext> alleles;
+
+    @Input(fullName="externalLikelihoods",shortName="el",doc="A VCF of external likelihoods to calibrate. Cannot be specified with alleles.",required=false)
+    public RodBinding<VariantContext> externalLikelihoods;
+
+    @Argument(fullName="readGroupSampleMapping",shortName="rgsm",doc="A mapping from read groups to samples, for use if the external likelihood vcf is a read-group VCF",required=false)
+    public File readGroupSampleMapping;
 
     @Argument(fullName="minimum_base_quality_score", shortName="mbq", doc="Minimum base quality score for calling a genotype", required=false)
     private int mbq = -1;
@@ -195,6 +202,13 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     //---------------------------------------------------------------------------------------------------------------
 
     public void initialize() {
+        // because either can be specified, check that exactly one was
+        if ( externalLikelihoods == null && alleles == null ) {
+            throw new UserException("No input VCF was given. Please provide either both external likelihoods and alleles VCFs, or alleles VCF and read data.");
+        } else if ( externalLikelihoods != null && alleles == null ) {
+            throw new UserException("Alleles VCF not provided to compare against external likelihoods.");
+        }
+
         try {
             moltenDataset = new PrintStream(moltenDatasetFileName);
         } catch (FileNotFoundException e) {
@@ -281,59 +295,15 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             return Data.EMPTY_DATA;
 
         // Grabs a usable VariantContext from the Alleles ROD
-        VariantContext vcComp;
-
-        if (doIndels)
-            vcComp= UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, indelEngine.getUAC().alleles );
-        else
-            vcComp= UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, snpEngine.getUAC().alleles );
-
+        VariantContext vcComp = getVCComp(tracker,ref,context);
         if( vcComp == null )
             return Data.EMPTY_DATA;
 
-        Map <String,AlignmentContext> contextBySample = AlignmentContextUtils.splitContextBySampleName(context);
-
         Data data = new Data();
-
-        for (Map.Entry<String,AlignmentContext> sAC : contextBySample.entrySet()) {
-            String sample = sAC.getKey();
-            AlignmentContext sampleAC = sAC.getValue();
-            Genotype compGT = getGenotype(tracker, ref, sample, snpEngine != null ? snpEngine : indelEngine);
-            if ( compGT == null || compGT.isNoCall() )
-                continue;
-
-
-            // now split by read group
-            Map<SAMReadGroupRecord,AlignmentContext> byRG = AlignmentContextUtils.splitContextByReadGroup(sampleAC, getToolkit().getSAMFileHeader().getReadGroups());
-            byRG.put(new SAMReadGroupRecord("ALL"), context);     // uncomment to include a synthetic RG for all RG for the sample
-            for ( Map.Entry<SAMReadGroupRecord, AlignmentContext> rgAC : byRG.entrySet() ) {
-                VariantCallContext call;
-                if ( vcComp.isIndel() ) {
-                    //throw new UserException.BadInput("CalibrateGenotypeLikelihoods does not currently support indel GL calibration.  This capability needs to be tested and verified to be working with the new genotyping code for indels in UG");
-                    call = indelEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue());
-                } else {
-                    call = snpEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue());
-                }
-
-                if ( call == null )
-                    throw new ReviewedStingException("Unexpected genotyping failure " + sample + " at " + ref.getLocus() + " call " + call);
-
-                Genotype rgGT = call.getGenotype(sample);
-
-                if ( rgGT != null && ! rgGT.isNoCall() && rgGT.hasLikelihoods() ) {
-                    String refs,alts;
-                    if (vcComp.isIndel()) {
-                        refs = new String(new byte[]{ ref.getBase()})+ vcComp.getReference().getDisplayString();
-                        alts = new String(new byte[]{ ref.getBase()})+vcComp.getAlternateAllele(0).getDisplayString();
-                    }   else {
-                        refs = vcComp.getReference().getBaseString();
-                        alts = vcComp.getAlternateAllele(0).getBaseString();
-                    }
-                    Datum d = new Datum(refs, alts,
-                            sample, rgAC.getKey().getReadGroupId(), rgGT.getLikelihoods(), vcComp.getType(), compGT.getType());
-                    data.values.add(d);
-                }
-            }
+        if ( externalLikelihoods == null ) {
+            data = calculateGenotypeDataFromAlignments(tracker,ref,context,vcComp);
+        } else {
+            data = calculateGenotypeDataFromExternalVC(tracker,ref,context,vcComp);
         }
 
         return data;
@@ -417,5 +387,98 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         executor.addArgs(moltenDatasetFileName.getAbsolutePath());
         logger.info("Generating plots...");
         executor.exec();
+    }
+
+    private VariantContext getVCComp(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+        if (doIndels)
+            return UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, indelEngine.getUAC().alleles );
+        return UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, snpEngine.getUAC().alleles );
+    }
+
+    private Data calculateGenotypeDataFromAlignments(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context, VariantContext vcComp) {
+        Data data = new Data();
+        Map <String,AlignmentContext> contextBySample = AlignmentContextUtils.splitContextBySampleName(context);
+        for (Map.Entry<String,AlignmentContext> sAC : contextBySample.entrySet()) {
+            String sample = sAC.getKey();
+            AlignmentContext sampleAC = sAC.getValue();
+            Genotype compGT = getGenotype(tracker, ref, sample, snpEngine != null ? snpEngine : indelEngine);
+            if ( compGT == null || compGT.isNoCall() )
+                continue;
+
+
+            // now split by read group
+            Map<SAMReadGroupRecord,AlignmentContext> byRG = AlignmentContextUtils.splitContextByReadGroup(sampleAC, getToolkit().getSAMFileHeader().getReadGroups());
+            byRG.put(new SAMReadGroupRecord("ALL"), context);     // uncomment to include a synthetic RG for all RG for the sample
+            for ( Map.Entry<SAMReadGroupRecord, AlignmentContext> rgAC : byRG.entrySet() ) {
+                VariantCallContext call;
+                if ( vcComp.isIndel() ) {
+                    //throw new UserException.BadInput("CalibrateGenotypeLikelihoods does not currently support indel GL calibration.  This capability needs to be tested and verified to be working with the new genotyping code for indels in UG");
+                    call = indelEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue());
+                } else {
+                    call = snpEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue());
+                }
+
+                if ( call == null )
+                    throw new ReviewedStingException("Unexpected genotyping failure " + sample + " at " + ref.getLocus() + " call " + call);
+
+                Genotype rgGT = call.getGenotype(sample);
+
+                if ( rgGT != null && ! rgGT.isNoCall() && rgGT.hasLikelihoods() ) {
+                    String refs,alts;
+                    if (vcComp.isIndel()) {
+                        refs = new String(new byte[]{ ref.getBase()})+ vcComp.getReference().getDisplayString();
+                        alts = new String(new byte[]{ ref.getBase()})+vcComp.getAlternateAllele(0).getDisplayString();
+                    }   else {
+                        refs = vcComp.getReference().getBaseString();
+                        alts = vcComp.getAlternateAllele(0).getBaseString();
+                    }
+                    Datum d = new Datum(refs, alts,
+                            sample, rgAC.getKey().getReadGroupId(), rgGT.getLikelihoods(), vcComp.getType(), compGT.getType());
+                    data.values.add(d);
+                }
+            }
+        }
+
+        return data;
+    }
+
+    private Data calculateGenotypeDataFromExternalVC(RefMetaDataTracker tracker,
+                                                     ReferenceContext ref,
+                                                     AlignmentContext context,
+                                                     VariantContext vcComp) {
+        // the tracker should contain a VCF with external likelihoods.
+        // These are either by-sample or by-read-group, disambiguated by whether a
+        // read group --> sample mapping was provided on the command line or not.
+        Data data = new Data();
+        VariantContext extVC = tracker.getFirstValue(externalLikelihoods);
+        if ( extVC == null ) {
+            return Data.EMPTY_DATA;
+        }
+
+        for ( Genotype genotype : extVC.getGenotypes() ) {
+            String sample = readGroupSampleMapping == null ? genotype.getSampleName() :
+                                                        getCorrespondingSampleName(genotype.getSampleName());
+            Genotype compGT = vcComp.hasGenotype(sample) ? vcComp.getGenotype(sample) : null;
+            if ( compGT == null || genotype.isNoCall() )
+                continue;
+
+            String refs,alts;
+            if (vcComp.isIndel()) {
+                refs = new String(new byte[]{ ref.getBase()})+ vcComp.getReference().getDisplayString();
+                alts = new String(new byte[]{ ref.getBase()})+vcComp.getAlternateAllele(0).getDisplayString();
+            }   else {
+                refs = vcComp.getReference().getBaseString();
+                alts = vcComp.getAlternateAllele(0).getBaseString();
+            }
+            Datum d = new Datum(refs, alts,
+                    sample, genotype.getSampleName(), genotype.getLikelihoods(), vcComp.getType(), compGT.getType());
+            data.values.add(d);
+        }
+
+        return data;
+    }
+
+    private String getCorrespondingSampleName(String readGroup) {
+        throw new NotImplementedException();
     }
 }
