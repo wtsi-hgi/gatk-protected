@@ -466,18 +466,20 @@ class SQLRecordHandler(StageHandler):
     def initialize(self, args):
         self.decoder = RecordDecoder()
         self.name = "GATK_LOGS"
+
+        host = "calcium.broadinstitute.org"
+        db = "gatk"
+        print 'Connecting to SQL server', host, 'using DB', db
         if DB_EXISTS: 
-            self.db = MySQLdb.connect( host="calcium.broadinstitute.org", db="gatk", port=3306, user="gsamember", passwd="gsamember" )
-            print 'self.db', self.db
+            self.db = MySQLdb.connect( host=host, db=db, user="gsamember", passwd="gsamember" )
         if DB_EXISTS: 
             self.dbc = self.db.cursor() 
-            print 'self.dbc', self.dbc
 
     def processRecord(self, record):
         pass
 
     def getFields(self):
-        return ["id", "walker-name", "gatk-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "exception-at-brief", "is-user-exception", "run-status", "command-line"]
+        return ["id", "walker-name", "gatk-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "exception-at-brief", "exception-msg", "is-user-exception", "run-status", "command-line"]
         #, exceptionmsg VARCHAR(2048), exceptionat VARCHAR(2048), exceptionatbrief VARCHAR(2048), isuserexception VARCHAR(2048))
         #return self.decoder.fields
         
@@ -495,8 +497,10 @@ class InsertRecordIntoTable(SQLRecordHandler):
         SQLRecordHandler.__init__(self, name, out)
         
     def processRecord(self, record):
+        id = 'unknown'
         try:
             parsed = self.decoder.decode(record)
+            id = parsed['id']
             
             def oneField(field):
                 val = MISSING_VALUE
@@ -518,11 +522,11 @@ class InsertRecordIntoTable(SQLRecordHandler):
             
             self.execute("INSERT INTO " + self.name + " VALUES(" + ", ".join(values) + ")")
         except:
-            print 'Skipping excepting record', record
+            print 'Skipping excepting record', id
             pass
 
 DEFAULT_SIZE = 128
-SIZE_OVERRIDES = {"domain-name" : 256, "exception-at-brief" : 1024, "command-line" : 4096}            
+SIZE_OVERRIDES = {"domain-name" : 256, "exception-at-brief" : 1024, "exception-msg" : 2048, "command-line" : 8192}            
 class SQLSetupTable(SQLRecordHandler):
     def __init__(self, name, out):
         SQLRecordHandler.__init__(self, name, out)

@@ -26,6 +26,9 @@ python $GATK/python/analyzeRunReports.py archive $DIR/submitted -o $ARCHIVE.gz -
 # python $GATK/python/analyzeRunReports.py summary $ARCHIVE_DIR/*.gz --rev $GATK_RELEASE_VERSION >> $REPORT_TXT
 # python $GATK/python/analyzeRunReports.py exceptions $ARCHIVE_DIR/*.gz -E sting --rev $GATK_RELEASE_VERSION >> $REPORT_TXT
 
+echo "\n####################\nLoading to DB" >> $REPORT_TXT
+python $GATK/python/analyzeRunReports.py loadToDB $ARCHIVE.gz >> $REPORT_TXT
+
 echo "\n####################\nLast day, all versions summary" >> $REPORT_TXT
 python $GATK/python/analyzeRunReports.py summary $ARCHIVE.gz --no-dev >> $REPORT_TXT
 
