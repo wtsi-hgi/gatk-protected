@@ -4,6 +4,8 @@ require("randomForest")
 args = commandArgs(TRUE);
 onCommandLine <- ! is.na(args[1])
 
+if ( onCommandLine ) pdf(height=8.5, width=11)
+
 # variables controlling the system behavior:
 BIG_MEMORY <- grepl("gsa", Sys.info()[4])
 CHR20_ONLY = F
@@ -19,8 +21,7 @@ MAX_POLY_SITES_TO_EVAL = 1000000
 DEFAULT_MAX_NEG_TRAINING_FRACTION = 0.25
 nRocPoints = 1000
 FORCE_RELOAD = F
-#MAX_ROWS_TO_READ = -1 # 100000
-MAX_ROWS_TO_READ = 100000
+MAX_ROWS_TO_READ = 1000000
 
 N_TREES <- 5000
 #N_TREES <- 100
@@ -34,19 +35,6 @@ indel5 <- read.table("/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/falsePo
 mono <- read.table("/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/falsePositivesFromOmni/NOT_POLY.chr20.pos.txt", col.names=c("POS"))
 phaseIValidationFailure <- read.table("/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/falsePositivesFromOmni/phaseI.validation.failed.sites", header=T)
 pilotValidationFailure <- read.table("/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/falsePositivesFromOmni/pilot.validation.failed.sites", col.names=c("POS"))
-
-originalAnn <- c("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "FS", "MQ","InbreedingCoeff", "DP")
-
-# 1000G phase I annotations
-#trainingAnn <- c("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "FS", "MQ", 
-#                 "InbreedingCoeff", "DP", "AC", "QUAL", "MQ0", "BaseQRankSum", "SB")
-
-# updates
-#trainingAnn <- c("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "FS", "MQ", 
-#                 "InbreedingCoeff", "DP", "AC", "QUAL", "MQ0", "BaseQRankSum")
-
-trainingAnn <- c("QD", "ReadPosRankSum", "FS", "InbreedingCoeff", "AC", "QUAL")
-
 
 LABEL = "TrainingLabel"
 LABEL_POSITIVE = "positive"
@@ -82,12 +70,26 @@ Autism.snps <- readVQSRData("Autism.snps", "/humgen/gsa-hpprojects/GATK/data/vqs
 Autism.indels <- readVQSRData("Autism.indels", "/humgen/gsa-hpprojects/GATK/data/vqsrGrandChallenge/Autism.recal.exome.indels.dat", F)
 
 # FIXME -- GLOBAL TRAINING AND EVAL SITES
-#ALL_SITES = goNL.snps
-ALL_SITES = goNL.indels
-#ALL_SITES = Autism.snps
-#ALL_SITES = Autism.indels
+DATA.SET = "goNL.snps"
+#DATA.SET = "goNL.indels"
+#DATA.SET = "Autism.snps"
+#DATA.SET = "Autism.indels"
+ALL_SITES <- get(DATA.SET)
 TRAINING_SITES = ALL_SITES
 EVAL_SITES = subset(ALL_SITES, ! is.na(status) & status != "unknown")
+
+originalAnn <- c("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "FS", "MQ","InbreedingCoeff", "DP")
+
+if (grepl("snps", DATA.SET)) { 
+  trainingAnn <- c("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "FS", "MQ", 
+  	                    "InbreedingCoeff", "DP", "AC", "QUAL", "MQ0", "BaseQRankSum")
+  #trainingAnn <- c("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "FS", "MQ", 
+  # 	            "InbreedingCoeff", "DP", "AC", "QUAL", "MQ0", "BaseQRankSum", "SB")
+} else {
+  trainingAnn <- c("QD", "ReadPosRankSum", "FS", "InbreedingCoeff",
+  "AC", "QUAL")
+}
+print(paste("Training annotations", trainingAnn))
 
 roc <- function(nChunks, data, scoreLabel, name) {
   df <- data.frame()
@@ -192,8 +194,8 @@ loadTree <- function(filename) {
 
 rocForTree <- function(tree) {
   noNA <- na.omit(EVAL_SITES[,c(tree$trainingAnn, "VQSLOD", "FILTER", "TrainingLabel", "status")]) #, "EVENTLENGTH")])
-  omni.pred <- predict(tree$rf, noNA)
-  print(table(observed = noNA$status, predicted = omni.pred))
+  #omni.pred <- predict(tree$rf, noNA)
+  #print(table(observed = noNA$status, predicted = omni.pred))
   omni.prob <- predict(tree$rf, noNA, type="prob")
   omni.with.prob <- cbind(noNA, omni.prob)
   
@@ -220,9 +222,17 @@ importancePlot <- function(rf) {
 plotRocs <- function(rocs) {
   #print(rocs)
   rocs$shortName = substr(rocs$name, 1, 20)
-  p <- ggplot(data=rocs, aes(y=sensitivity, x=1-specificity, group=shortName, color=shortName))
-  p <- p + geom_point() + geom_line() # + scale_x_log10() + scale_y_log10()
-  p + xlim(0.0, 0.5) + ylim(0.9, 1.01)
+  rocs$isVQSR = rocs$shortName == "VQSR"
+  p <- ggplot(data=rocs, aes(y=sensitivity, x=1-specificity, group=shortName, color=shortName, size=isVQSR))
+  p <- p + opts(title=paste("ROC", DATA.SET))  
+  #p <- p + geom_point()
+  p <- p + geom_line() # + scale_x_log10() + scale_y_log10()
+
+  print(p + xlim(0.0, 1.0) + ylim(0.0, 1.01))
+  print(p + xlim(0.0, 0.5) + ylim(0.9, 1.01))
+  print(p + xlim(0.0, 0.1) + ylim(0.9, 1.01))
+
+  p
 }
 
 if ( EXPLORE_EXAMPLES ) {
@@ -235,7 +245,7 @@ if ( EXPLORE_EXAMPLES ) {
   trees <- list(tree.small, tree.medium, tree.big, tree.big.original)#, tree.size)
 
   rocs = do.call("rbind", lapply(trees, rocForTree))
-  print(plotRocs(rbind(vqsr.roc, rocs)) + ylim(0,1))  
+  plotRocs(rbind(vqsr.roc, rocs))  
 }
 
 standardSensSpecTargets <- function(rocs) {
@@ -455,7 +465,7 @@ byNATreatment <- function() {
   }
 
   rocs = do.call("rbind", lapply(trees, rocForTree))
-  print(plotRocs(rbind(vqsr.roc, rocs)) + ylim(0,1))
+  plotRocs(rbind(vqsr.roc, rocs))
   list(trees=trees, rocs=rocs)
 }
 
@@ -468,17 +478,26 @@ if ( ANALYZE_NA_TREATMENT ) {
 #
 byNTrees <- function() {
   trees = list()
-  for ( nTrees in c(10, 50, 100, 500, 1000, 2000, 4000) ) { #, 8000, 16000) ) {
+  ns <- c(50, 10)
+  ns <- c(2000, 1000, 500, 100, ns)
+  #ns <- c(8000, 4000, ns)
+  #ns <- c(32000, 24000, 16000, ns)
+  for ( nTrees in ns ) { 
     name = paste("tree.", nTrees, sep="")
     tree = trainTree(name, nTrees, -1, trainingAnn) # , maxNegTrainingFraction=1)
     trees = c(list(tree), trees)
   }
 
   rocs = do.call("rbind", lapply(trees, rocForTree))
-  print(plotRocs(rbind(vqsr.roc, rocs)) + ylim(0,1))
+  plotRocs(rbind(vqsr.roc, rocs))
   list(trees=trees, rocs=rocs)
 }
 
 if ( ANALYZE_BY_N_TREES ) {
   by.n.trees <- byNTrees()
 }
+
+
+# must be at the end
+if ( onCommandLine ) dev.off()
+
