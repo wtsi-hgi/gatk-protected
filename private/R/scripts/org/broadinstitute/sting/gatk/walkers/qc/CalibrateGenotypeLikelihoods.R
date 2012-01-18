@@ -39,15 +39,9 @@ genotypeCounts <- function(x) {
 
 digestTable <- function(inputDataFile) {
   d = subset(read.table(inputDataFile, header=T), rg != "ALL")
-  d$technology <- factor(1, levels=c("HiSeq-paper", "GA2-1000G", "HiSeq-recent"))
-  d$technology[grepl("ERR.*", d$rg)] <- "GA2-1000G"
-  d$technology[grepl("20.*", d$rg)] <- "HiSeq-paper"
-  d$technology[grepl("B00EG.*", d$rg)] <- "HiSeq-recent"
-  print(summary(d$technology))
-
-  eByComp = addEmpiricalPofG(ddply(d, .(rg, technology, pGGivenDType, pGGivenD), genotypeCounts))
+  eByComp = addEmpiricalPofG(ddply(d, .(rg, pGGivenDType, pGGivenD), genotypeCounts))
+  
   return(list(d=d, eByComp = eByComp))
-  #countsByTech = addEmpiricalPofG(ddply(d, .(technology, pGGivenDType, pGGivenD), genotypeCounts))
 }
 
 ##########################################
@@ -62,10 +56,29 @@ if ( onCmdLine ) {
 }
 pdf(paste(inputDataFile, ".pdf", sep=""))
 
-ymax = xmax = 30
+ymax = xmax = 30 
 goodEByComp = subset(eByComp, Sum > 10 & EmpiricalPofGQ < Inf)
 
-print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, size=log10(Sum), facets = pGGivenDType ~ technology, color=pGGivenDType, geom=c("point", "smooth"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2))
-print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ technology, color=rg, geom=c("blank"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2) + geom_smooth(se=F, aes(weight=Sum)))
-print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ technology, color=rg, geom=c("blank"), group=rg, xlim=c(0,xmax), ylim=c(-10,10)) + geom_abline(slope=0, linetype=2) + geom_smooth(se=F, method=lm, formula = y ~ ns(x,1), aes(weight=Sum)))
-print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., color=technology, geom=c("blank"), group=technology, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2) + geom_smooth(se=T, size=1.5, aes(weight=Sum)))
+#First graph, overall likelihoods 
+tryCatch(
+  print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=pGGivenDType, geom=c("jitter", "smooth"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2)),
+  error = function(e) {
+    print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=pGGivenDType, geom=c("jitter"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2))
+    }
+)  
+
+#Second graph, likelihoods by read group  
+tryCatch(
+  print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2) + geom_smooth(se=F, aes(weight=Sum))),
+  error = function(e) {
+    print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2))    
+  }
+)
+
+#Third graph, likelihoods difference from empirical    
+tryCatch(
+  print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(-10,10)) + geom_abline(slope=0, linetype=2) + geom_smooth(se=F, method=lm, formula = y ~ ns(x,1), aes(weight=Sum))),
+  error = function(e) {
+    print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(-10,10)) + geom_abline(slope=0, linetype=2))
+  }
+)
