@@ -7,7 +7,7 @@ echo "\nGeneral computing resources"
 bqueues gsa week hour
 
 echo "\nFH jobs"
-bjobs -u gsaadm
+bjobs -u gsaadm | wc -l
 
 echo "\nFile system status"
 df -h /humgen/* /broad/shptmp 

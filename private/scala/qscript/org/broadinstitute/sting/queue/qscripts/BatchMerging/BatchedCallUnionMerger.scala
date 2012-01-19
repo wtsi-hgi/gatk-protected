@@ -20,8 +20,7 @@ class BatchedCallUnionMerger extends QScript {
   @Argument(doc="reference file",shortName="ref") var ref: File = _
   @Argument(doc="batched output",shortName="batch") var batchOut: File = _
   //@Argument(doc="read UG settings from header",shortName="ugh") var ugSettingsFromHeader : Boolean = false
-  @Hidden @Argument(doc="Min base q",shortName="mbq",required=false) var mbq : Int = 20
-  @Hidden @Argument(doc="Min map q",shortName="mmq",required=false) var mmq : Int = 20
+  @Hidden @Argument(doc="Min base q",shortName="mbq",required=false) var mbq : Int = 17
   @Hidden @Argument(doc="baq gap open penalty, using sets baq to calc when necessary",shortName="baqp",required=false) var baq : Int = -1
 
   @Argument(fullName="downsample_to_coverage", shortName="dcov", doc="Per-sample downsampling to perform", required=false)
@@ -65,7 +64,6 @@ class BatchedCallUnionMerger extends QScript {
     trait CalcLikelihoodArgs extends UGCalcLikelihoods {
       this.reference_sequence = batchMerge.ref
       this.min_base_quality_score = batchMerge.mbq
-      this.min_mapping_quality_score = batchMerge.mmq
       if ( batchMerge.baq >= 0 ) {
         this.baqGapOpenPenalty = batchMerge.baq
         this.baq = BAQ.CalculationMode.CALCULATE_AS_NECESSARY
@@ -116,7 +114,7 @@ class BatchedCallUnionMerger extends QScript {
     add(cVars)
   }
 
-  override def extractFileEntries(in: File): List[File] = {
+  def extractFileEntries(in: File): List[File] = {
     return (new XReadLines(in)).readLines.toList.map( new File(_) )
   }
 }
