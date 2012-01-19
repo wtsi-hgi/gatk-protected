@@ -4,10 +4,11 @@ import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.utils.text.XReadLines
 import scala.collection.JavaConversions._
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine
 import org.broadinstitute.sting.queue.library.ipf.vcf.VCFExtractIntervals
 import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.VariantQualityScore
 import org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection
+import org.broadinstitute.sting.gatk.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotyperEngine}
+import org.broadinstitute.sting.utils.baq.BAQ
 
 /**
  * Created by IntelliJ IDEA.
@@ -59,8 +60,8 @@ class T2D_VQSR extends QScript {
     vqsr.mode = VariantRecalibratorArgumentCollection.Mode.SNP
     vqsr.input :+= inVCF
     vqsr.resource ++= List(hapMap,dbSNP,omni)
-    vqsr.recalFile = new File(vqsrDir,swapExt(vqsrBase, ".base", ".mg%d.dir%f.recal.txt".format(maxGauss,dir) ))
-    vqsr.tranchesFile = new File(vqsrDir,swapExt(vqsrBase,".base",".mg%d.dir%f.tranche.txt".format(maxGauss,dir) ))
+    vqsr.recalFile = swapExt(vqsrDir,vqsrBase, ".base", ".mg%d.dir%f.recal.txt".format(maxGauss,dir) )
+    vqsr.tranchesFile = swapExt(vqsrDir,vqsrBase,".base",".mg%d.dir%f.tranche.txt".format(maxGauss,dir) )
     vqsr.intervals :+= inList
     vqsr.maxGaussians = Some(maxGauss)
     vqsr.dirichlet = Some(dir)
@@ -81,7 +82,14 @@ class T2D_VQSR extends QScript {
     remBroad.out = new File(callDir,"MI_Unique_calls.vcf")
     add(remBroad)
 
-    val miUqInt = new VCFExtractIntervals(remBroad.out,new File(callDir,"MI_Unique_calls.intervals.list"),true)
+    // make sure to unfilter them
+    var filt = new VariantFiltration with STAND_ARGS
+    filt.variant = remBroad.out
+    filt.out = new File(callDir,"MI_Unique_calls.noFilt.vcf")
+    filt.invalidatePreviousFilters
+    add(filt)
+
+    val miUqInt = new VCFExtractIntervals(filt.out,new File(callDir,"MI_Unique_calls.intervals.list"),true)
     add(miUqInt)
 
     // step 2: merge the bam files into sub-chunks at MI-unique sites
@@ -89,18 +97,21 @@ class T2D_VQSR extends QScript {
       val pr = new PrintReads with STAND_ARGS
       pr.input_file ++= u._1
       pr.out = new File(bamDir,"bam_chunk_%d.bam".format(u._2))
-      pr.intervals :+= remBroad.out
+      pr.intervals :+= miUqInt.listOut
       pr
     }).toList
     addAll(printReads)
 
     // step 3: recall using alleles only at MI unique sites
     var callMI = new UnifiedGenotyper with STAND_ARGS
-    callMI.alleles = remBroad.out
+    callMI.alleles = filt.out
     callMI.input_file ++= printReads.map( u => u.out )
     callMI.intervals :+= miUqInt.listOut
-    callMI.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    callMI.genotyping_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
     callMI.out = new File(callDir,"BI_Calls_MI_Unique_Sites.vcf")
+    callMI.stand_call_conf = Some(4.0)
+    callMI.stand_emit_conf = Some(4.0)
+    callMI.baq = BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     callMI.scatterCount = 50
 
     add(callMI)
