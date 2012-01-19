@@ -51,6 +51,7 @@ class T2D_VQSR extends QScript {
 
   trait STAND_ARGS extends CommandLineGATK {
     this.reference_sequence = ref
+    this.memoryLimit = Some(4)
   }
 
   def VQSR(inVCF: File, inList : File,  maxGauss: Int, dir: Double) : VariantRecalibrator = {
@@ -97,6 +98,7 @@ class T2D_VQSR extends QScript {
       pr.input_file ++= u._1
       pr.out = new File(bamDir,"bam_chunk_%d.bam".format(u._2))
       pr.intervals :+= miUqInt.listOut
+      pr.memoryLimit = Some(2)
       pr
     }).toList
     addAll(printReads)
