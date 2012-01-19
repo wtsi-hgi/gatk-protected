@@ -11,6 +11,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
+import java.util.zip.DeflaterInputStream;
 
 /**
  * Implementation of the replication and validation framework with reference based error model
@@ -83,12 +84,19 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
     @Argument(shortName = "min_call_power", fullName = "min_power_threshold_for_calling", doc="The minimum confidence in the error model to make a call. Number should be between 0 (no power requirement) and 1 (maximum power required).", required = false)
     double minPower = 0.95;
 
+    @Argument(shortName = "min_depth", fullName = "min_reference_depth", doc="The minimum depth required in the reference sample in order to make a call.", required = false)
+    int minDepth = 100;
+
     @Argument(shortName="ef", fullName="exclude_filtered_reference_sites", doc="Don't include in the analysis sites where the reference sample VCF is filtered. Default: false.", required=false)
     boolean EXCLUDE_FILTERED_REFERENCE_SITES = false;
 
     @Hidden
     @Argument(shortName = "dl", doc="DEBUG ARGUMENT -- treats all reads as coming from the same lane", required=false)
     boolean DEBUG_IGNORE_LANES = false;
+
+    @Hidden
+     @Argument(shortName = "discovery", doc="Allele discovery mode", required=false)
+     boolean ALLELE_DISCOVERY_MODE = false;
 
 
     int nSamples;
@@ -168,16 +176,23 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         Collection<Byte> trueReferenceBases = getTrueBases(referenceSampleContext, ref);
 
         // If there is no true reference base in this locus, skip it.
-        if (trueReferenceBases == null)
+        if (trueReferenceBases == null && !ALLELE_DISCOVERY_MODE)
             return 0;
 
+
+        if (!context.hasBasePileup())
+            return 0;
+        if (context.getBasePileup().getPileupForSample(referenceSampleName) == null)
+            return 0;
+        if (context.getBasePileup().getPileupForSample(referenceSampleName).depthOfCoverage() < minDepth)
+            return 0;
         // Creates a site Object for this location
 
         Site site;
         if (DEBUG_IGNORE_LANES)
-            site = Site.debugSite(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower);
+            site = Site.debugSite(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower,ALLELE_DISCOVERY_MODE );
         else
-            site = new Site(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower);
+            site = new Site(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower, ALLELE_DISCOVERY_MODE);
 
         VariantContext call = new VariantContextBuilder("PoolCaller",
                 ref.getLocus().getContig(),

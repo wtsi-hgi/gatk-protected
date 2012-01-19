@@ -70,14 +70,21 @@ public class BaitRedesignWalker extends RodWalker<Integer,Integer> {
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         List<TableFeature> baitFeatures = tracker.getValues(baitBinding);
-        if ( baitFeatures.size() > 1 ) {
-            throw new UserException("The contract of this tool is that baits can not overlap");
-        } else if ( baitFeatures.size() == 0 ) {
+        if ( baitFeatures.size() == 0 ) {
             return 0; // nothing to do here
         } else {
             // exactly one bait, as per contract
-            TableFeature bait = baitFeatures.get(0);
-            if ( ref.getLocus().getStart() != bait.getLocation().getStart() ) {
+            TableFeature bait = null;
+            for ( int i = 0; i < baitFeatures.size(); i++ ) {
+                bait = baitFeatures.get(i);
+                if ( ref.getLocus().getStart() != bait.getLocation().getStart() ) {
+                    bait = null;
+                }
+            }
+            if ( bait == null ) {
+                return 0;
+            }
+            if ( Integer.parseInt(bait.get("Variants")) > 0 ) {
                 return 0;
             }
             byte[] baitBases = Arrays.copyOfRange(ref.getBases(), 0, bait.getEnd() - bait.getStart());

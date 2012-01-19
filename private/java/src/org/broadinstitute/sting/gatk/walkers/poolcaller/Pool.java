@@ -33,11 +33,11 @@ public class Pool {
     private byte calledAllele;
     private double log10LikelihoodCall;
 
-    public Pool(String name, ReadBackedPileup pileup, ErrorModel errorModel, byte referenceSequenceBase, int maxAlleleCount, double minCallQual) {
-        name = name;
-        pileup = pileup;
-        maxAlleleCount = maxAlleleCount;
-        referenceSequenceBase = referenceSequenceBase;
+    public Pool(String name, ReadBackedPileup pileup, ErrorModel errorModel, byte referenceSequenceBase, int maxAlleleCount, double minCallQual, boolean doAlleleDiscovery) {
+        this.name = name;
+        this.pileup = pileup;
+        this.maxAlleleCount = maxAlleleCount;
+        this.referenceSequenceBase = referenceSequenceBase;
 
         byte [] data = pileup.getBases();
         int coverage = data.length;
