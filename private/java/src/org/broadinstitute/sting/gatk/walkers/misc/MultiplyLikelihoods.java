@@ -11,10 +11,7 @@ import org.broadinstitute.sting.gatk.samples.Sample;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
+import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -127,7 +124,9 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
         GenotypesContext genotypes = context.getGenotypes(samples);
         ArrayList<Genotype> newG = new ArrayList<Genotype>(genotypes.size());
         for ( Genotype g : genotypes ) {
-            newG.add(Genotype.modifyAttributes(Genotype.modifyAlleles(g,NO_CALL),new HashMap<String,Object>()));
+            Map<String,Object> justLik = new HashMap<String,Object>();
+            justLik.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,g.getLikelihoods());
+            newG.add(Genotype.modifyAttributes(Genotype.modifyAlleles(g,NO_CALL),justLik));
         }
         return GenotypesContext.create(newG);
     }
