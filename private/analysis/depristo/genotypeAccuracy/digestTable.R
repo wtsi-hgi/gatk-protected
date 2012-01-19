@@ -46,7 +46,7 @@ digestTable <- function(inputDataFile) {
   d$technology[grepl("B00EG.*", d$rg)] <- "HiSeq-recent"
   print(summary(d$technology))
   
-  eByComp = addEmpiricalPofG(ddply(d, .(rg, technology, pGGivenDType, pGGivenD), genotypeCounts))
+  eByComp = addEmpiricalPofG(ddply(d, .(rg,sample, technology, pGGivenDType, pGGivenD), genotypeCounts))
   return(list(d=d, eByComp = eByComp))
   #countsByTech = addEmpiricalPofG(ddply(d, .(technology, pGGivenDType, pGGivenD), genotypeCounts))
 }
