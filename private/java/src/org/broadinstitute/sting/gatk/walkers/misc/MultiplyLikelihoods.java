@@ -41,6 +41,7 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
     double[] HOM_REF;
     double[] HET;
     double[] HOM_VAR;
+    List<Allele> NO_CALL = new ArrayList<Allele>(Arrays.asList(new Allele[]{Allele.NO_CALL}));
 
     public void initialize() {
         List<String> rodNames = new ArrayList<String>(16);
@@ -95,7 +96,7 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
         for ( VariantContext vc : tracker.getValues(variants) ) {
             if ( first ) {
                 builder = new VariantContextBuilder(vc);
-                genotypes = vc.getGenotypes(sampleIntersection);
+                genotypes = getGenotypes(vc,sampleIntersection);
                 alleles = new HashSet<Allele>(vc.getAlleles());
                 first = false;
             } else {
@@ -116,9 +117,19 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
         if ( builder == null ) {
             return 0;
         }
-        builder.genotypes(genotypes);
+        builder.genotypes(genotypes); // reset the genotypes
+        builder.attributes(new HashMap<String,Object>()); // reset the attributes
         out.add(builder.make());
         return 1;
+    }
+
+    private GenotypesContext getGenotypes(VariantContext context, Set<String> samples) {
+        GenotypesContext genotypes = context.getGenotypes(samples);
+        ArrayList<Genotype> newG = new ArrayList<Genotype>(genotypes.size());
+        for ( Genotype g : genotypes ) {
+            newG.add(Genotype.modifyAttributes(Genotype.modifyAlleles(g,NO_CALL),new HashMap<String,Object>()));
+        }
+        return GenotypesContext.create(newG);
     }
 
     private Genotype addGenotypeLikelihoods(Genotype g1, Genotype g2) {
@@ -144,7 +155,7 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
         return new Genotype(g1.getSampleName(),al, Genotype.NO_LOG10_PERROR ,new HashSet<String>(),new HashMap<String,Object>(),g1.isPhased(),l3);
     }
 
-    private double[] getLikelihoods(Genotype g) {
+    protected double[] getLikelihoods(Genotype g) {
         if ( g.hasLikelihoods() ) {
             return g.getLikelihoods().getAsVector();
         }
