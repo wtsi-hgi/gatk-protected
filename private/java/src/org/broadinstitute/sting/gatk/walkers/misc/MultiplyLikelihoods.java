@@ -125,7 +125,9 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
         ArrayList<Genotype> newG = new ArrayList<Genotype>(genotypes.size());
         for ( Genotype g : genotypes ) {
             Map<String,Object> justLik = new HashMap<String,Object>();
-            justLik.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,g.getLikelihoods());
+            if ( g.hasLikelihoods() ) {
+                justLik.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,g.getLikelihoods());
+            }
             newG.add(Genotype.modifyAttributes(Genotype.modifyAlleles(g,NO_CALL),justLik));
         }
         return GenotypesContext.create(newG);
