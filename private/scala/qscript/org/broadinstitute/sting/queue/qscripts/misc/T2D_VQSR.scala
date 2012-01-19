@@ -56,7 +56,6 @@ class T2D_VQSR extends QScript {
   def VQSR(inVCF: File, inList : File,  maxGauss: Int, dir: Double) : VariantRecalibrator = {
     val vqsr = new VariantRecalibrator with STAND_ARGS
     vqsr.an ++= List("QD","HaplotypeScore","MQRankSum","ReadPosRankSum","FS","MQ","InbreedingCoeff","DP")
-    vqsr.ignore_filter :+= "LowQual"
     vqsr.mode = VariantRecalibratorArgumentCollection.Mode.SNP
     vqsr.input :+= inVCF
     vqsr.resource ++= List(hapMap,dbSNP,omni)
@@ -86,7 +85,7 @@ class T2D_VQSR extends QScript {
     var filt = new VariantFiltration with STAND_ARGS
     filt.variant = remBroad.out
     filt.out = new File(callDir,"MI_Unique_calls.noFilt.vcf")
-    filt.invalidatePreviousFilters
+    filt.invalidatePreviousFilters = true
     add(filt)
 
     val miUqInt = new VCFExtractIntervals(filt.out,new File(callDir,"MI_Unique_calls.intervals.list"),true)
