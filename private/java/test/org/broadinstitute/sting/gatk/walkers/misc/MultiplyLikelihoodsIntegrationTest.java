@@ -13,7 +13,7 @@ import java.util.Arrays;
  */
 public class MultiplyLikelihoodsIntegrationTest extends WalkerTest {
 
-    public static final String baseTestString = " -T MultiplyLikelihoods -o %s -R "+b37KGReference
+    public static final String baseTestString = " -T MultiplyLikelihoods -o %s -R "+b37KGReference;
 
     @Test
     public void testLikelihoodsAddedAndRenormalized() {
