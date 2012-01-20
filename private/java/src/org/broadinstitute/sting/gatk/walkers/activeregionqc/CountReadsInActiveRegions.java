@@ -5,6 +5,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.ActiveRegionExtension;
 import org.broadinstitute.sting.gatk.walkers.ActiveRegionWalker;
 import org.broadinstitute.sting.utils.activeregion.ActiveRead;
 import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
@@ -15,6 +16,7 @@ import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
  * Date: 12/8/11
  */
 
+@ActiveRegionExtension(extension=50)
 public class CountReadsInActiveRegions extends ActiveRegionWalker<Integer, Integer> {
 
     boolean coinFlip = false;
