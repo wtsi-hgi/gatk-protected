@@ -91,6 +91,8 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
             logger.debug("foo");
         }
         for ( VariantContext vc : tracker.getValues(variants) ) {
+            if ( vc.isFiltered() )
+                continue;
             if ( first ) {
                 builder = new VariantContextBuilder(vc);
                 genotypes = getGenotypes(vc,sampleIntersection);

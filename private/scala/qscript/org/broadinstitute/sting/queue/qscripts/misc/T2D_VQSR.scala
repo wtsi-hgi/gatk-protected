@@ -121,9 +121,10 @@ class T2D_VQSR extends QScript {
     var combineBroad = new CombineVariants with STAND_ARGS
     combineBroad.variant :+= broadCalls
     combineBroad.variant :+= callMI.out
-    combineBroad.intervals :+= broadCalls
+    combineBroad.intervals :+= biCaInt.listOut
     combineBroad.intervals :+= miUqInt.listOut
     combineBroad.out = new File(callDir,"BI_Union_calls.vcf")
+    combineBroad.scatterCount = 50
 
     add(combineBroad)
 
