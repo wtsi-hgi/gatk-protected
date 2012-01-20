@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.misc;
 
 import org.broadinstitute.sting.WalkerTest;
+import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
