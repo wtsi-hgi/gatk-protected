@@ -47,6 +47,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.collections.NestedHashMap;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
@@ -89,6 +90,7 @@ import java.util.*;
  * @author Your Name
  * @since Date created
  */
+
 @PartitionBy(PartitionType.INTERVAL)
 @ReadFilters( {MappingQualityUnavailableFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class} )
 public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implements TreeReducible<Integer> {
@@ -454,6 +456,7 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
     // BUGBUG: move this function to ReadUtils or FragmentUtils
     private List<GATKSAMRecord> mergeOverlappingPairedReads( List<GATKSAMRecord> overlappingPair ) {
+        final byte MIN_QUAL_BAD_OVERLAP = 16;
         if( overlappingPair.size() != 2 ) { throw new ReviewedStingException("Found overlapping pair with " + overlappingPair.size() + " reads, but expecting exactly 2."); }
 
         GATKSAMRecord firstRead = overlappingPair.get(0);
@@ -463,16 +466,25 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
             secondRead = overlappingPair.get(0);
         }
         if( !(secondRead.getUnclippedStart() <= firstRead.getUnclippedEnd() && secondRead.getUnclippedStart() >= firstRead.getUnclippedStart() && secondRead.getUnclippedEnd() >= firstRead.getUnclippedEnd()) ) {
-            return overlappingPair; // can't merge them, yet:  AAAAAAAAAAA-BBBBBBBBBBB-AAAAAAAAAAAAAA
+            return overlappingPair; // can't merge them, yet:  AAAAAAAAAAA-BBBBBBBBBBB-AAAAAAAAAAAAAA, B is contained entirely inside A
+        }
+        if( firstRead.getCigarString().contains("I") || firstRead.getCigarString().contains("D") || secondRead.getCigarString().contains("I") || secondRead.getCigarString().contains("D") ) {
+            return overlappingPair; // fragments contain indels so don't merge them
         }
 
         // DEBUG PRINTING
-        //System.out.println("1: " + firstRead.getUnclippedStart() + " - " + firstRead.getUnclippedEnd() + "  > " + firstRead.getCigar() + " " + firstRead.getReadGroup().getId());
-        //System.out.println("2: " + secondRead.getUnclippedStart() + " - " + secondRead.getUnclippedEnd() + "  > " + secondRead.getCigar()+ " " + firstRead.getReadGroup().getId());
-        //System.out.println(firstRead.getReadString());
-        //System.out.println(secondRead.getReadString());
+        /*
+        System.out.println("1: " + firstRead.getSoftStart() + " - " + firstRead.getSoftEnd() + "  > " + firstRead.getCigar() + " " + firstRead.getReadGroup().getId());
+        System.out.println("2: " + secondRead.getSoftStart() + " - " + secondRead.getSoftEnd() + "  > " + secondRead.getCigar()+ " " + firstRead.getReadGroup().getId());
+        System.out.println(firstRead.getReadString());
+        System.out.println(firstRead.getBaseQualityString());
+        System.out.println(secondRead.getReadString());
+        System.out.println(secondRead.getBaseQualityString());
+        */
 
-        final int firstReadStop = ReadUtils.getReadCoordinateForReferenceCoordinate(firstRead, secondRead.getUnclippedStart(), ReadUtils.ClippingTail.RIGHT_TAIL);
+        final Pair<Integer, Boolean> pair = ReadUtils.getReadCoordinateForReferenceCoordinate(firstRead, secondRead.getSoftStart());
+        
+        final int firstReadStop = ( pair.getSecond() ? pair.getFirst() + 1 : pair.getFirst() );
         final int numBases = firstReadStop + secondRead.getReadLength();
         final byte[] bases = new byte[numBases];
         final byte[] quals = new byte[numBases];
@@ -485,6 +497,9 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
             quals[iii] = firstReadQuals[iii];
         }
         for(int iii = firstReadStop; iii < firstRead.getReadLength(); iii++) {
+            if( firstReadQuals[iii] > MIN_QUAL_BAD_OVERLAP && secondReadQuals[iii-firstReadStop] > MIN_QUAL_BAD_OVERLAP && firstReadBases[iii] != secondReadBases[iii-firstReadStop] ) {
+                return overlappingPair;// high qual bases don't match exactly, probably indel in only one of the fragments, so don't merge them
+            }
             bases[iii] = ( firstReadQuals[iii] > secondReadQuals[iii-firstReadStop] ? firstReadBases[iii] : secondReadBases[iii-firstReadStop] );
             quals[iii] = ( firstReadQuals[iii] > secondReadQuals[iii-firstReadStop] ? firstReadQuals[iii] : secondReadQuals[iii-firstReadStop] );
         }

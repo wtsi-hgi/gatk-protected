@@ -26,6 +26,7 @@ public class Site {
     private ReadBackedPileup pileup;
     private Set<String> filters;
     private Map<String, Object> attributes;
+    private final boolean doDiscoveryMode;
 
 
 
@@ -35,16 +36,21 @@ public class Site {
      * lane.
      */
 
-    public Site(ReadBackedPileup sitePileup,String referenceSampleName,Collection<Byte> trueReferenceBases,byte referenceSequenceBase,byte minQualityScore,byte maxQualityScore,byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower) {
+    public Site(ReadBackedPileup sitePileup,String referenceSampleName,Collection<Byte> trueReferenceBases,byte referenceSequenceBase,byte minQualityScore,byte maxQualityScore,
+                byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower, boolean doDiscoveryMode) {
 
         this.referenceSequenceBase = referenceSequenceBase;
         this.minCallQual = minCallQual;
         this.pileup = sitePileup;
+        this.doDiscoveryMode = doDiscoveryMode;
+
+
+
 
         laneIDs = parseLaneIDs(sitePileup.getReadGroups());
         lanes = new HashSet<Lane>(laneIDs.size());
         for (String laneID : laneIDs) {
-            lanes.add(new Lane(laneID,sitePileup.getPileupForLane(laneID),referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower));
+            lanes.add(new Lane(laneID,sitePileup.getPileupForLane(laneID),referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower, doDiscoveryMode));
         }
 
         for (Lane lane : lanes) {
@@ -66,7 +72,7 @@ public class Site {
      * @param laneID the lane id
      * @param lane the lane object
      */
-    private Site(String laneID, Lane lane, double minCallQual, byte referenceSequenceBase, ReadBackedPileup sitePileup) {
+    private Site(String laneID, Lane lane, double minCallQual, byte referenceSequenceBase, ReadBackedPileup sitePileup, boolean doDiscoveryMode) {
         this.lanes = new HashSet<Lane>(1);
         this.laneIDs = new HashSet<String>(1);
         this.lanes.add(lane);
@@ -74,6 +80,7 @@ public class Site {
         this.pileup = sitePileup;
         this.minCallQual = minCallQual;
         this.referenceSequenceBase = referenceSequenceBase;
+        this.doDiscoveryMode = doDiscoveryMode;
         alleleCountModel = new AlleleCountModel(lane.getAlleleCountModel());
         filters = lane.getFilters();
         attributes = lane.getAttributes();
@@ -83,11 +90,12 @@ public class Site {
      * Same as Site constructor but will create only one lane containing only one pool with all samples in the SAM record.
      * Only for debug purposes.
      */
-    public static Site debugSite(ReadBackedPileup sitePileup,String referenceSampleName,Collection<Byte> trueReferenceBases,byte referenceSequenceBase,byte minQualityScore,byte maxQualityScore,byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower) {
+    public static Site debugSite(ReadBackedPileup sitePileup,String referenceSampleName,Collection<Byte> trueReferenceBases,byte referenceSequenceBase,byte minQualityScore,byte maxQualityScore,
+                                 byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower, boolean disc) {
         String laneID = "LANE1";
-        Lane lane = Lane.debugLane(laneID,sitePileup,referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower);
+        Lane lane = Lane.debugLane(laneID,sitePileup,referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower,disc);
 
-        return new Site(laneID, lane, minCallQual, referenceSequenceBase, sitePileup);
+        return new Site(laneID, lane, minCallQual, referenceSequenceBase, sitePileup, disc);
     }
 
     /**

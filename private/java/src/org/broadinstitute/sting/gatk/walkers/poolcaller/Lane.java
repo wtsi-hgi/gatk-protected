@@ -23,7 +23,8 @@ public class Lane {
     private Set<String> filters;
     private Map<String, Object> attributes;
 
-    public Lane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior,int maxAlleleCount, double minCallQual, double minPower) {
+    public Lane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase,
+                byte minQualityScore, byte maxQualityScore, byte phredScaledPrior,int maxAlleleCount, double minCallQual, double minPower, boolean doAlleleDiscovery) {
         this.name = name;
         this.referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSample(referenceSampleName), trueReferenceBases);
         this.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, referenceSample, minPower);
@@ -32,7 +33,7 @@ public class Lane {
         poolNames.remove(referenceSampleName);
         this.pools = new LinkedList<Pool>();
         for (String poolName : poolNames) {
-            pools.add(new Pool(poolName, lanePileup.getPileupForSample(poolName),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual));
+            pools.add(new Pool(poolName, lanePileup.getPileupForSample(poolName),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual, doAlleleDiscovery));
         }
 
         this.filters = new TreeSet<String>();
@@ -52,14 +53,15 @@ public class Lane {
     private Lane() {}
 
 
-    public static Lane debugLane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlleleCount, double minCallQual, double minPower) {
+    public static Lane debugLane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases,
+                                 byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlleleCount, double minCallQual, double minPower, boolean doAlleleDiscovery) {
         Lane lane = new Lane();
         lane.name = name;
         lane.referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSample(referenceSampleName), trueReferenceBases);
         lane.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, lane.referenceSample, minPower);
 
         lane.pools = new LinkedList<Pool>();
-        lane.pools.add(new Pool("POOL1", lanePileup, lane.errorModel, referenceSequenceBase, maxAlleleCount, minCallQual));
+        lane.pools.add(new Pool("POOL1", lanePileup, lane.errorModel, referenceSequenceBase, maxAlleleCount, minCallQual, doAlleleDiscovery));
 
         for (Pool pool : lane.pools) {
             lane.alleleCountModel = new AlleleCountModel(pool.getAlleleCountModel());
