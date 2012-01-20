@@ -135,9 +135,9 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
 
     private Genotype addGenotypeLikelihoods(Genotype g1, Genotype g2) {
         if ( g1.isNoCall() && ! g1.hasLikelihoods() ) {
-            return g2;
+            return purge(g2);
         } else if ( g2.isNoCall() && ! g2.hasLikelihoods() ) {
-            return g1;
+            return purge(g1);
         }
 
         double[] l1 = getLikelihoods(g1);
@@ -150,10 +150,11 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
         }
 
         // todo -- recalculate GQ if we want it
-        List<Allele> al = new ArrayList<Allele>(2);
-        // todo -- generalize for non bi-allelic
-        al.add(Allele.NO_CALL);
-        return new Genotype(g1.getSampleName(),al, Genotype.NO_LOG10_PERROR ,new HashSet<String>(),new HashMap<String,Object>(),g1.isPhased(),l3);
+        return new Genotype(g1.getSampleName(),NO_CALL, Genotype.NO_LOG10_PERROR ,new HashSet<String>(),new HashMap<String,Object>(),g1.isPhased(),l3);
+    }
+
+    private Genotype purge(Genotype g) {
+        return new Genotype(g.getSampleName(),NO_CALL,Genotype.NO_LOG10_PERROR,new HashSet<String>(),new HashMap<String,Object>(),g.isPhased(),g.hasLikelihoods() ? g.getLikelihoods().getAsVector() : null);
     }
 
     protected double[] getLikelihoods(Genotype g) {
