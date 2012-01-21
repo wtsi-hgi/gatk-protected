@@ -4,10 +4,8 @@ import org.broadinstitute.sting.queue.QScript
 import scala.collection.JavaConversions._
 import org.broadinstitute.sting.utils.text.XReadLines
 import org.broadinstitute.sting.commandline.Argument
-import org.broadinstitute.sting.queue.qscripts.misc.GenerateRefPanelWithBeagle.RefineGenotypesWithBeagle
-import org.broadinstitute.sting.queue.extensions.gatk.{BeagleOutputToVCF, ProduceBeagleInput, MultiplyLikelihoods}
 import java.io.PrintStream
-import org.broadinstitute.sting.queue.qscripts.misc.GenerateRefPanelWithBeagle.MyVCFGather
+import org.broadinstitute.sting.queue.extensions.gatk.{TaggedFile, BeagleOutputToVCF, ProduceBeagleInput, MultiplyLikelihoods}
 
 /**
  * Created by IntelliJ IDEA.
@@ -19,32 +17,38 @@ import org.broadinstitute.sting.queue.qscripts.misc.GenerateRefPanelWithBeagle.M
 
 class GenerateRefPanelWithBeagle extends QScript {
   @Input(shortName="LP",fullName="lowPass",doc="VCF from low-pass calls and genotypes, containing likelihoods",required=true)
-  val lowPassCalls : File = _
+  var lowPassCalls : File = _
   @Input(shortName="EX",fullName="exome",doc="VCF from exome calls and genotypes, containing likelihoods",required=true)
-  val exomeCalls : File = _
+  var exomeCalls : File = _
   @Input(shortName="CHIP",fullName="genotypeChip",doc="VCF from genotype chip genotypes, not necessarily containing likelihoods",required=true)
-  val chipCalls : File = _
-  @Input(shortName="L",fullName="chunkIntervals",doc="Interval list containing the chunking strategy for running this analysis",required=true)
-  val chunks : File = _
+  var chipCalls : File = _
+  @Input(shortName="CI",fullName="chunkIntervals",doc="Interval list containing the chunking strategy for running this analysis",required=true)
+  var chunks : File = _
   @Input(shortName="R",fullName="referenceFile",doc="The reference fasta. Should be obvious.",required=false)
-  val ref : File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
+  var ref : File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
   @Input(shortName="B",fullName="beagleJar",doc="Path to the beagle jar",required=false)
-  val beagleJar = new File("/humgen/gsa-hpprojects/software/beagle/beagle.jar")
+  var beagleJar = new File("/humgen/gsa-hpprojects/software/beagle/beagle.jar")
 
   val BEAGLE_MEM_IN_GB : Int = 8
   val TMPDIR : String = System.getProperty("java.io.tmpdir");
 
 
-  class RefineGenotypesWithBeagle(@Input beagleInput: File, @Argument outputBase : String) extends CommandLineFunction {
+  class RefineGenotypesWithBeagle(@Input beagleInput: File) extends CommandLineFunction {
     this.memoryLimit = BEAGLE_MEM_IN_GB
 
     // Note: These get set
-    @Output val beaglePhasedFile: File = new File(outputBase +".phased.gz")
-    @Output val beagleLikelihoods: File = new File(outputBase +".gprobs.gz")
-    @Output val beagleRSquared: File = new File(outputBase +".r2")
+    @Output val beaglePhasedFile: File = new File(beagleInput.getAbsolutePath +".phased.gz")
+    @Output val beagleLikelihoods: File = new File(beagleInput.getAbsolutePath +".gprobs.gz")
+    @Output val beagleRSquared: File = new File(beagleInput.getAbsolutePath +".r2")
 
-    def commandLine = "java -Djava.io.tmpdir=%s -Xmx%dg -jar %s out=%s like=%s niterations=50".format(
-      TMPDIR, BEAGLE_MEM_IN_GB, beagleJar,outputBase,beagleInput.getAbsolutePath)
+    def commandLine = "java -Djava.io.tmpdir=%s -Xmx%dg -jar %s out=foo like=%s niterations=50 omitprefix=true".format(
+      TMPDIR, BEAGLE_MEM_IN_GB, beagleJar,beagleInput.getAbsolutePath)
+  }
+
+  class Gunzip(@Input zippedFile : File ) extends CommandLineFunction {
+    @Output val outputFile : File = new File(zippedFile.getAbsolutePath.replace(".gz",""))
+
+    def commandLine = "gunzip -c %s > %s".format(zippedFile.getAbsolutePath,outputFile.getAbsolutePath)
   }
 
   def script = {
@@ -73,8 +77,14 @@ class GenerateRefPanelWithBeagle extends QScript {
       add(beagOut)
 
       // 3: refine the genotypes (and phase)
-      val beagRefine = new RefineGenotypesWithBeagle(beagOut.out,"Beag_Raw_Out.chunk%d".format(idx))
+      val beagRefine = new RefineGenotypesWithBeagle(beagOut.out)
       add(beagRefine)
+
+      // 3a: gunzip this stuff
+      val phase = new Gunzip(beagRefine.beaglePhasedFile)
+      add(phase)
+      val like = new Gunzip(beagRefine.beagleLikelihoods)
+      add(like)
 
       // 4: convert beagle output back to VCF
       val beag2vcf = new BeagleOutputToVCF
@@ -82,18 +92,20 @@ class GenerateRefPanelWithBeagle extends QScript {
       beag2vcf.memoryLimit = Some(4)
       beag2vcf.out = new File("Ref_Panel.chunk%d.vcf".format(idx))
       beag2vcf.keep_monomorphic = true
-      beag2vcf.beaglePhased = beagRefine.beaglePhasedFile
-      beag2vcf.beagleProbs = beagRefine.beagleLikelihoods
-      beag2vcf.beagleR2 = beagRefine.beagleRSquared
+      beag2vcf.beaglePhased = new TaggedFile(phase.outputFile,"ph,BEAGLE")
+      beag2vcf.beagleProbs = new TaggedFile(like.outputFile,"pr,BEAGLE")
+      beag2vcf.beagleR2 = new TaggedFile(beagRefine.beagleRSquared,"r2,BEAGLE")
       beag2vcf.intervalsString :+= chunk
+      beag2vcf.variant = mLik.out
       add(beag2vcf)
       panelChunks :+= beag2vcf.out
-      idx.+
+      idx = 1 + idx;
     })
 
     val gather = new MyVCFGather
     gather.vcfs ++= panelChunks
     gather.outVCF = new File("Reference_Panel_Final.vcf")
+    add(gather)
   }
 
     class MyVCFGather extends InProcessFunction {

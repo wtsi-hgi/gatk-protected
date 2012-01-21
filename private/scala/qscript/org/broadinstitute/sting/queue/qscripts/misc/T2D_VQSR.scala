@@ -46,7 +46,7 @@ class T2D_VQSR extends QScript {
   val omni : File = new TaggedFile("/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Omni2.5_chip/Omni25_sites_1856_samples.b37.vcf",
   "omni,vcf,known=false,training=true,truth=false,prior=12.0")
 
-  val MAX_GAUSS = List(8,10,15,20,30)
+  val MAX_GAUSS = List(8,10,15,17,6)
   val DIRICH = List(0.0001,0.001,0.01)
 
   trait STAND_ARGS extends CommandLineGATK {
@@ -65,7 +65,7 @@ class T2D_VQSR extends QScript {
     vqsr.intervals :+= inList
     vqsr.maxGaussians = Some(maxGauss)
     vqsr.dirichlet = Some(dir)
-    vqsr.tranche ++= (900 to 1000).map(u => (u.toDouble/1000).toString)
+    vqsr.tranche ++= (80 to 100).map(u => (u.toDouble/100).toString)
     vqsr
   }
 
