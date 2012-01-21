@@ -65,7 +65,7 @@ class T2D_VQSR extends QScript {
     vqsr.intervals :+= inList
     vqsr.maxGaussians = Some(maxGauss)
     vqsr.dirichlet = Some(dir)
-    vqsr.tranche ++= (80 to 100).map(u => (u.toDouble/100).toString)
+    vqsr.tranche ++= (80 to 100).map(u => (u.toDouble/1).toString)
     vqsr
   }
 
