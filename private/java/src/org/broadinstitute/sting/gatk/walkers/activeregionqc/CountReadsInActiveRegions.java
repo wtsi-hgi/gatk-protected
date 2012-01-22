@@ -7,7 +7,6 @@ import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ActiveRegionExtension;
 import org.broadinstitute.sting.gatk.walkers.ActiveRegionWalker;
-import org.broadinstitute.sting.utils.activeregion.ActiveRead;
 import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
 
 /**
@@ -29,11 +28,7 @@ public class CountReadsInActiveRegions extends ActiveRegionWalker<Integer, Integ
     }
 
     public Integer map( final ActiveRegion activeRegion, final ReadMetaDataTracker tracker) {
-        int count = 0;
-        for( final ActiveRead activeRead : activeRegion.getReads() ) {
-            if( activeRead.isPrimaryRegion ) { count++; }
-        }
-        return count;
+        return activeRegion.size();
     }
 
     public Integer reduceInit() { return 0; }
