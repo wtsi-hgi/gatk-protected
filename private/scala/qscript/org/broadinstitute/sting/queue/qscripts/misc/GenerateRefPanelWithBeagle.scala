@@ -5,7 +5,7 @@ import scala.collection.JavaConversions._
 import org.broadinstitute.sting.utils.text.XReadLines
 import org.broadinstitute.sting.commandline.Argument
 import java.io.PrintStream
-import org.broadinstitute.sting.queue.extensions.gatk.{TaggedFile, BeagleOutputToVCF, ProduceBeagleInput, MultiplyLikelihoods}
+import org.broadinstitute.sting.queue.extensions.gatk._
 
 /**
  * Created by IntelliJ IDEA.
@@ -28,6 +28,8 @@ class GenerateRefPanelWithBeagle extends QScript {
   var ref : File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
   @Input(shortName="B",fullName="beagleJar",doc="Path to the beagle jar",required=false)
   var beagleJar = new File("/humgen/gsa-hpprojects/software/beagle/beagle.jar")
+  @Input(shortName="PC",fullName="phasedComparison",doc="A file phased with beagle for comparison of phasing and genotypes. Usually lowpassed phased on its own.",required=true)
+  var phasedComp : File = _
 
   val BEAGLE_MEM_IN_GB : Int = 8
   val TMPDIR : String = System.getProperty("java.io.tmpdir");
@@ -106,6 +108,25 @@ class GenerateRefPanelWithBeagle extends QScript {
     gather.vcfs ++= panelChunks
     gather.outVCF = new File("Reference_Panel_Final.vcf")
     add(gather)
+
+    // now we want to compare this with a pre-phased file to ensure no truly gross errors
+    val gtEval = new VariantEval
+    gtEval.reference_sequence = ref
+    gtEval.eval :+= new TaggedFile(gather.outVCF,"Consensus,VCF")
+    gtEval.comp :+= new TaggedFile(phasedComp,"PhasedComp,VCF")
+    gtEval.EV :+= "GenotypeConcordance"
+    gtEval.out = new File("Reference_Panel_Eval.gatk")
+    gtEval.intervals :+= chunks
+    add(gtEval)
+
+    val phaseEval = new CompareRBPAndBeagleHaplotypes
+    phaseEval.rbp = new TaggedFile(gather.outVCF,"Consensus,VCF")
+    phaseEval.beagle = new TaggedFile(phasedComp,"PhasedComp,VCF")
+    phaseEval.reference_sequence = ref
+    phaseEval.out = new File("Reference_Panel_Phase_Comparison.txt")
+    phaseEval.intervals :+= chunks
+    add(phaseEval)
+
   }
 
     class MyVCFGather extends InProcessFunction {
