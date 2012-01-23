@@ -29,6 +29,14 @@ def main():
                         type='string', default=None,
                         help="if provided, output will go here instead of stdout")
 
+    parser.add_option("-i", "", dest="ID",
+                        type='string', default=None,
+                        help="if provided, only process the record with this id")
+
+    parser.add_option("-M", "--maxRecords", dest="maxRecords",
+                        type='int', default=None,
+                        help="if provided, only the first maxRecords records will be processed")
+
     parser.add_option("", "--no-dev", dest="noDev",
                         action='store_true', default=False,
                         help="if provided, only records not coming from a dev version of GATK will be included")
@@ -77,10 +85,15 @@ def main():
     counter = 0
     for report in readReports(files):
         # todo -- add matching here
-        handler.processRecord(report)
-        counter += 1
-        report.clear()
-        if OPTIONS.updateFreq > 0 and counter % OPTIONS.updateFreq == 0: print 'Processed records:', counter 
+        ID = report.find('id').text
+        if OPTIONS.ID == None or ID == OPTIONS.ID:
+            handler.processRecord(report)
+            counter += 1
+            report.clear()
+            if OPTIONS.updateFreq > 0 and counter % OPTIONS.updateFreq == 0: 
+                print 'Processed records:', counter 
+            if OPTIONS.maxRecords > 0 and counter > OPTIONS.maxRecords: 
+                break
 
     handler.finalize(files)
     if OPTIONS.output != None: out.close()
@@ -152,17 +165,17 @@ class RecordDecoder:
         def formatMajorVersion(elt):
             text = elt.text
             # maps svn numbers 1.0.Vxxx to 0.V.xxx
-            svnMatch = re.match("1\.0\.(\d)\d*", text)
+            svnMatch = re.match("^1\.0\.(\d)\d*", text)
             if svnMatch != None:
                 val = "0.%s" % svnMatch.group(1)
             else:
                 # maps git numbers 1.3-22-g1bfe280 to 1.3
-                gitMatch = re.match("(\d).(\d)($|\w*)", text)
+                gitMatch = re.match("^(\d)\.(\d)($|\w*)", text)
                 if gitMatch != None:
                     val = "%s.%s" % gitMatch.group(1,2)
                 else:
                     val = "unknown"
-            #print text, "=>", val
+            print text, "=>", val
             return val
         
         def formatExceptionMsg(elt):
