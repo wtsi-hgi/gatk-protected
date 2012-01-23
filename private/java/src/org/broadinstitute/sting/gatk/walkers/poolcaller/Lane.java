@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
+import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 
@@ -22,6 +23,7 @@ public class Lane {
     private AlleleCountModel alleleCountModel;
     private Set<String> filters;
     private Map<String, Object> attributes;
+    private boolean isVariant;
 
     public Lane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase,
                 byte minQualityScore, byte maxQualityScore, byte phredScaledPrior,int maxAlleleCount, double minCallQual, double minPower, boolean doAlleleDiscovery) {
@@ -37,16 +39,19 @@ public class Lane {
         }
 
         this.filters = new TreeSet<String>();
+        this.isVariant = false;
+
         for (Pool pool : pools) {
             // make the first pool's alleleCountModel our base model and then "recursively" merge it with all the subsequent pools
             if (alleleCountModel == null)
-                this.alleleCountModel = new AlleleCountModel(pool.getAlleleCountModel());
+                this.alleleCountModel = pool.getAlleleCountModel();
             else
                 this.alleleCountModel.merge(pool.getAlleleCountModel());
 
             // add all filters from this pool
             filters.addAll(pool.getFilters());
             attributes.putAll(pool.getAttributes());
+            isVariant |= pool.isVariant();
         }
     }
 
@@ -60,13 +65,21 @@ public class Lane {
         lane.referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSample(referenceSampleName), trueReferenceBases);
         lane.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, lane.referenceSample, minPower);
 
+        Collection<String> allSamples = new HashSet<String>();
+        for (String sample: lanePileup.getSamples()) {
+            if (sample.compareToIgnoreCase(referenceSampleName)!=0)
+                allSamples.add(sample);
+
+        }
+        ReadBackedPileup samplePileup = lanePileup.getPileupForSamples(allSamples);
         lane.pools = new LinkedList<Pool>();
-        lane.pools.add(new Pool("POOL1", lanePileup, lane.errorModel, referenceSequenceBase, maxAlleleCount, minCallQual, doAlleleDiscovery));
+        lane.pools.add(new Pool("POOL1", samplePileup, lane.errorModel, referenceSequenceBase, maxAlleleCount, minCallQual, doAlleleDiscovery));
 
         for (Pool pool : lane.pools) {
-            lane.alleleCountModel = new AlleleCountModel(pool.getAlleleCountModel());
+            lane.alleleCountModel = pool.getAlleleCountModel();
             lane.filters = pool.getFilters();
             lane.attributes = pool.getAttributes();
+            lane.isVariant |= pool.isVariant();
         }
         return lane;
     }
@@ -89,5 +102,9 @@ public class Lane {
             laneMap.putAll(pool.getGenotypes());
         }
         return laneMap;
+    }
+
+    public boolean isVariant() {
+        return isVariant;
     }
 }

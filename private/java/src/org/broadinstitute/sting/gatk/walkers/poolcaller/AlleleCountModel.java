@@ -2,8 +2,13 @@ package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
+import net.sf.picard.util.MathUtil;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
+
+import java.util.ArrayList;
 
 /**
  * The allele count model for the pool calling framework.
@@ -11,12 +16,17 @@ import org.broadinstitute.sting.utils.MathUtils;
  * @author carneiro
  * @since 7/21/11
  */
-public class AlleleCountModel extends ProbabilityModel {
+public class AlleleCountModel extends ProbabilityModel implements Cloneable {
     private int maxAlleleCount;
     private double minCallQuall;
     private ErrorModel errorModel;
-    private double[][] fullModel;
     private final double THETA = 0.001; // Human heterozygozity rate
+    private byte bestAltBase;
+    private byte refBase;
+    ArrayList<Allele> altAlleles = new ArrayList<Allele>();
+    private double phredScaledConfidence;
+    private int idxOfMaxAC;
+  //  private double[][] normalizedPosteriors;
 
     public AlleleCountModel(int maxAlleleCount, ErrorModel errorModel, int matches, int mismatches, double minCallQual) {
         this.maxAlleleCount = maxAlleleCount;
@@ -25,21 +35,22 @@ public class AlleleCountModel extends ProbabilityModel {
         model = calculateLog10ProbabilityDistribution(errorModel, matches, mismatches);
     }
 
-    public AlleleCountModel(int maxAlleleCount, ErrorModel errorModel, int numA, int numC, int numG, int numT,  double minCallQual, byte refBase) {
+    public AlleleCountModel(int maxAlleleCount, ErrorModel errorModel, Integer[] numSeenBases,  double minCallQual, byte refBase) {
         this.maxAlleleCount = maxAlleleCount;
         this.minCallQuall = minCallQual;
         this.errorModel = errorModel;
-        fullModel = calculateLog10ProbabilityDistributionForAllBases(errorModel, numA, numC, numG, numT, refBase);
+        this.refBase = refBase;
+        model = calculateLog10ProbabilityDistributionForAllBases(errorModel, numSeenBases, refBase);
 
     }
-    public AlleleCountModel(AlleleCountModel acm) {
+ /*   public AlleleCountModel(AlleleCountModel acm) {
         maxAlleleCount = acm.getMaxAlleleCount();
         model = new double [maxAlleleCount+1];
         for (int ac=0; ac<=maxAlleleCount; ac++) {
             model[ac] = acm.getLog10ProbabilityGivenAC(ac);
         }
     }
-
+       */
     public int getMaxAlleleCount() {
         return maxAlleleCount;
     }
@@ -101,7 +112,7 @@ public class AlleleCountModel extends ProbabilityModel {
         return Math.log10(1-result);
     }
 
-    public double log10PriorAC(int[] acVector, byte refBase) {
+    public double log10PriorAC(Integer[] acVector, byte refBase) {
         int refBaseIndex = BaseUtils.simpleBaseToBaseIndex(refBase);
 
         // todo - generalize later for multiallelic priors.
@@ -163,33 +174,94 @@ public class AlleleCountModel extends ProbabilityModel {
      *  m = number of mismatches
      *
      * @param errorModel
-     * @param numA
-     * @param numC
-     * @param numG
-     * @param numT
+     * @param numSeenBases
      * @param refBase
      * @return
      */
-    public double [][] calculateLog10ProbabilityDistributionForAllBases(ErrorModel errorModel, int numA, int numC, int numG, int numT, byte refBase) {
-        double [][] p = new double[maxAlleleCount+1][BaseUtils.BASES.length];
+    public double [] calculateLog10ProbabilityDistributionForAllBases(ErrorModel errorModel, Integer[] numSeenBases, byte refBase) {
+        double [][] p = new double[BaseUtils.BASES.length][maxAlleleCount+1];
         int refPos = BaseUtils.simpleBaseToBaseIndex(refBase);
 
+        double[] pMax = new double[BaseUtils.BASES.length];
+        int[] mlEstimatorIdx = new int[BaseUtils.BASES.length];
+
         for (int altInd = 0; altInd < BaseUtils.BASES.length; altInd++) {
-            if (altInd == refPos)
+            if (altInd == refPos) {
+                mlEstimatorIdx[altInd] = -1;
+                pMax[altInd] = Double.NEGATIVE_INFINITY;
                 continue;
+            }
 
             for (int ac=0; ac<=maxAlleleCount; ac++) {
                 // for each alt allele, get AC distribution based on pileup
                 // todo - assume for now true multiallelic case has prior = 0
-                int[] acVectorToCompute = new int[4];
+                Integer[] acVectorToCompute = new Integer[BaseUtils.BASES.length];
+                // todo - apparent redundant initialization but an array of Integer[] is initialized by null references, not zeros.
+                for (int k=0; k < BaseUtils.BASES.length; k++)
+                      acVectorToCompute[k] = 0;
                 acVectorToCompute[refPos] = maxAlleleCount - ac;
                 acVectorToCompute[altInd] = ac;
 
-                p[ac][altInd] = calculateLog10ProbabilityGivenACforAllBases(errorModel, acVectorToCompute, numA, numC, numG, numT, refBase);
+                p[altInd][ac] = calculateLog10ProbabilityGivenACforAllBases(errorModel, acVectorToCompute, numSeenBases, refBase);
+            }
+            //normalizedPosteriors[altInd] = MathUtils.normalizeFromLog10(p[altInd],true);
+            mlEstimatorIdx[altInd] = MathUtils.maxElementIndex(p[altInd]);
+            pMax[altInd] = p[altInd][mlEstimatorIdx[altInd]];
+        }
+
+
+        int bestAlleleIdx = MathUtils.maxElementIndex(pMax);
+        idxOfMaxAC = mlEstimatorIdx[bestAlleleIdx];
+
+        if (idxOfMaxAC == 0) {
+            // best alt AC is zero, so this is a reference site
+            bestAltBase = refBase;
+        }
+        else {
+            bestAltBase = BaseUtils.BASES[bestAlleleIdx];
+        }
+
+        //altAlleles =
+        //return p[bestAlleleIdx];
+       // is the most likely frequency conformation AC=0 for all alternate alleles?
+
+        // determine which alternate alleles have AF>0
+
+        // calculate p(f>0):
+        final double[] normalizedPosteriors = MathUtils.normalizeFromLog10(p[bestAlleleIdx]);
+        final double PofF = 1.0 - normalizedPosteriors[0];
+ /*
+        if ( !bestGuessIsRef || UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
+            phredScaledConfidence = QualityUtils.phredScaleErrorRate(normalizedPosteriors[0]);
+            if ( Double.isInfinite(phredScaledConfidence) )
+                phredScaledConfidence = -10.0 * AFresult.log10PosteriorOfAFzero;
+        } else {
+            phredScaledConfidence = QualityUtils.phredScaleErrorRate(PofF);
+
+  */
+
+        if (idxOfMaxAC == 0) {
+            // ref call
+
+            phredScaledConfidence = QualityUtils.phredScaleErrorRate(PofF);
+            if ( Double.isInfinite(phredScaledConfidence) ) {
+                double sum =  0.0;
+                for (int i = 1; i < normalizedPosteriors.length; i++) {
+                    sum += p[bestAlleleIdx][i];
+                }
+                phredScaledConfidence = (MathUtils.compareDoubles(sum, 0.0) == 0 ? 0 : -10.0 * sum);
             }
         }
-        return p;
+        else {
+            phredScaledConfidence = QualityUtils.phredScaleErrorRate(normalizedPosteriors[0]);
+            if ( Double.isInfinite(phredScaledConfidence) )
+                phredScaledConfidence = -10.0 * p[bestAlleleIdx][0];
+            // alt call
+        }
+        return p[bestAlleleIdx];
     }
+
+
 
 
     @Requires({"ac >= 0", "ac <= maxAlleleCount", "errorModel != null", "matches >= 0", "mismatches >= 0" })
@@ -208,14 +280,14 @@ public class AlleleCountModel extends ProbabilityModel {
     }
 
 
-    private double calculateLog10ProbabilityGivenACforAllBases(ErrorModel errorModel, int[] acVector,  int numA, int numC, int numG, int numT, byte refBase) {
+    private double calculateLog10ProbabilityGivenACforAllBases(ErrorModel errorModel, Integer[] acVector,  Integer[] numSeenBases, byte refBase) {
         double   log10PAC = log10PriorAC(acVector, refBase);
         // for each quality probability in the model, calculate the probability of the allele count = ac
         // we skip Q0 because it's meaningless.
         double [] acc = new double[errorModel.size()]; // we're skipping Q0 so we don't need maxQualityScore + 1 here.
         for (byte qual = errorModel.getMinQualityScore(); qual <= errorModel.getMaxQualityScore(); qual++) {
              final int i = qual - errorModel.getMinQualityScore();
-            acc[i] = calculateLog10ProbabilityOfACGivenQual(qual, acVector, errorModel,  numA, numC, numG, numT, refBase);
+            acc[i] = calculateLog10ProbabilityOfACGivenQual(qual, acVector, errorModel,  numSeenBases, refBase);
         }
         return log10PAC + MathUtils.log10sumLog10(acc);
     }
@@ -232,25 +304,20 @@ public class AlleleCountModel extends ProbabilityModel {
         return errorModel.getErrorGivenQual(qual) + matches * x + mismatches * y;
     }
 
-    private double calculateLog10ProbabilityOfACGivenQual(byte qual, int[] acVector, ErrorModel errorModel, int numA, int numC, int numG, int numT, byte refBase) {
+    private double calculateLog10ProbabilityOfACGivenQual(byte qual, Integer[] acVector, ErrorModel errorModel, Integer[] numSeenBases, byte refBase) {
         double e = MathUtils.phredScaleToProbability(qual);
         double t1 = (1-e)/maxAlleleCount;
         double t2 = e/(3*maxAlleleCount);
 
-        int[] fnov = new int[BaseUtils.BASES.length];
-        fnov[0] = numC + numG + numT;
-        fnov[1] = numA + numG + numT;
-        fnov[2] = numA + numC + numT;
-        fnov[3] = numA + numC + numG;
+        Integer[] fnov = new Integer[BaseUtils.BASES.length];
+        fnov[0] = acVector[1] + acVector[2] + acVector[3];//numC + numG + numT;
+        fnov[1] = acVector[0] + acVector[2] + acVector[3];//numA + numG + numT;
+        fnov[2] = acVector[0] + acVector[1] + acVector[3];//numA + numC + numT;
+        fnov[3] = acVector[0] + acVector[1] + acVector[2];//numA + numC + numG;
 
-        double[] p1 = MathUtils.vectorLog10(MathUtils.vectorSum(MathUtils.scalarTimesIntVector(t1,acVector), MathUtils.scalarTimesIntVector(t2,fnov)));
-        double[] seenBases = new double[BaseUtils.BASES.length];
-        seenBases[0] = numA;
-        seenBases[1] = numC;
-        seenBases[2]=numG;
-        seenBases[3] = numT;
+        Double[] p1 = MathUtils.vectorLog10(MathUtils.vectorSum(MathUtils.scalarTimesVector(t1, acVector), MathUtils.scalarTimesVector(t2, fnov)));
 
-        return errorModel.getErrorGivenQual(qual) + MathUtils.dotProduct(p1,seenBases);
+        return errorModel.getErrorGivenQual(qual) + MathUtils.dotProduct(p1,numSeenBases);
     }
 
     /**
@@ -263,13 +330,17 @@ public class AlleleCountModel extends ProbabilityModel {
         return getMaximumLikelihoodIndex() == 0 && isConfidentlyCalled();
     }
 
+    public int getMaximumLikelihoodIndex()  {
+        return idxOfMaxAC;
+    }
+
     /**
      * Determines whether or not this model has a maximum likelihood that passes the calling threshold
      *
      * @return true if the most likely AC passes the calling threshold.
      */
     public boolean isConfidentlyCalled() {
-        return MathUtils.log10ProbabilityToPhredScale(getMaximumLikelihood()) > minCallQuall;
+        return phredScaledConfidence > minCallQuall;
     }
 
     /**
@@ -280,15 +351,15 @@ public class AlleleCountModel extends ProbabilityModel {
      * @return The absolute value of the log10 likelihood of the call.
      */
     public double getNegLog10PError() {
-        double result;
+ /*       double result;
         if (isACZero()) {
             result = Math.abs(model[0]);
         }
         else {
             double [] normalizedModel = MathUtils.normalizeFromLog10(model);
             result = Math.abs(Math.log10(1 - normalizedModel[0]));
-        }
-        return result;
+        }            */
+        return phredScaledConfidence;
     }
 
     /**
@@ -299,4 +370,13 @@ public class AlleleCountModel extends ProbabilityModel {
         return errorModel.hasPowerForMaxAC(maxAlleleCount);
     }
 
+    public byte getAltBase() {
+        return bestAltBase;
+    }
+
+    public boolean isVariant() {
+        return (refBase != bestAltBase);
+    }
+
 }
+

@@ -31,7 +31,7 @@ public class Pool {
     private boolean isConfidentlyCalled;
     private Integer calledAC;
     private byte calledAllele;
-    private double log10LikelihoodCall;
+   // private double log10LikelihoodCall;
 
     public Pool(String name, ReadBackedPileup pileup, ErrorModel errorModel, byte referenceSequenceBase, int maxAlleleCount, double minCallQual, boolean doAlleleDiscovery) {
         this.name = name;
@@ -41,11 +41,21 @@ public class Pool {
 
         byte [] data = pileup.getBases();
         int coverage = data.length;
-        matches = MathUtils.countOccurrences(referenceSequenceBase, data);
-        mismatches = coverage - matches;
 
-        alleleCountModel = new AlleleCountModel(maxAlleleCount, errorModel, matches, mismatches, minCallQual);
+        if (doAlleleDiscovery) {
+            int idx = 0;
+            Integer[] numSeenBases = new Integer[BaseUtils.BASES.length];
+            for (byte base:BaseUtils.BASES)
+                numSeenBases[idx++] = MathUtils.countOccurrences(base, data);
 
+         //   System.out.format("A:%d C:%d G:%d T:%t\n",numSeenBases[0],numSeenBases[1],numSeenBases[2],numSeenBases[3]);
+            alleleCountModel = new AlleleCountModel(maxAlleleCount, errorModel, numSeenBases, minCallQual, referenceSequenceBase);
+        }   else {
+            matches = MathUtils.countOccurrences(referenceSequenceBase, data);
+            mismatches = coverage - matches;
+
+            alleleCountModel = new AlleleCountModel(maxAlleleCount, errorModel, matches, mismatches, minCallQual);
+        }
         // make the call and apply filters
         filters = new HashSet<Filters>();
         isConfidentlyCalled = alleleCountModel.isConfidentlyCalled();
@@ -55,9 +65,9 @@ public class Pool {
             filters.add(Filters.LOW_POWER);
         else {
             calledAC = alleleCountModel.getMaximumLikelihoodIndex();
-            calledAllele = (calledAC == 0) ?  referenceSequenceBase : BaseUtils.baseIndexToSimpleBase(BaseUtils.mostFrequentBaseIndexNotRef(pileup.getBaseCounts(), referenceSequenceBase));
+            calledAllele = (calledAC == 0) ?  referenceSequenceBase : alleleCountModel.getAltBase();
         }
-        log10LikelihoodCall = alleleCountModel.getMaximumLikelihood();
+  //      log10LikelihoodCall = alleleCountModel.getMaximumLikelihood();
 
         calculateAttributes();
     }
@@ -115,9 +125,12 @@ public class Pool {
      *
      */
     public boolean isRef() {
-        return BaseUtils.baseIndexToSimpleBase(MathUtils.maxElementIndex(pileup.getBaseCounts())) == referenceSequenceBase;
+        return alleleCountModel.getAltBase() == referenceSequenceBase;
     }
 
+    public boolean isVariant() {
+        return alleleCountModel.isVariant();
+    }
     /**
      * Returns a list of the filters applied to this call. Empty list if nothing was filtered.
      */
@@ -195,14 +208,12 @@ public class Pool {
             base = referenceSequenceBase;
         }
         else {
-            int [] baseCounts = pileup.getBaseCounts();
-            baseCounts[BaseUtils.simpleBaseToBaseIndex(referenceSequenceBase)] = -1;
-            base = BaseUtils.mostFrequentSimpleBase(baseCounts);
+            base = getAlleleCountModel().getAltBase();
         }
 
         List<Allele> alleleList = new LinkedList<Allele>();
         alleleList.add(Allele.create(base, isRef()));
-        Genotype g = new Genotype(name, alleleList, -log10LikelihoodCall);
+        Genotype g = new Genotype(name, alleleList, -getAlleleCountModel().getNegLog10PError());
         poolGenotype.put(name, g);
         return poolGenotype;
     }

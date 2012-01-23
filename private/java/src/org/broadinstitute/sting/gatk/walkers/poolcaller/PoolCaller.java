@@ -194,7 +194,8 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         else
             site = new Site(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower, ALLELE_DISCOVERY_MODE);
 
-        VariantContext call = new VariantContextBuilder("PoolCaller",
+        if (site.isVariant() && ALLELE_DISCOVERY_MODE) {
+            VariantContext call = new VariantContextBuilder("PoolCaller",
                 ref.getLocus().getContig(),
                 ref.getLocus().getStart(),
                 ref.getLocus().getStop(),
@@ -204,10 +205,12 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
                 .filters(site.getFilters())
                 .attributes(site.getAttributes()).make();
 
-
-        vcfWriter.add(call);
-        return 1;
-    }
+                vcfWriter.add(call);
+                return 1;
+        }
+        // todo - fix up GGA mode again
+        return 0;
+     }
 
     public Long reduceInit() {
         return 0l;

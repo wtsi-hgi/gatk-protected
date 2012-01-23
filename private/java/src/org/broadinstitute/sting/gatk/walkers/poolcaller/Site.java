@@ -56,7 +56,7 @@ public class Site {
         for (Lane lane : lanes) {
             // make the first pool's alleleCountModel our base model and then "recursively" merge it with all the subsequent pools
             if (alleleCountModel == null)
-                alleleCountModel = new AlleleCountModel(lane.getAlleleCountModel());
+                alleleCountModel = lane.getAlleleCountModel();
             else
                 alleleCountModel.merge(lane.getAlleleCountModel());
 
@@ -81,7 +81,7 @@ public class Site {
         this.minCallQual = minCallQual;
         this.referenceSequenceBase = referenceSequenceBase;
         this.doDiscoveryMode = doDiscoveryMode;
-        alleleCountModel = new AlleleCountModel(lane.getAlleleCountModel());
+        alleleCountModel = lane.getAlleleCountModel();
         filters = lane.getFilters();
         attributes = lane.getAttributes();
     }
@@ -135,18 +135,14 @@ public class Site {
     public Collection<Allele> getAlleles() {
         Set<Allele> alternateAlleles = new HashSet<Allele>();
         alternateAlleles.add(Allele.create(referenceSequenceBase, true));
-        if (alleleCountModel.isConfidentlyCalled()) {
-            int [] baseCounts = pileup.getBaseCounts();
-            // if reference base is the most common, make it negative so we get the second most common.
-            baseCounts[BaseUtils.simpleBaseToBaseIndex(referenceSequenceBase)] = -1;
-
+        if (alleleCountModel.isVariant() ) {
             // add the most common alternate allele
-            alternateAlleles.add(Allele.create(BaseUtils.baseIndexToSimpleBase(MathUtils.maxElementIndex(baseCounts)), false));
+            alternateAlleles.add(Allele.create(alleleCountModel.getAltBase(), false));
         }
 
         else {
             // todo -- not sure what to do with not confident calls
-            alternateAlleles.add(Allele.create(referenceSequenceBase, true)); // adding reference allele because I don't know how to handle this case.
+            //alternateAlleles.add(Allele.create(referenceSequenceBase, true)); // adding reference allele because I don't know how to handle this case.
         }
         return alternateAlleles;
     }
@@ -168,6 +164,8 @@ public class Site {
         return attributes;
     }
 
-
+    public boolean isVariant() {
+        return (alleleCountModel.isVariant());
+    }
 
 }
