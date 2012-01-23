@@ -1,6 +1,7 @@
 require("ggplot2")
 require("randomForest")
-#library(foreach)
+library(foreach)
+library(doMC)
 
 args = commandArgs(TRUE);
 onCommandLine <- ! is.na(args[1])
@@ -10,21 +11,27 @@ if ( onCommandLine ) pdf(height=8.5, width=11)
 # variables controlling the system behavior:
 BIG_MEMORY <- grepl("gsa", Sys.info()[4])
 CHR20_ONLY = F
+
+N_THREADS = 1
+if ( onCommandLine ) {
+    N_THREADS = as.integer(args[1])
+}
+
 ENABLE_CACHING = F
 EXPLORE_EXAMPLES = F
 ANALYZE_BY_N_TRAINING_SITES <- F
 ANALYZE_BY_N_ANNOTATIONS <- F
-ANALYZE_BY_N_TREES <- T
+ANALYZE_BY_N_TREES <- F
 ANALYZE_ROBUSTNESS_TO_NOISE_ANNOTATIONS <- F
 ANALYZE_SENSITIVITY_TO_NEGATIVE_TRAINING_SET <- F
 ANALYZE_NA_TREATMENT <- F
 ANALYZE_INDEL_EVENT_LENGTH <- F
-ANALYZE_SNPS_INDELS_COMBINED <- F
+ANALYZE_SNPS_INDELS_COMBINED <- T
 MAX_POLY_SITES_TO_EVAL = 1000000
 DEFAULT_MAX_NEG_TRAINING_FRACTION = 0.25
 FORCE_RELOAD = F
 
-TEST = T
+TEST = F
 
 if ( TEST ) { 
     nRocPoints = 100
@@ -88,8 +95,8 @@ Autism.indels <- readVQSRData("Autism.indels", "/humgen/gsa-hpprojects/GATK/data
 # FIXME -- GLOBAL TRAINING AND EVAL SITES
 #DATA.SET = "goNL.snps"
 #DATA.SET = "goNL.indels"
-#DATA.SET = "Autism.snps"
-DATA.SET = "Autism.indels"
+DATA.SET = "Autism.snps"
+#DATA.SET = "Autism.indels"
 ALL_SITES <- get(DATA.SET)
 
 originalAnn <- c("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "FS", "MQ","InbreedingCoeff", "DP")
@@ -232,20 +239,29 @@ rocForTree <- function(tree, evalSites=ALL_SITES) {
   myRoc
 }
 
+reallyTrainRF <- function(x, y, nTrees, xtest = NULL) {
+    doOne <- function(oneCountOfTrees) {
+       randomForest(x=x, y=y, xtest = xtest, ntree=oneCountOfTrees, keep.forest=is.null(xtest),
+                                        importance=TRUE, 
+                                        proximity=F,
+                                        do.trace=100,
+                                        norm.votes=TRUE)
+    }
+
+    if ( N_THREADS > 1 ) {
+       registerDoMC(cores=N_THREADS)
+       rf <- foreach(ntree = rep(nTrees/N_THREADS, N_THREADS), .combine = combine, .packages = "randomForest") %dopar% doOne(ntree)
+    } else {
+        doOne(nTrees)
+    }
+}
+
 TrainTreeAndRoc <- function(name, nTrees, trainingAnn, nTrainingSites = -1, maxNegTrainingFraction = DEFAULT_MAX_NEG_TRAINING_FRACTION, na.func=na.roughfix, trainingData=ALL_SITES, evalSites=ALL_SITES) {
   trainingData = prepareTrainingData(trainingData, trainingAnn, nTrainingSites, maxNegTrainingFraction, na.func)
   evalSites = subset(evalSites, ! is.na(status) & status != "unknown")
   noNA <- na.omit(evalSites[,c(trainingAnn, moreLabels)])
 
-  rf <- randomForest(x=trainingData[,trainingAnn], 
-                                   y=trainingData[[LABEL]], 
-                                   importance=TRUE, 
-                                   proximity=F,
-                                   ntree=nTrees,
-                                   keep.forest=FALSE,
-                                   do.trace=100,
-                                   norm.votes=TRUE,
-                                   xtest = noNA[,trainingAnn])
+  rf <- reallyTrainRF(x=trainingData[,trainingAnn], y=trainingData[[LABEL]], nTrees, xtest = noNA[,trainingAnn])
                                    
   omni.prob <- rf$test$votes
   omni.with.prob <- cbind(noNA, omni.prob)
@@ -540,8 +556,8 @@ if ( ANALYZE_NA_TREATMENT ) {
 #
 byNTrees <- function() {
   ns <- c(50, 10)
-  #ns <- c(2000, 1000, 500, 100, ns)
-  #ns <- c(8000, 4000, ns)
+  ns <- c(2000, 1000, 500, 100, ns)
+  ns <- c(8000, 4000, ns)
   #ns <- c(128000, 64000, 32000, 16000, ns)
   rocs = data.frame()
   for ( nTrees in ns ) { 
@@ -624,6 +640,9 @@ bySNPsIndelsCombined <- function() {
 if ( ANALYZE_SNPS_INDELS_COMBINED ) {
   bySNPsIndelsCombined()
 }
+
+# REMOVE ME
+#TrainTreeAndRoc("test parallel", 10000, trainingAnn)
 
 
 # must be at the end
