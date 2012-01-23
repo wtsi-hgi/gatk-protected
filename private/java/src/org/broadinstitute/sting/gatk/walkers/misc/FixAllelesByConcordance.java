@@ -7,6 +7,8 @@ import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.By;
+import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.GenotypeConcordance;
 import org.broadinstitute.sting.utils.BaseUtils;
@@ -27,6 +29,7 @@ import java.util.*;
  * him or her until he or she makes it correctly. Do not use this walker. In fact, the walker will try to stop you
  * if you are not me.
  */
+@By(DataSource.REFERENCE_BASES)
 public class FixAllelesByConcordance extends RodWalker<Integer,Integer> {
 
     @Input(fullName="chip",doc="You shouldn't be using this walker.",required=true)
