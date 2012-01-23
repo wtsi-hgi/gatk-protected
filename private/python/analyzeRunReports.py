@@ -175,7 +175,7 @@ class RecordDecoder:
                     val = "%s.%s" % gitMatch.group(1,2)
                 else:
                     val = "unknown"
-            print text, "=>", val
+            #print text, "=>", val
             return val
         
         def formatExceptionMsg(elt):
