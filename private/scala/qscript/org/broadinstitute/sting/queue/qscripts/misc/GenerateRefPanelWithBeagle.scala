@@ -115,18 +115,10 @@ class GenerateRefPanelWithBeagle extends QScript {
     gtEval.eval :+= new TaggedFile(gather.outVCF,"Consensus,VCF")
     gtEval.comp :+= new TaggedFile(phasedComp,"PhasedComp,VCF")
     gtEval.EV :+= "GenotypeConcordance"
+    gtEval.EV :+= "GenotypePhasingEvaluator"
     gtEval.out = new File("Reference_Panel_Eval.gatk")
     gtEval.intervals :+= chunks
     add(gtEval)
-
-    val phaseEval = new CompareRBPAndBeagleHaplotypes
-    phaseEval.rbp = new TaggedFile(gather.outVCF,"Consensus,VCF")
-    phaseEval.beagle = new TaggedFile(phasedComp,"PhasedComp,VCF")
-    phaseEval.reference_sequence = ref
-    phaseEval.out = new File("Reference_Panel_Phase_Comparison.txt")
-    phaseEval.intervals :+= chunks
-    add(phaseEval)
-
   }
 
     class MyVCFGather extends InProcessFunction {
