@@ -20,7 +20,7 @@ echo "\n####################\nArchiving"
 python $GATK/private/python/analyzeRunReports.py archive $DIR -o $DIR.gz -D
 
 echo "\n####################\nLoading to DB"
-python $GATK/python/analyzeRunReports.py loadToDB $DIR.gz
+python $GATK/private/python/analyzeRunReports.py loadToDB $DIR.gz
 
 # if the dir is empty we proceed
 rmdir --ignore-fail-on-non-empty $DIR
