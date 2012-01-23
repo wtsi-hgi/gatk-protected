@@ -29,7 +29,7 @@ import java.util.*;
  * him or her until he or she makes it correctly. Do not use this walker. In fact, the walker will try to stop you
  * if you are not me.
  */
-@By(DataSource.REFERENCE_BASES)
+@By(DataSource.REFERENCE)
 public class FixAllelesByConcordance extends RodWalker<Integer,Integer> {
 
     @Input(fullName="chip",doc="You shouldn't be using this walker.",required=true)
