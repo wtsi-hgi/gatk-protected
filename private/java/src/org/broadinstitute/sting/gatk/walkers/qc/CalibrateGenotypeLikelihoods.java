@@ -459,7 +459,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             String sample = readGroupSampleMapping == null ? genotype.getSampleName() :
                                                         getCorrespondingSampleName(genotype.getSampleName());
             Genotype compGT = vcComp.hasGenotype(sample) ? vcComp.getGenotype(sample) : null;
-            if ( compGT == null || genotype.isNoCall() )
+            if ( compGT == null || genotype.isNoCall() || compGT.isNoCall() )
                 continue;
 
             String refs,alts;
