@@ -29,6 +29,14 @@ def main():
                         type='string', default=None,
                         help="if provided, output will go here instead of stdout")
 
+    parser.add_option("-i", "", dest="ID",
+                        type='string', default=None,
+                        help="if provided, only process the record with this id")
+
+    parser.add_option("-M", "--maxRecords", dest="maxRecords",
+                        type='int', default=None,
+                        help="if provided, only the first maxRecords records will be processed")
+
     parser.add_option("", "--no-dev", dest="noDev",
                         action='store_true', default=False,
                         help="if provided, only records not coming from a dev version of GATK will be included")
@@ -40,6 +48,10 @@ def main():
     parser.add_option("-E", "", dest="exception_selection",
                         type='choice', choices=['all', 'user', 'sting'], default='all',
                         help="if provided, will only emit records matching of the provided class [default %default]")
+
+    parser.add_option("-n", "--dry-run", dest="dryRun",
+                        action='store_true', default=False,
+                        help="Don't submit to the DB")
 
     parser.add_option("", "--max_days", dest="maxDays",
                         type='int', default=None,
@@ -73,10 +85,15 @@ def main():
     counter = 0
     for report in readReports(files):
         # todo -- add matching here
-        handler.processRecord(report)
-        counter += 1
-        report.clear()
-        if OPTIONS.updateFreq > 0 and counter % OPTIONS.updateFreq == 0: print 'Processed records:', counter 
+        ID = report.find('id').text
+        if OPTIONS.ID == None or ID == OPTIONS.ID:
+            handler.processRecord(report)
+            counter += 1
+            report.clear()
+            if OPTIONS.updateFreq > 0 and counter % OPTIONS.updateFreq == 0: 
+                print 'Processed records:', counter 
+            if OPTIONS.maxRecords > 0 and counter > OPTIONS.maxRecords: 
+                break
 
     handler.finalize(files)
     if OPTIONS.output != None: out.close()
@@ -113,11 +130,12 @@ def getHandler(stage):
 def eltIsException(elt):
     return elt.tag == "exception"
     
+RUN_STATUS_SUCCESS = "success"
 def parseException(elt):
     msgElt = elt.find("message")
     msgText = "MISSING"
     userException = "NA"
-    runStatus = "completed"
+    runStatus = RUN_STATUS_SUCCESS
     if msgElt != None: 
         msgText = msgElt.text
         runStatus = "sting-exception"
@@ -125,7 +143,8 @@ def parseException(elt):
     if elt.find("is-user-exception") != None:
         #print elt.find("is-user-exception")
         userException = elt.find("is-user-exception").text
-        if userException: runStatus = "user-exception"
+        if userException == "true": runStatus = "user-exception"
+    #if runStatus != "completed": print userException, runStatus
     return msgText, stackTrace, userException, runStatus
 
 def javaExceptionFile(javaException):
@@ -146,12 +165,12 @@ class RecordDecoder:
         def formatMajorVersion(elt):
             text = elt.text
             # maps svn numbers 1.0.Vxxx to 0.V.xxx
-            svnMatch = re.match("1\.0\.(\d)\d*", text)
+            svnMatch = re.match("^1\.0\.(\d)\d*", text)
             if svnMatch != None:
                 val = "0.%s" % svnMatch.group(1)
             else:
                 # maps git numbers 1.3-22-g1bfe280 to 1.3
-                gitMatch = re.match("(\d).(\d)($|\w*)", text)
+                gitMatch = re.match("^(\d)\.(\d)($|\w*)", text)
                 if gitMatch != None:
                     val = "%s.%s" % gitMatch.group(1,2)
                 else:
@@ -199,7 +218,7 @@ class RecordDecoder:
         add(["java", "machine"], toString)
         add(["max-memory", "total-memory", "iterations", "reads"], id)
         addComplex("exception", ["exception-msg", "exception-at", "exception-at-brief", "is-user-exception", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatRunStatus])
-        add(["command-line"], toString)          
+        #add(["command-line"], toString)          
         
     def decode(self, report):
         bindings = dict()
@@ -470,26 +489,28 @@ class SQLRecordHandler(StageHandler):
         host = "calcium.broadinstitute.org"
         db = "gatk"
         print 'Connecting to SQL server', host, 'using DB', db
-        if DB_EXISTS: 
+        if DB_EXISTS and not OPTIONS.dryRun: 
             self.db = MySQLdb.connect( host=host, db=db, user="gsamember", passwd="gsamember" )
-        if DB_EXISTS: 
+        if DB_EXISTS and not OPTIONS.dryRun: 
             self.dbc = self.db.cursor() 
 
     def processRecord(self, record):
         pass
 
     def getFields(self):
-        return ["id", "walker-name", "gatk-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "exception-at-brief", "exception-msg", "is-user-exception", "run-status", "command-line"]
+        return ["id", "walker-name", "gatk-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "exception-at-brief", "exception-msg", "is-user-exception", "run-status"]#, "command-line"]
         #, exceptionmsg VARCHAR(2048), exceptionat VARCHAR(2048), exceptionatbrief VARCHAR(2048), isuserexception VARCHAR(2048))
         #return self.decoder.fields
         
     def finalize(self, args):
-        if DB_EXISTS: self.dbc.close()
-        if DB_EXISTS: self.db.close()
+        if DB_EXISTS and not OPTIONS.dryRun: 
+            self.dbc.close()
+            self.db.close()
         
     def execute(self, command):
         if OPTIONS.verbose: print "EXECUTING: ", command
-        if DB_EXISTS: self.dbc.execute(command)
+        if DB_EXISTS and not OPTIONS.dryRun: 
+            self.dbc.execute(command)
         if OPTIONS.verbose: print '  DONE'        
 
 class InsertRecordIntoTable(SQLRecordHandler):
@@ -510,7 +531,7 @@ class InsertRecordIntoTable(SQLRecordHandler):
                         if OPTIONS.verbose: print >> sys.stderr, 'field', field, 'is missing in', parsed['id']
                     else:
                         if field == "run-status" and val == MISSING_VALUE:
-                            val = "success"
+                            val = RUN_STATUS_SUCCESS
                         val = val.replace('"',"'")
                         #if val.find(" ") != -1:
                         val = "\"" + val + "\""

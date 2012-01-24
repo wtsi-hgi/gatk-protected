@@ -3,6 +3,12 @@
 echo "\nGSA queue usage"
 bjobs -u all -q gsa | awk '$2 !~ "USER" {print $2}' | sort | uniq -c
 
+echo "\nGSAFolk usage"
+busers -w gsafolk
+
+echo "\nGSA folk"
+bugroup -l gsafolk
+
 echo "\nGeneral computing resources"
 bqueues gsa week hour
 
