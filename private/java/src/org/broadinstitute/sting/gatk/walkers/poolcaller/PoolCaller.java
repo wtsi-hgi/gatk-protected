@@ -1,13 +1,17 @@
 package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
+import com.sun.tools.javah.oldjavah.Gen;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
+import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -78,14 +82,11 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
     @Argument(shortName="prior", fullName="site_quality_prior", doc="Phred-Scaled prior quality of the site. Default: Q20.", required=false)
     byte phredScaledPrior = 20;
 
-    @Argument(shortName = "min_call_conf", fullName = "min_confidence_threshold_for_calling", doc="The minimum phred-scaled confidence threshold at which variants not at 'trigger' track sites should be called.", required = false)
-    double minCallQual = 30.0;
-
-    @Argument(shortName = "min_call_power", fullName = "min_power_threshold_for_calling", doc="The minimum confidence in the error model to make a call. Number should be between 0 (no power requirement) and 1 (maximum power required).", required = false)
+     @Argument(shortName = "min_call_power", fullName = "min_power_threshold_for_calling", doc="The minimum confidence in the error model to make a call. Number should be between 0 (no power requirement) and 1 (maximum power required).", required = false)
     double minPower = 0.95;
 
     @Argument(shortName = "min_depth", fullName = "min_reference_depth", doc="The minimum depth required in the reference sample in order to make a call.", required = false)
-    int minDepth = 100;
+    int minReferenceDepth = 100;
 
     @Argument(shortName="ef", fullName="exclude_filtered_reference_sites", doc="Don't include in the analysis sites where the reference sample VCF is filtered. Default: false.", required=false)
     boolean EXCLUDE_FILTERED_REFERENCE_SITES = false;
@@ -94,9 +95,9 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
     @Argument(shortName = "dl", doc="DEBUG ARGUMENT -- treats all reads as coming from the same lane", required=false)
     boolean DEBUG_IGNORE_LANES = false;
 
-    @Hidden
-     @Argument(shortName = "discovery", doc="Allele discovery mode", required=false)
-     boolean ALLELE_DISCOVERY_MODE = false;
+    // the unified argument collection
+    @ArgumentCollection
+     private UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
 
 
     int nSamples;
@@ -135,7 +136,8 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
             for (Allele allele : referenceAlleles) {
                 byte [] bases = allele.getBases();
                 for (byte b : bases) {
-                    trueReferenceBase.add(b);
+                    if (!trueReferenceBase.contains(b))
+                        trueReferenceBase.add(b);
                 }
             }
         }
@@ -159,6 +161,7 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         headerLines.add(new VCFInfoHeaderLine("DP", 1, VCFHeaderLineType.Integer, "Total depth in the site. Sum of the depth of all pools"));
         headerLines.add(new VCFInfoHeaderLine("MQ", 1, VCFHeaderLineType.Float, "RMS mapping quality of all reads in the site"));
         headerLines.add(new VCFInfoHeaderLine("MQ0", 1, VCFHeaderLineType.Integer, "Total number of mapping quality zero reads in the site"));
+        headerLines.add(new VCFInfoHeaderLine("RD", 1, VCFHeaderLineType.Integer, "Depth of coverage for reference sample at site"));
         headerLines.add(new VCFFormatHeaderLine("AD", VCFHeaderLineCount.UNBOUNDED, VCFHeaderLineType.Integer, "Allelic depths for the ref and alt alleles in the order listed"));
         headerLines.add(new VCFFormatHeaderLine("DP", 1, VCFHeaderLineType.Integer, "Read Depth (only filtered reads used for calling)"));
         headerLines.add(new VCFFormatHeaderLine("GQ", 1, VCFHeaderLineType.Float, "Genotype Quality"));
@@ -176,25 +179,27 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         Collection<Byte> trueReferenceBases = getTrueBases(referenceSampleContext, ref);
 
         // If there is no true reference base in this locus, skip it.
-        if (trueReferenceBases == null && !ALLELE_DISCOVERY_MODE)
+        if (trueReferenceBases == null && UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES)
             return 0;
+
 
 
         if (!context.hasBasePileup())
             return 0;
-        if (context.getBasePileup().getPileupForSample(referenceSampleName) == null)
-            return 0;
-        if (context.getBasePileup().getPileupForSample(referenceSampleName).depthOfCoverage() < minDepth)
-            return 0;
-        // Creates a site Object for this location
 
+        ReadBackedPileup referenceSamplePileup =  context.getBasePileup().getPileupForSample(referenceSampleName);
+        if (referenceSamplePileup == null)
+            return 0;
+
+        // Creates a site Object for this location
+        boolean doDiscovery = (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY);
         Site site;
         if (DEBUG_IGNORE_LANES)
-            site = Site.debugSite(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower,ALLELE_DISCOVERY_MODE );
+            site = Site.debugSite(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,UAC.STANDARD_CONFIDENCE_FOR_CALLING,minPower, minReferenceDepth, doDiscovery );
         else
-            site = new Site(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower, ALLELE_DISCOVERY_MODE);
+            site = new Site(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,UAC.STANDARD_CONFIDENCE_FOR_CALLING,minPower, minReferenceDepth, doDiscovery);
 
-        if (site.isVariant() && ALLELE_DISCOVERY_MODE) {
+        if (site.isVariant() && doDiscovery) {
             VariantContext call = new VariantContextBuilder("PoolCaller",
                 ref.getLocus().getContig(),
                 ref.getLocus().getStart(),

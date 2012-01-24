@@ -28,12 +28,12 @@ public class Pool {
     private byte referenceSequenceBase;
     private Set<Filters> filters;
     private Map<String, Object> attributes;
-    private boolean isConfidentlyCalled;
+    //private boolean isConfidentlyCalled;
     private Integer calledAC;
     private byte calledAllele;
    // private double log10LikelihoodCall;
 
-    public Pool(String name, ReadBackedPileup pileup, ErrorModel errorModel, byte referenceSequenceBase, int maxAlleleCount, double minCallQual, boolean doAlleleDiscovery) {
+    public Pool(String name, ReadBackedPileup pileup, ErrorModel errorModel, byte referenceSequenceBase, int maxAlleleCount, double minCallQual, int minRefDepth, boolean doAlleleDiscovery) {
         this.name = name;
         this.pileup = pileup;
         this.maxAlleleCount = maxAlleleCount;
@@ -58,15 +58,17 @@ public class Pool {
         }
         // make the call and apply filters
         filters = new HashSet<Filters>();
-        isConfidentlyCalled = alleleCountModel.isConfidentlyCalled();
+       // isConfidentlyCalled = alleleCountModel.isConfidentlyCalled();
+        calledAC = alleleCountModel.getMaximumLikelihoodIndex();
+        calledAllele = (calledAC == 0) ?  referenceSequenceBase : alleleCountModel.getAltBase();
+
         if (!alleleCountModel.isConfidentlyCalled())
             filters.add(Filters.LOW_QUAL);
-        else if (!alleleCountModel.isErrorModelPowerfulEnough())
+        if (!alleleCountModel.isErrorModelPowerfulEnough())
             filters.add(Filters.LOW_POWER);
-        else {
-            calledAC = alleleCountModel.getMaximumLikelihoodIndex();
-            calledAllele = (calledAC == 0) ?  referenceSequenceBase : alleleCountModel.getAltBase();
-        }
+        if (errorModel.getReferenceDepth() < minRefDepth)
+            filters.add(Filters.LOW_REFERENCE_SAMPLE_DEPTH);
+
   //      log10LikelihoodCall = alleleCountModel.getMaximumLikelihood();
 
         calculateAttributes();
@@ -179,18 +181,6 @@ public class Pool {
         attributes.put("MQ", calculateMappingQualityRMS());
         attributes.put("MQ0", calculateMappingQualityZero());
 
-/*
-        headerLines.add(new VCFInfoHeaderLine("AC", 1, VCFHeaderLineType.Integer, "Allele count in the site, number of alternate alleles across all pools"));
-        headerLines.add(new VCFInfoHeaderLine("AF", 1, VCFHeaderLineType.Float, "Allele frequency in the site. Proportion of the alternate alleles across all pools"));
-        headerLines.add(new VCFInfoHeaderLine("DP", 1, VCFHeaderLineType.Integer, "Total depth in the site. Sum of the depth of all pools"));
-        headerLines.add(new VCFInfoHeaderLine("MQ", 1, VCFHeaderLineType.Float, "RMS mapping quality of all reads in the site"));
-        headerLines.add(new VCFInfoHeaderLine("MQ0", 1, VCFHeaderLineType.Integer, "Total number of mapping quality zero reads in the site"));
-        headerLines.add(new VCFFormatHeaderLine("AD", VCFHeaderLineCount.UNBOUNDED, VCFHeaderLineType.Integer, "Allelic depths for the ref and alt alleles in the order listed"));
-        headerLines.add(new VCFFormatHeaderLine("DP", 1, VCFHeaderLineType.Integer, "Read Depth (only filtered reads used for calling)"));
-        headerLines.add(new VCFFormatHeaderLine("GQ", 1, VCFHeaderLineType.Float, "Genotype Quality"));
-        headerLines.add(new VCFFormatHeaderLine("AL", 3, VCFHeaderLineType.Integer, "Allele count likelihood and the 5% confidence interval"));
-
-*/
     }
 
     /**

@@ -19,6 +19,7 @@ public class ErrorModel extends ProbabilityModel {
     private byte minQualityScore;
     private byte phredScaledPrior;
     private double log10minPower;
+    private int refDepth;
 
     /**
      * Calculates the probability of the data (reference sample reads) given the phred scaled site quality score.
@@ -45,6 +46,7 @@ public class ErrorModel extends ProbabilityModel {
             //model[i] = log10ProbabilitySiteGivenQual(q, coverage, matches, mismatches);
             model[i] = log10PoissonProbabilitySiteGivenQual(q,coverage, matches, mismatches);
         }
+        this.refDepth = coverage;
     }
 
     @Requires({
@@ -89,6 +91,9 @@ public class ErrorModel extends ProbabilityModel {
         return minQualityScore;
     }
 
+    public int getReferenceDepth() {
+        return refDepth;
+    }
 @Requires({"maxAlleleCount >= 0"})
 //todo -- memoize this function
     public boolean hasPowerForMaxAC (int maxAlleleCount) {

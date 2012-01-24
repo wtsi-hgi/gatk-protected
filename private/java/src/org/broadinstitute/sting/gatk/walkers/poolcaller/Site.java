@@ -37,7 +37,7 @@ public class Site {
      */
 
     public Site(ReadBackedPileup sitePileup,String referenceSampleName,Collection<Byte> trueReferenceBases,byte referenceSequenceBase,byte minQualityScore,byte maxQualityScore,
-                byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower, boolean doDiscoveryMode) {
+                byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower,  int minRefDepth, boolean doDiscoveryMode) {
 
         this.referenceSequenceBase = referenceSequenceBase;
         this.minCallQual = minCallQual;
@@ -50,7 +50,7 @@ public class Site {
         laneIDs = parseLaneIDs(sitePileup.getReadGroups());
         lanes = new HashSet<Lane>(laneIDs.size());
         for (String laneID : laneIDs) {
-            lanes.add(new Lane(laneID,sitePileup.getPileupForLane(laneID),referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower, doDiscoveryMode));
+            lanes.add(new Lane(laneID,sitePileup.getPileupForLane(laneID),referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower, minRefDepth, doDiscoveryMode));
         }
 
         for (Lane lane : lanes) {
@@ -91,9 +91,9 @@ public class Site {
      * Only for debug purposes.
      */
     public static Site debugSite(ReadBackedPileup sitePileup,String referenceSampleName,Collection<Byte> trueReferenceBases,byte referenceSequenceBase,byte minQualityScore,byte maxQualityScore,
-                                 byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower, boolean disc) {
+                                 byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower, int minRefDepth, boolean disc) {
         String laneID = "LANE1";
-        Lane lane = Lane.debugLane(laneID,sitePileup,referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower,disc);
+        Lane lane = Lane.debugLane(laneID,sitePileup,referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower, minRefDepth, disc);
 
         return new Site(laneID, lane, minCallQual, referenceSequenceBase, sitePileup, disc);
     }
