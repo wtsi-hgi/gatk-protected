@@ -119,18 +119,8 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         if (referenceSampleContext == null) {
             trueReferenceBase.add(ref.getBase());
         }
-
-        else if (referenceSampleContext.isIndel()) {
-            return null; // TODO: add special treatment for extended events. For Now just skip these altogether.
-        }
-
         // Site has a VCF entry -- is variant
         else {
-            // Site is filtered, don't mess with it if option is set
-            if (referenceSampleContext.isFiltered() && EXCLUDE_FILTERED_REFERENCE_SITES) {
-                return null;
-            }
-
             Genotype referenceGenotype = referenceSampleContext.getGenotype(referenceSampleName);
             List<Allele> referenceAlleles = referenceGenotype.getAlleles();
             for (Allele allele : referenceAlleles) {
@@ -169,51 +159,39 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         headerLines.add(new VCFFilterHeaderLine(Filters.LOW_QUAL.toString(), "Low quality"));
         headerLines.add(new VCFFilterHeaderLine(Filters.LOW_POWER.toString(), "Low confidence"));
         headerLines.add(new VCFHeaderLine("PoolCaller", "todo -- add parameter list here"));
-        vcfWriter.writeHeader(new VCFHeader(headerLines, SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader())));
+        Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
+        samples.remove(referenceSampleName);
+        
+        if (DEBUG_IGNORE_LANES) {
+            samples.clear();
+            samples.add("Lane1");
+        }
+        vcfWriter.writeHeader(new VCFHeader(headerLines, samples));
     }
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
 
         // Get reference base from VCF or Reference
         VariantContext referenceSampleContext = tracker.getFirstValue(referenceSampleRod, context.getLocation());
+
+        boolean filteredRefSampleCall = false;
+        if (referenceSampleContext != null && referenceSampleContext.filtersWereApplied() && referenceSampleContext.isFiltered())
+            filteredRefSampleCall = true;
+
         Collection<Byte> trueReferenceBases = getTrueBases(referenceSampleContext, ref);
 
         // If there is no true reference base in this locus, skip it.
-        if (trueReferenceBases == null && UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES)
-            return 0;
-
-
 
         if (!context.hasBasePileup())
             return 0;
 
-        ReadBackedPileup referenceSamplePileup =  context.getBasePileup().getPileupForSample(referenceSampleName);
-        if (referenceSamplePileup == null)
-            return 0;
+        Site site = new Site(ref, context, referenceSampleName, trueReferenceBases, minQualityScore, maxQualityScore, phredScaledPrior, maxAlleleCount,
+                UAC , minPower, minReferenceDepth, filteredRefSampleCall, DEBUG_IGNORE_LANES);
 
-        // Creates a site Object for this location
-        boolean doDiscovery = (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY);
-        Site site;
-        if (DEBUG_IGNORE_LANES)
-            site = Site.debugSite(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,UAC.STANDARD_CONFIDENCE_FOR_CALLING,minPower, minReferenceDepth, doDiscovery );
-        else
-            site = new Site(context.getBasePileup(),referenceSampleName,trueReferenceBases,ref.getBase(),minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,UAC.STANDARD_CONFIDENCE_FOR_CALLING,minPower, minReferenceDepth, doDiscovery);
-
-        if (site.isVariant() && doDiscovery) {
-            VariantContext call = new VariantContextBuilder("PoolCaller",
-                ref.getLocus().getContig(),
-                ref.getLocus().getStart(),
-                ref.getLocus().getStop(),
-                site.getAlleles())
-                .genotypes(GenotypesContext.copy(site.getGenotypes().values()))
-                .log10PError(-1 * site.getNegLog10PError())
-                .filters(site.getFilters())
-                .attributes(site.getAttributes()).make();
-
-                vcfWriter.add(call);
-                return 1;
+        if (site.needToEmitCall()) {
+            vcfWriter.add(site.getCallFromSite());
+            return 1;
         }
-        // todo - fix up GGA mode again
         return 0;
      }
 

@@ -9,5 +9,7 @@ package org.broadinstitute.sting.gatk.walkers.poolcaller;
 public enum Filters {
     LOW_QUAL,
     LOW_POWER,
-    LOW_REFERENCE_SAMPLE_DEPTH
+    LOW_REFERENCE_SAMPLE_DEPTH,
+    NO_BASES_IN_REFERENCE_SAMPLE,
+    FILTERED_REFERENCE_SAMPLE_CALL
 }

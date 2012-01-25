@@ -20,7 +20,7 @@ public class ErrorModel extends ProbabilityModel {
     private byte phredScaledPrior;
     private double log10minPower;
     private int refDepth;
-
+    private boolean hasData = false;
     /**
      * Calculates the probability of the data (reference sample reads) given the phred scaled site quality score.
      */
@@ -33,20 +33,32 @@ public class ErrorModel extends ProbabilityModel {
 
         model = new double[maxQualityScore-minQualityScore+1];
 
-        byte [] data = referenceSample.getPileup().getBases();
-        int coverage = data.length;
-        int matches = 0;
-        for (byte base : referenceSample.getTrueBases()) {
-            matches += MathUtils.countOccurrences(base, data);
+        if (referenceSample.getPileup() == null /*|| referenceSample.getPileup().isEmpty()*/ ) {
+            double p = MathUtils.phredScaleToLog10Probability((byte)(maxQualityScore-minQualityScore));
+            for (byte q=minQualityScore; q<=maxQualityScore; q++) {
+                int i = q - minQualityScore; // fill the array from 0 to (maxQualityscore - minQualityScore)
+                // maximum uncertainty if there's no ref data at site
+                model[i] = p;
+            }
+            this.refDepth = 0;
         }
-        int mismatches = coverage - matches;
+        else {
+            byte [] data = referenceSample.getPileup().getBases();
+            hasData = true;
+            int coverage = data.length;
+            int matches = 0;
+            for (byte base : referenceSample.getTrueBases()) {
+                matches += MathUtils.countOccurrences(base, data);
+            }
+            int mismatches = coverage - matches;
 
-        for (byte q=minQualityScore; q<=maxQualityScore; q++) {
-            int i = q - minQualityScore; // fill the array from 0 to (maxQualityscore - minQualityScore)
-            //model[i] = log10ProbabilitySiteGivenQual(q, coverage, matches, mismatches);
-            model[i] = log10PoissonProbabilitySiteGivenQual(q,coverage, matches, mismatches);
+            for (byte q=minQualityScore; q<=maxQualityScore; q++) {
+                int i = q - minQualityScore; // fill the array from 0 to (maxQualityscore - minQualityScore)
+                //model[i] = log10ProbabilitySiteGivenQual(q, coverage, matches, mismatches);
+                model[i] = log10PoissonProbabilitySiteGivenQual(q,coverage, matches, mismatches);
+            }
+            this.refDepth = coverage;
         }
-        this.refDepth = coverage;
     }
 
     @Requires({
@@ -93,6 +105,9 @@ public class ErrorModel extends ProbabilityModel {
 
     public int getReferenceDepth() {
         return refDepth;
+    }
+    public boolean hasData() {
+        return hasData;
     }
 @Requires({"maxAlleleCount >= 0"})
 //todo -- memoize this function
