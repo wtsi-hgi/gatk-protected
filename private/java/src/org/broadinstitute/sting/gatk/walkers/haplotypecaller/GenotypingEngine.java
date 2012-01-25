@@ -50,8 +50,6 @@ public class GenotypingEngine {
 
     private final boolean DEBUG;
 
-    private final int MAX_ALTERNATE_ALLELES;
-
     private final static List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
 
     final HashMap<Integer, ArrayList<Event>> allEventDictionary;
@@ -63,13 +61,12 @@ public class GenotypingEngine {
         public int index;
     }
 
-    public GenotypingEngine( final boolean DEBUG, final double gop, final double gcp, final int MAX_ALTERNATE_ALLELES ) {
+    public GenotypingEngine( final boolean DEBUG, final double gop, final double gcp ) {
         this.DEBUG = DEBUG;
         SW_GAP = -1.0 * gop;
         SW_GAP_EXTEND = -1.0 * gcp;
         noCall.add(Allele.NO_CALL);
         allEventDictionary = new HashMap<Integer, ArrayList<Event>>();
-        this.MAX_ALTERNATE_ALLELES = MAX_ALTERNATE_ALLELES;
     }
 
     public ArrayList<VariantContext> alignAndAssignGenotypeLikelihoods( final GenomeLocParser genomeLocParser, final ArrayList<Haplotype> allHaplotypes, final ArrayList<Haplotype> bestHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final HashMap<String,Double[][]> haplotypeLikelihoodMatrixMap ) {
@@ -101,11 +98,6 @@ public class GenotypingEngine {
             correctAndExpandEventListWithRefEvents(allEventList, mergedVC, haplotypeLikelihoodMatrixMap.values().iterator().next()[0].length);
 
             if( DEBUG ) { System.out.println("Genotyping event at " + key + " with alleles: " + mergedVC.getAlleles()); }
-
-            if( mergedVC.getAlternateAlleles().size() > MAX_ALTERNATE_ALLELES ) {
-                 if( DEBUG ) { System.out.println("\tWARN: too many alternate alleles. Skipping site."); }
-                 continue;
-            }
 
             final GenotypesContext genotypes = GenotypesContext.create(haplotypeLikelihoodMatrixMap.keySet().size());
             // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample

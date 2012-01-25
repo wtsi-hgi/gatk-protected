@@ -176,6 +176,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         samplesList.addAll( samples );
         // initialize the UnifiedGenotyper Engine which is used to call into the exact model
+        UAC.MAX_ALTERNATE_ALLELES = 4;
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
         // initialize the header
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
@@ -189,7 +190,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
         likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG, true, false, kmerQualityTables, contextSize);
-        genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW, 4 );
+        genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
 
         if ( getToolkit().getIntervals() == null || getToolkit().getIntervals().isEmpty() ) {
             throw new UserException.BadInput("Intervals must be provided with -L (preferably not larger than several hundred bp)");
