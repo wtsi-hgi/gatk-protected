@@ -167,6 +167,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     //---------------------------------------------------------------------------------------------------------------
 
     public void initialize() {
+        super.initialize();
 
         // read in the input recal data from IndelCountCovariates and calculate the empirical gap open penalty for each k-mer
         parseInputRecalData();
