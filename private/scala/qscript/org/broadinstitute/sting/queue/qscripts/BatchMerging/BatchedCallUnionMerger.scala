@@ -1,7 +1,6 @@
 package org.broadinstitute.sting.queue.batchMerges.BatchMerging
 
 import org.broadinstitute.sting.commandline.Hidden
-import org.broadinstitute.sting.gatk.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotyperEngine}
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.library.ipf.vcf.{VCFSimpleMerge, VCFExtractSites,VCFExtractIntervals}
 import collection.JavaConversions._
@@ -9,8 +8,7 @@ import org.broadinstitute.sting.utils.baq.BAQ
 import org.broadinstitute.sting.utils.text.XReadLines
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils
 import org.broadinstitute.sting.queue.QScript
-
-// TODO: THIS DOES NOT YET ACTUALLY MAINTAIN THE ANNOTATION REGARDING THE SOURCES OF THE UNION OF ALL BATCHES [BUT RATHER CHRIS'S USE OF UGCalcLikelihoods DROPS ALL INFO FIELD VALUES]:
+import org.broadinstitute.sting.gatk.walkers.genotyper.{ExactAFCalculationModel, GenotypeLikelihoodsCalculationModel, UnifiedGenotyperEngine}
 
 class BatchedCallUnionMerger extends QScript {
   batchMerge =>
@@ -84,6 +82,7 @@ class BatchedCallUnionMerger extends QScript {
       this.scatterCount = 10
       this.memoryLimit = 4
       this.filteredrecordsmergetype = VariantContextUtils.FilteredRecordMergeType.KEEP_UNCONDITIONAL;
+      this.multipleAllelesMergeType = VariantContextUtils.MultipleAllelesMergeType.MIX_TYPES;
       this.setKey = "set";
     }
 
@@ -97,6 +96,7 @@ class BatchedCallUnionMerger extends QScript {
     combineVCFs.vcfs = getVariantAlleles.map(u => u.outVCF)
     combineVCFs.fai = new File(referenceFile.getAbsolutePath+".fai")
     combineVCFs.outVCF = swapExt(batchOut,".vcf",".pf.alleles.vcf")
+
     var extractIntervals : VCFExtractIntervals = new VCFExtractIntervals(combine.out,swapExt(combine.out,".vcf",".intervals.list"),true)
     //addAll(getVariantAlleles)
     //add(combineVCFs,extractIntervals)
@@ -135,14 +135,11 @@ class BatchedCallUnionMerger extends QScript {
     var calcs: List[UGCalcLikelihoods] = bams.grouped(20).toList.zipWithIndex.map(u => newUGCL(u))
     addAll(calcs)
 
-    // TODO: Perhaps can modify the UGCallVariants walker to add the FILTERS and the INFO field attributes (not present) from the "alleles" VCF ROD -- that way, filters and functional annotations can be regained???
-
     trait CallVariantsArgs extends UGCallVariants {
       this.reference_sequence = batchMerge.referenceFile
       this.intervals :+= extractIntervals.listOut
       this.jarFile = batchMerge.gatkJarFile
       this.scatterCount = 30
-      this.memoryLimit = 12
       this.output_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
       this.genotyping_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
 
@@ -152,11 +149,15 @@ class BatchedCallUnionMerger extends QScript {
       }
 
       this.genotype_likelihoods_model = GenotypeLikelihoodsCalculationModel.Model.BOTH;
+
+      // The memory-intensive part is limited by the number of ALT alleles:
+      this.memoryLimit = 16
+      this.max_alternate_alleles = 2
     }
 
     var callVariants : UGCallVariants = new UGCallVariants with CallVariantsArgs
     callVariants.variant ++= calcs.map( a => new TaggedFile(a.out, "VCF,custom=variant" + a.out.getName.replace(".vcf","")) )
-    callVariants.alleles = callVariants.variant.head
+    callVariants.alleles = new TaggedFile(combine.out, "VCF")
 
     callVariants.out = batchOut
     if (batchMerge.annotate) {
@@ -166,9 +167,6 @@ class BatchedCallUnionMerger extends QScript {
     add(callVariants)
 
     if (batchMerge.annotate) {
-      var extractIntervals : VCFExtractIntervals = new VCFExtractIntervals(callVariants.out, swapExt(callVariants.out, ".vcf", ".intervals.list"), true)
-      add(extractIntervals)
-
       trait CommandLineGATKArgs extends CommandLineGATK {
         this.intervals :+= extractIntervals.listOut
 
