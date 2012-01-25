@@ -99,6 +99,7 @@ public class Site {
                     alleleCountModel.merge(lane.getAlleleCountModel());
 
                 // Add all the filters from this lane
+                // todo - this is wrong, we need to merge filters and attributes from different lanes!
                 calculateFilters();
                 calculateAttributes();
             }
@@ -136,7 +137,7 @@ public class Site {
         return MathUtils.countOccurrences(allele, pileup.getBases());
     }
 
-    private List<Integer> calculateAllelicDepths(List<Allele> alleles) {
+    private List<Integer> calculateAllelicDepths(Collection<Allele> alleles) {
         List<Integer> allelicDepths = new LinkedList<Integer>();
         
         for (Allele a: alleles)
@@ -158,7 +159,7 @@ public class Site {
         attributes.put("AC", alleleCountModel.getMaximumLikelihoodIndex());
         attributes.put("AF", (double)alleleCountModel.getMaximumLikelihoodIndex()/alleleCountModel.getMaxAlleleCount());
         attributes.put("DP", pileup.getBases().length);
-        attributes.put("AD", calculateAllelicDepths(siteVC.getAlleles()));
+        attributes.put("AD", calculateAllelicDepths(getAlleles()));
         attributes.put("MQ", calculateMappingQualityRMS());
         attributes.put("MQ0", calculateMappingQualityZero());
         attributes.put("RD", errorModel.getReferenceDepth());
