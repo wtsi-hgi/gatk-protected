@@ -6,6 +6,8 @@ import org.broadinstitute.sting.utils.text.XReadLines
 import org.broadinstitute.sting.commandline.Argument
 import java.io.PrintStream
 import org.broadinstitute.sting.queue.extensions.gatk._
+import net.sf.picard.reference.FastaSequenceIndex
+import org.broadinstitute.sting.gatk.datasources.reference.ReferenceDataSource
 
 /**
  * Created by IntelliJ IDEA.
@@ -59,6 +61,23 @@ class GenerateRefPanelWithBeagle extends QScript {
     var idx : Int = 0
     var panelChunks : List[File] = Nil
     asScalaIterator(new XReadLines(chunks)).foreach( chunk => {
+      // calculate the flanks (150kb)
+      val chr = chunk.split(":")(0)
+      val start = Integer.parseInt(chunk.split(":")(1).split("-")(0))
+      val stop = Integer.parseInt(chunk.split(":")(1).split("-")(1))
+      var flanks : List[String] = Nil
+      var leftHalfFlank : String = _
+      if ( start > 150000 ) {
+        flanks :+= "%s:%d-%d".format(chr,start-150000,start)
+        leftFlank = "%s:%d-%d".format(chr,start-75000,start)
+      }
+      var rightHalfFlank : String = _
+      val dif : Int = (new ReferenceDataSource(ref)).getReference.getSequenceDictionary.getSequence(chr).getSequenceLength - stop
+      if ( dif > 0 ) {
+        val ept = stop+scala.math.min(dif,150000)
+        flanks :+= "%s:%d-%d".format(chr,stop,ept)
+        rightHalfFlank = "%s:%d-%d".format(chr,stop,ept/2)
+      }
       // 1: multiply together the likelihoods
       val mLik = new MultiplyLikelihoods
       mLik.reference_sequence = ref
@@ -66,7 +85,9 @@ class GenerateRefPanelWithBeagle extends QScript {
       mLik.Variants :+= exomeCalls
       mLik.Variants :+= chipCalls
       mLik.intervalsString :+= chunk
+      mLik.intervalsString ++= flanks
       mLik.out = new File("Mult_Likelihoods.chunk%d.vcf".format(idx))
+      mLik.memoryLimit = 2
       add(mLik)
 
       // 2: create the input for beagle
@@ -75,7 +96,8 @@ class GenerateRefPanelWithBeagle extends QScript {
       beagOut.variant = mLik.out
       beagOut.out = new File("Mult_Likelihoods.chunk%d.beagle".format(idx))
       beagOut.intervalsString :+= chunk
-      beagOut.memoryLimit = Some(BEAGLE_MEM_IN_GB)
+      beagOut.intervalsString ++= flanks
+      beagOut.memoryLimit = 2)
       add(beagOut)
 
       // 3: refine the genotypes (and phase)
@@ -98,9 +120,16 @@ class GenerateRefPanelWithBeagle extends QScript {
       beag2vcf.beagleProbs = new TaggedFile(like.outputFile,"pr,BEAGLE")
       beag2vcf.beagleR2 = new TaggedFile(beagRefine.beagleRSquared,"r2,BEAGLE")
       beag2vcf.intervalsString :+= chunk
+      if ( leftHalfFlank != null ) {
+        beag2vcf.intervalsString :+= leftHalfFlank
+      }
+      if ( rightHalfFlank != null ) {
+        beag2vcf.intervalsString :+= rightHalfFlank
+      }
       beag2vcf.variant = mLik.out
       add(beag2vcf)
       panelChunks :+= beag2vcf.out
+      beag2vcf.memoryLimit = 2
       idx = 1 + idx;
     })
 
@@ -118,6 +147,7 @@ class GenerateRefPanelWithBeagle extends QScript {
     gtEval.EV :+= "GenotypePhasingEvaluator"
     gtEval.out = new File("Reference_Panel_Eval.gatk")
     gtEval.intervals :+= chunks
+    gtEval.memoryLimit = 4
     add(gtEval)
   }
 

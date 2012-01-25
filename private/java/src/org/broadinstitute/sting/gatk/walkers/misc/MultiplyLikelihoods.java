@@ -53,9 +53,7 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
                 samples.addAll(header.getValue().getGenotypeSamples());
                 init = true;
             } else {
-                Set<String> notPres = new HashSet<String>((header.getValue().getGenotypeSamples()));
-                notPres.removeAll(samples);
-                samples.removeAll(notPres);
+                samples.retainAll(new HashSet<String>((header.getValue().getGenotypeSamples())));
             }
         }
         sampleIntersection = new HashSet<String>(samples);
