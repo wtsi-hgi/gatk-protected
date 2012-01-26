@@ -8,6 +8,7 @@ import java.io.PrintStream
 import org.broadinstitute.sting.queue.extensions.gatk._
 import net.sf.picard.reference.FastaSequenceIndex
 import org.broadinstitute.sting.gatk.datasources.reference.ReferenceDataSource
+import collection.mutable.HashSet
 
 /**
  * Created by IntelliJ IDEA.
@@ -32,6 +33,8 @@ class GenerateRefPanelWithBeagle extends QScript {
   var beagleJar = new File("/humgen/gsa-hpprojects/software/beagle/beagle.jar")
   @Input(shortName="PC",fullName="phasedComparison",doc="A file phased with beagle for comparison of phasing and genotypes. Usually lowpassed phased on its own.",required=true)
   var phasedComp : File = _
+  @Input(shortName="X",fullName="excludeIdx",doc="Exclude these job indeces (useful for beagle failing when no variants present)",required=false)
+  var exclude : File = _
 
   val BEAGLE_MEM_IN_GB : Int = 8
   val TMPDIR : String = System.getProperty("java.io.tmpdir");
@@ -57,79 +60,86 @@ class GenerateRefPanelWithBeagle extends QScript {
 
   def script = {
 
+    // identify what to exclude
+    var exIdx : HashSet[Int] = new HashSet[Int]
+    if ( exclude != null ) {
+      exIdx.addAll(asJavaCollection(asScalaIterable(new XReadLines(exclude)).map(u => u.toInt)))
+    }
     // for each chunk
     var idx : Int = 0
     var panelChunks : List[File] = Nil
     asScalaIterator(new XReadLines(chunks)).foreach( chunk => {
-      // calculate the flanks (150kb)
-      val chr = chunk.split(":")(0)
-      val start = Integer.parseInt(chunk.split(":")(1).split("-")(0))
-      val stop = Integer.parseInt(chunk.split(":")(1).split("-")(1))
-      var flanks : List[String] = Nil
-      var leftHalfFlank : String = _
-      if ( start > 150000 ) {
-        flanks :+= "%s:%d-%d".format(chr,start-150000,start)
-        leftFlank = "%s:%d-%d".format(chr,start-75000,start)
-      }
-      var rightHalfFlank : String = _
-      val dif : Int = (new ReferenceDataSource(ref)).getReference.getSequenceDictionary.getSequence(chr).getSequenceLength - stop
-      if ( dif > 0 ) {
-        val ept = stop+scala.math.min(dif,150000)
-        flanks :+= "%s:%d-%d".format(chr,stop,ept)
-        rightHalfFlank = "%s:%d-%d".format(chr,stop,ept/2)
-      }
-      // 1: multiply together the likelihoods
-      val mLik = new MultiplyLikelihoods
-      mLik.reference_sequence = ref
-      mLik.Variants :+= lowPassCalls
-      mLik.Variants :+= exomeCalls
-      mLik.Variants :+= chipCalls
-      mLik.intervalsString :+= chunk
-      mLik.intervalsString ++= flanks
-      mLik.out = new File("Mult_Likelihoods.chunk%d.vcf".format(idx))
-      mLik.memoryLimit = 2
-      add(mLik)
+      if ( ! exIdx.contains(idx) ) {
+        // calculate the flanks (150kb)
+        val chr = chunk.split(":")(0)
+        val start = Integer.parseInt(chunk.split(":")(1).split("-")(0))
+        val stop = Integer.parseInt(chunk.split(":")(1).split("-")(1))
+        var flanks : List[String] = Nil
+        var leftHalfFlank : String = null
+        if ( start > 150000 ) {
+          flanks :+= "%s:%d-%d".format(chr,start-150000,start)
+          leftHalfFlank = "%s:%d-%d".format(chr,start-75000,start)
+        }
+        var rightHalfFlank : String = null
+        val dif : Int = (new ReferenceDataSource(ref)).getReference.getSequenceDictionary.getSequence(chr).getSequenceLength - stop
+        if ( dif > 0 ) {
+          val ept = stop+scala.math.min(dif,150000)
+          flanks :+= "%s:%d-%d".format(chr,stop,ept)
+          rightHalfFlank = "%s:%d-%d".format(chr,stop,ept/2)
+        }
+        // 1: multiply together the likelihoods
+        val mLik = new MultiplyLikelihoods
+        mLik.reference_sequence = ref
+        mLik.Variants :+= lowPassCalls
+        mLik.Variants :+= exomeCalls
+        mLik.Variants :+= chipCalls
+        mLik.intervalsString :+= chunk
+        mLik.intervalsString ++= flanks
+        mLik.out = new File(TMPDIR,"Mult_Likelihoods.chunk%d.vcf".format(idx))
+        mLik.memoryLimit = 2
+        add(mLik)
 
-      // 2: create the input for beagle
-      val beagOut = new ProduceBeagleInput
-      beagOut.reference_sequence = ref
-      beagOut.variant = mLik.out
-      beagOut.out = new File("Mult_Likelihoods.chunk%d.beagle".format(idx))
-      beagOut.intervalsString :+= chunk
-      beagOut.intervalsString ++= flanks
-      beagOut.memoryLimit = 2)
-      add(beagOut)
+        // 2: create the input for beagle
+        val beagOut = new ProduceBeagleInput
+        beagOut.reference_sequence = ref
+        beagOut.variant = mLik.out
+        beagOut.out = new File(TMPDIR,"Mult_Likelihoods.chunk%d.beagle".format(idx))
+        beagOut.intervalsString :+= chunk
+        beagOut.intervalsString ++= flanks
+        beagOut.memoryLimit = 2
+        add(beagOut)
 
-      // 3: refine the genotypes (and phase)
-      val beagRefine = new RefineGenotypesWithBeagle(beagOut.out)
-      add(beagRefine)
+        // 3: refine the genotypes (and phase)
+        val beagRefine = new RefineGenotypesWithBeagle(beagOut.out)
+        add(beagRefine)
 
-      // 3a: gunzip this stuff
-      val phase = new Gunzip(beagRefine.beaglePhasedFile)
-      add(phase)
-      val like = new Gunzip(beagRefine.beagleLikelihoods)
-      add(like)
+        // 3a: gunzip this stuff
+        val phase = new Gunzip(beagRefine.beaglePhasedFile)
+        add(phase)
+        val like = new Gunzip(beagRefine.beagleLikelihoods)
+        add(like)
 
-      // 4: convert beagle output back to VCF
-      val beag2vcf = new BeagleOutputToVCF
-      beag2vcf.reference_sequence = ref
-      beag2vcf.memoryLimit = Some(4)
-      beag2vcf.out = new File("Ref_Panel.chunk%d.vcf".format(idx))
-      beag2vcf.keep_monomorphic = true
-      beag2vcf.beaglePhased = new TaggedFile(phase.outputFile,"ph,BEAGLE")
-      beag2vcf.beagleProbs = new TaggedFile(like.outputFile,"pr,BEAGLE")
-      beag2vcf.beagleR2 = new TaggedFile(beagRefine.beagleRSquared,"r2,BEAGLE")
-      beag2vcf.intervalsString :+= chunk
-      if ( leftHalfFlank != null ) {
-        beag2vcf.intervalsString :+= leftHalfFlank
+        // 4: convert beagle output back to VCF
+        val beag2vcf = new BeagleOutputToVCF
+        beag2vcf.reference_sequence = ref
+        beag2vcf.memoryLimit = Some(4)
+        beag2vcf.out = new File(TMPDIR,"Ref_Panel.chunk%d.vcf".format(idx))
+        beag2vcf.keep_monomorphic = true
+        beag2vcf.beaglePhased = new TaggedFile(phase.outputFile,"ph,BEAGLE")
+        beag2vcf.beagleProbs = new TaggedFile(like.outputFile,"pr,BEAGLE")
+        beag2vcf.beagleR2 = new TaggedFile(beagRefine.beagleRSquared,"r2,BEAGLE")
+        beag2vcf.intervalsString :+= chunk
+        if ( leftHalfFlank != null ) {
+          beag2vcf.intervalsString :+= leftHalfFlank
+        }
+        if ( rightHalfFlank != null ) {
+          beag2vcf.intervalsString :+= rightHalfFlank
+        }
+        beag2vcf.variant = mLik.out
+        panelChunks :+= beag2vcf.out
+        beag2vcf.memoryLimit = 2
+        add(beag2vcf)
       }
-      if ( rightHalfFlank != null ) {
-        beag2vcf.intervalsString :+= rightHalfFlank
-      }
-      beag2vcf.variant = mLik.out
-      add(beag2vcf)
-      panelChunks :+= beag2vcf.out
-      beag2vcf.memoryLimit = 2
       idx = 1 + idx;
     })
 
