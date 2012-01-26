@@ -17,28 +17,32 @@ import java.util.*;
  */
 public class Lane {
     private String name;
-    private ReferenceSample referenceSample;
+
     private List<Pool> pools;
-    private ErrorModel errorModel;
     private AlleleCountModel alleleCountModel;
-    private Set<String> filters;
-    private Map<String, Object> attributes;
     private boolean isVariant;
 
-    public Lane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases, byte referenceSequenceBase,
-                byte minQualityScore, byte maxQualityScore, byte phredScaledPrior,int maxAlleleCount, double minCallQual, double minPower,  int minRefDepth, boolean doAlleleDiscovery) {
+    public Lane(String name, ReadBackedPileup lanePileup, String referenceSampleName, ErrorModel errorModel, byte referenceSequenceBase,
+                int maxAlleleCount, double minCallQual, int minRefDepth,
+                boolean doAlleleDiscovery, boolean treatAllSamplesAsSinglePool) {
         this.name = name;
-        this.referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSample(referenceSampleName), trueReferenceBases);
-        this.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, referenceSample, minPower);
+
 
         Collection<String> poolNames = lanePileup.getSamples();
         poolNames.remove(referenceSampleName);
         this.pools = new LinkedList<Pool>();
-        for (String poolName : poolNames) {
-            pools.add(new Pool(poolName, lanePileup.getPileupForSample(poolName),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual, minRefDepth, doAlleleDiscovery));
+
+        if(treatAllSamplesAsSinglePool) {
+            pools.add(new Pool("Pool1", lanePileup.getPileupForSamples(poolNames),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual, minRefDepth, doAlleleDiscovery));
+        }
+        else {
+            // regular case: pileup is stratified by pool names.
+            // Get then all samples in list except for reference sample
+            for (String poolName : poolNames)
+                pools.add(new Pool(poolName, lanePileup.getPileupForSample(poolName),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual, minRefDepth, doAlleleDiscovery));
         }
 
-        this.filters = new TreeSet<String>();
+
         this.isVariant = false;
 
         for (Pool pool : pools) {
@@ -48,51 +52,10 @@ public class Lane {
             else
                 this.alleleCountModel.merge(pool.getAlleleCountModel());
 
-            // add all filters from this pool
-            filters.addAll(pool.getFilters());
-            attributes.putAll(pool.getAttributes());
-            isVariant |= pool.isVariant();
+             isVariant |= pool.isVariant();
         }
-        // add reference sample depth
-        attributes.put("RD",errorModel.getReferenceDepth());
     }
 
-    private Lane() {}
-
-
-    public static Lane debugLane(String name, ReadBackedPileup lanePileup, String referenceSampleName, Collection<Byte> trueReferenceBases,
-                                 byte referenceSequenceBase, byte minQualityScore, byte maxQualityScore, byte phredScaledPrior, int maxAlleleCount, double minCallQual, double minPower, int minRefDepth, boolean doAlleleDiscovery) {
-        Lane lane = new Lane();
-        lane.name = name;
-        lane.referenceSample = new ReferenceSample(referenceSampleName, lanePileup.getPileupForSample(referenceSampleName), trueReferenceBases);
-        lane.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, lane.referenceSample, minPower);
-
-        Collection<String> allSamples = new HashSet<String>();
-        for (String sample: lanePileup.getSamples()) {
-            if (sample.compareToIgnoreCase(referenceSampleName)!=0)
-                allSamples.add(sample);
-
-        }
-        ReadBackedPileup samplePileup = lanePileup.getPileupForSamples(allSamples);
-        lane.pools = new LinkedList<Pool>();
-        lane.pools.add(new Pool("POOL1", samplePileup, lane.errorModel, referenceSequenceBase, maxAlleleCount, minCallQual, minRefDepth, doAlleleDiscovery));
-
-        for (Pool pool : lane.pools) {
-            lane.alleleCountModel = pool.getAlleleCountModel();
-            lane.filters = pool.getFilters();
-            lane.attributes = pool.getAttributes();
-            lane.isVariant |= pool.isVariant();
-        }
-        return lane;
-    }
-
-    public Set<String> getFilters() {
-        return filters;
-    }
-
-    public Map<String, Object> getAttributes() {
-        return attributes;
-    }
 
     public AlleleCountModel getAlleleCountModel() {
         return alleleCountModel;
