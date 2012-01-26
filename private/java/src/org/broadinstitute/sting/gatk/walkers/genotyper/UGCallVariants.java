@@ -64,9 +64,6 @@ public class UGCallVariants extends RodWalker<VariantCallContext, Integer> {
     private Set<String> trackNames = new HashSet<String>();
 
     public void initialize() {
-        // TODO: TEMPORARY FIX to prevent NullPointerException caused by bug:
-        ExactAFCalculationModel.PRESERVE_AC_DATA = true;
-
         for ( RodBinding<VariantContext> rb : variants )
             trackNames.add(rb.getName());
         Set<String> samples = SampleUtils.getSampleListWithVCFHeader(getToolkit(), trackNames);
