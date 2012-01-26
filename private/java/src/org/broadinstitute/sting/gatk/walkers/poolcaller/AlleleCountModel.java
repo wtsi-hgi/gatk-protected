@@ -359,7 +359,7 @@ public class AlleleCountModel extends ProbabilityModel implements Cloneable {
             double [] normalizedModel = MathUtils.normalizeFromLog10(model);
             result = Math.abs(Math.log10(1 - normalizedModel[0]));
         }            */
-        return phredScaledConfidence;
+        return phredScaledConfidence/10.0;
     }
 
     /**

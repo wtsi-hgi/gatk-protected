@@ -49,7 +49,7 @@ import java.util.Set;
  */
 @BAQMode(QualityMode = BAQ.QualityMode.ADD_TAG, ApplicationTime = BAQ.ApplicationTime.ON_INPUT)
 @Reference(window=@Window(start=-200,stop=200))
-@By(DataSource.READS)
+@By(DataSource.REFERENCE)
 @Downsample(by=DownsampleType.BY_SAMPLE, toCoverage=250)
 public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> implements TreeReducible<Integer> {
 
