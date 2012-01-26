@@ -8,6 +8,7 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
@@ -34,6 +35,7 @@ public class Site {
     private ReferenceContext refContext;
     private UnifiedArgumentCollection UAC;
     private VariantContext siteVC;
+    private double deletionFraction;
 
 
     /**
@@ -56,7 +58,12 @@ public class Site {
 
         //this.pileup = sitePileup;
         //this.doDiscoveryMode = doDiscoveryMode;
-        ReferenceSample referenceSample = new ReferenceSample(referenceSampleName, context.getBasePileup().getPileupForSample(referenceSampleName), trueReferenceBases);
+        ReadBackedPileup refPileup = context.getBasePileup();
+        if (refPileup != null)
+            refPileup = refPileup.getPileupForSample(referenceSampleName);
+        if (refPileup != null)
+            refPileup = refPileup.getBaseAndMappingFilteredPileup(UAC.MIN_BASE_QUALTY_SCORE, UAC.MIN_BASE_QUALTY_SCORE);
+        ReferenceSample referenceSample = new ReferenceSample(referenceSampleName, refPileup, trueReferenceBases);
         this.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, referenceSample, minPower);
 
         // so start: generate an empty VC in case we need to emit at all sites
@@ -66,7 +73,14 @@ public class Site {
 
         if (context.hasBasePileup()) {
             filters = new HashSet<String>();
-            pileup = context.getBasePileup();
+            pileup = context.getBasePileup().getBaseAndMappingFilteredPileup(UAC.MIN_BASE_QUALTY_SCORE, UAC.MIN_BASE_QUALTY_SCORE);
+            int numDeletions = 0;
+            for( final PileupElement p : context.getBasePileup() ) {
+                if( p.isDeletion() ) { numDeletions++; }
+            }
+
+            deletionFraction = ((double) numDeletions) / ((double) context.getBasePileup().getNumberOfElements());
+
             boolean doDiscoveryMode = (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY);
 
             if (treatAllSamplesAsSinglePool) {
@@ -132,6 +146,12 @@ public class Site {
         if (filteredRefSampleCall)
             filters.add(Filters.FILTERED_REFERENCE_SAMPLE_CALL.toString());
 
+        if( deletionFraction > UAC.MAX_DELETION_FRACTION ) {
+            filters.add(Filters.MAX_DELETION_FRACTION_EXCEEDED.toString());
+        }
+        
+
+
     }
     private int calculateAlleleDepth (byte allele) {
         return MathUtils.countOccurrences(allele, pileup.getBases());
@@ -163,6 +183,7 @@ public class Site {
         attributes.put("MQ", calculateMappingQualityRMS());
         attributes.put("MQ0", calculateMappingQualityZero());
         attributes.put("RD", errorModel.getReferenceDepth());
+        attributes.put("Dels", deletionFraction);
     }
 
     /**
