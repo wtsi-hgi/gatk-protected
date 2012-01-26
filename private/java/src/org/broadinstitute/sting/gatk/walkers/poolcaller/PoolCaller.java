@@ -9,6 +9,7 @@ import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
+import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
@@ -103,6 +104,10 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
     int nSamples;
     int maxAlleleCount;
 
+    // enable deletions in the pileup
+    public boolean includeReadsWithDeletionAtLoci() { return true; }
+
+
     /**
      * Returns the true bases for the reference sample in this locus. Homozygous loci will return one base
      * but heterozygous will return two bases (hence why it returns a collection).
@@ -156,9 +161,13 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         headerLines.add(new VCFFormatHeaderLine("DP", 1, VCFHeaderLineType.Integer, "Read Depth (only filtered reads used for calling)"));
         headerLines.add(new VCFFormatHeaderLine("GQ", 1, VCFHeaderLineType.Float, "Genotype Quality"));
         headerLines.add(new VCFFormatHeaderLine("AL", 3, VCFHeaderLineType.Integer, "Allele count likelihood and the 5% confidence interval"));
+        headerLines.add(new VCFInfoHeaderLine("Dels", 1, VCFHeaderLineType.Float, "Fraction of Reads Containing Spanning Deletions"));        headerLines.add(new VCFHeaderLine("PoolCaller", "todo -- add parameter list here"));
         headerLines.add(new VCFFilterHeaderLine(Filters.LOW_QUAL.toString(), "Low quality"));
         headerLines.add(new VCFFilterHeaderLine(Filters.LOW_POWER.toString(), "Low confidence"));
-        headerLines.add(new VCFHeaderLine("PoolCaller", "todo -- add parameter list here"));
+        headerLines.add(new VCFFilterHeaderLine(Filters.LOW_REFERENCE_SAMPLE_DEPTH.toString(), "Not enough reference sample depth"));
+        headerLines.add(new VCFFilterHeaderLine(Filters.NO_BASES_IN_REFERENCE_SAMPLE.toString(), "Reference sample is not covered at all"));
+        headerLines.add(new VCFFilterHeaderLine(Filters.FILTERED_REFERENCE_SAMPLE_CALL.toString(), "Reference sample vcf was filtered"));
+        headerLines.add(new VCFFilterHeaderLine(Filters.MAX_DELETION_FRACTION_EXCEEDED.toString(), "Site has more deletion fraction than threshold"));
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         samples.remove(referenceSampleName);
         
@@ -170,6 +179,9 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
     }
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+
+        if ( !BaseUtils.isRegularBase(ref.getBase()) )
+            return 0;
 
         // Get reference base from VCF or Reference
         VariantContext referenceSampleContext = tracker.getFirstValue(referenceSampleRod, context.getLocation());
