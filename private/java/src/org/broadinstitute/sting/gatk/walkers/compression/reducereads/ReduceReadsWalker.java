@@ -217,10 +217,10 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
     /**
      * Takes in a read and prepares it for the SlidingWindow machinery by performing the
-     * following clipping operations:
-     * 1. Hard clip low quality tails
-     * 2. Hard clip all remaining soft clipped bases
-     * 3. Hard clip all leading insertions
+     * following optional clipping operations:
+     * 1. Hard clip adaptor sequences
+     * 2. Hard clip low quality tails
+     * 3. Hard clip all remaining soft clipped bases
      * 4. Hard clip read to the intervals in the interval list (this step may produce multiple reads)
      *
      * @param ref             default map parameter
@@ -238,16 +238,21 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         if (debugLevel == 1)
             System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
 
+        // we right the actual alignment starts to their respectiv alignment shift tags in the temporary
+        // attribute hash so we can determine later if we need to write down the alignment shift to the reduced BAM file
+        read.setTemporaryAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_START_SHIFT, read.getAlignmentStart());
+        read.setTemporaryAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_END_SHIFT, read.getAlignmentEnd());
+        
         if (!DONT_SIMPLIFY_READS)
-            read.simplify();                                                  // Clear all unnecessary attributes
+            read.simplify();                                                    // Clear all unnecessary attributes
         if (!DONT_CLIP_ADAPTOR_SEQUENCES)
-            read = ReadClipper.hardClipAdaptorSequence(read);                 // Strip away adaptor sequences, if any.
+            read = ReadClipper.hardClipAdaptorSequence(read);                   // Strip away adaptor sequences, if any.
         if (!DONT_CLIP_LOW_QUAL_TAILS)
-            read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);     // Clip low quality tails
+            read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);       // Clip low quality tails
         if (!DONT_CLIP_SOFTCLIPPED_BASES)
-            read = ReadClipper.hardClipSoftClippedBases(read);                // Hard clip everything that is soft clipped
+            read = ReadClipper.hardClipSoftClippedBases(read);                  // Hard clip everything that is soft clipped
         if (!isWholeGenome()) 
-            mappedReads = hardClipReadToInterval(read);                       // Hard clip the remainder of the read to the desired interval
+            mappedReads = hardClipReadToInterval(read);                         // Hard clip the remainder of the read to the desired interval
         else {
             mappedReads = new LinkedList<GATKSAMRecord>();
             if (!read.isEmpty())
@@ -472,12 +477,25 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
         if (read.isReducedRead())
             nCompressedReads++;
-        else
+        else {
+            int originalAlignmentStart =  (Integer) read.getTemporaryAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_START_SHIFT);
+            int originalAlignmentEnd   =  (Integer) read.getTemporaryAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_END_SHIFT);
+
+            int startShift = originalAlignmentStart - read.getUnclippedStart();                     // we annotate the shifts for better compression
+            int endShift = read.getUnclippedEnd() - originalAlignmentEnd;                           // we annotate the shifts for better compression
+
+            if (startShift > 0)
+                read.setAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_START_SHIFT, startShift); // If the read had any soft clips before getting chopped (variant region) annotate it's original alignment (start)
+            if (endShift > 0)
+                read.setAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_END_SHIFT, endShift);     // If the read had any soft clips before getting chopped (variant region) annotate it's original alignment (end)
+            
             totalReads++;
+        }
 
         if (debugLevel == 1)
             System.out.println("BAM: " + read.getCigar() + " " + read.getAlignmentStart() + " " + read.getAlignmentEnd());
 
+        
         out.addAlignment(compressReadName(read));
     }
 
