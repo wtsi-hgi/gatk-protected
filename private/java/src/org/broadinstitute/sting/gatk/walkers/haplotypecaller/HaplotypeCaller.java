@@ -31,11 +31,13 @@ import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
+import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
@@ -43,6 +45,7 @@ import org.broadinstitute.sting.gatk.walkers.recalibration.TableRecalibrationWal
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
@@ -51,10 +54,11 @@ import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.fragments.FragmentCollection;
 import org.broadinstitute.sting.utils.fragments.FragmentUtils;
+import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.text.XReadLines;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -90,7 +94,7 @@ import java.util.*;
  */
 
 @PartitionBy(PartitionType.INTERVAL)
-@ActiveRegionExtension(extension=0)
+@ActiveRegionExtension(extension=50)
 public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     /**
@@ -134,7 +138,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     // the calculation arguments
     private UnifiedGenotyperEngine UG_engine = null;
-
+    private UnifiedGenotyperEngine UG_engine_simple_genotyper = null;
+    
     @Argument(fullName="debug", shortName="debug", doc="If specified print out very verbose debug information about each triggering interval", required = false)
     protected boolean DEBUG;
 
@@ -159,6 +164,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private NestedHashMap kmerQualityTables = new NestedHashMap();
     private int contextSize = 0; // to be set when reading in the recal k-mer tables
     private ArrayList<String> samplesList = new ArrayList<String>();
+    private final static double LOG_ONE_HALF = -Math.log10(2.0);
+    private final static double LOG_ONE_THIRD = -Math.log10(3.0);
 
     //---------------------------------------------------------------------------------------------------------------
     //
@@ -178,6 +185,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         // initialize the UnifiedGenotyper Engine which is used to call into the exact model
         UAC.MAX_ALTERNATE_ALLELES = 4;
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
+        UAC.STANDARD_CONFIDENCE_FOR_CALLING = 0.01;
+        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = 0.01;
+        UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
         // initialize the header
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
 
@@ -203,14 +213,52 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     //
     //---------------------------------------------------------------------------------------------------------------
 
+    // enable deletions in the pileup
     @Override
-    public boolean wantsNonPrimaryReads() {
-        return true;
-    }
+    public boolean includeReadsWithDeletionAtLoci() { return true; }
+
+    // enable non primary reads in the active region
+    @Override
+    public boolean wantsNonPrimaryReads() { return true; }
 
     @Override
-    public boolean isActive(final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
-        return getToolkit().getIntervals().overlaps( context.getLocation() );
+    public double isActive(final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
+        final List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
+        noCall.add(Allele.NO_CALL);
+
+        final Map<String, AlignmentContext> splitContexts = AlignmentContextUtils.splitContextBySampleName(context);
+        final GenotypesContext genotypes = GenotypesContext.create(splitContexts.keySet().size());
+        for( String sample : splitContexts.keySet() ) {
+            final double[] genotypeLikelihoods = new double[3]; // ref versus non-ref (any event)
+            genotypeLikelihoods[0] = 0.0;
+            genotypeLikelihoods[1] = 0.0;
+            genotypeLikelihoods[2] = 0.0;
+
+            for( PileupElement p : context.getBasePileup() ) {
+                byte qual = p.getQual();
+                if (qual > (byte) 7 ) {
+                    int AA = 0; int AB = 1; int BB = 2;
+                    if( p.getBase() != ref.getBase() || p.isDeletion() || p.getRead().getMateUnmappedFlag() || BadMateFilter.hasBadMate(p.getRead()) ) { // || p.hasInsertion() || p.isSoftClipped()
+                        AA = 2;
+                        BB = 0;
+                        qual = (byte) ((int)qual + 6); // be overly permissive so as to not miss any slight signal of variation
+                    } 
+                    genotypeLikelihoods[AA] += Math.log10(QualityUtils.qualToProb(qual));
+                    genotypeLikelihoods[AB] += MathUtils.softMax(Math.log10(QualityUtils.qualToProb(qual)) + LOG_ONE_HALF, Math.log10(QualityUtils.qualToErrorProb(qual)) + LOG_ONE_THIRD + LOG_ONE_HALF);
+                    genotypeLikelihoods[BB] += Math.log10(QualityUtils.qualToErrorProb(qual)) + LOG_ONE_THIRD;
+                }
+            }
+
+            final HashMap<String, Object> attributes = new HashMap<String, Object>();
+            attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((genotypeLikelihoods)));
+            genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
+        }
+
+        final ArrayList<Allele> alleles = new ArrayList<Allele>();
+        alleles.add( Allele.create("A", true) ); // fake ref Allele
+        alleles.add( Allele.create("G", false) ); // fake alt Allele
+        final VariantCallContext vcOut = UG_engine_simple_genotyper.calculateGenotypes(new VariantContextBuilder("HCisActive!", context.getContig(), context.getLocation().getStart(), context.getLocation().getStop(), alleles).genotypes(genotypes).make(), GenotypeLikelihoodsCalculationModel.Model.SNP);
+        return ( vcOut == null ? 0.0 : QualityUtils.qualToProb( vcOut.getPhredScaledQual() ) );
     }
 
     //---------------------------------------------------------------------------------------------------------------
