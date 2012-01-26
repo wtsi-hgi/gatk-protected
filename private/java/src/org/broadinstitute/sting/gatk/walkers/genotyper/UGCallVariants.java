@@ -64,7 +64,6 @@ public class UGCallVariants extends RodWalker<VariantCallContext, Integer> {
     private Set<String> trackNames = new HashSet<String>();
 
     public void initialize() {
-
         for ( RodBinding<VariantContext> rb : variants )
             trackNames.add(rb.getName());
         Set<String> samples = SampleUtils.getSampleListWithVCFHeader(getToolkit(), trackNames);
@@ -72,6 +71,13 @@ public class UGCallVariants extends RodWalker<VariantCallContext, Integer> {
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
 
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
+
+        // If relevant, add in the alleles ROD's header fields (first, so that they can be overriden by the fields we manually add below):
+        if (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES) {
+            LinkedList<String> allelesRods = new LinkedList<String>();
+            allelesRods.add(UAC.alleles.getName());
+            headerInfo.addAll(VCFUtils.getHeaderFields(getToolkit(), allelesRods));
+        }
         headerInfo.add(new VCFInfoHeaderLine(VCFConstants.ALLELE_FREQUENCY_KEY, -1, VCFHeaderLineType.Float, "Allele Frequency, for each ALT allele, in the same order as listed"));
         headerInfo.add(new VCFInfoHeaderLine(VCFConstants.ALLELE_COUNT_KEY, -1, VCFHeaderLineType.Integer, "Allele count in genotypes, for each ALT allele, in the same order as listed"));
         headerInfo.add(new VCFInfoHeaderLine(VCFConstants.ALLELE_NUMBER_KEY, 1, VCFHeaderLineType.Integer, "Total number of alleles in called genotypes"));
@@ -92,7 +98,7 @@ public class UGCallVariants extends RodWalker<VariantCallContext, Integer> {
 
         List<VariantContext> VCs = tracker.getValues(variants, context.getLocation());
 
-        VariantContext mergedVC = mergeVCsWithGLs(VCs);
+        VariantContext mergedVC = mergeVCsWithGLs(VCs, tracker, context);
         if ( mergedVC == null )
             return null;
 
@@ -120,7 +126,7 @@ public class UGCallVariants extends RodWalker<VariantCallContext, Integer> {
         logger.info(String.format("Visited sites: %d", result));
     }
 
-    private static VariantContext mergeVCsWithGLs(List<VariantContext> VCs) {
+    private VariantContext mergeVCsWithGLs(List<VariantContext> VCs, RefMetaDataTracker tracker, AlignmentContext context) {
         // we can't use the VCUtils classes because our VCs can all be no-calls
         if ( VCs.size() == 0 )
             return null;
@@ -138,7 +144,25 @@ public class UGCallVariants extends RodWalker<VariantCallContext, Integer> {
             throw new UserException("There is no ALT allele in any of the VCF records passed in at " + vc.getChr() + ":" + vc.getStart());
         }
 
-        return new VariantContextBuilder(variantVC).source("VCwithGLs").genotypes(genotypes).make();
+        Set<String> filters = new HashSet<String>();
+        Map<String, Object> attributes = new HashMap<String, Object>();
+
+        // If relevant, add the attributes from the alleles ROD first (so they can be overriden as necessary by variantVC below):
+        if (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES) {
+            List<VariantContext> allelesVCs = tracker.getValues(UAC.alleles, context.getLocation());
+            for (VariantContext alleleVC : allelesVCs) {
+                filters.addAll(alleleVC.getFilters());
+                attributes.putAll(alleleVC.getAttributes());
+            }
+        }
+        filters.addAll(variantVC.getFilters());
+        attributes.putAll(variantVC.getAttributes());
+
+        VariantContextBuilder vcb = new VariantContextBuilder(variantVC);
+        vcb.filters(filters);
+        vcb.attributes(attributes);
+
+        return vcb.source("VCwithGLs").genotypes(genotypes).make();
     }
 
     private static GenotypesContext getGenotypesWithGLs(GenotypesContext genotypes) {
