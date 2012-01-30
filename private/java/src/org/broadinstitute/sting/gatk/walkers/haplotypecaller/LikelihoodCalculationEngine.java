@@ -228,7 +228,7 @@ public class LikelihoodCalculationEngine {
 
                     final GATKSAMRecord read = reads.get(kkk);
                     final int mappingLength = read.getAlignmentEnd() - read.getAlignmentStart() + 1;
-                    final double mappingProb = 1.0 - Math.max(0.0, (76.0 - ((double)mappingLength)) / 76.0); //BUGBUG: 101!, needs to pull from the empirical read length distribution per read group
+                    final double mappingProb = 1.0 - Math.max(0.0, (100.0 - ((double)mappingLength)) / 100.0); //BUGBUG: 101!, needs to pull from the empirical read length distribution per read group
 
                     haplotypeLikehoodMatrix[iii][jjj] += (mappingProb*mappingProb) * ( MathUtils.softMax(readLikelihoods[kkk][iii], readLikelihoods[kkk][jjj]) + LOG_ONE_HALF ); // BUGBUG: needs to be a logged probability
                 }

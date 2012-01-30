@@ -94,7 +94,7 @@ import java.util.*;
  */
 
 @PartitionBy(PartitionType.INTERVAL)
-@ActiveRegionExtension(extension=50)
+@ActiveRegionExtension(extension=30)
 public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     /**
