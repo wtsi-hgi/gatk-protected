@@ -223,6 +223,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     @Override
     public double isActive(final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
+        if( context == null ) { return 0.0; }
+
         final List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
         noCall.add(Allele.NO_CALL);
 
