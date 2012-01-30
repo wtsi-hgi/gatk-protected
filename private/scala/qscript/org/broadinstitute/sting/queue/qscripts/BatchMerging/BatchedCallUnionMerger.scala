@@ -151,8 +151,8 @@ class BatchedCallUnionMerger extends QScript {
       this.genotype_likelihoods_model = GenotypeLikelihoodsCalculationModel.Model.BOTH;
 
       // The memory-intensive part is limited by the number of ALT alleles:
-      this.memoryLimit = 8
-      this.max_alternate_alleles = 8
+      this.memoryLimit = 16
+      this.max_alternate_alleles = 4
     }
 
     var callVariants : UGCallVariants = new UGCallVariants with CallVariantsArgs
