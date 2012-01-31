@@ -201,10 +201,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
         likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG, true, false, kmerQualityTables, contextSize);
         genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
-
-        if ( getToolkit().getIntervals() == null || getToolkit().getIntervals().isEmpty() ) {
-            throw new UserException.BadInput("Intervals must be provided with -L (preferably not larger than several hundred bp)");
-        }
     }
 
     //---------------------------------------------------------------------------------------------------------------
@@ -240,7 +236,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
                 byte qual = p.getQual();
                 if (qual > (byte) 7 ) {
                     int AA = 0; int AB = 1; int BB = 2;
-                    if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeInsertion() || p.isSoftClipped() || p.getRead().getMateUnmappedFlag() || BadMateFilter.hasBadMate(p.getRead()) ) {
+                    if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeInsertion() || p.isNextToSoftClip() || p.getRead().getMateUnmappedFlag() || BadMateFilter.hasBadMate(p.getRead()) ) {
                         AA = 2;
                         BB = 0;
                         qual = (byte) ((int)qual + 6); // be overly permissive so as to not miss any slight signal of variation
