@@ -8,6 +8,7 @@ import java.util.Arrays;
 public class ReduceReadsIntegrationTest extends WalkerTest {
     final static String REF = b37KGReference;
     final String BAM = validationDataLocation + "NA12878.HiSeq.b37.chr20.10_11mb.bam";
+    final String DELETION_BAM = validationDataLocation + "filtered_deletion_for_reduce_reads.bam";
     final String L = " -L 20:10,100,000-10,120,000 ";
 
     private void RRTest(String testName, String args, String md5) {
@@ -50,6 +51,12 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
     @Test(enabled = true)
     public void testAdaptiveDownsampling() {
         RRTest("testAdaptiveDownsampling ", " -ds 25 -dm Adaptive " + L, "d32a124f329b01168c1c46b8603fa461");
+    }
+    
+    @Test(enabled = true)
+    public void testFilteredDeletionCompression() {
+        String base = String.format("-T ReduceReads -R %s -I %s ", REF, DELETION_BAM) + " -o %s ";
+        executeTest("testFilteredDeletionCompression", new WalkerTestSpec(base, Arrays.asList("122e4e60c4412a31d0aeb3cce879e841")));
     }
 
 

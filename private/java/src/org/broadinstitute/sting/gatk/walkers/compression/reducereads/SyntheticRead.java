@@ -1,8 +1,10 @@
 package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
 import com.google.java.contract.Requires;
-import net.sf.samtools.*;
-import org.broadinstitute.sting.utils.BaseUtils;
+import net.sf.samtools.Cigar;
+import net.sf.samtools.CigarElement;
+import net.sf.samtools.CigarOperator;
+import net.sf.samtools.SAMFileHeader;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
@@ -113,8 +115,8 @@ public class SyntheticRead {
         read.setReferenceIndex(contigIndex);
         read.setReadPairedFlag(false);
         read.setReadUnmappedFlag(false);
+        read.setCigar(buildCigar());                                        // the alignment start may change while building the cigar (leading deletions)
         read.setAlignmentStart(refStart);
-        read.setCigar(buildCigar());
         read.setReadName(readName);
         read.setBaseQualities(convertBaseQualities());
         read.setReadBases(convertReadBases());
@@ -169,6 +171,13 @@ public class SyntheticRead {
         return readArray;
     }
 
+    /**
+     * Builds the cigar string for the synthetic read
+     *
+     * Warning: if the synthetic read has leading deletions, it will shift the refStart (alignment start) of the read.
+     *
+     * @return the cigar string for the synthetic read
+     */
     private Cigar buildCigar() {
         LinkedList<CigarElement> cigarElements = new LinkedList<CigarElement>();
         CigarOperator cigarOperator = null;
@@ -185,19 +194,24 @@ public class SyntheticRead {
                     op = CigarOperator.MATCH_OR_MISMATCH;
                     break;
             }
-            if (cigarOperator == null)
-                cigarOperator = op;
-
+            if (cigarOperator == null) {
+                if (op == CigarOperator.D)                                  // read cannot start with a deletion
+                    refStart++;                                             // if it does, we need to move the reference start forward
+                else
+                    cigarOperator = op;
+            }
             else if (cigarOperator != op) {                                 // if this is a new operator, we need to close the previous one
                 cigarElements.add(new CigarElement(length, cigarOperator)); // close previous operator
                 cigarOperator = op;
                 length = 0;
             }
 
-            length++;                                                       // add this element to the length, either if we just created a new cigarElement, or if it has the same operator as before
+            if (cigarOperator != null)                                      // only increment the length of the cigar element if we really added it to the read (no leading deletions)
+                length++;
         }
-        if (length > 0)
-            cigarElements.add(new CigarElement(length, cigarOperator));
+        if (length > 0 && cigarOperator != CigarOperator.D)                 // read cannot end with a deletion
+            cigarElements.add(new CigarElement(length, cigarOperator));     // add the last cigar element
+
         return new Cigar(cigarElements);
     }
 
