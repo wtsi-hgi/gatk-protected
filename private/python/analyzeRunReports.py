@@ -152,7 +152,7 @@ def javaExceptionFile(javaException):
     if m != None:
         return m.group(1)
     else:
-        javaException
+        return javaException
 
 class RecordDecoder:
     def __init__(self):
@@ -186,7 +186,7 @@ class RecordDecoder:
 
         def formatExceptionAtBrief(elt):
             return '%s' % javaExceptionFile(parseException(elt)[1])
-
+            
         def formatExceptionUser(elt):
             return '%s' % parseException(elt)[2]
 
