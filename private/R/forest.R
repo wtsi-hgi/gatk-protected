@@ -23,10 +23,10 @@ ANALYZE_BY_N_TRAINING_SITES <- F
 ANALYZE_BY_N_ANNOTATIONS <- F
 ANALYZE_BY_N_TREES <- F
 ANALYZE_ROBUSTNESS_TO_NOISE_ANNOTATIONS <- F
-ANALYZE_SENSITIVITY_TO_NEGATIVE_TRAINING_SET <- F
+ANALYZE_SENSITIVITY_TO_NEGATIVE_TRAINING_SET <- T
 ANALYZE_NA_TREATMENT <- F
 ANALYZE_INDEL_EVENT_LENGTH <- F
-ANALYZE_SNPS_INDELS_COMBINED <- T
+ANALYZE_SNPS_INDELS_COMBINED <- F
 MAX_POLY_SITES_TO_EVAL = 1000000
 DEFAULT_MAX_NEG_TRAINING_FRACTION = 0.25
 FORCE_RELOAD = F
@@ -40,7 +40,7 @@ if ( TEST ) {
 } else {
     nRocPoints = 1000
     MAX_ROWS_TO_READ = 100000
-    N_TREES <- 8000
+    N_TREES <- 128000
 }
 
 #dataDir = "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/VQSRv2"
@@ -94,8 +94,8 @@ Autism.indels <- readVQSRData("Autism.indels", "/humgen/gsa-hpprojects/GATK/data
 
 # FIXME -- GLOBAL TRAINING AND EVAL SITES
 #DATA.SET = "goNL.snps"
-#DATA.SET = "goNL.indels"
-DATA.SET = "Autism.snps"
+DATA.SET = "goNL.indels"
+#DATA.SET = "Autism.snps"
 #DATA.SET = "Autism.indels"
 ALL_SITES <- get(DATA.SET)
 
@@ -497,22 +497,18 @@ if ( ANALYZE_ROBUSTNESS_TO_NOISE_ANNOTATIONS ) {
 # ------------------------------------------------------------------------------------------
 
 byNegTrainingFraction <- function() {
-  trees = list()
-  #for ( percentNegative in c(0.05, 0.1, 0.25, 0.5, 0.75, 1.00) ) {
-  for ( percentNegative in c(0.05, 0.25, 1.00) ) {
+  rocs = data.frame()
+  for ( percentNegative in c(0.05, 0.10, 0.25, 0.5, 0.75, 1.00) ) {
     name = paste("tree.", percentNegative, sep="")
-    tree = trainTree(name, 100, -1, trainingAnn, maxNegTrainingFraction=percentNegative)
-    trees = c(list(tree), trees)
+    myRoc = TrainTreeAndRoc(name, N_TREES, trainingAnn, maxNegTrainingFraction=percentNegative)$roc
+    rocs = rbind(myRoc, rocs)
   }
-  print(trees)
-  rocs = do.call("rbind", lapply(trees, rocForTree))
+
   plotRocs(rbind(vqsr.roc, rocs))
-  #plotRocCuts("nTrainingSites", rocs)
-  list(trees=trees, rocs=rocs)
 }
 
 if ( ANALYZE_SENSITIVITY_TO_NEGATIVE_TRAINING_SET ) {
-  by.neg.training.fraction <- byNegTrainingFraction()
+  byNegTrainingFraction()
 }
 
 #
