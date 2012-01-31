@@ -45,7 +45,7 @@ import java.util.*;
  * Run this as you would the UnifiedGenotyper, except that instead of '-I reads' it expects any number
  * of GL/PL-annotated VCFs bound to a name starting with 'variant'.
  */
-public class UGCallVariants extends RodWalker<VariantCallContext, Integer> {
+public class UGCallVariants extends RodWalker<VariantContext, Integer> {
 
     @ArgumentCollection
     private UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
@@ -92,7 +92,7 @@ public class UGCallVariants extends RodWalker<VariantCallContext, Integer> {
         writer.writeHeader(new VCFHeader(headerInfo, samples));
     }
 
-    public VariantCallContext map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+    public VariantContext map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if ( tracker == null )
             return null;
 
@@ -102,12 +102,27 @@ public class UGCallVariants extends RodWalker<VariantCallContext, Integer> {
         if ( mergedVC == null )
             return null;
 
-        return UG_engine.calculateGenotypes(tracker, ref, context, mergedVC);
+        VariantContext mergedVCwithGT = UG_engine.calculateGenotypes(tracker, ref, context, mergedVC);
+
+        if (mergedVCwithGT == null)
+            return null;
+
+        // Add the filters and attributes from the mergedVC first (so they can be overriden as necessary by mergedVCwithGT):
+        Set<String> filters = new HashSet<String>();
+        Map<String, Object> attributes = new HashMap<String, Object>();
+
+        filters.addAll(mergedVC.getFilters());
+        attributes.putAll(mergedVC.getAttributes());
+
+        filters.addAll(mergedVCwithGT.getFilters());
+        attributes.putAll(mergedVCwithGT.getAttributes());
+
+        return new VariantContextBuilder(mergedVCwithGT).filters(filters).attributes(attributes).make();
     }
 
     public Integer reduceInit() { return 0; }
 
-    public Integer reduce(VariantCallContext value, Integer sum) {
+    public Integer reduce(VariantContext value, Integer sum) {
         if ( value == null )
             return sum;
 

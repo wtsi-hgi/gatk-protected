@@ -20,11 +20,11 @@ public class CountReadsInActiveRegions extends ActiveRegionWalker<Integer, Integ
 
     boolean coinFlip = false;
 
-    public boolean isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
+    public double isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
         if( GenomeAnalysisEngine.getRandomGenerator().nextDouble() > 0.9995 ) {
             coinFlip = !coinFlip;
         }
-        return coinFlip;
+        return ( coinFlip ? 0.9995 : 0.0 );
     }
 
     public Integer map( final ActiveRegion activeRegion, final ReadMetaDataTracker tracker) {
