@@ -108,10 +108,12 @@ public class UGCallVariants extends RodWalker<VariantContext, Integer> {
         Set<String> filters = new HashSet<String>();
         Map<String, Object> attributes = new HashMap<String, Object>();
 
-        filters.addAll(mergedVC.getFilters());
+        if (mergedVC.filtersWereApplied())
+            filters.addAll(mergedVC.getFilters());
         attributes.putAll(mergedVC.getAttributes());
 
-        filters.addAll(mergedVCwithGT.getFilters());
+        if (mergedVCwithGT.filtersWereApplied())
+            filters.addAll(mergedVCwithGT.getFilters());
         attributes.putAll(mergedVCwithGT.getAttributes());
 
         return new VariantContextBuilder(mergedVCwithGT).filters(filters).attributes(attributes).make();
@@ -163,11 +165,13 @@ public class UGCallVariants extends RodWalker<VariantContext, Integer> {
         if (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES) {
             List<VariantContext> allelesVCs = tracker.getValues(UAC.alleles, context.getLocation());
             for (VariantContext alleleVC : allelesVCs) {
-                filters.addAll(alleleVC.getFilters());
+                if (alleleVC.filtersWereApplied())
+                    filters.addAll(alleleVC.getFilters());
                 attributes.putAll(alleleVC.getAttributes());
             }
         }
-        filters.addAll(variantVC.getFilters());
+        if (variantVC.filtersWereApplied())
+            filters.addAll(variantVC.getFilters());
         attributes.putAll(variantVC.getAttributes());
 
         VariantContextBuilder vcb = new VariantContextBuilder(variantVC);
