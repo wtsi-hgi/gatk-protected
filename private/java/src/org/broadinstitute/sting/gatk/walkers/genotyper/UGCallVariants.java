@@ -104,16 +104,17 @@ public class UGCallVariants extends RodWalker<VariantContext, Integer> {
 
         VariantContext mergedVCwithGT = UG_engine.calculateGenotypes(tracker, ref, context, mergedVC);
 
+        if (mergedVCwithGT == null)
+            return null;
+
         // Add the filters and attributes from the mergedVC first (so they can be overriden as necessary by mergedVCwithGT):
         Set<String> filters = new HashSet<String>();
         Map<String, Object> attributes = new HashMap<String, Object>();
 
-        if (mergedVC.filtersWereApplied())
-            filters.addAll(mergedVC.getFilters());
+        filters.addAll(mergedVC.getFilters());
         attributes.putAll(mergedVC.getAttributes());
 
-        if (mergedVCwithGT.filtersWereApplied())
-            filters.addAll(mergedVCwithGT.getFilters());
+        filters.addAll(mergedVCwithGT.getFilters());
         attributes.putAll(mergedVCwithGT.getAttributes());
 
         return new VariantContextBuilder(mergedVCwithGT).filters(filters).attributes(attributes).make();
@@ -165,13 +166,11 @@ public class UGCallVariants extends RodWalker<VariantContext, Integer> {
         if (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES) {
             List<VariantContext> allelesVCs = tracker.getValues(UAC.alleles, context.getLocation());
             for (VariantContext alleleVC : allelesVCs) {
-                if (alleleVC.filtersWereApplied())
-                    filters.addAll(alleleVC.getFilters());
+                filters.addAll(alleleVC.getFilters());
                 attributes.putAll(alleleVC.getAttributes());
             }
         }
-        if (variantVC.filtersWereApplied())
-            filters.addAll(variantVC.getFilters());
+        filters.addAll(variantVC.getFilters());
         attributes.putAll(variantVC.getAttributes());
 
         VariantContextBuilder vcb = new VariantContextBuilder(variantVC);
