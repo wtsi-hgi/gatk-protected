@@ -83,9 +83,9 @@ class GenerateRefPanelWithBeagle extends QScript {
         var rightHalfFlank : String = null
         val dif : Int = (new ReferenceDataSource(ref)).getReference.getSequenceDictionary.getSequence(chr).getSequenceLength - stop
         if ( dif > 0 ) {
-          val ept = stop+scala.math.min(dif,150000)
-          flanks :+= "%s:%d-%d".format(chr,stop,ept)
-          rightHalfFlank = "%s:%d-%d".format(chr,stop,ept/2)
+          val ept = scala.math.min(dif,150000)
+          flanks :+= "%s:%d-%d".format(chr,stop,stop+ept)
+          rightHalfFlank = "%s:%d-%d".format(chr,stop,stop+ept/2)
         }
         // 1: multiply together the likelihoods
         val mLik = new MultiplyLikelihoods
