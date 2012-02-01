@@ -261,6 +261,8 @@ public class GenotypingEngine {
     }
 
     private boolean tooManyClusteredVariantsOnHaplotype( final ArrayList<VariantContext> vcs ) {
+        // Turning off clustered variants intrinsic filter for now
+        /*
         final int clusterSize = 60;
         final int threshold = 4;
 
@@ -270,6 +272,7 @@ public class GenotypingEngine {
                 return true;
             }
         }
+        */
 
         return false;
     }

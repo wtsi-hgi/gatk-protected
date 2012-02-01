@@ -32,8 +32,21 @@ class HaplotypeCallerScript extends QScript {
     hc.scatterCount = scatterCount
     hc.input_file :+= new File(bam)
     hc.recalFile = new File(recalFile)
-    hc.o = new File(out)
+    hc.o = new File(out + ".hc.vcf")
     hc.dr = downsampling
+    hc.analysisName = "HaplotypeCaller"
     add(hc)
+
+    val ug = new UnifiedGenotyper with UNIVERSAL_GATK_ARGS
+    ug.reference_sequence = new File(ref)
+    ug.intervalsString ++= List(interval)
+    ug.scatterCount = scatterCount
+    ug.input_file :+= new File(bam)
+    ug.o = new File(out + ".ug.vcf")
+    ug.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    ug.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+    ug.multiallelic = true
+    ug.analysisName = "UnifiedGenotyper"
+    add(ug)
   }
 }

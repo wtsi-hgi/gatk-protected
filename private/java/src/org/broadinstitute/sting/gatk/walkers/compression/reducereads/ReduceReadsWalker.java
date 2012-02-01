@@ -150,6 +150,14 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     protected boolean DONT_CLIP_SOFTCLIPPED_BASES = false;
 
     /**
+     * Do not compress read names. By default, ReduceReads will compress read names to numbers and guarantee 
+     * uniqueness and reads with similar name will still have similar compressed names. Note: If you scatter/gather
+     * there is no guarantee that read name uniqueness will be maintained -- in this case we recommend not compressing. 
+     */
+    @Argument(fullName = "dont_compress_read_names", shortName = "nocmp_names", doc = "", required = false)
+    protected boolean DONT_COMPRESS_READ_NAMES = false;
+
+    /**
      * Minimum proportion of mismatches in a site to trigger a variant region. Anything below this will be
      * considered consensus.
      */
@@ -495,8 +503,8 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         if (debugLevel == 1)
             System.out.println("BAM: " + read.getCigar() + " " + read.getAlignmentStart() + " " + read.getAlignmentEnd());
 
-        
-        out.addAlignment(compressReadName(read));
+        GATKSAMRecord compressedRead = DONT_COMPRESS_READ_NAMES ? read : compressReadName(read);
+        out.addAlignment(compressedRead);
     }
 
     /**

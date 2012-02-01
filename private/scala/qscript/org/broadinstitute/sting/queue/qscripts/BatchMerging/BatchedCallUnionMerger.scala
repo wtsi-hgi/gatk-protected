@@ -152,7 +152,7 @@ class BatchedCallUnionMerger extends QScript {
 
       // The memory-intensive part is limited by the number of ALT alleles:
       this.memoryLimit = 16
-      this.max_alternate_alleles = 4
+      this.max_alternate_alleles = 3
     }
 
     var callVariants : UGCallVariants = new UGCallVariants with CallVariantsArgs
