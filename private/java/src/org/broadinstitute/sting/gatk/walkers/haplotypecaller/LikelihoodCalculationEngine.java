@@ -177,15 +177,16 @@ public class LikelihoodCalculationEngine {
             // initialize path metric and traceback memories for likelihood computation
             double[][] matchMetricArray = null, XMetricArray = null, YMetricArray = null;
             byte[] previousHaplotypeSeen = null;
-
-            final double[] contextLogGapOpenProbabilities = new double[read.getReadLength()];
-            final double[] contextLogGapContinuationProbabilities = new double[read.getReadLength()];
-            fillGapProbabilitiesFromQualityTables( readGroup, read.getReadBases(), contextLogGapOpenProbabilities );
-            Arrays.fill( contextLogGapContinuationProbabilities, logGapContinuationProbability ); // this should eventually be derived from the data
+            double[] previousGOP = null;
+            double[] previousGCP = null;
+            int startIdx;
 
             for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
-                final byte[] haplotypeBases = haplotypes.get(jjj).getBases();
-                
+                final Haplotype haplotype = haplotypes.get(jjj);
+                final byte[] haplotypeBases = haplotype.getBases();
+                final double[] contextLogGapOpenProbabilities = new double[haplotypeBases.length];
+                final double[] contextLogGapContinuationProbabilities = new double[haplotypeBases.length];
+
                 if (matchMetricArray == null) {
                     final int X_METRIC_LENGTH = read.getReadLength()+1;
                     final int Y_METRIC_LENGTH = haplotypeBases.length+1;
@@ -194,9 +195,21 @@ public class LikelihoodCalculationEngine {
                     XMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
                     YMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
                 }
-                
-                final int startIdx = ( previousHaplotypeSeen == null ? 0 : computeFirstDifferingPosition(haplotypeBases, previousHaplotypeSeen) );
+
+                fillGapProbabilitiesFromQualityTables( readGroup, haplotypeBases, contextLogGapOpenProbabilities );
+                Arrays.fill( contextLogGapContinuationProbabilities, logGapContinuationProbability ); // this should eventually be derived from the data
+
+                if (previousHaplotypeSeen == null) {
+                    startIdx = 0;
+                } else {
+                    final int s1 = computeFirstDifferingPosition(haplotypeBases, previousHaplotypeSeen);
+                    final int s2 = computeFirstDifferingPosition(contextLogGapOpenProbabilities, previousGOP);
+                    final int s3 = computeFirstDifferingPosition(contextLogGapContinuationProbabilities, previousGCP);
+                    startIdx = Math.min(Math.min(s1, s2), s3);
+                }
                 previousHaplotypeSeen = haplotypeBases.clone();
+                previousGOP = contextLogGapOpenProbabilities.clone();
+                previousGCP = contextLogGapContinuationProbabilities.clone();
 
                 readLikelihoods[iii][jjj] = computeReadLikelihoodGivenHaplotypeAffineGaps(haplotypeBases, read.getReadBases(), read.getBaseQualities(),
                         contextLogGapOpenProbabilities, contextLogGapContinuationProbabilities, startIdx, matchMetricArray, XMetricArray, YMetricArray);
@@ -273,16 +286,16 @@ public class LikelihoodCalculationEngine {
         return bestHaplotypesList;
     }
 
-    private void fillGapProbabilitiesFromQualityTables( final String readGroup, final byte[] bases, final double[] contextLogGapOpenProbabilities ) {
+    private void fillGapProbabilitiesFromQualityTables( final String readGroup, final byte[] refBytes, final double[] contextLogGapOpenProbabilities ) {
 
         final Object[] key = new Object[2];
         key[0] = readGroup;
-        for(int i = 0; i < bases.length; i++) {
+        for(int i = 0; i < refBytes.length; i++) {
 
             Double gop = null;
-            final String baseString = ( i + 1 - CONTEXT_SIZE < 0 ? null : new String(Arrays.copyOfRange(bases, i + 1 - CONTEXT_SIZE, i + 1)) );
-            if( baseString != null ) {
-                key[1] = baseString;
+            final String bases = ( i + 1 - CONTEXT_SIZE < 0 ? null : new String(Arrays.copyOfRange(refBytes,i + 1 - CONTEXT_SIZE, i + 1)) );
+            if( bases != null ) {
+                key[1] = bases;
                 gop = (Double) kmerQualityTables.get( key );
             }
             contextLogGapOpenProbabilities[i] = ( gop != null ? gop : -4.5 );
@@ -326,19 +339,19 @@ public class LikelihoodCalculationEngine {
             final byte y = haplotypeBases[jm1];
             final byte qual = readQuals[im1] < 1 ? 1 : (readQuals[im1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : readQuals[im1]);
 
-            final double pBaseRead = ( x == y || x == (byte) 'N' || y == (byte) 'N' ? baseMatchArray[(int)qual] : baseMismatchArray[(int)qual] );
+            final double pBaseRead =  (x == y)? baseMatchArray[(int)qual]:baseMismatchArray[(int)qual];
 
             matchMetricArray[indI][indJ] = MathUtils.softMax(matchMetricArray[im1][jm1] + pBaseRead, XMetricArray[im1][jm1] + pBaseRead,
                     YMetricArray[im1][jm1] + pBaseRead);
 
-            final double c1 = indJ == Y_METRIC_LENGTH-1 ? END_GAP_COST : currentGOP[im1];
-            final double d1 = indJ == Y_METRIC_LENGTH-1 ? END_GAP_COST : currentGCP[im1];
+            final double c1 = indJ == Y_METRIC_LENGTH-1 ? END_GAP_COST : currentGOP[jm1];
+            final double d1 = indJ == Y_METRIC_LENGTH-1 ? END_GAP_COST : currentGCP[jm1];
 
             XMetricArray[indI][indJ] = MathUtils.softMax(matchMetricArray[im1][indJ] + c1, XMetricArray[im1][indJ] + d1);
 
             // update Y array
-            final double c2 = indI == X_METRIC_LENGTH-1 ? END_GAP_COST : currentGOP[im1];
-            final double d2 = indI == X_METRIC_LENGTH-1 ? END_GAP_COST : currentGCP[im1];
+            final double c2 = indI == X_METRIC_LENGTH-1 ? END_GAP_COST : currentGOP[jm1];
+            final double d2 = indI == X_METRIC_LENGTH-1 ? END_GAP_COST : currentGCP[jm1];
             YMetricArray[indI][indJ] = MathUtils.softMax(matchMetricArray[indI][jm1] + c2, YMetricArray[indI][jm1] + d2);
         }
     }
@@ -374,7 +387,7 @@ public class LikelihoodCalculationEngine {
         }
 
 
-        if (bandedLikelihoods) { // BUGBUG: careful, functions are out of sync now
+        if (bandedLikelihoods) {
             final double DIAG_TOL = 20; // means that max - min element in diags have to be > this number for banding to take effect.
 
             final int numDiags = X_METRIC_LENGTH +  Y_METRIC_LENGTH -1;
