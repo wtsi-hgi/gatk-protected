@@ -17,7 +17,9 @@ chomp($file);
 
 $file =~ m/ftp\/data\/(.*)\/(.*)\/.*/;
 
-my $dir = "/humgen/1kg/DCC/ftp/data/$1/$2/";
+my $dir = "/humgen/1kg/DCC/ftp/data/$1/";
+mkdir($dir) unless(-d $dir);
+$dir = "/humgen/1kg/DCC/ftp/data/$1/$2/";
 mkdir($dir) unless(-d $dir);
 chdir $dir;
 
