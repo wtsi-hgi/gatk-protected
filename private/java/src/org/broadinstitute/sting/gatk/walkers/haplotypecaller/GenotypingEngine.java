@@ -25,17 +25,11 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
-import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
-import net.sf.samtools.CigarOperator;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
-import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
-import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -431,6 +425,7 @@ public class GenotypingEngine {
     //
     //////////////////////////////////////////        
 
+    /*
     public void alignAllHaplotypes( final ArrayList<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final StingSAMFileWriter writer, final GATKSAMRecord exampleRead ) {
 
         int iii = 0;
@@ -848,6 +843,6 @@ public class GenotypingEngine {
             return Arrays.hashCode(this.str);
         }
     }
-
+    */
 
 }
