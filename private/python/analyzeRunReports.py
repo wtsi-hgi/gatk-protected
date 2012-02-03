@@ -58,6 +58,10 @@ def main():
                         action='store_true', default=False,
                         help="Run unit tests")
 
+    parser.add_option("", "--dbTable", dest="dbTable",
+                        type='string', default="gatk",
+                        help="The name of the SQL DB to use")
+
     parser.add_option("", "--max_days", dest="maxDays",
                         type='int', default=None,
                         help="if provided, only records generated within X days of today will be included")
@@ -145,17 +149,24 @@ def parseException(elt):
     msgElt = elt.find("message")
     msgText = "MISSING"
     userException = "NA"
+    stackTraceString = "NA"
     runStatus = RUN_STATUS_SUCCESS
     if msgElt != None: 
         msgText = msgElt.text
         runStatus = "sting-exception"
-    stackTrace = elt.find("stacktrace").find("string").text
+    
+    stackTrace = elt.find("stacktrace")
+    if stackTrace != None:
+        strings = stackTrace.findall("string")
+        if len(strings) > 0:
+            stackTraceString = '\n'.join(map(lambda x: x.text, strings))
+    
     if elt.find("is-user-exception") != None:
         #print elt.find("is-user-exception")
         userException = elt.find("is-user-exception").text
         if userException == "true": runStatus = "user-exception"
-    #if runStatus != "completed": print userException, runStatus
-    return msgText, stackTrace, userException, runStatus
+    #if runStatus != "completed": print stackTrace, elt.find('stacktrace')
+    return msgText, stackTraceString, userException, runStatus
 
 def javaExceptionFile(javaException):
     m = re.search("\((.*\.java:.*)\)", javaException)
@@ -217,7 +228,7 @@ class RecordDecoder:
             return parseGATKVersion(elt.text)[0]
 
         def formatMinorVersion(elt):
-            return parseGATKVersion(elt.text)[1]
+            return str(parseGATKVersion(elt.text)[1])
             
         def formatExceptionMsg(elt):
             return '%s' % parseException(elt)[0]
@@ -258,7 +269,7 @@ class RecordDecoder:
         addComplex("host-name", ["host-name", "domain-name"], [id, formatDomainName])
         add(["java", "machine"], toString)
         add(["max-memory", "total-memory", "iterations", "reads"], id)
-        addComplex("exception", ["exception-msg", "exception-at", "exception-at-brief", "is-user-exception", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatRunStatus])
+        addComplex("exception", ["exception-msg", "stacktrace", "exception-at-brief", "is-user-exception", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatRunStatus])
         #add(["command-line"], toString)          
         
     def decode(self, report):
@@ -435,7 +446,7 @@ class CommonException:
 
     def __init__(self, ex):
         self.msgs = set([ex['exception-msg']])
-        self.at = ex['exception-at']
+        self.at = ex['stacktrace']
         self.svns = set([ex['svn-version']])
         self.users = set([ex['user-name']])
         self.userError = ex['is-user-exception']
@@ -445,7 +456,7 @@ class CommonException:
         self.ids = set([ex['id']])
         
     def equals(self, ex):
-        return self.at == ex['exception-at']
+        return self.at == ex['stacktrace']
         
     def update(self, ex):
         self.msgs.add(ex['exception-msg'])
@@ -510,10 +521,10 @@ def userID(rec):
     return rec['user-name']
 
 def isStingException(rec):
-    return rec['exception-at'] != "NA" and rec['is-user-exception'] == "false"
+    return rec['stacktrace'] != "NA" and rec['is-user-exception'] == "false"
 
 def isUserException(rec):
-    return rec['exception-at'] != "NA" and rec['is-user-exception'] == "true"
+    return rec['stacktrace'] != "NA" and rec['is-user-exception'] == "true"
 
 addHandler('summary', SummaryReport)  
   
@@ -528,7 +539,7 @@ class SQLRecordHandler(StageHandler):
         self.name = "GATK_LOGS"
 
         host = "calcium.broadinstitute.org"
-        db = "gatk"
+        db = OPTIONS.dbTable
         print 'Connecting to SQL server', host, 'using DB', db
         if DB_EXISTS and not OPTIONS.dryRun: 
             self.db = MySQLdb.connect( host=host, db=db, user="gsamember", passwd="gsamember" )
@@ -539,7 +550,7 @@ class SQLRecordHandler(StageHandler):
         pass
 
     def getFields(self):
-        return ["id", "walker-name", "gatk-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "exception-at-brief", "exception-msg", "is-user-exception", "run-status"]#, "command-line"]
+        return ["id", "walker-name", "gatk-version", "gatk-minor-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "stacktrace", "exception-at-brief", "exception-msg", "is-user-exception", "run-status"]#, "command-line"]
         #, exceptionmsg VARCHAR(2048), exceptionat VARCHAR(2048), exceptionatbrief VARCHAR(2048), isuserexception VARCHAR(2048))
         #return self.decoder.fields
         
@@ -583,12 +594,17 @@ class InsertRecordIntoTable(SQLRecordHandler):
             #print >> self.out, "\t".join(values)
             
             self.execute("INSERT INTO " + self.name + " VALUES(" + ", ".join(values) + ")")
-        except:
-            print 'Skipping excepting record', id
+        except Exception, inst:
+            print 'Skipping excepting record', id, inst
             pass
 
 DEFAULT_SIZE = 128
-SIZE_OVERRIDES = {"domain-name" : 256, "exception-at-brief" : 1024, "exception-msg" : 2048, "command-line" : 8192}            
+SIZE_OVERRIDES = {
+    "domain-name" : 256, 
+    "exception-at-brief" : 1024, 
+    "stacktrace" : 8192, 
+    "exception-msg" : 2048, 
+    "command-line" : 8192}            
 class SQLSetupTable(SQLRecordHandler):
     def __init__(self, name, out):
         SQLRecordHandler.__init__(self, name, out)
