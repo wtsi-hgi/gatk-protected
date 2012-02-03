@@ -7,6 +7,7 @@ import gzip
 import datetime
 import re
 import MySQLdb
+import unittest
 
 MISSING_VALUE = "NA"
 RUN_REPORT_LIST = "GATK-run-reports"
@@ -53,6 +54,10 @@ def main():
                         action='store_true', default=False,
                         help="Don't submit to the DB")
 
+    parser.add_option("-t", "--test", dest="test",
+                        action='store_true', default=False,
+                        help="Run unit tests")
+
     parser.add_option("", "--max_days", dest="maxDays",
                         type='int', default=None,
                         help="if provided, only records generated within X days of today will be included")
@@ -66,6 +71,11 @@ def main():
     (OPTIONS, args) = parser.parse_args()
     if len(args) == 0:
         parser.error("Requires at least GATKRunReport xml to analyze")
+
+    if OPTIONS.test:
+        sys.argv = ["x"]
+        unittest.main()
+        return
 
     stage = args[0]
     files = resolveFiles(args[1:])
@@ -153,6 +163,47 @@ def javaExceptionFile(javaException):
         return m.group(1)
     else:
         return javaException
+        
+def parseGATKVersion(text):
+    # maps svn numbers 1.0.Vxxx to 0.V.xxx
+    svnMatch = re.match("^1\.0\.(\d)(\d*)", text)
+    major = "unknown"
+    minor = "0"
+    if svnMatch != None:
+        major = "0.%s" % svnMatch.group(1)
+        minor = svnMatch.group(2)
+    else:
+        # maps git numbers 1.3-22-g1bfe280 to 1.3
+        gitFullMatch = re.match("^(\d)\.(\d+)-(\d+)-\w*$", text)
+        if gitFullMatch != None:
+            major = "%s.%s" % gitFullMatch.group(1,2)
+            minor = gitFullMatch.group(3)
+        else:
+            gitShortMatch = re.match("^(\d)\.(\d+)$", text)
+            if gitShortMatch != None:
+                major = "%s.%s" % gitShortMatch.group(1,2)
+            
+    #print text, "=>", major, minor
+    return major, int(minor)
+
+class TestSequenceFunctions(unittest.TestCase):
+    def setUp(self):
+        self.data = {
+            "1.0.5777" : ['0.5', 777],
+            "1.0.6000" : ['0.6', 0],
+            "1.3-33-g1bfe280" : ['1.3', 33],
+            "1.4-1-xafdasdf" : ['1.4', 1],
+            "1.3" : ['1.3', 0],
+            "<unknown>" : ['unknown', 0],
+            "382343549e2e98e2727e66548b6b2bafa6fa4297" : ['unknown', 0]
+            }
+
+    def test_parsing(self):
+        for versionString, expectedResult in self.data.iteritems():
+            parsed = parseGATKVersion(versionString)
+            print '%s : expected= %s observed = %s' % (versionString, str(expectedResult), str(parsed))
+            self.assertEquals(parsed[0], expectedResult[0])
+            self.assertEquals(parsed[1], expectedResult[1])
 
 class RecordDecoder:
     def __init__(self):
@@ -161,23 +212,13 @@ class RecordDecoder:
     
         def id(elt): return elt.text
         def toString(elt): return '%s' % elt.text
-        
+
         def formatMajorVersion(elt):
-            text = elt.text
-            # maps svn numbers 1.0.Vxxx to 0.V.xxx
-            svnMatch = re.match("^1\.0\.(\d)\d*", text)
-            if svnMatch != None:
-                val = "0.%s" % svnMatch.group(1)
-            else:
-                # maps git numbers 1.3-22-g1bfe280 to 1.3
-                gitMatch = re.match("^(\d)\.(\d)($|\w*)", text)
-                if gitMatch != None:
-                    val = "%s.%s" % gitMatch.group(1,2)
-                else:
-                    val = "unknown"
-            #print text, "=>", val
-            return val
-        
+            return parseGATKVersion(elt.text)[0]
+
+        def formatMinorVersion(elt):
+            return parseGATKVersion(elt.text)[1]
+            
         def formatExceptionMsg(elt):
             return '%s' % parseException(elt)[0]
 
@@ -211,7 +252,7 @@ class RecordDecoder:
             self.formatters[key] = zip(fields, funcs)
     
         add(["id", "walker-name", "phone-home-type"], id)
-        addComplex("svn-version", ["svn-version", "gatk-version"], [id, formatMajorVersion])
+        addComplex("svn-version", ["svn-version", "gatk-version", "gatk-minor-version"], [id, formatMajorVersion, formatMinorVersion])
         add(["start-time", "end-time"], toString)      
         add(["run-time", "java-tmp-directory", "working-directory", "user-name"], id)
         addComplex("host-name", ["host-name", "domain-name"], [id, formatDomainName])
