@@ -7,6 +7,7 @@ import gzip
 import datetime
 import re
 import MySQLdb
+import unittest
 
 MISSING_VALUE = "NA"
 RUN_REPORT_LIST = "GATK-run-reports"
@@ -53,6 +54,14 @@ def main():
                         action='store_true', default=False,
                         help="Don't submit to the DB")
 
+    parser.add_option("-t", "--test", dest="test",
+                        action='store_true', default=False,
+                        help="Run unit tests")
+
+    parser.add_option("", "--dbTable", dest="dbTable",
+                        type='string', default="gatk",
+                        help="The name of the SQL DB to use")
+
     parser.add_option("", "--max_days", dest="maxDays",
                         type='int', default=None,
                         help="if provided, only records generated within X days of today will be included")
@@ -66,6 +75,11 @@ def main():
     (OPTIONS, args) = parser.parse_args()
     if len(args) == 0:
         parser.error("Requires at least GATKRunReport xml to analyze")
+
+    if OPTIONS.test:
+        sys.argv = ["x"]
+        unittest.main()
+        return
 
     stage = args[0]
     files = resolveFiles(args[1:])
@@ -135,17 +149,24 @@ def parseException(elt):
     msgElt = elt.find("message")
     msgText = "MISSING"
     userException = "NA"
+    stackTraceString = "NA"
     runStatus = RUN_STATUS_SUCCESS
     if msgElt != None: 
         msgText = msgElt.text
         runStatus = "sting-exception"
-    stackTrace = elt.find("stacktrace").find("string").text
+    
+    stackTrace = elt.find("stacktrace")
+    if stackTrace != None:
+        strings = stackTrace.findall("string")
+        if len(strings) > 0:
+            stackTraceString = '\n'.join(map(lambda x: x.text, strings))
+    
     if elt.find("is-user-exception") != None:
         #print elt.find("is-user-exception")
         userException = elt.find("is-user-exception").text
         if userException == "true": runStatus = "user-exception"
-    #if runStatus != "completed": print userException, runStatus
-    return msgText, stackTrace, userException, runStatus
+    #if runStatus != "completed": print stackTrace, elt.find('stacktrace')
+    return msgText, stackTraceString, userException, runStatus
 
 def javaExceptionFile(javaException):
     m = re.search("\((.*\.java:.*)\)", javaException)
@@ -153,6 +174,47 @@ def javaExceptionFile(javaException):
         return m.group(1)
     else:
         return javaException
+        
+def parseGATKVersion(text):
+    # maps svn numbers 1.0.Vxxx to 0.V.xxx
+    svnMatch = re.match("^1\.0\.(\d)(\d*)", text)
+    major = "unknown"
+    minor = "0"
+    if svnMatch != None:
+        major = "0.%s" % svnMatch.group(1)
+        minor = svnMatch.group(2)
+    else:
+        # maps git numbers 1.3-22-g1bfe280 to 1.3
+        gitFullMatch = re.match("^(\d)\.(\d+)-(\d+)-\w*$", text)
+        if gitFullMatch != None:
+            major = "%s.%s" % gitFullMatch.group(1,2)
+            minor = gitFullMatch.group(3)
+        else:
+            gitShortMatch = re.match("^(\d)\.(\d+)$", text)
+            if gitShortMatch != None:
+                major = "%s.%s" % gitShortMatch.group(1,2)
+            
+    #print text, "=>", major, minor
+    return major, int(minor)
+
+class TestSequenceFunctions(unittest.TestCase):
+    def setUp(self):
+        self.data = {
+            "1.0.5777" : ['0.5', 777],
+            "1.0.6000" : ['0.6', 0],
+            "1.3-33-g1bfe280" : ['1.3', 33],
+            "1.4-1-xafdasdf" : ['1.4', 1],
+            "1.3" : ['1.3', 0],
+            "<unknown>" : ['unknown', 0],
+            "382343549e2e98e2727e66548b6b2bafa6fa4297" : ['unknown', 0]
+            }
+
+    def test_parsing(self):
+        for versionString, expectedResult in self.data.iteritems():
+            parsed = parseGATKVersion(versionString)
+            print '%s : expected= %s observed = %s' % (versionString, str(expectedResult), str(parsed))
+            self.assertEquals(parsed[0], expectedResult[0])
+            self.assertEquals(parsed[1], expectedResult[1])
 
 class RecordDecoder:
     def __init__(self):
@@ -161,23 +223,13 @@ class RecordDecoder:
     
         def id(elt): return elt.text
         def toString(elt): return '%s' % elt.text
-        
+
         def formatMajorVersion(elt):
-            text = elt.text
-            # maps svn numbers 1.0.Vxxx to 0.V.xxx
-            svnMatch = re.match("^1\.0\.(\d)\d*", text)
-            if svnMatch != None:
-                val = "0.%s" % svnMatch.group(1)
-            else:
-                # maps git numbers 1.3-22-g1bfe280 to 1.3
-                gitMatch = re.match("^(\d)\.(\d)($|\w*)", text)
-                if gitMatch != None:
-                    val = "%s.%s" % gitMatch.group(1,2)
-                else:
-                    val = "unknown"
-            #print text, "=>", val
-            return val
-        
+            return parseGATKVersion(elt.text)[0]
+
+        def formatMinorVersion(elt):
+            return str(parseGATKVersion(elt.text)[1])
+            
         def formatExceptionMsg(elt):
             return '%s' % parseException(elt)[0]
 
@@ -211,13 +263,13 @@ class RecordDecoder:
             self.formatters[key] = zip(fields, funcs)
     
         add(["id", "walker-name", "phone-home-type"], id)
-        addComplex("svn-version", ["svn-version", "gatk-version"], [id, formatMajorVersion])
+        addComplex("svn-version", ["svn-version", "gatk-version", "gatk-minor-version"], [id, formatMajorVersion, formatMinorVersion])
         add(["start-time", "end-time"], toString)      
         add(["run-time", "java-tmp-directory", "working-directory", "user-name"], id)
         addComplex("host-name", ["host-name", "domain-name"], [id, formatDomainName])
         add(["java", "machine"], toString)
         add(["max-memory", "total-memory", "iterations", "reads"], id)
-        addComplex("exception", ["exception-msg", "exception-at", "exception-at-brief", "is-user-exception", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatRunStatus])
+        addComplex("exception", ["exception-msg", "stacktrace", "exception-at-brief", "is-user-exception", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatRunStatus])
         #add(["command-line"], toString)          
         
     def decode(self, report):
@@ -394,7 +446,7 @@ class CommonException:
 
     def __init__(self, ex):
         self.msgs = set([ex['exception-msg']])
-        self.at = ex['exception-at']
+        self.at = ex['stacktrace']
         self.svns = set([ex['svn-version']])
         self.users = set([ex['user-name']])
         self.userError = ex['is-user-exception']
@@ -404,7 +456,7 @@ class CommonException:
         self.ids = set([ex['id']])
         
     def equals(self, ex):
-        return self.at == ex['exception-at']
+        return self.at == ex['stacktrace']
         
     def update(self, ex):
         self.msgs.add(ex['exception-msg'])
@@ -469,10 +521,10 @@ def userID(rec):
     return rec['user-name']
 
 def isStingException(rec):
-    return rec['exception-at'] != "NA" and rec['is-user-exception'] == "false"
+    return rec['stacktrace'] != "NA" and rec['is-user-exception'] == "false"
 
 def isUserException(rec):
-    return rec['exception-at'] != "NA" and rec['is-user-exception'] == "true"
+    return rec['stacktrace'] != "NA" and rec['is-user-exception'] == "true"
 
 addHandler('summary', SummaryReport)  
   
@@ -487,7 +539,7 @@ class SQLRecordHandler(StageHandler):
         self.name = "GATK_LOGS"
 
         host = "calcium.broadinstitute.org"
-        db = "gatk"
+        db = OPTIONS.dbTable
         print 'Connecting to SQL server', host, 'using DB', db
         if DB_EXISTS and not OPTIONS.dryRun: 
             self.db = MySQLdb.connect( host=host, db=db, user="gsamember", passwd="gsamember" )
@@ -498,7 +550,7 @@ class SQLRecordHandler(StageHandler):
         pass
 
     def getFields(self):
-        return ["id", "walker-name", "gatk-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "exception-at-brief", "exception-msg", "is-user-exception", "run-status"]#, "command-line"]
+        return ["id", "walker-name", "gatk-version", "gatk-minor-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "stacktrace", "exception-at-brief", "exception-msg", "is-user-exception", "run-status"]#, "command-line"]
         #, exceptionmsg VARCHAR(2048), exceptionat VARCHAR(2048), exceptionatbrief VARCHAR(2048), isuserexception VARCHAR(2048))
         #return self.decoder.fields
         
@@ -542,12 +594,17 @@ class InsertRecordIntoTable(SQLRecordHandler):
             #print >> self.out, "\t".join(values)
             
             self.execute("INSERT INTO " + self.name + " VALUES(" + ", ".join(values) + ")")
-        except:
-            print 'Skipping excepting record', id
+        except Exception, inst:
+            print 'Skipping excepting record', id, inst
             pass
 
 DEFAULT_SIZE = 128
-SIZE_OVERRIDES = {"domain-name" : 256, "exception-at-brief" : 1024, "exception-msg" : 2048, "command-line" : 8192}            
+SIZE_OVERRIDES = {
+    "domain-name" : 256, 
+    "exception-at-brief" : 1024, 
+    "stacktrace" : 8192, 
+    "exception-msg" : 2048, 
+    "command-line" : 8192}            
 class SQLSetupTable(SQLRecordHandler):
     def __init__(self, name, out):
         SQLRecordHandler.__init__(self, name, out)

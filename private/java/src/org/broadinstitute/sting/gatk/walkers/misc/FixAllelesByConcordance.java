@@ -57,7 +57,16 @@ public class FixAllelesByConcordance extends RodWalker<Integer,Integer> {
         Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit());
         Map<String,VCFHeader> onlyChip = new HashMap<String,VCFHeader>();
         onlyChip.put("chip",vcfRods.get("chip"));
-        samples = SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.UNSORTED);
+        samples = new HashSet<String>();
+        boolean init = false;
+        for ( Map.Entry<String,VCFHeader> header : vcfRods.entrySet() ) {
+            if ( ! init ) {
+                samples.addAll(header.getValue().getGenotypeSamples());
+                init = true;
+            } else {
+                samples.retainAll(new HashSet<String>((header.getValue().getGenotypeSamples())));
+            }
+        }
         Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), logger);
         out.writeHeader(new VCFHeader(headerLines,samples));
     }

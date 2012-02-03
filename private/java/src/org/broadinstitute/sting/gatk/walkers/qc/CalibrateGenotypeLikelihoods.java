@@ -455,6 +455,11 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             return Data.EMPTY_DATA;
         }
 
+        // make sure there is an alternate allele
+        if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0) {
+            return Data.EMPTY_DATA;
+        }
+
         for ( Genotype genotype : extVC.getGenotypes() ) {
             String sample = readGroupSampleMapping == null ? genotype.getSampleName() :
                                                         getCorrespondingSampleName(genotype.getSampleName());
