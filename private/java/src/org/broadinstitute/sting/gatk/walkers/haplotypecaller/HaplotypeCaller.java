@@ -28,7 +28,6 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
-import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
@@ -41,7 +40,6 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalcul
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
-import org.broadinstitute.sting.gatk.walkers.recalibration.TableRecalibrationWalker;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
@@ -49,7 +47,6 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
-import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.fragments.FragmentCollection;
@@ -57,10 +54,8 @@ import org.broadinstitute.sting.utils.fragments.FragmentUtils;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
-import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.*;
@@ -105,15 +100,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     @Output(fullName="graphOutput", shortName="graph", doc="File to which debug assembly graph information should be written", required = false)
     protected PrintStream graphWriter = null;
-
-    /**
-     * After the header, data records occur one per line until the end of the file. The first several items on a line are the
-     * values of the individual covariates and will change depending on which covariates were specified at runtime. The last
-     * three items are the data- that is, number of observations for this combination of covariates, number of reference mismatches,
-     * and the raw empirical quality score calculated by phred-scaling the mismatch rate.
-     */
-    @Input(fullName="recal_file", shortName="recalFile", required=true, doc="Filename for the input indel covariates table recalibration .csv file")
-    public File RECAL_FILE = null;
 
     @Argument(fullName = "assembler", shortName = "assembler", doc = "Assembler to use; currently only SIMPLE_DE_BRUIJN is available.", required = false)
     protected LocalAssemblyEngine.ASSEMBLER ASSEMBLER_TO_USE = LocalAssemblyEngine.ASSEMBLER.SIMPLE_DE_BRUIJN;
@@ -161,8 +147,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     // bases with quality less than or equal to this value are trimmed off the tails of the reads
     private static final byte MIN_TAIL_QUALITY = 8;
 
-    private NestedHashMap kmerQualityTables = new NestedHashMap();
-    private int contextSize = 0; // to be set when reading in the recal k-mer tables
     private ArrayList<String> samplesList = new ArrayList<String>();
     private final static double LOG_ONE_HALF = -Math.log10(2.0);
     private final static double LOG_ONE_THIRD = -Math.log10(3.0);
@@ -175,9 +159,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     public void initialize() {
         super.initialize();
-
-        // read in the input recal data from IndelCountCovariates and calculate the empirical gap open penalty for each k-mer
-        parseInputRecalData();
 
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
@@ -199,7 +180,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
-        likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG, true, false, kmerQualityTables, contextSize);
+        likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG, true, false);
         genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
     }
 
@@ -234,7 +215,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
             for( PileupElement p : context.getBasePileup() ) {
                 byte qual = p.getQual();
-                if (qual > (byte) 7 ) {
+                if (qual > QualityUtils.MIN_USABLE_Q_SCORE ) {
                     int AA = 0; int AB = 1; int BB = 2;
                     if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeInsertion() || p.isNextToSoftClip() || (p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()) ) {
                         AA = 2;
@@ -342,46 +323,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     // private helper functions
     //
     //---------------------------------------------------------------------------------------------------------------
-
-    private void parseInputRecalData() {
-        int lineNumber = 0;
-        boolean foundAllCovariates = false;
-
-        // Read in the data from the csv file and populate the data map and covariates list
-        logger.info( "Reading in the data from input csv file..." );
-
-        boolean sawEOF = false;
-        try {
-            for ( String line : new XReadLines(RECAL_FILE) ) {
-                lineNumber++;
-                if (TableRecalibrationWalker.EOF_MARKER.equals(line) ) {
-                    sawEOF = true;
-                } else if( TableRecalibrationWalker.COMMENT_PATTERN.matcher(line).matches() || TableRecalibrationWalker.OLD_RECALIBRATOR_HEADER.matcher(line).matches() ||
-                        TableRecalibrationWalker.COVARIATE_PATTERN.matcher(line).matches() )  {
-                    // Skip over the comment lines, (which start with '#')
-                } else { // Found a line of data
-                    final String[] vals = line.split(",");
-                    final Object[] key = new Object[2];
-                    key[0] = vals[0]; // read group
-                    key[1] = vals[2]; // k-mer Context
-                    final Double logGapOpenPenalty = Math.log10( (Double.parseDouble(vals[4]) + 1.0) / (Double.parseDouble(vals[3]) + 1.0) );
-                    kmerQualityTables.put( logGapOpenPenalty, key );
-                    if(contextSize == 0) { contextSize = key[1].toString().length(); }
-                }
-            }
-
-        } catch ( FileNotFoundException e ) {
-            throw new UserException.CouldNotReadInputFile(RECAL_FILE, "Can not find input file", e);
-        } catch ( NumberFormatException e ) {
-            throw new UserException.MalformedFile(RECAL_FILE, "Error parsing recalibration data at line " + lineNumber + ". Perhaps your table was generated by an older version of CovariateCounterWalker.");
-        }
-        logger.info( "...done!" );
-
-        if ( !sawEOF ) {
-            final String errorMessage = "No EOF marker was present in the recal covariates table; this could mean that the file is corrupted or was generated with an old version of the CountCovariates tool.";
-            throw new UserException.MalformedFile(RECAL_FILE, errorMessage);
-        }
-    }
 
     private LocalAssemblyEngine makeAssembler(LocalAssemblyEngine.ASSEMBLER type, IndexedFastaSequenceFile referenceReader) {
         switch ( type ) {
