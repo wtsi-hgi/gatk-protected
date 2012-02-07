@@ -33,7 +33,6 @@ import org.broadinstitute.sting.gatk.filters.MappingQualityUnavailableFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.collections.NestedHashMap;
@@ -42,6 +41,7 @@ import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.recalibration.BaseRecalibration;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -201,7 +201,6 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
     private final String SKIP_RECORD_ATTRIBUTE = "SKIP";    // used to label GATKSAMRecords that should be skipped.
     private final String SEEN_ATTRIBUTE = "SEEN";           // used to label GATKSAMRecords as processed.
     private final String COVARS_ATTRIBUTE = "COVARS";       // used to store covariates array as a temporary attribute inside GATKSAMRecord.\
-    private final String RG_PLATFORM_SOLID = "SOLID";       // the read group platform string used to identify solid data
 
     @Override
     /**
@@ -326,47 +325,40 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
                 final int offset = p.getOffset();
 
                 if (read.containsTemporaryAttribute(SKIP_RECORD_ATTRIBUTE))
-                    continue;
+                    continue;                           // This read has been marked to be skipped.
+
+                if (read.getBaseQualities()[offset] == 0)
+                    continue;                           // Skip this base if quality is zero
+
+                if (p.isDeletion())
+                    continue;                           // We look at deletions from their left aligned base, not at the base itself
 
                 if (!read.containsTemporaryAttribute(SEEN_ATTRIBUTE)) {
                     read.setTemporaryAttribute(SEEN_ATTRIBUTE, true);
                     RecalDataManager.parseSAMRecord(read, RAC);
 
-                    // Skip over reads with no calls in the color space if the user requested it
                     if (!(RAC.SOLID_NOCALL_STRATEGY == RecalDataManager.SOLID_NOCALL_STRATEGY.THROW_EXCEPTION) && RecalDataManager.checkNoCallColorSpace(read)) {
                         read.setTemporaryAttribute(SKIP_RECORD_ATTRIBUTE, true);
-                        continue;
+                        continue;                       // Skip over reads with no calls in the color space if the user requested it
                     }
 
                     RecalDataManager.parseColorSpace(read);
                     read.setTemporaryAttribute(COVARS_ATTRIBUTE, RecalDataManager.computeCovariates(read, requestedCovariates, BaseRecalibration.BaseRecalibrationType.BASE_SUBSTITUTION));
                 }
 
-                // Skip this position if base quality is zero
-                if (read.getBaseQualities()[offset] > 0) {
-                    byte[] bases = read.getReadBases();
-                    byte refBase = ref.getBase();
+                byte[] bases = read.getReadBases();
+                byte refBase = ref.getBase();
 
-                    // Skip if this base is an 'N' or etc.
-                    if (BaseUtils.isRegularBase(bases[offset])) {
+                // SOLID bams have inserted the reference base into the read if the color space in inconsistent with the read base so skip it
+                if (!ReadUtils.isSOLiDRead(read) || RAC.SOLID_RECAL_MODE == RecalDataManager.SOLID_RECAL_MODE.DO_NOTHING || !RecalDataManager.isInconsistentColorSpace(read, offset))
+                    updateDataFromRead(counter, read, offset, refBase); // This base finally passed all the checks for a good base, so add it to the big data hashmap
 
-                        // SOLID bams have inserted the reference base into the read if the color space in inconsistent with the read base so skip it
-                        if (!read.getReadGroup().getPlatform().toUpperCase().contains(RG_PLATFORM_SOLID) || RAC.SOLID_RECAL_MODE == RecalDataManager.SOLID_RECAL_MODE.DO_NOTHING ||
-                                !RecalDataManager.isInconsistentColorSpace(read, offset)) {
-
-                            // This base finally passed all the checks for a good base, so add it to the big data hashmap
-                            updateDataFromRead(counter, read, offset, refBase);
-
-                        }
-                        else { // calculate SOLID reference insertion rate
-                            if (refBase == bases[offset]) {
-                                counter.solidInsertedReferenceBases++;
-                            }
-                            else
-                                counter.otherColorSpaceInconsistency++;
-
-                        }
-                    }
+                    // calculate SOLID reference insertion rate
+                else {
+                    if (refBase == bases[offset])
+                        counter.solidInsertedReferenceBases++;
+                    else
+                        counter.otherColorSpaceInconsistency++;
                 }
             }
             counter.countedSites++;
