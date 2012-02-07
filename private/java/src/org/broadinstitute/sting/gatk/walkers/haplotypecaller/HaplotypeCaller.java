@@ -61,31 +61,31 @@ import java.io.PrintStream;
 import java.util.*;
 
 /**
- * [Short one sentence description of this walker]
- *
- * <p>
- * [Functionality of this walker]
- * </p>
+ * Call SNPs and indels simultaneously via local de-novo assembly. Haplotype likelihoods are evaluated with an affine gap penalty HMM.
  *
  * <h2>Input</h2>
  * <p>
- * [Input description]
+ * None! Although on-the-fly base quality score recalibration tables are highly recommended.
  * </p>
  *
  * <h2>Output</h2>
  * <p>
- * [Output description]
+ * VCF file with raw, unrecalibrated SNP and indel calls.
  * </p>
  *
  * <h2>Examples</h2>
  * PRE-TAG
- *    java
- *      -jar GenomeAnalysisTK.jar
- *      -T $WalkerName
+ *   java
+ *     -jar GenomeAnalysisTK.jar
+ *     -T HaplotypeCaller
+ *     -R reference/human_g1k_v37.fasta
+ *     -I input.bam
+ *     -BQSR input.kmer.8.recal_data.csv [[optional, but recommended]]
+ *     -o output.raw.snps.indels.vcf
  * PRE-TAG
  *
- * @author Your Name
- * @since Date created
+ * @author rpoplin
+ * @since 8/22/11
  */
 
 @PartitionBy(PartitionType.INTERVAL)
@@ -166,8 +166,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         // initialize the UnifiedGenotyper Engine which is used to call into the exact model
         UAC.MAX_ALTERNATE_ALLELES = 4;
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
-        UAC.STANDARD_CONFIDENCE_FOR_CALLING = 0.01;
-        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = 0.01;
+        UAC.STANDARD_CONFIDENCE_FOR_CALLING = 0.01; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = 0.01; // low values used for isActive determination only, default/user-specified values used for actual calling
         UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
         // initialize the header
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
@@ -371,8 +371,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     }
 
     private GenomeLoc getPaddedLoc( final ActiveRegion activeRegion ) {
-        int padLeft = Math.max(activeRegion.getReferenceLoc().getStart()-REFERENCE_PADDING, 1);
-        int padRight = Math.min(activeRegion.getReferenceLoc().getStop()+REFERENCE_PADDING, referenceReader.getSequenceDictionary().getSequence(activeRegion.getReferenceLoc().getContig()).getSequenceLength());
+        final int padLeft = Math.max(activeRegion.getReferenceLoc().getStart()-REFERENCE_PADDING, 1);
+        final int padRight = Math.min(activeRegion.getReferenceLoc().getStop()+REFERENCE_PADDING, referenceReader.getSequenceDictionary().getSequence(activeRegion.getReferenceLoc().getContig()).getSequenceLength());
         return getToolkit().getGenomeLocParser().createGenomeLoc(activeRegion.getReferenceLoc().getContig(), padLeft, padRight);
     }
     
