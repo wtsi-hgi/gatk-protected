@@ -217,9 +217,6 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
      */
     public void initialize() {
 
-        if (RAC.FORCE_READ_GROUP != null) {
-            RAC.DEFAULT_READ_GROUP = RAC.FORCE_READ_GROUP;
-        }
         if (RAC.FORCE_PLATFORM != null) {
             RAC.DEFAULT_PLATFORM = RAC.FORCE_PLATFORM;
         }
