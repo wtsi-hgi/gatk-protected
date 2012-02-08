@@ -1,10 +1,10 @@
 #!/bin/tcsh
 
 echo "\nGSA queue usage"
-bjobs -u all -q gsa | awk '$2 !~ "USER" {print $2}' | sort | uniq -c
+bjobs -u all -q gsa | awk '$2 !~ "USER" {print $2}' | sort | uniq -c | sort -k1rg
 
 echo "\nGSAFolk usage"
-busers -w gsafolk
+bjobs -u gsafolk | awk '$2 !~ "USER" {print $2}' | sort | uniq -c | sort -k1rg
 
 echo "\nGSA folk"
 bugroup -l gsafolk

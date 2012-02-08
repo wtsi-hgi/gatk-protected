@@ -33,8 +33,6 @@ import org.broadinstitute.sting.gatk.filters.MappingQualityUnavailableFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.collections.NestedHashMap;
@@ -43,6 +41,7 @@ import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.recalibration.BaseRecalibration;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -122,7 +121,7 @@ import java.util.Map;
  *   -knownSites bundle/hg18/dbsnp_132.hg18.vcf \
  *   -knownSites another/optional/setOfSitesToMask.vcf \
  *   -I my_reads.bam \
- *   -T CountCovariates \
+ *   -T RecalibrateReads \
  *   -cov ReadGroupCovariate \
  *   -cov QualityScoreCovariate \
  *   -cov CycleCovariate \
@@ -138,24 +137,10 @@ import java.util.Map;
 @Requires({DataSource.READS, DataSource.REFERENCE, DataSource.REFERENCE_BASES})
 // This walker requires both -I input.bam and -R reference.fasta
 @PartitionBy(PartitionType.LOCUS)
-public class CountCovariatesWalker extends LocusWalker<CountCovariatesWalker.CountedData, CountCovariatesWalker.CountedData> implements TreeReducible<CountCovariatesWalker.CountedData> {
-
-    /////////////////////////////
-    // Constants
-    /////////////////////////////
-    private static final String SKIP_RECORD_ATTRIBUTE = "SKIP"; //used to label GATKSAMRecords that should be skipped.
-    private static final String SEEN_ATTRIBUTE = "SEEN"; //used to label GATKSAMRecords as processed.
-    private static final String COVARS_ATTRIBUTE = "COVARS"; //used to store covariates array as a temporary attribute inside GATKSAMRecord.
-
-    /////////////////////////////
-    // Shared Arguments
-    /////////////////////////////
+public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQualityScoreRecalibrationWalker.CountedData, BaseQualityScoreRecalibrationWalker.CountedData> implements TreeReducible<BaseQualityScoreRecalibrationWalker.CountedData> {
     @ArgumentCollection
     private RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection();
 
-    /////////////////////////////
-    // Command Line Arguments
-    /////////////////////////////
     /**
      * This algorithm treats every reference mismatch as an indication of error. However, real genetic variation is expected to mismatch the reference,
      * so it is critical that a database of known polymorphic sites is given to the tool in order to skip over those sites. This tool accepts any number of RodBindings (VCF, Bed, etc.)
@@ -163,7 +148,7 @@ public class CountCovariatesWalker extends LocusWalker<CountCovariatesWalker.Cou
      * Please note however that the statistics reported by the tool will not accurately reflected those sites skipped by the -XL argument.
      */
     @Input(fullName = "knownSites", shortName = "knownSites", doc = "A database of known polymorphic sites to skip over in the recalibration algorithm", required = false)
-    public List<RodBinding<Feature>> knownSites = Collections.emptyList();
+    private List<RodBinding<Feature>> knownSites = Collections.emptyList();
 
     /**
      * After the header, data records occur one per line until the end of the file. The first several items on a line are the
@@ -171,78 +156,59 @@ public class CountCovariatesWalker extends LocusWalker<CountCovariatesWalker.Cou
      * three items are the data- that is, number of observations for this combination of covariates, number of reference mismatches,
      * and the raw empirical quality score calculated by phred-scaling the mismatch rate.
      */
-    @Output(fullName = "recal_file", shortName = "recalFile", required = true, doc = "Filename for the output covariates table recalibration file")
+    @Output
     @Gather(CountCovariatesGatherer.class)
-    public PrintStream RECAL_FILE;
+    private PrintStream RECAL_FILE;
 
+    /**
+     * List all implemented covariates.
+     */
     @Argument(fullName = "list", shortName = "ls", doc = "List the available covariates and exit", required = false)
     private boolean LIST_ONLY = false;
 
     /**
-     * See the -list argument to view available covariates.
+     * Covariates to be used in the recalibration. Each covariate is given as a separate cov parameter. ReadGroup and ReportedQuality are required covariates and are already added for you. See the list of covariates with -list.
      */
     @Argument(fullName = "covariate", shortName = "cov", doc = "Covariates to be used in the recalibration. Each covariate is given as a separate cov parameter. ReadGroup and ReportedQuality are required covariates and are already added for you.", required = false)
     private String[] COVARIATES = null;
+
+    /*
+     * Use the standard set of covariates in addition to the ones listed using the -cov argument
+     */
     @Argument(fullName = "standard_covs", shortName = "standard", doc = "Use the standard set of covariates in addition to the ones listed using the -cov argument", required = false)
     private boolean USE_STANDARD_COVARIATES = false;
 
     /////////////////////////////
     // Debugging-only Arguments
     /////////////////////////////
+    @Hidden
     @Argument(fullName = "dont_sort_output", shortName = "unsorted", required = false, doc = "If specified, the output table recalibration csv file will be in an unsorted, arbitrary order to save some run time.")
     private boolean DONT_SORT_OUTPUT = false;
 
     /**
      * This calculation is critically dependent on being able to skip over known polymorphic sites. Please be sure that you know what you are doing if you use this option.
      */
+    @Hidden
     @Argument(fullName = "run_without_dbsnp_potentially_ruining_quality", shortName = "run_without_dbsnp_potentially_ruining_quality", required = false, doc = "If specified, allows the recalibrator to be used without a dbsnp rod. Very unsafe and for expert users only.")
     private boolean RUN_WITHOUT_DBSNP = false;
 
     /////////////////////////////
     // Private Member Variables
     /////////////////////////////
-    private final RecalDataManager dataManager = new RecalDataManager(); // Holds the data HashMap, mostly used by TableRecalibrationWalker to create collapsed data hashmaps
-    private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>(); // A list to hold the covariate objects that were requested
-    private static final double DBSNP_VS_NOVEL_MISMATCH_RATE = 2.0;      // rate at which dbSNP sites (on an individual level) mismatch relative to novel sites (determined by looking at NA12878)
-    private static int DBSNP_VALIDATION_CHECK_FREQUENCY = 1000000;       // how often to validate dbsnp mismatch rate (in terms of loci seen)
+    private final RecalDataManager dataManager = new RecalDataManager();                    // Holds the data HashMap used to create collapsed data hashmaps (delta delta tables)
+    private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();    // A list to hold the covariate objects that were requested
 
-    public static class CountedData {
-        private long countedSites = 0; // Number of loci used in the calculations, used for reporting in the output file
-        private long countedBases = 0; // Number of bases used in the calculations, used for reporting in the output file
-        private long skippedSites = 0; // Number of loci skipped because it was a dbSNP site, used for reporting in the output file
-        private long solidInsertedReferenceBases = 0; // Number of bases where we believe SOLID has inserted the reference because the color space is inconsistent with the read base
-        private long otherColorSpaceInconsistency = 0; // Number of bases where the color space is inconsistent with the read but the reference wasn't inserted.
+    private final String SKIP_RECORD_ATTRIBUTE = "SKIP";    // used to label GATKSAMRecords that should be skipped.
+    private final String SEEN_ATTRIBUTE = "SEEN";           // used to label GATKSAMRecords as processed.
+    private final String COVARS_ATTRIBUTE = "COVARS";       // used to store covariates array as a temporary attribute inside GATKSAMRecord.\
 
-        private long dbSNPCountsMM = 0, dbSNPCountsBases = 0;  // mismatch/base counts for dbSNP loci
-        private long novelCountsMM = 0, novelCountsBases = 0;  // mismatch/base counts for non-dbSNP loci
-        private int lociSinceLastDbsnpCheck = 0;               // loci since last dbsnp validation
-
-        /**
-         * Adds the values of other to this, returning this
-         *
-         * @param other
-         * @return this object
-         */
-        public CountedData add(CountedData other) {
-            countedSites += other.countedSites;
-            countedBases += other.countedBases;
-            skippedSites += other.skippedSites;
-            solidInsertedReferenceBases += other.solidInsertedReferenceBases;
-            otherColorSpaceInconsistency += other.otherColorSpaceInconsistency;
-            dbSNPCountsMM += other.dbSNPCountsMM;
-            dbSNPCountsBases += other.dbSNPCountsBases;
-            novelCountsMM += other.novelCountsMM;
-            novelCountsBases += other.novelCountsBases;
-            lociSinceLastDbsnpCheck += other.lociSinceLastDbsnpCheck;
-            return this;
-        }
+    @Override
+    /**
+     * We are interested in deletions in the pileup so we can evaluate indels
+     */
+    public boolean includeReadsWithDeletionAtLoci() {
+        return true;
     }
-
-    //---------------------------------------------------------------------------------------------------------------
-    //
-    // initialize
-    //
-    //---------------------------------------------------------------------------------------------------------------
 
     /**
      * Parse the -cov arguments and create a list of covariates to be used here
@@ -338,12 +304,6 @@ public class CountCovariatesWalker extends LocusWalker<CountCovariatesWalker.Cou
         }
     }
 
-    //---------------------------------------------------------------------------------------------------------------
-    //
-    // map
-    //
-    //---------------------------------------------------------------------------------------------------------------
-
     /**
      * For each read at this locus get the various covariate values and increment that location in the map based on
      * whether or not the base matches the reference at this particular location
@@ -357,88 +317,94 @@ public class CountCovariatesWalker extends LocusWalker<CountCovariatesWalker.Cou
         // Only use data from non-dbsnp sites
         // Assume every mismatch at a non-dbsnp site is indicative of poor quality
         CountedData counter = new CountedData();
-        if (tracker.getValues(knownSites).size() == 0) { // If something here is in one of the knownSites tracks then skip over it, otherwise proceed
-            // For each read at this locus
+
+        // Only analyze sites not present in the provided known sites
+        if (tracker.getValues(knownSites).size() == 0) {
             for (final PileupElement p : context.getBasePileup()) {
-                final GATKSAMRecord gatkRead = p.getRead();
-                int offset = p.getOffset();
+                final GATKSAMRecord read = p.getRead();
+                final int offset = p.getOffset();
 
-                if (gatkRead.containsTemporaryAttribute(SKIP_RECORD_ATTRIBUTE)) {
-                    continue;
-                }
+                if (read.containsTemporaryAttribute(SKIP_RECORD_ATTRIBUTE))
+                    continue;                           // This read has been marked to be skipped.
 
-                if (!gatkRead.containsTemporaryAttribute(SEEN_ATTRIBUTE)) {
-                    gatkRead.setTemporaryAttribute(SEEN_ATTRIBUTE, true);
-                    RecalDataManager.parseSAMRecord(gatkRead, RAC);
+                if (read.getBaseQualities()[offset] == 0)
+                    continue;                           // Skip this base if quality is zero
 
-                    // Skip over reads with no calls in the color space if the user requested it
-                    if (!(RAC.SOLID_NOCALL_STRATEGY == RecalDataManager.SOLID_NOCALL_STRATEGY.THROW_EXCEPTION) && RecalDataManager.checkNoCallColorSpace(gatkRead)) {
-                        gatkRead.setTemporaryAttribute(SKIP_RECORD_ATTRIBUTE, true);
-                        continue;
+                if (p.isDeletion())
+                    continue;                           // We look at deletions from their left aligned base, not at the base itself
+
+                if (!read.containsTemporaryAttribute(SEEN_ATTRIBUTE)) {
+                    read.setTemporaryAttribute(SEEN_ATTRIBUTE, true);
+                    RecalDataManager.parseSAMRecord(read, RAC);
+
+                    if (!(RAC.SOLID_NOCALL_STRATEGY == RecalDataManager.SOLID_NOCALL_STRATEGY.THROW_EXCEPTION) && RecalDataManager.checkNoCallColorSpace(read)) {
+                        read.setTemporaryAttribute(SKIP_RECORD_ATTRIBUTE, true);
+                        continue;                       // Skip over reads with no calls in the color space if the user requested it
                     }
 
-                    RecalDataManager.parseColorSpace(gatkRead);
-                    gatkRead.setTemporaryAttribute(COVARS_ATTRIBUTE, RecalDataManager.computeCovariates(gatkRead, requestedCovariates, BaseRecalibration.BaseRecalibrationType.BASE_SUBSTITUTION));
+                    RecalDataManager.parseColorSpace(read);
+                    read.setTemporaryAttribute(COVARS_ATTRIBUTE, RecalDataManager.computeCovariates(read, requestedCovariates, BaseRecalibration.BaseRecalibrationType.BASE_SUBSTITUTION));
                 }
 
-                // Skip this position if base quality is zero
-                if (gatkRead.getBaseQualities()[offset] > 0) {
+                byte[] bases = read.getReadBases();
+                byte refBase = ref.getBase();
 
-                    byte[] bases = gatkRead.getReadBases();
-                    byte refBase = ref.getBase();
+                // SOLID bams have inserted the reference base into the read if the color space in inconsistent with the read base so skip it
+                if (!ReadUtils.isSOLiDRead(read) || RAC.SOLID_RECAL_MODE == RecalDataManager.SOLID_RECAL_MODE.DO_NOTHING || !RecalDataManager.isInconsistentColorSpace(read, offset))
+                    updateDataFromRead(counter, read, offset, refBase); // This base finally passed all the checks for a good base, so add it to the big data hashmap
 
-                    // Skip if this base is an 'N' or etc.
-                    if (BaseUtils.isRegularBase(bases[offset])) {
-
-                        // SOLID bams have inserted the reference base into the read if the color space in inconsistent with the read base so skip it
-                        if (!gatkRead.getReadGroup().getPlatform().toUpperCase().contains("SOLID") || RAC.SOLID_RECAL_MODE == RecalDataManager.SOLID_RECAL_MODE.DO_NOTHING ||
-                                !RecalDataManager.isInconsistentColorSpace(gatkRead, offset)) {
-
-                            // This base finally passed all the checks for a good base, so add it to the big data hashmap
-                            updateDataFromRead(counter, gatkRead, offset, refBase);
-
-                        }
-                        else { // calculate SOLID reference insertion rate
-                            if (refBase == bases[offset]) {
-                                counter.solidInsertedReferenceBases++;
-                            }
-                            else {
-                                counter.otherColorSpaceInconsistency++;
-                            }
-                        }
-                    }
+                    // calculate SOLID reference insertion rate
+                else {
+                    if (refBase == bases[offset])
+                        counter.solidInsertedReferenceBases++;
+                    else
+                        counter.otherColorSpaceInconsistency++;
                 }
             }
             counter.countedSites++;
         }
-        else { // We skipped over the dbSNP site, and we are only processing every Nth locus
+        else
             counter.skippedSites++;
-            updateMismatchCounts(counter, context, ref.getBase()); // For sanity check to ensure novel mismatch rate vs dnsnp mismatch rate is reasonable
-        }
 
         return counter;
     }
 
     /**
-     * Update the mismatch / total_base counts for a given class of loci.
+     * Initialize the reduce step by creating a PrintStream from the filename specified as an argument to the walker.
      *
-     * @param counter The CountedData to be updated
-     * @param context The AlignmentContext which holds the reads covered by this locus
-     * @param refBase The reference base
+     * @return returns A PrintStream created from the -recalFile filename argument specified to the walker
      */
-    private static void updateMismatchCounts(CountedData counter, final AlignmentContext context, final byte refBase) {
-        for (PileupElement p : context.getBasePileup()) {
-            final byte readBase = p.getBase();
-            final int readBaseIndex = BaseUtils.simpleBaseToBaseIndex(readBase);
-            final int refBaseIndex = BaseUtils.simpleBaseToBaseIndex(refBase);
+    public CountedData reduceInit() {
+        return new CountedData();
+    }
 
-            if (readBaseIndex != -1 && refBaseIndex != -1) {
-                if (readBaseIndex != refBaseIndex) {
-                    counter.novelCountsMM++;
-                }
-                counter.novelCountsBases++;
-            }
+    /**
+     * The Reduce method doesn't do anything for this walker.
+     *
+     * @param mapped Result of the map. This value is immediately ignored.
+     * @param sum    The summing CountedData used to output the CSV data
+     * @return returns The sum used to output the CSV data
+     */
+    public CountedData reduce(CountedData mapped, CountedData sum) {
+        return sum.add(mapped);
+    }
+
+    public CountedData treeReduce(CountedData sum1, CountedData sum2) {
+        return sum1.add(sum2);
+    }
+
+    /**
+     * Write out the full data hashmap to disk in CSV format
+     *
+     * @param sum The CountedData to write out to RECAL_FILE
+     */
+    public void onTraversalDone(CountedData sum) {
+        logger.info("Writing raw recalibration data...");
+        if (sum.countedBases == 0L) {
+            throw new UserException.BadInput("Could not find any usable data in the input BAM file(s).");
         }
+        outputToCSV(sum, RECAL_FILE);
+        logger.info("...done!");
     }
 
     /**
@@ -461,7 +427,9 @@ public class CountCovariatesWalker extends LocusWalker<CountCovariatesWalker.Cou
         // Using the list of covariate values as a key, pick out the RecalDatum from the data HashMap
         final NestedHashMap data = dataManager.data; //optimization - create local reference
         RecalDatumOptimized datum = (RecalDatumOptimized) data.get(key);
-        if (datum == null) { // key doesn't exist yet in the map so make a new bucket and add it
+
+        // key doesn't exist yet in the map so make a new bucket and add it
+        if (datum == null) {
             // initialized with zeros, will be incremented at end of method
             datum = (RecalDatumOptimized) data.put(new RecalDatumOptimized(), true, (Object[]) key);
         }
@@ -473,74 +441,6 @@ public class CountCovariatesWalker extends LocusWalker<CountCovariatesWalker.Cou
         // Add one to the number of observations and potentially one to the number of mismatches
         datum.incrementBaseCounts(base, refBase);
         counter.countedBases++;
-        counter.novelCountsBases++;
-        counter.novelCountsMM += datum.getNumMismatches() - curMismatches; // For sanity check to ensure novel mismatch rate vs dnsnp mismatch rate is reasonable
-    }
-
-    //---------------------------------------------------------------------------------------------------------------
-    //
-    // reduce
-    //
-    //---------------------------------------------------------------------------------------------------------------
-
-    /**
-     * Initialize the reduce step by creating a PrintStream from the filename specified as an argument to the walker.
-     *
-     * @return returns A PrintStream created from the -recalFile filename argument specified to the walker
-     */
-    public CountedData reduceInit() {
-        return new CountedData();
-    }
-
-    /**
-     * The Reduce method doesn't do anything for this walker.
-     *
-     * @param mapped Result of the map. This value is immediately ignored.
-     * @param sum    The summing CountedData used to output the CSV data
-     * @return returns The sum used to output the CSV data
-     */
-    public CountedData reduce(CountedData mapped, CountedData sum) {
-        // Do a dbSNP sanity check every so often
-        return validatingDbsnpMismatchRate(sum.add(mapped));
-    }
-
-    /**
-     * Validate the dbSNP reference mismatch rates.
-     */
-    private CountedData validatingDbsnpMismatchRate(CountedData counter) {
-        if (++counter.lociSinceLastDbsnpCheck >= DBSNP_VALIDATION_CHECK_FREQUENCY) {
-            counter.lociSinceLastDbsnpCheck = 0;
-
-            if (counter.novelCountsBases != 0L && counter.dbSNPCountsBases != 0L) {
-                final double fractionMM_novel = (double) counter.novelCountsMM / (double) counter.novelCountsBases;
-                final double fractionMM_dbsnp = (double) counter.dbSNPCountsMM / (double) counter.dbSNPCountsBases;
-
-                if (fractionMM_dbsnp < DBSNP_VS_NOVEL_MISMATCH_RATE * fractionMM_novel) {
-                    Utils.warnUser("The variation rate at the supplied list of known variant sites seems suspiciously low. Please double-check that the correct ROD is being used. " + String.format("[dbSNP variation rate = %.4f, novel variation rate = %.4f]", fractionMM_dbsnp, fractionMM_novel));
-                    DBSNP_VALIDATION_CHECK_FREQUENCY *= 2; // Don't annoyingly output the warning message every megabase of a large file
-                }
-            }
-        }
-
-        return counter;
-    }
-
-    public CountedData treeReduce(CountedData sum1, CountedData sum2) {
-        return validatingDbsnpMismatchRate(sum1.add(sum2));
-    }
-
-    /**
-     * Write out the full data hashmap to disk in CSV format
-     *
-     * @param sum The CountedData to write out to RECAL_FILE
-     */
-    public void onTraversalDone(CountedData sum) {
-        logger.info("Writing raw recalibration data...");
-        if (sum.countedBases == 0L) {
-            throw new UserException.BadInput("Could not find any usable data in the input BAM file(s).");
-        }
-        outputToCSV(sum, RECAL_FILE);
-        logger.info("...done!");
     }
 
     /**
@@ -620,5 +520,29 @@ public class CountCovariatesWalker extends LocusWalker<CountCovariatesWalker.Cou
             }
         }
     }
+
+    public class CountedData {
+        private long countedSites = 0;                          // Number of loci used in the calculations, used for reporting in the output file
+        private long countedBases = 0;                          // Number of bases used in the calculations, used for reporting in the output file
+        private long skippedSites = 0;                          // Number of loci skipped because it was a dbSNP site, used for reporting in the output file
+        private long solidInsertedReferenceBases = 0;           // Number of bases where we believe SOLID has inserted the reference because the color space is inconsistent with the read base
+        private long otherColorSpaceInconsistency = 0;          // Number of bases where the color space is inconsistent with the read but the reference wasn't inserted.
+
+        /**
+         * Adds the values of other to this, returning this
+         *
+         * @param other
+         * @return this object
+         */
+        public CountedData add(CountedData other) {
+            countedSites += other.countedSites;
+            countedBases += other.countedBases;
+            skippedSites += other.skippedSites;
+            solidInsertedReferenceBases += other.solidInsertedReferenceBases;
+            otherColorSpaceInconsistency += other.otherColorSpaceInconsistency;
+            return this;
+        }
+    }
+
 }
 

@@ -12,7 +12,7 @@ import java.util.Arrays;
 
 public class ContextCovariate implements Covariate {
 
-    final int CONTEXT_SIZE = 9;
+    final int CONTEXT_SIZE = 8;
     String allN = "";
 
     // Initialize any member variables using the command-line arguments passed to the walkers

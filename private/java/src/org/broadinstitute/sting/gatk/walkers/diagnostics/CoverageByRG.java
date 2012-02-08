@@ -27,11 +27,13 @@ package org.broadinstitute.sting.gatk.walkers.diagnostics;
 import net.sf.samtools.SAMReadGroupRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
+import org.broadinstitute.sting.commandline.Gather;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.arguments.DbsnpArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.report.GATKReportGatherer;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.PartitionBy;
@@ -87,6 +89,7 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
 
 
     @Output
+    @Gather(GATKReportGatherer.class)
     PrintStream out;
 
     @Argument(fullName = "groupRGs", shortName = "g", doc = "This parameter will take the Read Groups provided (separated by a space) and sum them up in a new column", required = false)
@@ -96,9 +99,11 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
     protected DbsnpArgumentCollection dbsnp = new DbsnpArgumentCollection();
 
 
-    GATKReportTable reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", true);;
-    
-    HashMap<String, String> rgGroups = new HashMap<String, String>();;
+    GATKReportTable reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", true);
+    ;
+
+    HashMap<String, String> rgGroups = new HashMap<String, String>();
+    ;
     List<HashSet<String>> readGroupIds = new LinkedList<HashSet<String>>();
 
     final String columnInterval = "Interval";
@@ -129,11 +134,11 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
         int groupIndex = 1;
         for (String groupString : groups) {
             String groupID = "G" + groupIndex;
-            String [] rgs = groupString.split(" ");             // Decode the read groups in the grouping argument 
+            String[] rgs = groupString.split(" ");             // Decode the read groups in the grouping argument
 
             for (String rg : rgs)
                 rgGroups.put(rg, groupID);                      // Update the hash with all RGs that correspond to this group
-            
+
             HashSet<String> groupSet = new HashSet<String>();
             groupSet.addAll(Arrays.asList(rgs));
             readGroupIds.add(groupSet);                         // Add this RG group to the list of RGs 
@@ -142,11 +147,11 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
 
             groupIndex++;
         }
-        
+
         for (SAMReadGroupRecord RG : getToolkit().getSAMFileHeader().getReadGroups()) {
             String readGroupID = RG.getReadGroupId();
             if (!rgGroups.containsKey(readGroupID)) {
-                HashSet<String> rgSet = new HashSet<String>(); 
+                HashSet<String> rgSet = new HashSet<String>();
                 rgSet.add(readGroupID);
                 readGroupIds.add(rgSet);                       // Add this RG group to the list of RGs
 
@@ -168,10 +173,10 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
 
         VariantContext variantContext = tracker.getFirstValue(dbsnp.dbsnp, ref.getLocus());
         output.put(columnVariants, (variantContext == null) ? 0L : 1L);
-        
+
         byte base = ref.getBase();                                             // Update site GC content for interval
         output.put(columnGC, (base == BaseUtils.G || base == BaseUtils.C) ? 1L : 0L);
-        
+
         ReadBackedPileup pileup = context.getBasePileup();                     // Update site pileup for all groups of read groups 
         for (HashSet<String> rgSet : readGroupIds) {
             ReadBackedPileup rgPileup = pileup.getPileupForReadGroups(rgSet);  // This pileup is null when empty so a check must be added
@@ -206,7 +211,7 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
         for (Pair<GenomeLoc, LinkedHashMap<String, Long>> intervalPair : results) {
             GenomeLoc interval = intervalPair.getFirst();
             LinkedHashMap<String, Long> counts = intervalPair.getSecond();
-            
+
             // Get coverage by taking total counts and diving by interval length
             for (String key : counts.keySet()) {
                 if (!key.equals(columnVariants))
