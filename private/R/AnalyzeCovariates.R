@@ -1,4 +1,17 @@
 library("ggplot2")
+
+# Assumes the data is organized like this:
+#Recalibration  ReadGroup	Covariate	Value	Qreported	Qempirical	nMismatches	nBases
+#Original	B00EG.4	QualityScore	2	2.000	11.825	9011003	137161904
+#Original	B00EG.4	QualityScore	4	4.000	5.001	526054	1663850
+#Original	B00EG.4	QualityScore	5	5.000	5.817	522185	1993294
+#Original	B00EG.4	QualityScore	6	6.000	6.725	937794	4411346
+#Original	B00EG.4	QualityScore	7	7.000	7.476	1028074	5749046
+#Original	B00EG.4	QualityScore	8	8.000	8.006	883264	5580387
+#Original	B00EG.4	QualityScore	9	9.000	9.045	924957	7422920
+#Original	B00EG.4	QualityScore	10	10.000	9.784	1044520	9938322
+#Original	B00EG.4	QualityScore	11	11.000	9.310	1487921	12694829
+
 data = read.table("NA12892.recal.dat", head=T)
 data$Accuracy = data$Qempirical - data$Qreported # calculate the delta in accuracy up front as a short hand
 numRG = length(unique(data$ReadGroup))
@@ -21,7 +34,7 @@ for(cov in levels(data$Covariate)) { # for each covariate in turn
     }
   }
   # plot Accuracy by the covariate value
-  p <- ggplot(d, aes(x=Value,y=Accuracy,size=nMismatches)) +
+  p <- ggplot(d, aes(x=Value,y=Accuracy,size=nMismatches,alpha=nBases)) +
     geom_abline(intercept=0, slope=0, linetype=2) + 
     xlab(paste(cov,"Covariate")) +
     ylab("Base Quality Score Accuracy (Empirical - Reported)") +
@@ -37,7 +50,7 @@ for(cov in levels(data$Covariate)) { # for each covariate in turn
   rmseOriginal = sqrt(sum((orig$Qreported-orig$Qempirical)^2 * orig$nBases) / sum(orig$nBases))
   recal = subset(d, Recalibration == "Recalibrated")
   rmseRecalibrated = sqrt(sum((recal$Qreported-recal$Qempirical)^2 * recal$nBases) / sum(recal$nBases))   
-  p <- ggplot(d, aes(x=Qreported,y=Qempirical,size=nMismatches)) +
+  p <- ggplot(d, aes(x=Qreported,y=Qempirical,size=nMismatches,alpha=nBases)) +
     geom_abline(intercept=0, slope=1, linetype=2) + 
     xlab("Reported Base Quality") +
     ylab("Empirical Base Quality") +
@@ -51,7 +64,7 @@ for(cov in levels(data$Covariate)) { # for each covariate in turn
   
   # plot mean Reported quality as a function of the covariate value
   if( cov != "QualityScore" ) {
-    p <- ggplot(d, aes(x=Value,y=Qreported,size=nMismatches)) +
+    p <- ggplot(d, aes(x=Value,y=Qreported,size=nMismatches,alpha=nBases)) +
       xlab(paste(cov,"Covariate")) +
       ylab("Mean Base Quality Score") +
       blankTheme
