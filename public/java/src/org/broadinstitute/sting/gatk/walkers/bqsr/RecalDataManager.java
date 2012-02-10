@@ -603,7 +603,7 @@ public class RecalDataManager {
      * Computes all requested covariates for every offset in the given read
      * by calling covariate.getValues(..).
      *
-     * @param read            The read for which to compute covariate values.
+     * @param read                The read for which to compute covariate values.
      * @param requestedCovariates The list of requested covariates.
      * @return An array of covariate values where result[i][j] is the covariate
      *         value for the ith position in the read and the jth covariate in
