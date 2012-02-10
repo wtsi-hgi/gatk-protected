@@ -135,10 +135,10 @@ def create_gsafolk_lsfdb(dbMatter, dbGATK, uidMap):
     maxTimeStamp = max(maxTimeStampYear, maxTimeStampDb) 
     print '### Last timestamp for incremental refresh', maxTimeStamp
 
-    qCondition = "where uid in (" + ",".join(map(str, uids)) + ")"
+    qCondition = "where uid in (" + ",".join(map(str, uids)) + ") and date > " + str(maxTimeStamp)
     if OPTIONS.maxRecords != None:
-        qCondition = qCondition + " and date > " + str(maxTimeStamp) + " LIMIT " + str(OPTIONS.maxRecords)
-
+        qCondition = qCondition + " LIMIT " + str(OPTIONS.maxRecords)
+        
     # count up records for printing
     nRecordsToProcess = dbMatter.get_summary_value("select count(uid) from lsf_acct " + qCondition)
     print '### Number of records to be processed', nRecordsToProcess
