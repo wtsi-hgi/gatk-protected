@@ -96,22 +96,22 @@ import java.util.Map;
  * # Counted Bases    56582018
  * # Skipped Sites    82666
  * # Fraction Skipped 1 / 235 bp
- * ReadGroup,QualityScore,Cycle,Dinuc,nObservations,nMismatches,Qempirical
- * SRR006446,11,65,CA,9,1,10
- * SRR006446,11,48,TA,10,0,40
- * SRR006446,11,67,AA,27,0,40
- * SRR006446,11,61,GA,11,1,10
- * SRR006446,12,34,CA,47,1,17
- * SRR006446,12,30,GA,52,1,17
- * SRR006446,12,36,AA,352,1,25
- * SRR006446,12,17,TA,182,11,12
- * SRR006446,11,48,TG,2,0,40
- * SRR006446,11,67,AG,1,0,40
- * SRR006446,12,34,CG,9,0,40
- * SRR006446,12,30,GG,43,0,40
- * ERR001876,4,31,AG,1,0,40
- * ERR001876,4,31,AT,2,2,1
- * ERR001876,4,31,CA,1,0,40
+ * ReadGroup,QualityScore,Cycle,Context,EventType,nObservations,nMismatches,Qempirical
+ * SRR006446,11,65,CA,M,9,1,10
+ * SRR006446,11,48,TA,M,10,0,40
+ * SRR006446,11,67,AAGCTGAC,I,27,0,40
+ * SRR006446,11,61,GAAAGCTG,D,11,1,10
+ * SRR006446,12,34,CAGAAAGC,D,47,1,17
+ * SRR006446,12,30,GAAAAATC,I,52,1,17
+ * SRR006446,12,36,AA,M,352,1,25
+ * SRR006446,12,17,TA,M,182,11,12
+ * SRR006446,11,48,TG,M,2,0,40
+ * SRR006446,11,67,AGTCCTGC,D,1,0,40
+ * SRR006446,12,34,CGGTCCTG,I,9,0,40
+ * SRR006446,12,30,GGGTCCTG,I,43,0,40
+ * ERR001876,4,31,AGAAAAAT,D,1,0,40
+ * ERR001876,4,31,AT,M,2,2,1
+ * ERR001876,4,31,CA,M,1,0,40
  * </pre>
  * </p>
  *
@@ -126,17 +126,15 @@ import java.util.Map;
  *   -cov ReadGroupCovariate \
  *   -cov QualityScoreCovariate \
  *   -cov CycleCovariate \
- *   -cov DinucCovariate \
- *   -recalFile my_reads.recal_data.csv
+ *   -cov ContextCovariate \
+ *   -o my_reads.recal_data.csv
  * </pre>
  */
 
 @BAQMode(ApplicationTime = BAQ.ApplicationTime.FORBIDDEN)
-@By(DataSource.READS) // Only look at covered loci, not every loci of the reference file
-@ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class})
-// Filter out all reads with zero or unavailable mapping quality
-@Requires({DataSource.READS, DataSource.REFERENCE, DataSource.REFERENCE_BASES})
-// This walker requires both -I input.bam and -R reference.fasta
+@By(DataSource.READS)                                                                   // Only look at covered loci, not every loci of the reference file
+@ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class})   // Filter out all reads with zero or unavailable mapping quality
+@Requires({DataSource.READS, DataSource.REFERENCE, DataSource.REFERENCE_BASES})         // This walker requires both -I input.bam and -R reference.fasta
 @PartitionBy(PartitionType.LOCUS)
 public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQualityScoreRecalibrationWalker.CountedData, BaseQualityScoreRecalibrationWalker.CountedData> implements TreeReducible<BaseQualityScoreRecalibrationWalker.CountedData> {
     @ArgumentCollection
