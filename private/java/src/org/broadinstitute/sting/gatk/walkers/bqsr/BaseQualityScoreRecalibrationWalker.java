@@ -23,7 +23,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.gatk.walkers.recalibration;
+package org.broadinstitute.sting.gatk.walkers.bqsr;
 
 import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.*;
@@ -40,8 +40,8 @@ import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.exceptions.DynamicClassResolutionException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
-import org.broadinstitute.sting.utils.recalibration.BaseRecalibration;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -157,7 +157,6 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
      * and the raw empirical quality score calculated by phred-scaling the mismatch rate.
      */
     @Output
-    @Gather(CountCovariatesGatherer.class)
     private PrintStream RECAL_FILE;
 
     /**
@@ -176,7 +175,7 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
      * Use the standard set of covariates in addition to the ones listed using the -cov argument
      */
     @Argument(fullName = "standard_covs", shortName = "standard", doc = "Use the standard set of covariates in addition to the ones listed using the -cov argument", required = false)
-    private boolean USE_STANDARD_COVARIATES = false;
+    private boolean USE_STANDARD_COVARIATES = true;
 
     /////////////////////////////
     // Debugging-only Arguments
@@ -195,13 +194,11 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
     /////////////////////////////
     // Private Member Variables
     /////////////////////////////
-    private final RecalDataManager dataManager = new RecalDataManager();                    // Holds the data HashMap used to create collapsed data hashmaps (delta delta tables)
+    private final RecalDataManager dataManager = new RecalDataManager();            // Holds the data HashMap used to create collapsed data hashmaps (delta delta tables)
     private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();    // A list to hold the covariate objects that were requested
 
-    private final String SKIP_RECORD_ATTRIBUTE = "SKIP";    // used to label GATKSAMRecords that should be skipped.
-    private final String SEEN_ATTRIBUTE = "SEEN";           // used to label GATKSAMRecords as processed.
-    private final String COVARS_ATTRIBUTE = "COVARS";       // used to store covariates array as a temporary attribute inside GATKSAMRecord.\
-    private final String RG_PLATFORM_SOLID = "SOLID";       // the read group platform string used to identify solid data
+    private final String SKIP_RECORD_ATTRIBUTE = "SKIP";                            // used to label reads that should be skipped.
+    private final String SEEN_ATTRIBUTE = "SEEN";                                   // used to label reads as processed.
 
     @Override
     /**
@@ -217,9 +214,6 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
      */
     public void initialize() {
 
-        if (RAC.FORCE_READ_GROUP != null) {
-            RAC.DEFAULT_READ_GROUP = RAC.FORCE_READ_GROUP;
-        }
         if (RAC.FORCE_PLATFORM != null) {
             RAC.DEFAULT_PLATFORM = RAC.FORCE_PLATFORM;
         }
@@ -329,47 +323,41 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
                 final int offset = p.getOffset();
 
                 if (read.containsTemporaryAttribute(SKIP_RECORD_ATTRIBUTE))
-                    continue;
+                    continue;                                           // This read has been marked to be skipped.
+
+                if (read.getBaseQualities()[offset] == 0)
+                    continue;                                           // Skip this base if quality is zero
+
+                if (p.isDeletion())
+                    continue;                                           // We look at deletions from their left aligned base, not at the base itself
 
                 if (!read.containsTemporaryAttribute(SEEN_ATTRIBUTE)) {
                     read.setTemporaryAttribute(SEEN_ATTRIBUTE, true);
                     RecalDataManager.parseSAMRecord(read, RAC);
 
-                    // Skip over reads with no calls in the color space if the user requested it
                     if (!(RAC.SOLID_NOCALL_STRATEGY == RecalDataManager.SOLID_NOCALL_STRATEGY.THROW_EXCEPTION) && RecalDataManager.checkNoCallColorSpace(read)) {
                         read.setTemporaryAttribute(SKIP_RECORD_ATTRIBUTE, true);
-                        continue;
+                        continue;                                       // Skip over reads with no calls in the color space if the user requested it
                     }
 
                     RecalDataManager.parseColorSpace(read);
-                    read.setTemporaryAttribute(COVARS_ATTRIBUTE, RecalDataManager.computeCovariates(read, requestedCovariates, BaseRecalibration.BaseRecalibrationType.BASE_SUBSTITUTION));
+                    RecalDataManager.computeCovariates(read, requestedCovariates);
                 }
 
-                // Skip this position if base quality is zero
-                if (read.getBaseQualities()[offset] > 0) {
-                    byte[] bases = read.getReadBases();
-                    byte refBase = ref.getBase();
+                final byte[] bases = read.getReadBases();
+                final byte refBase = ref.getBase();
 
-                    // Skip if this base is an 'N' or etc.
-                    if (BaseUtils.isRegularBase(bases[offset])) {
+                // SOLID bams have inserted the reference base into the read
+                // if the color space in inconsistent with the read base so
+                // skip it
+                if (!ReadUtils.isSOLiDRead(read) || RAC.SOLID_RECAL_MODE == RecalDataManager.SOLID_RECAL_MODE.DO_NOTHING || !RecalDataManager.isInconsistentColorSpace(read, offset))
+                    updateDataForPileupElement(counter, p, refBase);    // This base finally passed all the checks for a good base, so add it to the big data hashmap
 
-                        // SOLID bams have inserted the reference base into the read if the color space in inconsistent with the read base so skip it
-                        if (!read.getReadGroup().getPlatform().toUpperCase().contains(RG_PLATFORM_SOLID) || RAC.SOLID_RECAL_MODE == RecalDataManager.SOLID_RECAL_MODE.DO_NOTHING ||
-                                !RecalDataManager.isInconsistentColorSpace(read, offset)) {
-
-                            // This base finally passed all the checks for a good base, so add it to the big data hashmap
-                            updateDataFromRead(counter, read, offset, refBase);
-
-                        }
-                        else { // calculate SOLID reference insertion rate
-                            if (refBase == bases[offset]) {
-                                counter.solidInsertedReferenceBases++;
-                            }
-                            else
-                                counter.otherColorSpaceInconsistency++;
-
-                        }
-                    }
+                else {
+                    if (refBase == bases[offset])
+                        counter.solidInsertedReferenceBases++;          // calculate SOLID reference insertion rate
+                    else
+                        counter.otherColorSpaceInconsistency++;
                 }
             }
             counter.countedSites++;
@@ -414,7 +402,7 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
         if (sum.countedBases == 0L) {
             throw new UserException.BadInput("Could not find any usable data in the input BAM file(s).");
         }
-        outputToCSV(sum, RECAL_FILE);
+        outputToCSV(sum);
         logger.info("...done!");
     }
 
@@ -422,113 +410,96 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
      * Major workhorse routine for this walker.
      * Loop through the list of requested covariates and pick out the value from the read, offset, and reference
      * Using the list of covariate values as a key, pick out the RecalDatum and increment,
-     * adding one to the number of observations and potentially one to the number of mismatches
-     * Lots of things are passed as parameters to this method as a strategy for optimizing the covariate.getValue calls
-     * because pulling things out of the SAMRecord is an expensive operation.
+     * adding one to the number of observations and potentially one to the number of mismatches for all three
+     * categories (mismatches, insertions and deletions).
      *
-     * @param counter  Data structure which holds the counted bases
-     * @param gatkRead The SAMRecord holding all the data for this read
-     * @param offset   The offset in the read for this locus
-     * @param refBase  The reference base at this locus
+     * @param counter       Data structure which holds the counted bases
+     * @param pileupElement The pileup element to update
+     * @param refBase       The reference base at this locus
      */
-    private void updateDataFromRead(CountedData counter, final GATKSAMRecord gatkRead, final int offset, final byte refBase) {
-        final Object[][] covars = (Comparable[][]) gatkRead.getTemporaryAttribute(COVARS_ATTRIBUTE);
-        final Object[] key = covars[offset];
-
-        // Using the list of covariate values as a key, pick out the RecalDatum from the data HashMap
-        final NestedHashMap data = dataManager.data; //optimization - create local reference
-        RecalDatumOptimized datum = (RecalDatumOptimized) data.get(key);
-
-        // key doesn't exist yet in the map so make a new bucket and add it
-        if (datum == null) {
-            // initialized with zeros, will be incremented at end of method
-            datum = (RecalDatumOptimized) data.put(new RecalDatumOptimized(), true, (Object[]) key);
-        }
-
-        // Need the bases to determine whether or not we have a mismatch
-        final byte base = gatkRead.getReadBases()[offset];
-        final long curMismatches = datum.getNumMismatches();
-
-        // Add one to the number of observations and potentially one to the number of mismatches
-        datum.incrementBaseCounts(base, refBase);
+    private void updateDataForPileupElement(CountedData counter, PileupElement pileupElement, final byte refBase) {
+        final int offset = pileupElement.getOffset();
+        final CovariateKeySet covariateKeySet = RecalDataManager.getAllCovariateValuesFor(pileupElement.getRead());
+        updateCovariateWithKeySet(covariateKeySet.getMismatchesKeySet(offset), BaseUtils.basesAreEqual(pileupElement.getBase(), refBase) ? 0 : 1);
+        updateCovariateWithKeySet(covariateKeySet.getInsertionsKeySet(offset), pileupElement.isBeforeInsertion() ? 1 : 0);
+        updateCovariateWithKeySet(covariateKeySet.getDeletionsKeySet(offset),  pileupElement.isBeforeDeletion()  ? 1 : 0);
         counter.countedBases++;
     }
 
     /**
+     * Generic functionality to add to the number of observations and mismatches given a covariate key set
+     *
+     * @param keySet  the set of covariates to use as key in the NestedHapMap
+     * @param nMismatches the number of mismatches in this locus (generally 1 or 0)
+     */
+    private void updateCovariateWithKeySet(Object[] keySet, int nMismatches) {
+        final NestedHashMap nestedHashMap = dataManager.nestedHashMap;                                                    
+        RecalDatumOptimized datum = (RecalDatumOptimized) nestedHashMap.get(keySet);                    // Using the list of covariate values as a key, pick out the RecalDatum from the data HashMap
+        if (datum == null)                                                                              // key doesn't exist yet in the map so make a new bucket and add it
+            datum = (RecalDatumOptimized) nestedHashMap.put(new RecalDatumOptimized(), true, keySet);   // initialized with zeros, will be incremented at end of method.
+        datum.increment(1, nMismatches);                                                                // Add one to the number of observations and potentially one to the number of mismatches
+    }
+    
+
+    /**
      * For each entry (key-value pair) in the data hashmap output the Covariate's values as well as the RecalDatum's data in CSV format
      *
-     * @param recalTableStream The PrintStream to write out to
+     * @param sum the counted data object to use as a reference for the number of bases/sites counted and skipped
      */
-    private void outputToCSV(CountedData sum, final PrintStream recalTableStream) {
-        recalTableStream.printf("# Counted Sites    %d%n", sum.countedSites);
-        recalTableStream.printf("# Counted Bases    %d%n", sum.countedBases);
-        recalTableStream.printf("# Skipped Sites    %d%n", sum.skippedSites);
-        recalTableStream.printf("# Fraction Skipped 1 / %.0f bp%n", (double) sum.countedSites / sum.skippedSites);
+    private void outputToCSV(final CountedData sum) {
+        RECAL_FILE.printf("# Counted Sites    %d%n", sum.countedSites);
+        RECAL_FILE.printf("# Counted Bases    %d%n", sum.countedBases);
+        RECAL_FILE.printf("# Skipped Sites    %d%n", sum.skippedSites);
+        RECAL_FILE.printf("# Fraction Skipped 1 / %.0f bp%n", (double) sum.countedSites / sum.skippedSites);
 
         if (sum.solidInsertedReferenceBases != 0) {
-            recalTableStream.printf("# Fraction SOLiD inserted reference 1 / %.0f bases%n", (double) sum.countedBases / sum.solidInsertedReferenceBases);
-            recalTableStream.printf("# Fraction other color space inconsistencies 1 / %.0f bases%n", (double) sum.countedBases / sum.otherColorSpaceInconsistency);
+            RECAL_FILE.printf("# Fraction SOLiD inserted reference 1 / %.0f bases%n", (double) sum.countedBases / sum.solidInsertedReferenceBases);
+            RECAL_FILE.printf("# Fraction other color space inconsistencies 1 / %.0f bases%n", (double) sum.countedBases / sum.otherColorSpaceInconsistency);
         }
+        
+        for (Covariate cov : requestedCovariates)                                      
+            RECAL_FILE.print(cov.getClass().getSimpleName().split("Covariate")[0] + ",");   // Output header saying which covariates were used and in what order
+        RECAL_FILE.println("EventType,nObservations,nMismatches,Qempirical");               // Output the extra fields contained in the RecalDatumOptimized object plus the "extra covariate" EventType (mismatch, insertion, deletion) 
 
-        // Output header saying which covariates were used and in what order
-        for (Covariate cov : requestedCovariates) {
-            recalTableStream.print(cov.getClass().getSimpleName().split("Covariate")[0] + ",");
-        }
-        recalTableStream.println("nObservations,nMismatches,Qempirical");
+        Object[] output = new Object[requestedCovariates.size() + 1];                       // +1 because we are also adding the EventType to the outputted key
+        if (DONT_SORT_OUTPUT) 
+            printMappings(RECAL_FILE, 0, output, dataManager.nestedHashMap.data);
+        else 
+            printMappingsSorted(RECAL_FILE, 0, output, dataManager.nestedHashMap.data);
 
-        if (DONT_SORT_OUTPUT) {
-            printMappings(recalTableStream, 0, new Object[requestedCovariates.size()], dataManager.data.data);
-        }
-        else {
-            printMappingsSorted(recalTableStream, 0, new Object[requestedCovariates.size()], dataManager.data.data);
-        }
-
-        // print out an EOF marker
-        recalTableStream.println(TableRecalibrationWalker.EOF_MARKER);
+        RECAL_FILE.println("EOF");                                                          // print out an EOF marker
     }
 
-    private void printMappingsSorted(final PrintStream recalTableStream, final int curPos, final Object[] key, final Map data) {
+    private void printMappingsSorted(final PrintStream recalTableStream, final int curPos, final Object[] output, final Map data) {
         final ArrayList<Comparable> keyList = new ArrayList<Comparable>();
-        for (Object comp : data.keySet()) {
+        for (Object comp : data.keySet())                                               // turn the key set into a list of keys
             keyList.add((Comparable) comp);
-        }
+        Collections.sort(keyList);                                                      // sort the list of keys
 
-        Collections.sort(keyList);
-
-        for (Comparable comp : keyList) {
-            key[curPos] = comp;
-            final Object val = data.get(comp);
-            if (val instanceof RecalDatumOptimized) { // We are at the end of the nested hash maps
-                // For each Covariate in the key
-                for (Object compToPrint : key) {
-                    // Output the Covariate's value
-                    recalTableStream.print(compToPrint + ",");
-                }
-                // Output the RecalDatum entry
-                recalTableStream.println(((RecalDatumOptimized) val).outputToCSV());
+        for (Object key : keyList) {                                                    // iterate over the sorted list of keys
+            output[curPos] = key;
+            final Object val = data.get(key);
+            if (val instanceof RecalDatumOptimized) {                                   // We are at the end of the nested hash maps
+                for (Object keyToPrint : output)                                        // For each Covariate in the key
+                    recalTableStream.print(keyToPrint + ",");                           // Output the Covariate's value
+                recalTableStream.println(((RecalDatumOptimized) val).outputToCSV());    // Output the RecalDatum entry
             }
-            else { // Another layer in the nested hash map
-                printMappingsSorted(recalTableStream, curPos + 1, key, (Map) val);
-            }
+            else                                                                        // Another layer in the nested hash map
+                printMappingsSorted(recalTableStream, curPos + 1, output, (Map) val);
         }
     }
 
-    private void printMappings(final PrintStream recalTableStream, final int curPos, final Object[] key, final Map data) {
-        for (Object comp : data.keySet()) {
-            key[curPos] = comp;
-            final Object val = data.get(comp);
-            if (val instanceof RecalDatumOptimized) { // We are at the end of the nested hash maps
-                // For each Covariate in the key
-                for (Object compToPrint : key) {
-                    // Output the Covariate's value
-                    recalTableStream.print(compToPrint + ",");
-                }
-                // Output the RecalDatum entry
-                recalTableStream.println(((RecalDatumOptimized) val).outputToCSV());
+    private void printMappings(final PrintStream recalTableStream, final int curPos, final Object[] output, final Map data) {
+        for (Object key : data.keySet()) {
+            output[curPos] = key;
+            final Object val = data.get(key);
+            if (val instanceof RecalDatumOptimized) {                                   // We are at the end of the nested hash maps                
+                for (Object keyToPrint : output)                                        // For each Covariate in the key
+                    recalTableStream.print(keyToPrint + ",");                           // Output the Covariate's value
+                recalTableStream.println(((RecalDatumOptimized) val).outputToCSV());    // Output the RecalDatum entry
             }
-            else { // Another layer in the nested hash map
-                printMappings(recalTableStream, curPos + 1, key, (Map) val);
-            }
+            else                                                                        // Another layer in the nested hash map
+                printMappings(recalTableStream, curPos + 1, output, (Map) val);
         }
     }
 

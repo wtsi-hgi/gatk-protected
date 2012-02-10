@@ -23,7 +23,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.gatk.walkers.recalibration;
+package org.broadinstitute.sting.gatk.walkers.bqsr;
 
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Hidden;
@@ -38,19 +38,6 @@ import org.broadinstitute.sting.commandline.Hidden;
  */
 
 public class RecalibrationArgumentCollection {
-
-    //////////////////////////////////
-    // Shared Command Line Arguments
-    //////////////////////////////////
-    @Hidden
-    @Argument(fullName = "default_platform", shortName = "dP", required = false, doc = "If a read has no platform then default to the provided String. Valid options are illumina, 454, and solid.")
-    public String DEFAULT_PLATFORM = null;
-    @Hidden
-    @Argument(fullName = "force_platform", shortName = "fP", required = false, doc = "If provided, the platform of EVERY read will be forced to be the provided String. Valid options are illumina, 454, and solid.")
-    public String FORCE_PLATFORM = null;
-    @Hidden
-    @Argument(fullName = "window_size_nqs", shortName = "nqs", doc = "The window size used by MinimumNQSCovariate for its calculation", required = false)
-    public int WINDOW_SIZE = 5;
 
     /**
      * CountCovariates and TableRecalibration accept a --solid_recal_mode <MODE> flag which governs how the recalibrator handles the
@@ -68,15 +55,48 @@ public class RecalibrationArgumentCollection {
     public RecalDataManager.SOLID_NOCALL_STRATEGY SOLID_NOCALL_STRATEGY = RecalDataManager.SOLID_NOCALL_STRATEGY.THROW_EXCEPTION;
 
     /**
-     * The context covariate will use a context of this size to calculate it's covariate value
+     * The context covariate will use a context of this size to calculate it's covariate value for base mismatches
      */
-    @Argument(fullName = "context_size", shortName = "cs", doc = "size of the k-mer context to be used", required = false)
-    public int CONTEXT_SIZE = 8;
+    @Argument(fullName = "mismatches_context_size", shortName = "mcs", doc = "size of the k-mer context to be used for base mismatches", required = false)
+    public int MISMATCHES_CONTEXT_SIZE = 2;
 
     /**
-     * This window size tells the module in how big of a neighborhood around the current base it should look for the minimum base quality score.
+     * The context covariate will use a context of this size to calculate it's covariate value for base insertions
      */
-    @Argument(fullName = "homopolymer_nback", shortName = "nback", doc = "The number of previous bases to look at in HomopolymerCovariate", required = false)
-    public int HOMOPOLYMER_NBACK = 7;
+    @Argument(fullName = "insertions_context_size", shortName = "ics", doc = "size of the k-mer context to be used for base insertions", required = false)
+    public int INSERTIONS_CONTEXT_SIZE = 8;
+
+    /**
+     * The context covariate will use a context of this size to calculate it's covariate value for base deletions
+     */
+    @Argument(fullName = "deletions_context_size", shortName = "dcs", doc = "size of the k-mer context to be used for base deletions", required = false)
+    public int DELETIONS_CONTEXT_SIZE = 8;
+
+    /**
+     * A default base qualities to use as a prior (reported quality) in the mismatch covariate model. This value will replace all base qualities in the read for this default value. Negative value turns it off (default is off)
+     */
+    @Argument(fullName = "mismatches_default_quality", shortName = "mdq", doc = "default quality for the base mismatches covariate", required = false)
+    public byte MISMATCHES_DEFAULT_QUALITY = -1;
+
+    /**
+     * A default base qualities to use as a prior (reported quality) in the insertion covariate model. This parameter is used for all reads without insertion quality scores for each base. (default is on)
+     */
+    @Argument(fullName = "insertions_default_quality", shortName = "idq", doc = "default quality for the base insertions covariate", required = false)
+    public byte INSERTIONS_DEFAULT_QUALITY = 45;
+
+    /**
+     * A default base qualities to use as a prior (reported quality) in the mismatch covariate model. This value will replace all base qualities in the read for this default value. Negative value turns it off (default is off)
+     */
+    @Argument(fullName = "deletions_default_quality", shortName = "ddq", doc = "default quality for the base deletions covariate", required = false)
+    public byte DELETIONS_DEFAULT_QUALITY = 45;
+
+
+    @Hidden
+    @Argument(fullName = "default_platform", shortName = "dP", required = false, doc = "If a read has no platform then default to the provided String. Valid options are illumina, 454, and solid.")
+    public String DEFAULT_PLATFORM = null;
+    @Hidden
+    @Argument(fullName = "force_platform", shortName = "fP", required = false, doc = "If provided, the platform of EVERY read will be forced to be the provided String. Valid options are illumina, 454, and solid.")
+    public String FORCE_PLATFORM = null;
+
 
 }

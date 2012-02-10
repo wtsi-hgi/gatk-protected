@@ -23,7 +23,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.gatk.walkers.recalibration;
+package org.broadinstitute.sting.gatk.walkers.bqsr;
 
 import net.sf.samtools.SAMUtils;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
@@ -32,7 +32,6 @@ import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.recalibration.BaseRecalibration;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -53,18 +52,20 @@ import java.util.Map;
  */
 
 public class RecalDataManager {
+    public final NestedHashMap nestedHashMap;                           // The full dataset
+    private final NestedHashMap dataCollapsedReadGroup;                 // Table where everything except read group has been collapsed
+    private final NestedHashMap dataCollapsedQualityScore;              // Table where everything except read group and quality score has been collapsed
+    private final ArrayList<NestedHashMap> dataCollapsedByCovariate;    // Tables where everything except read group, quality score, and given covariate has been collapsed
 
-    public final NestedHashMap data; // The full dataset
-    private final NestedHashMap dataCollapsedReadGroup; // Table where everything except read group has been collapsed
-    private final NestedHashMap dataCollapsedQualityScore; // Table where everything except read group and quality score has been collapsed
-    private final ArrayList<NestedHashMap> dataCollapsedByCovariate; // Tables where everything except read group, quality score, and given covariate has been collapsed
-
-    public final static String ORIGINAL_QUAL_ATTRIBUTE_TAG = "OQ"; // The tag that holds the original quality scores
-    public final static String COLOR_SPACE_QUAL_ATTRIBUTE_TAG = "CQ"; // The tag that holds the color space quality scores for SOLID bams
-    public final static String COLOR_SPACE_ATTRIBUTE_TAG = "CS"; // The tag that holds the color space for SOLID bams
-    public final static String COLOR_SPACE_INCONSISTENCY_TAG = "ZC"; // A new tag made up for the recalibrator which will hold an array of ints which say if this base is inconsistent with its color
+    public final static String ORIGINAL_QUAL_ATTRIBUTE_TAG = "OQ";      // The tag that holds the original quality scores
+    public final static String COLOR_SPACE_QUAL_ATTRIBUTE_TAG = "CQ";   // The tag that holds the color space quality scores for SOLID bams
+    public final static String COLOR_SPACE_ATTRIBUTE_TAG = "CS";        // The tag that holds the color space for SOLID bams
+    public final static String COLOR_SPACE_INCONSISTENCY_TAG = "ZC";    // A new tag made up for the recalibrator which will hold an array of ints which say if this base is inconsistent with its color
     private static boolean warnUserNullReadGroup = false;
     private static boolean warnUserNullPlatform = false;
+
+    private static final String COVARS_ATTRIBUTE = "COVARS";                   // used to store covariates array as a temporary attribute inside GATKSAMRecord.\
+
 
     public enum SOLID_RECAL_MODE {
         /**
@@ -101,7 +102,7 @@ public class RecalDataManager {
     }
 
     public RecalDataManager() {
-        data = new NestedHashMap();
+        nestedHashMap = new NestedHashMap();
         dataCollapsedReadGroup = null;
         dataCollapsedQualityScore = null;
         dataCollapsedByCovariate = null;
@@ -109,7 +110,7 @@ public class RecalDataManager {
 
     public RecalDataManager(final boolean createCollapsedTables, final int numCovariates) {
         if (createCollapsedTables) { // Initialize all the collapsed tables, only used by TableRecalibrationWalker
-            data = null;
+            nestedHashMap = null;
             dataCollapsedReadGroup = new NestedHashMap();
             dataCollapsedQualityScore = new NestedHashMap();
             dataCollapsedByCovariate = new ArrayList<NestedHashMap>();
@@ -118,13 +119,17 @@ public class RecalDataManager {
             }
         }
         else {
-            data = new NestedHashMap();
+            nestedHashMap = new NestedHashMap();
             dataCollapsedReadGroup = null;
             dataCollapsedQualityScore = null;
             dataCollapsedByCovariate = null;
         }
     }
 
+    public static CovariateKeySet getAllCovariateValuesFor(GATKSAMRecord read) {
+        return (CovariateKeySet) read.getTemporaryAttribute(COVARS_ATTRIBUTE);
+    }
+    
     /**
      * Add the given mapping to all of the collapsed hash tables
      *
@@ -598,27 +603,22 @@ public class RecalDataManager {
      * Computes all requested covariates for every offset in the given read
      * by calling covariate.getValues(..).
      *
-     * @param gatkRead            The read for which to compute covariate values.
+     * @param read            The read for which to compute covariate values.
      * @param requestedCovariates The list of requested covariates.
      * @return An array of covariate values where result[i][j] is the covariate
      *         value for the ith position in the read and the jth covariate in
      *         reqeustedCovariates list.
      */
-    public static Comparable[][] computeCovariates(final GATKSAMRecord gatkRead, final List<Covariate> requestedCovariates, final BaseRecalibration.BaseRecalibrationType modelType) {
-        //compute all covariates for this read
+    public static void computeCovariates(final GATKSAMRecord read, final List<Covariate> requestedCovariates) {
         final int numRequestedCovariates = requestedCovariates.size();
-        final int readLength = gatkRead.getReadLength();
+        final int readLength = read.getReadLength();
+        final CovariateKeySet covariateKeySet = new CovariateKeySet(readLength, numRequestedCovariates);
 
-        final Comparable[][] covariateValues_offset_x_covar = new Comparable[readLength][numRequestedCovariates];
-        final Comparable[] tempCovariateValuesHolder = new Comparable[readLength];
+        // Loop through the list of requested covariates and compute the values of each covariate for all positions in this read
+        for (Covariate covariate : requestedCovariates)
+            covariateKeySet.addCovariate(covariate.getValues(read));
 
-        for (int i = 0; i < numRequestedCovariates; i++) {                              // Loop through the list of requested covariates and compute the values of each covariate for all positions in this read
-            requestedCovariates.get(i).getValues(gatkRead, tempCovariateValuesHolder, modelType);
-            for (int j = 0; j < readLength; j++)
-                covariateValues_offset_x_covar[j][i] = tempCovariateValuesHolder[j];    // copy values into a 2D array that allows all covar types to be extracted at once for an offset j by doing covariateValues_offset_x_covar[j]. This avoids the need to later iterate over covar types.
-        }
-
-        return covariateValues_offset_x_covar;
+        read.setTemporaryAttribute(COVARS_ATTRIBUTE, covariateKeySet);
     }
 
     /**
