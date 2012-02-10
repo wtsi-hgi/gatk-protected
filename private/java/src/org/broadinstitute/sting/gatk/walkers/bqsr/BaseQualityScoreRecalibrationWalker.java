@@ -33,6 +33,7 @@ import org.broadinstitute.sting.gatk.filters.MappingQualityUnavailableFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
+import org.broadinstitute.sting.gatk.walkers.recalibration.CountCovariatesGatherer;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
@@ -156,6 +157,7 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
      * three items are the data- that is, number of observations for this combination of covariates, number of reference mismatches,
      * and the raw empirical quality score calculated by phred-scaling the mismatch rate.
      */
+    @Gather(CountCovariatesGatherer.class)
     @Output
     private PrintStream RECAL_FILE;
 
