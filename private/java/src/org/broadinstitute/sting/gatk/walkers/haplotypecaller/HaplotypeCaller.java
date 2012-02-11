@@ -183,7 +183,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
         likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG, true, false);
         genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
-        if( UAC.alleles != null ) { GENOTYPE_GIVEN_ALLELES_MODE = true; }
+        if( UAC.alleles.isBound() ) { GENOTYPE_GIVEN_ALLELES_MODE = true; }
     }
 
     //---------------------------------------------------------------------------------------------------------------
