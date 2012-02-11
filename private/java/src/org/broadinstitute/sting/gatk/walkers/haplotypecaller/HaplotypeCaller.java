@@ -33,7 +33,6 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.*;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
@@ -150,6 +149,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private ArrayList<String> samplesList = new ArrayList<String>();
     private final static double LOG_ONE_HALF = -Math.log10(2.0);
     private final static double LOG_ONE_THIRD = -Math.log10(3.0);
+    private boolean GENOTYPE_GIVEN_ALLELES_MODE = false;
+    private final ArrayList<VariantContext> allelesToGenotype = new ArrayList<VariantContext>();
 
     //---------------------------------------------------------------------------------------------------------------
     //
@@ -169,7 +170,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         UAC.STANDARD_CONFIDENCE_FOR_CALLING = 0.01; // low values used for isActive determination only, default/user-specified values used for actual calling
         UAC.STANDARD_CONFIDENCE_FOR_EMITTING = 0.01; // low values used for isActive determination only, default/user-specified values used for actual calling
         UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
-        // initialize the header
+        // initialize the output VCF header
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
 
         try {
@@ -182,6 +183,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
         likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG, true, false);
         genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
+        if( UAC.alleles != null ) { GENOTYPE_GIVEN_ALLELES_MODE = true; }
     }
 
     //---------------------------------------------------------------------------------------------------------------
@@ -199,7 +201,11 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     public boolean wantsNonPrimaryReads() { return true; }
 
     @Override
-    public double isActive(final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
+    public double isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
+        if( GENOTYPE_GIVEN_ALLELES_MODE ) {
+            allelesToGenotype.addAll(tracker.getValues(UAC.alleles));
+            return ( tracker.getValues(UAC.alleles).size() == 0 ? 0.0 : 1.0 ); 
+        }
         if( context == null ) { return 0.0; }
 
         final List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
@@ -247,7 +253,17 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     //---------------------------------------------------------------------------------------------------------------
 
     @Override
-    public Integer map( final ActiveRegion activeRegion, final ReadMetaDataTracker metaDataTracker ) {
+    public Integer map( final ActiveRegion activeRegion, final RefMetaDataTracker metaDataTracker ) {
+        if( GENOTYPE_GIVEN_ALLELES_MODE ) {
+            final ArrayList<VariantContext> vcsToRemove = new ArrayList<VariantContext>();
+            for( final VariantContext vc : allelesToGenotype ) {
+                if( activeRegion.getLocation().overlapsP( getToolkit().getGenomeLocParser().createGenomeLoc(vc) ) ) {
+                    vcsToRemove.add(vc); // BUGBUG: do something with these VCs during GGA
+                }
+            }
+            allelesToGenotype.removeAll( vcsToRemove );
+        }
+        
         if( !activeRegion.isActive ) { return 0; } // Not active so nothing to do!
         if ( activeRegion.size() == 0 ) { return 0; } // No reads here so nothing to do!
 
