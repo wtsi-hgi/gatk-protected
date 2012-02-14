@@ -122,7 +122,7 @@ import java.util.Map;
  *   -knownSites bundle/hg18/dbsnp_132.hg18.vcf \
  *   -knownSites another/optional/setOfSitesToMask.vcf \
  *   -I my_reads.bam \
- *   -T RecalibrateReads \
+ *   -T BaseQualityScoreRecalibrator \
  *   -cov ReadGroupCovariate \
  *   -cov QualityScoreCovariate \
  *   -cov CycleCovariate \
@@ -136,7 +136,7 @@ import java.util.Map;
 @ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class})   // Filter out all reads with zero or unavailable mapping quality
 @Requires({DataSource.READS, DataSource.REFERENCE, DataSource.REFERENCE_BASES})         // This walker requires both -I input.bam and -R reference.fasta
 @PartitionBy(PartitionType.LOCUS)
-public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQualityScoreRecalibrationWalker.CountedData, BaseQualityScoreRecalibrationWalker.CountedData> implements TreeReducible<BaseQualityScoreRecalibrationWalker.CountedData> {
+public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRecalibrator.CountedData, BaseQualityScoreRecalibrator.CountedData> implements TreeReducible<BaseQualityScoreRecalibrator.CountedData> {
     @ArgumentCollection
     private RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection();
 
@@ -399,9 +399,6 @@ public class BaseQualityScoreRecalibrationWalker extends LocusWalker<BaseQuality
      */
     public void onTraversalDone(CountedData sum) {
         logger.info("Writing raw recalibration data...");
-        if (sum.countedBases == 0L) {
-            throw new UserException.BadInput("Could not find any usable data in the input BAM file(s).");
-        }
         outputToCSV(sum);
         logger.info("...done!");
     }

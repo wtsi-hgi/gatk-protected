@@ -30,6 +30,7 @@ import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -70,7 +71,7 @@ public class GenotypingEngine {
 
         // Create the dictionary of all genotype-able events sorted by start location and annotated with the originating haplotype index
         if( DEBUG ) { System.out.println(" ========  Top Haplotypes ======== "); }
-        populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, false);
+        populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, false, null);
 
         // walk along the haplotype in genomic order, genotyping the events as they come up
         final ArrayList<Integer> sortedKeySet = new ArrayList<Integer>();
@@ -133,12 +134,13 @@ public class GenotypingEngine {
         return returnCallContexts;
     }
 
-    public void createEventDictionaryAndFilterBadHaplotypes( final ArrayList<Haplotype> allHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window ) {
+    public void createEventDictionaryAndFilterBadHaplotypes( final ArrayList<Haplotype> allHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final ArrayList<VariantContext> allelesToGenotype ) {
         allEventDictionary.clear();
-        populateEventDictionary(allEventDictionary, allHaplotypes, ref, loc, window, true);
+        populateEventDictionary( allEventDictionary, allHaplotypes, ref, loc, window, true, allelesToGenotype );
     }
 
-    private void populateEventDictionary(final HashMap<Integer, ArrayList<Event>> eventDictionary, final Collection<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final boolean filterBadHaplotypes ) {
+    private void populateEventDictionary( final HashMap<Integer, ArrayList<Event>> eventDictionary, final Collection<Haplotype> haplotypes, final byte[] ref, 
+                                          final GenomeLoc loc, final GenomeLoc window, final boolean filterBadHaplotypes, final ArrayList<VariantContext> allelesToGenotype ) {
         int hIndex = 0;
         int sizeRefHaplotype = 0;
         int refStart = 0;
@@ -164,7 +166,7 @@ public class GenotypingEngine {
                     sizeRefHaplotype = swConsensus.getCigar().getReadLength();
                     refStart = swConsensus.getAlignmentStart2wrt1();
                 } else if ( Math.max(swConsensus.getCigar().getReadLength(), swConsensus.getCigar().getReferenceLength() ) < 0.65 * sizeRefHaplotype ) {
-                    // Sometimes the assembly produces singleton, short paths that should be filtered out
+                    // Sometimes the assembly produces singleton, short paths that should be filtered out, need to perform "tip clipping" on the assembly graph
                     if( DEBUG ) { System.out.println("Filtered! -too short"); }
                    haplotypesToRemove.add(h);
                     continue; // Protection against assembly failures
@@ -195,6 +197,22 @@ public class GenotypingEngine {
                 hIndex++;
             }
             haplotypes.removeAll( haplotypesToRemove );
+            for( final Haplotype h : haplotypesToAdd ) {
+                if( !haplotypes.contains(h) ) { haplotypes.add(h); }
+            }
+        }
+
+        // GENOTYPE_GIVEN_ALLELES mode
+        // Artificially insert the provided alternate alleles into the discovered haplotype to genotype them
+        if( allelesToGenotype != null ) {
+            haplotypesToAdd.clear();
+            for( final Haplotype h : haplotypes ) {
+                for( final VariantContext vc : allelesToGenotype ) {
+                    for( final Allele a : vc.getAlternateAlleles() ) {
+                        haplotypesToAdd.add( new Haplotype( h.insertAllele(a), h.getQuals() ) );
+                    }
+                }
+            }
             for( final Haplotype h : haplotypesToAdd ) {
                 if( !haplotypes.contains(h) ) { haplotypes.add(h); }
             }

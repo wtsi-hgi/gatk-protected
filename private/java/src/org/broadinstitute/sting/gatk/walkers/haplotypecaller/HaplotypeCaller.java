@@ -202,6 +202,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     @Override
     public double isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
+
         if( GENOTYPE_GIVEN_ALLELES_MODE ) {
             allelesToGenotype.addAll(tracker.getValues(UAC.alleles));
             return ( tracker.getValues(UAC.alleles).size() == 0 ? 0.0 : 1.0 ); 
@@ -254,24 +255,24 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     @Override
     public Integer map( final ActiveRegion activeRegion, final RefMetaDataTracker metaDataTracker ) {
+        final ArrayList<VariantContext> activeVCs = new ArrayList<VariantContext>();
         if( GENOTYPE_GIVEN_ALLELES_MODE ) {
-            final ArrayList<VariantContext> vcsToRemove = new ArrayList<VariantContext>();
             for( final VariantContext vc : allelesToGenotype ) {
                 if( activeRegion.getLocation().overlapsP( getToolkit().getGenomeLocParser().createGenomeLoc(vc) ) ) {
-                    vcsToRemove.add(vc); // BUGBUG: do something with these VCs during GGA
+                    activeVCs.add(vc); // BUGBUG: do something with these VCs during GGA
                 }
             }
-            allelesToGenotype.removeAll( vcsToRemove );
+            allelesToGenotype.removeAll( activeVCs );
         }
         
         if( !activeRegion.isActive ) { return 0; } // Not active so nothing to do!
-        if ( activeRegion.size() == 0 ) { return 0; } // No reads here so nothing to do!
+        if ( activeRegion.size() == 0 && !GENOTYPE_GIVEN_ALLELES_MODE ) { return 0; } // No reads here so nothing to do!
 
         if( DEBUG ) { System.out.println("Assembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:"); }
         finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
         final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), new Haplotype(activeRegion.getReference(referenceReader) ) );
         if( DEBUG ) { System.out.println("Found " + haplotypes.size() + " candidate haplotypes to evaluate"); }
-        genotypingEngine.createEventDictionaryAndFilterBadHaplotypes( haplotypes, activeRegion.getReference(referenceReader, REFERENCE_PADDING), getPaddedLoc( activeRegion ), activeRegion.getLocation() );
+        genotypingEngine.createEventDictionaryAndFilterBadHaplotypes( haplotypes, activeRegion.getReference(referenceReader, REFERENCE_PADDING), getPaddedLoc( activeRegion ), activeRegion.getLocation(), activeVCs );
         if( DEBUG ) { System.out.println(haplotypes.size() + " candidate haplotypes remain after filtering"); }
 
         if( haplotypes.size() == 0 ) {
