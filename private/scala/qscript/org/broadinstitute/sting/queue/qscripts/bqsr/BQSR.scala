@@ -1,4 +1,4 @@
-import org.broadinstitute.sting.queue.extensions.gatk.{TaggedFile, BaseQualityScoreRecalibration}
+import org.broadinstitute.sting.queue.extensions.gatk.{TaggedFile, BaseQualityScoreRecalibrator}
 import org.broadinstitute.sting.queue.QScript
 
 class BQSR extends QScript {
