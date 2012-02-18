@@ -149,7 +149,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private ArrayList<String> samplesList = new ArrayList<String>();
     private final static double LOG_ONE_HALF = -Math.log10(2.0);
     private final static double LOG_ONE_THIRD = -Math.log10(3.0);
-    private boolean GENOTYPE_GIVEN_ALLELES_MODE = false;
     private final ArrayList<VariantContext> allelesToGenotype = new ArrayList<VariantContext>();
 
     //---------------------------------------------------------------------------------------------------------------
@@ -167,6 +166,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         // initialize the UnifiedGenotyper Engine which is used to call into the exact model
         UAC.MAX_ALTERNATE_ALLELES = 4;
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
+        UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_CONFIDENT_SITES; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY; // low values used for isActive determination only, default/user-specified values used for actual calling
         UAC.STANDARD_CONFIDENCE_FOR_CALLING = 0.01; // low values used for isActive determination only, default/user-specified values used for actual calling
         UAC.STANDARD_CONFIDENCE_FOR_EMITTING = 0.01; // low values used for isActive determination only, default/user-specified values used for actual calling
         UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
@@ -183,7 +184,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
         likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG, true, false);
         genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
-        if( UAC.alleles.isBound() ) { GENOTYPE_GIVEN_ALLELES_MODE = true; }
     }
 
     //---------------------------------------------------------------------------------------------------------------
@@ -203,9 +203,13 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Override
     public double isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
 
-        if( GENOTYPE_GIVEN_ALLELES_MODE ) {
-            allelesToGenotype.addAll(tracker.getValues(UAC.alleles));
-            return ( tracker.getValues(UAC.alleles).size() == 0 ? 0.0 : 1.0 ); 
+        if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
+            for( final VariantContext vc : tracker.getValues(UG_engine.getUAC().alleles) ) {
+                if(!allelesToGenotype.contains(vc)) {
+                    allelesToGenotype.add(vc);
+                }
+            }
+            return ( tracker.getValues(UG_engine.getUAC().alleles).size() == 0 ? 0.0 : 1.0 );
         }
         if( context == null ) { return 0.0; }
 
@@ -255,24 +259,24 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     @Override
     public Integer map( final ActiveRegion activeRegion, final RefMetaDataTracker metaDataTracker ) {
-        final ArrayList<VariantContext> activeVCs = new ArrayList<VariantContext>();
-        if( GENOTYPE_GIVEN_ALLELES_MODE ) {
+        final ArrayList<VariantContext> activeAllelesToGenotype = new ArrayList<VariantContext>();
+        if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
             for( final VariantContext vc : allelesToGenotype ) {
                 if( activeRegion.getLocation().overlapsP( getToolkit().getGenomeLocParser().createGenomeLoc(vc) ) ) {
-                    activeVCs.add(vc); // BUGBUG: do something with these VCs during GGA
+                    activeAllelesToGenotype.add(vc); // do something with these VCs during GGA mode
                 }
             }
-            allelesToGenotype.removeAll( activeVCs );
+            allelesToGenotype.removeAll( activeAllelesToGenotype );
         }
         
         if( !activeRegion.isActive ) { return 0; } // Not active so nothing to do!
-        if ( activeRegion.size() == 0 && !GENOTYPE_GIVEN_ALLELES_MODE ) { return 0; } // No reads here so nothing to do!
+        if ( activeRegion.size() == 0 && UG_engine.getUAC().GenotypingMode != GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) { return 0; } // No reads here so nothing to do!
 
         if( DEBUG ) { System.out.println("Assembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:"); }
         finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
         final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), new Haplotype(activeRegion.getReference(referenceReader) ) );
         if( DEBUG ) { System.out.println("Found " + haplotypes.size() + " candidate haplotypes to evaluate"); }
-        genotypingEngine.createEventDictionaryAndFilterBadHaplotypes( haplotypes, activeRegion.getReference(referenceReader, REFERENCE_PADDING), getPaddedLoc( activeRegion ), activeRegion.getLocation(), activeVCs );
+        genotypingEngine.createEventDictionaryAndFilterBadHaplotypes( haplotypes, activeRegion.getReference(referenceReader, REFERENCE_PADDING), getPaddedLoc( activeRegion ), activeRegion.getLocation(), activeAllelesToGenotype );
         if( DEBUG ) { System.out.println(haplotypes.size() + " candidate haplotypes remain after filtering"); }
 
         if( haplotypes.size() == 0 ) {
@@ -289,15 +293,17 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         for( final String sample : readListMap.keySet() ) {
             if( DEBUG ) { System.out.println("Evaluating sample " + sample + " with " + readListMap.get( sample ).size() + " passing reads"); }
             likelihoodCalculationEngine.computeLikelihoods( haplotypes, readListMap.get( sample ) );
-            for( final Haplotype bestHaplotype : likelihoodCalculationEngine.chooseBestHaplotypes(haplotypes) ) {
-                if( !bestTwoHaplotypesPerSample.contains( bestHaplotype ) ) {
-                    bestTwoHaplotypesPerSample.add( bestHaplotype );
+            if( UG_engine.getUAC().GenotypingMode != GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
+                for( final Haplotype bestHaplotype : likelihoodCalculationEngine.chooseBestHaplotypes(haplotypes) ) {
+                    if( !bestTwoHaplotypesPerSample.contains( bestHaplotype ) ) {
+                        bestTwoHaplotypesPerSample.add( bestHaplotype );
+                    }
                 }
             }
             haplotypeLikehoodMatrixMap.put( sample, likelihoodCalculationEngine.haplotypeLikehoodMatrix );
         }
 
-        final ArrayList<VariantContext> vcs = genotypingEngine.alignAndAssignGenotypeLikelihoods( getToolkit().getGenomeLocParser(), haplotypes, bestTwoHaplotypesPerSample, activeRegion.getReference(referenceReader, REFERENCE_PADDING), getPaddedLoc(activeRegion), activeRegion.getLocation(), haplotypeLikehoodMatrixMap );
+        final ArrayList<VariantContext> vcs = genotypingEngine.alignAndAssignGenotypeLikelihoods( getToolkit().getGenomeLocParser(), haplotypes, bestTwoHaplotypesPerSample, activeRegion.getReference(referenceReader, REFERENCE_PADDING), getPaddedLoc(activeRegion), activeRegion.getLocation(), haplotypeLikehoodMatrixMap, activeAllelesToGenotype );
 
         for( final VariantContext vc : vcs ) {
             if( activeRegion.getLocation().containsP(getToolkit().getGenomeLocParser().createGenomeLoc(vc).getStartLocation()) ) {
