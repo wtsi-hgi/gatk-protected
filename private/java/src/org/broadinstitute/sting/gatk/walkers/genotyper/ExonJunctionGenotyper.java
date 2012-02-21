@@ -347,7 +347,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             alleles.add(Allele.create(hypothesis.toString()));
             vcb.alleles(alleles);
             VariantContext asCon = vcb.make();
-            GenotypesContext genAssigned = UnifiedGenotyperEngine.assignGenotypes(asCon, new boolean[]{true});
+            GenotypesContext genAssigned = UnifiedGenotyperEngine.assignGenotypes(asCon);
             vcb.genotypes(genAssigned);
             double[] normPost= MathUtils.normalizeFromLog10(result.log10AlleleFrequencyLikelihoods[0],true);
             logger.debug(normPost[0]);

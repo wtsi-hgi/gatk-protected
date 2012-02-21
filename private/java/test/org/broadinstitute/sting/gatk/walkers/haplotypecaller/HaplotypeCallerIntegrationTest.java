@@ -10,10 +10,10 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
     final String NA12878_BAM = validationDataLocation + "NA12878.HiSeq.b37.chr20.10_11mb.bam";
     final String CEUTRIO_BAM = validationDataLocation + "CEUTrio.HiSeq.b37.chr20.10_11mb.bam";
     final String INTERVALS_FILE = validationDataLocation + "NA12878.HiSeq.b37.chr20.10_11mb.test.intervals";
-    final String RECAL_FILE = validationDataLocation + "NA12878.kmer.7.subset.recal_data.csv";
+    final String RECAL_FILE = validationDataLocation + "NA12878.kmer.8.subset.recal_data.bqsr";
 
     private void HCTest(String bam, String args, String md5) {
-        final String base = String.format("-T HaplotypeCaller -R %s -I %s -L %s -recalFile %s", REF, bam, INTERVALS_FILE, RECAL_FILE) + " -NO_HEADER -o %s";
+        final String base = String.format("-T HaplotypeCaller -R %s -I %s -L %s -BQSR %s", REF, bam, INTERVALS_FILE, RECAL_FILE) + " -NO_HEADER -o %s";
         final WalkerTestSpec spec = new WalkerTestSpec(base + " " + args, Arrays.asList(md5));
         executeTest("testHaplotypeCaller: args=" + args, spec);
     }
@@ -21,12 +21,12 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
     @Test
     public void testHaplotypeCallerMultiSample() {
 
-        HCTest(CEUTRIO_BAM, "-rf UnmappedRead", "2732056e05aa5f80a7473da6a7a4f915");
+        HCTest(CEUTRIO_BAM, "-rf UnmappedRead", "a8499466ece69137e14827a146671367");
     }
 
     @Test
     public void testHaplotypeCallerSingleSample() {
-        HCTest(NA12878_BAM, "-rf UnmappedRead", "6f639e3e5608551984042fb0f838ea56");
+        HCTest(NA12878_BAM, "-rf UnmappedRead", "20c7986dc225eb626467ce9c0c433a5a");
     }
 }
 

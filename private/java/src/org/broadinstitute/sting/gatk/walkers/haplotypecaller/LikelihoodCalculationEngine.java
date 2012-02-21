@@ -27,7 +27,7 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.collections.NestedHashMap;
+import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.*;
@@ -90,9 +90,6 @@ public class LikelihoodCalculationEngine {
 
     private boolean getGapPenaltiesFromFile = false;
 
-    private final NestedHashMap kmerQualityTables;
-    private final int CONTEXT_SIZE;
-
     public Double haplotypeLikehoodMatrix[][];
 
     static {
@@ -109,15 +106,12 @@ public class LikelihoodCalculationEngine {
         }
     }
 
-    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean debug, boolean doCDP, boolean dovit, final NestedHashMap kmerQualityTables, final int contextSize ) {
-        this(indelGOP, indelGCP, debug, doCDP, kmerQualityTables, contextSize);
+    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean debug, boolean doCDP, boolean dovit ) {
+        this(indelGOP, indelGCP, debug, doCDP);
         this.doViterbi = dovit;
     }
 
-    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean debug, boolean doCDP, final NestedHashMap kmerQualityTables, final int contextSize ) {
-
-        this.kmerQualityTables = kmerQualityTables;
-        this.CONTEXT_SIZE = contextSize;
+    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean debug, boolean doCDP ) {
 
         this.logGapOpenProbability = -indelGOP/10.0; // QUAL to log prob
         this.logGapContinuationProbability = -indelGCP/10.0; // QUAL to log prob
@@ -172,16 +166,14 @@ public class LikelihoodCalculationEngine {
 
         for( int iii = 0; iii < reads.size(); iii++ ) {
             final GATKSAMRecord read = reads.get(iii);
-            final String readGroup = read.getReadGroup().getReadGroupId();
 
             // initialize path metric and traceback memories for likelihood computation
             double[][] matchMetricArray = null, XMetricArray = null, YMetricArray = null;
             byte[] previousHaplotypeSeen = null;
 
-            final double[] contextLogGapOpenProbabilities = new double[read.getReadLength()];
-            final double[] contextLogGapContinuationProbabilities = new double[read.getReadLength()];
-            fillGapProbabilitiesFromQualityTables( readGroup, read.getReadBases(), contextLogGapOpenProbabilities );
-            Arrays.fill( contextLogGapContinuationProbabilities, logGapContinuationProbability ); // Is there a way to derive empirical estimates for this from the data?
+            final double[] log10GapOpenProbabilities = QualityUtils.qualArrayToLog10ErrorProb( read.getBaseInsertionQualities() );
+            final double[] log10GapContinuationProbabilities = new double[read.getReadLength()];
+            Arrays.fill( log10GapContinuationProbabilities, logGapContinuationProbability ); // Is there a way to derive empirical estimates for this from the data?
 
             for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
                 final byte[] haplotypeBases = haplotypes.get(jjj).getBases();
@@ -199,7 +191,7 @@ public class LikelihoodCalculationEngine {
                 previousHaplotypeSeen = haplotypeBases.clone();
 
                 readLikelihoods[iii][jjj] = computeReadLikelihoodGivenHaplotypeAffineGaps(haplotypeBases, read.getReadBases(), read.getBaseQualities(),
-                        contextLogGapOpenProbabilities, contextLogGapContinuationProbabilities, startIdx, matchMetricArray, XMetricArray, YMetricArray);
+                        log10GapOpenProbabilities, log10GapContinuationProbabilities, startIdx, matchMetricArray, XMetricArray, YMetricArray);
             }
         }
 
@@ -273,23 +265,6 @@ public class LikelihoodCalculationEngine {
         return bestHaplotypesList;
     }
 
-    private void fillGapProbabilitiesFromQualityTables( final String readGroup, final byte[] bases, final double[] contextLogGapOpenProbabilities ) {
-
-        final Object[] key = new Object[2];
-        key[0] = readGroup;
-        for(int i = 0; i < bases.length; i++) {
-
-            Double gop = null;
-            final String baseString = ( i + 1 - CONTEXT_SIZE < 0 ? null : new String(Arrays.copyOfRange(bases, i + 1 - CONTEXT_SIZE, i + 1)) );
-            if( baseString != null ) {
-                key[1] = baseString;
-                gop = (Double) kmerQualityTables.get( key );
-            }
-            contextLogGapOpenProbabilities[i] = ( gop != null ? gop : -4.5 );
-        }
-    }
-
-
     /********************************************************
      * HMM functions copied from PairHMMIndelErrorModel
      ********************************************************/
@@ -299,18 +274,7 @@ public class LikelihoodCalculationEngine {
             return 0; // sanity check
 
         for (int i=0; i < b1.length; i++ ){
-            if ( b1[i]!= b2[i] )
-                return i;
-        }
-        return b1.length;
-    }
-
-    private int computeFirstDifferingPosition(double[] b1, double[] b2) {
-        if (b1.length != b2.length)
-            return 0; // sanity check
-
-        for (int i=0; i < b1.length; i++ ){
-            if ( MathUtils.compareDoubles(b1[i], b2[i]) != 0 )
+            if ( b1[i] != b2[i] )
                 return i;
         }
         return b1.length;
