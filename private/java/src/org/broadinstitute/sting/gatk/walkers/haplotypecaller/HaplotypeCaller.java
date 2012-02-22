@@ -103,6 +103,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Argument(fullName = "assembler", shortName = "assembler", doc = "Assembler to use; currently only SIMPLE_DE_BRUIJN is available.", required = false)
     protected LocalAssemblyEngine.ASSEMBLER ASSEMBLER_TO_USE = LocalAssemblyEngine.ASSEMBLER.SIMPLE_DE_BRUIJN;
 
+    @Argument(fullName="keepRG", shortName="keepRG", doc="keepRG", required = false)
+    protected String keepRG = null;
+
     @Argument(fullName="gopHMM", shortName="gopHMM", doc="gopHMM", required = false)
     protected double gopHMM = 45.0;
 
@@ -182,7 +185,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
-        likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG, true, false);
+        likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG);
         genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
     }
 
@@ -209,7 +212,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
                     allelesToGenotype.add(vc);
                 }
             }
-            return ( tracker.getValues(UG_engine.getUAC().alleles).size() == 0 ? 0.0 : 1.0 );
+            if( tracker.getValues(UG_engine.getUAC().alleles).size() > 0 ) {
+                return 1.0;
+            }
         }
         if( context == null ) { return 0.0; }
 
@@ -270,7 +275,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
         
         if( !activeRegion.isActive ) { return 0; } // Not active so nothing to do!
-        if ( activeRegion.size() == 0 && UG_engine.getUAC().GenotypingMode != GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) { return 0; } // No reads here so nothing to do!
+        if( activeRegion.size() == 0 && UG_engine.getUAC().GenotypingMode != GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) { return 0; } // No reads here so nothing to do!
+        if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES && activeAllelesToGenotype.isEmpty() ) { return 0; } // No alleles found in this region
 
         if( DEBUG ) { System.out.println("Assembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:"); }
         finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
@@ -386,7 +392,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private void filterNonPassingReads( final ActiveRegion activeRegion ) {
         final ArrayList<GATKSAMRecord> readsToRemove = new ArrayList<GATKSAMRecord>();
         for( final GATKSAMRecord rec : activeRegion.getReads() ) {
-            if( rec.getMappingQuality() <= 18 || BadMateFilter.hasBadMate(rec) ) {
+            if( rec.getMappingQuality() <= 18 || BadMateFilter.hasBadMate(rec) || (keepRG != null && !rec.getReadGroup().getId().equals(keepRG)) ) {
                 readsToRemove.add(rec);
             }
         }
