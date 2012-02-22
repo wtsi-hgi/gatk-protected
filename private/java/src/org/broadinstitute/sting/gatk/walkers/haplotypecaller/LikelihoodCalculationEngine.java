@@ -58,7 +58,6 @@ public class LikelihoodCalculationEngine {
     private static final int[] ACTIONS_X = {UP_GOTO_M, UP_GOTO_X, UP_GOTO_Y};
     private static final int[] ACTIONS_Y = {LEFT_GOTO_M, LEFT_GOTO_X, LEFT_GOTO_Y};
 
-
     private final double logGapOpenProbability;
     private final double logGapContinuationProbability;
 
@@ -71,24 +70,6 @@ public class LikelihoodCalculationEngine {
 
     private final static double LOG_ONE_HALF;
     private final static double END_GAP_COST;
-
-    private static final int START_HRUN_GAP_IDX = 4;
-    private static final int MAX_HRUN_GAP_IDX = 20;
-
-    private static final double MIN_GAP_OPEN_PENALTY = 30.0;
-    private static final double MIN_GAP_CONT_PENALTY = 10.0;
-    private static final double GAP_PENALTY_HRUN_STEP = 1.0; // each increase in hrun decreases gap penalty by this.
-
-
-    private boolean doViterbi = false;
-
-    private final boolean useAffineGapModel = true;
-    private boolean doContextDependentPenalties = false;
-
-    private final double[] GAP_OPEN_PROB_TABLE;
-    private final double[] GAP_CONT_PROB_TABLE;
-
-    private boolean getGapPenaltiesFromFile = false;
 
     public Double haplotypeLikehoodMatrix[][];
 
@@ -106,45 +87,11 @@ public class LikelihoodCalculationEngine {
         }
     }
 
-    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean debug, boolean doCDP, boolean dovit ) {
-        this(indelGOP, indelGCP, debug, doCDP);
-        this.doViterbi = dovit;
-    }
-
-    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean debug, boolean doCDP ) {
+    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean debug ) {
 
         this.logGapOpenProbability = -indelGOP/10.0; // QUAL to log prob
         this.logGapContinuationProbability = -indelGCP/10.0; // QUAL to log prob
-        this.doContextDependentPenalties = doCDP;
         this.DEBUG = debug;
-
-        // fill gap penalty table, affine naive model:
-        this.GAP_CONT_PROB_TABLE = new double[MAX_HRUN_GAP_IDX];
-        this.GAP_OPEN_PROB_TABLE = new double[MAX_HRUN_GAP_IDX];
-
-        for (int i = 0; i < START_HRUN_GAP_IDX; i++) {
-            GAP_OPEN_PROB_TABLE[i] = logGapOpenProbability;
-            GAP_CONT_PROB_TABLE[i] = logGapContinuationProbability;
-        }
-
-        double gop = logGapOpenProbability;
-        double gcp = logGapContinuationProbability;
-        double step = GAP_PENALTY_HRUN_STEP/10.0;
-
-        double maxGOP = -MIN_GAP_OPEN_PENALTY/10.0;  // phred to log prob
-        double maxGCP = -MIN_GAP_CONT_PENALTY/10.0;  // phred to log prob
-
-        for (int i=START_HRUN_GAP_IDX; i < MAX_HRUN_GAP_IDX; i++) {
-            gop += step;
-            if (gop > maxGOP)
-                gop = maxGOP;
-
-            gcp += step;
-            if(gcp > maxGCP)
-                gcp = maxGCP;
-            GAP_OPEN_PROB_TABLE[i] = gop;
-            GAP_CONT_PROB_TABLE[i] = gcp;
-        }
     }
 
     public void computeLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<GATKSAMRecord> reads ) {
@@ -171,7 +118,8 @@ public class LikelihoodCalculationEngine {
             double[][] matchMetricArray = null, XMetricArray = null, YMetricArray = null;
             byte[] previousHaplotypeSeen = null;
 
-            final double[] log10GapOpenProbabilities = QualityUtils.qualArrayToLog10ErrorProb( read.getBaseInsertionQualities() );
+            final double[] log10InsertionGapOpenProbabilities = QualityUtils.qualArrayToLog10ErrorProb( read.getBaseInsertionQualities() );
+            final double[] log10DeletionGapOpenProbabilities = QualityUtils.qualArrayToLog10ErrorProb( read.getBaseDeletionQualities() );
             final double[] log10GapContinuationProbabilities = new double[read.getReadLength()];
             Arrays.fill( log10GapContinuationProbabilities, logGapContinuationProbability ); // Is there a way to derive empirical estimates for this from the data?
 
@@ -191,7 +139,7 @@ public class LikelihoodCalculationEngine {
                 previousHaplotypeSeen = haplotypeBases.clone();
 
                 readLikelihoods[iii][jjj] = computeReadLikelihoodGivenHaplotypeAffineGaps(haplotypeBases, read.getReadBases(), read.getBaseQualities(),
-                        log10GapOpenProbabilities, log10GapContinuationProbabilities, startIdx, matchMetricArray, XMetricArray, YMetricArray);
+                        log10InsertionGapOpenProbabilities, log10DeletionGapOpenProbabilities, log10GapContinuationProbabilities, startIdx, matchMetricArray, XMetricArray, YMetricArray);
             }
         }
 
@@ -281,7 +229,7 @@ public class LikelihoodCalculationEngine {
     }
 
     private void updateCell(final int indI, final int indJ, final int X_METRIC_LENGTH, final int Y_METRIC_LENGTH, byte[] readBases, byte[] readQuals, byte[] haplotypeBases,
-                            double[] currentGOP, double[] currentGCP,  double[][] matchMetricArray,  double[][] XMetricArray,  double[][] YMetricArray) {
+                            double[] currentInsertionGOP, double[] currentDeletionGOP, double[] currentGCP,  double[][] matchMetricArray,  double[][] XMetricArray,  double[][] YMetricArray) {
         if (indI > 0 && indJ > 0) {
             final int im1 = indI - 1;
             final int jm1 = indJ - 1;
@@ -296,19 +244,19 @@ public class LikelihoodCalculationEngine {
                     YMetricArray[im1][jm1] + pBaseRead);
 
             // update X array
-            final double c1 = indJ == Y_METRIC_LENGTH-1 ? END_GAP_COST : currentGOP[im1]; // insertion GOP?
+            final double c1 = indJ == Y_METRIC_LENGTH-1 ? END_GAP_COST : currentInsertionGOP[im1];
             final double d1 = indJ == Y_METRIC_LENGTH-1 ? END_GAP_COST : currentGCP[im1];
             XMetricArray[indI][indJ] = MathUtils.softMax(matchMetricArray[im1][indJ] + c1, XMetricArray[im1][indJ] + d1);
 
             // update Y array
-            final double c2 = indI == X_METRIC_LENGTH-1 ? END_GAP_COST : currentGOP[im1]; // deletion GOP?
+            final double c2 = indI == X_METRIC_LENGTH-1 ? END_GAP_COST : currentDeletionGOP[im1];
             final double d2 = indI == X_METRIC_LENGTH-1 ? END_GAP_COST : currentGCP[im1];
             YMetricArray[indI][indJ] = MathUtils.softMax(matchMetricArray[indI][jm1] + c2, YMetricArray[indI][jm1] + d2);
         }
     }
 
     private double computeReadLikelihoodGivenHaplotypeAffineGaps(byte[] haplotypeBases, byte[] readBases, byte[] readQuals,
-                                                                 double[] currentGOP, double[] currentGCP, int indToStart,
+                                                                 double[] currentInsertionGOP, double[] currentDeletionGOP, double[] currentGCP, int indToStart,
                                                                  double[][] matchMetricArray, double[][] XMetricArray, double[][] YMetricArray) {
 
         final boolean bandedLikelihoods = false;
@@ -372,7 +320,7 @@ public class LikelihoodCalculationEngine {
 
                 for (int el = idxLow; el < elemsInDiag; el++) {
                     updateCell(indI, indJ, X_METRIC_LENGTH, Y_METRIC_LENGTH, readBases, readQuals, haplotypeBases,
-                            currentGOP, currentGCP,  matchMetricArray,  XMetricArray, YMetricArray);
+                            currentInsertionGOP, currentDeletionGOP, currentGCP,  matchMetricArray,  XMetricArray, YMetricArray);
                     // update max in diagonal
                     final double bestMetric = MathUtils.max(matchMetricArray[indI][indJ], XMetricArray[indI][indJ], YMetricArray[indI][indJ]);
 
@@ -405,7 +353,7 @@ public class LikelihoodCalculationEngine {
                     for (int el = idxLow-1; el >= 0; el--) {
 
                         updateCell(indI, indJ, X_METRIC_LENGTH, Y_METRIC_LENGTH, readBases, readQuals, haplotypeBases,
-                                currentGOP, currentGCP,  matchMetricArray,  XMetricArray, YMetricArray);
+                                currentInsertionGOP, currentDeletionGOP, currentGCP,  matchMetricArray,  XMetricArray, YMetricArray);
                         // update max in diagonal
                         final double bestMetric = MathUtils.max(matchMetricArray[indI][indJ], XMetricArray[indI][indJ], YMetricArray[indI][indJ]);
 
@@ -434,7 +382,7 @@ public class LikelihoodCalculationEngine {
             for (int indI=1; indI < X_METRIC_LENGTH; indI++) {
                 for (int indJ=indToStart+1; indJ < Y_METRIC_LENGTH; indJ++) {
                     updateCell(indI, indJ, X_METRIC_LENGTH, Y_METRIC_LENGTH, readBases, readQuals, haplotypeBases,
-                            currentGOP, currentGCP,  matchMetricArray,  XMetricArray, YMetricArray);
+                            currentInsertionGOP, currentDeletionGOP, currentGCP,  matchMetricArray,  XMetricArray, YMetricArray);
 
                 }
             }
