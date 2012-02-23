@@ -1,4 +1,4 @@
-import org.broadinstitute.sting.queue.extensions.gatk.{TaggedFile, BaseQualityScoreRecalibration}
+import org.broadinstitute.sting.queue.extensions.gatk.{TaggedFile, BaseQualityScoreRecalibrator}
 import org.broadinstitute.sting.queue.QScript
 
 class BQSR extends QScript {
@@ -11,7 +11,7 @@ class BQSR extends QScript {
   @Input(doc="dbsnp ROD to use (must be in VCF format)", fullName="dbsnp", shortName="d", required=true) var dbSNP: Seq[File] = Seq()
 
   def script {
-    val walker = new BaseQualityScoreRecalibration();
+    val walker = new BaseQualityScoreRecalibrator();
     walker.reference_sequence = referenceFile
     walker.intervalsString = intervalsFile
     walker.out = output

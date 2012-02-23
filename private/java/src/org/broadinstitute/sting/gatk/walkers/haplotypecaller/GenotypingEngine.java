@@ -30,7 +30,6 @@ import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -64,14 +63,20 @@ public class GenotypingEngine {
         allEventDictionary = new HashMap<Integer, ArrayList<Event>>();
     }
 
-    public ArrayList<VariantContext> alignAndAssignGenotypeLikelihoods( final GenomeLocParser genomeLocParser, final ArrayList<Haplotype> allHaplotypes, final ArrayList<Haplotype> bestHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final HashMap<String,Double[][]> haplotypeLikelihoodMatrixMap ) {
+    public ArrayList<VariantContext> alignAndAssignGenotypeLikelihoods( final GenomeLocParser genomeLocParser, final ArrayList<Haplotype> allHaplotypes, final ArrayList<Haplotype> bestHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final HashMap<String,Double[][]> haplotypeLikelihoodMatrixMap, final ArrayList<VariantContext> allelesToGenotype ) {
 
         final HashMap<Integer, ArrayList<Event>> bestEventDictionary = new HashMap<Integer, ArrayList<Event>>(); // These are the events we will actually be genotyping
         final ArrayList<VariantContext> returnCallContexts = new ArrayList<VariantContext>();
 
         // Create the dictionary of all genotype-able events sorted by start location and annotated with the originating haplotype index
         if( DEBUG ) { System.out.println(" ========  Top Haplotypes ======== "); }
-        populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, false, null);
+        if( allelesToGenotype != null && !allelesToGenotype.isEmpty() ) { // GENOTYPE_GIVEN_ALLELES mode
+            bestHaplotypes.clear();
+            bestHaplotypes.add( allHaplotypes.get(0) ); // the reference haplotype
+            populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, true, allelesToGenotype);
+        } else {
+            populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, false, null);
+        }
 
         // walk along the haplotype in genomic order, genotyping the events as they come up
         final ArrayList<Integer> sortedKeySet = new ArrayList<Integer>();
@@ -139,8 +144,8 @@ public class GenotypingEngine {
         populateEventDictionary( allEventDictionary, allHaplotypes, ref, loc, window, true, allelesToGenotype );
     }
 
-    private void populateEventDictionary( final HashMap<Integer, ArrayList<Event>> eventDictionary, final Collection<Haplotype> haplotypes, final byte[] ref, 
-                                          final GenomeLoc loc, final GenomeLoc window, final boolean filterBadHaplotypes, final ArrayList<VariantContext> allelesToGenotype ) {
+    private void populateEventDictionary( final HashMap<Integer, ArrayList<Event>> eventDictionary, final Collection<Haplotype> haplotypes, final byte[] paddedRef, 
+                                          final GenomeLoc paddedLoc, final GenomeLoc window, final boolean filterBadHaplotypes, final ArrayList<VariantContext> allelesToGenotype ) {
         int hIndex = 0;
         int sizeRefHaplotype = 0;
         int refStart = 0;
@@ -150,7 +155,7 @@ public class GenotypingEngine {
             for( final Haplotype h : haplotypes ) {
 
                 // Align the haplotype to the reference
-                final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+                final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( paddedRef, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
                 if( DEBUG ) {
                     System.out.println();
                     System.out.println( h.toString() );
@@ -177,8 +182,10 @@ public class GenotypingEngine {
                 final byte extendedHaplotype[] = new byte[sizeRefHaplotype];
                 int iii = 0;
                 int kkk;
+                int numBasesAddedToStartOfHaplotype = 0;
                 for( kkk = refStart; kkk < swConsensus.getAlignmentStart2wrt1(); kkk++ ) {
-                    extendedHaplotype[iii++] = ref[kkk];
+                    extendedHaplotype[iii++] = paddedRef[kkk];
+                    numBasesAddedToStartOfHaplotype++;
                 }
                 int jjj = 0;
                 while( jjj < h.getBases().length && iii < sizeRefHaplotype ) {
@@ -187,42 +194,38 @@ public class GenotypingEngine {
                     jjj++;
                 }
                 int nnn = 0;
-                while( iii < sizeRefHaplotype && swConsensus.getAlignmentStart2wrt1()+swConsensus.getCigar().getReferenceLength()+nnn < ref.length ) {
-                    extendedHaplotype[iii] = ref[swConsensus.getAlignmentStart2wrt1()+swConsensus.getCigar().getReferenceLength()+nnn];
+                while( iii < sizeRefHaplotype && swConsensus.getAlignmentStart2wrt1()+swConsensus.getCigar().getReferenceLength()+nnn < paddedRef.length ) {
+                    extendedHaplotype[iii] = paddedRef[swConsensus.getAlignmentStart2wrt1()+swConsensus.getCigar().getReferenceLength()+nnn];
                     iii++;
                     nnn++;
                 }
                 haplotypesToRemove.add(h);
-                haplotypesToAdd.add( new Haplotype( extendedHaplotype, h.getQuals() ) );
+                final Haplotype extendedH = new Haplotype( extendedHaplotype, h.getQuals() );
+                haplotypesToAdd.add( extendedH );
                 hIndex++;
+
+                // GENOTYPE_GIVEN_ALLELES mode
+                // Artificially insert the provided alternate alleles into the discovered haplotype to genotype them
+                if( allelesToGenotype != null && !allelesToGenotype.isEmpty() ) {
+                    for( final VariantContext vc : allelesToGenotype ) {
+                        for( final Allele a : vc.getAlternateAlleles() ) {
+                            haplotypesToAdd.add( new Haplotype( extendedH.insertAllele(vc.getReference(), a, vc.getStart() - paddedLoc.getStart(), paddedRef, refStart,
+                                                                swConsensus.getCigar(), numBasesAddedToStartOfHaplotype, sizeRefHaplotype), extendedH.getQuals() ) );
+                        }
+                    }                
+                }
             }
             haplotypes.removeAll( haplotypesToRemove );
             for( final Haplotype h : haplotypesToAdd ) {
                 if( !haplotypes.contains(h) ) { haplotypes.add(h); }
             }
-        }
-
-        // GENOTYPE_GIVEN_ALLELES mode
-        // Artificially insert the provided alternate alleles into the discovered haplotype to genotype them
-        if( allelesToGenotype != null ) {
-            haplotypesToAdd.clear();
-            for( final Haplotype h : haplotypes ) {
-                for( final VariantContext vc : allelesToGenotype ) {
-                    for( final Allele a : vc.getAlternateAlleles() ) {
-                        haplotypesToAdd.add( new Haplotype( h.insertAllele(a), h.getQuals() ) );
-                    }
-                }
-            }
-            for( final Haplotype h : haplotypesToAdd ) {
-                if( !haplotypes.contains(h) ) { haplotypes.add(h); }
-            }
-        }
+        }        
 
         haplotypesToRemove.clear();
         hIndex = 0;
         for( final Haplotype h : haplotypes ) {
 
-            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( paddedRef, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
             if( DEBUG ) {
                 System.out.println();
                 System.out.println( h.toString() );
@@ -236,7 +239,7 @@ public class GenotypingEngine {
             }
 
             // Walk along the alignment and turn any difference from the reference into an event
-            final ArrayList<VariantContext> vcs = generateVCsFromAlignment(swConsensus, ref, h.getBases(), loc);
+            final ArrayList<VariantContext> vcs = generateVCsFromAlignment(swConsensus, paddedRef, h.getBases(), paddedLoc);
 
             if( vcs == null || tooManyClusteredVariantsOnHaplotype( vcs ) ) { // too many variants on this haplotype means it wasn't assembled very well
                 if( DEBUG ) { System.out.println("Filtered! -too complex"); }

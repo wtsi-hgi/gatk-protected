@@ -55,10 +55,10 @@ class WholeGenomeIndelCalling extends QScript {
   var bamList: String = _
 
   @Argument(shortName = "truth", doc="VQSR truth file", required=false)
-  var truthFile: File = new File("/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Mills_Devine_Indels_2011/ALL.wgs.indels_mills_devine_hg19_leftAligned_collapsed_double_hit.sites.vcf"  )
+  var truthFile: File = new File("/humgen/gsa-hpprojects/GATK/data/Comparisons/Unvalidated/GoldStandardIndel/gold.standard.indel.MillsAnd1000G.b37.vcf"  )
 
   @Argument(shortName = "training", doc="VQSR training file", required=false)
-  var trainingFile: File = new File("/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Mills_Devine_Indels_2011/ALL.wgs.indels_mills_devine_hg19_leftAligned_collapsed_double_hit.sites.vcf"  )
+  var trainingFile: File = new File("/humgen/gsa-hpprojects/GATK/data/Comparisons/Unvalidated/GoldStandardIndel/gold.standard.indel.MillsAnd1000G.b37.vcf"  )
 
   @Argument(shortName = "intervals", doc="intervals", required=false)
   val myIntervals: String = null;

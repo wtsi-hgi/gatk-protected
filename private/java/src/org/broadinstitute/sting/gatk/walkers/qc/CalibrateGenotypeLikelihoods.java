@@ -26,7 +26,6 @@
 package org.broadinstitute.sting.gatk.walkers.qc;
 
 import net.sf.samtools.SAMReadGroupRecord;
-import org.apache.commons.lang.NotImplementedException;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
@@ -110,7 +109,7 @@ import java.util.*;
  * @since May, 2011
  */
 
-@Requires(value={DataSource.READS, DataSource.REFERENCE})
+@Requires(value={DataSource.REFERENCE})
 @Allows(value={DataSource.READS, DataSource.REFERENCE})
 
 // Ugly fix because RodWalkers don't have access to reads
@@ -121,11 +120,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     @Input(fullName="alleles", shortName = "alleles", doc="The set of alleles at which to genotype when in GENOTYPE_MODE = GENOTYPE_GIVEN_ALLELES", required=false)
     public RodBinding<VariantContext> alleles;
 
-    @Input(fullName="externalLikelihoods",shortName="el",doc="A VCF of external likelihoods to calibrate. Cannot be specified with alleles.",required=false)
-    public RodBinding<VariantContext> externalLikelihoods;
-
-    @Argument(fullName="readGroupSampleMapping",shortName="rgsm",doc="A mapping from read groups to samples, for use if the external likelihood vcf is a read-group VCF",required=false)
-    public File readGroupSampleMapping;
+    @Input(fullName="externalLikelihoods",shortName="el",doc="Any number of VCFs with external likelihoods for which to evaluate their calibration.",required=false)
+    public List<RodBinding<VariantContext>> externalLikelihoods = Collections.emptyList();
 
     @Argument(fullName="minimum_base_quality_score", shortName="mbq", doc="Minimum base quality score for calling a genotype", required=false)
     private int mbq = -1;
@@ -203,9 +199,9 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
     public void initialize() {
         // because either can be specified, check that exactly one was
-        if ( ! externalLikelihoods.isBound() && ! alleles.isBound()  ) {
+        if ( externalLikelihoods.isEmpty() && ! alleles.isBound()  ) {
             throw new UserException("No input VCF was given. Please provide either both external likelihoods and alleles VCFs, or alleles VCF and read data.");
-        } else if ( externalLikelihoods.isBound() && ! alleles.isBound() ) {
+        } else if ( !externalLikelihoods.isEmpty() && ! alleles.isBound() ) {
             throw new UserException("Alleles VCF not provided to compare against external likelihoods.");
         }
 
@@ -215,12 +211,6 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             throw new UserException.CouldNotCreateOutputFile(moltenDatasetFileName, e);
         }
         
-        // Get the samples from the BAM file
-        samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
-        if (samples.isEmpty())
-            throw new UserException.BadInput("Bam file has no samples in the ReadGroup tag");
-        logger.info("Samples in your BAM file: " + samples);
-
         // Get the samples from the VCF file
         Set<String> vcfSamples = null;
         List<ReferenceOrderedDataSource> rods = getToolkit().getRodDataSources();
@@ -228,6 +218,16 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             VCFHeader header =  (VCFHeader) rod.getHeader();
             vcfSamples = new HashSet<String>();
             vcfSamples.addAll(header.getGenotypeSamples());
+        }
+
+        // Get the samples from the BAM file
+        if( externalLikelihoods.isEmpty() ) {
+            samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
+            if (samples.isEmpty())
+                throw new UserException.BadInput("Bam file has no samples in the ReadGroup tag");
+            logger.info("Samples in your BAM file: " + samples);
+        } else {
+            samples = vcfSamples;
         }
 
         // Assert that the user provided a VCF (not some other tribble format)
@@ -300,7 +300,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             return Data.EMPTY_DATA;
 
         Data data = new Data();
-        if ( ! externalLikelihoods.isBound() ) {
+        if ( externalLikelihoods.isEmpty() ) {
             data = calculateGenotypeDataFromAlignments(tracker,ref,context,vcComp);
         } else {
             data = calculateGenotypeDataFromExternalVC(tracker,ref,context,vcComp);
@@ -450,40 +450,37 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         // These are either by-sample or by-read-group, disambiguated by whether a
         // read group --> sample mapping was provided on the command line or not.
         Data data = new Data();
-        VariantContext extVC = tracker.getFirstValue(externalLikelihoods);
-        if ( extVC == null ) {
-            return Data.EMPTY_DATA;
-        }
-
-        // make sure there is an alternate allele
-        if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0) {
-            return Data.EMPTY_DATA;
-        }
-
-        for ( Genotype genotype : extVC.getGenotypes() ) {
-            String sample = readGroupSampleMapping == null ? genotype.getSampleName() :
-                                                        getCorrespondingSampleName(genotype.getSampleName());
-            Genotype compGT = vcComp.hasGenotype(sample) ? vcComp.getGenotype(sample) : null;
-            if ( compGT == null || genotype.isNoCall() || compGT.isNoCall() )
-                continue;
-
-            String refs,alts;
-            if (vcComp.isIndel()) {
-                refs = new String(new byte[]{ ref.getBase()})+ vcComp.getReference().getDisplayString();
-                alts = new String(new byte[]{ ref.getBase()})+vcComp.getAlternateAllele(0).getDisplayString();
-            }   else {
-                refs = vcComp.getReference().getBaseString();
-                alts = vcComp.getAlternateAllele(0).getBaseString();
+        for( final RodBinding<VariantContext> rod : externalLikelihoods ) {
+            final VariantContext extVC = tracker.getFirstValue(rod);
+            if ( extVC == null ) {
+                return Data.EMPTY_DATA;
             }
-            Datum d = new Datum(refs, alts,
-                    sample, genotype.getSampleName(), genotype.getLikelihoods(), vcComp.getType(), compGT.getType());
-            data.values.add(d);
+    
+            // make sure there is an alternate allele
+            if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0) {
+                return Data.EMPTY_DATA;
+            }
+    
+            for ( final Genotype genotype : extVC.getGenotypes() ) {
+                final String sample = genotype.getSampleName();
+                final Genotype compGT = vcComp.hasGenotype(sample) ? vcComp.getGenotype(sample) : null;
+                if ( compGT == null || genotype.isNoCall() || compGT.isNoCall() )
+                    continue;
+    
+                String refs,alts;
+                if (vcComp.isIndel()) {
+                    refs = new String(new byte[]{ ref.getBase()})+ vcComp.getReference().getDisplayString();
+                    alts = new String(new byte[]{ ref.getBase()})+vcComp.getAlternateAllele(0).getDisplayString();
+                }   else {
+                    refs = vcComp.getReference().getBaseString();
+                    alts = vcComp.getAlternateAllele(0).getBaseString();
+                }
+                Datum d = new Datum(refs, alts,
+                        sample, rod.getName() + "." + genotype.getSampleName(), genotype.getLikelihoods(), vcComp.getType(), compGT.getType());
+                data.values.add(d);
+            }
         }
 
         return data;
-    }
-
-    private String getCorrespondingSampleName(String readGroup) {
-        throw new NotImplementedException();
     }
 }
