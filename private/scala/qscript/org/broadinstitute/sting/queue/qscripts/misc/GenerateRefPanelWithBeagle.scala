@@ -36,7 +36,7 @@ class GenerateRefPanelWithBeagle extends QScript {
   @Input(shortName="X",fullName="excludeIdx",doc="Exclude these job indeces (useful for beagle failing when no variants present)",required=false)
   var exclude : File = _
 
-  val BEAGLE_MEM_IN_GB : Int = 8
+  val BEAGLE_MEM_IN_GB : Int = 4
   val TMPDIR : String = System.getProperty("java.io.tmpdir");
 
 
