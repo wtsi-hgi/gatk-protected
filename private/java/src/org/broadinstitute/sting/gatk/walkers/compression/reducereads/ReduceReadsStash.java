@@ -39,9 +39,8 @@ public class ReduceReadsStash {
         GATKSAMRecord newHead = null;
 
         for (GATKSAMRecord stashedRead : outOfOrderReads) {
-            if (ReadUtils.compareSAMRecords(stashedRead, read) <= 0) {
+            if (ReadUtils.compareSAMRecords(stashedRead, read) <= 0)
                 result.add(stashedRead);
-            }
             else {
                 newHead = stashedRead;
                 break;
@@ -52,7 +51,7 @@ public class ReduceReadsStash {
             if (result.size() == outOfOrderReads.size())
                 outOfOrderReads.clear();
             else
-                outOfOrderReads = outOfOrderReads.tailSet(newHead);
+                outOfOrderReads = new TreeSet<GATKSAMRecord>(outOfOrderReads.tailSet(newHead));
         }
 
         return result;
@@ -95,6 +94,17 @@ public class ReduceReadsStash {
             result.add(read);
 
         return result;
+    }
+
+    /**
+     * Useful debug functionality, outputs all elements in the stash
+     */
+    public void print() {
+        int i = 1;
+        System.out.println("Stash Contents:");
+        for (GATKSAMRecord read : outOfOrderReads) 
+            System.out.println(String.format("%3d: %s %d %d", i++, read.getCigarString(), read.getAlignmentStart(), read.getAlignmentEnd()));
+        System.out.println();
     }
 
 }
