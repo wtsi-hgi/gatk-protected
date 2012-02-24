@@ -7,6 +7,7 @@ import MySQLdb
 
 host = "calcium.broadinstitute.org"
 gsafolk_lsf_table = "gsafolk_lsf"
+gsafolk_filesystems_table = "gsafolk_filesystems"
 MANY_SIZE = 100000
 
 # Creates a SQL table in the MySQL server calcium at the Broad that contains only 
@@ -33,6 +34,10 @@ def main():
                         action='store_true', default=False,
                         help="Don't submit to the DB")
 
+    parser.add_option("", "--onlyFSSizes", dest="onlyFSSizes",
+                        action='store_true', default=False, 
+                        help="Only build the FS size info")
+
     parser.add_option("-f", "--fullRefresh", dest="fullRefresh",
                         action='store_true', default=False,
                         help="If true, we will reload the entire DB")
@@ -52,10 +57,13 @@ def main():
     dbGATK = DBConnector("gatk", OPTIONS.dryRun, OPTIONS.verbose)
     dbMatter = DBConnector("matter", OPTIONS.dryRun, OPTIONS.verbose)
 
-    if OPTIONS.fullRefresh:
-        setupTable(dbGATK)
-    gsafolk_uids = select_gsafolk_uids(dbMatter)
-    create_gsafolk_lsfdb(dbMatter, dbGATK, gsafolk_uids)
+    refreshFileSystemSizes(dbMatter, dbGATK)
+
+    if not OPTIONS.onlyFSSizes:
+        if OPTIONS.fullRefresh:
+            setupLSFTable(dbGATK)
+        gsafolk_uids = select_gsafolk_uids(dbMatter)
+        create_gsafolk_lsfdb(dbMatter, dbGATK, gsafolk_uids)
     
     dbGATK.close()
     dbMatter.close()
@@ -164,7 +172,7 @@ def create_gsafolk_lsfdb(dbMatter, dbGATK, uidMap):
         records = dbMatter.dbc.fetchmany(MANY_SIZE)
     
 
-def setupTable(db):
+def setupLSFTable(db):
     """Configure dbGATK gsafolk_lsf table by dropping existing one and creating it from scratch"""
     try:
         db.execute("DROP TABLE " + gsafolk_lsf_table)
@@ -179,6 +187,47 @@ def setupTable(db):
         cpu_days DOUBLE,\
         mem_gb DOUBLE)"
     db.execute("CREATE TABLE " + gsafolk_lsf_table + " " + fields)
+
+def refreshFileSystemSizes(dbMatter, dbGATK):
+    #
+    # Set up the database
+    # 
+    try:
+        dbGATK.execute("DROP TABLE " + gsafolk_filesystems_table)
+    except Exception, e:
+        print 'WARNING: ', e
+
+    fields = "(\
+        mount varchar(255),\
+        directory varchar(255),\
+        date DATETIME,\
+        size_in_bytes BIGINT)"
+    dbGATK.execute("CREATE TABLE " + gsafolk_filesystems_table + " " + fields)
+
+    def insertQueryResults(name, query):
+        dbMatter.execute(query)
+        records = dbMatter.dbc.fetchall()
+        asStrs = map(lambda x: map(str, x), records)
+        if OPTIONS.verbose: 
+            for rec in asStrs: print rec
+        cmd = "INSERT INTO " + gsafolk_filesystems_table + " VALUES(%s, %s, %s, %s)"
+        dbGATK.executemany(cmd, asStrs)
+        print 'Added records', len(records), 'from', name
+
+    #
+    # Execute massive query to pull in all history
+    #
+    # takes two arguments (as %s) the db name for containing file system info and an additional where clause
+    generalQuery = "select distinct f.mount, d.name, from_unixtime(s.checked), s.sumval from %s s \
+inner join matter.filesystem f on s.fsid=f.id inner join matter.subdir d on \
+s.fsid=d.fsid and s.dirid=d.dirid where %s s.type=2 and s.uid is \
+null and f.gid=28 and f.deprecated is false and f.mount is not null and \
+d.level=0 and d.deprecated is false;"
+    latestQuery = generalQuery % ("matter.fsstat", "s.latest=1 and")
+    historyQuery = generalQuery % ("matter.fsstat_history", "")
+
+    insertQueryResults("latest", latestQuery)
+    insertQueryResults("history", historyQuery)
 
 if __name__ == "__main__":
     main()
