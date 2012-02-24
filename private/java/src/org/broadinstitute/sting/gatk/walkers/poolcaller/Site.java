@@ -1,8 +1,10 @@
 package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 
+import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
@@ -36,6 +38,7 @@ public class Site {
     private UnifiedArgumentCollection UAC;
     private VariantContext siteVC;
     private double deletionFraction;
+    private final Logger logger;
 
 
     /**
@@ -44,10 +47,10 @@ public class Site {
      * lane.
      */
 
-    public Site(ReferenceContext refContext, AlignmentContext context, String referenceSampleName,Collection<Byte> trueReferenceBases,
+    public Site(final RefMetaDataTracker tracker, ReferenceContext refContext, AlignmentContext context, String referenceSampleName,Collection<Byte> trueReferenceBases,
                 byte minQualityScore, byte maxQualityScore,
                 byte phredScaledPrior, int maxAlleleCount, UnifiedArgumentCollection UAC, double minPower, int minRefDepth, boolean filteredRefSampleCall,
-                boolean treatAllSamplesAsSinglePool) {
+                boolean treatAllSamplesAsSinglePool, final Logger logger) {
 
         //this.referenceSequenceBase = referenceSequenceBase;
         this.refContext = refContext;
@@ -55,6 +58,7 @@ public class Site {
         double minCallQual = UAC.STANDARD_CONFIDENCE_FOR_CALLING;
         this.minRefDepth = minRefDepth;
         this.filteredRefSampleCall = filteredRefSampleCall;
+        this.logger = logger;
 
         //this.pileup = sitePileup;
         //this.doDiscoveryMode = doDiscoveryMode;
@@ -66,10 +70,19 @@ public class Site {
         ReferenceSample referenceSample = new ReferenceSample(referenceSampleName, refPileup, trueReferenceBases);
         this.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, referenceSample, minPower);
 
+        VariantContext vcInput = UnifiedGenotyperEngine.getVCFromAllelesRod(tracker, refContext, context.getLocation(), false, logger, UAC.alleles);
+
         // so start: generate an empty VC in case we need to emit at all sites
-        Set<Allele> alleles = new HashSet<Allele>();
-        alleles.add(Allele.create(refContext.getBase(), true));
+        List<Allele> alleles = new ArrayList<Allele>();
+        if (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES)
+            alleles = vcInput.getAlleles();
+        else
+            alleles.add(Allele.create(refContext.getBase(), true));
+
         siteVC = new VariantContextBuilder("PoolCaller", refContext.getLocus().getContig(), refContext.getLocus().getStart(), refContext.getLocus().getStart(), alleles).make();
+
+        // remove ref allele from list - this will be the alt alleles we'll test (empty list if we're doing discovery)
+        alleles.remove(0); // ref allele always first in list
 
         if (context.hasBasePileup()) {
             filters = new HashSet<String>();
@@ -94,14 +107,14 @@ public class Site {
             if (treatAllSamplesAsSinglePool) {
 
                 lanes.add(new Lane("Lane1",pileup, referenceSampleName, errorModel, refContext.getBase(),
-                        maxAlleleCount,minCallQual, minRefDepth, doDiscoveryMode, treatAllSamplesAsSinglePool));
+                        maxAlleleCount,minCallQual, minRefDepth, doDiscoveryMode, treatAllSamplesAsSinglePool,alleles));
 
             }
             else {
                 for (String laneID : laneIDs) {
                     lanes.add(new Lane(laneID,pileup.getPileupForLane(laneID),referenceSampleName,errorModel, refContext.getBase(),
                             maxAlleleCount,minCallQual, minRefDepth,
-                            doDiscoveryMode, treatAllSamplesAsSinglePool));
+                            doDiscoveryMode, treatAllSamplesAsSinglePool, alleles));
                 }
                 }
 

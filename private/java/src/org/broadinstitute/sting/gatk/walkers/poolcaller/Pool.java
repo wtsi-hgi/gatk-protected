@@ -30,7 +30,8 @@ public class Pool {
     private byte calledAllele;
    // private double log10LikelihoodCall;
 
-    public Pool(String name, ReadBackedPileup pileup, ErrorModel errorModel, byte referenceSequenceBase, int maxAlleleCount, double minCallQual, int minRefDepth, boolean doAlleleDiscovery) {
+    public Pool(String name, ReadBackedPileup pileup, ErrorModel errorModel, byte referenceSequenceBase, int maxAlleleCount, double minCallQual, 
+                int minRefDepth, boolean doAlleleDiscovery, List<Allele> allelesToTest) {
         this.name = name;
         this.pileup = pileup;
 //        this.maxAlleleCount = maxAlleleCount;
@@ -39,20 +40,15 @@ public class Pool {
         byte [] data = pileup.getBases();
         int coverage = data.length;
 
-        if (doAlleleDiscovery) {
-            int idx = 0;
-            Integer[] numSeenBases = new Integer[BaseUtils.BASES.length];
-            for (byte base:BaseUtils.BASES)
-                numSeenBases[idx++] = MathUtils.countOccurrences(base, data);
+        int idx = 0;
+        Integer[] numSeenBases = new Integer[BaseUtils.BASES.length];
+        for (byte base:BaseUtils.BASES)
+            numSeenBases[idx++] = MathUtils.countOccurrences(base, data);
 
-         //   System.out.format("A:%d C:%d G:%d T:%t\n",numSeenBases[0],numSeenBases[1],numSeenBases[2],numSeenBases[3]);
-            alleleCountModel = new AlleleCountModel(maxAlleleCount, errorModel, numSeenBases, minCallQual, referenceSequenceBase);
-        }   else {
-            matches = MathUtils.countOccurrences(referenceSequenceBase, data);
-            mismatches = coverage - matches;
+        // todo - generalize for indels
+     //   System.out.format("A:%d C:%d G:%d T:%t\n",numSeenBases[0],numSeenBases[1],numSeenBases[2],numSeenBases[3]);
+        alleleCountModel = new AlleleCountModel(maxAlleleCount, errorModel, numSeenBases, minCallQual, referenceSequenceBase, doAlleleDiscovery, allelesToTest);
 
-            alleleCountModel = new AlleleCountModel(maxAlleleCount, errorModel, matches, mismatches, minCallQual);
-        }
        // isConfidentlyCalled = alleleCountModel.isConfidentlyCalled();
         calledAC = alleleCountModel.getMaximumLikelihoodIndex();
         calledAllele = (calledAC == 0) ?  referenceSequenceBase : alleleCountModel.getAltBase();

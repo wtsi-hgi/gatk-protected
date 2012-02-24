@@ -2,6 +2,7 @@ package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 
 import java.util.*;
@@ -24,7 +25,7 @@ public class Lane {
 
     public Lane(String name, ReadBackedPileup lanePileup, String referenceSampleName, ErrorModel errorModel, byte referenceSequenceBase,
                 int maxAlleleCount, double minCallQual, int minRefDepth,
-                boolean doAlleleDiscovery, boolean treatAllSamplesAsSinglePool) {
+                boolean doAlleleDiscovery, boolean treatAllSamplesAsSinglePool, List<Allele> allelesToTest) {
         this.name = name;
 
 
@@ -33,13 +34,13 @@ public class Lane {
         this.pools = new LinkedList<Pool>();
 
         if(treatAllSamplesAsSinglePool) {
-            pools.add(new Pool("Pool1", lanePileup.getPileupForSamples(poolNames),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual, minRefDepth, doAlleleDiscovery));
+            pools.add(new Pool("Pool1", lanePileup.getPileupForSamples(poolNames),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual, minRefDepth, doAlleleDiscovery, allelesToTest));
         }
         else {
             // regular case: pileup is stratified by pool names.
             // Get then all samples in list except for reference sample
             for (String poolName : poolNames)
-                pools.add(new Pool(poolName, lanePileup.getPileupForSample(poolName),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual, minRefDepth, doAlleleDiscovery));
+                pools.add(new Pool(poolName, lanePileup.getPileupForSample(poolName),errorModel,referenceSequenceBase,maxAlleleCount,minCallQual, minRefDepth, doAlleleDiscovery, allelesToTest));
         }
 
 
