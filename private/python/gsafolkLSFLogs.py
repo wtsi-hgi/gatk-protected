@@ -49,8 +49,8 @@ def main():
     if len(args) != 0:
         parser.error("No arguments can be specified")
 
-    dbGATK = DBConnector("gatk")
-    dbMatter = DBConnector("matter")
+    dbGATK = DBConnector("gatk", OPTIONS.dryRun, OPTIONS.verbose)
+    dbMatter = DBConnector("matter", OPTIONS.dryRun, OPTIONS.verbose)
 
     if OPTIONS.fullRefresh:
         setupTable(dbGATK)
@@ -62,23 +62,25 @@ def main():
     
 class DBConnector:
     """Encapsilates DB connection, allowing code to execute SQL queries to this connection"""
-    def __init__(self, db):
+    def __init__(self, db, dryRun = False, verbose = False):
         self.db = db
-        if not OPTIONS.dryRun: 
+        self.dryRun = dryRun
+        self.verbose = verbose
+        if not self.dryRun: 
             self.connection = MySQLdb.connect( host=host, db=self.db, user="gsamember", passwd="gsamember" )
             self.dbc = self.connection.cursor() 
 
     def execute(self, command):
-        if OPTIONS.verbose: print "EXECUTING: ", command
-        if not OPTIONS.dryRun: 
+        if self.verbose: print "EXECUTING: ", command
+        if not self.dryRun: 
             self.dbc.execute(command)
-        if OPTIONS.verbose: print '  DONE'        
+        if self.verbose: print '  DONE'        
 
     def executemany(self, command, params):
-        if OPTIONS.verbose: print "EXECUTING: ", command
-        if not OPTIONS.dryRun: 
+        if self.verbose: print "EXECUTING: ", command
+        if not self.dryRun: 
             self.dbc.executemany(command, params)
-        if OPTIONS.verbose: print '  DONE' 
+        if self.verbose: print '  DONE' 
         
     def get_summary_value(self, command):
         """Execute query and return the first records' first value"""
@@ -87,7 +89,7 @@ class DBConnector:
         return val
     
     def close(self):
-        if not OPTIONS.dryRun: 
+        if not self.dryRun: 
             self.dbc.close()
             self.connection.close()
        
