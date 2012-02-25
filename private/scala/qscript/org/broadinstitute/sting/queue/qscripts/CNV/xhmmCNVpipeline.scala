@@ -62,7 +62,7 @@ class xhmmCNVpipeline extends QScript {
   @Argument(shortName = "xhmmParams", doc = "xhmm model parameters file", required = true)
   var xhmmParamsArg: File = _
 
-  @Argument(shortName = "longJobQueue", doc = "Job queue to run the 'long' commands", required = false)
+  @Argument(shortName = "longJobQueue", doc = "Job queue to run the 'long-running' commands", required = false)
   var longJobQueue: String = ""
 
   val DOC_OUTPUT_SUFFIX: String = ".sample_interval_summary"
@@ -86,6 +86,11 @@ class xhmmCNVpipeline extends QScript {
     else {
       this.memoryLimit = wholeMatrixMemory
     }
+  }
+
+  trait LongRunTime extends CommandLineFunction {
+    if (longJobQueue != "")
+      this.jobQueue = longJobQueue
   }
 
   // A target has a list of samples and bam files to use for DoC
@@ -320,7 +325,7 @@ class xhmmCNVpipeline extends QScript {
     override def description = "Filters original read-depth data to be the same as filtered, normalized data: " + command
   }
 
-  class DiscoverCNVs(inputParam: File, origRDParam: File) extends CommandLineFunction {
+  class DiscoverCNVs(inputParam: File, origRDParam: File) extends CommandLineFunction with LongRunTime {
     @Input(doc = "")
     val input = inputParam
 
@@ -361,7 +366,7 @@ class xhmmCNVpipeline extends QScript {
     override def description = "Discovers CNVs in normalized data: " + command
   }
 
-  class GenotypeCNVs(inputParam: File, xcnv: File, origRDParam: File) extends CommandLineFunction {
+  class GenotypeCNVs(inputParam: File, xcnv: File, origRDParam: File) extends CommandLineFunction with LongRunTime {
     @Input(doc = "")
     val input = inputParam
 
@@ -389,8 +394,5 @@ class xhmmCNVpipeline extends QScript {
     def commandLine = command
 
     override def description = "Genotypes discovered CNVs in all samples: " + command
-
-    if (longJobQueue != "")
-      this.jobQueue = longJobQueue
   }
 }

@@ -298,6 +298,9 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      * @return the stash with all reads that have not been processed yet
      */
     public ReduceReadsStash reduce(LinkedList<GATKSAMRecord> mappedReads, ReduceReadsStash stash) {
+        if (debugLevel == 1)
+            stash.print();
+
         boolean firstRead = true;
         for (GATKSAMRecord read : mappedReads) {
             boolean originalRead = firstRead && isOriginalRead(mappedReads, read);
