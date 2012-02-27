@@ -6,9 +6,11 @@ import net.sf.picard.util.MathUtil;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The allele count model for the pool calling framework.
@@ -35,12 +37,14 @@ public class AlleleCountModel extends ProbabilityModel implements Cloneable {
         model = calculateLog10ProbabilityDistribution(errorModel, matches, mismatches);
     }
 
-    public AlleleCountModel(int maxAlleleCount, ErrorModel errorModel, Integer[] numSeenBases,  double minCallQual, byte refBase) {
+    public AlleleCountModel(int maxAlleleCount, ErrorModel errorModel, Integer[] numSeenBases,  double minCallQual, byte refBase, boolean doAlleleDiscovery, List<Allele> allelesToTest) {
         this.maxAlleleCount = maxAlleleCount;
         this.minCallQuall = minCallQual;
         this.errorModel = errorModel;
         this.refBase = refBase;
-        model = calculateLog10ProbabilityDistributionForAllBases(errorModel, numSeenBases, refBase);
+
+        // compute model for all bases,
+        model = calculateLog10ProbabilityDistributionForAllBases(errorModel, numSeenBases, refBase, doAlleleDiscovery, allelesToTest);
 
     }
  /*   public AlleleCountModel(AlleleCountModel acm) {
@@ -178,7 +182,7 @@ public class AlleleCountModel extends ProbabilityModel implements Cloneable {
      * @param refBase
      * @return
      */
-    public double [] calculateLog10ProbabilityDistributionForAllBases(ErrorModel errorModel, Integer[] numSeenBases, byte refBase) {
+    public double [] calculateLog10ProbabilityDistributionForAllBases(ErrorModel errorModel, Integer[] numSeenBases, byte refBase, boolean doAlleleDiscovery, List<Allele> alleles) {
         double [][] p = new double[BaseUtils.BASES.length][maxAlleleCount+1];
         int refPos = BaseUtils.simpleBaseToBaseIndex(refBase);
 
@@ -209,8 +213,24 @@ public class AlleleCountModel extends ProbabilityModel implements Cloneable {
             pMax[altInd] = p[altInd][mlEstimatorIdx[altInd]];
         }
 
+        int bestAlleleIdx;
+        if (doAlleleDiscovery)
+            bestAlleleIdx = MathUtils.maxElementIndex(pMax);
+        else
+        {
+            // determine which base corresponds to alleles to test
+            // todo - assume hard-coded biallelic,
+            if (alleles.size() != 1)
+                throw new ReviewedStingException("No support for other than biallelic sites in pool caller");
 
-        int bestAlleleIdx = MathUtils.maxElementIndex(pMax);
+            // todo- generalize for indels
+            byte altBase = alleles.get(0).getBases()[0];
+            if (altBase == refBase)
+                throw new ReviewedStingException("BUG: alt base to test is the same as reference base!");
+            bestAlleleIdx = BaseUtils.simpleBaseToBaseIndex(altBase);
+
+
+        }
         idxOfMaxAC = mlEstimatorIdx[bestAlleleIdx];
 
         if (idxOfMaxAC == 0) {

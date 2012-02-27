@@ -197,8 +197,8 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         if (!context.hasBasePileup())
             return 0;
 
-        Site site = new Site(ref, context, referenceSampleName, trueReferenceBases, minQualityScore, maxQualityScore, phredScaledPrior, maxAlleleCount,
-                UAC , minPower, minReferenceDepth, filteredRefSampleCall, DEBUG_IGNORE_LANES);
+        Site site = new Site(tracker, ref, context, referenceSampleName, trueReferenceBases, minQualityScore, maxQualityScore, phredScaledPrior, maxAlleleCount,
+                UAC , minPower, minReferenceDepth, filteredRefSampleCall, DEBUG_IGNORE_LANES, logger);
 
         if (site.needToEmitCall()) {
             vcfWriter.add(site.getCallFromSite());

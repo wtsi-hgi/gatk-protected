@@ -9,6 +9,8 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
     final static String REF = b37KGReference;
     final String BAM = validationDataLocation + "NA12878.HiSeq.b37.chr20.10_11mb.bam";
     final String DELETION_BAM = validationDataLocation + "filtered_deletion_for_reduce_reads.bam";
+    final String STASH_BAM = validationDataLocation + "ReduceReadsStashBug.bam";
+    final String STASH_L = " -L 14:73718184-73718284 -L 14:73718294-73718330 -L 14:73718360-73718556";
     final String L = " -L 20:10,100,000-10,120,000 ";
 
     private void RRTest(String testName, String args, String md5) {
@@ -59,6 +61,18 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
         executeTest("testFilteredDeletionCompression", new WalkerTestSpec(base, Arrays.asList("122e4e60c4412a31d0aeb3cce879e841")));
     }
 
-
+    /**
+     * Bug reported by Adam where a read that got clipped before actually belongs 2 intervals ahead
+     * and a subsequent tail leaves only this read in the stash. The next read to come in is in fact 
+     * before (alignment start) than this read, so the TreeSet breaks with a Key out of Range error
+     * that was freaking hard to catch. 
+     * 
+     * This bam is simplified to replicate the exact bug with the three provided intervals.
+     */
+    @Test(enabled = true)
+    public void testAddingReadAfterTailingTheStash() {
+        String base = String.format("-T ReduceReads %s -R %s -I %s", STASH_L, REF, STASH_BAM) + " -o %s ";
+        executeTest("testAddingReadAfterTailingTheStash", new WalkerTestSpec(base, Arrays.asList("f6d82b34dcbbc0e0173190271c8b0fbc")));
+    }
 }
 

@@ -58,6 +58,10 @@ def main():
                         action='store_true', default=False,
                         help="Run unit tests")
 
+    parser.add_option("", "--versions", dest="versions",
+                        type='string', default="/humgen/gsa-hpprojects/GATK/data/git.versions",
+                        help="If provided, reads in GATK version information from the file")
+
     parser.add_option("", "--dbTable", dest="dbTable",
                         type='string', default="gatk",
                         help="The name of the SQL DB to use")
@@ -83,6 +87,12 @@ def main():
 
     stage = args[0]
     files = resolveFiles(args[1:])
+    
+    if os.path.exists(OPTIONS.versions):
+        OPTIONS.versions = read_versions(OPTIONS.versions)
+    else:
+        OPTIONS.versions = dict()
+        print 'Warning: git version file does not exist', OPTIONS.versions
 
     # open up the output file
     if OPTIONS.output != None:
@@ -112,6 +122,57 @@ def main():
     handler.finalize(files)
     if OPTIONS.output != None: out.close()
     print 'Processed records:', counter 
+
+# -When you check which repo(s) a version number belongs to, there are 3 possibilities:
+# 
+#       * The version exists in github only: it's a publicly-released version that lacks private data
+#       * The version exists in both stable and unstable, but not github: it's a non-public stable version.
+#       * The version exists in unstable only: it's an unstable version (obviously).
+
+# file looks like
+#
+# type unstable
+# 1.4-371-g3f76265
+# 1.4-28-g26ab3e8
+# type stable
+# 1.4-28-g26ab3e8
+# 1.4-27-g15c5b7a
+# type gatk.git
+# 1.4-28-g7dc6f73
+# 1.4-27-gd5fce22
+#
+# created with script private/shell/gitVersionNumbers.csh
+def read_versions(file):
+    d = dict()
+    type = None
+    for line in open(file):
+        line = line.strip()
+        vals = line.split()
+        if vals[0] == "type":
+            type = vals[1]
+        else: 
+            if line not in d:
+                d[line] = list()
+            d[line].append(type)
+    
+    # assigns specific release structure to everything.  can be release, stable, unstable, or unknown
+    def resolveType(version, types):
+        type = "unknown"
+        if len(types) > 3:
+            raise 'Unexpected number of types', types
+        elif len(types) == 3:
+            #print version, types
+            type = "gatk.git" # must be the same name as the release repo
+        elif len(types) == 2:
+            if 'stable' not in types:
+                raise 'Unexpected combination: ' + str(types)
+            #print version, types
+            type = "stable"
+        else: 
+            type = types[0]
+        return type
+
+    return dict([[version, resolveType(version, types)] for version, types in d.iteritems()])  
 
 #
 # Stage HANDLERS
@@ -229,6 +290,14 @@ class RecordDecoder:
 
         def formatMinorVersion(elt):
             return str(parseGATKVersion(elt.text)[1])
+
+        def formatReleaseType(elt):
+            if elt.text not in OPTIONS.versions:
+                #print 'release-type', elt.text
+                type = "unknown"
+            else:
+                type = OPTIONS.versions[elt.text]
+            return type
             
         def formatExceptionMsg(elt):
             return '%s' % parseException(elt)[0]
@@ -263,7 +332,7 @@ class RecordDecoder:
             self.formatters[key] = zip(fields, funcs)
     
         add(["id", "walker-name", "phone-home-type"], id)
-        addComplex("svn-version", ["svn-version", "gatk-version", "gatk-minor-version"], [id, formatMajorVersion, formatMinorVersion])
+        addComplex("svn-version", ["svn-version", "gatk-version", "gatk-minor-version", "release-type"], [id, formatMajorVersion, formatMinorVersion, formatReleaseType])
         add(["start-time", "end-time"], toString)      
         add(["run-time", "java-tmp-directory", "working-directory", "user-name"], id)
         addComplex("host-name", ["host-name", "domain-name"], [id, formatDomainName])
@@ -550,9 +619,7 @@ class SQLRecordHandler(StageHandler):
         pass
 
     def getFields(self):
-        return ["id", "walker-name", "gatk-version", "gatk-minor-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "stacktrace", "exception-at-brief", "exception-msg", "is-user-exception", "run-status"]#, "command-line"]
-        #, exceptionmsg VARCHAR(2048), exceptionat VARCHAR(2048), exceptionatbrief VARCHAR(2048), isuserexception VARCHAR(2048))
-        #return self.decoder.fields
+        return ["id", "walker-name", "gatk-version", "gatk-minor-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "stacktrace", "exception-at-brief", "exception-msg", "is-user-exception", "run-status", "release-type"]
         
     def finalize(self, args):
         if DB_EXISTS and not OPTIONS.dryRun: 
