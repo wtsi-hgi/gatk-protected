@@ -62,6 +62,12 @@ class xhmmCNVpipeline extends QScript {
   @Argument(shortName = "xhmmParams", doc = "xhmm model parameters file", required = true)
   var xhmmParamsArg: File = _
 
+  @Argument(shortName = "discoverParams", doc = "xhmm command-line parameters for discovery step", required = false)
+  var discoverCommandLineParams: String = ""
+
+  @Argument(shortName = "genotypeParams", doc = "xhmm command-line parameters for genotyping step", required = false)
+  var genotypeCommandLineParams: String = ""
+
   @Argument(shortName = "longJobQueue", doc = "Job queue to run the 'long-running' commands", required = false)
   var longJobQueue: String = ""
 
@@ -359,7 +365,8 @@ class xhmmCNVpipeline extends QScript {
       " -R " + origRD +
       " -c " + xcnv +
       " -a " + aux_xcnv +
-      " -s " + posteriorsBase
+      " -s " + posteriorsBase +
+      discoverCommandLineParams
 
     def commandLine = command
 
@@ -389,7 +396,8 @@ class xhmmCNVpipeline extends QScript {
       " -g " + inXcnv +
       " -F " + referenceFile +
       " -R " + origRD +
-      " -v " +  vcf
+      " -v " +  vcf +
+      genotypeCommandLineParams
 
     def commandLine = command
 
