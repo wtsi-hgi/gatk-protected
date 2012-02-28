@@ -140,7 +140,7 @@ def create_gsafolk_lsfdb(dbMatter, dbGATK, uidMap):
     maxTimeStampYear = calendar.timegm(datetime.date(OPTIONS.firstYear, 1, 1).timetuple())
     print '### timestamp from first year', maxTimeStampYear
     maxTimeStampDb = dbGATK.get_summary_value("select max(timestamp) from " + gsafolk_lsf_table)
-    if maxTimeStampDb == None: maxTimeStampDb = datetime.date.min
+    if maxTimeStampDb == None: maxTimeStampDb = maxTimeStampYear
     print '### timestamp from existing db records', maxTimeStampDb
     maxTimeStamp = max(maxTimeStampYear, maxTimeStampDb) 
     print '### Last timestamp for incremental refresh', maxTimeStamp
