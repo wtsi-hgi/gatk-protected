@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
-import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -51,7 +51,7 @@ public class DiagnoseBases extends LocusWalker<DiagnoseBases.ErrorCounts, Diagno
     @Output
     PrintStream out;
 
-    @Argument(shortName = "G", fullName = "gold_standard", doc = "gold standard callset of sites to skip", required = false)
+    @Input(shortName = "G", fullName = "gold_standard", doc = "gold standard callset of sites to skip", required = false)
     public RodBinding<VariantContext> goldStandardCallset = null;
 
     @Override
