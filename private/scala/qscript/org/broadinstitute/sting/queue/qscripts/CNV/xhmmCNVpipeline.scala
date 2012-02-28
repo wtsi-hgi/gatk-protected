@@ -366,7 +366,7 @@ class xhmmCNVpipeline extends QScript {
       " -c " + xcnv +
       " -a " + aux_xcnv +
       " -s " + posteriorsBase +
-      discoverCommandLineParams
+      " " + discoverCommandLineParams
 
     def commandLine = command
 
@@ -397,7 +397,7 @@ class xhmmCNVpipeline extends QScript {
       " -F " + referenceFile +
       " -R " + origRD +
       " -v " +  vcf +
-      genotypeCommandLineParams
+      " " + genotypeCommandLineParams
 
     def commandLine = command
 
