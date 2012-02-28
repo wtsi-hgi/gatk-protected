@@ -279,7 +279,7 @@ class HybridSelectionPipeline extends QScript {
         eval.eval :+= annotate.out
         eval.dbsnp = dbsnp129
         eval.doNotUseAllStandardModules = true
-        eval.evalModule = Seq("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
+        eval.evalModule = Seq("TiTvVariantEvaluator", "CountVariants", "CompOverlap", "MultiallelicSummary")
         eval.doNotUseAllStandardStratifications = true
         eval.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ strats
         eval.out = projectName + strats.map(_.toLowerCase).mkString(".by_", "_", "") + suffix
