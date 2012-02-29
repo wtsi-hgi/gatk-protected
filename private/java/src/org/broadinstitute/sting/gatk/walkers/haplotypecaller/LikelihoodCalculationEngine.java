@@ -255,7 +255,7 @@ public class LikelihoodCalculationEngine {
         }
     }
 
-    private double computeReadLikelihoodGivenHaplotypeAffineGaps(byte[] haplotypeBases, byte[] readBases, byte[] readQuals,
+    protected double computeReadLikelihoodGivenHaplotypeAffineGaps(byte[] haplotypeBases, byte[] readBases, byte[] readQuals,
                                                                  double[] currentInsertionGOP, double[] currentDeletionGOP, double[] currentGCP, int indToStart,
                                                                  double[][] matchMetricArray, double[][] XMetricArray, double[][] YMetricArray) {
 
