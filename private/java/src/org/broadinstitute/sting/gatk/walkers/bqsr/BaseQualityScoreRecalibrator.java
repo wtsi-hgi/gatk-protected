@@ -35,6 +35,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.recalibration.CountCovariatesGatherer;
 import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.collections.NestedHashMap;
@@ -45,10 +46,7 @@ import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * First pass of the base quality score recalibration -- Generates recalibration table based on various user-specified covariates (such as reported quality score, cycle, and dinucleotide).
@@ -459,43 +457,52 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
         RECAL_FILE.println("EventType,nObservations,nMismatches,Qempirical");               // Output the extra fields contained in the RecalDatumOptimized object plus the "extra covariate" EventType (mismatch, insertion, deletion) 
 
         Object[] output = new Object[requestedCovariates.size() + 1];                       // +1 because we are also adding the EventType to the outputted key
-        if (DONT_SORT_OUTPUT) 
-            printMappings(RECAL_FILE, 0, output, dataManager.nestedHashMap.data);
-        else 
-            printMappingsSorted(RECAL_FILE, 0, output, dataManager.nestedHashMap.data);
+//        if (DONT_SORT_OUTPUT)
+        printMappings(RECAL_FILE, 0, output, dataManager.nestedHashMap.data);
+//        else
+//            printMappingsSorted(RECAL_FILE, 0, output, dataManager.nestedHashMap.data);
 
         RECAL_FILE.println("EOF");                                                          // print out an EOF marker
     }
 
-    private void printMappingsSorted(final PrintStream recalTableStream, final int curPos, final Object[] output, final Map data) {
-        final ArrayList<Comparable> keyList = new ArrayList<Comparable>();
-        for (Object comp : data.keySet())                                               // turn the key set into a list of keys
-            keyList.add((Comparable) comp);
-        Collections.sort(keyList);                                                      // sort the list of keys
-
-        for (Object key : keyList) {                                                    // iterate over the sorted list of keys
-            output[curPos] = key;
-            final Object val = data.get(key);
-            if (val instanceof RecalDatumOptimized) {                                   // We are at the end of the nested hash maps
-                for (Object keyToPrint : output)                                        // For each Covariate in the key
-                    recalTableStream.print(keyToPrint + ",");                           // Output the Covariate's value
-                recalTableStream.println(((RecalDatumOptimized) val).outputToCSV());    // Output the RecalDatum entry
-            }
-            else                                                                        // Another layer in the nested hash map
-                printMappingsSorted(recalTableStream, curPos + 1, output, (Map) val);
-        }
-    }
+//    private void printMappingsSorted(final PrintStream recalTableStream, final int curPos, final Object[] output, final Map data) {
+//        final ArrayList<Comparable> keyList = new ArrayList<Comparable>();
+//        for (Object comp : data.keySet())                                               // turn the key set into a list of keys
+//            keyList.add((Comparable) comp);
+//        Collections.sort(keyList);                                                      // sort the list of keys
+//
+//        for (Object key : keyList) {                                                    // iterate over the sorted list of keys
+//            output[curPos] = key;
+//            final Object val = data.get(key);
+//            if (val instanceof RecalDatumOptimized) {                                   // We are at the end of the nested hash maps
+//                for (Object keyToPrint : output) {                                      // For each Covariate in the key
+//                    if (keyToPrint instanceof BitSet)
+//                        recalTableStream.print(MathUtils.dnaFrom((BitSet) keyToPrint) + ","); // Output the String representation of the context covariate (temporary)
+//                    else
+//                        recalTableStream.print(keyToPrint + ",");                       // Output the Covariate's value
+//
+//                }
+//                recalTableStream.println(((RecalDatumOptimized) val).outputToCSV());    // Output the RecalDatum entry
+//            }
+//            else                                                                        // Another layer in the nested hash map
+//                printMappingsSorted(recalTableStream, curPos + 1, output, (Map) val);
+//        }
+//    }
 
     private void printMappings(final PrintStream recalTableStream, final int curPos, final Object[] output, final Map data) {
         for (Object key : data.keySet()) {
             output[curPos] = key;
             final Object val = data.get(key);
-            if (val instanceof RecalDatumOptimized) {                                   // We are at the end of the nested hash maps                
-                for (Object keyToPrint : output)                                        // For each Covariate in the key
-                    recalTableStream.print(keyToPrint + ",");                           // Output the Covariate's value
-                recalTableStream.println(((RecalDatumOptimized) val).outputToCSV());    // Output the RecalDatum entry
+            if (val instanceof RecalDatumOptimized) {                                           // We are at the end of the nested hash maps
+                for (Object keyToPrint : output) {                                              // For each Covariate in the key
+                    if (keyToPrint instanceof BitSet)
+                        recalTableStream.print(MathUtils.dnaFrom((BitSet) keyToPrint) + ",");   // temporary printing utility for the context bitset
+                    else
+                        recalTableStream.print(keyToPrint + ",");                               // Output the Covariate's value
+                }
+                recalTableStream.println(((RecalDatumOptimized) val).outputToCSV());            // Output the RecalDatum entry
             }
-            else                                                                        // Another layer in the nested hash map
+            else                                                                                // Another layer in the nested hash map
                 printMappings(recalTableStream, curPos + 1, output, (Map) val);
         }
     }
