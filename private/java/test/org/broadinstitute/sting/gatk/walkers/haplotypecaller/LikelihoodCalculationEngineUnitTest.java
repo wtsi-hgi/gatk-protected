@@ -29,8 +29,10 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 // the imports for unit testing.
 
 
+import net.sf.picard.util.QualityUtil;
 import org.broad.tribble.util.ParsingUtils;
 import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.variantcontext.*;
@@ -43,6 +45,7 @@ import java.util.*;
 
 
 public class LikelihoodCalculationEngineUnitTest extends BaseTest {
+    final static boolean EXTENSIVE_TESTING = false;
     LikelihoodCalculationEngine engine;
 
     @BeforeSuite
@@ -59,16 +62,21 @@ public class LikelihoodCalculationEngineUnitTest extends BaseTest {
     private class BasicLikelihoodTestProvider extends TestDataProvider {
         final String ref, read;
         final byte[] refBasesWithContext, readBasesWithContext;
-        final int baseQual, insQual, delQual;
-        final int gcp = 10;
+        final int baseQual, insQual, delQual, gcp;
         final int expectedQual;
-        final static String CONTEXT = "ACGTACGT";
+        final static String CONTEXT = "ACGTTGCA";
+        final static int DEFAULT_GCP = 10;
 
         public BasicLikelihoodTestProvider(final String ref, final String read, final int baseQual, final int insQual, final int delQual, final int expectedQual) {
-            super(BasicLikelihoodTestProvider.class, String.format("ref=%s read=%s b/i/d quals = %d/%d/%d e[qual]=%d", ref, read, baseQual, insQual, delQual, expectedQual));
+            this(ref, read, baseQual, insQual, delQual, expectedQual, DEFAULT_GCP);
+        }
+
+        public BasicLikelihoodTestProvider(final String ref, final String read, final int baseQual, final int insQual, final int delQual, final int expectedQual, final int gcp) {
+            super(BasicLikelihoodTestProvider.class, String.format("ref=%s read=%s b/i/d/c quals = %d/%d/%d/%d e[qual]=%d", ref, read, baseQual, insQual, delQual, gcp, expectedQual));
             this.baseQual = baseQual;
             this.delQual = delQual;
             this.insQual = insQual;
+            this.gcp = gcp;
             this.read = read;
             this.ref = ref;
             this.expectedQual = expectedQual;
@@ -107,30 +115,85 @@ public class LikelihoodCalculationEngineUnitTest extends BaseTest {
 
         private byte[] qualAsBytes(final int phredQual) {
             final byte phredQuals[] = new byte[readBasesWithContext.length];
-            Arrays.fill(phredQuals, (byte)phredQual);
+
+            // initialize everything to MASSIVE_QUAL so it cannot be moved by HMM
+            Arrays.fill(phredQuals, Byte.MAX_VALUE);
+
+            // update just the bases corresponding to the provided micro read with the quality scores
+            for ( int i = 0; i < read.length(); i++)
+                phredQuals[i + CONTEXT.length()] = (byte)phredQual;
+
             return phredQuals;
         }
 
         private double[] qualAsDouble(final int phredQual) {
-            final double log10ErrorRates[] = new double[readBasesWithContext.length];
-            final double log10ErrorRate = phredQual / -10.0;
-            Arrays.fill(log10ErrorRates, log10ErrorRate);
-            return log10ErrorRates;
+            final double phredQuals[] = new double[readBasesWithContext.length];
+
+            // initialize everything to MASSIVE_QUAL so it cannot be moved by HMM
+            Arrays.fill(phredQuals, -1000.0);
+
+            // update just the bases corresponding to the provided micro read with the quality scores
+            for ( int i = 0; i < read.length(); i++)
+                phredQuals[i + CONTEXT.length()] = phredQual / -10.0;
+
+            return phredQuals;
         }
     }
 
     @DataProvider(name = "BasicLikelihoodTestProvider")
     public Object[][] makeBasicLikelihoodTests() {
-        // context on either side is ACGTACGT REF ACGTACGT
-        int baseQual = 30;
-        int insQual = 40;
-        int delQual = 50;
-        new BasicLikelihoodTestProvider("C", "A", baseQual, insQual, delQual, baseQual);
-        new BasicLikelihoodTestProvider("C", "C", baseQual, insQual, delQual, 0);
-        new BasicLikelihoodTestProvider("C", "G", baseQual, insQual, delQual, baseQual);
-        new BasicLikelihoodTestProvider("C", "T", baseQual, insQual, delQual, baseQual);
-        new BasicLikelihoodTestProvider("C", "", baseQual, insQual, delQual, delQual);
-        new BasicLikelihoodTestProvider("C", "CC", baseQual, insQual, delQual, insQual);
+        // context on either side is ACGTTGCA REF ACGTTGCA
+        {
+            final int baseQual = 30;
+            final int insQual = 40;
+            final int delQual = 50;
+            new BasicLikelihoodTestProvider("C", "A", baseQual, insQual, delQual, baseQual);
+            new BasicLikelihoodTestProvider("C", "C", baseQual, insQual, delQual, 0);
+            new BasicLikelihoodTestProvider("C", "G", baseQual, insQual, delQual, baseQual);
+            new BasicLikelihoodTestProvider("C", "T", baseQual, insQual, delQual, baseQual);
+            new BasicLikelihoodTestProvider("C", "", baseQual, insQual, delQual, delQual);
+            new BasicLikelihoodTestProvider("C", "CC", baseQual, insQual, delQual, insQual);
+        }
+
+        // test all combinations
+        final List<Integer> baseQuals = EXTENSIVE_TESTING ? Arrays.asList(10, 20, 30, 40, 50) : Arrays.asList(30);
+        final List<Integer> indelQuals = EXTENSIVE_TESTING ? Arrays.asList(10, 20, 30, 40, 50) : Arrays.asList(30);
+        final List<Integer> gcps = EXTENSIVE_TESTING ? Arrays.asList(10, 20, 30) : Arrays.asList(10);
+        final List<Integer> sizes = EXTENSIVE_TESTING ? Arrays.asList(2,3,4,5,6,7,8,9,10) : Arrays.asList(2, 5);
+
+        for ( final int baseQual : baseQuals ) {
+            for ( final int indelQual : indelQuals ) {
+                for ( final int gcp : gcps ) {
+
+                    // test substitutions
+                    for ( final byte refBase : BaseUtils.BASES ) {
+                        for ( final byte readBase : BaseUtils.BASES ) {
+                            final String ref  = new String(new byte[]{refBase});
+                            final String read = new String(new byte[]{readBase});
+                            final int expected = refBase == readBase ? 0 : baseQual;
+                            new BasicLikelihoodTestProvider(ref, read, baseQual, indelQual, indelQual, expected, gcp);
+                        }
+                    }
+
+                    // test insertions and deletions
+                    for ( final int size : sizes ) {
+                        for ( final byte base : BaseUtils.BASES ) {
+                            final int expected = indelQual + (size - 2) * gcp;
+
+                            for ( boolean insertionP : Arrays.asList(true, false)) {
+                                final String small = Utils.dupString((char)base, 1);
+                                final String big = Utils.dupString((char)base, size);
+
+                                final String ref = insertionP ? small : big;
+                                final String read = insertionP ? big : small;
+
+                                new BasicLikelihoodTestProvider(ref, read, baseQual, indelQual, indelQual, expected, gcp);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         return BasicLikelihoodTestProvider.getTests(BasicLikelihoodTestProvider.class);
     }

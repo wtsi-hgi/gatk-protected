@@ -63,7 +63,7 @@ public class LikelihoodCalculationEngine {
 
     private boolean DEBUG = false;
 
-    private static final int MAX_CACHED_QUAL = 93;
+    private static final int MAX_CACHED_QUAL = (int)Byte.MAX_VALUE;
 
     private static final double baseMatchArray[];
     private static final double baseMismatchArray[];
