@@ -178,10 +178,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
     /////////////////////////////
     // Debugging-only Arguments
     /////////////////////////////
-    @Hidden
-    @Argument(fullName = "dont_sort_output", shortName = "unsorted", required = false, doc = "If specified, the output table recalibration csv file will be in an unsorted, arbitrary order to save some run time.")
-    private boolean DONT_SORT_OUTPUT = false;
-
     /**
      * This calculation is critically dependent on being able to skip over known polymorphic sites. Please be sure that you know what you are doing if you use this option.
      */
@@ -192,11 +188,11 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
     /////////////////////////////
     // Private Member Variables
     /////////////////////////////
-    private final RecalDataManager dataManager = new RecalDataManager();            // Holds the data HashMap used to create collapsed data hashmaps (delta delta tables)
-    private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();    // A list to hold the covariate objects that were requested
+    private final RecalDataManager dataManager = new RecalDataManager();                // Holds the data HashMap used to create collapsed data hashmaps (delta delta tables)
+    private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();// A list to hold the covariate objects that were requested
 
-    private final String SKIP_RECORD_ATTRIBUTE = "SKIP";                            // used to label reads that should be skipped.
-    private final String SEEN_ATTRIBUTE = "SEEN";                                   // used to label reads as processed.
+    private final String SKIP_RECORD_ATTRIBUTE = "SKIP";                                // used to label reads that should be skipped.
+    private final String SEEN_ATTRIBUTE = "SEEN";                                       // used to label reads as processed.
 
     @Override
     /**
