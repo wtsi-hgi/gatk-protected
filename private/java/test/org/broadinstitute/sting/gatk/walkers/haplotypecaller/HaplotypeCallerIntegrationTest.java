@@ -13,7 +13,7 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
     final String RECAL_FILE = validationDataLocation + "NA12878.kmer.8.subset.recal_data.bqsr";
 
     private void HCTest(String bam, String args, String md5) {
-        final String base = String.format("-T HaplotypeCaller -R %s -I %s -L %s -BQSR %s", REF, bam, INTERVALS_FILE, RECAL_FILE) + " -NO_HEADER -o %s";
+        final String base = String.format("-T HaplotypeCaller -R %s -I %s -L %s", REF, bam, INTERVALS_FILE) + " -NO_HEADER -o %s";
         final WalkerTestSpec spec = new WalkerTestSpec(base + " " + args, Arrays.asList(md5));
         executeTest("testHaplotypeCaller: args=" + args, spec);
     }
@@ -21,12 +21,12 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
     @Test
     public void testHaplotypeCallerMultiSample() {
 
-        HCTest(CEUTRIO_BAM, "-rf UnmappedRead", "8b6ddeb029483010493b33227b89f178");
+        HCTest(CEUTRIO_BAM, "-rf UnmappedRead", "8eefd855b68a46b6293fa47de62c6d6e");
     }
 
     @Test
     public void testHaplotypeCallerSingleSample() {
-        HCTest(NA12878_BAM, "-rf UnmappedRead", "91afde9917ff93940b7fd8ace8a13940");
+        HCTest(NA12878_BAM, "-rf UnmappedRead", "0334f412024aecf815377e2c48106b35");
     }
 }
 
