@@ -463,7 +463,13 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             output[curPos] = key;
             final Object val = data.get(key);
             if (val instanceof RecalDatumOptimized) {                                           // We are at the end of the nested hash maps
+                boolean isFirstKey = true;
                 for (Object keyToPrint : output) {                                              // For each Covariate in the key
+                    if (isFirstKey) {                                                           // Horrendous hardcoded ReadGroup decodification (this is to test its merits)
+                        ReadGroupCovariate readGroupCovariate = (ReadGroupCovariate) requestedCovariates.get(0);
+                        keyToPrint = readGroupCovariate.decodeReadGroup((Short) keyToPrint);
+                        isFirstKey = false;
+                    }
                     if (keyToPrint instanceof BitSet)
                         recalTableStream.print(MathUtils.dnaFrom((BitSet) keyToPrint) + ",");   // temporary printing utility for the context bitset
                     else if (keyToPrint == null)
