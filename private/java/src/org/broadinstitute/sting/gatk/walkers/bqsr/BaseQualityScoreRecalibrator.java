@@ -194,14 +194,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
     private final String SKIP_RECORD_ATTRIBUTE = "SKIP";                                // used to label reads that should be skipped.
     private final String SEEN_ATTRIBUTE = "SEEN";                                       // used to label reads as processed.
 
-    @Override
-    /**
-     * We are interested in deletions in the pileup so we can evaluate indels
-     */
-    public boolean includeReadsWithDeletionAtLoci() {
-        return true;
-    }
-
     /**
      * Parse the -cov arguments and create a list of covariates to be used here
      * Based on the covariates' estimates for initial capacity allocate the data hashmap
