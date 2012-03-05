@@ -33,10 +33,8 @@ import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
-import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.exceptions.DynamicClassResolutionException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
@@ -128,14 +126,23 @@ import java.util.*;
  */
 
 @BAQMode(ApplicationTime = BAQ.ApplicationTime.FORBIDDEN)
-@By(DataSource.READS)                                                                   // Only look at covered loci, not every loci of the reference file
-@ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class})   // Filter out all reads with zero or unavailable mapping quality
-@Requires({DataSource.READS, DataSource.REFERENCE, DataSource.REFERENCE_BASES})         // This walker requires both -I input.bam and -R reference.fasta
+@By(DataSource.READS)
+// Only look at covered loci, not every loci of the reference file
+@ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class})
+// Filter out all reads with zero or unavailable mapping quality
+@Requires({DataSource.READS, DataSource.REFERENCE, DataSource.REFERENCE_BASES})
+// This walker requires both -I input.bam and -R reference.fasta
 @PartitionBy(PartitionType.LOCUS)
 public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRecalibrator.CountedData, BaseQualityScoreRecalibrator.CountedData> implements TreeReducible<BaseQualityScoreRecalibrator.CountedData> {
     @ArgumentCollection
-    private RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection();
+    private RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection();                      // All the command line arguments for BQSR and it's covariates
 
+    private BQSRKeyManager keyManager;                                                                        // The key manager to handle the BitSet key representation conversions
+    private final HashMap<BitSet, RecalDatumOptimized> allCovariatesTable = new HashMap<BitSet, RecalDatumOptimized>(Short.MAX_VALUE);  // The big table that holds ALL the data for the covariates
+    protected final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();                            // A list to hold the covariate objects that were requested
+
+    protected final String SKIP_RECORD_ATTRIBUTE = "SKIP";                                                    // used to label reads that should be skipped.
+    protected final String SEEN_ATTRIBUTE = "SEEN";                                                           // used to label reads as processed.
 
     /**
      * Parse the -cov arguments and create a list of covariates to be used here
@@ -160,7 +167,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             }
             logger.info("");
 
-            System.exit(0); // Early exit here because user requested it
+            System.exit(0);                                                                     // Early exit here because user requested it
         }
 
         // Warn the user if no dbSNP file or other variant mask was specified
@@ -170,9 +177,9 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
 
         // Initialize the requested covariates by parsing the -cov argument
         // First add the required covariates
-        if (requiredClasses.size() == 2) {                          // readGroup and reported quality score
-            RAC.requestedCovariates.add(new ReadGroupCovariate());  // Order is important here
-            RAC.requestedCovariates.add(new QualityScoreCovariate());
+        if (requiredClasses.size() == 2) {                                                      // readGroup and reported quality score
+            requestedCovariates.add(new ReadGroupCovariate());                                  // Order is important here
+            requestedCovariates.add(new QualityScoreCovariate());
         }
         else {
             throw new UserException.CommandLineException("There are more required covariates than expected. The instantiation list needs to be updated with the new required covariate and in the correct order.");
@@ -185,13 +192,13 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             for (Class<?> covClass : standardClasses) {
                 standardClassNames.add(covClass.getName());
             }
-            Collections.sort(standardClassNames); // Sort the list of class names
+            Collections.sort(standardClassNames);                                               // Sort the list of class names
             for (String className : standardClassNames) {
-                for (Class<?> covClass : standardClasses) { // Find the class that matches this class name
+                for (Class<?> covClass : standardClasses) {                                     // Find the class that matches this class name
                     if (covClass.getName().equals(className)) {
                         try {
                             final Covariate covariate = (Covariate) covClass.newInstance();
-                            RAC.requestedCovariates.add(covariate);
+                            requestedCovariates.add(covariate);
                         } catch (Exception e) {
                             throw new DynamicClassResolutionException(covClass, e);
                         }
@@ -204,13 +211,12 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             for (String requestedCovariateString : RAC.COVARIATES) {
                 boolean foundClass = false;
                 for (Class<?> covClass : covariateClasses) {
-                    if (requestedCovariateString.equalsIgnoreCase(covClass.getSimpleName())) { // -cov argument matches the class name for an implementing class
+                    if (requestedCovariateString.equalsIgnoreCase(covClass.getSimpleName())) {   // -cov argument matches the class name for an implementing class
                         foundClass = true;
                         if (!requiredClasses.contains(covClass) && (!RAC.USE_STANDARD_COVARIATES || !standardClasses.contains(covClass))) {
                             try {
-                                // Now that we've found a matching class, try to instantiate it
-                                final Covariate covariate = (Covariate) covClass.newInstance();
-                                RAC.requestedCovariates.add(covariate);
+                                final Covariate covariate = (Covariate) covClass.newInstance();  // Now that we've found a matching class, try to instantiate it
+                                requestedCovariates.add(covariate);
                             } catch (Exception e) {
                                 throw new DynamicClassResolutionException(covClass, e);
                             }
@@ -225,10 +231,12 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
         }
 
         logger.info("The covariates being used here: ");
-        for (Covariate cov : RAC.requestedCovariates) {
+        for (Covariate cov : requestedCovariates) {
             logger.info("\t" + cov.getClass().getSimpleName());
-            cov.initialize(RAC); // Initialize any covariate member variables using the shared argument collection
+            cov.initialize(RAC);                                                                  // Initialize any covariate member variables using the shared argument collection
         }
+
+        keyManager = new BQSRKeyManager(requestedCovariates);                              // Now that we know how many covariates are going to be in this run, initialize the Key Manager
     }
 
     /**
@@ -251,7 +259,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
                 final GATKSAMRecord read = p.getRead();
                 final int offset = p.getOffset();
 
-                if (read.containsTemporaryAttribute(RAC.SKIP_RECORD_ATTRIBUTE))
+                if (read.containsTemporaryAttribute(SKIP_RECORD_ATTRIBUTE))
                     continue;                                           // This read has been marked to be skipped.
 
                 if (read.getBaseQualities()[offset] == 0)
@@ -260,17 +268,17 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
                 if (p.isDeletion())
                     continue;                                           // We look at deletions from their left aligned base, not at the base itself
 
-                if (!read.containsTemporaryAttribute(RAC.SEEN_ATTRIBUTE)) {
-                    read.setTemporaryAttribute(RAC.SEEN_ATTRIBUTE, true);
+                if (!read.containsTemporaryAttribute(SEEN_ATTRIBUTE)) {
+                    read.setTemporaryAttribute(SEEN_ATTRIBUTE, true);
                     RecalDataManager.parseSAMRecord(read, RAC);
 
                     if (!(RAC.SOLID_NOCALL_STRATEGY == RecalDataManager.SOLID_NOCALL_STRATEGY.THROW_EXCEPTION) && RecalDataManager.checkNoCallColorSpace(read)) {
-                        read.setTemporaryAttribute(RAC.SKIP_RECORD_ATTRIBUTE, true);
+                        read.setTemporaryAttribute(SKIP_RECORD_ATTRIBUTE, true);
                         continue;                                       // Skip over reads with no calls in the color space if the user requested it
                     }
 
                     RecalDataManager.parseColorSpace(read);
-                    RecalDataManager.computeCovariates(read, RAC.requestedCovariates);
+                    RecalDataManager.computeCovariates(read, requestedCovariates);
                 }
 
                 final byte[] bases = read.getReadBases();
@@ -345,27 +353,32 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
      */
     private void updateDataForPileupElement(CountedData counter, PileupElement pileupElement, final byte refBase) {
         final int offset = pileupElement.getOffset();
-        final CovariateKeySet covariateKeySet = RecalDataManager.getAllCovariateValuesFor(pileupElement.getRead());
-        updateCovariateWithKeySet(covariateKeySet.getMismatchesKeySet(offset), BaseUtils.basesAreEqual(pileupElement.getBase(), refBase) ? 0 : 1);
-        updateCovariateWithKeySet(covariateKeySet.getInsertionsKeySet(offset), pileupElement.isBeforeInsertion() ? 1 : 0);
-        updateCovariateWithKeySet(covariateKeySet.getDeletionsKeySet(offset),  pileupElement.isBeforeDeletion()  ? 1 : 0);
+        final CovariateKeySet covariateKeySet = RecalDataManager.covariateKeySetFrom(pileupElement.getRead());
+
+        BitSet mismatchesKey = keyManager.bitSetFrom(covariateKeySet.getMismatchesKeySet(offset), RecalDataManager.BaseRecalibrationType.BASE_SUBSTITUTION);
+        BitSet insertionsKey = keyManager.bitSetFrom(covariateKeySet.getInsertionsKeySet(offset), RecalDataManager.BaseRecalibrationType.BASE_INSERTION);
+        BitSet deletionsKey = keyManager.bitSetFrom(covariateKeySet.getDeletionsKeySet(offset), RecalDataManager.BaseRecalibrationType.BASE_DELETION);
+
+        updateCovariateWithKeySet(mismatchesKey, !BaseUtils.basesAreEqual(pileupElement.getBase(), refBase));
+        updateCovariateWithKeySet(insertionsKey, pileupElement.isBeforeInsertion());
+        updateCovariateWithKeySet(deletionsKey, pileupElement.isBeforeDeletion());
         counter.countedBases++;
     }
 
     /**
      * Generic functionality to add to the number of observations and mismatches given a covariate key set
      *
-     * @param keySet  the set of covariates to use as key in the NestedHapMap
-     * @param nMismatches the number of mismatches in this locus (generally 1 or 0)
+     * @param hashKey the key to the hash map in bitset representation aggregating all the covariate keys and the event type
+     * @param isError whether or not this base is an error (reference mismatch or precedes insertion or deletion)
      */
-    private void updateCovariateWithKeySet(Object[] keySet, int nMismatches) {
-        final NestedHashMap nestedHashMap = RAC.dataManager.nestedHashMap;
-        RecalDatumOptimized datum = (RecalDatumOptimized) nestedHashMap.get(keySet);                    // Using the list of covariate values as a key, pick out the RecalDatum from the data HashMap
-        if (datum == null)                                                                              // key doesn't exist yet in the map so make a new bucket and add it
-            datum = (RecalDatumOptimized) nestedHashMap.put(new RecalDatumOptimized(), true, keySet);   // initialized with zeros, will be incremented at end of method.
-        datum.increment(1, nMismatches);                                                                // Add one to the number of observations and potentially one to the number of mismatches
+    private void updateCovariateWithKeySet(BitSet hashKey, boolean isError) {
+        RecalDatumOptimized datum = allCovariatesTable.get(hashKey);            // Using the list of covariate values as a key, pick out the RecalDatum from the data HashMap
+        if (datum == null) {                                                    // key doesn't exist yet in the map so make a new bucket and add it
+            datum = new RecalDatumOptimized();
+            allCovariatesTable.put(hashKey, datum);                             // initialized with zeros, will be incremented at end of method.
+        }
+        datum.increment(1, isError ? 1 : 0);                                    // Add one to the number of observations and potentially one to the number of mismatches
     }
-    
 
     /**
      * For each entry (key-value pair) in the data hashmap output the Covariate's values as well as the RecalDatum's data in CSV format
@@ -373,64 +386,42 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
      * @param sum the counted data object to use as a reference for the number of bases/sites counted and skipped
      */
     private void outputToCSV(final CountedData sum) {
-        RAC.RECAL_FILE.printf("# Counted Sites    %d%n", sum.countedSites);
-        RAC.RECAL_FILE.printf("# Counted Bases    %d%n", sum.countedBases);
-        RAC.RECAL_FILE.printf("# Skipped Sites    %d%n", sum.skippedSites);
-        RAC.RECAL_FILE.printf("# Fraction Skipped 1 / %.0f bp%n", (double) sum.countedSites / sum.skippedSites);
+        PrintStream out = RAC.RECAL_FILE;
+        out.printf("# Counted Sites    %d%n", sum.countedSites);
+        out.printf("# Counted Bases    %d%n", sum.countedBases);
+        out.printf("# Skipped Sites    %d%n", sum.skippedSites);
+        out.printf("# Fraction Skipped 1 / %.0f bp%n", (double) sum.countedSites / sum.skippedSites);
 
         if (sum.solidInsertedReferenceBases != 0) {
-            RAC.RECAL_FILE.printf("# Fraction SOLiD inserted reference 1 / %.0f bases%n", (double) sum.countedBases / sum.solidInsertedReferenceBases);
-            RAC.RECAL_FILE.printf("# Fraction other color space inconsistencies 1 / %.0f bases%n", (double) sum.countedBases / sum.otherColorSpaceInconsistency);
+            out.printf("# Fraction SOLiD inserted reference 1 / %.0f bases%n", (double) sum.countedBases / sum.solidInsertedReferenceBases);
+            out.printf("# Fraction other color space inconsistencies 1 / %.0f bases%n", (double) sum.countedBases / sum.otherColorSpaceInconsistency);
         }
-        
-        for (Covariate cov : RAC.requestedCovariates)
-            RAC.RECAL_FILE.print(cov.getClass().getSimpleName().split("Covariate")[0] + ",");   // Output header saying which covariates were used and in what order
-        RAC.RECAL_FILE.println("EventType,nObservations,nMismatches,Qempirical");               // Output the extra fields contained in the RecalDatumOptimized object plus the "extra covariate" EventType (mismatch, insertion, deletion)
 
-        Object[] output = new Object[RAC.requestedCovariates.size() + 1];                       // +1 because we are also adding the EventType to the outputted key
-        printMappings(RAC.RECAL_FILE, 0, output, RAC.dataManager.nestedHashMap.data);
+        for (Covariate cov : requestedCovariates)
+            out.print(cov.getClass().getSimpleName().split("Covariate")[0] + ",");  // Print header saying which covariates were used and in what order
+        out.println("EventType,nObservations,nMismatches,Qempirical");              // Print the extra fields contained in the RecalDatumOptimized object plus the "extra covariate" EventType (mismatch, insertion, deletion)
 
-        RAC.RECAL_FILE.println("EOF");                                                          // print out an EOF marker
-    }
+        for (Map.Entry<BitSet, RecalDatumOptimized> entry : allCovariatesTable.entrySet()) {
+            for (Object key : keyManager.keySetFrom(entry.getKey()))
+                out.print(key + ",");                                               // Print the keys (covariate values) plus the event type
+            out.println(entry.getValue());                                          // Print the recalibration data
 
-    private void printMappings(final PrintStream recalTableStream, final int curPos, final Object[] output, final Map data) {
-        for (Object key : data.keySet()) {
-            output[curPos] = key;
-            final Object val = data.get(key);
-            if (val instanceof RecalDatumOptimized) {                                           // We are at the end of the nested hash maps
-                boolean isFirstKey = true;
-                for (Object keyToPrint : output) {                                              // For each Covariate in the key
-                    if (isFirstKey) {                                                           // Horrendous hardcoded ReadGroup decodification (this is to test its merits)
-                        ReadGroupCovariate readGroupCovariate = (ReadGroupCovariate) RAC.requestedCovariates.get(0);
-                        keyToPrint = readGroupCovariate.decodeReadGroup((Short) keyToPrint);
-                        isFirstKey = false;
-                    }
-                    if (keyToPrint instanceof BitSet)
-                        recalTableStream.print(MathUtils.dnaFrom((BitSet) keyToPrint) + ",");   // temporary printing utility for the context bitset
-                    else if (keyToPrint == null)
-                        recalTableStream.print("N,");
-                    else
-                        recalTableStream.print(keyToPrint + ",");                               // Output the Covariate's value
-                }
-                recalTableStream.println(((RecalDatumOptimized) val).outputToCSV());            // Output the RecalDatum entry
-            }
-            else                                                                                // Another layer in the nested hash map
-                printMappings(recalTableStream, curPos + 1, output, (Map) val);
         }
+        out.println("EOF");                                                         // Print an EOF marker
     }
 
     public class CountedData {
-        private long countedSites = 0;                          // Number of loci used in the calculations, used for reporting in the output file
-        private long countedBases = 0;                          // Number of bases used in the calculations, used for reporting in the output file
-        private long skippedSites = 0;                          // Number of loci skipped because it was a dbSNP site, used for reporting in the output file
-        private long solidInsertedReferenceBases = 0;           // Number of bases where we believe SOLID has inserted the reference because the color space is inconsistent with the read base
-        private long otherColorSpaceInconsistency = 0;          // Number of bases where the color space is inconsistent with the read but the reference wasn't inserted.
+        private long countedSites = 0;                  // Number of loci used in the calculations, used for reporting in the output file
+        private long countedBases = 0;                  // Number of bases used in the calculations, used for reporting in the output file
+        private long skippedSites = 0;                  // Number of loci skipped because it was a dbSNP site, used for reporting in the output file
+        private long solidInsertedReferenceBases = 0;   // Number of bases where we believe SOLID has inserted the reference because the color space is inconsistent with the read base
+        private long otherColorSpaceInconsistency = 0;  // Number of bases where the color space is inconsistent with the read but the reference wasn't inserted.
 
         /**
          * Adds the values of other to this, returning this
          *
-         * @param other
-         * @return this object
+         * @param other another object
+         * @return this object with the other object incremented
          */
         public CountedData add(CountedData other) {
             countedSites += other.countedSites;
