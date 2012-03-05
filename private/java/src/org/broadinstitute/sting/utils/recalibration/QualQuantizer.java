@@ -43,7 +43,7 @@ import java.util.*;
 public class QualQuantizer {
     private static Logger logger = Logger.getLogger(QualQuantizer.class);
 
-    final int nLevels, originalSize;
+    final int nLevels, originalSize, minInterestingQual;
     final List<Long> nObservationsPerQual;
 
     /** Map from original qual (e.g., Q30) to new quantized qual (e.g., Q28) */
@@ -52,9 +52,10 @@ public class QualQuantizer {
     final TreeSet<QualInterval> quantizedIntervals;
     double overallPenalty;
 
-    public QualQuantizer(final List<Long> nObservationsPerQual, final int nLevels) {
+    public QualQuantizer(final List<Long> nObservationsPerQual, final int nLevels, final int minInterestingQual) {
         this.nObservationsPerQual = nObservationsPerQual;
         this.nLevels = nLevels;
+        this.minInterestingQual = minInterestingQual;
 
         this.originalSize = nObservationsPerQual.size();
         this.penaltyPerQual = new ArrayList<Double>(originalSize);
@@ -67,7 +68,7 @@ public class QualQuantizer {
         this.originalToQuantizedMap = intervalsToMap(quantizedIntervals);
     }
 
-    public static class QualInterval implements Comparable<QualInterval> {
+    public class QualInterval implements Comparable<QualInterval> {
         final int qStart, qEnd;
         final long nObservations;
         final long nErrors;
@@ -144,7 +145,11 @@ public class QualQuantizer {
             // the penalty is the sum of (ei - e*) * Ni for all bins covered by this interval
 
             if ( subIntervals.isEmpty() ) {
-                return (Math.abs(getErrorRate() - globalErrorRate)) * nObservations;
+                if ( this.qEnd <= minInterestingQual )
+                    // It's free to merge up quality scores below the smallest interesting one
+                    return 0;
+                else
+                    return (Math.abs(getErrorRate() - globalErrorRate)) * nObservations;
             } else {
                 double sum = 0;
                 for ( QualInterval interval : subIntervals )
@@ -226,6 +231,27 @@ public class QualQuantizer {
 
     public void writeReport(PrintStream out) {
         final GATKReport report = new GATKReport();
+
+        addQualHistogramToReport(report);
+        addIntervalsToReport(report);
+
+        report.print(out);
+    }
+
+    private final void addQualHistogramToReport(final GATKReport report) {
+        report.addTable("QualHistogram", "Quality score histogram provided to report");
+        GATKReportTable table = report.getTable("QualHistogram");
+
+        table.addPrimaryKey("qual");
+        table.addColumn("count", "NA");
+
+        for ( int q = 0; q < nObservationsPerQual.size(); q++ ) {
+            table.set(q, "count", nObservationsPerQual.get(q));
+        }
+    }
+
+
+    private final void addIntervalsToReport(final GATKReport report) {
         report.addTable("QualQuantizerIntervals", "Table of QualQuantizer quantization intervals");
         GATKReportTable table = report.getTable("QualQuantizerIntervals");
 
@@ -243,8 +269,6 @@ public class QualQuantizer {
 
         for ( QualInterval interval : quantizedIntervals)
             addIntervalToReport(table, interval, true);
-
-        report.print(out);
     }
 
     private final void addIntervalToReport(final GATKReportTable table, QualInterval interval, final boolean atRootP) {

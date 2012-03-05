@@ -88,6 +88,9 @@ public class QuantizeQualsWalker extends ReadWalker<SAMRecord, SAMFileWriter> {
     @Argument(fullName = "nLevels", shortName = "nLevels", doc="The number of quality levels to include in output", required = false)
     int nQualityLevels = 8;
 
+    @Argument(fullName = "minInterestingQual", shortName = "minInterestingQual", doc="Quality scores less than or equal to this value are considered uninteresting, are can be freely merged together", required = false)
+    int minInterestingQual = 10;
+
     @Output(fullName = "report", shortName = "report", doc="Write GATK report of quantization process to this file", required = false)
     PrintStream reportOut = null;
 
@@ -108,7 +111,7 @@ public class QuantizeQualsWalker extends ReadWalker<SAMRecord, SAMFileWriter> {
             nObservationsPerQual.add(count);
         }
 
-        quantizer = new QualQuantizer(nObservationsPerQual, nQualityLevels);
+        quantizer = new QualQuantizer(nObservationsPerQual, nQualityLevels, minInterestingQual);
         if ( reportOut != null ) {
             quantizer.writeReport(reportOut);
         }
