@@ -106,11 +106,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Argument(fullName="keepRG", shortName="keepRG", doc="keepRG", required = false)
     protected String keepRG = null;
 
-    @Argument(fullName="gopHMM", shortName="gopHMM", doc="gopHMM", required = false)
-    protected double gopHMM = 45.0;
-
     @Argument(fullName="gcpHMM", shortName="gcpHMM", doc="gcpHMM", required = false)
-    protected double gcpHMM = 10.0;
+    protected int gcpHMM = 10;
 
     @Argument(fullName="gopSW", shortName="gopSW", doc="gopSW", required = false)
     protected double gopSW = 30.0;
@@ -185,7 +182,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
-        likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG);
+        likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, false );
         genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
     }
 
@@ -201,7 +198,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     // enable non primary reads in the active region
     @Override
-    public boolean wantsNonPrimaryReads() { return true; }
+    public boolean wantsNonPrimaryReads() { return false; }
 
     @Override
     public double isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
