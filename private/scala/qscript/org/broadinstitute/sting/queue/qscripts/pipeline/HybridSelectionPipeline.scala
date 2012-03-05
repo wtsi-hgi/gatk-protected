@@ -72,7 +72,7 @@ class HybridSelectionPipeline extends QScript {
     val dbsnp129 = resources + "dbsnp_132.b37.excluding_sites_after_129.vcf"
     val dbsnp132 = resources + "dbsnp_132.b37.vcf"
 
-    var reference = resources + "human_g1k_v37.fasta"
+    var reference = "/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta"
     var useK1gExomes = false
 
     var projectName: String = null
