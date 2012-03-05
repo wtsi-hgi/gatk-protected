@@ -148,8 +148,15 @@ public class QualQuantizer {
                 if ( this.qEnd <= minInterestingQual )
                     // It's free to merge up quality scores below the smallest interesting one
                     return 0;
-                else
-                    return (Math.abs(getErrorRate() - globalErrorRate)) * nObservations;
+                else {
+                    if ( nErrors == 0 )
+                        return 0;
+                    else {
+                        return (Math.abs(Math.log10(getErrorRate()) - Math.log10(globalErrorRate))) * nObservations;
+                    }
+                }
+                // this is the linear error rate penalty
+                //return (Math.abs(getErrorRate() - globalErrorRate)) * nObservations;
             } else {
                 double sum = 0;
                 for ( QualInterval interval : subIntervals )
