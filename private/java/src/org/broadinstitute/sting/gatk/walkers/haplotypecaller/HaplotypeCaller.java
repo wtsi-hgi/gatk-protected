@@ -25,6 +25,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
+import com.google.java.contract.Ensures;
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
@@ -201,6 +202,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     public boolean wantsNonPrimaryReads() { return false; }
 
     @Override
+    @Ensures({"result >= 0.0", "result <= 1.0"})
     public double isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
 
         if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
@@ -377,9 +379,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             final GATKSAMRecord postAdapterRead = ( myRead.getReadUnmappedFlag() ? myRead : ReadClipper.hardClipAdaptorSequence( myRead ) );
             if( postAdapterRead != null && !postAdapterRead.isEmpty() && postAdapterRead.getCigar().getReadLength() > 0 ) {
                 final GATKSAMRecord clippedRead = ReadClipper.hardClipLowQualEnds(postAdapterRead, MIN_TAIL_QUALITY );
-
                 // protect against INTERVALS with abnormally high coverage
-                if( clippedRead.getReadLength() > 0 && activeRegion.size() < samplesList.size() * DOWNSAMPLE_PER_SAMPLE_PER_REGION ) {
+                if( clippedRead.getReadLength() > 10 && activeRegion.size() < samplesList.size() * DOWNSAMPLE_PER_SAMPLE_PER_REGION ) {
                     activeRegion.add(clippedRead);
                 }
             }
