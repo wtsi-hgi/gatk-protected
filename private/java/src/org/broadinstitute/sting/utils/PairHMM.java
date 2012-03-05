@@ -91,6 +91,7 @@ public class PairHMM {
         final int endI = X_METRIC_LENGTH - 1;
         final int endJ = Y_METRIC_LENGTH - 1;
         
+        /*
         if(MathUtils.approximateLog10SumLog10(matchMetricArray[endI][endJ], XMetricArray[endI][endJ], YMetricArray[endI][endJ]) > 0.0) {
             System.out.println("ERROR! + " + String.format("%f,%f,%f",matchMetricArray[endI][endJ], XMetricArray[endI][endJ], YMetricArray[endI][endJ]) + " = " +MathUtils.approximateLog10SumLog10(matchMetricArray[endI][endJ], XMetricArray[endI][endJ], YMetricArray[endI][endJ]));
             double val = 0.0;
@@ -127,7 +128,8 @@ public class PairHMM {
             }
             System.out.println();
         }
-        return MathUtils.approximateLog10SumLog10(matchMetricArray[endI][endJ], XMetricArray[endI][endJ], YMetricArray[endI][endJ]);
+        */
+        return MathUtils.approximateLog10SumLog10(new double[]{matchMetricArray[endI][endJ], XMetricArray[endI][endJ], YMetricArray[endI][endJ]});
     }
 
     private void updateCell( final int indI, final int indJ, final byte[] haplotypeBases, final byte[] readBases,
@@ -146,11 +148,11 @@ public class PairHMM {
             final byte qual = ( readQuals[im1-1] < QualityUtils.MIN_USABLE_Q_SCORE ? QualityUtils.MIN_USABLE_Q_SCORE : (readQuals[im1-1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : readQuals[im1-1]) );
             pBaseReadLog10 = ( x == y || x == (byte) 'N' || y == (byte) 'N' ? matchPenalty[(int)qual] : mismatchPenalty[(int)qual] );
         }
-        final int GOPindex = ( im1 == 0 ? DEFAULT_GOP + DEFAULT_GOP : ( insertionGOP[im1-1] + deletionGOP[im1-1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : insertionGOP[im1-1] + deletionGOP[im1-1]) );
-        final double d0 = matchPenalty[GOPindex];
+        final int qualIndexGOP = ( im1 == 0 ? DEFAULT_GOP + DEFAULT_GOP : ( insertionGOP[im1-1] + deletionGOP[im1-1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : insertionGOP[im1-1] + deletionGOP[im1-1]) );
+        final double d0 = matchPenalty[qualIndexGOP];
         final double e0 = ( im1 == 0 ? matchPenalty[(int)DEFAULT_GCP] : matchPenalty[(int)overallGCP[im1-1]] );
-        matchMetricArray[indI][indJ] = pBaseReadLog10 + MathUtils.approximateLog10SumLog10(matchMetricArray[indI-1][indJ-1] + d0,
-                                        XMetricArray[indI-1][indJ-1] + e0, YMetricArray[indI-1][indJ-1] + e0);
+        matchMetricArray[indI][indJ] = pBaseReadLog10 + MathUtils.approximateLog10SumLog10(
+                new double[]{matchMetricArray[indI-1][indJ-1] + d0, XMetricArray[indI-1][indJ-1] + e0, YMetricArray[indI-1][indJ-1] + e0});
 
         // update the X (insertion) array
         final double d1 = ( im1 == 0 ? mismatchPenalty[(int)DEFAULT_GOP] : mismatchPenalty[(int)insertionGOP[im1-1]] );

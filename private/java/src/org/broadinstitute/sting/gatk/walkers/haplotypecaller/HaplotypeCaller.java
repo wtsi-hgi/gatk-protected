@@ -236,7 +236,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
                         qual = (byte) ((int)qual + 6); // be overly permissive so as to not miss any slight signal of variation
                     } 
                     genotypeLikelihoods[AA] += Math.log10(QualityUtils.qualToProb(qual));
-                    genotypeLikelihoods[AB] += MathUtils.softMax(Math.log10(QualityUtils.qualToProb(qual)) + LOG_ONE_HALF, Math.log10(QualityUtils.qualToErrorProb(qual)) + LOG_ONE_THIRD + LOG_ONE_HALF);
+                    genotypeLikelihoods[AB] += MathUtils.approximateLog10SumLog10(Math.log10(QualityUtils.qualToProb(qual)) + LOG_ONE_HALF, Math.log10(QualityUtils.qualToErrorProb(qual)) + LOG_ONE_THIRD + LOG_ONE_HALF);
                     genotypeLikelihoods[BB] += Math.log10(QualityUtils.qualToErrorProb(qual)) + LOG_ONE_THIRD;
                 }
             }
