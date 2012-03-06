@@ -20,7 +20,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     // the additional size of a valid chunk of sequence, used to string together k-mers
     private static final int KMER_OVERLAP = 6;
 
-    private static final int PRUNE_FACTOR = 3;
+    private static final int PRUNE_FACTOR = 2;
 
     // the deBruijn graph object
     private final ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>> graphs = new ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>>();
