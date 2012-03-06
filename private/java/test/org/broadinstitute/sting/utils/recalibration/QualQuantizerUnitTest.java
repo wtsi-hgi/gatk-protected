@@ -63,8 +63,9 @@ public class QualQuantizerUnitTest extends BaseTest {
         private QualIntervalTestProvider(int leftE, int leftN, int rightE, int rightN, int exError, int exTotal) {
             super(QualIntervalTestProvider.class);
 
-            left = new QualQuantizer.QualInterval(10, 10, leftN, leftE);
-            right = new QualQuantizer.QualInterval(10, 10, rightN, rightE);
+            QualQuantizer qq = new QualQuantizer();
+            left = qq.new QualInterval(10, 10, leftN, leftE, 0);
+            right = qq.new QualInterval(10, 10, rightN, rightE, 0);
 
             this.exError = exError;
             this.exTotal = exTotal;
@@ -138,7 +139,7 @@ public class QualQuantizerUnitTest extends BaseTest {
 
     @Test(dataProvider = "QuantizerTestProvider", enabled = true)
     public void testQuantizer(QuantizerTestProvider cfg) {
-        QualQuantizer qq = new QualQuantizer(cfg.nObservationsPerQual, cfg.nLevels);
+        QualQuantizer qq = new QualQuantizer(cfg.nObservationsPerQual, cfg.nLevels, 0);
         logger.warn("cfg: " + cfg);
         for ( int i = 0; i < cfg.expectedMap.size(); i++) {
             int expected = cfg.expectedMap.get(i);

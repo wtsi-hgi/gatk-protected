@@ -133,11 +133,11 @@ public class QuantizeQualsWalker extends ReadWalker<SAMRecord, SAMFileWriter> {
             quantizedQuals[i] = nq;
         }
 
-        //if ( logger.isDebugEnabled() ) {
-            logger.info("Readname: " + read.getReadName());
-            logger.info("      OQ: " + SAMUtils.phredToFastq(read.getBaseQualities()));
-            logger.info("      NQ: " + SAMUtils.phredToFastq(quantizedQuals));
-        //}
+//        if ( logger.isDebugEnabled() ) {
+//            logger.info("Readname: " + read.getReadName());
+//            logger.info("      OQ: " + SAMUtils.phredToFastq(read.getBaseQualities()));
+//            logger.info("      NQ: " + SAMUtils.phredToFastq(quantizedQuals));
+//        }
 
         read.setBaseQualities(quantizedQuals); // Overwrite old qualities with new recalibrated qualities
         return read;

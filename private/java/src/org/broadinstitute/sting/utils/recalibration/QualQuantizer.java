@@ -52,6 +52,11 @@ public class QualQuantizer {
     final TreeSet<QualInterval> quantizedIntervals;
     double overallPenalty;
 
+    protected QualQuantizer() {
+        this(Collections.<Long>emptyList(), 0, 0);
+        // for testing purposes only
+    }
+
     public QualQuantizer(final List<Long> nObservationsPerQual, final int nLevels, final int minInterestingQual) {
         this.nObservationsPerQual = nObservationsPerQual;
         this.nLevels = nLevels;
