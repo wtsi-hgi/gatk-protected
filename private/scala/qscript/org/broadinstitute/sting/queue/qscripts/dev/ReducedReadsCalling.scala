@@ -114,6 +114,9 @@ class ReducedReadsCalling extends QScript {
       add(reduce)
     }
 
+    // TODO -- If we encounter too much overhead from having so many individual files,
+    // TODO --   first merge these files together into batches (of 100?)
+
     val writeBamList = new ListWriterFunction
     writeBamList.inputFiles = reducedBamList
     writeBamList.listFile = projectName + ".reduced.bam.list"
@@ -152,6 +155,9 @@ class ReducedReadsCalling extends QScript {
       "97.0",
       "95.0",
       "90.0")
+
+    // TODO -- This step can be really slow for big VCF files (many samples = many genotypes);
+    // TODO --   maybe we should run VQSR in parallel?
 
     val buildSNPModel = new VariantRecalibrator with CommandLineGATKArgs with ExpandedIntervals
     buildSNPModel.input :+= selectSNPs.out
