@@ -53,8 +53,13 @@ public class QualQuantizer {
     double overallPenalty;
 
     protected QualQuantizer() {
-        this(Collections.<Long>emptyList(), 0, 0);
-        // for testing purposes only
+        this.nObservationsPerQual = Collections.emptyList();
+        this.nLevels = 0;
+        this.minInterestingQual = 0;
+        this.originalSize = 0;
+        this.penaltyPerQual = Collections.emptyList();
+        this.quantizedIntervals = null;
+        this.originalToQuantizedMap = null;
     }
 
     public QualQuantizer(final List<Long> nObservationsPerQual, final int nLevels, final int minInterestingQual) {
