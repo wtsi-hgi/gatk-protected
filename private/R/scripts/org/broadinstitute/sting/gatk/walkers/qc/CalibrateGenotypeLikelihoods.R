@@ -56,7 +56,8 @@ if ( onCmdLine ) {
 }
 pdf(paste(inputDataFile, ".pdf", sep=""))
 
-ymax = xmax = 30 
+for ( xmax in c(30, 99) ) { # loop over just meaningful subset and all 
+ymax = 30
 goodEByComp = subset(eByComp, Sum > 10 & EmpiricalPofGQ < Inf)
 
 #First graph, overall likelihoods 
@@ -82,3 +83,4 @@ tryCatch(
     print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(-10,10)) + geom_abline(slope=0, linetype=2))
   }
 )
+}
