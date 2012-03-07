@@ -24,10 +24,14 @@
 
 package org.broadinstitute.sting.utils.recalibration;
 
+import net.sf.samtools.SAMReadGroupRecord;
 import org.apache.log4j.Logger;
+import org.broadinstitute.sting.gatk.report.GATKReport;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 
+import java.io.PrintStream;
 import java.util.*;
 
 /**
@@ -39,7 +43,7 @@ import java.util.*;
 public class QualQuantizer {
     private static Logger logger = Logger.getLogger(QualQuantizer.class);
 
-    final int nLevels, originalSize;
+    final int nLevels, originalSize, minInterestingQual;
     final List<Long> nObservationsPerQual;
 
     /** Map from original qual (e.g., Q30) to new quantized qual (e.g., Q28) */
@@ -48,9 +52,20 @@ public class QualQuantizer {
     final TreeSet<QualInterval> quantizedIntervals;
     double overallPenalty;
 
-    public QualQuantizer(final List<Long> nObservationsPerQual, final int nLevels) {
+    protected QualQuantizer() {
+        this.nObservationsPerQual = Collections.emptyList();
+        this.nLevels = 0;
+        this.minInterestingQual = 0;
+        this.originalSize = 0;
+        this.penaltyPerQual = Collections.emptyList();
+        this.quantizedIntervals = null;
+        this.originalToQuantizedMap = null;
+    }
+
+    public QualQuantizer(final List<Long> nObservationsPerQual, final int nLevels, final int minInterestingQual) {
         this.nObservationsPerQual = nObservationsPerQual;
         this.nLevels = nLevels;
+        this.minInterestingQual = minInterestingQual;
 
         this.originalSize = nObservationsPerQual.size();
         this.penaltyPerQual = new ArrayList<Double>(originalSize);
@@ -63,23 +78,36 @@ public class QualQuantizer {
         this.originalToQuantizedMap = intervalsToMap(quantizedIntervals);
     }
 
-    public static class QualInterval implements Comparable<QualInterval> {
+    public class QualInterval implements Comparable<QualInterval> {
         final int qStart, qEnd;
         final long nObservations;
         final long nErrors;
         final int fixedQual;
+        final int level;
+        int mergeOrder;
         Set<QualInterval> subIntervals = new HashSet<QualInterval>();
 
-        public QualInterval(final int qStart, final int qEnd, final long nObservations, final long nErrors) {
-            this(qStart, qEnd, nObservations, nErrors, -1);
+        public QualInterval(final int qStart, final int qEnd, final long nObservations, final long nErrors, final int level) {
+            this(qStart, qEnd, nObservations, nErrors, level, -1);
         }
 
-        public QualInterval(final int qStart, final int qEnd, final long nObservations, final long nErrors, final int fixedQual) {
+        public QualInterval(final int qStart, final int qEnd, final long nObservations, final long nErrors, final int level, final int fixedQual) {
             this.qStart = qStart;
             this.qEnd = qEnd;
             this.nObservations = nObservations;
             this.nErrors = nErrors;
             this.fixedQual = fixedQual;
+            this.level = level;
+            this.mergeOrder = 0;
+        }
+
+        public String getName() {
+            return qStart + "-" + qEnd;
+        }
+
+        @Override
+        public String toString() {
+            return "QQ:" + getName();
         }
 
         public double getErrorRate() {
@@ -109,7 +137,8 @@ public class QualQuantizer {
             final long nCombinedObs = left.nObservations + right.nObservations;
             final long nCombinedErr = left.nErrors + right.nErrors;
 
-            QualInterval merged = new QualInterval(left.qStart, right.qEnd, nCombinedObs, nCombinedErr );
+            final int level = Math.max(left.level, right.level) + 1;
+            QualInterval merged = new QualInterval(left.qStart, right.qEnd, nCombinedObs, nCombinedErr, level );
             merged.subIntervals.add(left);
             merged.subIntervals.add(right);
 
@@ -126,7 +155,18 @@ public class QualQuantizer {
             // the penalty is the sum of (ei - e*) * Ni for all bins covered by this interval
 
             if ( subIntervals.isEmpty() ) {
-                return (Math.abs(getErrorRate() - globalErrorRate)) * nObservations;
+                if ( this.qEnd <= minInterestingQual )
+                    // It's free to merge up quality scores below the smallest interesting one
+                    return 0;
+                else {
+                    if ( nErrors == 0 )
+                        return 0;
+                    else {
+                        return (Math.abs(Math.log10(getErrorRate()) - Math.log10(globalErrorRate))) * nObservations;
+                    }
+                }
+                // this is the linear error rate penalty
+                //return (Math.abs(getErrorRate() - globalErrorRate)) * nObservations;
             } else {
                 double sum = 0;
                 for ( QualInterval interval : subIntervals )
@@ -143,7 +183,7 @@ public class QualQuantizer {
             final long nObs = nObservationsPerQual.get(qStart);
             final double errorRate = QualityUtils.qualToErrorProb((byte)qStart);
             final double nErrors = nObs * errorRate;
-            final QualInterval qi = new QualInterval(qStart, qStart, nObs, (int)Math.floor(nErrors), (byte)qStart);
+            final QualInterval qi = new QualInterval(qStart, qStart, nObs, (int)Math.floor(nErrors), 0, (byte)qStart);
             intervals.add(qi);
         }
 
@@ -173,10 +213,12 @@ public class QualQuantizer {
 
         QualInterval minMerge = null;
         logger.info("mergeLowestPenaltyIntervals: " + intervals.size());
+        int lastMergeOrder = 0;
         while ( it1p.hasNext() ) {
             final QualInterval left = it1.next();
             final QualInterval right = it1p.next();
             final QualInterval merged = left.merge(right);
+            lastMergeOrder = Math.max(Math.max(lastMergeOrder, left.mergeOrder), right.mergeOrder);
             if ( minMerge == null || (merged.getPenalty() < minMerge.getPenalty() ) ) {
                 logger.info("  Updating merge " + minMerge);
                 minMerge = merged;
@@ -185,6 +227,7 @@ public class QualQuantizer {
         logger.info("  => final min merge " + minMerge);
         intervals.removeAll(minMerge.subIntervals);
         intervals.add(minMerge);
+        minMerge.mergeOrder = lastMergeOrder + 1;
         logger.info("updated intervals: " + intervals);
     }
 
@@ -201,5 +244,75 @@ public class QualQuantizer {
             throw new ReviewedStingException("quantized quality score map contains an un-initialized value");
 
         return map;
+    }
+
+    public void writeReport(PrintStream out) {
+        final GATKReport report = new GATKReport();
+
+        addQualHistogramToReport(report);
+        addIntervalsToReport(report);
+
+        report.print(out);
+    }
+
+    private final void addQualHistogramToReport(final GATKReport report) {
+        report.addTable("QualHistogram", "Quality score histogram provided to report");
+        GATKReportTable table = report.getTable("QualHistogram");
+
+        table.addPrimaryKey("qual");
+        table.addColumn("count", "NA");
+
+        for ( int q = 0; q < nObservationsPerQual.size(); q++ ) {
+            table.set(q, "count", nObservationsPerQual.get(q));
+        }
+    }
+
+
+    private final void addIntervalsToReport(final GATKReport report) {
+        report.addTable("QualQuantizerIntervals", "Table of QualQuantizer quantization intervals");
+        GATKReportTable table = report.getTable("QualQuantizerIntervals");
+
+        table.addPrimaryKey("name");
+        table.addColumn("qStart", "NA");
+        table.addColumn("qEnd", "NA");
+        table.addColumn("level", "NA");
+        table.addColumn("merge.order", "NA");
+        table.addColumn("nErrors", "NA");
+        table.addColumn("nObservations", "NA");
+        table.addColumn("qual", "NA");
+        table.addColumn("penalty", "NA");
+        table.addColumn("root.node", "NA");
+        //table.addColumn("subintervals", "NA");
+
+        for ( QualInterval interval : quantizedIntervals)
+            addIntervalToReport(table, interval, true);
+    }
+
+    private final void addIntervalToReport(final GATKReportTable table, QualInterval interval, final boolean atRootP) {
+        final String name = interval.getName();
+        table.set(name, "qStart", interval.qStart);
+        table.set(name, "qEnd", interval.qEnd);
+        table.set(name, "level", interval.level);
+        table.set(name, "merge.order", interval.mergeOrder);
+        table.set(name, "nErrors", interval.nErrors);
+        table.set(name, "nObservations", interval.nObservations);
+        table.set(name, "qual", interval.getQual());
+        table.set(name, "penalty", String.format("%.1f", interval.getPenalty()));
+        table.set(name, "root.node", atRootP);
+
+        for ( final QualInterval sub : interval.subIntervals )
+            addIntervalToReport(table, sub, false);
+    }
+
+    public List<Byte> getOriginalToQuantizedMap() {
+        return originalToQuantizedMap;
+    }
+
+    public TreeSet<QualInterval> getQuantizedIntervals() {
+        return quantizedIntervals;
+    }
+
+    public double getOverallPenalty() {
+        return overallPenalty;
     }
 }
