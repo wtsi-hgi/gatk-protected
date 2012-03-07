@@ -25,9 +25,7 @@ class EvaluateQuantizedQuals extends QScript {
   }
 
   def script = {
-    def makeOneEval(nLevels: Int, maybeUG: Option[UnifiedGenotyper] = None): UnifiedGenotyper = {
-      val inputBAM = makeResource(INPUT_BAM_FILENAME)
-      val outputRoot = "levels.%s".format(nLevels)
+    def quantizeBAM(inputBAM: File, outputRoot: String, nLevels: Int, maybeUG: Option[UnifiedGenotyper] = None): File = {
       val QQ = new QuantizeQuals with UNIVERSAL_GATK_ARGS
       QQ.input_file :+= inputBAM
       QQ.o = new File(outputRoot + ".bam")
@@ -36,36 +34,49 @@ class EvaluateQuantizedQuals extends QScript {
       QQ.report = new File(outputRoot + ".quantize.report.txt")
       QQ.qualityHistogram = INPUT_BAM_QUAL_HIST
       add(QQ)
+      QQ.o
+    }
 
+    def analyzeBAM(inputBAM: File, outputRoot: String, maybeFullVCF: Option[File] = None): File = {
       val CGL = new CalibrateGenotypeLikelihoods with UNIVERSAL_GATK_ARGS
-      CGL.input_file :+= QQ.o
+      CGL.input_file :+= inputBAM
       CGL.alleles = new File(INPUT_BAM_ALLELES)
       CGL.out = new File(outputRoot + ".gcl")
       add(CGL)
 
       val UG = new UnifiedGenotyper with UNIVERSAL_GATK_ARGS
-      UG.input_file :+= QQ.o
+      UG.input_file :+= inputBAM
       UG.dbsnp = makeResource("dbsnp_132.b37.vcf")
       UG.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
       UG.out = new File(outputRoot + ".ug.vcf")
       add(UG)
 
-      if ( ! maybeUG.isEmpty ) {
+      if ( ! maybeFullVCF.isEmpty ) {
         val VE = new VariantEval with UNIVERSAL_GATK_ARGS
         VE.eval :+= new TaggedFile(UG.out, "eval")
         VE.out = new File(outputRoot + ".variant_eval.gatkreport.txt")
-        VE.comp :+= new TaggedFile(maybeUG.get.out, "fullVCF")
-        VE.dbsnp = new TaggedFile(maybeUG.get.out, "dbSNP")
+        VE.comp :+= new TaggedFile(maybeFullVCF.get, "fullVCF")
+        VE.dbsnp = new TaggedFile(maybeFullVCF.get, "dbSNP")
         add(VE)
       }
 
-      UG
+      UG.o
     }
 
-    val fullUG = makeOneEval(64)
+    val inputBAM = quantizeBAM(makeResource(INPUT_BAM_FILENAME), "full", 64)
+    val fullVCF = analyzeBAM(inputBAM, "full")
 
-    for ( nLevels <- if (TEST) List(4) else List(1, 2, 4, 8, 16, 32) ) {
-      makeOneEval(nLevels, Some(fullUG))
+    for ( nLevels <- if (TEST) List(4) else List(1, 2, 4, 8, 16, 32, 64) ) {
+      val outputRoot = "levels.%s".format(nLevels)
+      val QQBAM = quantizeBAM(inputBAM, outputRoot + ".qq", nLevels)
+      analyzeBAM(QQBAM, outputRoot, Some(fullVCF))
+
+      val RR = new ReduceReads with UNIVERSAL_GATK_ARGS
+      RR.input_file :+= QQBAM
+      RR.out = swapExt(QQBAM, "bam", "reduced.bam")
+      add(RR)
+
+      analyzeBAM(RR.out, outputRoot + ".qq.reduced", Some(fullVCF))
     }
   }
 }
