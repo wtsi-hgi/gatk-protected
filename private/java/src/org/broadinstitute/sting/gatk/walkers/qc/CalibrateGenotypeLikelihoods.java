@@ -343,7 +343,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     public void onTraversalDone(Data data) {
         // print the header
         List<String> pGNames = Arrays.asList("QofAAGivenD", "QofABGivenD", "QofBBGivenD");
-        List<String> fields = Arrays.asList("sample", "rg", "loc", "ref", "alt", "siteType", "pls", "comp", "pGGivenDType", "pGGivenD");
+        List<String> fields = Arrays.asList("sample", "rg", "loc", "ref", "alt", "siteType", "pls", "comp", "pGGivenDType", "pGGivenD", "pDGivenG");
         moltenDataset.println(Utils.join("\t", fields));
 
         // determine the priors by counting all of the events we've seen in comp
@@ -357,15 +357,18 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
         // emit the molten data set
         for ( Datum d : data.values ) {
-            double[] log10pGGivenD = d.pl.getAsVector().clone();
+            final double[] log10pDGivenG = d.pl.getAsVector();
+            final double[] log10pGGivenD = log10pDGivenG.clone();
             for ( int i = 0; i < log10priors.length; i++ ) log10pGGivenD[i] += log10priors[i];
-            double[] pOfGGivenD = MathUtils.normalizeFromLog10(log10pGGivenD, false);
+            final double[] pOfDGivenG = MathUtils.normalizeFromLog10(log10pDGivenG, false);
+            final double[] pOfGGivenD = MathUtils.normalizeFromLog10(log10pGGivenD, false);
             for ( int i = 0; i < pGNames.size(); i++ ) {
-                int q = QualityUtils.probToQual(pOfGGivenD[i], Math.pow(10.0, -9.9));
-                if ( q > 1 ) { // tons of 1s, and not interesting
-                    moltenDataset.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d%n",
+                final int qDGivenG = QualityUtils.probToQual(pOfDGivenG[i], QualityUtils.ERROR_RATE_OF_MAX_QUAL_SCORE);
+                final int qGGivenD = QualityUtils.probToQual(pOfGGivenD[i], QualityUtils.ERROR_RATE_OF_MAX_QUAL_SCORE);
+                if ( qGGivenD > 1 ) { // tons of 1s, and not interesting
+                    moltenDataset.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d%n",
                             d.sample, d.rgID, d.loc, d.ref, d.alt, d.siteType, d.pl.getAsString(), d.genotypeType.toString(),
-                            pGNames.get(i), q);
+                            pGNames.get(i), qGGivenD, qDGivenG);
                 }
             }
         }
