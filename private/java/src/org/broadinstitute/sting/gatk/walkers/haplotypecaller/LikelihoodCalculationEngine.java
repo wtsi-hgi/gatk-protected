@@ -27,71 +27,27 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.utils.PairHMM;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.*;
 
 public class LikelihoodCalculationEngine {
 
-    private static final int MATCH_OFFSET = 0;
-    private static final int X_OFFSET = 1;
-    private static final int Y_OFFSET = 2;
-
-    private static final int DIAG = 0;
-    private static final int UP = 1;
-    private static final int LEFT = 2;
-
-    private static final int DIAG_GOTO_M = 0;
-    private static final int DIAG_GOTO_X = 1;
-    private static final int DIAG_GOTO_Y = 2;
-
-    private static final int UP_GOTO_M = 4;
-    private static final int UP_GOTO_X = 5;
-    private static final int UP_GOTO_Y = 6;
-
-    private static final int LEFT_GOTO_M = 8;
-    private static final int LEFT_GOTO_X = 9;
-    private static final int LEFT_GOTO_Y = 10;
-
-    private static final int[] ACTIONS_M = {DIAG_GOTO_M, DIAG_GOTO_X, DIAG_GOTO_Y};
-    private static final int[] ACTIONS_X = {UP_GOTO_M, UP_GOTO_X, UP_GOTO_Y};
-    private static final int[] ACTIONS_Y = {LEFT_GOTO_M, LEFT_GOTO_X, LEFT_GOTO_Y};
-
-    private final double logGapOpenProbability;
-    private final double logGapContinuationProbability;
-
-    private boolean DEBUG = false;
-
-    private static final int MAX_CACHED_QUAL = (int)Byte.MAX_VALUE;
-
-    private static final double baseMatchArray[];
-    private static final double baseMismatchArray[];
-
     private final static double LOG_ONE_HALF;
-    private final static double END_GAP_COST;
-
+    private final byte constantGCP;
+    private final boolean DEBUG;
+    private final PairHMM pairHMM;
     public Double haplotypeLikehoodMatrix[][];
 
     static {
         LOG_ONE_HALF = -Math.log10(2.0);
-        END_GAP_COST = LOG_ONE_HALF;
-
-        baseMatchArray = new double[MAX_CACHED_QUAL+1];
-        baseMismatchArray = new double[MAX_CACHED_QUAL+1];
-        for (int k=1; k <= MAX_CACHED_QUAL; k++) {
-            double baseProb = Math.pow(10.0, ((double) -k)/10.0);
-
-            baseMatchArray[k] =  Math.log10(1.0-baseProb);
-            baseMismatchArray[k] = Math.log10(baseProb);
-        }
     }
 
-    public LikelihoodCalculationEngine( double indelGOP, double indelGCP, boolean debug ) {
-
-        this.logGapOpenProbability = -indelGOP/10.0; // QUAL to log prob
-        this.logGapContinuationProbability = -indelGCP/10.0; // QUAL to log prob
-        this.DEBUG = debug;
+    public LikelihoodCalculationEngine( final byte constantGCP, final boolean debug ) {
+        pairHMM = new PairHMM();
+        this.constantGCP = constantGCP;
+        DEBUG = debug;
     }
 
     public void computeLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<GATKSAMRecord> reads ) {
@@ -113,33 +69,13 @@ public class LikelihoodCalculationEngine {
 
         for( int iii = 0; iii < reads.size(); iii++ ) {
             final GATKSAMRecord read = reads.get(iii);
-
-            // initialize path metric and traceback memories for likelihood computation
-            double[][] matchMetricArray = null, XMetricArray = null, YMetricArray = null;
-            byte[] previousHaplotypeSeen = null;
-
-            final double[] log10InsertionGapOpenProbabilities = QualityUtils.qualArrayToLog10ErrorProb( read.getBaseInsertionQualities() );
-            final double[] log10DeletionGapOpenProbabilities = QualityUtils.qualArrayToLog10ErrorProb( read.getBaseDeletionQualities() );
-            final double[] log10GapContinuationProbabilities = new double[read.getReadLength()];
-            Arrays.fill( log10GapContinuationProbabilities, logGapContinuationProbability ); // Is there a way to derive empirical estimates for this from the data?
-
-            for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
-                final byte[] haplotypeBases = haplotypes.get(jjj).getBases();
-                
-                if (matchMetricArray == null) {
-                    final int X_METRIC_LENGTH = read.getReadLength()+1;
-                    final int Y_METRIC_LENGTH = haplotypeBases.length+1;
-
-                    matchMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
-                    XMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
-                    YMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
-                }
-                
-                final int startIdx = ( previousHaplotypeSeen == null ? 0 : computeFirstDifferingPosition(haplotypeBases, previousHaplotypeSeen) );
-                previousHaplotypeSeen = haplotypeBases.clone();
-
-                readLikelihoods[iii][jjj] = computeReadLikelihoodGivenHaplotypeAffineGaps(haplotypeBases, read.getReadBases(), read.getBaseQualities(),
-                        log10InsertionGapOpenProbabilities, log10DeletionGapOpenProbabilities, log10GapContinuationProbabilities, startIdx, matchMetricArray, XMetricArray, YMetricArray);
+            if( DEBUG ) { System.out.println(read.toString()); }
+            final byte[] overallGCP = new byte[read.getReadLength()];
+            Arrays.fill( overallGCP, constantGCP ); // Is there a way to derive empirical estimates for this from the data?
+            for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {                
+                readLikelihoods[iii][jjj] = pairHMM.computeReadLikelihoodGivenHaplotype(haplotypes.get(jjj).getBases(), read.getReadBases(),
+                        read.getBaseQualities(), read.getBaseInsertionQualities(), read.getBaseDeletionQualities(), overallGCP);
+                if( DEBUG ) { System.out.println(">> " + jjj + ":\t" + readLikelihoods[iii][jjj]); }
             }
         }
 
@@ -153,11 +89,13 @@ public class LikelihoodCalculationEngine {
                         continue;
                     }
 
+                    /*
                     final GATKSAMRecord read = reads.get(kkk);
                     final int mappingLength = read.getAlignmentEnd() - read.getAlignmentStart() + 1;
                     final double mappingProb = 1.0 - Math.max(0.0, (100.0 - ((double)mappingLength)) / 100.0); //BUGBUG: 101!, needs to pull from the empirical read length distribution per read group
-
                     haplotypeLikehoodMatrix[iii][jjj] += (mappingProb*mappingProb) * ( MathUtils.softMax(readLikelihoods[kkk][iii], readLikelihoods[kkk][jjj]) + LOG_ONE_HALF ); // BUGBUG: needs to be a logged probability
+                    */
+                    haplotypeLikehoodMatrix[iii][jjj] += MathUtils.approximateLog10SumLog10(readLikelihoods[kkk][iii], readLikelihoods[kkk][jjj]) + LOG_ONE_HALF;
                 }
             }
         }
@@ -212,219 +150,4 @@ public class LikelihoodCalculationEngine {
 
         return bestHaplotypesList;
     }
-
-    /********************************************************
-     * HMM functions copied from PairHMMIndelErrorModel
-     ********************************************************/
-
-    private int computeFirstDifferingPosition(byte[] b1, byte[] b2) {
-        if (b1.length != b2.length)
-            return 0; // sanity check
-
-        for (int i=0; i < b1.length; i++ ){
-            if ( b1[i] != b2[i] )
-                return i;
-        }
-        return b1.length;
-    }
-
-    private void updateCell(final int indI, final int indJ, final int X_METRIC_LENGTH, final int Y_METRIC_LENGTH, byte[] readBases, byte[] readQuals, byte[] haplotypeBases,
-                            double[] currentInsertionGOP, double[] currentDeletionGOP, double[] currentGCP,  double[][] matchMetricArray,  double[][] XMetricArray,  double[][] YMetricArray) {
-        if (indI > 0 && indJ > 0) {
-            final int im1 = indI - 1;
-            final int jm1 = indJ - 1;
-            // update current point
-            final byte x = readBases[im1];
-            final byte y = haplotypeBases[jm1];
-            final byte qual = readQuals[im1] < 1 ? 1 : (readQuals[im1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : readQuals[im1]);
-
-            final double pBaseRead = ( x == y || x == (byte) 'N' || y == (byte) 'N' ? baseMatchArray[(int)qual] : baseMismatchArray[(int)qual] );
-
-            matchMetricArray[indI][indJ] = MathUtils.softMax(matchMetricArray[im1][jm1] + pBaseRead, XMetricArray[im1][jm1] + pBaseRead,
-                    YMetricArray[im1][jm1] + pBaseRead);
-
-            // update X array
-            final double c1 = indJ == Y_METRIC_LENGTH-1 ? END_GAP_COST : currentInsertionGOP[im1];
-            final double d1 = indJ == Y_METRIC_LENGTH-1 ? END_GAP_COST : currentGCP[im1];
-            XMetricArray[indI][indJ] = MathUtils.softMax(matchMetricArray[im1][indJ] + c1, XMetricArray[im1][indJ] + d1);
-
-            // update Y array
-            final double c2 = indI == X_METRIC_LENGTH-1 ? END_GAP_COST : currentDeletionGOP[im1];
-            final double d2 = indI == X_METRIC_LENGTH-1 ? END_GAP_COST : currentGCP[im1];
-            YMetricArray[indI][indJ] = MathUtils.softMax(matchMetricArray[indI][jm1] + c2, YMetricArray[indI][jm1] + d2);
-        }
-    }
-
-    protected double computeReadLikelihoodGivenHaplotypeAffineGaps(byte[] haplotypeBases, byte[] readBases, byte[] readQuals,
-                                                                 double[] currentInsertionGOP, double[] currentDeletionGOP, double[] currentGCP, int indToStart,
-                                                                 double[][] matchMetricArray, double[][] XMetricArray, double[][] YMetricArray) {
-
-        final boolean bandedLikelihoods = false;
-        final int X_METRIC_LENGTH = readBases.length+1;
-        final int Y_METRIC_LENGTH = haplotypeBases.length+1;
-
-        if (indToStart == 0) {
-            // default initialization for all arrays
-
-            for (int i=0; i < X_METRIC_LENGTH; i++) {
-                Arrays.fill(matchMetricArray[i],Double.NEGATIVE_INFINITY);
-                Arrays.fill(YMetricArray[i],Double.NEGATIVE_INFINITY);
-                Arrays.fill(XMetricArray[i],Double.NEGATIVE_INFINITY);
-            }
-
-            for (int i=1; i < X_METRIC_LENGTH; i++) {
-                //initialize first column
-                XMetricArray[i][0]      = END_GAP_COST*(i);
-            }
-
-            for (int j=1; j < Y_METRIC_LENGTH; j++) {
-                // initialize first row
-                YMetricArray[0][j]      = END_GAP_COST*(j);
-            }
-            matchMetricArray[0][0]= END_GAP_COST;//Double.NEGATIVE_INFINITY;
-            XMetricArray[0][0]=  YMetricArray[0][0] = 0;
-        }
-
-
-        if (bandedLikelihoods) { // BUGBUG: careful, functions are out of sync now with PairHMMIndelErrorModel
-            final double DIAG_TOL = 20; // means that max - min element in diags have to be > this number for banding to take effect.
-
-            final int numDiags = X_METRIC_LENGTH +  Y_METRIC_LENGTH -1;
-            final int elemsInDiag = Math.min(X_METRIC_LENGTH, Y_METRIC_LENGTH);
-
-            int idxWithMaxElement = 0;
-
-            for (int  diag=indToStart; diag <  numDiags; diag++) {
-                // compute default I and J start positions at edge of diagonals
-                int indI = 0;
-                int indJ = diag;
-                if (diag >= Y_METRIC_LENGTH ) {
-                    indI = diag-(Y_METRIC_LENGTH-1);
-                    indJ = Y_METRIC_LENGTH-1;
-                }
-
-                // first pass: from max element to edge
-                int idxLow =  idxWithMaxElement;
-
-                // reset diag max value before starting
-                double maxElementInDiag = Double.NEGATIVE_INFINITY;
-                // set indI, indJ to correct values
-                indI += idxLow;
-                indJ -= idxLow;
-                if (indI >= X_METRIC_LENGTH || indJ < 0) {
-                    idxLow--;
-                    indI--;
-                    indJ++;
-                }
-
-
-                for (int el = idxLow; el < elemsInDiag; el++) {
-                    updateCell(indI, indJ, X_METRIC_LENGTH, Y_METRIC_LENGTH, readBases, readQuals, haplotypeBases,
-                            currentInsertionGOP, currentDeletionGOP, currentGCP,  matchMetricArray,  XMetricArray, YMetricArray);
-                    // update max in diagonal
-                    final double bestMetric = MathUtils.max(matchMetricArray[indI][indJ], XMetricArray[indI][indJ], YMetricArray[indI][indJ]);
-
-                    // check if we've fallen off diagonal value by threshold
-                    if (bestMetric > maxElementInDiag) {
-                        maxElementInDiag = bestMetric;
-                        idxWithMaxElement = el;
-                    }
-                    else if (bestMetric < maxElementInDiag - DIAG_TOL && idxWithMaxElement > 0)
-                        break; // done w/current diagonal
-
-                    indI++;
-                    if (indI >=X_METRIC_LENGTH )
-                        break;
-                    indJ--;
-                    if (indJ <= 0)
-                        break;
-                }
-                if (idxLow > 0) {
-                    // now do second part in opposite direction
-                    indI = 0;
-                    indJ = diag;
-                    if (diag >= Y_METRIC_LENGTH ) {
-                        indI = diag-(Y_METRIC_LENGTH-1);
-                        indJ = Y_METRIC_LENGTH-1;
-                    }
-
-                    indI += idxLow-1;
-                    indJ -= idxLow-1;
-                    for (int el = idxLow-1; el >= 0; el--) {
-
-                        updateCell(indI, indJ, X_METRIC_LENGTH, Y_METRIC_LENGTH, readBases, readQuals, haplotypeBases,
-                                currentInsertionGOP, currentDeletionGOP, currentGCP,  matchMetricArray,  XMetricArray, YMetricArray);
-                        // update max in diagonal
-                        final double bestMetric = MathUtils.max(matchMetricArray[indI][indJ], XMetricArray[indI][indJ], YMetricArray[indI][indJ]);
-
-                        // check if we've fallen off diagonal value by threshold
-                        if (bestMetric > maxElementInDiag) {
-                            maxElementInDiag = bestMetric;
-                            idxWithMaxElement = el;
-                        }
-                        else if (bestMetric < maxElementInDiag - DIAG_TOL)
-                            break; // done w/current diagonal
-
-                        indJ++;
-                        if (indJ >= Y_METRIC_LENGTH )
-                            break;
-                        indI--;
-                        if (indI <= 0)
-                            break;
-                    }
-                }
-                // if (DEBUG)
-                //     System.out.format("Max:%4.1f el:%d\n",maxElementInDiag,  idxWithMaxElement);
-            }
-        }
-        else {
-            // simplified rectangular version of update loop
-            for (int indI=1; indI < X_METRIC_LENGTH; indI++) {
-                for (int indJ=indToStart+1; indJ < Y_METRIC_LENGTH; indJ++) {
-                    updateCell(indI, indJ, X_METRIC_LENGTH, Y_METRIC_LENGTH, readBases, readQuals, haplotypeBases,
-                            currentInsertionGOP, currentDeletionGOP, currentGCP,  matchMetricArray,  XMetricArray, YMetricArray);
-
-                }
-            }
-        }
-
-
-
-        final int bestI = X_METRIC_LENGTH - 1, bestJ = Y_METRIC_LENGTH - 1;
-        final double bestMetric = MathUtils.softMax(matchMetricArray[bestI][bestJ],
-                XMetricArray[bestI][bestJ],
-                YMetricArray[bestI][bestJ]);
-
-        /*
-        if (DEBUG) {
-            PrintStream outx, outy, outm, outs;
-            double[][] sumMetrics = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
-            try {
-                outx = new PrintStream("datax.txt");
-                outy = new PrintStream("datay.txt");
-                outm = new PrintStream("datam.txt");
-                outs = new PrintStream("datas.txt");
-                double metrics[] = new double[3];
-                for (int indI=0; indI < X_METRIC_LENGTH; indI++) {
-                    for (int indJ=0; indJ < Y_METRIC_LENGTH; indJ++) {
-                        metrics[0] = matchMetricArray[indI][indJ];
-                        metrics[1] = XMetricArray[indI][indJ];
-                        metrics[2] = YMetricArray[indI][indJ];
-                        //sumMetrics[indI][indJ] = MathUtils.softMax(metrics);
-                        outx.format("%4.1f ", metrics[1]);
-                        outy.format("%4.1f ", metrics[2]);
-                        outm.format("%4.1f ", metrics[0]);
-                        outs.format("%4.1f ", MathUtils.softMax(metrics));
-                    }
-                    outx.println();  outm.println();outy.println(); outs.println();
-                }
-                outm.close(); outx.close(); outy.close();
-            } catch (java.io.IOException e) { throw new UserException("bla");}
-        }
-        */
-
-        return bestMetric;
-
-    }
-
 }

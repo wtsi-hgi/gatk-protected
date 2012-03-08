@@ -24,6 +24,9 @@
 
 package org.broadinstitute.sting.utils;
 
+import com.google.java.contract.Ensures;
+import com.google.java.contract.Requires;
+
 import java.util.Arrays;
 
 /**
@@ -50,8 +53,10 @@ public class PairHMM {
         }
     }
 
-    public double computeReadLikelihoodGivenHaplotype(final byte[] haplotypeBases, final byte[] readBases, final byte[] readQuals,
-                                                      final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP) {
+    @Requires({"readBases.length == readQuals.length","readBases.length == insertionGOP.length","readBases.length == deletionGOP.length","readBases.length == overallGCP.length"})
+    @Ensures({"result <= 0.0"}) // Result should be a proper log10 probability
+    public double computeReadLikelihoodGivenHaplotype( final byte[] haplotypeBases, final byte[] readBases, final byte[] readQuals,
+                                                       final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP ) {
         
         // M, X, and Y arrays are of size read and haplotype + 1 because of an extra column for initial conditions
         final int X_METRIC_LENGTH = readBases.length + 1;
@@ -84,14 +89,15 @@ public class PairHMM {
         // final probability is the log10 sum of the last element in all three state arrays
         final int endI = X_METRIC_LENGTH - 1;
         final int endJ = Y_METRIC_LENGTH - 1;
-        return MathUtils.softMax(matchMetricArray[endI][endJ], XMetricArray[endI][endJ], YMetricArray[endI][endJ]);
+
+        return MathUtils.approximateLog10SumLog10(new double[]{matchMetricArray[endI][endJ], XMetricArray[endI][endJ], YMetricArray[endI][endJ]});
     }
 
-    private void updateCell(final int indI, final int indJ, final byte[] haplotypeBases, final byte[] readBases,
-                            final byte[] readQuals, final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP,
-                            final double[][] matchMetricArray, final double[][] XMetricArray, final double[][] YMetricArray) {
+    private void updateCell( final int indI, final int indJ, final byte[] haplotypeBases, final byte[] readBases,
+                             final byte[] readQuals, final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP,
+                             final double[][] matchMetricArray, final double[][] XMetricArray, final double[][] YMetricArray ) {
 
-        // the read and haplotype indicies are offset by one because the state arrays have an extra column to hold the initial conditions
+        // the read and haplotype indices are offset by one because the state arrays have an extra column to hold the initial conditions
         final int im1 = indI - 1;
         final int jm1 = indJ - 1;
 
@@ -103,23 +109,23 @@ public class PairHMM {
             final byte qual = ( readQuals[im1-1] < QualityUtils.MIN_USABLE_Q_SCORE ? QualityUtils.MIN_USABLE_Q_SCORE : (readQuals[im1-1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : readQuals[im1-1]) );
             pBaseReadLog10 = ( x == y || x == (byte) 'N' || y == (byte) 'N' ? matchPenalty[(int)qual] : mismatchPenalty[(int)qual] );
         }
-        final int GOPindex = ( im1 == 0 ? DEFAULT_GOP + DEFAULT_GOP : ( insertionGOP[im1-1] + deletionGOP[im1-1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : insertionGOP[im1-1] + deletionGOP[im1-1]) );
-        final double d0 = matchPenalty[GOPindex];
+        final int qualIndexGOP = ( im1 == 0 ? DEFAULT_GOP + DEFAULT_GOP : ( insertionGOP[im1-1] + deletionGOP[im1-1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : insertionGOP[im1-1] + deletionGOP[im1-1]) );
+        final double d0 = matchPenalty[qualIndexGOP];
         final double e0 = ( im1 == 0 ? matchPenalty[(int)DEFAULT_GCP] : matchPenalty[(int)overallGCP[im1-1]] );
-        matchMetricArray[indI][indJ] = pBaseReadLog10 + MathUtils.softMax(matchMetricArray[indI-1][indJ-1] + d0,
-                                        XMetricArray[indI-1][indJ-1] + e0, YMetricArray[indI-1][indJ-1] + e0);
+        matchMetricArray[indI][indJ] = pBaseReadLog10 + MathUtils.approximateLog10SumLog10(
+                new double[]{matchMetricArray[indI-1][indJ-1] + d0, XMetricArray[indI-1][indJ-1] + e0, YMetricArray[indI-1][indJ-1] + e0});
 
         // update the X (insertion) array
         final double d1 = ( im1 == 0 ? mismatchPenalty[(int)DEFAULT_GOP] : mismatchPenalty[(int)insertionGOP[im1-1]] );
         final double e1 = ( im1 == 0 ? mismatchPenalty[(int)DEFAULT_GCP] : mismatchPenalty[(int)overallGCP[im1-1]] );
         final double qBaseReadLog10 = 0.0; // Math.log10(1.0) -- we don't have an estimate for this emission probability so assume q=1.0
-        XMetricArray[indI][indJ] = qBaseReadLog10 + MathUtils.softMax(matchMetricArray[indI-1][indJ] + d1, XMetricArray[indI-1][indJ] + e1);
+        XMetricArray[indI][indJ] = qBaseReadLog10 + MathUtils.approximateLog10SumLog10(matchMetricArray[indI-1][indJ] + d1, XMetricArray[indI-1][indJ] + e1);
 
         // update the Y (deletion) array, with penalty of zero on the left and right flanks to allow for a local alignment within the haplotype
         final double d2 = ( im1 == 0 || im1 == readBases.length - 1 ? 0.0 : mismatchPenalty[(int)deletionGOP[im1-1]] );
         final double e2 = ( im1 == 0 || im1 == readBases.length - 1 ? 0.0 : mismatchPenalty[(int)overallGCP[im1-1]] );
         final double qBaseRefLog10 = 0.0; // Math.log10(1.0) -- we don't have an estimate for this emission probability so assume q=1.0
-        YMetricArray[indI][indJ] = qBaseRefLog10 + MathUtils.softMax(matchMetricArray[indI][indJ-1] + d2, YMetricArray[indI][indJ-1] + e2);
+        YMetricArray[indI][indJ] = qBaseRefLog10 + MathUtils.approximateLog10SumLog10(matchMetricArray[indI][indJ-1] + d2, YMetricArray[indI][indJ-1] + e2);
     }
 }
 

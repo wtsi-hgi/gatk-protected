@@ -29,15 +29,9 @@ package org.broadinstitute.sting.utils;
 // the imports for unit testing.
 
 
-import net.sf.picard.util.QualityUtil;
 import org.broad.tribble.util.ParsingUtils;
 import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.variantcontext.*;
 import org.testng.Assert;
-import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -59,9 +53,9 @@ public class PairHMMUnitTest extends BaseTest {
         final byte[] refBasesWithContext, readBasesWithContext;
         final int baseQual, insQual, delQual, gcp;
         final int expectedQual;
-        final static String CONTEXT = "ACGTTGCA";
-        final static String LEFT_FLANK = "CGAGTCTGC";
-        final static String RIGHT_FLANK = "GGATCGTTATCAG";
+        final static String CONTEXT = "ACGTAATGACGATTGCA";
+        final static String LEFT_FLANK = "GATTTATCATCGAGTCTGC";
+        final static String RIGHT_FLANK = "CATGGATCGTTATCAGCTATCTCGAGGGATTCACTTAACAGTTTTA";
 
         public BasicLikelihoodTestProvider(final String ref, final String read, final int baseQual, final int insQual, final int delQual, final int expectedQual, final int gcp) {
             this(ref, read, baseQual, insQual, delQual, expectedQual, gcp, false, false);
@@ -127,7 +121,7 @@ public class PairHMMUnitTest extends BaseTest {
         final List<Integer> baseQuals = EXTENSIVE_TESTING ? Arrays.asList(10, 20, 30, 40, 50) : Arrays.asList(30);
         final List<Integer> indelQuals = EXTENSIVE_TESTING ? Arrays.asList(10, 20, 30, 40, 50) : Arrays.asList(40);
         final List<Integer> gcps = EXTENSIVE_TESTING ? Arrays.asList(10, 20, 30) : Arrays.asList(10);
-        final List<Integer> sizes = EXTENSIVE_TESTING ? Arrays.asList(2,3,4,5,6,7,8,9,10) : Arrays.asList(2, 5);
+        final List<Integer> sizes = EXTENSIVE_TESTING ? Arrays.asList(2,3,4,5,6,7,8,9,10,20) : Arrays.asList(2);
 
         for ( final int baseQual : baseQuals ) {
             for ( final int indelQual : indelQuals ) {
@@ -158,6 +152,7 @@ public class PairHMMUnitTest extends BaseTest {
                                 new BasicLikelihoodTestProvider(ref, read, baseQual, indelQual, indelQual, expected, gcp);
                                 new BasicLikelihoodTestProvider(ref, read, baseQual, indelQual, indelQual, expected, gcp, true, false);
                                 new BasicLikelihoodTestProvider(ref, read, baseQual, indelQual, indelQual, expected, gcp, false, true);
+                                new BasicLikelihoodTestProvider(ref, read, baseQual, indelQual, indelQual, expected, gcp, true, true);
                             }
                         }
                     }
