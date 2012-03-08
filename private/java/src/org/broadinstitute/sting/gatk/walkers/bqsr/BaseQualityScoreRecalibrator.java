@@ -33,9 +33,11 @@ import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
 import org.broadinstitute.sting.utils.exceptions.DynamicClassResolutionException;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -135,14 +137,17 @@ import java.util.*;
 @PartitionBy(PartitionType.LOCUS)
 public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRecalibrator.CountedData, BaseQualityScoreRecalibrator.CountedData> implements TreeReducible<BaseQualityScoreRecalibrator.CountedData> {
     @ArgumentCollection
-    private RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection();                      // All the command line arguments for BQSR and it's covariates
+    private RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection();                        // All the command line arguments for BQSR and it's covariates
 
-    private BQSRKeyManager keyManager;                                                                        // The key manager to handle the BitSet key representation conversions
-    private final HashMap<BitSet, RecalDatumOptimized> allCovariatesTable = new HashMap<BitSet, RecalDatumOptimized>(Short.MAX_VALUE);  // The big table that holds ALL the data for the covariates
-    protected final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();                            // A list to hold the covariate objects that were requested
+    private BQSRKeyManager keyManager;                                                                          // The key manager to handle the BitSet key representation conversions
+    private final HashMap<BitSet, RecalDatumOptimized> allCovariatesTable = new HashMap<BitSet, RecalDatumOptimized>(Short.MAX_VALUE);      // The big table that holds ALL the data for the covariates
 
-    protected final String SKIP_RECORD_ATTRIBUTE = "SKIP";                                                    // used to label reads that should be skipped.
-    protected final String SEEN_ATTRIBUTE = "SEEN";                                                           // used to label reads as processed.
+    protected final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();                      // A list to hold the all the covariate objects that were requested (required + standard + experimental)
+    protected final ArrayList<Covariate> requiredCovariates  = new ArrayList<Covariate>();                      // A list to hold the all the required covaraite objects that were requested
+    protected final ArrayList<Covariate> optionalCovariates  = new ArrayList<Covariate>();                      // A list to hold the all the optional covariate objects that were requested 
+
+    protected final String SKIP_RECORD_ATTRIBUTE = "SKIP";                                                      // used to label reads that should be skipped.
+    protected final String SEEN_ATTRIBUTE = "SEEN";                                                             // used to label reads as processed.
 
     /**
      * Parse the -cov arguments and create a list of covariates to be used here
@@ -162,61 +167,32 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
         // Print and exit if that's what was requested
         if (RAC.LIST_ONLY) {
             logger.info("Available covariates:");
-            for (Class<?> covClass : covariateClasses) {
-                logger.info(covClass.getSimpleName());
-            }
+            for (Class<?> covClass : covariateClasses) 
+                logger.info(covClass.getSimpleName());            
             logger.info("");
-
-            System.exit(0);                                                                     // Early exit here because user requested it
+            System.exit(0);                                                                                     // Early exit here because user requested it
         }
+        
 
         // Warn the user if no dbSNP file or other variant mask was specified
         if (RAC.knownSites.isEmpty() && !RAC.RUN_WITHOUT_DBSNP) {
             throw new UserException.CommandLineException("This calculation is critically dependent on being able to skip over known variant sites. Please provide a VCF file containing known sites of genetic variation.");
         }
 
-        // Initialize the requested covariates by parsing the -cov argument
-        // First add the required covariates
-        if (requiredClasses.size() == 2) {                                                      // readGroup and reported quality score
-            requestedCovariates.add(new ReadGroupCovariate());                                  // Order is important here
-            requestedCovariates.add(new QualityScoreCovariate());
-        }
-        else {
-            throw new UserException.CommandLineException("There are more required covariates than expected. The instantiation list needs to be updated with the new required covariate and in the correct order.");
-        }
-        // Next add the standard covariates if -standard was specified by the user
-        if (RAC.USE_STANDARD_COVARIATES) {
-            // We want the standard covariates to appear in a consistent order but the packageUtils method gives a random order
-            // A list of Classes can't be sorted, but a list of Class names can be
-            final List<String> standardClassNames = new ArrayList<String>();
-            for (Class<?> covClass : standardClasses) {
-                standardClassNames.add(covClass.getName());
-            }
-            Collections.sort(standardClassNames);                                               // Sort the list of class names
-            for (String className : standardClassNames) {
-                for (Class<?> covClass : standardClasses) {                                     // Find the class that matches this class name
-                    if (covClass.getName().equals(className)) {
-                        try {
-                            final Covariate covariate = (Covariate) covClass.newInstance();
-                            requestedCovariates.add(covariate);
-                        } catch (Exception e) {
-                            throw new DynamicClassResolutionException(covClass, e);
-                        }
-                    }
-                }
-            }
-        }
-        // Finally parse the -cov arguments that were provided, skipping over the ones already specified
-        if (RAC.COVARIATES != null) {
+        addRequiredCovariatesToList(requiredCovariates, requiredClasses);                                       // add the required covariates 
+        if (RAC.USE_STANDARD_COVARIATES)                                                  
+            addStandardCovariatesToList(optionalCovariates, standardClasses);                                   // add the standard covariates if -standard was specified by the user    
+                                                                                                        
+        if (RAC.COVARIATES != null) {                                                                           // parse the -cov arguments that were provided, skipping over the ones already specified
             for (String requestedCovariateString : RAC.COVARIATES) {
                 boolean foundClass = false;
-                for (Class<?> covClass : covariateClasses) {
-                    if (requestedCovariateString.equalsIgnoreCase(covClass.getSimpleName())) {   // -cov argument matches the class name for an implementing class
+                for (Class<? extends Covariate> covClass : covariateClasses) {
+                    if (requestedCovariateString.equalsIgnoreCase(covClass.getSimpleName())) {                  // -cov argument matches the class name for an implementing class
                         foundClass = true;
                         if (!requiredClasses.contains(covClass) && (!RAC.USE_STANDARD_COVARIATES || !standardClasses.contains(covClass))) {
                             try {
-                                final Covariate covariate = (Covariate) covClass.newInstance();  // Now that we've found a matching class, try to instantiate it
-                                requestedCovariates.add(covariate);
+                                final Covariate covariate = covClass.newInstance();                             // Now that we've found a matching class, try to instantiate it
+                                optionalCovariates.add(covariate);
                             } catch (Exception e) {
                                 throw new DynamicClassResolutionException(covClass, e);
                             }
@@ -229,14 +205,17 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
                 }
             }
         }
-
+        
+        requestedCovariates.addAll(requiredCovariates);                                                         // add all the required covariates to the full list of requested covariates
+        requestedCovariates.addAll(optionalCovariates);                                                         // add all the optional covariates to the full list of requested covariates
+        
         logger.info("The covariates being used here: ");
         for (Covariate cov : requestedCovariates) {
             logger.info("\t" + cov.getClass().getSimpleName());
-            cov.initialize(RAC);                                                                  // Initialize any covariate member variables using the shared argument collection
+            cov.initialize(RAC);                                                                                // Initialize any covariate member variables using the shared argument collection
         }
 
-        keyManager = new BQSRKeyManager(requestedCovariates);                              // Now that we know how many covariates are going to be in this run, initialize the Key Manager
+        keyManager = new BQSRKeyManager(requiredCovariates, optionalCovariates);                                // Now that we know how many covariates are going to be in this run, initialize the Key Manager
     }
 
     /**
@@ -353,15 +332,24 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
      */
     private void updateDataForPileupElement(CountedData counter, PileupElement pileupElement, final byte refBase) {
         final int offset = pileupElement.getOffset();
-        final CovariateKeySet covariateKeySet = RecalDataManager.covariateKeySetFrom(pileupElement.getRead());
+        final ReadCovariates readCovariates = RecalDataManager.covariateKeySetFrom(pileupElement.getRead());
 
-        BitSet mismatchesKey = keyManager.bitSetFrom(covariateKeySet.getMismatchesKeySet(offset), RecalDataManager.BaseRecalibrationType.BASE_SUBSTITUTION);
-        BitSet insertionsKey = keyManager.bitSetFrom(covariateKeySet.getInsertionsKeySet(offset), RecalDataManager.BaseRecalibrationType.BASE_INSERTION);
-        BitSet deletionsKey = keyManager.bitSetFrom(covariateKeySet.getDeletionsKeySet(offset), RecalDataManager.BaseRecalibrationType.BASE_DELETION);
+        List<BitSet> mismatchesKeys = keyManager.bitSetsFromAllKeys(readCovariates.getMismatchesKeySet(offset), EventType.BASE_SUBSTITUTION);
+        List<BitSet> insertionsKeys = keyManager.bitSetsFromAllKeys(readCovariates.getInsertionsKeySet(offset), EventType.BASE_INSERTION);
+        List<BitSet> deletionsKeys  = keyManager.bitSetsFromAllKeys(readCovariates.getDeletionsKeySet(offset), EventType.BASE_DELETION);
 
-        updateCovariateWithKeySet(mismatchesKey, !BaseUtils.basesAreEqual(pileupElement.getBase(), refBase));
-        updateCovariateWithKeySet(insertionsKey, pileupElement.isBeforeInsertion());
-        updateCovariateWithKeySet(deletionsKey, pileupElement.isBeforeDeletion());
+        // the three arrays WON'T always have the same length
+        for (BitSet key : mismatchesKeys)
+            updateCovariateWithKeySet(key, !BaseUtils.basesAreEqual(pileupElement.getBase(), refBase));
+
+        // negative strand reads should be check if the previous base is an insertion. Positive strand reads check the next base.
+        for (BitSet key : insertionsKeys)
+            updateCovariateWithKeySet(key, (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterInsertion() : pileupElement.isBeforeInsertion());
+
+        // negative strand reads should be check if the previous base is a deletion. Positive strand reads check the next base.
+        for (BitSet key : deletionsKeys)
+            updateCovariateWithKeySet(key, (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterDeletion() : pileupElement.isBeforeDeletion());
+
         counter.countedBases++;
     }
 
@@ -396,20 +384,49 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             out.printf("# Fraction SOLiD inserted reference 1 / %.0f bases%n", (double) sum.countedBases / sum.solidInsertedReferenceBases);
             out.printf("# Fraction other color space inconsistencies 1 / %.0f bases%n", (double) sum.countedBases / sum.otherColorSpaceInconsistency);
         }
+        
+        ArrayList<String> requiredCovariateNames = new ArrayList<String>(requiredCovariates.size());
+        ArrayList<String> optionalCovariateNames = new ArrayList<String>(optionalCovariates.size());
 
-        for (Covariate cov : requestedCovariates)
-            out.print(cov.getClass().getSimpleName().split("Covariate")[0] + ",");  // Print header saying which covariates were used and in what order
-        out.println("EventType,nObservations,nMismatches,Qempirical");              // Print the extra fields contained in the RecalDatumOptimized object plus the "extra covariate" EventType (mismatch, insertion, deletion)
+        for (Covariate covariate : requiredCovariates)
+            requiredCovariateNames.add(covariate.getClass().getSimpleName().split("Covariate")[0]);
+        
+        for (Covariate covariate : optionalCovariates)
+            optionalCovariateNames.add(covariate.getClass().getSimpleName().split("Covariate")[0]);
+
+        out.println("# Required Covariates (in order): " + Utils.join(",", requiredCovariateNames));        // Print the required covariates used in order
+        out.println("# Optional Covariates (in order): " + Utils.join(",", optionalCovariateNames));        // Print the optional covariates (standard + experimental) used in order
+        out.println("# Recalibration Data  (in order): CovariateID,EventType,nObservations,nMismatches,Qempirical");
 
         for (Map.Entry<BitSet, RecalDatumOptimized> entry : allCovariatesTable.entrySet()) {
             for (Object key : keyManager.keySetFrom(entry.getKey()))
-                out.print(key + ",");                                               // Print the keys (covariate values) plus the event type
-            out.println(entry.getValue());                                          // Print the recalibration data
-
+                out.print(key + ",");                                                                       // Print the keys (covariate values) plus the event type
+            out.println(entry.getValue());                                                                  // Print the recalibration data
         }
-        out.println("EOF");                                                         // Print an EOF marker
+        out.println("EOF");                                                                                 // Print an EOF marker
     }
 
+
+    private void addRequiredCovariatesToList(List<Covariate> dest, List<Class<? extends RequiredCovariate>> classes) {
+        if (classes.size() != 2) 
+            throw new ReviewedStingException("The number of required covariate has changed, this is a hard change in the code and needs to be inspected");
+        
+        dest.add(new ReadGroupCovariate());             // enforce the order with RG first and QS next.
+        dest.add(new QualityScoreCovariate());
+    }
+
+    private void addStandardCovariatesToList(List<Covariate> dest, List<Class<? extends StandardCovariate>> classes) {
+        for (Class<?> covClass : classes) {
+            try {
+                final Covariate covariate = (Covariate) covClass.newInstance();
+                dest.add(covariate);
+            } catch (Exception e) {
+                throw new DynamicClassResolutionException(covClass, e);
+            }
+        }
+    }
+
+    
     public class CountedData {
         private long countedSites = 0;                  // Number of loci used in the calculations, used for reporting in the output file
         private long countedBases = 0;                  // Number of bases used in the calculations, used for reporting in the output file
@@ -432,6 +449,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             return this;
         }
     }
+
 
 }
 
