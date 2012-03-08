@@ -27,7 +27,7 @@ addEmpiricalPofG <- function(d) {
 
   #print(length(r))
   d$EmpiricalPofG = r
-  d$EmpiricalPofGQ = round(-10*log10(1-r))
+  d$EmpiricalPofGQ = round(sapply(-10*log10(1-d$EmpiricalPofG), function(x) min(x, 93)))
   return(d)
 }
 
@@ -57,7 +57,7 @@ if ( onCmdLine ) {
 pdf(paste(inputDataFile, ".pdf", sep=""))
 
 for ( xmax in c(30, 99) ) { # loop over just meaningful subset and all 
-ymax = 30
+ymax = xmax
 goodEByComp = subset(eByComp, Sum > 10 & EmpiricalPofGQ < Inf)
 
 #First graph, overall likelihoods 
