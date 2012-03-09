@@ -13,6 +13,8 @@ class EvaluateQuantizedQuals extends QScript {
   val INPUT_BAM_FILENAME = "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam"
   val INPUT_BAM_QUAL_HIST = "NA12878.HiSeq.b37.chr20.10_11mb.qual_dist.gatkreport.txt"
   val INPUT_BAM_ALLELES = "NA12878.omni.vcf"
+  //val GOLD_STANDARD_CALLSET = "/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/CEUTrio.HiSeq.WGS.b37.recalibrated.vcf"
+  val GOLD_STANDARD_CALLSET = "NA12878.HiSeq.WGS.b37.recalibrated.vcf"
   val b37_FILENAME = "human_g1k_v37.fasta"
 
   def makeResource(x: String): File = new File("%s/%s".format(resourcesDir, x))
@@ -41,24 +43,25 @@ class EvaluateQuantizedQuals extends QScript {
       val CGL = new CalibrateGenotypeLikelihoods with UNIVERSAL_GATK_ARGS
       CGL.input_file :+= inputBAM
       CGL.alleles = new File(INPUT_BAM_ALLELES)
-      CGL.out = new File(outputRoot + ".gcl")
+      CGL.out = new File(outputRoot + ".cgl")
       add(CGL)
 
       val UG = new UnifiedGenotyper with UNIVERSAL_GATK_ARGS
       UG.input_file :+= inputBAM
       UG.dbsnp = makeResource("dbsnp_132.b37.vcf")
-      UG.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+      UG.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
       UG.out = new File(outputRoot + ".ug.vcf")
       add(UG)
 
+      val VE = new VariantEval with UNIVERSAL_GATK_ARGS
+      VE.eval :+= new TaggedFile(UG.out, "eval")
+      VE.out = new File(outputRoot + ".variant_eval.gatkreport.txt")
       if ( ! maybeFullVCF.isEmpty ) {
-        val VE = new VariantEval with UNIVERSAL_GATK_ARGS
-        VE.eval :+= new TaggedFile(UG.out, "eval")
-        VE.out = new File(outputRoot + ".variant_eval.gatkreport.txt")
         VE.comp :+= new TaggedFile(maybeFullVCF.get, "fullVCF")
-        VE.dbsnp = new TaggedFile(maybeFullVCF.get, "dbSNP")
-        add(VE)
       }
+      VE.comp :+= new TaggedFile(GOLD_STANDARD_CALLSET, "gold")
+      VE.sample :+= "NA12878"
+      add(VE)
 
       UG.o
     }
@@ -69,7 +72,7 @@ class EvaluateQuantizedQuals extends QScript {
     for ( nLevels <- if (TEST) List(4) else List(1, 2, 4, 8, 16, 32, 64) ) {
       val outputRoot = "levels.%s".format(nLevels)
       val QQBAM = quantizeBAM(inputBAM, outputRoot + ".qq", nLevels)
-      analyzeBAM(QQBAM, outputRoot, Some(fullVCF))
+      analyzeBAM(QQBAM, outputRoot + ".qq", Some(fullVCF))
 
       val RR = new ReduceReads with UNIVERSAL_GATK_ARGS
       RR.input_file :+= QQBAM
