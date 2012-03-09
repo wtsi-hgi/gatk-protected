@@ -65,13 +65,13 @@ public class QualQuantizerUnitTest extends BaseTest {
         private QualIntervalTestProvider(int leftE, int leftN, int rightE, int rightN, int exError, int exTotal) {
             super(QualIntervalTestProvider.class);
 
-            QualQuantizer qq = new QualQuantizer();
+            QualQuantizer qq = new QualQuantizer(0);
             left = qq.new QualInterval(10, 10, leftN, leftE, 0);
-            right = qq.new QualInterval(10, 10, rightN, rightE, 0);
+            right = qq.new QualInterval(11, 11, rightN, rightE, 0);
 
             this.exError = exError;
             this.exTotal = exTotal;
-            this.exErrorRate = (leftE + rightE) / (1.0 * (leftN + rightN));
+            this.exErrorRate = (leftE + rightE + 1) / (1.0 * (leftN + rightN + 1));
             this.exQual = QualityUtils.probToQual(1-this.exErrorRate, 0);
         }
     }
@@ -97,6 +97,25 @@ public class QualQuantizerUnitTest extends BaseTest {
         Assert.assertEquals(merged.getErrorRate(), cfg.exErrorRate);
         Assert.assertEquals(merged.getQual(), cfg.exQual);
     }
+
+    @Test
+    public void testMinInterestingQual() {
+        for ( int q = 0; q < 15; q++ ) {
+            for ( int minQual = 0; minQual <= 10; minQual ++ ) {
+                QualQuantizer qq = new QualQuantizer(minQual);
+                QualQuantizer.QualInterval left = qq.new QualInterval(q, q, 100, 10, 0);
+                QualQuantizer.QualInterval right = qq.new QualInterval(q+1, q+1, 1000, 100, 0);
+
+                QualQuantizer.QualInterval merged = left.merge(right);
+                boolean shouldBeFree = q+1 <= minQual;
+                if ( shouldBeFree )
+                    Assert.assertEquals(merged.getPenalty(), 0.0);
+                else
+                    Assert.assertTrue(merged.getPenalty() > 0.0);
+            }
+        }
+    }
+
 
     // --------------------------------------------------------------------------------
     //

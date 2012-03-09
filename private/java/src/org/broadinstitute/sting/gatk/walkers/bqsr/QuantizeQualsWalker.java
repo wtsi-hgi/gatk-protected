@@ -41,6 +41,7 @@ import org.broadinstitute.sting.gatk.walkers.BAQMode;
 import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.gatk.walkers.Requires;
+import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.recalibration.QualQuantizer;
@@ -94,8 +95,10 @@ public class QuantizeQualsWalker extends ReadWalker<SAMRecord, SAMFileWriter> {
     @Output(fullName = "report", shortName = "report", doc="Write GATK report of quantization process to this file", required = false)
     PrintStream reportOut = null;
 
-    private final int MAX_QUAL_TO_INCLUDE = 40;
-    QualQuantizer quantizer;
+    @Argument(fullName = "maxQualToInclude", shortName = "maxQualToInclude", doc="Only quality scores <= this value are considered for remapping", required = false)
+    private int MAX_QUAL_TO_INCLUDE = QualityUtils.MAX_QUAL_SCORE;
+
+    private QualQuantizer quantizer;
 
     /**
      * The initialize function.
