@@ -40,11 +40,8 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalcul
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
-import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.R.RScriptExecutor;
-import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -165,6 +162,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
      */
     public static class Datum implements Comparable<Datum> {
         final String rgID, sample;
+        final GenomeLoc loc;
         final GenotypeLikelihoods pl;
         final String ref, alt;
         final VariantContext.Type siteType;
@@ -177,7 +175,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             return bySample != 0 ? bySample : byRG;
         }
 
-        public Datum(String ref, String alt, String sample, String rgID, GenotypeLikelihoods pl, VariantContext.Type siteType, Genotype.Type genotypeType) {
+        public Datum(final GenomeLoc loc, String ref, String alt, String sample, String rgID, GenotypeLikelihoods pl, VariantContext.Type siteType, Genotype.Type genotypeType) {
+            this.loc = loc;
             this.ref = ref;
             this.alt = alt;
             this.sample = sample;
@@ -247,20 +246,10 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
         // Uneven sets means there are some samples missing from the BAM in the VCF -- warn the user but don't throw exception
         if (vcfSamples.size() < samples.size()) {
-            logger.warn("VCF file does not contain ALL samples in your BAM file");
             Set<String> samplesPresent = new HashSet<String>();
             samplesPresent.addAll(samples);
             samplesPresent.removeAll(vcfSamples);
-            String missingSamples = "";
-            boolean addComma = true;
-            for (String sample : samplesPresent) {
-                    missingSamples += sample;
-                    if (!addComma)
-                        missingSamples += ",";
-                    else
-                        addComma = false;
-            }
-            logger.warn("Missing samples: " + missingSamples);
+            logger.warn("VCF file does not contain ALL samples in your BAM file.  Missing samples: " + Utils.join(", ", samplesPresent));
         }
 
         // Filling in SNP calling arguments for UG
@@ -354,7 +343,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     public void onTraversalDone(Data data) {
         // print the header
         List<String> pGNames = Arrays.asList("QofAAGivenD", "QofABGivenD", "QofBBGivenD");
-        List<String> fields = Arrays.asList("sample", "rg", "ref", "alt", "siteType", "pls", "comp", "pGGivenDType", "pGGivenD");
+        List<String> fields = Arrays.asList("sample", "rg", "loc", "ref", "alt", "siteType", "pls", "comp", "pGGivenDType", "pGGivenD", "pDGivenG");
         moltenDataset.println(Utils.join("\t", fields));
 
         // determine the priors by counting all of the events we've seen in comp
@@ -368,15 +357,18 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
         // emit the molten data set
         for ( Datum d : data.values ) {
-            double[] log10pGGivenD = d.pl.getAsVector().clone();
+            final double[] log10pDGivenG = d.pl.getAsVector();
+            final double[] log10pGGivenD = log10pDGivenG.clone();
             for ( int i = 0; i < log10priors.length; i++ ) log10pGGivenD[i] += log10priors[i];
-            double[] pOfGGivenD = MathUtils.normalizeFromLog10(log10pGGivenD, false);
+            final double[] pOfDGivenG = MathUtils.normalizeFromLog10(log10pDGivenG, false);
+            final double[] pOfGGivenD = MathUtils.normalizeFromLog10(log10pGGivenD, false);
             for ( int i = 0; i < pGNames.size(); i++ ) {
-                int q = QualityUtils.probToQual(pOfGGivenD[i], Math.pow(10.0, -9.9));
-                if ( q > 1 ) { // tons of 1s, and not interesting
-                    moltenDataset.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d%n",
-                            d.sample, d.rgID, d.ref, d.alt, d.siteType, d.pl.getAsString(), d.genotypeType.toString(),
-                            pGNames.get(i), q);
+                final int qDGivenG = QualityUtils.probToQual(pOfDGivenG[i], QualityUtils.ERROR_RATE_OF_MAX_QUAL_SCORE);
+                final int qGGivenD = QualityUtils.probToQual(pOfGGivenD[i], QualityUtils.ERROR_RATE_OF_MAX_QUAL_SCORE);
+                if ( qGGivenD > 1 ) { // tons of 1s, and not interesting
+                    moltenDataset.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d%n",
+                            d.sample, d.rgID, d.loc, d.ref, d.alt, d.siteType, d.pl.getAsString(), d.genotypeType.toString(),
+                            pGNames.get(i), qGGivenD, qDGivenG);
                 }
             }
         }
@@ -405,7 +397,6 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             if ( compGT == null || compGT.isNoCall() )
                 continue;
 
-
             // now split by read group
             Map<SAMReadGroupRecord,AlignmentContext> byRG = AlignmentContextUtils.splitContextByReadGroup(sampleAC, getToolkit().getSAMFileHeader().getReadGroups());
             byRG.put(new SAMReadGroupRecord("ALL"), context);     // uncomment to include a synthetic RG for all RG for the sample
@@ -424,22 +415,28 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
                 Genotype rgGT = call.getGenotype(sample);
 
                 if ( rgGT != null && ! rgGT.isNoCall() && rgGT.hasLikelihoods() ) {
-                    String refs,alts;
-                    if (vcComp.isIndel()) {
-                        refs = new String(new byte[]{ ref.getBase()})+ vcComp.getReference().getDisplayString();
-                        alts = new String(new byte[]{ ref.getBase()})+vcComp.getAlternateAllele(0).getDisplayString();
-                    }   else {
-                        refs = vcComp.getReference().getBaseString();
-                        alts = vcComp.getAlternateAllele(0).getBaseString();
-                    }
-                    Datum d = new Datum(refs, alts,
-                            sample, rgAC.getKey().getReadGroupId(), rgGT.getLikelihoods(), vcComp.getType(), compGT.getType());
-                    data.values.add(d);
+                    addValue(data, vcComp, ref, sample, rgAC.getKey().getReadGroupId(), rgGT, compGT);
                 }
             }
         }
 
         return data;
+    }
+
+    private final void addValue(final Data data, final VariantContext vcComp, final ReferenceContext ref, final String sample,
+                                final String rgID, final Genotype calledGT, final Genotype compGT) {
+        String refs,alts;
+        if (vcComp.isIndel()) {
+            refs = ((char)ref.getBase()) + vcComp.getReference().getDisplayString();
+            alts = ((char)ref.getBase()) + vcComp.getAlternateAllele(0).getDisplayString();
+        } else {
+            refs = vcComp.getReference().getBaseString();
+            alts = vcComp.getAlternateAllele(0).getBaseString();
+        }
+        final GenomeLoc loc = getToolkit().getGenomeLocParser().createGenomeLoc(vcComp);
+        final Datum d = new Datum(loc, refs, alts, sample, rgID, calledGT.getLikelihoods(),
+                vcComp.getType(), compGT.getType());
+        data.values.add(d);
     }
 
     private Data calculateGenotypeDataFromExternalVC(RefMetaDataTracker tracker,
@@ -466,18 +463,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
                 final Genotype compGT = vcComp.hasGenotype(sample) ? vcComp.getGenotype(sample) : null;
                 if ( compGT == null || genotype.isNoCall() || compGT.isNoCall() )
                     continue;
-    
-                String refs,alts;
-                if (vcComp.isIndel()) {
-                    refs = new String(new byte[]{ ref.getBase()})+ vcComp.getReference().getDisplayString();
-                    alts = new String(new byte[]{ ref.getBase()})+vcComp.getAlternateAllele(0).getDisplayString();
-                }   else {
-                    refs = vcComp.getReference().getBaseString();
-                    alts = vcComp.getAlternateAllele(0).getBaseString();
-                }
-                Datum d = new Datum(refs, alts,
-                        sample, rod.getName() + "." + genotype.getSampleName(), genotype.getLikelihoods(), vcComp.getType(), compGT.getType());
-                data.values.add(d);
+
+                addValue(data, vcComp, ref, sample, rod.getName() + "." + genotype.getSampleName(), genotype, compGT);
             }
         }
 

@@ -22,12 +22,14 @@ addEmpiricalPofG <- function(d) {
     if ( row$pGGivenDType == "QofAAGivenD" ) v = row$HOM_REF
     if ( row$pGGivenDType == "QofABGivenD" ) v = row$HET
     if ( row$pGGivenDType == "QofBBGivenD" ) v = row$HOM_VAR
-    r = c(r, v / row$Sum)
+    ratio = (v+1) / (row$Sum+2)
+    print(list(v=v, sum = row$Sum, ratio=ratio))
+    r = c(r, ratio)
   }
 
   #print(length(r))
   d$EmpiricalPofG = r
-  d$EmpiricalPofGQ = round(-10*log10(1-r))
+  d$EmpiricalPofGQ = round(sapply(-10*log10(1-d$EmpiricalPofG), function(x) min(x, 93)))
   return(d)
 }
 
@@ -38,10 +40,15 @@ genotypeCounts <- function(x) {
 }
 
 digestTable <- function(inputDataFile) {
-  d = subset(read.table(inputDataFile, header=T), rg != "ALL")
-  eByComp = addEmpiricalPofG(ddply(d, .(rg, pGGivenDType, pGGivenD), genotypeCounts))
+  d = read.table(inputDataFile, header=T)
+  byRG = subset(d, rg != "ALL")
+  allOnly = subset(d, rg == "ALL")
+  eByCompRG = addEmpiricalPofG(ddply(byRG, .(rg, pGGivenDType, pGGivenD), genotypeCounts))
+  eByCompRG$rg = factor(eByCompRG$rg)
+  eByCompAll = addEmpiricalPofG(ddply(allOnly, .(rg, pGGivenDType, pGGivenD), genotypeCounts))
+  eByCompAll$rg = factor(eByCompAll$rg)
   
-  return(list(d=d, eByComp = eByComp))
+  return(list(d=d, eByCompRG = eByCompRG, eByCompAll = eByCompAll))
 }
 
 ##########################################
@@ -52,33 +59,47 @@ args <- commandArgs(TRUE)
 inputDataFile = args[1]
 onCmdLine = ! is.na(inputDataFile)
 if ( onCmdLine ) {
-  eByComp <- digestTable(inputDataFile)$eByComp
+  digested <- digestTable(inputDataFile)
+} else {
+  digested <- digestTable("/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/QuantizedQuals/levels.64.qq.reduced.cgl")
 }
-pdf(paste(inputDataFile, ".pdf", sep=""))
+if ( onCmdLine ) pdf(paste(inputDataFile, ".pdf", sep=""))
 
-ymax = xmax = 30 
-goodEByComp = subset(eByComp, Sum > 10 & EmpiricalPofGQ < Inf)
-
-#First graph, overall likelihoods 
-tryCatch(
-  print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=pGGivenDType, geom=c("jitter", "smooth"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2)),
-  error = function(e) {
-    print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=pGGivenDType, geom=c("jitter"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2))
+plotMe <- function(eByComp, includeByReadGroup, title) {
+  for ( xmax in c(30, 99) ) { # loop over just meaningful subset and all 
+    ymax = xmax
+    goodEByComp = subset(eByComp, Sum > 10 & EmpiricalPofGQ < Inf)
+    
+    #First graph, overall likelihoods 
+    tryCatch(
+      print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=pGGivenDType, geom=c("jitter", "smooth"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2), title=title),
+      error = function(e) {
+        print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=pGGivenDType, geom=c("jitter"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2), title=title)
+        }
+    )  
+    
+    if ( includeByReadGroup ) {
+      #Second graph, likelihoods by read group  
+      tryCatch(
+        print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2) + geom_smooth(se=F, aes(weight=Sum)), title=title),
+        error = function(e) {
+          print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2), title=title)    
+        }
+      )
     }
-)  
-
-#Second graph, likelihoods by read group  
-tryCatch(
-  print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2) + geom_smooth(se=F, aes(weight=Sum))),
-  error = function(e) {
-    print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2))    
+    
+    #Third graph, likelihoods difference from empirical    
+    tryCatch(
+      print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(-ymax/2,ymax/2)) + geom_abline(slope=0, linetype=2) + geom_smooth(se=F, method=lm, formula = y ~ ns(x,1), aes(weight=Sum)), title=title),
+      error = function(e) {
+        print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(-ymax/2,ymax/2)) + geom_abline(slope=0, linetype=2), title=title)
+      }
+    )
   }
-)
+}
+  
+plotMe(digested$eByCompRG, F, "GLs within read groups")
+plotMe(digested$eByCompAll, F, "GLs across read groups")
 
-#Third graph, likelihoods difference from empirical    
-tryCatch(
-  print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(-10,10)) + geom_abline(slope=0, linetype=2) + geom_smooth(se=F, method=lm, formula = y ~ ns(x,1), aes(weight=Sum))),
-  error = function(e) {
-    print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(-10,10)) + geom_abline(slope=0, linetype=2))
-  }
-)
+if ( onCmdLine ) dev.off()
+  
