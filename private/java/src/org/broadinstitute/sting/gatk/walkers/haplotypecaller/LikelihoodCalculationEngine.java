@@ -44,8 +44,8 @@ public class LikelihoodCalculationEngine {
         LOG_ONE_HALF = -Math.log10(2.0);
     }
 
-    public LikelihoodCalculationEngine( final byte constantGCP, final boolean debug ) {
-        pairHMM = new PairHMM();
+    public LikelihoodCalculationEngine( final byte constantGCP, final boolean debug, final boolean noBanded ) {
+        pairHMM = new PairHMM( noBanded );
         this.constantGCP = constantGCP;
         DEBUG = debug;
     }

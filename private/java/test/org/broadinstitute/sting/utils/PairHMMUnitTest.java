@@ -40,7 +40,8 @@ import java.util.*;
 
 public class PairHMMUnitTest extends BaseTest {
     final static boolean EXTENSIVE_TESTING = true;
-    PairHMM hmm = new PairHMM();
+    PairHMM hmm = new PairHMM( true ); // reference implementation
+    PairHMM bandedHMM = new PairHMM( false ); // algorithm with banding
 
     // --------------------------------------------------------------------------------
     //
@@ -114,6 +115,81 @@ public class PairHMMUnitTest extends BaseTest {
         }
     }
 
+    final Random random = new Random(87865573);
+    private class BandedLikelihoodTestProvider extends TestDataProvider {
+        final String ref, read;
+        final byte[] refBasesWithContext, readBasesWithContext;
+        final int baseQual, insQual, delQual, gcp;
+        final int expectedQual;
+        final static String LEFT_CONTEXT = "ACGTAATGACGCTACATGTCGCCAACCGTC";
+        final static String RIGHT_CONTEXT = "TACGGCTTCATATAGGGCAATGTGTGTGGCAAAA";
+        final static String LEFT_FLANK = "GATTTATCATCGAGTCTGTT";
+        final static String RIGHT_FLANK = "CATGGATCGTTATCAGCTATCTCGAGGGATTCACTTAACAGTTTCCGTA";
+        final byte[] baseQuals, insQuals, delQuals, gcps;
+
+        public BandedLikelihoodTestProvider(final String ref, final String read, final int baseQual, final int insQual, final int delQual, final int expectedQual, final int gcp) {
+            this(ref, read, baseQual, insQual, delQual, expectedQual, gcp, false, false);
+        }
+
+        public BandedLikelihoodTestProvider(final String ref, final String read, final int baseQual, final int insQual, final int delQual, final int expectedQual, final int gcp, final boolean left, final boolean right) {
+            super(BandedLikelihoodTestProvider.class, String.format("BANDED: ref=%s read=%s b/i/d/c quals = %d/%d/%d/%d l/r flank = %b/%b e[qual]=%d", ref, read, baseQual, insQual, delQual, gcp, left, right, expectedQual));
+            this.baseQual = baseQual;
+            this.delQual = delQual;
+            this.insQual = insQual;
+            this.gcp = gcp;
+            this.read = read;
+            this.ref = ref;
+            this.expectedQual = expectedQual;
+
+            refBasesWithContext = asBytes(ref, left, right);
+            readBasesWithContext = asBytes(read, false, false);
+            baseQuals = qualAsBytes(baseQual);
+            insQuals = qualAsBytes(insQual);
+            delQuals = qualAsBytes(delQual);
+            gcps = qualAsBytes(gcp, false);
+        }
+
+        public double expectedLogL() {
+            double logL = hmm.computeReadLikelihoodGivenHaplotype(
+                    refBasesWithContext, readBasesWithContext,
+                    baseQuals, insQuals, delQuals, gcps);
+
+            return logL;
+        }
+
+        public double tolerance() {
+            return 0.2; // TODO FIXME arbitrary
+        }
+
+        public double calcLogL() {
+
+            double logL = bandedHMM.computeReadLikelihoodGivenHaplotype(
+                    refBasesWithContext, readBasesWithContext,
+                    baseQuals, insQuals, delQuals, gcps);
+
+            return logL;
+        }
+
+        private final byte[] asBytes(final String bases, final boolean left, final boolean right) {
+            return ( (left ? LEFT_FLANK : "") + LEFT_CONTEXT + bases + RIGHT_CONTEXT + (right ? RIGHT_FLANK : "")).getBytes();
+        }
+
+        private byte[] qualAsBytes(final int phredQual) {
+            return qualAsBytes(phredQual, true);
+        }
+
+        private byte[] qualAsBytes(final int phredQual, final boolean addRandom) {
+            final byte phredQuals[] = new byte[readBasesWithContext.length];
+            Arrays.fill(phredQuals, (byte)phredQual);
+            if(addRandom) {
+                for( int iii = 0; iii < phredQuals.length; iii++) {
+                    phredQuals[iii] = (byte) ((int) phredQuals[iii] + (random.nextInt(7) - 3));
+                }
+            }
+            return phredQuals;
+        }
+    }
+
     @DataProvider(name = "BasicLikelihoodTestProvider")
     public Object[][] makeBasicLikelihoodTests() {
         // context on either side is ACGTTGCA REF ACGTTGCA
@@ -165,6 +241,63 @@ public class PairHMMUnitTest extends BaseTest {
 
     @Test(dataProvider = "BasicLikelihoodTestProvider", enabled = true)
     public void testBasicLikelihoods(BasicLikelihoodTestProvider cfg) {
+        double calculatedLogL = cfg.calcLogL();
+        double expectedLogL = cfg.expectedLogL();
+        logger.warn(String.format("Test: logL calc=%.2f expected=%.2f for %s", calculatedLogL, expectedLogL, cfg.toString()));
+        Assert.assertEquals(calculatedLogL, expectedLogL, cfg.tolerance());
+    }
+
+    @DataProvider(name = "BandedLikelihoodTestProvider")
+    public Object[][] makeBandedLikelihoodTests() {
+        // context on either side is ACGTTGCA REF ACGTTGCA
+        // test all combinations
+        final List<Integer> baseQuals = EXTENSIVE_TESTING ? Arrays.asList(25, 30, 40, 50) : Arrays.asList(30);
+        final List<Integer> indelQuals = EXTENSIVE_TESTING ? Arrays.asList(30, 40, 50) : Arrays.asList(40);
+        final List<Integer> gcps = EXTENSIVE_TESTING ? Arrays.asList(10, 12) : Arrays.asList(10);
+        final List<Integer> sizes = EXTENSIVE_TESTING ? Arrays.asList(2,3,4,5,6,7,8,9,10,20) : Arrays.asList(2);
+
+        for ( final int baseQual : baseQuals ) {
+            for ( final int indelQual : indelQuals ) {
+                for ( final int gcp : gcps ) {
+
+                    // test substitutions
+                    for ( final byte refBase : BaseUtils.BASES ) {
+                        for ( final byte readBase : BaseUtils.BASES ) {
+                            final String ref  = new String(new byte[]{refBase});
+                            final String read = new String(new byte[]{readBase});
+                            final int expected = refBase == readBase ? 0 : baseQual;
+                            new BandedLikelihoodTestProvider(ref, read, baseQual, indelQual, indelQual, expected, gcp);
+                        }
+                    }
+
+                    // test insertions and deletions
+                    for ( final int size : sizes ) {
+                        for ( final byte base : BaseUtils.BASES ) {
+                            final int expected = indelQual + (size - 2) * gcp;
+
+                            for ( boolean insertionP : Arrays.asList(true, false)) {
+                                final String small = Utils.dupString((char)base, 1);
+                                final String big = Utils.dupString((char)base, size);
+
+                                final String ref = insertionP ? small : big;
+                                final String read = insertionP ? big : small;
+
+                                new BandedLikelihoodTestProvider(ref, read, baseQual, indelQual, indelQual, expected, gcp);
+                                new BandedLikelihoodTestProvider(ref, read, baseQual, indelQual, indelQual, expected, gcp, true, false);
+                                new BandedLikelihoodTestProvider(ref, read, baseQual, indelQual, indelQual, expected, gcp, false, true);
+                                new BandedLikelihoodTestProvider(ref, read, baseQual, indelQual, indelQual, expected, gcp, true, true);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return BandedLikelihoodTestProvider.getTests(BandedLikelihoodTestProvider.class);
+    }
+
+    @Test(dataProvider = "BandedLikelihoodTestProvider", enabled = true)
+    public void testBandedLikelihoods(BandedLikelihoodTestProvider cfg) {
         double calculatedLogL = cfg.calcLogL();
         double expectedLogL = cfg.expectedLogL();
         logger.warn(String.format("Test: logL calc=%.2f expected=%.2f for %s", calculatedLogL, expectedLogL, cfg.toString()));

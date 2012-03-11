@@ -30,6 +30,7 @@ import net.sf.picard.reference.IndexedFastaSequenceFile;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -129,6 +130,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Argument(fullName="debug", shortName="debug", doc="If specified print out very verbose debug information about each triggering interval", required = false)
     protected boolean DEBUG;
 
+    @Argument(fullName="noBanded", shortName="noBanded", doc="If specified don't use the banded option", required = false)
+    protected boolean noBanded;
+
     // the assembly engine
     LocalAssemblyEngine assemblyEngine = null;
 
@@ -183,7 +187,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
-        likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, false );
+        likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, false, noBanded );
         genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
     }
 
@@ -372,7 +376,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             finalizedReadList.addAll( FragmentUtils.mergeOverlappingPairedFragments(overlappingPair) );
         }
 
-        Collections.shuffle(finalizedReadList);
+        Collections.shuffle(finalizedReadList, GenomeAnalysisEngine.getRandomGenerator());
 
         // Loop through the reads hard clipping the adaptor and low quality tails
         for( final GATKSAMRecord myRead : finalizedReadList ) {
