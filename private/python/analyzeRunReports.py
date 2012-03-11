@@ -331,13 +331,13 @@ class RecordDecoder:
             self.fields.extend(fields)
             self.formatters[key] = zip(fields, funcs)
     
-        add(["id", "walker-name", "phone-home-type"], id)
+        add(["id", "walker-name"], id)
         addComplex("svn-version", ["svn-version", "gatk-version", "gatk-minor-version", "release-type"], [id, formatMajorVersion, formatMinorVersion, formatReleaseType])
         add(["start-time", "end-time"], toString)      
-        add(["run-time", "java-tmp-directory", "working-directory", "user-name"], id)
+        add(["run-time", "user-name"], id)
         addComplex("host-name", ["host-name", "domain-name"], [id, formatDomainName])
         add(["java", "machine"], toString)
-        add(["max-memory", "total-memory", "iterations", "reads"], id)
+        add(["max-memory", "total-memory", "iterations"], id)
         addComplex("exception", ["exception-msg", "stacktrace", "exception-at-brief", "is-user-exception", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatRunStatus])
         #add(["command-line"], toString)          
         
@@ -619,7 +619,13 @@ class SQLRecordHandler(StageHandler):
         pass
 
     def getFields(self):
-        return ["id", "walker-name", "gatk-version", "gatk-minor-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "stacktrace", "exception-at-brief", "exception-msg", "is-user-exception", "run-status", "release-type"]
+        return ["id", "walker-name", "gatk-version", 
+                "gatk-minor-version", "svn-version", 
+                "start-time", "end-time", "run-time", 
+                "user-name", "host-name", "domain-name", 
+                "total-memory", "stacktrace", "exception-at-brief", 
+                "exception-msg", "is-user-exception", 
+                "run-status", "release-type"]
         
     def finalize(self, args):
         if DB_EXISTS and not OPTIONS.dryRun: 
