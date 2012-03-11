@@ -168,7 +168,7 @@ public class GenotypingEngine {
                 }
                 if( hIndex == 0 ) { // book-keeping, the first haplotype is always the full reference
                     sizeRefHaplotype = swConsensus.getCigar().getReadLength();
-                } else if ( Math.max(swConsensus.getCigar().getReadLength(), swConsensus.getCigar().getReferenceLength() ) < 0.55 * sizeRefHaplotype ) {
+                } else if ( Math.max(swConsensus.getCigar().getReadLength(), swConsensus.getCigar().getReferenceLength() ) < 0.65 * sizeRefHaplotype ) {
                     // Sometimes the assembly produces singleton, short paths that should be filtered out, need to perform "tip clipping" on the assembly graph
                     if( DEBUG ) { System.out.println("Filtered! -too short"); }
                    haplotypesToRemove.add(h);

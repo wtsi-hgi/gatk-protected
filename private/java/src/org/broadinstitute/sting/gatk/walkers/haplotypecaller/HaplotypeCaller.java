@@ -283,9 +283,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
         if( DEBUG ) { System.out.println("Assembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:"); }
         finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
-        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), new Haplotype(activeRegion.getReference(referenceReader) ) );
+        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), new Haplotype(activeRegion.getFullReference(referenceReader) ) );
         if( DEBUG ) { System.out.println("Found " + haplotypes.size() + " candidate haplotypes to evaluate"); }
-        genotypingEngine.createEventDictionaryAndFilterBadHaplotypes( haplotypes, activeRegion.getReference(referenceReader, REFERENCE_PADDING), getPaddedLoc( activeRegion ), activeRegion.getLocation(), activeAllelesToGenotype );
+        genotypingEngine.createEventDictionaryAndFilterBadHaplotypes( haplotypes, activeRegion.getFullReference(referenceReader, REFERENCE_PADDING), getPaddedLoc( activeRegion ), activeRegion.getLocation(), activeAllelesToGenotype );
         if( DEBUG ) { System.out.println(haplotypes.size() + " candidate haplotypes remain after filtering"); }
 
         if( haplotypes.size() == 0 ) {
@@ -295,10 +295,10 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
         final HashMap<String, Double[][]> haplotypeLikehoodMatrixMap = new HashMap<String, Double[][]>();
         final ArrayList<Haplotype> bestTwoHaplotypesPerSample = new ArrayList<Haplotype>();
+        activeRegion.hardClipToActiveRegion();
         filterNonPassingReads( activeRegion );
-
+        
         final HashMap<String, ArrayList<GATKSAMRecord>> readListMap = splitReadsBySample( activeRegion.getReads() );
-
         for( final String sample : readListMap.keySet() ) {
             if( DEBUG ) { System.out.println("Evaluating sample " + sample + " with " + readListMap.get( sample ).size() + " passing reads"); }
             likelihoodCalculationEngine.computeLikelihoods( haplotypes, readListMap.get( sample ) );
@@ -312,7 +312,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             haplotypeLikehoodMatrixMap.put( sample, likelihoodCalculationEngine.haplotypeLikehoodMatrix );
         }
 
-        final ArrayList<VariantContext> vcs = genotypingEngine.alignAndAssignGenotypeLikelihoods( getToolkit().getGenomeLocParser(), haplotypes, bestTwoHaplotypesPerSample, activeRegion.getReference(referenceReader, REFERENCE_PADDING), getPaddedLoc(activeRegion), activeRegion.getLocation(), haplotypeLikehoodMatrixMap, activeAllelesToGenotype );
+        final ArrayList<VariantContext> vcs = genotypingEngine.alignAndAssignGenotypeLikelihoods( getToolkit().getGenomeLocParser(), haplotypes, bestTwoHaplotypesPerSample, activeRegion.getFullReference(referenceReader, REFERENCE_PADDING), getPaddedLoc(activeRegion), activeRegion.getLocation(), haplotypeLikehoodMatrixMap, activeAllelesToGenotype );
 
         for( final VariantContext vc : vcs ) {
             if( activeRegion.getLocation().containsP(getToolkit().getGenomeLocParser().createGenomeLoc(vc).getStartLocation()) ) {
@@ -384,7 +384,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             if( postAdapterRead != null && !postAdapterRead.isEmpty() && postAdapterRead.getCigar().getReadLength() > 0 ) {
                 final GATKSAMRecord clippedRead = ReadClipper.hardClipLowQualEnds(postAdapterRead, MIN_TAIL_QUALITY );
                 // protect against INTERVALS with abnormally high coverage
-                if( clippedRead.getReadLength() > 10 && activeRegion.size() < samplesList.size() * DOWNSAMPLE_PER_SAMPLE_PER_REGION ) {
+                if( clippedRead.getReadLength() > 0 && activeRegion.size() < samplesList.size() * DOWNSAMPLE_PER_SAMPLE_PER_REGION ) {
                     activeRegion.add(clippedRead);
                 }
             }
@@ -394,7 +394,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private void filterNonPassingReads( final ActiveRegion activeRegion ) {
         final ArrayList<GATKSAMRecord> readsToRemove = new ArrayList<GATKSAMRecord>();
         for( final GATKSAMRecord rec : activeRegion.getReads() ) {
-            if( rec.getMappingQuality() <= 18 || BadMateFilter.hasBadMate(rec) || (keepRG != null && !rec.getReadGroup().getId().equals(keepRG)) ) {
+            if( rec.getReadLength() < 10 || rec.getMappingQuality() <= 18 || BadMateFilter.hasBadMate(rec) || (keepRG != null && !rec.getReadGroup().getId().equals(keepRG)) ) {
                 readsToRemove.add(rec);
             }
         }
