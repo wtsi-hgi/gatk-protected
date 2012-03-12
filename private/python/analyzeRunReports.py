@@ -8,6 +8,7 @@ import datetime
 import re
 import MySQLdb
 import unittest
+import traceback
 
 MISSING_VALUE = "NA"
 RUN_REPORT_LIST = "GATK-run-reports"
@@ -314,14 +315,20 @@ class RecordDecoder:
         def formatRunStatus(elt):
             #print 'formatRunStatus', parseException(elt)
             return parseException(elt)[3]
+
+        def formatHostName(elt):
+            if elt != None and elt.text != None:
+                return elt.text
+            else:
+                return 'unknown'
             
         def formatDomainName(elt):
-            if elt != None:
-                parts = elt.text.split(".")
-                if len(parts) >= 2:
-                    return '.'.join(parts[-2:])
-                else:
-                    return 'unknown'
+            hostname = formatHostName(elt)
+            parts = hostname.split(".")
+            if len(parts) >= 2:
+                return '.'.join(parts[-2:])
+            else:
+                return 'unknown'
         
         def add(names, func):
             for name in names:
@@ -335,7 +342,7 @@ class RecordDecoder:
         addComplex("svn-version", ["svn-version", "gatk-version", "gatk-minor-version", "release-type"], [id, formatMajorVersion, formatMinorVersion, formatReleaseType])
         add(["start-time", "end-time"], toString)      
         add(["run-time", "user-name"], id)
-        addComplex("host-name", ["host-name", "domain-name"], [id, formatDomainName])
+        addComplex("host-name", ["host-name", "domain-name"], [formatHostName, formatDomainName])
         add(["java", "machine"], toString)
         add(["max-memory", "total-memory", "iterations"], id)
         addComplex("exception", ["exception-msg", "stacktrace", "exception-at-brief", "is-user-exception", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatRunStatus])
@@ -669,6 +676,9 @@ class InsertRecordIntoTable(SQLRecordHandler):
             self.execute("INSERT INTO " + self.name + " VALUES(" + ", ".join(values) + ")")
         except Exception, inst:
             print 'Skipping excepting record', id, inst
+            if OPTIONS.verbose: 
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                traceback.print_exception(exc_type, exc_value, exc_traceback)
             pass
 
 DEFAULT_SIZE = 128
