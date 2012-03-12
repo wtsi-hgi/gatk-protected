@@ -2,6 +2,7 @@ package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
+import net.sf.picard.util.MathUtil;
 import org.broadinstitute.sting.utils.MathUtils;
 
 /**
@@ -18,7 +19,8 @@ public class ErrorModel extends ProbabilityModel {
     private byte minQualityScore;
     private byte phredScaledPrior;
     private double log10minPower;
-
+    private int refDepth;
+    private boolean hasData = false;
     /**
      * Calculates the probability of the data (reference sample reads) given the phred scaled site quality score.
      */
@@ -31,17 +33,31 @@ public class ErrorModel extends ProbabilityModel {
 
         model = new double[maxQualityScore-minQualityScore+1];
 
-        byte [] data = referenceSample.getPileup().getBases();
-        int coverage = data.length;
-        int matches = 0;
-        for (byte base : referenceSample.getTrueBases()) {
-            matches += MathUtils.countOccurrences(base, data);
+        if (referenceSample.getPileup() == null /*|| referenceSample.getPileup().isEmpty()*/ ) {
+            double p = MathUtils.phredScaleToLog10Probability((byte)(maxQualityScore-minQualityScore));
+            for (byte q=minQualityScore; q<=maxQualityScore; q++) {
+                int i = q - minQualityScore; // fill the array from 0 to (maxQualityscore - minQualityScore)
+                // maximum uncertainty if there's no ref data at site
+                model[i] = p;
+            }
+            this.refDepth = 0;
         }
-        int mismatches = coverage - matches;
+        else {
+            byte [] data = referenceSample.getPileup().getBases();
+            hasData = true;
+            int coverage = data.length;
+            int matches = 0;
+            for (byte base : referenceSample.getTrueBases()) {
+                matches += MathUtils.countOccurrences(base, data);
+            }
+            int mismatches = coverage - matches;
 
-        for (byte q=minQualityScore; q<=maxQualityScore; q++) {
-            int i = q - minQualityScore; // fill the array from 0 to (maxQualityscore - minQualityScore)
-            model[i] = log10ProbabilitySiteGivenQual(q, coverage, matches, mismatches);
+            for (byte q=minQualityScore; q<=maxQualityScore; q++) {
+                int i = q - minQualityScore; // fill the array from 0 to (maxQualityscore - minQualityScore)
+                //model[i] = log10ProbabilitySiteGivenQual(q, coverage, matches, mismatches);
+                model[i] = log10PoissonProbabilitySiteGivenQual(q,coverage, matches, mismatches);
+            }
+            this.refDepth = coverage;
         }
     }
 
@@ -56,12 +72,21 @@ public class ErrorModel extends ProbabilityModel {
     })
     @Ensures({"result <= 0", "! Double.isInfinite(result)", "! Double.isNaN(result)"})
 //todo -- memoize this function
+    // returns log10(p^mismatches* (1-p)^matches * choose(coverage,mismatches) * prior)
+
     private double log10ProbabilitySiteGivenQual(byte q, int coverage, int matches, int mismatches) {
         double probMismatch = MathUtils.phredScaleToProbability(q);
         return MathUtils.phredScaleToLog10Probability(phredScaledPrior) +
                 MathUtils.log10BinomialCoefficient(coverage, mismatches) +
                 mismatches * Math.log10(probMismatch) +
                 matches * Math.log10(1-probMismatch);
+    }
+
+    private double log10PoissonProbabilitySiteGivenQual(byte q, int coverage, int matches, int mismatches) {
+        // same as   log10ProbabilitySiteGivenQual but with Poisson approximation to avoid numerical underflows
+        double lambda = MathUtils.phredScaleToProbability(q) * (double )coverage;
+        // log(e^-lambda*lambda^k/k!) = -lambda + k*log(lambda) - logfactorial(k)
+        return Math.log10(lambda)*mismatches - lambda- MathUtils.log10Factorial(mismatches);
     }
 
     @Requires({"qual-minQualityScore <= maxQualityScore"})
@@ -78,6 +103,12 @@ public class ErrorModel extends ProbabilityModel {
         return minQualityScore;
     }
 
+    public int getReferenceDepth() {
+        return refDepth;
+    }
+    public boolean hasData() {
+        return hasData;
+    }
 @Requires({"maxAlleleCount >= 0"})
 //todo -- memoize this function
     public boolean hasPowerForMaxAC (int maxAlleleCount) {

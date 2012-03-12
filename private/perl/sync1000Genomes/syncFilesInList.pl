@@ -3,13 +3,13 @@
 use Getopt::Long;
 
 sub usage {
-    print "Usage: perl syncFilesInList.pl\n\t-files <file containing files to sync>\n\t-protocol <protocol to use> [defaults to 'aspera'; can also use 'wget']\n\t[-dry]\n";
+    print "Usage: perl syncFilesInList.pl\n\t-files <file containing files to sync>\n\t-protocol <protocol to use> [defaults to 'lftp'; can also use 'aspera' and 'wget']\n\t[-dry]\n";
     exit(1);
 }
 
 my $files = undef;
 my $dry;
-my $protocol = "aspera";
+my $protocol = "lftp";
 
 GetOptions( "files=s"    => \$files,
 	    "dry!"       => \$dry,
@@ -26,6 +26,9 @@ while ( <LIST> ) {
 	execute($cmd, $dry);
     } elsif ( $protocol eq "wget" ) {
 	$cmd = "./runWget.pl -file $_";
+	execute($cmd, $dry);
+    } elsif ( $protocol eq "lftp" ) {
+	$cmd = "./runLftp.pl -file $_";
 	execute($cmd, $dry);
     } else {
 	usage();

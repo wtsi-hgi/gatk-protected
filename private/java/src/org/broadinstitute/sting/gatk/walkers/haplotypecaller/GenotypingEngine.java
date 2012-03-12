@@ -25,17 +25,11 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
-import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
-import net.sf.samtools.CigarOperator;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
-import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
-import org.broadinstitute.sting.gatk.walkers.indels.ConstrainedMateFixingManager;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -69,14 +63,20 @@ public class GenotypingEngine {
         allEventDictionary = new HashMap<Integer, ArrayList<Event>>();
     }
 
-    public ArrayList<VariantContext> alignAndAssignGenotypeLikelihoods( final GenomeLocParser genomeLocParser, final ArrayList<Haplotype> allHaplotypes, final ArrayList<Haplotype> bestHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final HashMap<String,Double[][]> haplotypeLikelihoodMatrixMap ) {
+    public ArrayList<VariantContext> alignAndAssignGenotypeLikelihoods( final GenomeLocParser genomeLocParser, final ArrayList<Haplotype> allHaplotypes, final ArrayList<Haplotype> bestHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final HashMap<String,Double[][]> haplotypeLikelihoodMatrixMap, final ArrayList<VariantContext> allelesToGenotype ) {
 
         final HashMap<Integer, ArrayList<Event>> bestEventDictionary = new HashMap<Integer, ArrayList<Event>>(); // These are the events we will actually be genotyping
         final ArrayList<VariantContext> returnCallContexts = new ArrayList<VariantContext>();
 
         // Create the dictionary of all genotype-able events sorted by start location and annotated with the originating haplotype index
         if( DEBUG ) { System.out.println(" ========  Top Haplotypes ======== "); }
-        populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, false);
+        if( allelesToGenotype != null && !allelesToGenotype.isEmpty() ) { // GENOTYPE_GIVEN_ALLELES mode
+            bestHaplotypes.clear();
+            bestHaplotypes.add( allHaplotypes.get(0) ); // the reference haplotype
+            populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, true, allelesToGenotype);
+        } else {
+            populateEventDictionary(bestEventDictionary, bestHaplotypes, ref, loc, window, false, null);
+        }
 
         // walk along the haplotype in genomic order, genotyping the events as they come up
         final ArrayList<Integer> sortedKeySet = new ArrayList<Integer>();
@@ -96,69 +96,65 @@ public class GenotypingEngine {
             // Also add reference events to the dictionary for every haplotype that doesn't have any event to make the for loop below very easy to write
             final VariantContext mergedVC = VariantContextUtils.simpleMerge(genomeLocParser, vcsToGenotype, null, VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED, VariantContextUtils.GenotypeMergeType.UNSORTED, false, false, null, false, false);
             correctAndExpandEventListWithRefEvents(allEventList, mergedVC, haplotypeLikelihoodMatrixMap.values().iterator().next()[0].length);
-            vcsToGenotype.clear();
-            vcsToGenotype.add( mergedVC );
 
-            for( final VariantContext vcToGenotype : vcsToGenotype ) {
-                if( DEBUG ) { System.out.println("Genotyping event at " + key + " with alleles: " + vcToGenotype.getAlleles()); }
-                final GenotypesContext genotypes = GenotypesContext.create(haplotypeLikelihoodMatrixMap.keySet().size());
-                // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample
-                for( final String sample : haplotypeLikelihoodMatrixMap.keySet() ) {
-                    final double[] genotypeLikelihoods = new double[(vcToGenotype.getAlleles().size() * (vcToGenotype.getAlleles().size()+1)) / 2];
-                    final Double[][] haplotypeLikelihoodMatrix = haplotypeLikelihoodMatrixMap.get( sample );
-                    int glIndex = 0;
-                    for( int iii = 0; iii < vcToGenotype.getAlleles().size(); iii++ ) {
-                        for( int jjj = 0; jjj <= iii; jjj++ ) {
-                            double likelihood = Double.NEGATIVE_INFINITY;
-                            final Pair<Allele, Allele> allelePair1 = new Pair<Allele, Allele>(vcToGenotype.getReference(), vcToGenotype.getAlleles().get(jjj));
-                            final Pair<Allele, Allele> allelePair2 = new Pair<Allele, Allele>(vcToGenotype.getReference(), vcToGenotype.getAlleles().get(iii));
+            if( DEBUG ) { System.out.println("Genotyping event at " + key + " with alleles: " + mergedVC.getAlleles()); }
 
-                            // Loop through all haplotype pairs and find the max likelihood that has this given combination of events on the pair of haplotypes
-                            for( final Event e1 : allEventList ) {
-                                if( allelePair1.equals( new Pair<Allele, Allele>(e1.refAllele, e1.altAllele) ) ) {
-                                    for( final Event e2 : allEventList ) {
-                                        if( allelePair2.equals( new Pair<Allele, Allele>(e2.refAllele, e2.altAllele) ) ) {
-                                            likelihood = Math.max( likelihood, haplotypeLikelihoodMatrix[e1.index][e2.index] );
-                                        }
+            final GenotypesContext genotypes = GenotypesContext.create(haplotypeLikelihoodMatrixMap.keySet().size());
+            // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample
+            for( final String sample : haplotypeLikelihoodMatrixMap.keySet() ) {
+                final double[] genotypeLikelihoods = new double[(mergedVC.getAlleles().size() * (mergedVC.getAlleles().size()+1)) / 2];
+                final Double[][] haplotypeLikelihoodMatrix = haplotypeLikelihoodMatrixMap.get( sample );
+                int glIndex = 0;
+                for( int iii = 0; iii < mergedVC.getAlleles().size(); iii++ ) {
+                    for( int jjj = 0; jjj <= iii; jjj++ ) {
+                        double likelihood = Double.NEGATIVE_INFINITY;
+                        final Pair<Allele, Allele> allelePair1 = new Pair<Allele, Allele>(mergedVC.getReference(), mergedVC.getAlleles().get(jjj));
+                        final Pair<Allele, Allele> allelePair2 = new Pair<Allele, Allele>(mergedVC.getReference(), mergedVC.getAlleles().get(iii));
+
+                        // Loop through all haplotype pairs and find the max likelihood that has this given combination of events on the pair of haplotypes
+                        for( final Event e1 : allEventList ) {
+                            if( allelePair1.equals( new Pair<Allele, Allele>(e1.refAllele, e1.altAllele) ) ) {
+                                for( final Event e2 : allEventList ) {
+                                    if( allelePair2.equals( new Pair<Allele, Allele>(e2.refAllele, e2.altAllele) ) ) {
+                                        likelihood = Math.max( likelihood, haplotypeLikelihoodMatrix[e1.index][e2.index] );
                                     }
                                 }
                             }
-
-                            if( Double.isInfinite(likelihood) ) {
-                                throw new ReviewedStingException("Infinite likelihood detected. Maybe the correct event wasn't found in the event dictionary.");
-                            }
-
-                            genotypeLikelihoods[glIndex++] = likelihood;
-                            if( DEBUG ) { System.out.println(iii + ", " + jjj + ": " + likelihood); }
                         }
+
+                        if( Double.isInfinite(likelihood) ) {
+                            throw new ReviewedStingException("Infinite likelihood detected. Maybe the correct event wasn't found in the event dictionary.");
+                        }
+
+                        genotypeLikelihoods[glIndex++] = likelihood;
                     }
-                    final HashMap<String, Object> attributes = new HashMap<String, Object>();
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((genotypeLikelihoods)));
-                    genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
                 }
-                returnCallContexts.add( new VariantContextBuilder(vcToGenotype).genotypes(genotypes).make() );
+                final HashMap<String, Object> attributes = new HashMap<String, Object>();
+                attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((genotypeLikelihoods)));
+                genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
             }
+            returnCallContexts.add( new VariantContextBuilder(mergedVC).genotypes(genotypes).make() );
         }
 
         return returnCallContexts;
     }
 
-    public void createEventDictionaryAndFilterBadHaplotypes( final ArrayList<Haplotype> allHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window ) {
+    public void createEventDictionaryAndFilterBadHaplotypes( final ArrayList<Haplotype> allHaplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final ArrayList<VariantContext> allelesToGenotype ) {
         allEventDictionary.clear();
-        populateEventDictionary(allEventDictionary, allHaplotypes, ref, loc, window, true);
+        populateEventDictionary( allEventDictionary, allHaplotypes, ref, loc, window, true, allelesToGenotype );
     }
 
-    private void populateEventDictionary(final HashMap<Integer, ArrayList<Event>> eventDictionary, final Collection<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final GenomeLoc window, final boolean filterBadHaplotypes ) {
+    private void populateEventDictionary( final HashMap<Integer, ArrayList<Event>> eventDictionary, final Collection<Haplotype> haplotypes, final byte[] paddedRef, 
+                                          final GenomeLoc paddedLoc, final GenomeLoc window, final boolean filterBadHaplotypes, final ArrayList<VariantContext> allelesToGenotype ) {
         int hIndex = 0;
         int sizeRefHaplotype = 0;
-        int refStart = 0;
         final ArrayList<Haplotype> haplotypesToRemove = new ArrayList<Haplotype>();
         final ArrayList<Haplotype> haplotypesToAdd = new ArrayList<Haplotype>();
         if( filterBadHaplotypes ) {
             for( final Haplotype h : haplotypes ) {
 
                 // Align the haplotype to the reference
-                final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+                final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( paddedRef, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
                 if( DEBUG ) {
                     System.out.println();
                     System.out.println( h.toString() );
@@ -172,49 +168,35 @@ public class GenotypingEngine {
                 }
                 if( hIndex == 0 ) { // book-keeping, the first haplotype is always the full reference
                     sizeRefHaplotype = swConsensus.getCigar().getReadLength();
-                    refStart = swConsensus.getAlignmentStart2wrt1();
-                } else if ( Math.max(swConsensus.getCigar().getReadLength(), swConsensus.getCigar().getReferenceLength() ) < 0.65 * sizeRefHaplotype ) {
-                    // Sometimes the assembly produces singleton, short paths that should be filtered out
+                } else if ( Math.max(swConsensus.getCigar().getReadLength(), swConsensus.getCigar().getReferenceLength() ) < 0.55 * sizeRefHaplotype ) {
+                    // Sometimes the assembly produces singleton, short paths that should be filtered out, need to perform "tip clipping" on the assembly graph
                     if( DEBUG ) { System.out.println("Filtered! -too short"); }
                    haplotypesToRemove.add(h);
                     continue; // Protection against assembly failures
                 }
-
-                // Need to extend haplotypes with extra bases pulled from the reference context based on the haplotype's alignment
-                // After this procedure all haplotypes will be the same length as the reference haplotype and will be on an even footing in the HMM likelihood evaluation
-                final byte extendedHaplotype[] = new byte[sizeRefHaplotype];
-                int iii = 0;
-                int kkk;
-                for( kkk = refStart; kkk < swConsensus.getAlignmentStart2wrt1(); kkk++ ) {
-                    extendedHaplotype[iii++] = ref[kkk];
-                }
-                int jjj = 0;
-                while( jjj < h.getBases().length && iii < sizeRefHaplotype ) {
-                    extendedHaplotype[iii] = h.getBases()[jjj];
-                    iii++;
-                    jjj++;
-                }
-                int nnn = 0;
-                while( iii < sizeRefHaplotype && swConsensus.getAlignmentStart2wrt1()+swConsensus.getCigar().getReferenceLength()+nnn < ref.length ) {
-                    extendedHaplotype[iii] = ref[swConsensus.getAlignmentStart2wrt1()+swConsensus.getCigar().getReferenceLength()+nnn];
-                    iii++;
-                    nnn++;
-                }
-                haplotypesToRemove.add(h);
-                haplotypesToAdd.add( new Haplotype( extendedHaplotype, h.getQuals() ) );
                 hIndex++;
+
+                // GENOTYPE_GIVEN_ALLELES mode
+                // Artificially insert the provided alternate alleles into the discovered haplotype to genotype them
+                if( allelesToGenotype != null && !allelesToGenotype.isEmpty() ) {
+                    for( final VariantContext vc : allelesToGenotype ) {
+                        for( final Allele a : vc.getAlternateAlleles() ) {
+                            haplotypesToAdd.add( new Haplotype( h.insertAllele(vc.getReference(), a, vc.getStart() - paddedLoc.getStart(), swConsensus.getAlignmentStart2wrt1(), swConsensus.getCigar()) ) );
+                        }
+                    }                
+                }
             }
             haplotypes.removeAll( haplotypesToRemove );
             for( final Haplotype h : haplotypesToAdd ) {
                 if( !haplotypes.contains(h) ) { haplotypes.add(h); }
             }
-        }
+        }        
 
         haplotypesToRemove.clear();
         hIndex = 0;
         for( final Haplotype h : haplotypes ) {
 
-            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
+            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( paddedRef, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
             if( DEBUG ) {
                 System.out.println();
                 System.out.println( h.toString() );
@@ -228,7 +210,7 @@ public class GenotypingEngine {
             }
 
             // Walk along the alignment and turn any difference from the reference into an event
-            final ArrayList<VariantContext> vcs = generateVCsFromAlignment(swConsensus, ref, h.getBases(), loc);
+            final ArrayList<VariantContext> vcs = generateVCsFromAlignment(swConsensus, paddedRef, h.getBases(), paddedLoc);
 
             if( vcs == null || tooManyClusteredVariantsOnHaplotype( vcs ) ) { // too many variants on this haplotype means it wasn't assembled very well
                 if( DEBUG ) { System.out.println("Filtered! -too complex"); }
@@ -265,6 +247,8 @@ public class GenotypingEngine {
     }
 
     private boolean tooManyClusteredVariantsOnHaplotype( final ArrayList<VariantContext> vcs ) {
+        // Turning off clustered variants intrinsic filter for now
+        /*
         final int clusterSize = 60;
         final int threshold = 4;
 
@@ -274,6 +258,7 @@ public class GenotypingEngine {
                 return true;
             }
         }
+        */
 
         return false;
     }
@@ -419,436 +404,4 @@ public class GenotypingEngine {
 
         return vcs;
     }
-
-
-
-
-
-
-
-    //////////////////////////////////////////
-    //
-    // Code for debug output follows
-    //
-    //////////////////////////////////////////        
-
-    public void alignAllHaplotypes( final ArrayList<Haplotype> haplotypes, final byte[] ref, final GenomeLoc loc, final StingSAMFileWriter writer, final GATKSAMRecord exampleRead ) {
-
-        int iii = 0;
-        for( final Haplotype h : haplotypes ) {
-            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
-            exampleRead.setReadName("Haplotype" + iii);
-            exampleRead.setReadBases(h.getBases());
-            exampleRead.setAlignmentStart(loc.getStart() + swConsensus.getAlignmentStart2wrt1());
-            exampleRead.setCigar(swConsensus.getCigar());
-            final byte[] quals = new byte[h.getBases().length];
-            Arrays.fill(quals, (byte) 25);
-            exampleRead.setBaseQualities(quals);
-            writer.addAlignment(exampleRead);
-            iii++;
-        }
-                
-    }
-
-    public void alignAllReads( final Pair<Haplotype,Haplotype> bestTwoHaplotypes, final byte[] ref, final GenomeLoc loc, final ConstrainedMateFixingManager manager, final ArrayList<GATKSAMRecord> reads, final double[][] likelihoods ) {
-
-        final SWPairwiseAlignment swConsensus0 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.first.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
-        final SWPairwiseAlignment swConsensus1 = new SWPairwiseAlignment( ref, bestTwoHaplotypes.second.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
-        final Consensus consensus0 = new Consensus(bestTwoHaplotypes.first.getBases(), swConsensus0.getCigar(), swConsensus0.getAlignmentStart2wrt1());
-        final Consensus consensus1 = new Consensus(bestTwoHaplotypes.second.getBases(), swConsensus1.getCigar(), swConsensus1.getAlignmentStart2wrt1());
-
-        int iii = 0;
-        for( final GATKSAMRecord read : reads ) {
-            final Consensus bestConsensus = ( likelihoods[iii][0] > likelihoods[iii][1] ? consensus0 : consensus1 );
-            final AlignedRead aRead = new AlignedRead( read );
-            bestConsensus.cigar = AlignmentUtils.leftAlignIndel(bestConsensus.cigar, ref, bestConsensus.str, bestConsensus.positionOnReference, bestConsensus.positionOnReference);
-            Pair<Integer, Integer> altAlignment = findBestOffset(bestConsensus.str, aRead, loc.getStart());
-            updateRead(bestConsensus.cigar, bestConsensus.positionOnReference, altAlignment.second, aRead, loc.getStart());
-            aRead.finalizeUpdate();
-            manager.addRead(aRead.getRead(), true);
-            iii++;
-        }
-    }
-
-    // private functions copied from IndelRealigner
-    private Pair<Integer, Integer> findBestOffset(final byte[] ref, final AlignedRead read, final int leftmostIndex) {
-
-        // optimization: try the most likely alignment first (to get a low score to beat)
-        int originalAlignment = read.getOriginalAlignmentStart() - leftmostIndex;
-        int bestScore = mismatchQualitySumIgnoreCigar(read, ref, originalAlignment, Integer.MAX_VALUE);
-        int bestIndex = originalAlignment;
-
-        // optimization: we can't get better than 0, so we can quit now
-        if ( bestScore == 0 )
-            return new Pair<Integer, Integer>(bestIndex, 0);
-
-        // optimization: the correct alignment shouldn't be too far from the original one (or else the read wouldn't have aligned in the first place)
-        for ( int i = 0; i < originalAlignment; i++ ) {
-            int score = mismatchQualitySumIgnoreCigar(read, ref, i, bestScore);
-            if ( score < bestScore ) {
-                bestScore = score;
-                bestIndex = i;
-            }
-            // optimization: we can't get better than 0, so we can quit now
-            if ( bestScore == 0 )
-                return new Pair<Integer, Integer>(bestIndex, 0);
-        }
-
-        final int maxPossibleStart = ref.length - read.getReadLength();
-        for ( int i = originalAlignment + 1; i <= maxPossibleStart; i++ ) {
-            int score = mismatchQualitySumIgnoreCigar(read, ref, i, bestScore);
-            if ( score < bestScore ) {
-                bestScore = score;
-                bestIndex = i;
-            }
-            // optimization: we can't get better than 0, so we can quit now
-            if ( bestScore == 0 )
-                return new Pair<Integer, Integer>(bestIndex, 0);
-        }
-
-        return new Pair<Integer, Integer>(bestIndex, bestScore);
-    }
-
-    private static int mismatchQualitySumIgnoreCigar(final AlignedRead aRead, final byte[] refSeq, int refIndex, int quitAboveThisValue) {
-        final byte[] readSeq = aRead.getReadBases();
-        final byte[] quals = aRead.getBaseQualities();
-        int sum = 0;
-        for (int readIndex = 0 ; readIndex < readSeq.length ; refIndex++, readIndex++ ) {
-            if ( refIndex >= refSeq.length ) {
-                sum += 99;
-                // optimization: once we pass the threshold, stop calculating
-                if ( sum > quitAboveThisValue )
-                    return sum;
-            } else {
-                byte refChr = refSeq[refIndex];
-                byte readChr = readSeq[readIndex];
-                if ( !BaseUtils.isRegularBase(readChr) || !BaseUtils.isRegularBase(refChr) )
-                    continue; // do not count Ns/Xs/etc ?
-                if ( readChr != refChr ) {
-                    sum += (int)quals[readIndex];
-                    // optimization: once we pass the threshold, stop calculating
-                    if ( sum > quitAboveThisValue )
-                        return sum;
-                }
-            }
-        }
-        return sum;
-    }
-
-    private boolean updateRead(final Cigar altCigar, final int altPosOnRef, final int myPosOnAlt, final AlignedRead aRead, final int leftmostIndex) {
-        Cigar readCigar = new Cigar();
-
-        // special case: there is no indel
-        if ( altCigar.getCigarElements().size() == 1 ) {
-            aRead.setAlignmentStart(leftmostIndex + myPosOnAlt);
-            readCigar.add(new CigarElement(aRead.getReadLength(), CigarOperator.M));
-            aRead.setCigar(readCigar);
-            return true;
-        }
-
-        CigarElement altCE1 = altCigar.getCigarElement(0);
-        CigarElement altCE2 = altCigar.getCigarElement(1);
-
-        int leadingMatchingBlockLength = 0; // length of the leading M element or 0 if the leading element is I
-
-        CigarElement indelCE;
-        if ( altCE1.getOperator() == CigarOperator.I  ) {
-            indelCE=altCE1;
-            if ( altCE2.getOperator() != CigarOperator.M  ) {
-                return false;
-            }
-        }
-        else {
-            if ( altCE1.getOperator() != CigarOperator.M  ) {
-                return false;
-            }
-            if ( altCE2.getOperator() == CigarOperator.I  || altCE2.getOperator() == CigarOperator.D ) {
-                indelCE=altCE2;
-            } else {
-                return false;
-            }
-            leadingMatchingBlockLength = altCE1.getLength();
-        }
-
-        // the easiest thing to do is to take each case separately
-        int endOfFirstBlock = altPosOnRef + leadingMatchingBlockLength;
-        boolean sawAlignmentStart = false;
-
-        // for reads starting before the indel
-        if ( myPosOnAlt < endOfFirstBlock) {
-            aRead.setAlignmentStart(leftmostIndex + myPosOnAlt);
-            sawAlignmentStart = true;
-
-            // for reads ending before the indel
-            if ( myPosOnAlt + aRead.getReadLength() <= endOfFirstBlock) {
-                //readCigar.add(new CigarElement(aRead.getReadLength(), CigarOperator.M));
-                //aRead.setCigar(readCigar);
-                aRead.setCigar(null); // reset to original alignment
-                return true;
-            }
-            readCigar.add(new CigarElement(endOfFirstBlock - myPosOnAlt, CigarOperator.M));
-        }
-
-        // forward along the indel
-        //int indelOffsetOnRef = 0, indelOffsetOnRead = 0;
-        if ( indelCE.getOperator() == CigarOperator.I ) {
-            // for reads that end in an insertion
-            if ( myPosOnAlt + aRead.getReadLength() < endOfFirstBlock + indelCE.getLength() ) {
-                int partialInsertionLength = myPosOnAlt + aRead.getReadLength() - endOfFirstBlock;
-                // if we also started inside the insertion, then we need to modify the length
-                if ( !sawAlignmentStart )
-                    partialInsertionLength = aRead.getReadLength();
-                readCigar.add(new CigarElement(partialInsertionLength, CigarOperator.I));
-                aRead.setCigar(readCigar);
-                return true;
-            }
-
-            // for reads that start in an insertion
-            if ( !sawAlignmentStart && myPosOnAlt < endOfFirstBlock + indelCE.getLength() ) {
-                aRead.setAlignmentStart(leftmostIndex + endOfFirstBlock);
-                readCigar.add(new CigarElement(indelCE.getLength() - (myPosOnAlt - endOfFirstBlock), CigarOperator.I));
-                //indelOffsetOnRead = myPosOnAlt - endOfFirstBlock;
-                sawAlignmentStart = true;
-            } else if ( sawAlignmentStart ) {
-                readCigar.add(indelCE);
-                //indelOffsetOnRead = indelCE.getLength();
-            }
-        } else if ( indelCE.getOperator() == CigarOperator.D ) {
-            if ( sawAlignmentStart )
-                readCigar.add(indelCE);
-            //indelOffsetOnRef = indelCE.getLength();
-        }
-
-        // for reads that start after the indel
-        if ( !sawAlignmentStart ) {
-            //aRead.setAlignmentStart(leftmostIndex + myPosOnAlt + indelOffsetOnRef - indelOffsetOnRead);
-            //readCigar.add(new CigarElement(aRead.getReadLength(), CigarOperator.M));
-            //aRead.setCigar(readCigar);
-            aRead.setCigar(null); // reset to original alignment
-            return true;
-        }
-
-        int readRemaining = aRead.getReadBases().length;
-        for ( CigarElement ce : readCigar.getCigarElements() ) {
-            if ( ce.getOperator() != CigarOperator.D )
-                readRemaining -= ce.getLength();
-        }
-        if ( readRemaining > 0 )
-            readCigar.add(new CigarElement(readRemaining, CigarOperator.M));
-        aRead.setCigar(readCigar);
-
-        return true;
-    }
-
-
-    // private classes copied from IndelRealigner
-    private class AlignedRead {
-        private final GATKSAMRecord read;
-        private byte[] readBases = null;
-        private byte[] baseQuals = null;
-        private Cigar newCigar = null;
-        private int newStart = -1;
-        private int mismatchScoreToReference = 0;
-        private long alignerMismatchScore = 0;
-
-        public AlignedRead(GATKSAMRecord read) {
-            this.read = read;
-            mismatchScoreToReference = 0;
-        }
-
-        public GATKSAMRecord getRead() {
-               return read;
-        }
-
-        public int getReadLength() {
-            return readBases != null ? readBases.length : read.getReadLength();
-        }
-
-        public byte[] getReadBases() {
-            if ( readBases == null )
-                getUnclippedBases();
-            return readBases;
-        }
-
-        public byte[] getBaseQualities() {
-            if ( baseQuals == null )
-                getUnclippedBases();
-            return baseQuals;
-        }
-
-        // pull out the bases that aren't clipped out
-        private void getUnclippedBases() {
-            readBases = new byte[getReadLength()];
-            baseQuals = new byte[getReadLength()];
-            byte[] actualReadBases = read.getReadBases();
-            byte[] actualBaseQuals = read.getBaseQualities();
-            int fromIndex = 0, toIndex = 0;
-
-            for ( CigarElement ce : read.getCigar().getCigarElements() ) {
-                int elementLength = ce.getLength();
-                switch ( ce.getOperator() ) {
-                    case S:
-                        fromIndex += elementLength;
-                        break;
-                    case M:
-                    case I:
-                        System.arraycopy(actualReadBases, fromIndex, readBases, toIndex, elementLength);
-                        System.arraycopy(actualBaseQuals, fromIndex, baseQuals, toIndex, elementLength);
-                        fromIndex += elementLength;
-                        toIndex += elementLength;
-                    default:
-                        break;
-                }
-            }
-
-            // if we got clipped, trim the array
-            if ( fromIndex != toIndex ) {
-                byte[] trimmedRB = new byte[toIndex];
-                byte[] trimmedBQ = new byte[toIndex];
-                System.arraycopy(readBases, 0, trimmedRB, 0, toIndex);
-                System.arraycopy(baseQuals, 0, trimmedBQ, 0, toIndex);
-                readBases = trimmedRB;
-                baseQuals = trimmedBQ;
-            }
-        }
-
-        public Cigar getCigar() {
-            return (newCigar != null ? newCigar : read.getCigar());
-        }
-
-        public void setCigar(Cigar cigar) {
-            setCigar(cigar, true);
-        }
-
-        // tentatively sets the new Cigar, but it needs to be confirmed later
-        public void setCigar(Cigar cigar, boolean fixClippedCigar) {
-            if ( cigar == null ) {
-                newCigar = null;
-                return;
-            }
-
-            if ( fixClippedCigar && getReadBases().length < read.getReadLength() )
-                cigar = reclipCigar(cigar);
-
-            // no change?
-            if ( read.getCigar().equals(cigar) ) {
-                newCigar = null;
-                return;
-            }
-
-            // no indel?
-            String str = cigar.toString();
-            if ( !str.contains("D") && !str.contains("I") ) {
-                //    newCigar = null;
-                //    return;
-            }
-
-            newCigar = cigar;
-        }
-
-        // pull out the bases that aren't clipped out
-        private Cigar reclipCigar(Cigar cigar) {
-            return reclipCigar(cigar, read);
-        }
-
-        private boolean isClipOperator(CigarOperator op) {
-            return op == CigarOperator.S || op == CigarOperator.H || op == CigarOperator.P;
-        }
-
-        protected Cigar reclipCigar(Cigar cigar, GATKSAMRecord read) {
-            ArrayList<CigarElement> elements = new ArrayList<CigarElement>();
-
-            int i = 0;
-            int n = read.getCigar().numCigarElements();
-            while ( i < n && isClipOperator(read.getCigar().getCigarElement(i).getOperator()) )
-                elements.add(read.getCigar().getCigarElement(i++));
-
-            elements.addAll(cigar.getCigarElements());
-
-            i++;
-            while ( i < n && !isClipOperator(read.getCigar().getCigarElement(i).getOperator()) )
-                i++;
-
-            while ( i < n && isClipOperator(read.getCigar().getCigarElement(i).getOperator()) )
-                elements.add(read.getCigar().getCigarElement(i++));
-
-            return new Cigar(elements);
-        }
-
-        // tentatively sets the new start, but it needs to be confirmed later
-        public void setAlignmentStart(int start) {
-            newStart = start;
-        }
-
-        public int getAlignmentStart() {
-            return (newStart != -1 ? newStart : read.getAlignmentStart());
-        }
-
-        public int getOriginalAlignmentStart() {
-            return read.getAlignmentStart();
-        }
-
-        // finalizes the changes made.
-        // returns true if this record actually changes, false otherwise
-        public boolean finalizeUpdate() {
-            // if we haven't made any changes, don't do anything
-            if ( newCigar == null )
-                return false;
-            if ( newStart == -1 )
-                newStart = read.getAlignmentStart();
-
-            read.setCigar(newCigar);
-            read.setAlignmentStart(newStart);
-
-            return true;
-        }
-
-        public void setMismatchScoreToReference(int score) {
-            mismatchScoreToReference = score;
-        }
-
-        public int getMismatchScoreToReference() {
-            return mismatchScoreToReference;
-        }
-
-        public void setAlignerMismatchScore(long score) {
-            alignerMismatchScore = score;
-        }
-
-        public long getAlignerMismatchScore() {
-            return alignerMismatchScore;
-        }
-    }
-
-    private static class Consensus {
-        public final byte[] str;
-        public final ArrayList<Pair<Integer, Integer>> readIndexes;
-        public final int positionOnReference;
-        public int mismatchSum;
-        public Cigar cigar;
-
-        public Consensus(byte[] str, Cigar cigar, int positionOnReference) {
-            this.str = str;
-            this.cigar = cigar;
-            this.positionOnReference = positionOnReference;
-            mismatchSum = 0;
-            readIndexes = new ArrayList<Pair<Integer, Integer>>();
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            return ( this == o || (o instanceof Consensus && Arrays.equals(this.str,(((Consensus)o).str)) ) );
-        }
-
-        public boolean equals(Consensus c) {
-            return ( this == c || Arrays.equals(this.str,c.str) ) ;
-        }
-
-        @Override
-        public int hashCode() {
-            return Arrays.hashCode(this.str);
-        }
-    }
-
-
 }

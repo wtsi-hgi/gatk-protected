@@ -27,6 +27,7 @@ package org.broadinstitute.sting.gatk.walkers.callset_assessment;
 
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Input;
+import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -38,6 +39,7 @@ import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
+import java.io.PrintStream;
 import java.util.Map;
 
 /**
@@ -51,6 +53,9 @@ public class AssessLikelihoodsAtTruth extends RodWalker<Integer, Integer> {
 
     @Input(fullName="truth", shortName = "truth", doc="Input VCF truth file", required=true)
     public RodBinding<VariantContext> truthTrack;
+
+    @Output
+    PrintStream out;
 
     private int[] nonErrors = new int[101];
     private int[] observations = new int[101];
@@ -106,10 +111,10 @@ public class AssessLikelihoodsAtTruth extends RodWalker<Integer, Integer> {
     }
 
     public void onTraversalDone(Integer sum) {
-        System.out.println("GL_probability\tone_minus_error_rate\tobservations");
+        out.println("GL_probability\tone_minus_error_rate\tobservations");
         for (int i = 0; i < 101; i++) {
             if ( observations[i] > 0 )
-                System.out.println(String.format("%.2f\t%.2f\t%d", (double)i/100.0, (double)nonErrors[i]/(double)observations[i], observations[i]));
+                out.println(String.format("%.2f\t%.2f\t%d", (double)i/100.0, (double)nonErrors[i]/(double)observations[i], observations[i]));
         }
     }
 }

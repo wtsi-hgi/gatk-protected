@@ -1,11 +1,18 @@
 package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 
+import org.apache.log4j.Logger;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
 
@@ -21,12 +28,17 @@ public class Site {
     private Set<Lane> lanes;
     private Set<String> laneIDs;
     private AlleleCountModel alleleCountModel;
-    private double minCallQual;
-    private byte referenceSequenceBase;
+    private int minRefDepth;
+    private ErrorModel errorModel;
     private ReadBackedPileup pileup;
     private Set<String> filters;
     private Map<String, Object> attributes;
-
+    private final boolean filteredRefSampleCall;
+    private ReferenceContext refContext;
+    private UnifiedArgumentCollection UAC;
+    private VariantContext siteVC;
+    private double deletionFraction;
+    private final Logger logger;
 
 
     /**
@@ -35,59 +47,156 @@ public class Site {
      * lane.
      */
 
-    public Site(ReadBackedPileup sitePileup,String referenceSampleName,Collection<Byte> trueReferenceBases,byte referenceSequenceBase,byte minQualityScore,byte maxQualityScore,byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower) {
+    public Site(final RefMetaDataTracker tracker, ReferenceContext refContext, AlignmentContext context, String referenceSampleName,Collection<Byte> trueReferenceBases,
+                byte minQualityScore, byte maxQualityScore,
+                byte phredScaledPrior, int maxAlleleCount, UnifiedArgumentCollection UAC, double minPower, int minRefDepth, boolean filteredRefSampleCall,
+                boolean treatAllSamplesAsSinglePool, final Logger logger) {
 
-        this.referenceSequenceBase = referenceSequenceBase;
-        this.minCallQual = minCallQual;
-        this.pileup = sitePileup;
+        //this.referenceSequenceBase = referenceSequenceBase;
+        this.refContext = refContext;
+        this.UAC = UAC;
+        double minCallQual = UAC.STANDARD_CONFIDENCE_FOR_CALLING;
+        this.minRefDepth = minRefDepth;
+        this.filteredRefSampleCall = filteredRefSampleCall;
+        this.logger = logger;
 
-        laneIDs = parseLaneIDs(sitePileup.getReadGroups());
-        lanes = new HashSet<Lane>(laneIDs.size());
-        for (String laneID : laneIDs) {
-            lanes.add(new Lane(laneID,sitePileup.getPileupForLane(laneID),referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower));
-        }
+        //this.pileup = sitePileup;
+        //this.doDiscoveryMode = doDiscoveryMode;
+        ReadBackedPileup refPileup = context.getBasePileup();
+        if (refPileup != null)
+            refPileup = refPileup.getPileupForSample(referenceSampleName);
+        if (refPileup != null)
+            refPileup = refPileup.getBaseAndMappingFilteredPileup(UAC.MIN_BASE_QUALTY_SCORE, UAC.MIN_BASE_QUALTY_SCORE);
+        ReferenceSample referenceSample = new ReferenceSample(referenceSampleName, refPileup, trueReferenceBases);
+        this.errorModel = new ErrorModel(minQualityScore, maxQualityScore, phredScaledPrior, referenceSample, minPower);
 
-        for (Lane lane : lanes) {
-            // make the first pool's alleleCountModel our base model and then "recursively" merge it with all the subsequent pools
-            if (alleleCountModel == null)
-                alleleCountModel = new AlleleCountModel(lane.getAlleleCountModel());
+        VariantContext vcInput = UnifiedGenotyperEngine.getVCFromAllelesRod(tracker, refContext, context.getLocation(), false, logger, UAC.alleles);
+
+        // so start: generate an empty VC in case we need to emit at all sites
+        List<Allele> alleles = new ArrayList<Allele>();
+        if (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES)
+            alleles = vcInput.getAlleles();
+        else
+            alleles.add(Allele.create(refContext.getBase(), true));
+
+        siteVC = new VariantContextBuilder("PoolCaller", refContext.getLocus().getContig(), refContext.getLocus().getStart(), refContext.getLocus().getStart(), alleles).make();
+
+        // remove ref allele from list - this will be the alt alleles we'll test (empty list if we're doing discovery)
+        alleles.remove(0); // ref allele always first in list
+
+        if (context.hasBasePileup()) {
+            filters = new HashSet<String>();
+            pileup = context.getBasePileup().getBaseAndMappingFilteredPileup(UAC.MIN_BASE_QUALTY_SCORE, UAC.MIN_BASE_QUALTY_SCORE);
+            int numDeletions = 0;
+            for( final PileupElement p : context.getBasePileup() ) {
+                if( p.isDeletion() ) { numDeletions++; }
+            }
+
+            deletionFraction = ((double) numDeletions) / ((double) context.getBasePileup().getNumberOfElements());
+
+            boolean doDiscoveryMode = (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY);
+
+            if (treatAllSamplesAsSinglePool) {
+                laneIDs = new HashSet<String>(1);
+                laneIDs.add("Lane1");
+            }
             else
-                alleleCountModel.merge(lane.getAlleleCountModel());
+                laneIDs = parseLaneIDs(pileup.getReadGroups());
 
-            // Add all the filters from this lane
-            filters.addAll(lane.getFilters());
-            attributes.putAll(lane.getAttributes());
+            lanes = new HashSet<Lane>(laneIDs.size());
+            if (treatAllSamplesAsSinglePool) {
+
+                lanes.add(new Lane("Lane1",pileup, referenceSampleName, errorModel, refContext.getBase(),
+                        maxAlleleCount,minCallQual, minRefDepth, doDiscoveryMode, treatAllSamplesAsSinglePool,alleles));
+
+            }
+            else {
+                for (String laneID : laneIDs) {
+                    lanes.add(new Lane(laneID,pileup.getPileupForLane(laneID),referenceSampleName,errorModel, refContext.getBase(),
+                            maxAlleleCount,minCallQual, minRefDepth,
+                            doDiscoveryMode, treatAllSamplesAsSinglePool, alleles));
+                }
+                }
+
+            for (Lane lane : lanes) {
+                // make the first pool's alleleCountModel our base model and then "recursively" merge it with all the subsequent pools
+                if (alleleCountModel == null)
+                    alleleCountModel = lane.getAlleleCountModel();
+                else
+                    alleleCountModel.merge(lane.getAlleleCountModel());
+
+                // Add all the filters from this lane
+                // todo - this is wrong, we need to merge filters and attributes from different lanes!
+                calculateFilters();
+                calculateAttributes();
+            }
+
+            siteVC = new VariantContextBuilder("PoolCaller",
+                    refContext.getLocus().getContig(),
+                    refContext.getLocus().getStart(),
+                    refContext.getLocus().getStop(),
+                    getAlleles())
+                    .genotypes(GenotypesContext.copy(getGenotypes().values()))
+                    .log10PError(-1 * getNegLog10PError())
+                    .filters(filters)
+                    .attributes(attributes).make();
         }
     }
 
+    private void calculateFilters() {
+        // make the call and apply filters
+//        filters = new HashSet<Filters>();
+        if (!alleleCountModel.isConfidentlyCalled())
+            filters.add(Filters.LOW_QUAL.toString());
+        if (!alleleCountModel.isErrorModelPowerfulEnough())
+            filters.add(Filters.LOW_POWER.toString());
 
-    /**
-     * Special case constructor when site consists of only one pool *use debugSite instead*
-     * @param laneID the lane id
-     * @param lane the lane object
-     */
-    private Site(String laneID, Lane lane, double minCallQual, byte referenceSequenceBase, ReadBackedPileup sitePileup) {
-        this.lanes = new HashSet<Lane>(1);
-        this.laneIDs = new HashSet<String>(1);
-        this.lanes.add(lane);
-        this.laneIDs.add(laneID);
-        this.pileup = sitePileup;
-        this.minCallQual = minCallQual;
-        this.referenceSequenceBase = referenceSequenceBase;
-        alleleCountModel = new AlleleCountModel(lane.getAlleleCountModel());
-        filters = lane.getFilters();
-        attributes = lane.getAttributes();
+        if (!errorModel.hasData())
+            filters.add(Filters.NO_BASES_IN_REFERENCE_SAMPLE.toString());
+        else if (errorModel.getReferenceDepth() < minRefDepth)
+            filters.add(Filters.LOW_REFERENCE_SAMPLE_DEPTH.toString());
+
+        if (filteredRefSampleCall)
+            filters.add(Filters.FILTERED_REFERENCE_SAMPLE_CALL.toString());
+
+        if( deletionFraction > UAC.MAX_DELETION_FRACTION ) {
+            filters.add(Filters.MAX_DELETION_FRACTION_EXCEEDED.toString());
+        }
+        
+
+
+    }
+    private int calculateAlleleDepth (byte allele) {
+        return MathUtils.countOccurrences(allele, pileup.getBases());
     }
 
-    /**
-     * Same as Site constructor but will create only one lane containing only one pool with all samples in the SAM record.
-     * Only for debug purposes.
-     */
-    public static Site debugSite(ReadBackedPileup sitePileup,String referenceSampleName,Collection<Byte> trueReferenceBases,byte referenceSequenceBase,byte minQualityScore,byte maxQualityScore,byte phredScaledPrior,int maxAlleleCount,double minCallQual,double minPower) {
-        String laneID = "LANE1";
-        Lane lane = Lane.debugLane(laneID,sitePileup,referenceSampleName,trueReferenceBases,referenceSequenceBase,minQualityScore,maxQualityScore,phredScaledPrior,maxAlleleCount,minCallQual,minPower);
+    private List<Integer> calculateAllelicDepths(Collection<Allele> alleles) {
+        List<Integer> allelicDepths = new LinkedList<Integer>();
+        
+        for (Allele a: alleles)
+            allelicDepths.add(calculateAlleleDepth(a.getBases()[0]));
+        return allelicDepths;
+    }
 
-        return new Site(laneID, lane, minCallQual, referenceSequenceBase, sitePileup);
+    private double calculateMappingQualityRMS() {
+        return MathUtils.rms(pileup.getMappingQuals());
+    }
+
+    private int calculateMappingQualityZero() {
+        return pileup.getNumberOfMappingQualityZeroReads();
+    }
+
+
+    private void calculateAttributes() {
+        attributes = new HashMap<String, Object>(11);
+        attributes.put("AC", alleleCountModel.getMaximumLikelihoodIndex());
+        attributes.put("AF", (double)alleleCountModel.getMaximumLikelihoodIndex()/alleleCountModel.getMaxAlleleCount());
+        attributes.put("DP", pileup.getBases().length);
+        attributes.put("AD", calculateAllelicDepths(getAlleles()));
+        attributes.put("MQ", calculateMappingQualityRMS());
+        attributes.put("MQ0", calculateMappingQualityZero());
+        attributes.put("RD", errorModel.getReferenceDepth());
+        attributes.put("Dels", deletionFraction);
     }
 
     /**
@@ -126,19 +235,15 @@ public class Site {
 
     public Collection<Allele> getAlleles() {
         Set<Allele> alternateAlleles = new HashSet<Allele>();
-        alternateAlleles.add(Allele.create(referenceSequenceBase, true));
-        if (alleleCountModel.isConfidentlyCalled()) {
-            int [] baseCounts = pileup.getBaseCounts();
-            // if reference base is the most common, make it negative so we get the second most common.
-            baseCounts[BaseUtils.simpleBaseToBaseIndex(referenceSequenceBase)] = -1;
-
+        alternateAlleles.add(Allele.create(refContext.getBase(), true));
+        if (alleleCountModel.isVariant() ) {
             // add the most common alternate allele
-            alternateAlleles.add(Allele.create(BaseUtils.baseIndexToSimpleBase(MathUtils.maxElementIndex(baseCounts)), false));
+            alternateAlleles.add(Allele.create(alleleCountModel.getAltBase(), false));
         }
 
         else {
             // todo -- not sure what to do with not confident calls
-            alternateAlleles.add(Allele.create(referenceSequenceBase, true)); // adding reference allele because I don't know how to handle this case.
+            //alternateAlleles.add(Allele.create(referenceSequenceBase, true)); // adding reference allele because I don't know how to handle this case.
         }
         return alternateAlleles;
     }
@@ -152,14 +257,16 @@ public class Site {
         return siteGenotypeMap;
     }
 
-    public Set<String> getFilters() {
-        return filters;
+    public boolean isVariant() {
+        return (alleleCountModel.isVariant());
     }
 
-    public Map<String, Object> getAttributes () {
-        return attributes;
+    public boolean needToEmitCall() {
+        return (isVariant() || (UAC.OutputMode == UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES));
     }
 
-
+    public VariantContext getCallFromSite() {
+        return siteVC;
+    }
 
 }

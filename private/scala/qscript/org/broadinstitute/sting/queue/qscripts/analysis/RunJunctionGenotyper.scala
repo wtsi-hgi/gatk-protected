@@ -23,8 +23,11 @@ class RunJunctionGenotyper extends QScript {
   @Argument(shortName = "r", doc="refSeq", required=false)
   var rsFile: File = new File("/humgen/gsa-hpprojects/GATK/data/refGene_b37.sorted.txt")
 
-  @Argument(shortName = "bam", doc="BAM", required=true)
+  @Argument(shortName = "hb", doc="Bam list for hypothesis generation", required=true)
   var bam: File = null;
+
+  @Argument(shortName = "eb", doc="Bam list for hypothesis evaluation",required=false)
+  var evalBam : File = null;
 
   @Argument(shortName = "o", doc = "output",required=true)
   var output: File = null;
@@ -47,7 +50,6 @@ class RunJunctionGenotyper extends QScript {
     this.logging_level = "INFO";
     this.memoryLimit = 2;
     this.reference_sequence = referenceFile
-    this.input_file :+= bam
   }
 
   def bai(bam: File) = new File(bam + ".bai")
@@ -57,10 +59,12 @@ class RunJunctionGenotyper extends QScript {
     generator.refSeq = refSeqFile;
     generator.out = outFile
     generator.intervals :+= ival
+    generator.input_file :+= bamList
     if ( captureIntervalList != null ){
         generator.intervals :+= captureIntervalList
         generator.interval_set_rule = IntervalSetRule.INTERSECTION
       }
+    generator.memoryLimit = 4
     generator
   }
 
@@ -82,6 +86,7 @@ class RunJunctionGenotyper extends QScript {
     gt.intervals :+= ival
     gt.refSeq = refSeqFile
     gt.out = outFile
+    gt.input_file :+= evalBam
     if ( captureIntervalList != null ) {
         gt.intervals :+= captureIntervalList
         gt.interval_set_rule = IntervalSetRule.INTERSECTION
@@ -90,12 +95,16 @@ class RunJunctionGenotyper extends QScript {
   }
 
   def script = {
+    if ( evalBam == null ) {
+      evalBam = bam
+    }
+
     refSeqFile = new TaggedFile(rsFile,"REFSEQ")
     var histograms : List[File] = Nil
     if ( ! bam.getName().endsWith(".list") ) {
       println("Script not implemented for single bam files. Please supply a bam list, ending with '.list'")
     } else if ( insertDistributionFileList == null ){
-      for ( s <- asScalaIterator(new XReadLines(bam)) ) {
+      for ( s <- asScalaIterator(new XReadLines(evalBam)) ) {
         var insertSize : InsertSizeDistribution = isdTable(s)
         histograms :+= insertSize.out
         add(insertSize)
@@ -110,7 +119,7 @@ class RunJunctionGenotyper extends QScript {
     } else {
       var intervalCounter = 1
       var vcfIntermediates :  List[File] = Nil
-      for ( s <- (asScalaIterator(new XReadLines(geneIntervalsToRunOver))).grouped(20) ) {
+      for ( s <- (asScalaIterator(new XReadLines(geneIntervalsToRunOver))).grouped(10) ) {
         var intermediateHypothesis = new File(intermediateDir,"RJG_Hyp_%d.tbl".format(intervalCounter))
         var intermediateVCF = new File(intermediateDir,"RJG_Hyp_%d.vcf".format(intervalCounter))
         var intermediateInterval = new File(intermediateDir,"RJG_Hyp_%d.intervals.list".format(intervalCounter))
@@ -144,9 +153,13 @@ class RunJunctionGenotyper extends QScript {
       var stream : PrintStream = new PrintStream(outVCF)
       var first : XReadLines = new XReadLines(vcfs(0))
       var line : String = first.next()
-      while ( line.startsWith("#") && first.hasNext ) {
+      while ( line != null && line.startsWith("#") ) {
         stream.printf("%s%n",line)
-        line = first.next()
+        if ( ! first.hasNext ) {
+          line = null
+        } else {
+          line = first.next()
+        }
       }
       first.close()
       vcfs.map(

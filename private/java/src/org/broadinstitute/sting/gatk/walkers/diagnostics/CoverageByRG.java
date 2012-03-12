@@ -25,21 +25,25 @@
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
 import net.sf.samtools.SAMReadGroupRecord;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.arguments.DbsnpArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
+import org.broadinstitute.sting.gatk.walkers.PartitionBy;
+import org.broadinstitute.sting.gatk.walkers.PartitionType;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 /**
  * Walks along reference and calculates the GC content for each interval.
@@ -74,30 +78,83 @@ import java.util.List;
  *   -I input1.bam \
  *   -I input2.bam \
  *   -o output.txt \
+ *   -g "ReadGroupID1 ReadGroupID2"
  *   -L input.intervals
  * </pre>
  */
-public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, LinkedHashMap<String, Long>> {
+@PartitionBy(PartitionType.INTERVAL)
+public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, LinkedHashMap<String, Long>> /*implements TreeReducible<LinkedHashMap<String, Long>> */ {
+
 
     @Output
     PrintStream out;
 
-    GATKReportTable reportTable;
-    List<String> readGroupIds;
+    @Argument(fullName = "groupRGs", shortName = "g", doc = "This parameter will take the Read Groups provided (separated by a space) and sum them up in a new column", required = false)
+    private List<String> groups = new LinkedList<String>();
+
+    @ArgumentCollection
+    protected DbsnpArgumentCollection dbsnp = new DbsnpArgumentCollection();
+
+
+    GATKReportTable reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", true);;
+    
+    HashMap<String, String> rgGroups = new HashMap<String, String>();;
+    List<HashSet<String>> readGroupIds = new LinkedList<HashSet<String>>();
+
+    final String columnInterval = "Interval";
+    final String columnGC = "GCContent";
+    final String columnIntervalSize = "IntervalSize";
+    final String columnVariants = "Variants";
+
+
+    /*
+    @Override
+    public LinkedHashMap<String, Long> treeReduce(LinkedHashMap<String, Long> left, LinkedHashMap<String, Long> right) {
+        // Add everything in right to left
+        for ( String key : right.keySet() ) {
+            left.put(key, left.get(key) + right.get(key) );
+        }
+        return left;
+    }
+    */
 
 
     public void initialize() {
         //Sets up our report table columns (by Read Groups + GCcontent)
+        reportTable.addPrimaryKey(columnInterval, true);
+        reportTable.addColumn(columnGC, 0, true);
+        reportTable.addColumn(columnIntervalSize, 0, true);
+        reportTable.addColumn(columnVariants, 0, true);
 
-        readGroupIds = new LinkedList<String>();
+        int groupIndex = 1;
+        for (String groupString : groups) {
+            String groupID = "G" + groupIndex;
+            String [] rgs = groupString.split(" ");             // Decode the read groups in the grouping argument 
 
-        reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", true);
-        reportTable.addPrimaryKey("Interval", true);
-        for (SAMReadGroupRecord RG : getToolkit().getSAMFileHeader().getReadGroups()) {
-            readGroupIds.add(RG.getReadGroupId());
-            reportTable.addColumn(RG.getReadGroupId(), 0, true);
+            for (String rg : rgs)
+                rgGroups.put(rg, groupID);                      // Update the hash with all RGs that correspond to this group
+            
+            HashSet<String> groupSet = new HashSet<String>();
+            groupSet.addAll(Arrays.asList(rgs));
+            readGroupIds.add(groupSet);                         // Add this RG group to the list of RGs 
+
+            reportTable.addColumn(groupID, 0, true);            // Add this RG group to the report table
+
+            groupIndex++;
         }
-        reportTable.addColumn("GCContent", 0, true);
+        
+        for (SAMReadGroupRecord RG : getToolkit().getSAMFileHeader().getReadGroups()) {
+            String readGroupID = RG.getReadGroupId();
+            if (!rgGroups.containsKey(readGroupID)) {
+                HashSet<String> rgSet = new HashSet<String>(); 
+                rgSet.add(readGroupID);
+                readGroupIds.add(rgSet);                       // Add this RG group to the list of RGs
+
+                rgGroups.put(readGroupID, readGroupID);        // Update the hash with all RGs that correspond to this group
+
+                reportTable.addColumn(readGroupID, 0, true);   // Add this RG group to the report table 
+            }
+        }
     }
 
     public boolean isReduceByInterval() {
@@ -107,19 +164,20 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
 
     @Override
     public LinkedHashMap<String, Long> map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-
-        ReadBackedPileup pileup = context.getBasePileup();
-
         LinkedHashMap<String, Long> output = new LinkedHashMap<String, Long>();
 
-        for (String RG : readGroupIds) {
-            // This pileup is null when empty so a check must be added
-            ReadBackedPileup RGpileup = pileup.getPileupForReadGroup(RG);
-            output.put(RG, (RGpileup == null) ? 0L : (long) RGpileup.depthOfCoverage());
+        VariantContext variantContext = tracker.getFirstValue(dbsnp.dbsnp, ref.getLocus());
+        output.put(columnVariants, (variantContext == null) ? 0L : 1L);
+        
+        byte base = ref.getBase();                                             // Update site GC content for interval
+        output.put(columnGC, (base == BaseUtils.G || base == BaseUtils.C) ? 1L : 0L);
+        
+        ReadBackedPileup pileup = context.getBasePileup();                     // Update site pileup for all groups of read groups 
+        for (HashSet<String> rgSet : readGroupIds) {
+            ReadBackedPileup rgPileup = pileup.getPileupForReadGroups(rgSet);  // This pileup is null when empty so a check must be added
+            String rg1 = (String) rgSet.toArray()[0];                          // only need the first rg to determine which column to add            
+            output.put(rgGroups.get(rg1), (rgPileup == null) ? 0L : (long) rgPileup.depthOfCoverage());
         }
-
-        byte base = ref.getBase();
-        output.put("GCContent", (base == BaseUtils.G || base == BaseUtils.C) ? 1L : 0L);
 
         return output;
     }
@@ -132,13 +190,12 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
 
     @Override
     public LinkedHashMap<String, Long> reduce(LinkedHashMap<String, Long> value, LinkedHashMap<String, Long> sum) {
-        if (sum.isEmpty()) {
-            return value;
-        }
+        for (String key : value.keySet()) {
+            if (sum.containsKey(key))
+                sum.put(key, value.get(key) + sum.get(key));  // sum all keys (if they exist in the sum object).
+            else
+                sum.put(key, value.get(key));                 // if they don't, just put the first one.
 
-        for (String RG : value.keySet()) {
-            // Find the sum with the same RG
-            sum.put(RG, value.get(RG) + sum.get(RG));
         }
 
         return sum;
@@ -149,15 +206,17 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
         for (Pair<GenomeLoc, LinkedHashMap<String, Long>> intervalPair : results) {
             GenomeLoc interval = intervalPair.getFirst();
             LinkedHashMap<String, Long> counts = intervalPair.getSecond();
-
+            
             // Get coverage by taking total counts and diving by interval length
             for (String key : counts.keySet()) {
-                reportTable.set(interval.toString(), key, (double) counts.get(key) / (double) interval.size());
+                if (!key.equals(columnVariants))
+                    reportTable.set(interval.toString(), key, (double) counts.get(key) / (double) interval.size());
             }
+            reportTable.set(interval.toString(), columnIntervalSize, interval.size());
 
+            if (counts.containsKey(columnVariants))
+                reportTable.set(interval.toString(), columnVariants, counts.get(columnVariants));
         }
-
         reportTable.write(out);
-
     }
 }

@@ -25,73 +25,72 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
+import com.google.java.contract.Ensures;
 import net.sf.picard.reference.IndexedFastaSequenceFile;
-import net.sf.samtools.Cigar;
-import net.sf.samtools.CigarElement;
-import net.sf.samtools.CigarOperator;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
-import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.*;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
+import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
-import org.broadinstitute.sting.gatk.walkers.recalibration.TableRecalibrationWalker;
 import org.broadinstitute.sting.utils.*;
+import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
-import org.broadinstitute.sting.utils.collections.NestedHashMap;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.fragments.FragmentCollection;
 import org.broadinstitute.sting.utils.fragments.FragmentUtils;
+import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
-import org.broadinstitute.sting.utils.text.XReadLines;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.*;
 
 /**
- * [Short one sentence description of this walker]
- *
- * <p>
- * [Functionality of this walker]
- * </p>
+ * Call SNPs and indels simultaneously via local de-novo assembly. Haplotype likelihoods are evaluated with an affine gap penalty HMM.
  *
  * <h2>Input</h2>
  * <p>
- * [Input description]
+ * None! Although on-the-fly base quality score recalibration tables are highly recommended.
  * </p>
  *
  * <h2>Output</h2>
  * <p>
- * [Output description]
+ * VCF file with raw, unrecalibrated SNP and indel calls.
  * </p>
  *
  * <h2>Examples</h2>
  * PRE-TAG
- *    java
- *      -jar GenomeAnalysisTK.jar
- *      -T $WalkerName
+ *   java
+ *     -jar GenomeAnalysisTK.jar
+ *     -T HaplotypeCaller
+ *     -R reference/human_g1k_v37.fasta
+ *     -I input.bam
+ *     -BQSR input.kmer.8.recal_data.csv [[optional, but recommended]]
+ *     -o output.raw.snps.indels.vcf
  * PRE-TAG
  *
- * @author Your Name
- * @since Date created
+ * @author rpoplin
+ * @since 8/22/11
  */
+
 @PartitionBy(PartitionType.INTERVAL)
-@ReadFilters( {MappingQualityUnavailableFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class} )
-public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implements TreeReducible<Integer> {
+@ActiveRegionExtension(extension=30)
+public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     /**
      * A raw, unfiltered, highly specific callset in VCF format.
@@ -102,23 +101,14 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
     @Output(fullName="graphOutput", shortName="graph", doc="File to which debug assembly graph information should be written", required = false)
     protected PrintStream graphWriter = null;
 
-    /**
-     * After the header, data records occur one per line until the end of the file. The first several items on a line are the
-     * values of the individual covariates and will change depending on which covariates were specified at runtime. The last
-     * three items are the data- that is, number of observations for this combination of covariates, number of reference mismatches,
-     * and the raw empirical quality score calculated by phred-scaling the mismatch rate.
-     */
-    @Input(fullName="recal_file", shortName="recalFile", required=true, doc="Filename for the input indel covariates table recalibration .csv file")
-    public File RECAL_FILE = null;
-
     @Argument(fullName = "assembler", shortName = "assembler", doc = "Assembler to use; currently only SIMPLE_DE_BRUIJN is available.", required = false)
     protected LocalAssemblyEngine.ASSEMBLER ASSEMBLER_TO_USE = LocalAssemblyEngine.ASSEMBLER.SIMPLE_DE_BRUIJN;
 
-    @Argument(fullName="gopHMM", shortName="gopHMM", doc="gopHMM", required = false)
-    protected double gopHMM = 45.0;
+    @Argument(fullName="keepRG", shortName="keepRG", doc="keepRG", required = false)
+    protected String keepRG = null;
 
     @Argument(fullName="gcpHMM", shortName="gcpHMM", doc="gcpHMM", required = false)
-    protected double gcpHMM = 10.0;
+    protected int gcpHMM = 10;
 
     @Argument(fullName="gopSW", shortName="gopSW", doc="gopSW", required = false)
     protected double gopSW = 30.0;
@@ -134,7 +124,8 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
     // the calculation arguments
     private UnifiedGenotyperEngine UG_engine = null;
-
+    private UnifiedGenotyperEngine UG_engine_simple_genotyper = null;
+    
     @Argument(fullName="debug", shortName="debug", doc="If specified print out very verbose debug information about each triggering interval", required = false)
     protected boolean DEBUG;
 
@@ -147,15 +138,6 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
     // the genotyping engine
     GenotypingEngine genotypingEngine = null;
 
-    // the intervals input by the user
-    private Iterator<GenomeLoc> intervals = null;
-
-    // the current interval in the list
-    private GenomeLoc currentInterval = null;
-
-    // the reads that fall into the current interval
-    private final ReadBin readsToAssemble = new ReadBin();
-
     // fasta reference reader to supplement the edges of the reference sequence
     private IndexedFastaSequenceFile referenceReader;
 
@@ -165,21 +147,32 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
     // bases with quality less than or equal to this value are trimmed off the tails of the reads
     private static final byte MIN_TAIL_QUALITY = 8;
 
-    private NestedHashMap kmerQualityTables = new NestedHashMap();
-    private int contextSize = 0; // to be set when reading in the recal k-mer tables
     private ArrayList<String> samplesList = new ArrayList<String>();
+    private final static double LOG_ONE_HALF = -Math.log10(2.0);
+    private final static double LOG_ONE_THIRD = -Math.log10(3.0);
+    private final ArrayList<VariantContext> allelesToGenotype = new ArrayList<VariantContext>();
+
+    //---------------------------------------------------------------------------------------------------------------
+    //
+    // initialize
+    //
+    //---------------------------------------------------------------------------------------------------------------
 
     public void initialize() {
-
-        // read in the input recal data from IndelCountCovariates and calculate the empirical gap open penalty for each k-mer
-        parseInputRecalData();
+        super.initialize();
 
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         samplesList.addAll( samples );
         // initialize the UnifiedGenotyper Engine which is used to call into the exact model
+        UAC.MAX_ALTERNATE_ALLELES = 4;
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
-        // initialize the header
+        UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_CONFIDENT_SITES; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.STANDARD_CONFIDENCE_FOR_CALLING = 0.01; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = 0.01; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
+        // initialize the output VCF header
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
 
         try {
@@ -190,138 +183,135 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         }
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, referenceReader);
-        likelihoodCalculationEngine = new LikelihoodCalculationEngine(gopHMM, gcpHMM, DEBUG, true, false, kmerQualityTables, contextSize);
+        likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, false );
         genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
-
-        GenomeLocSortedSet intervalsToAssemble = getToolkit().getIntervals();
-        if ( intervalsToAssemble == null || intervalsToAssemble.isEmpty() )
-            throw new UserException.BadInput("Intervals must be provided with -L (preferably not larger than several hundred bp)");
-
-        intervals = intervalsToAssemble.clone().iterator();
-        currentInterval = intervals.hasNext() ? intervals.next() : null;
     }
 
-    private void parseInputRecalData() {
-        int lineNumber = 0;
-        boolean foundAllCovariates = false;
+    //---------------------------------------------------------------------------------------------------------------
+    //
+    // isActive
+    //
+    //---------------------------------------------------------------------------------------------------------------
 
-        // Read in the data from the csv file and populate the data map and covariates list
-        logger.info( "Reading in the data from input csv file..." );
+    // enable deletions in the pileup
+    @Override
+    public boolean includeReadsWithDeletionAtLoci() { return true; }
 
-        boolean sawEOF = false;
-        try {
-            for ( String line : new XReadLines(RECAL_FILE) ) {
-                lineNumber++;
-                if (TableRecalibrationWalker.EOF_MARKER.equals(line) ) {
-                    sawEOF = true;
-                } else if( TableRecalibrationWalker.COMMENT_PATTERN.matcher(line).matches() || TableRecalibrationWalker.OLD_RECALIBRATOR_HEADER.matcher(line).matches() ||
-                        TableRecalibrationWalker.COVARIATE_PATTERN.matcher(line).matches() )  {
-                    // Skip over the comment lines, (which start with '#')
-                } else { // Found a line of data
-                    final String[] vals = line.split(",");
-                    final Object[] key = new Object[2];
-                    key[0] = vals[0]; // read group
-                    key[1] = vals[2]; // k-mer Context
-                    final Double logGapOpenPenalty = Math.log10( (Double.parseDouble(vals[4]) + 1.0) / (Double.parseDouble(vals[3]) + 1.0) );
-                    kmerQualityTables.put( logGapOpenPenalty, key );
-                    if(contextSize == 0) { contextSize = key[1].toString().length(); }
+    // enable non primary reads in the active region
+    @Override
+    public boolean wantsNonPrimaryReads() { return false; }
+
+    @Override
+    @Ensures({"result >= 0.0", "result <= 1.0"})
+    public double isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
+
+        if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
+            for( final VariantContext vc : tracker.getValues(UG_engine.getUAC().alleles) ) {
+                if(!allelesToGenotype.contains(vc)) {
+                    allelesToGenotype.add(vc);
+                }
+            }
+            if( tracker.getValues(UG_engine.getUAC().alleles).size() > 0 ) {
+                return 1.0;
+            }
+        }
+        if( context == null ) { return 0.0; }
+
+        final List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
+        noCall.add(Allele.NO_CALL);
+
+        final Map<String, AlignmentContext> splitContexts = AlignmentContextUtils.splitContextBySampleName(context);
+        final GenotypesContext genotypes = GenotypesContext.create(splitContexts.keySet().size());
+        for( String sample : splitContexts.keySet() ) {
+            final double[] genotypeLikelihoods = new double[3]; // ref versus non-ref (any event)
+            genotypeLikelihoods[0] = 0.0;
+            genotypeLikelihoods[1] = 0.0;
+            genotypeLikelihoods[2] = 0.0;
+
+            for( PileupElement p : context.getBasePileup() ) {
+                byte qual = p.getQual();
+                if (qual > QualityUtils.MIN_USABLE_Q_SCORE ) {
+                    int AA = 0; int AB = 1; int BB = 2;
+                    if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeInsertion() || p.isNextToSoftClip() || (p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()) ) {
+                        AA = 2;
+                        BB = 0;
+                        qual = (byte) ((int)qual + 6); // be overly permissive so as to not miss any slight signal of variation
+                    } 
+                    genotypeLikelihoods[AA] += Math.log10(QualityUtils.qualToProb(qual));
+                    genotypeLikelihoods[AB] += MathUtils.approximateLog10SumLog10(Math.log10(QualityUtils.qualToProb(qual)) + LOG_ONE_HALF, Math.log10(QualityUtils.qualToErrorProb(qual)) + LOG_ONE_THIRD + LOG_ONE_HALF);
+                    genotypeLikelihoods[BB] += Math.log10(QualityUtils.qualToErrorProb(qual)) + LOG_ONE_THIRD;
                 }
             }
 
-        } catch ( FileNotFoundException e ) {
-            throw new UserException.CouldNotReadInputFile(RECAL_FILE, "Can not find input file", e);
-        } catch ( NumberFormatException e ) {
-            throw new UserException.MalformedFile(RECAL_FILE, "Error parsing recalibration data at line " + lineNumber + ". Perhaps your table was generated by an older version of CovariateCounterWalker.");
-        }
-        logger.info( "...done!" );
-
-        if ( !sawEOF ) {
-            final String errorMessage = "No EOF marker was present in the recal covariates table; this could mean that the file is corrupted or was generated with an old version of the CountCovariates tool.";
-            throw new UserException.MalformedFile(RECAL_FILE, errorMessage);
-        }
-    }
-
-    private LocalAssemblyEngine makeAssembler(LocalAssemblyEngine.ASSEMBLER type, IndexedFastaSequenceFile referenceReader) {
-        switch ( type ) {
-            case SIMPLE_DE_BRUIJN:
-                return new SimpleDeBruijnAssembler(graphWriter, referenceReader);
-            default:
-                throw new UserException.BadInput("Assembler type " + type + " is not valid/supported");
-        }
-    }
-
-    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
-        return currentInterval == null ? null : read;
-    }
-
-    public Integer reduceInit() {
-        return 0;
-    }
-
-    public Integer reduce(GATKSAMRecord read, Integer sum) {
-        if ( read == null )
-            return sum;
-
-        GenomeLoc readLoc = getToolkit().getGenomeLocParser().createGenomeLoc(read);
-        // hack to get around unmapped reads having screwy locations
-        if ( readLoc.getStop() == 0 )
-            readLoc = getToolkit().getGenomeLocParser().createGenomeLoc(readLoc.getContig(), readLoc.getStart(), readLoc.getStart());
-
-        if ( readLoc.overlapsP(currentInterval) ) {
-            readsToAssemble.add(read);
-        } else {
-            processReadBin( currentInterval );
-            readsToAssemble.add(read); // don't want this triggering read which is past the interval to fall through the cracks
-            sum++;
-
-            do {
-                currentInterval = intervals.hasNext() ? intervals.next() : null;
-            } while ( currentInterval != null && currentInterval.isBefore(readLoc) );
+            final HashMap<String, Object> attributes = new HashMap<String, Object>();
+            attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((genotypeLikelihoods)));
+            genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
         }
 
-        return sum;
+        final ArrayList<Allele> alleles = new ArrayList<Allele>();
+        alleles.add( Allele.create("A", true) ); // fake ref Allele
+        alleles.add( Allele.create("G", false) ); // fake alt Allele
+        final VariantCallContext vcOut = UG_engine_simple_genotyper.calculateGenotypes(new VariantContextBuilder("HCisActive!", context.getContig(), context.getLocation().getStart(), context.getLocation().getStop(), alleles).genotypes(genotypes).make(), GenotypeLikelihoodsCalculationModel.Model.SNP);
+        return ( vcOut == null ? 0.0 : QualityUtils.qualToProb( vcOut.getPhredScaledQual() ) );
     }
 
-    public Integer treeReduce(Integer lhs, Integer rhs) {
-        return lhs + rhs;
-    }
+    //---------------------------------------------------------------------------------------------------------------
+    //
+    // map
+    //
+    //---------------------------------------------------------------------------------------------------------------
 
-    public void onTraversalDone(Integer result) {
-        processReadBin( currentInterval );
-        result++;
-        logger.info("Ran local assembly on " + result + " intervals");
-    }
+    @Override
+    public Integer map( final ActiveRegion activeRegion, final RefMetaDataTracker metaDataTracker ) {
+        final ArrayList<VariantContext> activeAllelesToGenotype = new ArrayList<VariantContext>();
+        if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
+            for( final VariantContext vc : allelesToGenotype ) {
+                if( activeRegion.getLocation().overlapsP( getToolkit().getGenomeLocParser().createGenomeLoc(vc) ) ) {
+                    activeAllelesToGenotype.add(vc); // do something with these VCs during GGA mode
+                }
+            }
+            allelesToGenotype.removeAll( activeAllelesToGenotype );
+        }
+        
+        if( !activeRegion.isActive ) { return 0; } // Not active so nothing to do!
+        if( activeRegion.size() == 0 && UG_engine.getUAC().GenotypingMode != GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) { return 0; } // No reads here so nothing to do!
+        if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES && activeAllelesToGenotype.isEmpty() ) { return 0; } // No alleles found in this region
 
-    private void processReadBin( final GenomeLoc curInterval ) {
-        if ( readsToAssemble.size() == 0 ) { return; } // No reads here so nothing to do!
-
-        if( DEBUG ) { System.out.println("Assembling " + curInterval.getLocation() + " with " + readsToAssemble.getReads().size() + " reads:"); }
-        readsToAssemble.finalizeBin( curInterval );
-        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( readsToAssemble.getReads(), new Haplotype(readsToAssemble.getReferenceNoPadding(referenceReader) ) );
+        if( DEBUG ) { System.out.println("Assembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:"); }
+        finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
+        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), new Haplotype(activeRegion.getReference(referenceReader) ) );
         if( DEBUG ) { System.out.println("Found " + haplotypes.size() + " candidate haplotypes to evaluate"); }
-        genotypingEngine.createEventDictionaryAndFilterBadHaplotypes( haplotypes, readsToAssemble.getReference(referenceReader), readsToAssemble.getLocation(), curInterval );
+        genotypingEngine.createEventDictionaryAndFilterBadHaplotypes( haplotypes, activeRegion.getReference(referenceReader, REFERENCE_PADDING), getPaddedLoc( activeRegion ), activeRegion.getLocation(), activeAllelesToGenotype );
         if( DEBUG ) { System.out.println(haplotypes.size() + " candidate haplotypes remain after filtering"); }
 
         if( haplotypes.size() == 0 ) {
             if( DEBUG ) { System.out.println("WARNING! No haplotypes created during assembly!"); }
-            return;
+            return 0;
         }
 
         final HashMap<String, Double[][]> haplotypeLikehoodMatrixMap = new HashMap<String, Double[][]>();
         final ArrayList<Haplotype> bestTwoHaplotypesPerSample = new ArrayList<Haplotype>();
-        final HashMap<String, ArrayList<GATKSAMRecord>> readListMap = splitReadsBySample( readsToAssemble.getPassingReads() );
+        filterNonPassingReads( activeRegion );
+
+        final HashMap<String, ArrayList<GATKSAMRecord>> readListMap = splitReadsBySample( activeRegion.getReads() );
 
         for( final String sample : readListMap.keySet() ) {
             if( DEBUG ) { System.out.println("Evaluating sample " + sample + " with " + readListMap.get( sample ).size() + " passing reads"); }
             likelihoodCalculationEngine.computeLikelihoods( haplotypes, readListMap.get( sample ) );
-            bestTwoHaplotypesPerSample.addAll( likelihoodCalculationEngine.chooseBestHaplotypes(haplotypes) );
+            if( UG_engine.getUAC().GenotypingMode != GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
+                for( final Haplotype bestHaplotype : likelihoodCalculationEngine.chooseBestHaplotypes(haplotypes) ) {
+                    if( !bestTwoHaplotypesPerSample.contains( bestHaplotype ) ) {
+                        bestTwoHaplotypesPerSample.add( bestHaplotype );
+                    }
+                }
+            }
             haplotypeLikehoodMatrixMap.put( sample, likelihoodCalculationEngine.haplotypeLikehoodMatrix );
         }
 
-        final ArrayList<VariantContext> vcs = genotypingEngine.alignAndAssignGenotypeLikelihoods( getToolkit().getGenomeLocParser(), haplotypes, bestTwoHaplotypesPerSample, readsToAssemble.getReference(referenceReader), readsToAssemble.getLocation(), curInterval, haplotypeLikehoodMatrixMap );
+        final ArrayList<VariantContext> vcs = genotypingEngine.alignAndAssignGenotypeLikelihoods( getToolkit().getGenomeLocParser(), haplotypes, bestTwoHaplotypesPerSample, activeRegion.getReference(referenceReader, REFERENCE_PADDING), getPaddedLoc(activeRegion), activeRegion.getLocation(), haplotypeLikehoodMatrixMap, activeAllelesToGenotype );
 
         for( final VariantContext vc : vcs ) {
-            if( curInterval.containsP(getToolkit().getGenomeLocParser().createGenomeLoc(vc).getStartLocation()) ) {
+            if( activeRegion.getLocation().containsP(getToolkit().getGenomeLocParser().createGenomeLoc(vc).getStartLocation()) ) {
                 final VariantCallContext vcOut = UG_engine.calculateGenotypes(vc, UG_engine.getUAC().GLmodel);
                 if(vcOut != null) {
                     if( DEBUG ) { System.out.println(vcOut); }
@@ -332,9 +322,87 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
 
         if( DEBUG ) { System.out.println("----------------------------------------------------------------------------------"); }
 
-        readsToAssemble.clear();
+        return 1;
     }
 
+    //---------------------------------------------------------------------------------------------------------------
+    //
+    // reduce
+    //
+    //---------------------------------------------------------------------------------------------------------------
+
+    @Override
+    public Integer reduceInit() {
+        return 0;
+    }
+
+    @Override
+    public Integer reduce(Integer cur, Integer sum) {
+        return cur + sum;
+    }
+
+    @Override
+    public void onTraversalDone(Integer result) {
+        logger.info("Ran local assembly on " + result + " active regions");
+    }
+
+    //---------------------------------------------------------------------------------------------------------------
+    //
+    // private helper functions
+    //
+    //---------------------------------------------------------------------------------------------------------------
+
+    private LocalAssemblyEngine makeAssembler(LocalAssemblyEngine.ASSEMBLER type, IndexedFastaSequenceFile referenceReader) {
+        switch ( type ) {
+            case SIMPLE_DE_BRUIJN:
+                return new SimpleDeBruijnAssembler(graphWriter, referenceReader);
+            default:
+                throw new UserException.BadInput("Assembler type " + type + " is not valid/supported");
+        }
+    }
+
+    private void finalizeActiveRegion( final ActiveRegion activeRegion ) {
+        final ArrayList<GATKSAMRecord> finalizedReadList = new ArrayList<GATKSAMRecord>();
+        final FragmentCollection<GATKSAMRecord> fragmentCollection = FragmentUtils.create( ReadUtils.sortReadsByCoordinate(activeRegion.getReads()) );
+        activeRegion.clearReads();
+
+        // Join overlapping paired reads to create a single longer read
+        finalizedReadList.addAll( fragmentCollection.getSingletonReads() );
+        for( final List<GATKSAMRecord> overlappingPair : fragmentCollection.getOverlappingPairs() ) {
+            finalizedReadList.addAll( FragmentUtils.mergeOverlappingPairedFragments(overlappingPair) );
+        }
+
+        Collections.shuffle(finalizedReadList);
+
+        // Loop through the reads hard clipping the adaptor and low quality tails
+        for( final GATKSAMRecord myRead : finalizedReadList ) {
+            final GATKSAMRecord postAdapterRead = ( myRead.getReadUnmappedFlag() ? myRead : ReadClipper.hardClipAdaptorSequence( myRead ) );
+            if( postAdapterRead != null && !postAdapterRead.isEmpty() && postAdapterRead.getCigar().getReadLength() > 0 ) {
+                final GATKSAMRecord clippedRead = ReadClipper.hardClipLowQualEnds(postAdapterRead, MIN_TAIL_QUALITY );
+                // protect against INTERVALS with abnormally high coverage
+                if( clippedRead.getReadLength() > 10 && activeRegion.size() < samplesList.size() * DOWNSAMPLE_PER_SAMPLE_PER_REGION ) {
+                    activeRegion.add(clippedRead);
+                }
+            }
+        }
+    }
+
+    private void filterNonPassingReads( final ActiveRegion activeRegion ) {
+        final ArrayList<GATKSAMRecord> readsToRemove = new ArrayList<GATKSAMRecord>();
+        for( final GATKSAMRecord rec : activeRegion.getReads() ) {
+            if( rec.getMappingQuality() <= 18 || BadMateFilter.hasBadMate(rec) || (keepRG != null && !rec.getReadGroup().getId().equals(keepRG)) ) {
+                readsToRemove.add(rec);
+            }
+        }
+        activeRegion.removeAll( readsToRemove );
+    }
+
+    private GenomeLoc getPaddedLoc( final ActiveRegion activeRegion ) {
+        final int padLeft = Math.max(activeRegion.getReferenceLoc().getStart()-REFERENCE_PADDING, 1);
+        final int padRight = Math.min(activeRegion.getReferenceLoc().getStop()+REFERENCE_PADDING, referenceReader.getSequenceDictionary().getSequence(activeRegion.getReferenceLoc().getContig()).getSequenceLength());
+        return getToolkit().getGenomeLocParser().createGenomeLoc(activeRegion.getReferenceLoc().getContig(), padLeft, padRight);
+    }
+    
     private HashMap<String, ArrayList<GATKSAMRecord>> splitReadsBySample( final ArrayList<GATKSAMRecord> reads ) {
         final HashMap<String, ArrayList<GATKSAMRecord>> returnMap = new HashMap<String, ArrayList<GATKSAMRecord>>();
         for( final String sample : samplesList) {
@@ -351,174 +419,5 @@ public class HaplotypeCaller extends ReadWalker<GATKSAMRecord, Integer> implemen
         }
 
         return returnMap;
-    }
-
-    // private class copied from IndelRealigner, used to bin together a bunch of reads and then retrieve the reference overlapping the full extent of the bin
-    // the precursor to the Active Region Traversal
-    private class ReadBin implements HasGenomeLocation {
-
-        private final ArrayList<GATKSAMRecord> reads = new ArrayList<GATKSAMRecord>();
-        private byte[] reference = null;
-        private GenomeLoc loc = null;
-
-        public ReadBin() { }
-
-        // add each read to the bin and extend the reference genome loc if needed
-        public void add( final GATKSAMRecord read ) {
-            final GenomeLoc locForRead = getToolkit().getGenomeLocParser().createGenomeLoc( read );
-            if ( loc == null )
-                loc = locForRead;
-            else if ( locForRead.getStop() > loc.getStop() )
-                loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), loc.getStart(), locForRead.getStop());
-
-            reads.add( read );
-        }
-
-        public void finalizeBin( final GenomeLoc curInterval ) {
-            loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(),
-                    Math.min(loc.getStart(), curInterval.getStart()), Math.max(loc.getStop(), curInterval.getStop()));
-            final ArrayList<GATKSAMRecord> finalizedReadList = new ArrayList<GATKSAMRecord>();
-            final FragmentCollection<GATKSAMRecord> fragmentCollection = FragmentUtils.create( reads );
-            reads.clear();
-
-            // Join overlapping paired reads to create a single longer read
-            finalizedReadList.addAll( fragmentCollection.getSingletonReads() );
-            for( final List<GATKSAMRecord> overlappingPair : fragmentCollection.getOverlappingPairs() ) {
-                finalizedReadList.addAll(mergeOverlappingPairedReads(overlappingPair));
-            }
-
-            Collections.shuffle(finalizedReadList);
-
-            // Loop through the reads hard clipping the adaptor and low quality tails
-            for( final GATKSAMRecord myRead : finalizedReadList ) {
-                final GATKSAMRecord postAdapterRead = ( myRead.getReadUnmappedFlag() ? myRead : ReadClipper.hardClipAdaptorSequence( myRead ) );
-                if( postAdapterRead != null && !postAdapterRead.isEmpty() && postAdapterRead.getCigar().getReadLength() > 0 ) {
-                    final GATKSAMRecord clippedRead = ReadClipper.hardClipLowQualEnds(postAdapterRead, MIN_TAIL_QUALITY );
-
-                    // protect against INTERVALS with abnormally high coverage
-                    if( clippedRead.getReadLength() > 0 && reads.size() < samplesList.size() * DOWNSAMPLE_PER_SAMPLE_PER_REGION ) {
-                        reads.add(clippedRead);
-                    }
-                }
-            }
-        }
-
-        public ArrayList<GATKSAMRecord> getReads() { return reads; }
-
-        public ArrayList<GATKSAMRecord> getPassingReads() {
-            final ArrayList<GATKSAMRecord> passingReads = new ArrayList<GATKSAMRecord>();
-
-            for( final GATKSAMRecord rec : reads ) {
-                if( rec.getMappingQuality() > 18 && !BadMateFilter.hasBadMate(rec) ) {
-                    passingReads.add(rec);
-                }
-            }
-
-            return passingReads;
-        }
-
-        public byte[] getReference(IndexedFastaSequenceFile referenceReader) {
-            // set up the reference if we haven't done so yet
-            if ( reference == null ) {
-                // first, pad the reference to handle deletions in narrow windows (e.g. those with only 1 read)
-                int padLeft = Math.max(loc.getStart()-REFERENCE_PADDING, 1);
-                int padRight = Math.min(loc.getStop()+REFERENCE_PADDING, referenceReader.getSequenceDictionary().getSequence(loc.getContig()).getSequenceLength());
-                loc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), padLeft, padRight);
-                reference = referenceReader.getSubsequenceAt(loc.getContig(), loc.getStart(), loc.getStop()).getBases();
-            }
-
-            return reference;
-        }
-
-        public byte[] getReferenceNoPadding(IndexedFastaSequenceFile referenceReader) {
-            int padLeft = Math.max(loc.getStart(), 1);
-            int padRight = Math.min(loc.getStop(), referenceReader.getSequenceDictionary().getSequence(loc.getContig()).getSequenceLength());
-            final GenomeLoc thisLoc = getToolkit().getGenomeLocParser().createGenomeLoc(loc.getContig(), padLeft, padRight);
-            return referenceReader.getSubsequenceAt(thisLoc.getContig(), thisLoc.getStart(), thisLoc.getStop()).getBases();
-        }
-
-        public GenomeLoc getLocation() { return loc; }
-
-        public int size() { return reads.size(); }
-
-        public void clear() {
-            reads.clear();
-            reference = null;
-            loc = null;
-        }
-    }
-
-    // BUGBUG: move this function to ReadUtils or FragmentUtils
-    private List<GATKSAMRecord> mergeOverlappingPairedReads( List<GATKSAMRecord> overlappingPair ) {
-        if( overlappingPair.size() != 2 ) { throw new ReviewedStingException("Found overlapping pair with " + overlappingPair.size() + " reads, but expecting exactly 2."); }
-
-        GATKSAMRecord firstRead = overlappingPair.get(0);
-        GATKSAMRecord secondRead = overlappingPair.get(1);
-        if( !(secondRead.getUnclippedStart() <= firstRead.getUnclippedEnd() && secondRead.getUnclippedStart() >= firstRead.getUnclippedStart() && secondRead.getUnclippedEnd() >= firstRead.getUnclippedEnd()) ) {
-            firstRead = overlappingPair.get(1);
-            secondRead = overlappingPair.get(0);
-        }
-        if( !(secondRead.getUnclippedStart() <= firstRead.getUnclippedEnd() && secondRead.getUnclippedStart() >= firstRead.getUnclippedStart() && secondRead.getUnclippedEnd() >= firstRead.getUnclippedEnd()) ) {
-            return overlappingPair; // can't merge them, yet:  AAAAAAAAAAA-BBBBBBBBBBB-AAAAAAAAAAAAAA
-        }
-
-        // DEBUG PRINTING
-        //System.out.println("1: " + firstRead.getUnclippedStart() + " - " + firstRead.getUnclippedEnd() + "  > " + firstRead.getCigar() + " " + firstRead.getReadGroup().getId());
-        //System.out.println("2: " + secondRead.getUnclippedStart() + " - " + secondRead.getUnclippedEnd() + "  > " + secondRead.getCigar()+ " " + firstRead.getReadGroup().getId());
-        //System.out.println(firstRead.getReadString());
-        //System.out.println(secondRead.getReadString());
-
-        final int firstReadStop = ReadUtils.getReadCoordinateForReferenceCoordinate(firstRead, secondRead.getUnclippedStart(), ReadUtils.ClippingTail.RIGHT_TAIL);
-        final int numBases = firstReadStop + secondRead.getReadLength();
-        final byte[] bases = new byte[numBases];
-        final byte[] quals = new byte[numBases];
-        final byte[] firstReadBases = firstRead.getReadBases();
-        final byte[] firstReadQuals = firstRead.getBaseQualities();
-        final byte[] secondReadBases = secondRead.getReadBases();
-        final byte[] secondReadQuals = secondRead.getBaseQualities();
-        for(int iii = 0; iii < firstReadStop; iii++) {
-            bases[iii] = firstReadBases[iii];
-            quals[iii] = firstReadQuals[iii];
-        }
-        for(int iii = firstReadStop; iii < firstRead.getReadLength(); iii++) {
-            bases[iii] = ( firstReadQuals[iii] > secondReadQuals[iii-firstReadStop] ? firstReadBases[iii] : secondReadBases[iii-firstReadStop] );
-            quals[iii] = ( firstReadQuals[iii] > secondReadQuals[iii-firstReadStop] ? firstReadQuals[iii] : secondReadQuals[iii-firstReadStop] );
-        }
-        for(int iii = firstRead.getReadLength(); iii < numBases; iii++) {
-            bases[iii] = secondReadBases[iii-firstReadStop];
-            quals[iii] = secondReadQuals[iii-firstReadStop];
-        }
-
-        // DEBUG PRINTING
-        /*
-        if( DEBUG ) {
-            System.out.println(firstRead.getReadString());
-            for(int jjj = 0; jjj < firstReadStop; jjj++) {
-                System.out.print(" ");
-            }
-            System.out.println(secondRead.getReadString());
-            String displayString = "";
-            for(int jjj = 0; jjj < bases.length; jjj++) {
-                displayString += (char) bases[jjj];
-            }
-            System.out.println(displayString);
-        }
-        */
-        
-        final GATKSAMRecord returnRead = new GATKSAMRecord(firstRead.getHeader());
-        returnRead.setAlignmentStart(firstRead.getUnclippedStart());
-        returnRead.setReadBases( bases );
-        returnRead.setBaseQualities( quals );
-        returnRead.setReadGroup( firstRead.getReadGroup() );
-        returnRead.setReferenceName( firstRead.getReferenceName() );
-        final CigarElement c = new CigarElement(bases.length, CigarOperator.M);
-        final ArrayList<CigarElement> cList = new ArrayList<CigarElement>();
-        cList.add(c);
-        returnRead.setCigar( new Cigar( cList ));
-        returnRead.setMappingQuality( firstRead.getMappingQuality() );
-
-        final ArrayList<GATKSAMRecord> returnList = new ArrayList<GATKSAMRecord>();
-        returnList.add(returnRead);
-        return returnList;
     }
 }

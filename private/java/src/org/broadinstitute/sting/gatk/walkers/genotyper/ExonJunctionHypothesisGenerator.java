@@ -286,7 +286,8 @@ public class ExonJunctionHypothesisGenerator extends ReadWalker<TreeSet<ExonJunc
             byte[] refBases = getExonBases(exonPos, nBases, false);
             //referenceReader.getSubsequenceAt(exonPos.getContig(),exonPos.getStop()-nBases,exonPos.getStop()).getBases();
             byte[] readBases = read.getReadBases();
-            for ( int i = 0; i < 10; i++ ) {
+            int max = Math.min(refBases.length,10);
+            for ( int i = 0; i < max; i++ ) {
                 match += (refBases[i] == readBases[i]) ? 1 : 0;
             }
         } else {
@@ -318,7 +319,8 @@ public class ExonJunctionHypothesisGenerator extends ReadWalker<TreeSet<ExonJunc
         }
 
         byte[] sq = exonSequences.get(exonPosition);
-        return startOfExon ? Arrays.copyOfRange(sq,0,numBases) : Arrays.copyOfRange(sq,sq.length-numBases,sq.length);
+        //logger.debug(String.format("%d: %d %d",sq.length,sq.length,numBases));
+        return startOfExon ? Arrays.copyOfRange(sq,0,numBases) : Arrays.copyOfRange(sq,Math.max(0,sq.length-numBases),sq.length);
     }
 
     public TreeSet<IntronLossJunctions> reduce(TreeSet<IntronLossJunctions> pMap, TreeSet<IntronLossJunctions> pRed) {
