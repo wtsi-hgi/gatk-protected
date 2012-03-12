@@ -25,8 +25,6 @@ chdir $dir;
 
 open (TMP, '>lftp.txt');
 print TMP "get ftp://ftp-trace.ncbi.nih.gov/1000genomes/$file\n";
-print TMP "get ftp://ftp-trace.ncbi.nih.gov/1000genomes/$file.bai\n";
-print TMP "get ftp://ftp-trace.ncbi.nih.gov/1000genomes/$file.bas\n";
 close (TMP);
 
 my $cmd = "lftp -f lftp.txt";
