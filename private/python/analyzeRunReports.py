@@ -278,6 +278,35 @@ class TestSequenceFunctions(unittest.TestCase):
             self.assertEquals(parsed[0], expectedResult[0])
             self.assertEquals(parsed[1], expectedResult[1])
 
+class TestDateDecoding(unittest.TestCase):
+    def setUp(self):
+        self.data = {
+            "2012/3/12" : "2012-03-12",
+            "2011/3/12" : "2011-03-12",
+            "2012/4/12" : "2012-04-12",
+            "2012/04/12" : "2012-04-12",
+            "2012/12/12" : "2012-12-12",
+            "2012-3-12" : "2012-03-12",
+            "2012-4-12" : "2012-04-12"
+            }
+
+    def test_parsing(self):
+        for runtimeString, expectedResult in self.data.iteritems():
+            for time in ['', ' 1:2:3', ' x']:
+                parsed = parseRuntime(runtimeString + time)
+                print '%s : expected= %s observed = %s' % (runtimeString, str(expectedResult), str(parsed))
+                self.assertEquals(parsed, expectedResult)
+
+def parseRuntime(runtimeString):
+    if runtimeString == "ND":
+        x = "NULL"
+    else:
+        runtimeString = runtimeString.replace("-", "/")
+        fullDate = datetime.datetime.strptime(runtimeString.split()[0], "%Y/%m/%d")
+        x = fullDate.date().isoformat()
+    #print 'DATE', x #, dateAsString
+    return x
+
 class RecordDecoder:
     def __init__(self):
         self.fields = list()
@@ -285,6 +314,9 @@ class RecordDecoder:
     
         def id(elt): return elt.text
         def toString(elt): return '%s' % elt.text
+
+        def formatRuntime(elt):
+            return parseRuntime(toString(elt))
 
         def formatMajorVersion(elt):
             return parseGATKVersion(elt.text)[0]
@@ -340,7 +372,7 @@ class RecordDecoder:
     
         add(["id", "walker-name"], id)
         addComplex("svn-version", ["svn-version", "gatk-version", "gatk-minor-version", "release-type"], [id, formatMajorVersion, formatMinorVersion, formatReleaseType])
-        add(["start-time", "end-time"], toString)      
+        add(["start-time", "end-time"], formatRuntime)      
         add(["run-time", "user-name"], id)
         addComplex("host-name", ["host-name", "domain-name"], [formatHostName, formatDomainName])
         add(["java", "machine"], toString)
