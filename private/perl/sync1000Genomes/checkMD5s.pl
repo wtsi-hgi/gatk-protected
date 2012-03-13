@@ -3,19 +3,15 @@
 use Getopt::Long;
 
 sub usage {
-    print "Usage: perl checkMD5s.pl\n\t-ai <alignment.index to check>\n\t-o <file to store results>\n";
+    print "Usage: perl checkMD5s.pl\n\t-ai <alignment.index to check>\n";
     exit(1);
 }
 
 
 my $ai = undef;
-my $out = undef;
-GetOptions( "ai=s" => \$ai,
-	    "o=s" => \$out);
+GetOptions( "ai=s" => \$ai);
 
-usage() if ( !$ai || !$out );
-
-open(OUT, "> $out") or die "can't open $out: $!";
+usage() if ( !$ai );
 
 open(LIST, "< $ai") or die "can't open $ai: $!";
 while ( <LIST> ) {
@@ -28,7 +24,6 @@ while ( <LIST> ) {
 }
 
 close(LIST);
-close(OUT);
 
 sub check {
 
@@ -38,6 +33,6 @@ sub check {
     print "Checking /humgen/1kg/DCC/ftp/$file\n";
     @md5 = split(' ', `md5sum /humgen/1kg/DCC/ftp/$file`);
     if ( $md5[0] ne $target ) {
-	print OUT "$file\t$md5[0]\t$target\n";
+	print "MISMATCH $file\t$md5[0]\t$target\n";
     }
 }
