@@ -7,7 +7,7 @@ pushd $CLEAN_DIR/$type > /dev/null
 git pull -q > /dev/null
 setenv X '$0'
 echo "type $type"
-git rev-list master | xargs git describe 
+git rev-list master | xargs git describe --long
 popd > /dev/null
 end
 
