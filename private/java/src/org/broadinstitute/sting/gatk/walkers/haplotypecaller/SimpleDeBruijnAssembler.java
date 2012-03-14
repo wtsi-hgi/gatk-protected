@@ -1,11 +1,9 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
-import net.sf.picard.reference.IndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
-import java.io.PrintStream;
 import java.util.*;
 
 /**
@@ -15,18 +13,19 @@ import java.util.*;
  */
 public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
-    private static final boolean DEBUG = false;
-
     // the additional size of a valid chunk of sequence, used to string together k-mers
     private static final int KMER_OVERLAP = 6;
-
-    private static final int PRUNE_FACTOR = 2;
+    private static final int PRUNE_FACTOR = 3;
+    private static final int NUM_BEST_PATHS_PER_KMER = 12;
+    
+    private final boolean DEBUG;
 
     // the deBruijn graph object
     private final ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>> graphs = new ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>>();
 
-    public SimpleDeBruijnAssembler(PrintStream out, IndexedFastaSequenceFile referenceReader) {
-        super(out, referenceReader);
+    public SimpleDeBruijnAssembler( final boolean debug ) {
+        super();
+        DEBUG = debug;
     }
 
     public ArrayList<Haplotype> runLocalAssembly(final ArrayList<GATKSAMRecord> reads, final Haplotype refHaplotype) {
@@ -99,7 +98,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
                     addEdgeToGraph( graph, kmer1, kmer2 );
 
-                    // TODO -- eventually, we'll need to deal with reverse complementing the sequences ???
+                    // TODO -- eventually, we'll need to deal with reverse complementing the sequences (???)
                 }
             }
         }
@@ -138,41 +137,29 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         return newV;
     }
 
-    /*
-    private void printGraph() {
-
-        if( getOutputStream() != null ) {
-            for ( DeBruijnVertex source : graph.vertexSet() ) {
-                if ( graph.inDegreeOf(source) == 0 )
-                    getOutputStream().print("* ");
-                getOutputStream().print(source + " -> ");
-                for ( DeBruijnEdge edge : graph.outgoingEdgesOf(source) ) {
-                    getOutputStream().print(graph.getEdgeTarget(edge) + " (" + edge.getMultiplicity() + "), ");
-                }
-                getOutputStream().println();
-            }
-            getOutputStream().println("------------\n");
-        }
-    }
-    */
-
     private ArrayList<Haplotype> findBestPaths( final Haplotype refHaplotype ) {
         final ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
+        int numHaplotypes = 0;
         returnHaplotypes.add( refHaplotype );
 
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            final ArrayList<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, 14);
-
+            final ArrayList<KBestPaths.Path> bestPaths = KBestPaths.getKBestPaths(graph, NUM_BEST_PATHS_PER_KMER);
             for ( final KBestPaths.Path path : bestPaths ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
                 if( h.getBases() != null ) {
-                    if( getOutputStream() != null ) {
-                        getOutputStream().println(h.toString());
-                    }
-                    if( !returnHaplotypes.contains(h) ) {
-                        returnHaplotypes.add( h );
+                    if( h.getBases().length >= refHaplotype.getBases().length ) { // the haplotype needs to be at least as big as the active region
+                        if( !returnHaplotypes.contains(h) ) { // no reason to add a new haplotype if the bases are the same as one already present
+                            returnHaplotypes.add( h );
+                        }
                     }
                 }
+            }
+        }
+
+        if( DEBUG ) { 
+            System.out.println("Found " + returnHaplotypes.size() + " candidate haplotypes to evaluate:");
+            for( final Haplotype h : returnHaplotypes ) {
+                System.out.println( new String(h.getBases()) );
             }
         }
 

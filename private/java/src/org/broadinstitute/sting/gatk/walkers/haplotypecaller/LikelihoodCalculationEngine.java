@@ -38,7 +38,6 @@ public class LikelihoodCalculationEngine {
     private final byte constantGCP;
     private final boolean DEBUG;
     private final PairHMM pairHMM;
-    public Double haplotypeLikehoodMatrix[][];
 
     static {
         LOG_ONE_HALF = -Math.log10(2.0);
@@ -50,104 +49,122 @@ public class LikelihoodCalculationEngine {
         DEBUG = debug;
     }
 
-    public void computeLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<GATKSAMRecord> reads ) {
-        final int numHaplotypes = haplotypes.size();
-        final double readLikelihoods[][] = new double[reads.size()][numHaplotypes];
-        haplotypeLikehoodMatrix = new Double[numHaplotypes][numHaplotypes];
 
-        for( int iii = 0; iii < numHaplotypes; iii++ ) {
-            for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
-                haplotypeLikehoodMatrix[iii][jjj] = 0.0;
-            }
-        }
-
-        int maxHaplotypeLength = 0;
-        for( final Haplotype h : haplotypes ) {
-            int length = h.getBases().length;
-            if(length > maxHaplotypeLength) { maxHaplotypeLength = length; }
-        }
-
-        for( int iii = 0; iii < reads.size(); iii++ ) {
-            final GATKSAMRecord read = reads.get(iii);
-            if( DEBUG ) { System.out.println(read.toString()); }
-            final byte[] overallGCP = new byte[read.getReadLength()];
-            Arrays.fill( overallGCP, constantGCP ); // Is there a way to derive empirical estimates for this from the data?
-            for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {                
-                readLikelihoods[iii][jjj] = pairHMM.computeReadLikelihoodGivenHaplotype(haplotypes.get(jjj).getBases(), read.getReadBases(),
-                        read.getBaseQualities(), read.getBaseInsertionQualities(), read.getBaseDeletionQualities(), overallGCP);
-                if( DEBUG ) { System.out.println(">> " + jjj + ":\t" + readLikelihoods[iii][jjj]); }
-            }
-        }
-
-        for( int iii = 0; iii < numHaplotypes; iii++ ) {
-            for( int jjj = iii; jjj < numHaplotypes; jjj++ ) {
-                for( int kkk = 0; kkk < reads.size(); kkk++ ) {
-
-                    // Compute log10(10^x1/2 + 10^x2/2) = log10(10^x1+10^x2)-log10(2)
-                    // First term is approximated by Jacobian log with table lookup.
-                    if (Double.isInfinite(readLikelihoods[kkk][iii]) && Double.isInfinite(readLikelihoods[kkk][jjj])) {
-                        continue;
-                    }
-
-                    /*
-                    final GATKSAMRecord read = reads.get(kkk);
-                    final int mappingLength = read.getAlignmentEnd() - read.getAlignmentStart() + 1;
-                    final double mappingProb = 1.0 - Math.max(0.0, (100.0 - ((double)mappingLength)) / 100.0); //BUGBUG: 101!, needs to pull from the empirical read length distribution per read group
-                    haplotypeLikehoodMatrix[iii][jjj] += (mappingProb*mappingProb) * ( MathUtils.softMax(readLikelihoods[kkk][iii], readLikelihoods[kkk][jjj]) + LOG_ONE_HALF ); // BUGBUG: needs to be a logged probability
-                    */
-                    haplotypeLikehoodMatrix[iii][jjj] += MathUtils.approximateLog10SumLog10(readLikelihoods[kkk][iii], readLikelihoods[kkk][jjj]) + LOG_ONE_HALF;
-                }
-            }
-        }
-
-        double[] genotypeLikelihoods = new double[numHaplotypes*(numHaplotypes+1)/2];
-        int k=0;
-        for (int j=0; j < numHaplotypes; j++) {
-            for (int i=0; i <= j; i++){
-                genotypeLikelihoods[k++] = haplotypeLikehoodMatrix[i][j];
-            }
-        }
-
-        genotypeLikelihoods = MathUtils.normalizeFromLog10(genotypeLikelihoods, false, true);
-
-        k=0;
-        for (int j=0; j < numHaplotypes; j++) {
-            for (int i=0; i <= j; i++){
-                haplotypeLikehoodMatrix[i][j] = genotypeLikelihoods[k++];
-            }
-        }
-
-
-        for( int iii = 1; iii < numHaplotypes; iii++ ) {
-            for( int jjj = 0; jjj < iii; jjj++ ) {
-                haplotypeLikehoodMatrix[iii][jjj] = haplotypeLikehoodMatrix[jjj][iii]; // fill in the symmetric lower triangular part of the matrix for convenience later
-            }
+    public void computeReadLikelihoods( final ArrayList<Haplotype> haplotypes, final HashMap<String, ArrayList<GATKSAMRecord>> perSampleReadList ) {
+        // for each sample's reads
+        for( final String sample : perSampleReadList.keySet() ) {
+            if( DEBUG ) { System.out.println("Evaluating sample " + sample + " with " + perSampleReadList.get( sample ).size() + " passing reads"); }
+            // evaluate the likelihood of the reads given those haplotypes
+            computeReadLikelihoods(haplotypes, perSampleReadList.get(sample), sample);
         }
     }
 
-    public ArrayList<Haplotype> chooseBestHaplotypes( final ArrayList<Haplotype> haplotypes ) {
+    public void computeReadLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<GATKSAMRecord> reads, final String sample ) {
+        final int numReads = reads.size();
 
-        // For now we choose the top two haplotypes by finding the max value of the pairwise matrix
-        // in the future we could use AIC or some other criterion to select more haplotypes to best explain the read data
+        for( final Haplotype haplotype : haplotypes ) {
+            final double readLikelihoods[] = new double[numReads];
+            for( int iii = 0; iii < numReads; iii++ ) {
+                final GATKSAMRecord read = reads.get(iii);
+                final byte[] overallGCP = new byte[read.getReadLength()];
+                Arrays.fill( overallGCP, constantGCP ); // Is there a way to derive empirical estimates for this from the data?
+                readLikelihoods[iii] = pairHMM.computeReadLikelihoodGivenHaplotype(haplotype.getBases(), read.getReadBases(),
+                        read.getBaseQualities(), read.getBaseInsertionQualities(), read.getBaseDeletionQualities(), overallGCP);
+            }
+            haplotype.addReadLikelihoods( sample, readLikelihoods );
+        }
+    }
 
+    public static double[][] computeDiploidHaplotypeLikelihoods( final ArrayList<Haplotype> haplotypes, final String sample ) {
+        // set up the default 1-to-1 haplotype mapping object
+        final ArrayList<ArrayList<Integer>> haplotypeMapping = new ArrayList<ArrayList<Integer>>();
         final int numHaplotypes = haplotypes.size();
-        final ArrayList<Haplotype> bestHaplotypesList = new ArrayList<Haplotype>();
-        double maxElement = Double.NEGATIVE_INFINITY;
-        int hap1 = -1;
-        int hap2 = -1;
         for( int iii = 0; iii < numHaplotypes; iii++ ) {
-            for( int jjj = iii; jjj < numHaplotypes; jjj++ ) {
-                if( haplotypeLikehoodMatrix[iii][jjj] > maxElement ) {
-                    maxElement = haplotypeLikehoodMatrix[iii][jjj];
-                    hap1 = iii;
-                    hap2 = jjj;
+            final ArrayList<Integer> list = new ArrayList<Integer>();
+            list.add(iii);
+            haplotypeMapping.add(list);
+        }
+        return computeDiploidHaplotypeLikelihoods( haplotypes, sample, haplotypeMapping );
+    }
+    
+    public static double[][] computeDiploidHaplotypeLikelihoods( final ArrayList<Haplotype> haplotypes, final String sample, final ArrayList<ArrayList<Integer>> haplotypeMapping ) {
+
+        final int numHaplotypes = haplotypeMapping.size();
+        final int numReads = haplotypes.get(0).getReadLikelihoods(sample).length; // BUGBUG: assume all haplotypes saw the same reads
+        final double[][] haplotypeLikelihoodMatrix = new double[numHaplotypes][numHaplotypes];
+        for( int iii = 0; iii < numHaplotypes; iii++ ) {
+            Arrays.fill(haplotypeLikelihoodMatrix[iii], 0.0);
+        }
+
+        // Compute the diploid haplotype likelihoods
+        for( int iii = 0; iii < numHaplotypes; iii++ ) {
+            for( final int iii_mapped : haplotypeMapping.get(iii) ) {
+                final double[] readLikelihoods_iii = haplotypes.get(iii_mapped).getReadLikelihoods(sample);
+                for( int jjj = iii; jjj < numHaplotypes; jjj++ ) {    
+                    for( final int jjj_mapped : haplotypeMapping.get(jjj) ) {
+                        final double[] readLikelihoods_jjj = haplotypes.get(jjj_mapped).getReadLikelihoods(sample);
+                        for( int kkk = 0; kkk < numReads; kkk++ ) {
+                            // Compute log10(10^x1/2 + 10^x2/2) = log10(10^x1+10^x2)-log10(2)
+                            // First term is approximated by Jacobian log with table lookup.
+                            haplotypeLikelihoodMatrix[iii][jjj] += MathUtils.approximateLog10SumLog10(readLikelihoods_iii[kkk], readLikelihoods_jjj[kkk]) + LOG_ONE_HALF;
+                        }
+                    }
                 }
             }
         }
 
-        bestHaplotypesList.add(haplotypes.get(hap1));
-        if( hap1 != hap2 ) { bestHaplotypesList.add(haplotypes.get(hap2)); }
+        // normalize the diploid likelihoods matrix
+        double[] genotypeLikelihoods = new double[numHaplotypes*(numHaplotypes+1)/2];
+        int index = 0;
+        for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
+            for( int iii = 0; iii <= jjj; iii++ ){
+                genotypeLikelihoods[index++] = haplotypeLikelihoodMatrix[iii][jjj];
+            }
+        }
+        genotypeLikelihoods = MathUtils.normalizeFromLog10(genotypeLikelihoods, false, true);
+        index = 0;
+        for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
+            for( int iii = 0; iii <= jjj; iii++ ){
+                haplotypeLikelihoodMatrix[iii][jjj] = genotypeLikelihoods[index++];
+            }
+        }
+        return haplotypeLikelihoodMatrix;
+    }
 
-        return bestHaplotypesList;
+    public ArrayList<Haplotype> selectBestHaplotypes( final ArrayList<Haplotype> haplotypes ) {
+
+        // For now we choose the top two haplotypes by finding the max value per sample of the diploid haplotype likelihood matrix
+        // in the future we could use AIC or some other criterion to select more haplotypes to best explain the read data
+
+        final int numHaplotypes = haplotypes.size();
+        final Set<String> stringKeySet = haplotypes.get(0).getSampleKeySet(); // BUGBUG: assume all haplotypes saw the same samples
+        final ArrayList<Integer> bestHaplotypesIndexList = new ArrayList<Integer>();
+        bestHaplotypesIndexList.add(0); // always start with the reference haplotype
+        
+        for( final String sample : stringKeySet ) {
+            final double[][] haplotypeLikelihoodMatrix = computeDiploidHaplotypeLikelihoods( haplotypes, sample );
+                    
+            double maxElement = Double.NEGATIVE_INFINITY;
+            int hap1 = -1;
+            int hap2 = -1;
+            for( int iii = 0; iii < numHaplotypes; iii++ ) {
+                for( int jjj = iii; jjj < numHaplotypes; jjj++ ) {
+                    if( haplotypeLikelihoodMatrix[iii][jjj] > maxElement ) {
+                        maxElement = haplotypeLikelihoodMatrix[iii][jjj];
+                        hap1 = iii;
+                        hap2 = jjj;
+                    }
+                }
+            }
+    
+            if( !bestHaplotypesIndexList.contains(hap1) ) { bestHaplotypesIndexList.add(hap1); }
+            if( !bestHaplotypesIndexList.contains(hap2) ) { bestHaplotypesIndexList.add(hap2); }
+        }
+
+        final ArrayList<Haplotype> bestHaplotypes = new ArrayList<Haplotype>();
+        for( final int hIndex : bestHaplotypesIndexList ) {
+            bestHaplotypes.add( haplotypes.get(hIndex) );
+        }
+        return bestHaplotypes;
     }
 }

@@ -147,7 +147,7 @@ public class PairHMM {
                             if( bestMetric > localMaxElement ) {
                                 localMaxElement = bestMetric;
                                 localMaxElementIndex = kkk;
-                            } else if( localMaxElement - bestMetric > BANDING_TOLERANCE * 0.5 ) {
+                            } else if( localMaxElement - bestMetric > BANDING_TOLERANCE * 0.5 ) { // find a local maximum
                                 if( !detectClusteredStartLocations(workToBeAdded, work + localMaxElementIndex ) ) {
                                     workToBeAdded.add( work + localMaxElementIndex );
                                 }
