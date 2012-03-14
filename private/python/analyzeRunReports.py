@@ -492,119 +492,6 @@ class Archive(RecordAsXML):
         
 addHandler('archive', Archive)
 
-class ExceptionReport(StageHandler):
-    #FIELDS = ["Msg", "At", "SVN.versions", "Walkers", 'Occurrences', 'IDs']
-    def __init__(self, name, out):
-        StageHandler.__init__(self, name, out)
-        self.exceptions = []
-
-    def initialize(self, args):
-        self.decoder = RecordDecoder()
-        #print >> self.out, "\t".join(self.FIELDS)
-        
-    def processRecord(self, record):
-        for elt in record:
-            if eltIsException(elt):
-                self.exceptions.append(self.decoder.decode(record))
-                break
-
-    def finalize(self, args):
-        commonExceptions = list()
-        
-        def addToCommons(ex):
-            for common in commonExceptions:
-                if common.equals(ex):
-                    common.update(ex)
-                    return
-            commonExceptions.append(CommonException(ex))
-
-        for ex in self.exceptions:
-            addToCommons(ex)
-        commonExceptions = sorted(commonExceptions, None, lambda x: x.counts)   
-            
-        for common in commonExceptions:
-            msg, at, svns, walkers, counts, ids, duration, users, userError = common.toStrings()
-            
-            if not matchesExceptionSelection(userError):
-                continue
-                
-            print >> self.out, ''.join(['*'] * 80)
-            print >> self.out, 'Exception              :', msg
-            print >> self.out, '    is-user-exception? :', userError
-            print >> self.out, '    at                 :', at
-            print >> self.out, '    walkers            :', walkers
-            print >> self.out, '    svns               :', svns
-            print >> self.out, '    duration           :', duration
-            print >> self.out, '    occurrences        :', counts
-            print >> self.out, '    users              :', users
-            print >> self.out, '    ids                :', ids
-            
-
-def matchesExceptionSelection(userError):
-    if OPTIONS.exception_selection == "all":
-        return True
-    elif OPTIONS.exception_selection == "user" and userError == "true":
-        return True
-    elif OPTIONS.exception_selection == "sting" and userError == "false":
-        return True
-    return False
-    
-class CommonException:
-    MAX_SET_ITEMS_TO_SHOW = 5
-
-    def __init__(self, ex):
-        self.msgs = set([ex['exception-msg']])
-        self.at = ex['stacktrace']
-        self.svns = set([ex['svn-version']])
-        self.users = set([ex['user-name']])
-        self.userError = ex['is-user-exception']
-        self.counts = 1
-        self.times = set([decodeTime(ex['end-time'])])
-        self.walkers = set([ex['walker-name']])
-        self.ids = set([ex['id']])
-        
-    def equals(self, ex):
-        return self.at == ex['stacktrace']
-        
-    def update(self, ex):
-        self.msgs.add(ex['exception-msg'])
-        self.svns.add(ex['svn-version'])
-        self.users.add(ex['user-name'])
-        self.counts += 1
-        self.walkers.add(ex['walker-name'])
-        self.times.add(decodeTime(ex['end-time']))
-        self.ids.add(ex['id'])
-
-    def bestExample(self, examples):
-        def takeShorter(x, y):
-            if len(y) < len(x):
-                return y
-            else:
-                return x
-        return reduce(takeShorter, examples)
-        
-    def setString(self, s):
-        if len(s) > self.MAX_SET_ITEMS_TO_SHOW:
-            s = [x for x in s][0:self.MAX_SET_ITEMS_TO_SHOW] + ["..."]
-        return ','.join(s)
-        
-    def duration(self):
-        x = sorted(filter(lambda x: x != "ND", self.times))
-        if len(x) >= 2:
-            return "-".join(map(lambda x: x.strftime("%m/%d/%y"), [x[0], x[-1]]))
-        elif len(x) == 1:
-            return x[0]
-        else:
-            return "ND"
-            
-        
-    def toStrings(self):
-        return [self.bestExample(self.msgs), self.at, self.setString(self.svns), self.setString(self.walkers), self.counts, self.setString(self.ids), self.duration(), self.setString(self.users), self.userError] 
-
-addHandler('exceptions', ExceptionReport)
-
-  
-  
 class SummaryReport(StageHandler):
     #FIELDS = ["Msg", "At", "SVN.versions", "Walkers", 'Occurrences', 'IDs']
     def __init__(self, name, out):
@@ -778,13 +665,6 @@ def resolveFiles(paths):
     map( resolve1, paths )
     return allFiles
 
-def decodeTime(time):
-    if time == "ND":
-        return "ND"
-    else:
-        return datetime.datetime.strptime(time.split()[0], "%Y/%m/%d")
-    #return datetime.datetime.strptime(time, "%Y/%m/%d %H.%M.%S")
-
 def eltTagEquals(elt, tag, value, startsWith = None):
     if elt == None:
         return False
@@ -803,37 +683,12 @@ def passesFilters(elt):
     if OPTIONS.maxDays != None:
         now = datetime.datetime.today()
         now = datetime.datetime(now.year, now.month, now.day)
-        #    <start-time>2010/08/31 15.38.00</start-time>
-        eltTime = decodeTime(elt.find('end-time').text)
+        eltTime = parseRuntime(elt.find('end-time').text)
         diff = now - eltTime
-        #print eltTime, now, diff, diff.days
         if diff.days > OPTIONS.maxDays:
             return False
 
     return True
-    
-def readReportsSlow(files):
-    #print files
-    for file in files:
-        if OPTIONS.verbose: print 'Reading file', file
-        input = openFile(file)
-        try:
-            tree = ElementTree(file=input)
-        except:
-            print "Ignoring excepting file", file
-            continue
-
-        elem = tree.getroot()
-        if elem.tag == RUN_REPORT_LIST:
-            counter = 0
-            for sub in elem:
-                if passesFilters(sub):
-                    counter += 1
-                    if counter % 1000 == 0: print 'Returning', counter
-                    yield sub
-        else:
-            if passesFilters(elem):
-                yield elem
     
 def readReports(files):
     #print files
