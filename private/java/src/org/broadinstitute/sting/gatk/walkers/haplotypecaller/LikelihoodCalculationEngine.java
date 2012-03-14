@@ -34,14 +34,10 @@ import java.util.*;
 
 public class LikelihoodCalculationEngine {
 
-    private final static double LOG_ONE_HALF;
+    private final static double LOG_ONE_HALF = -Math.log10(2.0);
     private final byte constantGCP;
     private final boolean DEBUG;
     private final PairHMM pairHMM;
-
-    static {
-        LOG_ONE_HALF = -Math.log10(2.0);
-    }
 
     public LikelihoodCalculationEngine( final byte constantGCP, final boolean debug, final boolean noBanded ) {
         pairHMM = new PairHMM( noBanded );
@@ -49,13 +45,12 @@ public class LikelihoodCalculationEngine {
         DEBUG = debug;
     }
 
-
     public void computeReadLikelihoods( final ArrayList<Haplotype> haplotypes, final HashMap<String, ArrayList<GATKSAMRecord>> perSampleReadList ) {
         // for each sample's reads
         for( final String sample : perSampleReadList.keySet() ) {
             if( DEBUG ) { System.out.println("Evaluating sample " + sample + " with " + perSampleReadList.get( sample ).size() + " passing reads"); }
             // evaluate the likelihood of the reads given those haplotypes
-            computeReadLikelihoods(haplotypes, perSampleReadList.get(sample), sample);
+            computeReadLikelihoods( haplotypes, perSampleReadList.get(sample), sample );
         }
     }
 

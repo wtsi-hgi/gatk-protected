@@ -248,7 +248,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             }
 
             final HashMap<String, Object> attributes = new HashMap<String, Object>();
-            attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((genotypeLikelihoods)));
+            attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
             genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
         }
 

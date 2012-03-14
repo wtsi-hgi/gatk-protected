@@ -40,8 +40,8 @@ public class GenotypingEngine {
     // Smith-Waterman parameters originally copied from IndelRealigner
     private final double SW_MATCH = 5.0;
     private final double SW_MISMATCH = -8.0;
-    private final double SW_GAP; // argument in HaplotypeCaller
-    private final double SW_GAP_EXTEND; // argument in HaplotypeCaller
+    private final double SW_GAP; // command-line argument in HaplotypeCaller walker
+    private final double SW_GAP_EXTEND; // command-line argument in HaplotypeCaller walker
     private final boolean DEBUG;
 
     private final static List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
@@ -77,7 +77,7 @@ public class GenotypingEngine {
                 }
             }
             final HashMap<String, Object> attributes = new HashMap<String, Object>();
-            attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((genotypeLikelihoods)));
+            attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
             genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
         }
         final VariantCallContext call = UG_engine.calculateGenotypes(new VariantContextBuilder().loc(activeRegionWindow).alleles(allelesToGenotype).genotypes(genotypes).make(), UG_engine.getUAC().GLmodel);
@@ -172,13 +172,13 @@ public class GenotypingEngine {
                         }
                     }
                     final HashMap<String, Object> attributes = new HashMap<String, Object>();
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods((genotypeLikelihoods)));
+                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
 
                     // using the haplotype mapping object translate the haplotype allele into the event allele
                     final ArrayList<Allele> eventAllelesForSample = new ArrayList<Allele>();
                     final List<Allele> haplotypeAllelesForSample = call.getGenotype(sample).getAlleles();
                     for( final Allele a : haplotypeAllelesForSample ) {
-                        int haplotypeIndex = call.getAlleles().indexOf(a);
+                        final int haplotypeIndex = call.getAlleles().indexOf(a);
                         for( int iii = 0; iii < alleleMapping.size(); iii++ ) {
                             final ArrayList<Integer> haplotypeIndicesList = alleleMapping.get(iii);
                             if( haplotypeIndicesList.contains(haplotypeIndex) ) {
