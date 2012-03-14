@@ -188,7 +188,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
     @Hidden
     @Argument(fullName = "downsample_strategy", shortName = "dm", doc = "", required = false)
-    protected DownsampleStrategy downsampleStrategy = DownsampleStrategy.Adaptive;
+    protected DownsampleStrategy downsampleStrategy = DownsampleStrategy.Normal;
 
     public enum DownsampleStrategy {
         Normal,
