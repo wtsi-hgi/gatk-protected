@@ -100,7 +100,7 @@ public class LikelihoodCalculationEngine {
         for( int iii = 0; iii < numHaplotypes; iii++ ) {
             for( final int iii_mapped : haplotypeMapping.get(iii) ) {
                 final double[] readLikelihoods_iii = haplotypes.get(iii_mapped).getReadLikelihoods(sample);
-                for( int jjj = iii; jjj < numHaplotypes; jjj++ ) {    
+                for( int jjj = 0; jjj <= iii; jjj++ ) {
                     for( final int jjj_mapped : haplotypeMapping.get(jjj) ) {
                         final double[] readLikelihoods_jjj = haplotypes.get(jjj_mapped).getReadLikelihoods(sample);
                         for( int kkk = 0; kkk < numReads; kkk++ ) {
@@ -116,15 +116,15 @@ public class LikelihoodCalculationEngine {
         // normalize the diploid likelihoods matrix
         double[] genotypeLikelihoods = new double[numHaplotypes*(numHaplotypes+1)/2];
         int index = 0;
-        for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
-            for( int iii = 0; iii <= jjj; iii++ ){
+        for( int iii = 0; iii < numHaplotypes; iii++ ) {
+            for( int jjj = 0; jjj <= iii; jjj++ ){
                 genotypeLikelihoods[index++] = haplotypeLikelihoodMatrix[iii][jjj];
             }
         }
         genotypeLikelihoods = MathUtils.normalizeFromLog10(genotypeLikelihoods, false, true);
         index = 0;
-        for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
-            for( int iii = 0; iii <= jjj; iii++ ){
+        for( int iii = 0; iii < numHaplotypes; iii++ ) {
+            for( int jjj = 0; jjj <= iii; jjj++ ){
                 haplotypeLikelihoodMatrix[iii][jjj] = genotypeLikelihoods[index++];
             }
         }
@@ -148,7 +148,7 @@ public class LikelihoodCalculationEngine {
             int hap1 = -1;
             int hap2 = -1;
             for( int iii = 0; iii < numHaplotypes; iii++ ) {
-                for( int jjj = iii; jjj < numHaplotypes; jjj++ ) {
+                for( int jjj = 0; jjj <= iii; jjj++ ) {
                     if( haplotypeLikelihoodMatrix[iii][jjj] > maxElement ) {
                         maxElement = haplotypeLikelihoodMatrix[iii][jjj];
                         hap1 = iii;

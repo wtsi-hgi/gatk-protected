@@ -241,7 +241,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
                         BB = 0;
                         qual = (byte) ((int)qual + 6); // be overly permissive so as to not miss any slight signal of variation
                     } 
-                    genotypeLikelihoods[AA] += Math.log10(QualityUtils.qualToProb(qual));
+                    genotypeLikelihoods[AA] += Math.log10(QualityUtils.qualToProb(qual)); // BUGBUG: lots of excessive log10'ing here
                     genotypeLikelihoods[AB] += MathUtils.approximateLog10SumLog10(Math.log10(QualityUtils.qualToProb(qual)) + LOG_ONE_HALF, Math.log10(QualityUtils.qualToErrorProb(qual)) + LOG_ONE_THIRD + LOG_ONE_HALF);
                     genotypeLikelihoods[BB] += Math.log10(QualityUtils.qualToErrorProb(qual)) + LOG_ONE_THIRD;
                 }
@@ -269,7 +269,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     public Integer map( final ActiveRegion activeRegion, final RefMetaDataTracker metaDataTracker ) {
 
         final ArrayList<VariantContext> activeAllelesToGenotype = new ArrayList<VariantContext>();
-        /*
+        /* BUGBUG: GENOTYPE_GIVEN_ALLELES mode temporarily disabled
         if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
             for( final VariantContext vc : allelesToGenotype ) {
                 if( activeRegion.getLocation().overlapsP( getToolkit().getGenomeLocParser().createGenomeLoc(vc) ) ) {
@@ -285,7 +285,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES && activeAllelesToGenotype.isEmpty() ) { return 0; } // No alleles found in this region
 
         finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
-        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), new Haplotype(activeRegion.getActiveRegionReference(referenceReader) ) );
+        final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader)); // Create the reference haplotype which is the bases from the reference that make up the active region
+        referenceHaplotype.setIsReference(true);
+        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), referenceHaplotype );
 
         activeRegion.hardClipToActiveRegion(); // only evaluate the parts of reads that are overlapping the active region
         filterNonPassingReads( activeRegion ); // filter out reads from genotyping which fail mapping quality criteria
@@ -347,7 +349,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     }
 
     private void finalizeActiveRegion( final ActiveRegion activeRegion ) {
-        if( DEBUG ) { System.out.println("Assembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:"); }
+        if( DEBUG ) { System.out.println("\nAssembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:"); }
         final ArrayList<GATKSAMRecord> finalizedReadList = new ArrayList<GATKSAMRecord>();
         final FragmentCollection<GATKSAMRecord> fragmentCollection = FragmentUtils.create( ReadUtils.sortReadsByCoordinate(activeRegion.getReads()) );
         activeRegion.clearReads();

@@ -15,7 +15,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     // the additional size of a valid chunk of sequence, used to string together k-mers
     private static final int KMER_OVERLAP = 6;
-    private static final int PRUNE_FACTOR = 3;
+    private static final int PRUNE_FACTOR = 4;
     private static final int NUM_BEST_PATHS_PER_KMER = 12;
     
     private final boolean DEBUG;
@@ -139,7 +139,6 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private ArrayList<Haplotype> findBestPaths( final Haplotype refHaplotype ) {
         final ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
-        int numHaplotypes = 0;
         returnHaplotypes.add( refHaplotype );
 
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
@@ -147,7 +146,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             for ( final KBestPaths.Path path : bestPaths ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
                 if( h.getBases() != null ) {
-                    if( h.getBases().length >= refHaplotype.getBases().length ) { // the haplotype needs to be at least as big as the active region
+                    if( h.getBases().length >= refHaplotype.getBases().length ) { // the haplotype needs to be at least as long as the active region
                         if( !returnHaplotypes.contains(h) ) { // no reason to add a new haplotype if the bases are the same as one already present
                             returnHaplotypes.add( h );
                         }
@@ -157,10 +156,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         }
 
         if( DEBUG ) { 
-            System.out.println("Found " + returnHaplotypes.size() + " candidate haplotypes to evaluate:");
-            for( final Haplotype h : returnHaplotypes ) {
-                System.out.println( new String(h.getBases()) );
-            }
+            System.out.println("Found " + returnHaplotypes.size() + " candidate haplotypes to evaluate.");
         }
 
         return returnHaplotypes;
