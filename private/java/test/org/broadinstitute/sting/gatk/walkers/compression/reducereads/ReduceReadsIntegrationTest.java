@@ -21,28 +21,28 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
 
     @Test(enabled = true)
     public void testDefaultCompression() {
-        RRTest("testDefaultCompression ", L, "faa8c118de4488e4397884b35f016660");
+        RRTest("testDefaultCompression ", L, "084eee3408586173f9e2701199004afb");
     }
 
     @Test(enabled = true)
     public void testMultipleIntervals() {
         String intervals = "-L 20:10,100,000-10,100,500 -L 20:10,200,000-10,200,500 -L 20:10,300,000-10,300,500 -L 20:10,400,000-10,500,000 -L 20:10,500,050-10,500,060 -L 20:10,600,000-10,600,015 -L 20:10,700,000-10,700,110";
-        RRTest("testMultipleIntervals ", intervals, "30618b6d85895d16c455d8622637b4a0");
+        RRTest("testMultipleIntervals ", intervals, "d75d2a4b0ecc8dfc81b319b2651c6b93");
     }
 
     @Test(enabled = true)
     public void testHighCompression() {
-        RRTest("testHighCompression ", " -csmm 10 -minvar 0.3 -mindel 0.3 " + L, "cc094b995e5729165250da43482fdad9");
+        RRTest("testHighCompression ", " -csmm 10 -minvar 0.3 -mindel 0.3 " + L, "7e18f73cdefe2a1f3d506df0b13cf0f2");
     }
 
     @Test(enabled = true)
     public void testLowCompression() {
-        RRTest("testLowCompression ", " -csmm 30 -minvar 0.01 -mindel 0.01 -minmap 5 -minqual 5 " + L, "abe92f675e5a8bd68a1bc2062489387e");
+        RRTest("testLowCompression ", " -csmm 30 -minvar 0.01 -mindel 0.01 -minmap 5 -minqual 5 " + L, "d7cbd9f935db44fd47508d8ef416a021");
     }
 
     @Test(enabled = true)
     public void testIndelCompression() {
-        RRTest("testIndelCompression ", " -csindel 50 -L 20:10,100,500-10,100,600 ", "f23e79cb5c5eb908da9f70fea5545cc4");
+        RRTest("testIndelCompression ", " -csindel 50 -L 20:10,100,500-10,100,600 ", "9a72ea30510638ffdbb983a033fe8455");
     }
 
     @Test(enabled = true)

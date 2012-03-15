@@ -212,6 +212,7 @@ def parseException(elt):
     msgText = "MISSING"
     userException = "NA"
     stackTraceString = "NA"
+    exceptionClass = "NA"
     runStatus = RUN_STATUS_SUCCESS
     if msgElt != None: 
         msgText = msgElt.text
@@ -222,13 +223,15 @@ def parseException(elt):
         strings = stackTrace.findall("string")
         if len(strings) > 0:
             stackTraceString = '\n'.join(map(lambda x: x.text, strings))
+        if elt.find("exception-class") != None:
+            exceptionClass = elt.find("exception-class").text
     
     if elt.find("is-user-exception") != None:
         #print elt.find("is-user-exception")
         userException = elt.find("is-user-exception").text
         if userException == "true": runStatus = "user-exception"
     #if runStatus != "completed": print stackTrace, elt.find('stacktrace')
-    return msgText, stackTraceString, userException, runStatus
+    return msgText, stackTraceString, userException, runStatus, exceptionClass
 
 def javaExceptionFile(javaException):
     m = re.search("\((.*\.java:.*)\)", javaException)
@@ -344,6 +347,9 @@ class RecordDecoder:
         def formatExceptionUser(elt):
             return '%s' % parseException(elt)[2]
 
+        def formatExceptionClass(elt):
+            return '%s' % parseException(elt)[4]
+
         def formatRunStatus(elt):
             #print 'formatRunStatus', parseException(elt)
             return parseException(elt)[3]
@@ -377,7 +383,7 @@ class RecordDecoder:
         addComplex("host-name", ["host-name", "domain-name"], [formatHostName, formatDomainName])
         add(["java", "machine"], toString)
         add(["max-memory", "total-memory", "iterations"], id)
-        addComplex("exception", ["exception-msg", "stacktrace", "exception-at-brief", "is-user-exception", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatRunStatus])
+        addComplex("exception", ["exception-msg", "stacktrace", "exception-at-brief", "is-user-exception", "exception-class", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatExceptionClass, formatRunStatus])
         #add(["command-line"], toString)          
         
     def decode(self, report):
@@ -550,7 +556,7 @@ class SQLRecordHandler(StageHandler):
                 "start-time", "end-time", "run-time", 
                 "user-name", "host-name", "domain-name", 
                 "total-memory", "stacktrace", "exception-at-brief", 
-                "exception-msg", "is-user-exception", 
+                "exception-msg", "is-user-exception", "exception-class", 
                 "run-status", "release-type"]
         
     def finalize(self, args):
@@ -603,6 +609,7 @@ class InsertRecordIntoTable(SQLRecordHandler):
 DEFAULT_SIZE = 128
 SIZE_OVERRIDES = {
     "domain-name" : 256, 
+    "exception-class" : 1024, 
     "exception-at-brief" : 1024, 
     "stacktrace" : 8192, 
     "exception-msg" : 2048, 
