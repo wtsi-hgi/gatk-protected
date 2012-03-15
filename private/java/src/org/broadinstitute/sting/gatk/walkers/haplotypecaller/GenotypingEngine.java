@@ -189,7 +189,7 @@ public class GenotypingEngine {
                     }
                     genotypes.add(new Genotype(sample, eventAllelesForSample, Genotype.NO_LOG10_PERROR, null, attributes, false));
                 }
-                returnVCs.add(new VariantContextBuilder(mergedVC).log10PError(call.getLog10PError()).genotypesNoValidation(genotypes).make());
+                returnVCs.add(new VariantContextBuilder(mergedVC).log10PError(call.getLog10PError()).genotypes(genotypes).make());
             }
         }
 

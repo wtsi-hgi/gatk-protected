@@ -25,6 +25,8 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
+import com.google.java.contract.Ensures;
+import com.google.java.contract.Requires;
 import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.PairHMM;
@@ -54,7 +56,7 @@ public class LikelihoodCalculationEngine {
         }
     }
 
-    public void computeReadLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<GATKSAMRecord> reads, final String sample ) {
+    private void computeReadLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<GATKSAMRecord> reads, final String sample ) {
         final int numReads = reads.size();
 
         for( final Haplotype haplotype : haplotypes ) {
@@ -70,6 +72,8 @@ public class LikelihoodCalculationEngine {
         }
     }
 
+    @Requires({"haplotypes.size() > 0"})
+    @Ensures({"result.length == result[0].length", "result.length == haplotypes.size()"})
     public static double[][] computeDiploidHaplotypeLikelihoods( final ArrayList<Haplotype> haplotypes, final String sample ) {
         // set up the default 1-to-1 haplotype mapping object
         final ArrayList<ArrayList<Integer>> haplotypeMapping = new ArrayList<ArrayList<Integer>>();
@@ -82,6 +86,8 @@ public class LikelihoodCalculationEngine {
         return computeDiploidHaplotypeLikelihoods( haplotypes, sample, haplotypeMapping );
     }
     
+    @Requires({"haplotypes.size() > 0","haplotypeMapping.size() > 0","haplotypeMapping.size() <= haplotypes.size()"})
+    @Ensures({"result.length == result[0].length", "result.length == haplotypeMapping.size()"})
     public static double[][] computeDiploidHaplotypeLikelihoods( final ArrayList<Haplotype> haplotypes, final String sample, final ArrayList<ArrayList<Integer>> haplotypeMapping ) {
 
         final int numHaplotypes = haplotypeMapping.size();
@@ -91,7 +97,7 @@ public class LikelihoodCalculationEngine {
             Arrays.fill(haplotypeLikelihoodMatrix[iii], 0.0);
         }
 
-        // Compute the diploid haplotype likelihoods
+        // compute the diploid haplotype likelihoods
         for( int iii = 0; iii < numHaplotypes; iii++ ) {
             for( final int iii_mapped : haplotypeMapping.get(iii) ) {
                 final double[] readLikelihoods_iii = haplotypes.get(iii_mapped).getReadLikelihoods(sample);
@@ -109,23 +115,32 @@ public class LikelihoodCalculationEngine {
         }
 
         // normalize the diploid likelihoods matrix
+        return normalizeDiploidLikelihoodMatrixFromLog10( haplotypeLikelihoodMatrix );        
+    }
+
+    @Requires({"likelihoodMatrix.length == likelihoodMatrix[0].length"})
+    @Ensures({"result.length == result[0].length", "result.length == likelihoodMatrix.length"})
+    protected static double[][] normalizeDiploidLikelihoodMatrixFromLog10( final double[][] likelihoodMatrix ) {
+        final int numHaplotypes = likelihoodMatrix.length;
         double[] genotypeLikelihoods = new double[numHaplotypes*(numHaplotypes+1)/2];
         int index = 0;
         for( int iii = 0; iii < numHaplotypes; iii++ ) {
             for( int jjj = 0; jjj <= iii; jjj++ ){
-                genotypeLikelihoods[index++] = haplotypeLikelihoodMatrix[iii][jjj];
+                genotypeLikelihoods[index++] = likelihoodMatrix[iii][jjj];
             }
         }
         genotypeLikelihoods = MathUtils.normalizeFromLog10(genotypeLikelihoods, false, true);
         index = 0;
         for( int iii = 0; iii < numHaplotypes; iii++ ) {
             for( int jjj = 0; jjj <= iii; jjj++ ){
-                haplotypeLikelihoodMatrix[iii][jjj] = genotypeLikelihoods[index++];
+                likelihoodMatrix[iii][jjj] = genotypeLikelihoods[index++];
             }
         }
-        return haplotypeLikelihoodMatrix;
+        return likelihoodMatrix;
     }
 
+    @Requires({"haplotypes.size() > 0"})
+    @Ensures({"result.size() <= haplotypes.size()"})
     public ArrayList<Haplotype> selectBestHaplotypes( final ArrayList<Haplotype> haplotypes ) {
 
         // For now we choose the top two haplotypes by finding the max value per sample of the diploid haplotype likelihood matrix
