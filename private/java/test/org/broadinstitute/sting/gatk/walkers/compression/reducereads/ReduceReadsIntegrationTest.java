@@ -27,7 +27,7 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
     @Test(enabled = true)
     public void testMultipleIntervals() {
         String intervals = "-L 20:10,100,000-10,100,500 -L 20:10,200,000-10,200,500 -L 20:10,300,000-10,300,500 -L 20:10,400,000-10,500,000 -L 20:10,500,050-10,500,060 -L 20:10,600,000-10,600,015 -L 20:10,700,000-10,700,110";
-        RRTest("testMultipleIntervals ", intervals, "d75d2a4b0ecc8dfc81b319b2651c6b93ls &*");
+        RRTest("testMultipleIntervals ", intervals, "d75d2a4b0ecc8dfc81b319b2651c6b93");
     }
 
     @Test(enabled = true)
