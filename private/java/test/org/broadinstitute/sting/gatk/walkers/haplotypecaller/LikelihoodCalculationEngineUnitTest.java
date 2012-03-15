@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 import java.util.*;
 
 /**
- * Basic unit test for LikelihoodCalculationEngine
+ * Unit tests for LikelihoodCalculationEngine
  */
 public class LikelihoodCalculationEngineUnitTest extends BaseTest {
 
@@ -57,14 +57,14 @@ public class LikelihoodCalculationEngineUnitTest extends BaseTest {
         public Double readLikelihoodForHaplotype2;
         public Double readLikelihoodForHaplotype3;
         
-        public BasicLikelihoodTestProvider(double a, double b){
+        public BasicLikelihoodTestProvider(double a, double b) {
             super(BasicLikelihoodTestProvider.class, String.format("Diploid haplotype likelihoods for reads %f / %f",a,b));
             readLikelihoodForHaplotype1 = a;
             readLikelihoodForHaplotype2 = b;
             readLikelihoodForHaplotype3 = null;
         }
 
-        public BasicLikelihoodTestProvider(double a, double b, double c){
+        public BasicLikelihoodTestProvider(double a, double b, double c) {
             super(BasicLikelihoodTestProvider.class, String.format("Diploid haplotype likelihoods for reads %f / %f / %f",a,b,c));
             readLikelihoodForHaplotype1 = a;
             readLikelihoodForHaplotype2 = b;

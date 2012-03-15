@@ -111,12 +111,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Argument(fullName="gcpHMM", shortName="gcpHMM", doc="gcpHMM", required = false)
     protected int gcpHMM = 10;
 
-    @Argument(fullName="gopSW", shortName="gopSW", doc="gopSW", required = false)
-    protected double gopSW = 30.0;
-
-    @Argument(fullName="gcpSW", shortName="gcpSW", doc="gcpSW", required = false)
-    protected double gcpSW = 1.4;
-
     @Argument(fullName="downsampleRegion", shortName="dr", doc="coverage per sample to downsample each region to", required = false)
     protected int DOWNSAMPLE_PER_SAMPLE_PER_REGION = 1000;
 
@@ -188,7 +182,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
         assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, DEBUG);
         likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, false, noBanded );
-        genotypingEngine = new GenotypingEngine( DEBUG, gopSW, gcpSW );
+        genotypingEngine = new GenotypingEngine( DEBUG );
     }
 
     //---------------------------------------------------------------------------------------------------------------

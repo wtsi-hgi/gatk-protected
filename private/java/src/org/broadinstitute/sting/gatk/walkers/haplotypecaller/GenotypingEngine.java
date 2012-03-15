@@ -25,6 +25,8 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
+import com.google.java.contract.Ensures;
+import com.google.java.contract.Requires;
 import net.sf.samtools.CigarElement;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
@@ -37,22 +39,15 @@ import java.util.*;
 
 public class GenotypingEngine {
 
-    // Smith-Waterman parameters originally copied from IndelRealigner
-    private final double SW_MATCH = 5.0;
-    private final double SW_MISMATCH = -8.0;
-    private final double SW_GAP; // command-line argument in HaplotypeCaller walker
-    private final double SW_GAP_EXTEND; // command-line argument in HaplotypeCaller walker
     private final boolean DEBUG;
-
     private final static List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
 
-    public GenotypingEngine( final boolean DEBUG, final double gop, final double gcp ) {
+    public GenotypingEngine( final boolean DEBUG ) {
         this.DEBUG = DEBUG;
-        SW_GAP = -1.0 * gop;
-        SW_GAP_EXTEND = -1.0 * gcp;
         noCall.add(Allele.NO_CALL);
     }
 
+    @Requires({"refLoc.containsP(activeRegionWindow)", "haplotypes.size() > 0"})
     public ArrayList<VariantContext> assignGenotypeLikelihoodsAndCallEvents( final UnifiedGenotyperEngine UG_engine, final ArrayList<Haplotype> haplotypes, final byte[] ref, final GenomeLoc refLoc, 
                                                                              final GenomeLoc activeRegionWindow, final GenomeLocParser genomeLocParser ) {
 
@@ -64,7 +59,7 @@ public class GenotypingEngine {
             allelesToGenotype.add( Allele.create(h.getBases(), h.isReference()) );
         }
         final int numHaplotypes = haplotypes.size();
-        
+
         // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample
         final GenotypesContext genotypes = GenotypesContext.create(haplotypes.get(0).getSampleKeySet().size());
         for( final String sample : haplotypes.get(0).getSampleKeySet() ) { // BUGBUG: assume all haplotypes saw the same samples
@@ -95,14 +90,20 @@ public class GenotypingEngine {
         return callEventsFromHaplotypes(call, haplotypes, ref, refLoc, activeRegionWindow, genomeLocParser);
     }
 
+    @Requires({"refLoc.containsP(activeRegionWindow)", "haplotypes.size() > 0"})
     public ArrayList<VariantContext> callEventsFromHaplotypes( final VariantCallContext call, final ArrayList<Haplotype> haplotypes, final byte[] ref, final GenomeLoc refLoc,
                                                                final GenomeLoc activeRegionWindow, final GenomeLocParser genomeLocParser ) {
 
         final ArrayList<VariantContext> returnVCs = new ArrayList<VariantContext>();
+        // Smith-Waterman parameters originally copied from IndelRealigner
+        final double SW_MATCH = 5.0;
+        final double SW_MISMATCH = -8.0;
+        final double SW_GAP = -30.0;
+        final double SW_GAP_EXTEND = -1.4;
 
         // Run Smith-Waterman on each called haplotype to figure out what events need to be written out in a VCF file
         final TreeSet<Integer> startPosKeySet = new TreeSet<Integer>();
-        final ArrayList<HashMap<Integer,VariantContext>> eventDictionary = new ArrayList<HashMap<Integer, VariantContext>>();
+        final ArrayList<HashMap<Integer,VariantContext>> fullEventDictionary = new ArrayList<HashMap<Integer, VariantContext>>();
         int count = 0;
         for( final Haplotype h : haplotypes ) {
             final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
@@ -112,8 +113,8 @@ public class GenotypingEngine {
             }
             // Walk along the alignment and turn any difference from the reference into an event
             final HashMap<Integer,VariantContext> eventMap = generateVCsFromAlignment( swConsensus, ref, h.getBases(), refLoc, "HC" + count++ );
-            eventDictionary.add( eventMap );
-            startPosKeySet.addAll( eventMap.keySet() );
+            fullEventDictionary.add(eventMap);
+            startPosKeySet.addAll(eventMap.keySet());
         }
         
         // Create the VC merge priority list
@@ -126,7 +127,7 @@ public class GenotypingEngine {
         for( final int loc : startPosKeySet ) {
             if( loc >= activeRegionWindow.getStart() && loc <= activeRegionWindow.getStop() ) {
                 final ArrayList<VariantContext> eventsAtThisLoc = new ArrayList<VariantContext>();
-                for( final HashMap<Integer,VariantContext> eventMap : eventDictionary ) {
+                for( final HashMap<Integer,VariantContext> eventMap : fullEventDictionary ) {
                     final VariantContext vc = eventMap.get(loc);
                     if( vc != null && !containsVCWithMatchingAlleles(eventsAtThisLoc, vc) ) {
                         eventsAtThisLoc.add(vc);
@@ -134,37 +135,22 @@ public class GenotypingEngine {
                 }
                 
                 // Create the allele mapping object which maps the original haplotype alleles to the alleles present in just this event
-                final ArrayList<ArrayList<Integer>> alleleMapping = new ArrayList<ArrayList<Integer>>();
-                final ArrayList<Integer> refList = new ArrayList<Integer>();
-                for( int jjj = 0; jjj < eventDictionary.size(); jjj++ ) {
-                    if( eventDictionary.get(jjj).get(loc) == null ) {
-                        refList.add(jjj);
-                    }
-                }
-                alleleMapping.add(refList);
-                for( int iii = 0; iii < eventsAtThisLoc.size(); iii++ ) {
-                    final ArrayList<Integer> list = new ArrayList<Integer>();
-                    for( int jjj = 0; jjj < eventDictionary.size(); jjj++ ) {
-                        if( eventDictionary.get(jjj).get(loc) != null && eventDictionary.get(jjj).get(loc).hasSameAllelesAs(eventsAtThisLoc.get(iii)) ) {
-                            list.add(jjj);
-                        }
-                    }
-                    alleleMapping.add(list);
-                }
-                
+                final ArrayList<ArrayList<Integer>> alleleMapper = createAlleleMapper( loc, eventsAtThisLoc, fullEventDictionary );
+
+                // Merge the event to find a common reference representation
                 final VariantContext mergedVC = VariantContextUtils.simpleMerge(genomeLocParser, eventsAtThisLoc, priorityList, VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED, VariantContextUtils.GenotypeMergeType.PRIORITIZE, false, false, null, false, false);
 
                 if( DEBUG ) {
                     System.out.println("Genotyping event at " + loc + " with alleles = " + mergedVC.getAlleles());
-                    System.out.println("Event/haplotype allele mapping = " + alleleMapping);
+                    System.out.println("Event/haplotype allele mapping = " + alleleMapper);
                 }
 
                 // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample
                 final GenotypesContext genotypes = GenotypesContext.create(haplotypes.get(0).getSampleKeySet().size());
                 for( final String sample : haplotypes.get(0).getSampleKeySet() ) { // BUGBUG: assume all haplotypes saw the same samples
-                    final int numHaplotypes = alleleMapping.size();
+                    final int numHaplotypes = alleleMapper.size();
                     final double[] genotypeLikelihoods = new double[numHaplotypes * (numHaplotypes+1) / 2];
-                    final double[][] haplotypeLikelihoodMatrix = LikelihoodCalculationEngine.computeDiploidHaplotypeLikelihoods(haplotypes, sample, alleleMapping);
+                    final double[][] haplotypeLikelihoodMatrix = LikelihoodCalculationEngine.computeDiploidHaplotypeLikelihoods(haplotypes, sample, alleleMapper);
                     int glIndex = 0;
                     for( int iii = 0; iii < numHaplotypes; iii++ ) {
                         for( int jjj = 0; jjj <= iii; jjj++ ) {
@@ -174,19 +160,8 @@ public class GenotypingEngine {
                     final HashMap<String, Object> attributes = new HashMap<String, Object>();
                     attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
 
-                    // using the haplotype mapping object translate the haplotype allele into the event allele
-                    final ArrayList<Allele> eventAllelesForSample = new ArrayList<Allele>();
-                    final List<Allele> haplotypeAllelesForSample = call.getGenotype(sample).getAlleles();
-                    for( final Allele a : haplotypeAllelesForSample ) {
-                        final int haplotypeIndex = call.getAlleles().indexOf(a);
-                        for( int iii = 0; iii < alleleMapping.size(); iii++ ) {
-                            final ArrayList<Integer> haplotypeIndicesList = alleleMapping.get(iii);
-                            if( haplotypeIndicesList.contains(haplotypeIndex) ) {
-                                eventAllelesForSample.add(mergedVC.getAlleles().get(iii));
-                                break;
-                            }
-                        }
-                    }
+                    // using the allele mapping object translate the haplotype allele into the event allele
+                    final ArrayList<Allele> eventAllelesForSample = findEventAllelesInSample( mergedVC.getAlleles(), call.getAlleles(), call.getGenotype(sample).getAlleles(), alleleMapper );
                     genotypes.add(new Genotype(sample, eventAllelesForSample, Genotype.NO_LOG10_PERROR, null, attributes, false));
                 }
                 returnVCs.add(new VariantContextBuilder(mergedVC).log10PError(call.getLog10PError()).genotypes(genotypes).make());
@@ -194,9 +169,48 @@ public class GenotypingEngine {
         }
 
         return returnVCs;
-    } 
-    
-    private boolean containsVCWithMatchingAlleles( final List<VariantContext> list, final VariantContext vcToTest ) {
+    }
+
+    @Requires({"fullEventDictionary.size() <= eventsAtThisLoc.size() + 1"})
+    @Ensures({"result.size() == eventsAtThisLoc.size() + 1"})
+    protected static ArrayList<ArrayList<Integer>> createAlleleMapper( final int loc, final ArrayList<VariantContext> eventsAtThisLoc, final ArrayList<HashMap<Integer,VariantContext>> fullEventDictionary ) {
+        final ArrayList<ArrayList<Integer>> alleleMapper = new ArrayList<ArrayList<Integer>>();
+        final ArrayList<Integer> refList = new ArrayList<Integer>();
+        for( int jjj = 0; jjj < fullEventDictionary.size(); jjj++ ) {
+            if( fullEventDictionary.get(jjj).get(loc) == null ) {
+                refList.add(jjj);
+            }
+        }
+        alleleMapper.add(refList);
+        for( int iii = 0; iii < eventsAtThisLoc.size(); iii++ ) {
+            final ArrayList<Integer> list = new ArrayList<Integer>();
+            for( int jjj = 0; jjj < fullEventDictionary.size(); jjj++ ) {
+                if( fullEventDictionary.get(jjj).get(loc) != null && fullEventDictionary.get(jjj).get(loc).hasSameAllelesAs(eventsAtThisLoc.get(iii)) ) {
+                    list.add(jjj);
+                }
+            }
+            alleleMapper.add(list);
+        }
+        return alleleMapper;
+    }
+
+    @Ensures({"result.size() == haplotypeAllelesForSample.size()"})
+    protected static ArrayList<Allele> findEventAllelesInSample( final List<Allele> eventAlleles, final List<Allele> haplotypeAlleles, final List<Allele> haplotypeAllelesForSample, final ArrayList<ArrayList<Integer>> alleleMapper ) {
+        final ArrayList<Allele> eventAllelesForSample = new ArrayList<Allele>();
+        for( final Allele a : haplotypeAllelesForSample ) {
+            final int haplotypeIndex = haplotypeAlleles.indexOf(a);
+            for( int iii = 0; iii < alleleMapper.size(); iii++ ) {
+                final ArrayList<Integer> haplotypeIndicesList = alleleMapper.get(iii);
+                if( haplotypeIndicesList.contains(haplotypeIndex) ) {
+                    eventAllelesForSample.add(eventAlleles.get(iii));
+                    break;
+                }
+            }
+        }
+        return eventAllelesForSample;
+    }
+
+    protected static boolean containsVCWithMatchingAlleles( final List<VariantContext> list, final VariantContext vcToTest ) {
         for( final VariantContext vc : list ) {
             if( vc.hasSameAllelesAs(vcToTest) ) {
                 return true;
@@ -204,22 +218,20 @@ public class GenotypingEngine {
         }
         return false;
     }
-    
-    private HashMap<Integer,VariantContext> generateVCsFromAlignment( final SWPairwiseAlignment swConsensus, final byte[] ref, final byte[] read, final GenomeLoc refLoc, final String sourceName ) {
+
+    protected static HashMap<Integer,VariantContext> generateVCsFromAlignment( final SWPairwiseAlignment swConsensus, final byte[] ref, final byte[] alignment, final GenomeLoc refLoc, final String sourceNameToAdd ) {
         final HashMap<Integer,VariantContext> vcs = new HashMap<Integer,VariantContext>();
 
         int refPos = swConsensus.getAlignmentStart2wrt1();
         if( refPos < 0 ) { return null; } // Protection against SW failures
-        int readPos = 0;
-        final int lookAhead = 5;
+        int alignmentPos = 0;
+        final int lookAhead = 5; // Used to create MNPs out of nearby SNPs on the same haplotype
 
         for( final CigarElement ce : swConsensus.getCigar().getCigarElements() ) {
             final int elementLength = ce.getLength();
-            //final ArrayList<Allele> alleles = new ArrayList<Allele>();
             switch( ce.getOperator() ) {
                 case I:
-                {
-                    final byte[] insertionBases = Arrays.copyOfRange( read, readPos, readPos + elementLength);
+                    final byte[] insertionBases = Arrays.copyOfRange( alignment, alignmentPos, alignmentPos + elementLength );
                     boolean allN = true;
                     for( final byte b : insertionBases ) {
                         if( b != (byte) 'N' ) {
@@ -228,47 +240,41 @@ public class GenotypingEngine {
                         }
                     }
                     if( !allN ) {
-                        final ArrayList<Allele> alleles = new ArrayList<Allele>();
-                        alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, true));
-                        alleles.add( Allele.create(insertionBases, false));
-                        final int start = refLoc.getStart() + refPos - 1;
-                        vcs.put(start, new VariantContextBuilder(sourceName, refLoc.getContig(), start, start, alleles).referenceBaseForIndel(ref[refPos-1]).make());
+                        final ArrayList<Allele> insertionAlleles = new ArrayList<Allele>();
+                        insertionAlleles.add( Allele.create(Allele.NULL_ALLELE_STRING, true));
+                        insertionAlleles.add(Allele.create(insertionBases, false));
+                        final int insertionStart = refLoc.getStart() + refPos - 1;
+                        vcs.put(insertionStart, new VariantContextBuilder(sourceNameToAdd, refLoc.getContig(), insertionStart, insertionStart, insertionAlleles).referenceBaseForIndel(ref[refPos-1]).make());
                     }
-                    readPos += elementLength;
+                    alignmentPos += elementLength;
                     break;
-                }
                 case S:
-                {
-                    readPos += elementLength;
+                    alignmentPos += elementLength;
                     break;
-                }
                 case D:
-                {
-                    final byte[] deletionBases = Arrays.copyOfRange( ref, refPos, refPos + elementLength);
-                    final ArrayList<Allele> alleles = new ArrayList<Allele>();
-                    alleles.add( Allele.create(deletionBases, true) );
-                    alleles.add( Allele.create(Allele.NULL_ALLELE_STRING, false) );
-                    final int start = refLoc.getStart() + refPos - 1;
-                    vcs.put(start, new VariantContextBuilder(sourceName, refLoc.getContig(), start, start + elementLength, alleles).referenceBaseForIndel(ref[refPos-1]).make());
+                    final byte[] deletionBases = Arrays.copyOfRange( ref, refPos, refPos + elementLength );
+                    final ArrayList<Allele> deletionAlleles = new ArrayList<Allele>();
+                    deletionAlleles.add( Allele.create(deletionBases, true) );
+                    deletionAlleles.add(Allele.create(Allele.NULL_ALLELE_STRING, false));
+                    final int deletionStart = refLoc.getStart() + refPos - 1;
+                    vcs.put(deletionStart, new VariantContextBuilder(sourceNameToAdd, refLoc.getContig(), deletionStart, deletionStart + elementLength, deletionAlleles).referenceBaseForIndel(ref[refPos-1]).make());
                     refPos += elementLength;
                     break;
-                }
                 case M:
-                {
                     int numSinceMismatch = -1;
                     int stopOfMismatch = -1;
                     int startOfMismatch = -1;
                     int refPosStartOfMismatch = -1;
                     for( int iii = 0; iii < elementLength; iii++ ) {
-                        if( ref[refPos] != read[readPos] && read[readPos] != ((byte) 'N') ) {
+                        if( ref[refPos] != alignment[alignmentPos] && alignment[alignmentPos] != ((byte) 'N') ) {
                             // SNP or start of possible MNP
                             if( stopOfMismatch == -1 ) {
-                                startOfMismatch = readPos;
-                                stopOfMismatch = readPos;
+                                startOfMismatch = alignmentPos;
+                                stopOfMismatch = alignmentPos;
                                 numSinceMismatch = 0;
                                 refPosStartOfMismatch = refPos;
                             } else {
-                                stopOfMismatch = readPos;
+                                stopOfMismatch = alignmentPos;
                             }
                         }
                         if( stopOfMismatch != -1) {
@@ -276,22 +282,21 @@ public class GenotypingEngine {
                         }
                         if( numSinceMismatch > lookAhead || (iii == elementLength - 1 && stopOfMismatch != -1) ) {
                             final byte[] refBases = Arrays.copyOfRange( ref, refPosStartOfMismatch, refPosStartOfMismatch + (stopOfMismatch - startOfMismatch) + 1 );
-                            final byte[] mismatchBases = Arrays.copyOfRange( read, startOfMismatch, stopOfMismatch + 1 );
-                            final ArrayList<Allele> alleles = new ArrayList<Allele>();
-                            alleles.add( Allele.create( refBases, true ) );
-                            alleles.add( Allele.create( mismatchBases, false ) );
-                            final int start = refLoc.getStart() + refPosStartOfMismatch;
-                            vcs.put(start, new VariantContextBuilder(sourceName, refLoc.getContig(), start, start + (stopOfMismatch - startOfMismatch), alleles).make());
+                            final byte[] mismatchBases = Arrays.copyOfRange( alignment, startOfMismatch, stopOfMismatch + 1 );
+                            final ArrayList<Allele> snpAlleles = new ArrayList<Allele>();
+                            snpAlleles.add( Allele.create( refBases, true ) );
+                            snpAlleles.add(Allele.create(mismatchBases, false));
+                            final int snpStart = refLoc.getStart() + refPosStartOfMismatch;
+                            vcs.put(snpStart, new VariantContextBuilder(sourceNameToAdd, refLoc.getContig(), snpStart, snpStart + (stopOfMismatch - startOfMismatch), snpAlleles).make());
                             numSinceMismatch = -1;
                             stopOfMismatch = -1;
                             startOfMismatch = -1;
                             refPosStartOfMismatch = -1;
                         }
                         refPos++;
-                        readPos++;
+                        alignmentPos++;
                     }
                     break;
-                }
                 case N:
                 case H:
                 case P:
@@ -299,11 +304,6 @@ public class GenotypingEngine {
                     throw new ReviewedStingException( "Unsupported cigar operator created during SW alignment: " + ce.getOperator() );
             }
         }
-
-        if( DEBUG && vcs.size() == 0 ) {
-            System.out.println("> Reference!");
-        }
-
         return vcs;
     }
 }
