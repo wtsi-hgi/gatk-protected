@@ -53,36 +53,55 @@ public class LikelihoodCalculationEngineUnitTest extends BaseTest {
     }
 
     private class BasicLikelihoodTestProvider extends TestDataProvider {
-        public double readLikelihoodForHaplotype1;
-        public double readLikelihoodForHaplotype2;
+        public Double readLikelihoodForHaplotype1;
+        public Double readLikelihoodForHaplotype2;
+        public Double readLikelihoodForHaplotype3;
         
         public BasicLikelihoodTestProvider(double a, double b){
             super(BasicLikelihoodTestProvider.class, String.format("Diploid haplotype likelihoods for reads %f / %f",a,b));
             readLikelihoodForHaplotype1 = a;
             readLikelihoodForHaplotype2 = b;
+            readLikelihoodForHaplotype3 = null;
+        }
+
+        public BasicLikelihoodTestProvider(double a, double b, double c){
+            super(BasicLikelihoodTestProvider.class, String.format("Diploid haplotype likelihoods for reads %f / %f / %f",a,b,c));
+            readLikelihoodForHaplotype1 = a;
+            readLikelihoodForHaplotype2 = b;
+            readLikelihoodForHaplotype3 = c;
         }
         
         public double[][] expectedDiploidHaplotypeMatrix() {
-            double maxValue = Math.max(readLikelihoodForHaplotype1,readLikelihoodForHaplotype2);
-            double[][] normalizedMatrix = {
-                    {readLikelihoodForHaplotype1 - maxValue, 0},
-                    {Math.log10(0.5*Math.pow(10,readLikelihoodForHaplotype1) + 0.5*Math.pow(10,readLikelihoodForHaplotype2)) - maxValue, readLikelihoodForHaplotype2 - maxValue}
-            };
-            return normalizedMatrix;
+            if( readLikelihoodForHaplotype3 == null ) {
+                double maxValue = Math.max(readLikelihoodForHaplotype1,readLikelihoodForHaplotype2);
+                double[][] normalizedMatrix = {
+                        {readLikelihoodForHaplotype1 - maxValue, 0},
+                        {Math.log10(0.5*Math.pow(10,readLikelihoodForHaplotype1) + 0.5*Math.pow(10,readLikelihoodForHaplotype2)) - maxValue, readLikelihoodForHaplotype2 - maxValue}
+                };
+                return normalizedMatrix;
+            } else {
+                double maxValue = MathUtils.max(readLikelihoodForHaplotype1,readLikelihoodForHaplotype2,readLikelihoodForHaplotype3);
+                double[][] normalizedMatrix = {
+                        {readLikelihoodForHaplotype1 - maxValue, 0, 0},
+                        {Math.log10(0.5*Math.pow(10,readLikelihoodForHaplotype1) + 0.5*Math.pow(10,readLikelihoodForHaplotype2)) - maxValue, readLikelihoodForHaplotype2 - maxValue, 0},
+                        {Math.log10(0.5*Math.pow(10,readLikelihoodForHaplotype1) + 0.5*Math.pow(10,readLikelihoodForHaplotype3)) - maxValue,
+                         Math.log10(0.5*Math.pow(10,readLikelihoodForHaplotype2) + 0.5*Math.pow(10,readLikelihoodForHaplotype3)) - maxValue, readLikelihoodForHaplotype3 - maxValue}
+                };
+                return normalizedMatrix;
+            }
         }
         
         public double[][] calcDiploidHaplotypeMatrix() {
             ArrayList<Haplotype> haplotypes = new ArrayList<Haplotype>();
-            Haplotype haplotype1 = new Haplotype("AAAA".getBytes());
-            double[] readLikelihoods1 = {readLikelihoodForHaplotype1};
-            haplotype1.addReadLikelihoods("mySample", readLikelihoods1);
-            Haplotype haplotype2 = new Haplotype("CCCC".getBytes());
-            double[] readLikelihoods2 = {readLikelihoodForHaplotype2};
-            haplotype2.addReadLikelihoods("mySample", readLikelihoods2);
-            haplotypes.add(haplotype1);
-            haplotypes.add(haplotype2);
-
-            return LikelihoodCalculationEngine.computeDiploidHaplotypeLikelihoods(haplotypes, "mySample");
+            for( int iii = 1; iii <= 3; iii++) {
+                Double readLikelihood = ( iii == 1 ? readLikelihoodForHaplotype1 : ( iii == 2 ? readLikelihoodForHaplotype2 : readLikelihoodForHaplotype3) );
+                if( readLikelihood != null ) {
+                    Haplotype haplotype = new Haplotype( (iii == 1 ? "AAAA" : (iii == 2 ? "CCCC" : "TTTT")).getBytes() );
+                    haplotype.addReadLikelihoods("myTestSample", new double[]{readLikelihood});
+                    haplotypes.add(haplotype);
+                }
+            }
+            return LikelihoodCalculationEngine.computeDiploidHaplotypeLikelihoods(haplotypes, "myTestSample");
         }
     }
 
@@ -98,11 +117,34 @@ public class LikelihoodCalculationEngineUnitTest extends BaseTest {
         new BasicLikelihoodTestProvider(-1.1, 0);
         new BasicLikelihoodTestProvider(0, -2.2);
         new BasicLikelihoodTestProvider(-100.1, -200.2);
+
+        new BasicLikelihoodTestProvider(-1.1, -2.2, 0);
+        new BasicLikelihoodTestProvider(-2.2, -1.1, 0);
+        new BasicLikelihoodTestProvider(-1.1, -1.1, 0);
+        new BasicLikelihoodTestProvider(-9.7, -15.0, 0);
+        new BasicLikelihoodTestProvider(-1.1, -2000.2, 0);
+        new BasicLikelihoodTestProvider(-1000.1, -2.2, 0);
+        new BasicLikelihoodTestProvider(0, 0, 0);
+        new BasicLikelihoodTestProvider(-1.1, 0, 0);
+        new BasicLikelihoodTestProvider(0, -2.2, 0);
+        new BasicLikelihoodTestProvider(-100.1, -200.2, 0);
+
+        new BasicLikelihoodTestProvider(-1.1, -2.2, -12.121);
+        new BasicLikelihoodTestProvider(-2.2, -1.1, -12.121);
+        new BasicLikelihoodTestProvider(-1.1, -1.1, -12.121);
+        new BasicLikelihoodTestProvider(-9.7, -15.0, -12.121);
+        new BasicLikelihoodTestProvider(-1.1, -2000.2, -12.121);
+        new BasicLikelihoodTestProvider(-1000.1, -2.2, -12.121);
+        new BasicLikelihoodTestProvider(0, 0, -12.121);
+        new BasicLikelihoodTestProvider(-1.1, 0, -12.121);
+        new BasicLikelihoodTestProvider(0, -2.2, -12.121);
+        new BasicLikelihoodTestProvider(-100.1, -200.2, -12.121);
+
         return BasicLikelihoodTestProvider.getTests(BasicLikelihoodTestProvider.class);
     }
 
     @Test(dataProvider = "BasicLikelihoodTestProvider", enabled = true)
-    public void testOneReadWithTwoHaplotypes(BasicLikelihoodTestProvider cfg) {
+    public void testOneReadWithTwoOrThreeHaplotypes(BasicLikelihoodTestProvider cfg) {
         double[][] calculatedMatrix = cfg.calcDiploidHaplotypeMatrix();
         double[][] expectedMatrix = cfg.expectedDiploidHaplotypeMatrix();
         logger.warn(String.format("Test: %s", cfg.toString()));
