@@ -65,7 +65,7 @@ public class PairHMM {
     }
 
     @Requires({"readBases.length == readQuals.length","readBases.length == insertionGOP.length","readBases.length == deletionGOP.length","readBases.length == overallGCP.length"})
-    @Ensures({"result <= 1e-2", "!Double.isInfinite(result)", "!Double.isNaN(result)"}) // Result should be a proper log10 probability
+    @Ensures({"!Double.isInfinite(result)", "!Double.isNaN(result)"}) // Result should be a proper log10 probability
     public double computeReadLikelihoodGivenHaplotype( final byte[] haplotypeBases, final byte[] readBases, final byte[] readQuals,
                                                        final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP ) {
         

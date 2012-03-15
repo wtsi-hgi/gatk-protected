@@ -171,7 +171,7 @@ public class GenotypingEngine {
         return returnVCs;
     }
 
-    @Requires({"fullEventDictionary.size() <= eventsAtThisLoc.size() + 1"})
+    @Requires({"fullEventDictionary.size() >= eventsAtThisLoc.size() + 1"})
     @Ensures({"result.size() == eventsAtThisLoc.size() + 1"})
     protected static ArrayList<ArrayList<Integer>> createAlleleMapper( final int loc, final ArrayList<VariantContext> eventsAtThisLoc, final ArrayList<HashMap<Integer,VariantContext>> fullEventDictionary ) {
         final ArrayList<ArrayList<Integer>> alleleMapper = new ArrayList<ArrayList<Integer>>();
