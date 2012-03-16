@@ -14,7 +14,7 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
     final String L = " -L 20:10,100,000-10,120,000 ";
 
     private void RRTest(String testName, String args, String md5) {
-        String base = String.format("-T ReduceReads -R %s -I %s ", REF, BAM) + " -o %s ";
+        String base = String.format("-T ReduceReads -npt -R %s -I %s ", REF, BAM) + " -o %s ";
         WalkerTestSpec spec = new WalkerTestSpec(base + args, Arrays.asList(md5));
         executeTest(testName, spec);
     }
@@ -57,7 +57,7 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
     
     @Test(enabled = true)
     public void testFilteredDeletionCompression() {
-        String base = String.format("-T ReduceReads -R %s -I %s ", REF, DELETION_BAM) + " -o %s ";
+        String base = String.format("-T ReduceReads -npt -R %s -I %s ", REF, DELETION_BAM) + " -o %s ";
         executeTest("testFilteredDeletionCompression", new WalkerTestSpec(base, Arrays.asList("122e4e60c4412a31d0aeb3cce879e841")));
     }
 
@@ -71,7 +71,7 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
      */
     @Test(enabled = true)
     public void testAddingReadAfterTailingTheStash() {
-        String base = String.format("-T ReduceReads %s -R %s -I %s", STASH_L, REF, STASH_BAM) + " -o %s ";
+        String base = String.format("-T ReduceReads %s -npt -R %s -I %s", STASH_L, REF, STASH_BAM) + " -o %s ";
         executeTest("testAddingReadAfterTailingTheStash", new WalkerTestSpec(base, Arrays.asList("f6d82b34dcbbc0e0173190271c8b0fbc")));
     }
 }
