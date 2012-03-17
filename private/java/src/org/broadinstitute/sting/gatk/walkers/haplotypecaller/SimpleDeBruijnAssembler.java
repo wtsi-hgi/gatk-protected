@@ -16,7 +16,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     // the additional size of a valid chunk of sequence, used to string together k-mers
     private static final int KMER_OVERLAP = 6;
     private static final int PRUNE_FACTOR = 4;
-    private static final int NUM_BEST_PATHS_PER_KMER = 12;
+    private static final int NUM_BEST_PATHS_PER_KMER = 9;
     
     private final boolean DEBUG;
 

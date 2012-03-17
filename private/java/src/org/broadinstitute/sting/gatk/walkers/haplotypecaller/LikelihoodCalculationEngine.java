@@ -48,28 +48,78 @@ public class LikelihoodCalculationEngine {
     }
 
     public void computeReadLikelihoods( final ArrayList<Haplotype> haplotypes, final HashMap<String, ArrayList<GATKSAMRecord>> perSampleReadList ) {
+        final int numHaplotypes = haplotypes.size();
+
+        int X_METRIC_LENGTH = 0;
+        for( final String sample : perSampleReadList.keySet() ) {
+            for( final GATKSAMRecord read : perSampleReadList.get(sample) ) {
+                final int readLength = read.getReadLength();
+                if( readLength > X_METRIC_LENGTH ) { X_METRIC_LENGTH = readLength; }
+            }
+        }
+        int Y_METRIC_LENGTH = 0;
+        for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
+            final int haplotypeLength = haplotypes.get(jjj).getBases().length;
+            if( haplotypeLength > Y_METRIC_LENGTH ) { Y_METRIC_LENGTH = haplotypeLength; }
+        }
+        X_METRIC_LENGTH++;
+        Y_METRIC_LENGTH++;
+
+        // initial arrays to hold the probabilities of being in the match, insertion and deletion cases
+        final double[][] matchMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
+        final double[][] XMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
+        final double[][] YMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
+
+        for( int iii=0; iii < X_METRIC_LENGTH; iii++ ) {
+            Arrays.fill(matchMetricArray[iii], Double.NEGATIVE_INFINITY);
+            Arrays.fill(XMetricArray[iii], Double.NEGATIVE_INFINITY);
+            Arrays.fill(YMetricArray[iii], Double.NEGATIVE_INFINITY);
+        }
+
+        // the initial condition
+        matchMetricArray[1][1] = 0.0; // Math.log10(1.0);
+        
         // for each sample's reads
         for( final String sample : perSampleReadList.keySet() ) {
             if( DEBUG ) { System.out.println("Evaluating sample " + sample + " with " + perSampleReadList.get( sample ).size() + " passing reads"); }
             // evaluate the likelihood of the reads given those haplotypes
-            computeReadLikelihoods( haplotypes, perSampleReadList.get(sample), sample );
+            computeReadLikelihoods( haplotypes, perSampleReadList.get(sample), sample, matchMetricArray, XMetricArray, YMetricArray );
         }
     }
 
-    private void computeReadLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<GATKSAMRecord> reads, final String sample ) {
-        final int numReads = reads.size();
+    private void computeReadLikelihoods( final ArrayList<Haplotype> haplotypes, final ArrayList<GATKSAMRecord> reads, final String sample,
+                                         final double[][] matchMetricArray, final double[][] XMetricArray, final double[][] YMetricArray ) {
 
-        for( final Haplotype haplotype : haplotypes ) {
-            final double readLikelihoods[] = new double[numReads];
-            for( int iii = 0; iii < numReads; iii++ ) {
-                final GATKSAMRecord read = reads.get(iii);
-                final byte[] overallGCP = new byte[read.getReadLength()];
-                Arrays.fill( overallGCP, constantGCP ); // Is there a way to derive empirical estimates for this from the data?
-                readLikelihoods[iii] = pairHMM.computeReadLikelihoodGivenHaplotype(haplotype.getBases(), read.getReadBases(),
-                        read.getBaseQualities(), read.getBaseInsertionQualities(), read.getBaseDeletionQualities(), overallGCP);
+        final int numHaplotypes = haplotypes.size();
+        final int numReads = reads.size();
+        final double[][] readLikelihoods = new double[numHaplotypes][numReads];
+        
+        for( int iii = 0; iii < numReads; iii++ ) {
+            final GATKSAMRecord read = reads.get(iii);
+            final byte[] overallGCP = new byte[read.getReadLength()];
+            Arrays.fill( overallGCP, constantGCP ); // Is there a way to derive empirical estimates for this from the data?
+            Haplotype previousHaplotypeSeen = null;
+            for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {            
+                final Haplotype haplotype = haplotypes.get(jjj);
+                final int haplotypeStart = ( previousHaplotypeSeen == null ? 0 : computeFirstDifferingPosition(haplotype.getBases(), previousHaplotypeSeen.getBases()) );
+                previousHaplotypeSeen = haplotype;
+                readLikelihoods[jjj][iii] = pairHMM.computeReadLikelihoodGivenHaplotype(haplotype.getBases(), read.getReadBases(),
+                        read.getBaseQualities(), read.getBaseInsertionQualities(), read.getBaseDeletionQualities(), overallGCP,
+                        haplotypeStart, matchMetricArray, XMetricArray, YMetricArray);
             }
-            haplotype.addReadLikelihoods( sample, readLikelihoods );
         }
+        for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
+            haplotypes.get(jjj).addReadLikelihoods( sample, readLikelihoods[jjj] );
+        }
+    }
+
+    private static int computeFirstDifferingPosition( final byte[] b1, final byte[] b2 ) {
+        for( int iii = 0; iii < b1.length && iii < b2.length; iii++ ){
+            if( b1[iii] != b2[iii] ) {
+                return iii;
+            }
+        }
+        return b1.length;
     }
 
     @Requires({"haplotypes.size() > 0"})

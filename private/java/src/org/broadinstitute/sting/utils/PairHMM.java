@@ -68,27 +68,39 @@ public class PairHMM {
     @Ensures({"!Double.isInfinite(result)", "!Double.isNaN(result)"}) // Result should be a proper log10 probability
     public double computeReadLikelihoodGivenHaplotype( final byte[] haplotypeBases, final byte[] readBases, final byte[] readQuals,
                                                        final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP ) {
-        
+
         // M, X, and Y arrays are of size read and haplotype + 1 because of an extra column for initial conditions
         final int X_METRIC_LENGTH = readBases.length + 1;
         final int Y_METRIC_LENGTH = haplotypeBases.length + 1;
 
         // initial arrays to hold the probabilities of being in the match, insertion and deletion cases
-        // BUGBUG: this allocation and initialization is expensive, target for further optimizations
         final double[][] matchMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
         final double[][] XMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
         final double[][] YMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
-        
+
         for( int iii=0; iii < X_METRIC_LENGTH; iii++ ) {
             Arrays.fill(matchMetricArray[iii], Double.NEGATIVE_INFINITY);
             Arrays.fill(XMetricArray[iii], Double.NEGATIVE_INFINITY);
             Arrays.fill(YMetricArray[iii], Double.NEGATIVE_INFINITY);
         }
-        
+
         // the initial condition
         matchMetricArray[1][1] = 0.0; // Math.log10(1.0);
 
-        if( !noBanded ) {
+        return computeReadLikelihoodGivenHaplotype(haplotypeBases, readBases, readQuals, insertionGOP, deletionGOP, overallGCP, 0, matchMetricArray, XMetricArray, YMetricArray);
+    }
+
+    @Requires({"readBases.length == readQuals.length","readBases.length == insertionGOP.length","readBases.length == deletionGOP.length","readBases.length == overallGCP.length"})
+    @Ensures({"!Double.isInfinite(result)", "!Double.isNaN(result)"}) // Result should be a proper log10 probability
+    public double computeReadLikelihoodGivenHaplotype( final byte[] haplotypeBases, final byte[] readBases, final byte[] readQuals,
+                                                       final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP, final int hapStartIndex,
+                                                       final double[][] matchMetricArray, final double[][] XMetricArray, final double[][] YMetricArray ) {
+
+        // M, X, and Y arrays are of size read and haplotype + 1 because of an extra column for initial conditions
+        final int X_METRIC_LENGTH = readBases.length + 1;
+        final int Y_METRIC_LENGTH = haplotypeBases.length + 1;
+
+        if( false ) {
             final ArrayList<Integer> workQueue = new ArrayList<Integer>(); // holds a queue of starting work location (indices along the diagonal). Will be sorted each step
             final ArrayList<Integer> workToBeAdded = new ArrayList<Integer>();
             final ArrayList<Double> calculatedValues = new ArrayList<Double>();
@@ -187,7 +199,7 @@ public class PairHMM {
         } else {
             // simple rectangular version of update loop, slow
             for( int iii = 1; iii < X_METRIC_LENGTH; iii++ ) {
-                for( int jjj = 1; jjj < Y_METRIC_LENGTH; jjj++ ) {
+                for( int jjj = hapStartIndex + 1; jjj < Y_METRIC_LENGTH; jjj++ ) {
                     if( (iii == 1 && jjj == 1) ) { continue; }
                     updateCell(iii, jjj, haplotypeBases, readBases, readQuals, insertionGOP, deletionGOP, overallGCP,
                         matchMetricArray, XMetricArray, YMetricArray);
