@@ -50,11 +50,9 @@ public class GenotypingEngine {
     @Requires({"refLoc.containsP(activeRegionWindow)", "haplotypes.size() > 0"})
     public ArrayList<VariantContext> assignGenotypeLikelihoodsAndCallEvents( final UnifiedGenotyperEngine UG_engine, final ArrayList<Haplotype> haplotypes, final byte[] ref, final GenomeLoc refLoc, 
                                                                              final GenomeLoc activeRegionWindow, final GenomeLocParser genomeLocParser ) {
-
         // Prepare the list of haplotype indices to genotype
         final ArrayList<Allele> allelesToGenotype = new ArrayList<Allele>();
 
-        if( DEBUG ) { System.out.println("=== Best Haplotypes ==="); }
         for( final Haplotype h : haplotypes ) {
             allelesToGenotype.add( Allele.create(h.getBases(), h.isReference()) );
         }
@@ -71,6 +69,7 @@ public class GenotypingEngine {
                     genotypeLikelihoods[glIndex++] = haplotypeLikelihoodMatrix[iii][jjj]; // for example: AA,AB,BB,AC,BC,CC
                 }
             }
+            if( DEBUG ) { System.out.println(sample + " --> " + Arrays.toString(genotypeLikelihoods)); }
             final HashMap<String, Object> attributes = new HashMap<String, Object>();
             attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
             genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
@@ -105,6 +104,7 @@ public class GenotypingEngine {
         final TreeSet<Integer> startPosKeySet = new TreeSet<Integer>();
         final ArrayList<HashMap<Integer,VariantContext>> fullEventDictionary = new ArrayList<HashMap<Integer, VariantContext>>();
         int count = 0;
+        if( DEBUG ) { System.out.println("=== Best Haplotypes ==="); }
         for( final Haplotype h : haplotypes ) {
             final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
             if( DEBUG ) {

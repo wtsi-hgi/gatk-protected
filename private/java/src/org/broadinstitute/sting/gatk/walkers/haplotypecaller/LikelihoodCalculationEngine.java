@@ -144,23 +144,25 @@ public class LikelihoodCalculationEngine {
         final int numReads = haplotypes.get(0).getReadLikelihoods(sample).length; // BUGBUG: assume all haplotypes saw the same reads
         final double[][] haplotypeLikelihoodMatrix = new double[numHaplotypes][numHaplotypes];
         for( int iii = 0; iii < numHaplotypes; iii++ ) {
-            Arrays.fill(haplotypeLikelihoodMatrix[iii], 0.0);
+            Arrays.fill(haplotypeLikelihoodMatrix[iii], Double.NEGATIVE_INFINITY);
         }
 
         // compute the diploid haplotype likelihoods
         for( int iii = 0; iii < numHaplotypes; iii++ ) {
-            for( final int iii_mapped : haplotypeMapping.get(iii) ) {
-                final double[] readLikelihoods_iii = haplotypes.get(iii_mapped).getReadLikelihoods(sample);
-                for( int jjj = 0; jjj <= iii; jjj++ ) {
+            for( int jjj = 0; jjj <= iii; jjj++ ) {                
+                for( final int iii_mapped : haplotypeMapping.get(iii) ) {
+                    final double[] readLikelihoods_iii = haplotypes.get(iii_mapped).getReadLikelihoods(sample);
                     for( final int jjj_mapped : haplotypeMapping.get(jjj) ) {
                         final double[] readLikelihoods_jjj = haplotypes.get(jjj_mapped).getReadLikelihoods(sample);
+                        double haplotypeLikelihood = 0.0;
                         for( int kkk = 0; kkk < numReads; kkk++ ) {
                             // Compute log10(10^x1/2 + 10^x2/2) = log10(10^x1+10^x2)-log10(2)
                             // First term is approximated by Jacobian log with table lookup.
-                            haplotypeLikelihoodMatrix[iii][jjj] += MathUtils.approximateLog10SumLog10(readLikelihoods_iii[kkk], readLikelihoods_jjj[kkk]) + LOG_ONE_HALF;
+                            haplotypeLikelihood += MathUtils.approximateLog10SumLog10(readLikelihoods_iii[kkk], readLikelihoods_jjj[kkk]) + LOG_ONE_HALF;
                         }
+                        haplotypeLikelihoodMatrix[iii][jjj] = MathUtils.approximateLog10SumLog10(haplotypeLikelihoodMatrix[iii][jjj], haplotypeLikelihood);
                     }
-                }
+                }       
             }
         }
 
