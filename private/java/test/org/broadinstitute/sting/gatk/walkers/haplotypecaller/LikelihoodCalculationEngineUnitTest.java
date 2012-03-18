@@ -75,15 +75,15 @@ public class LikelihoodCalculationEngineUnitTest extends BaseTest {
             if( readLikelihoodForHaplotype3 == null ) {
                 double maxValue = Math.max(readLikelihoodForHaplotype1,readLikelihoodForHaplotype2);
                 double[][] normalizedMatrix = {
-                        {readLikelihoodForHaplotype1 - maxValue, 0},
+                        {readLikelihoodForHaplotype1 - maxValue, Double.NEGATIVE_INFINITY},
                         {Math.log10(0.5*Math.pow(10,readLikelihoodForHaplotype1) + 0.5*Math.pow(10,readLikelihoodForHaplotype2)) - maxValue, readLikelihoodForHaplotype2 - maxValue}
                 };
                 return normalizedMatrix;
             } else {
                 double maxValue = MathUtils.max(readLikelihoodForHaplotype1,readLikelihoodForHaplotype2,readLikelihoodForHaplotype3);
                 double[][] normalizedMatrix = {
-                        {readLikelihoodForHaplotype1 - maxValue, 0, 0},
-                        {Math.log10(0.5*Math.pow(10,readLikelihoodForHaplotype1) + 0.5*Math.pow(10,readLikelihoodForHaplotype2)) - maxValue, readLikelihoodForHaplotype2 - maxValue, 0},
+                        {readLikelihoodForHaplotype1 - maxValue, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY},
+                        {Math.log10(0.5*Math.pow(10,readLikelihoodForHaplotype1) + 0.5*Math.pow(10,readLikelihoodForHaplotype2)) - maxValue, readLikelihoodForHaplotype2 - maxValue, Double.NEGATIVE_INFINITY},
                         {Math.log10(0.5*Math.pow(10,readLikelihoodForHaplotype1) + 0.5*Math.pow(10,readLikelihoodForHaplotype3)) - maxValue,
                          Math.log10(0.5*Math.pow(10,readLikelihoodForHaplotype2) + 0.5*Math.pow(10,readLikelihoodForHaplotype3)) - maxValue, readLikelihoodForHaplotype3 - maxValue}
                 };
@@ -164,7 +164,7 @@ public class LikelihoodCalculationEngineUnitTest extends BaseTest {
                 return false; // sanity check
             }
             for( int j=0; j < b1.length; j++ ){
-                if ( MathUtils.compareDoubles(b1[i][j], b2[i][j]) != 0 )
+                if ( MathUtils.compareDoubles(b1[i][j], b2[i][j]) != 0 && !Double.isInfinite(b1[i][j]) && !Double.isInfinite(b2[i][j]))
                     return false;
             }
         }
