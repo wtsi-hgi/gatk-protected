@@ -64,7 +64,7 @@ public class MergeIntervalLists extends RodWalker<Integer, Integer> {
 
     public void initialize() {
 
-        List<GenomeLoc> allIntervals = new ArrayList<GenomeLoc>(0);
+        List<GenomeLoc> allIntervals = new ArrayList<GenomeLoc>();
         for ( IntervalBinding intervalBinding : intervals) {
             List<GenomeLoc> intervals = intervalBinding.getIntervals(getToolkit());
             allIntervals = IntervalUtils.mergeListsBySetOperator(intervals, allIntervals, intervalSetRule);
@@ -75,11 +75,20 @@ public class MergeIntervalLists extends RodWalker<Integer, Integer> {
             writer.println(loc);
     }
 
+    @Override
+    public boolean isDone() {
+        return true;
+    }
+
+    @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) { return 0; }
 
+    @Override
     public Integer reduceInit() { return 0; }
 
+    @Override
     public Integer reduce(Integer counter, Integer sum) { return 0; }
 
+    @Override
     public void onTraversalDone(Integer sum) {}
 }
