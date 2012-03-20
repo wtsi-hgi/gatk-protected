@@ -107,6 +107,8 @@ class ReducedReadsCalling extends QScript {
       reducedBamList :+= reducedBAMFile
 
       // reduce
+      // TODO -- fix Queue so that ReadFilters work correctly
+      // val reduce = new ReduceReads() with CommandLineGATKArgs with ExpandedIntervals with BadMate
       val reduce = new ReduceReads() with CommandLineGATKArgs with ExpandedIntervals
       reduce.memoryLimit = reducedMemoryLimit
       reduce.input_file :+= new File(file)
