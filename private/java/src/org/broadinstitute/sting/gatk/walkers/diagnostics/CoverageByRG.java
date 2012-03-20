@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, The Broad Institute
+ * Copyright (c) 2012, The Broad Institute
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -33,6 +33,7 @@ import org.broadinstitute.sting.gatk.arguments.DbsnpArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportGatherer;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
@@ -222,6 +223,8 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
             if (counts.containsKey(columnVariants))
                 reportTable.set(interval.toString(), columnVariants, counts.get(columnVariants));
         }
-        reportTable.write(out);
+        GATKReport report = new GATKReport(reportTable);
+
+        report.print(out);
     }
 }
