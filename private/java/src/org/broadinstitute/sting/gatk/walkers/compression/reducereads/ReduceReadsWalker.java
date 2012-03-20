@@ -31,10 +31,7 @@ import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
-import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
-import org.broadinstitute.sting.gatk.filters.NotPrimaryAlignmentFilter;
-import org.broadinstitute.sting.gatk.filters.UnmappedReadFilter;
+import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.PartitionBy;
@@ -82,7 +79,7 @@ import java.util.*;
  */
 
 @PartitionBy(PartitionType.INTERVAL)
-@ReadFilters({UnmappedReadFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class})
+@ReadFilters({UnmappedReadFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class, BadCigarFilter.class})
 public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, ReduceReadsStash> {
 
     @Output
