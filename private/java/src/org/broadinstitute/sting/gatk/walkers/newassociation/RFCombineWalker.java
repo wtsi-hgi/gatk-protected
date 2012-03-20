@@ -53,7 +53,7 @@ public class RFCombineWalker extends RodWalker<Object,Object> {
                         header.append(entry);
                     }
                 }
-                order.add(rSource.getName());
+                order.add(rSource.getID());
             }
         }
 
