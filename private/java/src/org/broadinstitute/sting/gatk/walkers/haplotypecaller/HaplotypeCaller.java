@@ -180,7 +180,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             throw new UserException.CouldNotReadInputFile(getToolkit().getArguments().referenceFile, e);
         }
 
-        assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, DEBUG);
+        assemblyEngine = new SimpleDeBruijnAssembler( DEBUG, graphWriter );
         likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, false, noBanded );
         genotypingEngine = new GenotypingEngine( DEBUG );
     }
@@ -330,15 +330,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     // private helper functions
     //
     //---------------------------------------------------------------------------------------------------------------
-
-    private LocalAssemblyEngine makeAssembler( final LocalAssemblyEngine.ASSEMBLER type, final boolean debug ) {
-        switch ( type ) {
-            case SIMPLE_DE_BRUIJN:
-                return new SimpleDeBruijnAssembler( debug );
-            default:
-                throw new UserException.BadInput("Assembler type " + type + " is not valid/supported");
-        }
-    }
 
     private void finalizeActiveRegion( final ActiveRegion activeRegion ) {
         if( DEBUG ) { System.out.println("\nAssembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:"); }

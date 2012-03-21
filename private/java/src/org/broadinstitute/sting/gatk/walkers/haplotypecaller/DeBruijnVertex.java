@@ -15,11 +15,14 @@ public class DeBruijnVertex {
 
     // used for printing and traversing graphs
     protected byte[] printableSequence;
+    
+    public final int kmer;
 
-    public DeBruijnVertex( final byte[] sequence) {
+    public DeBruijnVertex( final byte[] sequence, final int kmer ) {
         actualSequence = sequence;
         printableSequence = new byte[sequence.length];
         System.arraycopy(sequence, 0, printableSequence, 0, sequence.length);
+        this.kmer = kmer;
     }
 
     @Override
@@ -29,7 +32,11 @@ public class DeBruijnVertex {
 
     public String toString() {
         return new String(printableSequence);
-    }    
+    }   
+    
+    public String getSuffix() {
+        return new String( Arrays.copyOfRange( printableSequence, kmer - 1, printableSequence.length ) );
+    }
 
     public void addPrefix(byte[] prefix, boolean justPrintableSequence) {
         printableSequence = addPrefix(printableSequence, prefix);
