@@ -37,24 +37,11 @@ import java.util.*;
 
 public class PairHMM {
     private static final int MAX_CACHED_QUAL = (int)Byte.MAX_VALUE;
-    private static final double matchPenalty[];
-    private static final double mismatchPenalty[];
     private static final byte DEFAULT_GOP = (byte) 45;
     private static final byte DEFAULT_GCP = (byte) 10;
     private static final double BANDING_TOLERANCE = 22.0;
     private static final int BANDING_CLUSTER_WINDOW = 12;
     private final boolean noBanded;
-
-    static {
-        matchPenalty = new double[MAX_CACHED_QUAL+1];
-        mismatchPenalty = new double[MAX_CACHED_QUAL+1];
-        for (int k=1; k <= MAX_CACHED_QUAL; k++) {
-            double baseProb = Math.pow(10.0, ((double) -k)/10.0);
-
-            matchPenalty[k] =  Math.log10(1.0-baseProb);
-            mismatchPenalty[k] = Math.log10(baseProb);
-        }
-    }
 
     public PairHMM() {
         noBanded = false;
@@ -227,23 +214,23 @@ public class PairHMM {
             final byte x = readBases[im1-1];
             final byte y = haplotypeBases[jm1-1];
             final byte qual = ( readQuals[im1-1] < QualityUtils.MIN_USABLE_Q_SCORE ? QualityUtils.MIN_USABLE_Q_SCORE : (readQuals[im1-1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : readQuals[im1-1]) );
-            pBaseReadLog10 = ( x == y || x == (byte) 'N' || y == (byte) 'N' ? matchPenalty[(int)qual] : mismatchPenalty[(int)qual] );
+            pBaseReadLog10 = ( x == y || x == (byte) 'N' || y == (byte) 'N' ? QualityUtils.qualToProbLog10(qual) : QualityUtils.qualToErrorProbLog10(qual) );
         }
         final int qualIndexGOP = ( im1 == 0 ? DEFAULT_GOP + DEFAULT_GOP : ( insertionGOP[im1-1] + deletionGOP[im1-1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : insertionGOP[im1-1] + deletionGOP[im1-1]) );
-        final double d0 = matchPenalty[qualIndexGOP];
-        final double e0 = ( im1 == 0 ? matchPenalty[(int)DEFAULT_GCP] : matchPenalty[(int)overallGCP[im1-1]] );
+        final double d0 = QualityUtils.qualToProbLog10((byte)qualIndexGOP);
+        final double e0 = ( im1 == 0 ? QualityUtils.qualToProbLog10(DEFAULT_GCP) : QualityUtils.qualToProbLog10(overallGCP[im1-1]) );
         matchMetricArray[indI][indJ] = pBaseReadLog10 + MathUtils.approximateLog10SumLog10(
                 new double[]{matchMetricArray[indI-1][indJ-1] + d0, XMetricArray[indI-1][indJ-1] + e0, YMetricArray[indI-1][indJ-1] + e0});
 
         // update the X (insertion) array
-        final double d1 = ( im1 == 0 ? mismatchPenalty[(int)DEFAULT_GOP] : mismatchPenalty[(int)insertionGOP[im1-1]] );
-        final double e1 = ( im1 == 0 ? mismatchPenalty[(int)DEFAULT_GCP] : mismatchPenalty[(int)overallGCP[im1-1]] );
+        final double d1 = ( im1 == 0 ? QualityUtils.qualToErrorProbLog10(DEFAULT_GOP) : QualityUtils.qualToErrorProbLog10(insertionGOP[im1-1]) );
+        final double e1 = ( im1 == 0 ? QualityUtils.qualToErrorProbLog10(DEFAULT_GCP) : QualityUtils.qualToErrorProbLog10(overallGCP[im1-1]) );
         final double qBaseReadLog10 = 0.0; // Math.log10(1.0) -- we don't have an estimate for this emission probability so assume q=1.0
         XMetricArray[indI][indJ] = qBaseReadLog10 + MathUtils.approximateLog10SumLog10(matchMetricArray[indI-1][indJ] + d1, XMetricArray[indI-1][indJ] + e1);
 
         // update the Y (deletion) array, with penalty of zero on the left and right flanks to allow for a local alignment within the haplotype
-        final double d2 = ( im1 == 0 || im1 == readBases.length - 1 ? 0.0 : mismatchPenalty[(int)deletionGOP[im1-1]] );
-        final double e2 = ( im1 == 0 || im1 == readBases.length - 1 ? 0.0 : mismatchPenalty[(int)overallGCP[im1-1]] );
+        final double d2 = ( im1 == 0 || im1 == readBases.length - 1 ? 0.0 : QualityUtils.qualToErrorProbLog10(deletionGOP[im1-1]) );
+        final double e2 = ( im1 == 0 || im1 == readBases.length - 1 ? 0.0 : QualityUtils.qualToErrorProbLog10(overallGCP[im1-1]) );
         final double qBaseRefLog10 = 0.0; // Math.log10(1.0) -- we don't have an estimate for this emission probability so assume q=1.0
         YMetricArray[indI][indJ] = qBaseRefLog10 + MathUtils.approximateLog10SumLog10(matchMetricArray[indI][indJ-1] + d2, YMetricArray[indI][indJ-1] + e2);
     }

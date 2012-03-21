@@ -62,7 +62,7 @@ import java.io.PrintStream;
 import java.util.*;
 
 /**
- * Call SNPs and indels simultaneously via local de-novo assembly of haplotypes in an active region. Haplotype likelihoods are evaluated with an affine gap penalty HMM.
+ * Call SNPs and indels simultaneously via local de-novo assembly of haplotypes in an active region. Haplotypes are evaluated using an affine gap penalty Pair HMM.
  *
  * <h2>Input</h2>
  * <p>
@@ -220,24 +220,22 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
         final Map<String, AlignmentContext> splitContexts = AlignmentContextUtils.splitContextBySampleName(context);
         final GenotypesContext genotypes = GenotypesContext.create(splitContexts.keySet().size());
-        for( String sample : splitContexts.keySet() ) {
+        for( final String sample : splitContexts.keySet() ) {
             final double[] genotypeLikelihoods = new double[3]; // ref versus non-ref (any event)
-            genotypeLikelihoods[0] = 0.0;
-            genotypeLikelihoods[1] = 0.0;
-            genotypeLikelihoods[2] = 0.0;
+            Arrays.fill(genotypeLikelihoods, 0.0);
 
-            for( PileupElement p : context.getBasePileup() ) {
+            for( final PileupElement p : context.getBasePileup() ) {
                 byte qual = p.getQual();
-                if (qual > QualityUtils.MIN_USABLE_Q_SCORE ) {
-                    int AA = 0; int AB = 1; int BB = 2;
+                if( qual > QualityUtils.MIN_USABLE_Q_SCORE ) {
+                    int AA = 0; final int AB = 1; int BB = 2;
                     if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletion() || p.isBeforeInsertion() || p.isNextToSoftClip() || (p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()) ) {
                         AA = 2;
                         BB = 0;
                         qual = (byte) ((int)qual + 6); // be overly permissive so as to not miss any slight signal of variation
                     } 
-                    genotypeLikelihoods[AA] += Math.log10(QualityUtils.qualToProb(qual)); // BUGBUG: lots of excessive log10'ing here
-                    genotypeLikelihoods[AB] += MathUtils.approximateLog10SumLog10(Math.log10(QualityUtils.qualToProb(qual)) + LOG_ONE_HALF, Math.log10(QualityUtils.qualToErrorProb(qual)) + LOG_ONE_THIRD + LOG_ONE_HALF);
-                    genotypeLikelihoods[BB] += Math.log10(QualityUtils.qualToErrorProb(qual)) + LOG_ONE_THIRD;
+                    genotypeLikelihoods[AA] += QualityUtils.qualToProbLog10(qual);
+                    genotypeLikelihoods[AB] += MathUtils.approximateLog10SumLog10( QualityUtils.qualToProbLog10(qual) + LOG_ONE_HALF, QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD + LOG_ONE_HALF );
+                    genotypeLikelihoods[BB] += QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD;
                 }
             }
 
@@ -273,7 +271,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             allelesToGenotype.removeAll( activeAllelesToGenotype );
         }
         */
-        
+
         if( !activeRegion.isActive ) { return 0; } // Not active so nothing to do!
         if( activeRegion.size() == 0 && UG_engine.getUAC().GenotypingMode != GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) { return 0; } // No reads here so nothing to do!
         if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES && activeAllelesToGenotype.isEmpty() ) { return 0; } // No alleles found in this region
