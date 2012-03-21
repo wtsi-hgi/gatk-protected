@@ -12,17 +12,32 @@ import org.jgrapht.graph.DefaultDirectedGraph;
 public class DeBruijnEdge implements Comparable<DeBruijnEdge> {
 
     private int multiplicity;
+    private boolean isRef;
 
     public DeBruijnEdge() {
         multiplicity = 1;
+        isRef = false;
+    }
+
+    public DeBruijnEdge( final boolean isRef ) {
+        multiplicity = 1;
+        this.isRef = isRef;
     }
 
     public int getMultiplicity() {
         return multiplicity;
     }
 
-    public void setMultiplicity(int value) {
+    public void setMultiplicity( final int value ) {
         multiplicity = value;
+    }
+
+    public boolean getIsRef() {
+        return isRef;
+    }
+
+    public void setIsRef( final boolean isRef ) {
+        this.isRef = isRef;
     }
 
     public boolean equals(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, DeBruijnEdge edge) {
