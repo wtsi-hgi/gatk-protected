@@ -1,22 +1,24 @@
 package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
-import com.sun.tools.javah.oldjavah.Gen;
 import org.broadinstitute.sting.commandline.*;
+import org.broadinstitute.sting.gatk.DownsampleType;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.filters.BadMateFilter;
+import org.broadinstitute.sting.gatk.filters.MappingQualityUnavailableFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.LocusWalker;
-import org.broadinstitute.sting.gatk.walkers.TreeReducible;
+import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
+import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
-import java.util.zip.DeflaterInputStream;
 
 /**
  * Implementation of the replication and validation framework with reference based error model
@@ -49,7 +51,7 @@ import java.util.zip.DeflaterInputStream;
  *    java
  *      -javaagent:/home/unix/carneiro/src/gatk/repval/lib/cofoja-1.0-20110609.jar \
  *      -jar GenomeAnalysisTK.jar
- *      -T PoolCaller
+ *      -T PoolCallerWalker
  *      -R reference.fasta \
  *	    -I mySequences.bam \
  *	    -B:reference,VCF /humgen/gsa-hpprojects/dev/carneiro/repval/data/reference_sample.vcf \
@@ -60,7 +62,12 @@ import java.util.zip.DeflaterInputStream;
  * @since 5/4/11
  */
 
-public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReducible<Long> {
+@BAQMode(QualityMode = BAQ.QualityMode.ADD_TAG, ApplicationTime = BAQ.ApplicationTime.ON_INPUT)
+@ReadFilters( {BadMateFilter.class, MappingQualityUnavailableFilter.class} )
+@Reference(window=@Window(start=-200,stop=200))
+@By(DataSource.REFERENCE)
+@Downsample(by= DownsampleType.BY_SAMPLE, toCoverage=250)
+public class OldPoolCaller extends LocusWalker<Integer, Long> implements TreeReducible<Long> {
 
     @Output(doc="File to which variants should be written", required=true)
     protected VCFWriter vcfWriter = null;
@@ -101,6 +108,7 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
      private UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
 
 
+    private Set<String> samples;
     int nSamples;
     int maxAlleleCount;
 
@@ -116,34 +124,28 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
      * @param ref the reference sequence context
      * @return the true bases for the reference sample.
      */
-    private Collection<Byte> getTrueBases(VariantContext referenceSampleContext, ReferenceContext ref) {
+    private Collection<Allele> getTrueAlleles(VariantContext referenceSampleContext, ReferenceContext ref) {
 
-        ArrayList<Byte> trueReferenceBase = new ArrayList<Byte>();
+        ArrayList<Allele> trueReferenceAlleles = new ArrayList<Allele>();
 
         // Site is not a variant, take from the reference
         if (referenceSampleContext == null) {
-            trueReferenceBase.add(ref.getBase());
+            trueReferenceAlleles.add(Allele.create(ref.getBase(),true));
         }
         // Site has a VCF entry -- is variant
         else {
             Genotype referenceGenotype = referenceSampleContext.getGenotype(referenceSampleName);
             List<Allele> referenceAlleles = referenceGenotype.getAlleles();
             for (Allele allele : referenceAlleles) {
-                byte [] bases = allele.getBases();
-                for (byte b : bases) {
-                    if (!trueReferenceBase.contains(b))
-                        trueReferenceBase.add(b);
-                }
+                 if (!trueReferenceAlleles.contains(allele))
+                    trueReferenceAlleles.add(allele);
             }
         }
-        return trueReferenceBase;
+        return trueReferenceAlleles;
     }
 
 
     public void initialize() {
-
-        // Set the number of samples in the pools ( - reference sample)
-        nSamples = SampleUtils.getSAMFileSamples(getToolkit()).size() - 1;
 
         // Set the max allele count (defines the size of the error model array)
         maxAlleleCount = 2*nSamplesPerPool;
@@ -161,19 +163,23 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         headerLines.add(new VCFFormatHeaderLine("DP", 1, VCFHeaderLineType.Integer, "Read Depth (only filtered reads used for calling)"));
         headerLines.add(new VCFFormatHeaderLine("GQ", 1, VCFHeaderLineType.Float, "Genotype Quality"));
         headerLines.add(new VCFFormatHeaderLine("AL", 3, VCFHeaderLineType.Integer, "Allele count likelihood and the 5% confidence interval"));
-        headerLines.add(new VCFInfoHeaderLine("Dels", 1, VCFHeaderLineType.Float, "Fraction of Reads Containing Spanning Deletions"));        headerLines.add(new VCFHeaderLine("PoolCaller", "todo -- add parameter list here"));
+        headerLines.add(new VCFInfoHeaderLine("Dels", 1, VCFHeaderLineType.Float, "Fraction of Reads Containing Spanning Deletions"));        headerLines.add(new VCFHeaderLine("PoolCallerWalker", "todo -- add parameter list here"));
         headerLines.add(new VCFFilterHeaderLine(Filters.LOW_QUAL.toString(), "Low quality"));
         headerLines.add(new VCFFilterHeaderLine(Filters.LOW_POWER.toString(), "Low confidence"));
         headerLines.add(new VCFFilterHeaderLine(Filters.LOW_REFERENCE_SAMPLE_DEPTH.toString(), "Not enough reference sample depth"));
         headerLines.add(new VCFFilterHeaderLine(Filters.NO_BASES_IN_REFERENCE_SAMPLE.toString(), "Reference sample is not covered at all"));
         headerLines.add(new VCFFilterHeaderLine(Filters.FILTERED_REFERENCE_SAMPLE_CALL.toString(), "Reference sample vcf was filtered"));
         headerLines.add(new VCFFilterHeaderLine(Filters.MAX_DELETION_FRACTION_EXCEEDED.toString(), "Site has more deletion fraction than threshold"));
-        Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
+
+        samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         samples.remove(referenceSampleName);
-        
+        // Set the number of samples in the pools ( - reference sample)
+        nSamples = samples.size();
+
         if (DEBUG_IGNORE_LANES) {
             samples.clear();
-            samples.add("Lane1");
+            samples.add("Pool1");
+            nSamples = 1;
         }
         vcfWriter.writeHeader(new VCFHeader(headerLines, samples));
     }
@@ -190,15 +196,24 @@ public class PoolCaller extends LocusWalker<Integer, Long> implements TreeReduci
         if (referenceSampleContext != null && referenceSampleContext.filtersWereApplied() && referenceSampleContext.isFiltered())
             filteredRefSampleCall = true;
 
-        Collection<Byte> trueReferenceBases = getTrueBases(referenceSampleContext, ref);
+        Collection<Allele> trueReferenceAlleles = getTrueAlleles(referenceSampleContext, ref);
 
         // If there is no true reference base in this locus, skip it.
 
         if (!context.hasBasePileup())
             return 0;
 
-        Site site = new Site(tracker, ref, context, referenceSampleName, trueReferenceBases, minQualityScore, maxQualityScore, phredScaledPrior, maxAlleleCount,
-                UAC , minPower, minReferenceDepth, filteredRefSampleCall, DEBUG_IGNORE_LANES, logger);
+        VariantContext vcInput = UnifiedGenotyperEngine.getVCFromAllelesRod(tracker, ref, context.getLocation(), false, logger, UAC.alleles);
+
+        if (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES) {
+            // see if there is an input call in GGA mode
+            // exclude filtered of multiallelic sites
+            if (vcInput == null || vcInput.isFiltered() || !vcInput.isBiallelic())
+                return 0;
+
+        }
+        Site site = new Site(tracker, ref, context, referenceSampleName, trueReferenceAlleles, minQualityScore, maxQualityScore, phredScaledPrior, maxAlleleCount,
+                UAC , minPower, minReferenceDepth, filteredRefSampleCall, DEBUG_IGNORE_LANES, logger, vcInput, samples);
 
         if (site.needToEmitCall()) {
             vcfWriter.add(site.getCallFromSite());

@@ -2,9 +2,12 @@ package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
 
 import java.util.*;
 
@@ -20,38 +23,54 @@ import java.util.*;
 
 public class Pool {
     private String name;
-    private ReadBackedPileup pileup;
+    //private ReadBackedPileup pileup;
     private AlleleCountModel alleleCountModel;
-    private int matches;
-    private int mismatches;
-    private byte referenceSequenceBase;
+    //private int matches;
+    //private int mismatches;
+    //private byte referenceSequenceBase;
     //private Set<Filters> filters;
+    private int coverage;
     private Integer calledAC;
-    private byte calledAllele;
+    private Allele calledAllele;
+    private Allele refAllele;
+    private Genotype poolGenotype;
+    private boolean isVariant;
    // private double log10LikelihoodCall;
+    
+    public static final String MAXIMUM_LIKELIHOOD_AC_KEY = "MLAC";
+    public static final String NINETY_FIVE_PCT_CONFIDENCE_INTERVAL_KEY = "AC95";
 
-    public Pool(String name, ReadBackedPileup pileup, ErrorModel errorModel, byte referenceSequenceBase, int maxAlleleCount, double minCallQual, 
-                int minRefDepth, boolean doAlleleDiscovery, List<Allele> allelesToTest) {
+    
+
+    public Pool(String name, ReadBackedPileup pileup, ErrorModel errorModel, int maxAlleleCount, double minCallQual,
+                Allele refAllele, boolean doAlleleDiscovery, List<Allele> allelesToTest) {
         this.name = name;
-        this.pileup = pileup;
+ //       this.pileup = pileup;
+        this.refAllele = refAllele;
 //        this.maxAlleleCount = maxAlleleCount;
-        this.referenceSequenceBase = referenceSequenceBase;
+//        this.referenceSequenceBase = referenceSequenceBase;
 
-        byte [] data = pileup.getBases();
-        int coverage = data.length;
+        byte [] data = new byte[0];
+        if (pileup != null)
+            data = pileup.getBases();
+        //else
+
+
+        coverage = data.length;
 
         int idx = 0;
         Integer[] numSeenBases = new Integer[BaseUtils.BASES.length];
         for (byte base:BaseUtils.BASES)
-            numSeenBases[idx++] = MathUtils.countOccurrences(base, data);
+            numSeenBases[idx++] = MathUtils.countOccurrences(base, pileup.getBases());
 
         // todo - generalize for indels
      //   System.out.format("A:%d C:%d G:%d T:%t\n",numSeenBases[0],numSeenBases[1],numSeenBases[2],numSeenBases[3]);
-        alleleCountModel = new AlleleCountModel(maxAlleleCount, errorModel, numSeenBases, minCallQual, referenceSequenceBase, doAlleleDiscovery, allelesToTest);
+        alleleCountModel = new AlleleCountModel(maxAlleleCount, errorModel, numSeenBases, minCallQual, refAllele, doAlleleDiscovery, allelesToTest);
 
        // isConfidentlyCalled = alleleCountModel.isConfidentlyCalled();
-        calledAC = alleleCountModel.getMaximumLikelihoodIndex();
-        calledAllele = (calledAC == 0) ?  referenceSequenceBase : alleleCountModel.getAltBase();
+
+
+       fillGenotypeInformation();
 
 
   //      log10LikelihoodCall = alleleCountModel.getMaximumLikelihood();
@@ -64,26 +83,39 @@ public class Pool {
         return name;
     }
 
-    /**
-     * @param name The name of the pool (sample name of the pool in the bam file)
-     */
-    public void setName(String name) {
-        this.name = name;
+    public int getCoverage() {
+        return coverage;
     }
 
-    /**
-     * @return The pileup for the pool in its location
-     */
-    public ReadBackedPileup getPileup() {
-        return pileup;
+    public Pool mergePool(Pool other) {
+        alleleCountModel.merge(other.getAlleleCountModel());
+        fillGenotypeInformation();
+        return this;
     }
 
-    /**
-     * @return the number of bases in the pool pileup
-     */
-    public int size() {
-        return pileup.getNumberOfElements();
+    private void fillGenotypeInformation() {
+        calledAC = alleleCountModel.getMaximumLikelihoodIndex();
+        if (calledAC == 0) {
+            calledAllele = refAllele;
+            isVariant = false;
+        }
+        else {
+            calledAllele = alleleCountModel.getAltAllele();
+            isVariant = true;
+        }
+
+        List<Allele> alleleList = new LinkedList<Allele>();
+        alleleList.add(calledAllele);
+
+        Map<String, Object> attributes = new HashMap<String, Object>();
+        attributes.put(VCFConstants.DEPTH_KEY, coverage);
+        attributes.put(MAXIMUM_LIKELIHOOD_AC_KEY, calledAC);
+        Pair<Integer,Integer> P =  alleleCountModel.get95PctACConfidenceInterval();
+        attributes.put(NINETY_FIVE_PCT_CONFIDENCE_INTERVAL_KEY, String.format("%d,%d",P.first,P.second));
+
+        poolGenotype = new Genotype(name, alleleList, -getAlleleCountModel().getNegLog10PError(),null,attributes,false);
     }
+
 
     /**
      * @return the allele count model
@@ -106,50 +138,17 @@ public class Pool {
         return calledAC != null;
     }
 
-    /**
-     *
-     */
-    public boolean isRef() {
-        return alleleCountModel.getAltBase() == referenceSequenceBase;
-    }
 
     public boolean isVariant() {
         return alleleCountModel.isVariant();
     }
-    /**
-     * Returns a list of the filters applied to this call. Empty list if nothing was filtered.
-     */
- /*   public Set<String> getFilters() {
-        Set<String> result = new HashSet<String>(filters.size());
-        for (Filters f : filters) {
-            result.add(f.toString());    // maybe have a place to get the string definition of each filter in the future?
-        }
-        return result;
-    }
-   */
-
     /**
      * Builds the Genotype object for the pool. It takes the most frequent alternate allele if the
      * pool is variant or the ref allele if it isn't.
      *
      * @return the Genotype object of the pool.
      */
-    public Map<String, Genotype> getGenotypes() {
-        Map<String, Genotype> poolGenotype = new HashMap<String, Genotype>(1);
-        byte base;
-
-        // I don't need the reference base to be counted as we are looking for the most common alternate allele.
-        if (isRef()) {
-            base = referenceSequenceBase;
-        }
-        else {
-            base = getAlleleCountModel().getAltBase();
-        }
-
-        List<Allele> alleleList = new LinkedList<Allele>();
-        alleleList.add(Allele.create(base, isRef()));
-        Genotype g = new Genotype(name, alleleList, -getAlleleCountModel().getNegLog10PError());
-        poolGenotype.put(name, g);
+    public Genotype getGenotype() {
         return poolGenotype;
     }
 
