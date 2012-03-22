@@ -29,11 +29,9 @@ import net.sf.samtools.util.SequenceUtil;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
-import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
-import org.broadinstitute.sting.gatk.filters.NotPrimaryAlignmentFilter;
-import org.broadinstitute.sting.gatk.filters.UnmappedReadFilter;
+import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.PartitionBy;
@@ -42,6 +40,7 @@ import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocComparator;
+import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -80,7 +79,7 @@ import java.util.*;
  */
 
 @PartitionBy(PartitionType.INTERVAL)
-@ReadFilters({UnmappedReadFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class})
+@ReadFilters({UnmappedReadFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class, BadCigarFilter.class})
 public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, ReduceReadsStash> {
 
     @Output
@@ -188,7 +187,11 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
     @Hidden
     @Argument(fullName = "downsample_strategy", shortName = "dm", doc = "", required = false)
-    protected DownsampleStrategy downsampleStrategy = DownsampleStrategy.Adaptive;
+    protected DownsampleStrategy downsampleStrategy = DownsampleStrategy.Normal;
+    
+    @Hidden 
+    @Argument(fullName = "no_pg_tag", shortName = "npt", doc ="", required = false)
+    private boolean NO_PG_TAG = false;
 
     public enum DownsampleStrategy {
         Normal,
@@ -198,10 +201,12 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     protected int totalReads = 0;
     int nCompressedReads = 0;
 
-    HashMap<String, Long> readNameHash;  // This hash will keep the name of the original read the new compressed name (a number).
-    Long nextReadNumber = 1L;            // The next number to use for the compressed read name.
+    HashMap<String, Long> readNameHash;                                     // This hash will keep the name of the original read the new compressed name (a number).
+    Long nextReadNumber = 1L;                                               // The next number to use for the compressed read name.
 
     SortedSet<GenomeLoc> intervalList;
+    
+    private static final String PROGRAM_RECORD_NAME = "GATK ReduceReads";   // The name that will go in the @PG tag
 
     /**
      * Basic generic initialization of the readNameHash and the intervalList. Output initialization
@@ -210,17 +215,17 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     @Override
     public void initialize() {
         super.initialize();
+        GenomeAnalysisEngine toolkit = getToolkit();
+        readNameHash = new HashMap<String, Long>();                         // prepare the read name hash to keep track of what reads have had their read names compressed
+        intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator());   // get the interval list from the engine. If no interval list was provided, the walker will work in WGS mode
 
-        // prepare the read name hash to keep track of what reads have had their read names compressed
-        readNameHash = new HashMap<String, Long>();
+        if (toolkit.getIntervals() != null)
+            intervalList.addAll(toolkit.getIntervals());
 
-        // get the interval list from the engine. If no interval list was provided, the walker will
-        // work in WGS mode
-        intervalList = new TreeSet<GenomeLoc>(new GenomeLocComparator());
-        if (getToolkit().getIntervals() != null)
-            intervalList.addAll(getToolkit().getIntervals());
-
-        out.setPresorted(false);
+        if (!NO_PG_TAG)
+            Utils.setupWriter(out, toolkit, false, true, this, PROGRAM_RECORD_NAME);
+        else
+            out.setPresorted(false);
     }
 
     /**

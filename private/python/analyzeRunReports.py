@@ -211,20 +211,12 @@ def parseException(elt):
     msgElt = elt.find("message")
     msgText = "MISSING"
     userException = "NA"
-    stackTraceString = "NA"
-    exceptionClass = "NA"
     runStatus = RUN_STATUS_SUCCESS
     if msgElt != None: 
         msgText = msgElt.text
         runStatus = "sting-exception"
     
-    stackTrace = elt.find("stacktrace")
-    if stackTrace != None:
-        strings = stackTrace.findall("string")
-        if len(strings) > 0:
-            stackTraceString = '\n'.join(map(lambda x: x.text, strings))
-        if elt.find("exception-class") != None:
-            exceptionClass = elt.find("exception-class").text
+    stackTraceString, exceptionClass = parseStackTrace(elt, 0)
     
     if elt.find("is-user-exception") != None:
         #print elt.find("is-user-exception")
@@ -232,6 +224,23 @@ def parseException(elt):
         if userException == "true": runStatus = "user-exception"
     #if runStatus != "completed": print stackTrace, elt.find('stacktrace')
     return msgText, stackTraceString, userException, runStatus, exceptionClass
+
+def parseStackTrace(elt, depth):
+    stackTraceString = "NA"
+    exceptionClass = "NA"
+
+    stackTrace = elt.find("stacktrace")
+    if stackTrace != None:
+        strings = stackTrace.findall("string")
+        if len(strings) > 0:
+            prefix = '\n' + ' ' * (depth*2)
+            stackTraceString = prefix.join(map(lambda x: x.text, strings))
+        if elt.find("exception-class") != None:
+            exceptionClass = elt.find("exception-class").text
+        if elt.find("cause") != None:
+            stackTraceString = stackTraceString + prefix + "### caused by:\n"
+            stackTraceString = stackTraceString + parseStackTrace(elt.find("cause"), depth + 1)[0]
+    return stackTraceString, exceptionClass
 
 def javaExceptionFile(javaException):
     m = re.search("\((.*\.java:.*)\)", javaException)
@@ -431,9 +440,11 @@ class AbstractRecordAsTable(StageHandler):
                 return val
             
             print >> self.out, "\t".join([ oneField(field) for field in self.getFields() ])
-        except:
-            #print 'Failed to convert to table ', parsed
-            print 'Failed to convert to table', record
+        except Exception, inst:
+            print 'Failed to convert to table', id, inst
+            if OPTIONS.verbose: 
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                traceback.print_exception(exc_type, exc_value, exc_traceback)
             pass
     
 # def 

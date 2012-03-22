@@ -57,6 +57,7 @@ class GATKPerformanceOverTime extends QScript {
     "v1.2" -> findMostRecentGATKVersion("1.2"),
     "v1.3" -> findMostRecentGATKVersion("1.3"),
     "v1.4" -> findMostRecentGATKVersion("1.4"),
+    "v1.5" -> findMostRecentGATKVersion("1.5"),
     "v1.cur" -> myJarFile) // TODO -- how do I get this value?
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {

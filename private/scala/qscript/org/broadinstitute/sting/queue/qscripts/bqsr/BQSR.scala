@@ -1,4 +1,4 @@
-import org.broadinstitute.sting.queue.extensions.gatk.{TaggedFile, BaseQualityScoreRecalibrator}
+import org.broadinstitute.sting.queue.extensions.gatk.BaseQualityScoreRecalibrator
 import org.broadinstitute.sting.queue.QScript
 
 class BQSR extends QScript {
@@ -17,7 +17,7 @@ class BQSR extends QScript {
     walker.out = output
     walker.knownSites ++= dbSNP
     walker.input_file = bamList
-    walker.memoryLimit = 8
+    walker.memoryLimit = 4
     walker.scatterCount = scatterCount
     add(walker)
   }

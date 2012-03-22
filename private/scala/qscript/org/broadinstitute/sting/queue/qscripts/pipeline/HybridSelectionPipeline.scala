@@ -62,15 +62,15 @@ class HybridSelectionPipeline extends QScript {
 
   def script() {
     val exomeIntervals = new File("/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
-    val resources = "/humgen/gsa-pipeline/resources/b37/v3/"
+    val resources = "/humgen/gsa-pipeline/resources/b37/v4/"
     val k1gExomesBam = resources + "1000_Genomes_Whole_Exome_50_Samples.bam"
     val k1gExomesSamples = resources + "1000_Genomes_Whole_Exome_50_Samples.samples"
     val k1gTrainingHighQuality = resources + "phase1.wgs.projectConsensus.v2b.recal.highQuality.vcf"
     val k1gTrainingTerrible = resources + "phase1.wgs.projectConsensus.v2b.recal.terrible.vcf"
-    val omni = resources + "Omni25_sites_1525_samples.b37.vcf"
+    val omni = resources + "1000G_omni2.5.b37.sites.vcf"
     val hapmap = resources + "hapmap_3.3.b37.sites.vcf"
-    val dbsnp129 = resources + "dbsnp_132.b37.excluding_sites_after_129.vcf"
-    val dbsnp132 = resources + "dbsnp_132.b37.vcf"
+    val dbsnp129 = resources + "dbsnp_135.b37.excluding_sites_after_129.vcf"
+    val dbsnp135 = resources + "dbsnp_135.b37.vcf"
 
     var reference = "/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta"
     var useK1gExomes = false
@@ -142,7 +142,7 @@ class HybridSelectionPipeline extends QScript {
     call.input_file = Seq(bamList)
     if (useK1gExomes)
       call.input_file :+= k1gExomesBam
-    call.dbsnp = dbsnp132
+    call.dbsnp = dbsnp135
     call.downsample_to_coverage = 600
     call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     call.out = projectName + ".unfiltered.vcf"
@@ -182,12 +182,10 @@ class HybridSelectionPipeline extends QScript {
         buildSNPModel.resource :+= TaggedFile(omni, "training=true,truth=true,prior=12.0")
         buildSNPModel.resource :+= TaggedFile(k1gTrainingHighQuality, "training=true,prior=12.0")
         buildSNPModel.resource :+= TaggedFile(k1gTrainingTerrible, "bad=true,prior=2.0")
-        buildSNPModel.resource :+= TaggedFile(dbsnp129, "known=true,prior=4.0")
+        buildSNPModel.resource :+= TaggedFile(dbsnp135, "known=true,prior=4.0")
         buildSNPModel.use_annotation = Seq("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "MQ", "FS", "InbreedingCoeff")
         buildSNPModel.trustAllPolymorphic = true
         buildSNPModel.maxGaussians = 6
-        buildSNPModel.stdThreshold = 14
-        buildSNPModel.percentBadVariants = 0.03
         buildSNPModel.TStranche = trancheLevels
         buildSNPModel.tranches_file = projectName + ".snps.tranches"
         buildSNPModel.recal_file = projectName + ".snps.recal"

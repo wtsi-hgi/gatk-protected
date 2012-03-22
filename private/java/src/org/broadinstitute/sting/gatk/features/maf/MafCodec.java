@@ -382,7 +382,7 @@ class Column {
         for ( String n : names ) {
             if ( m.containsKey(n) ) {
 //                if ( i != null )
-//                    throw new UserException.MalformedFile("MAF file contains multiple columns with name or alternative names registered for single data field "+getName());
+//                    throw new UserException.MalformedFile("MAF file contains multiple columns with name or alternative names registered for single data field "+getID());
                 // go with the first column name found; we assume here that column names have priorities:
                 // for instance, if the file has both 'Chromosome' and 'chr' columns, we will just take
                 // Chromosome and run with that
