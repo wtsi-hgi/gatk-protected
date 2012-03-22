@@ -212,12 +212,12 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
             final double[] likelihoods = sampleData.GL.getLikelihoods();
             final int PLindexOfBestGL = MathUtils.maxElementIndex(likelihoods);
             if ( PLindexOfBestGL != PLindexOfRef ) {
-                int[] alleles = UnifiedGenotyperEngine.PLIndexToAlleleIndex[3][PLindexOfBestGL];
-                if ( alleles[0] != baseIndexOfRef )
-                    likelihoodSums[alleles[0]] += likelihoods[PLindexOfBestGL] - likelihoods[PLindexOfRef];
+                GenotypeLikelihoods.GenotypeLikelihoodsAllelePair alleles = GenotypeLikelihoods.getAllelePairUsingDeprecatedOrdering(PLindexOfBestGL);
+                if ( alleles.alleleIndex1 != baseIndexOfRef )
+                    likelihoodSums[alleles.alleleIndex1] += likelihoods[PLindexOfBestGL] - likelihoods[PLindexOfRef];
                 // don't double-count it
-                if ( alleles[1] != baseIndexOfRef && alleles[1] != alleles[0] )
-                    likelihoodSums[alleles[1]] += likelihoods[PLindexOfBestGL] - likelihoods[PLindexOfRef];
+                if ( alleles.alleleIndex2 != baseIndexOfRef && alleles.alleleIndex2 != alleles.alleleIndex1 )
+                    likelihoodSums[alleles.alleleIndex2] += likelihoods[PLindexOfBestGL] - likelihoods[PLindexOfRef];
             }
         }
 
@@ -230,6 +230,7 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
         return allelesToUse;
     }
 
+
     public ReadBackedPileup createBAQedPileup( final ReadBackedPileup pileup ) {
         final List<PileupElement> BAQedElements = new ArrayList<PileupElement>();
         for( final PileupElement PE : pileup ) {
@@ -241,7 +242,7 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
 
     public class BAQedPileupElement extends PileupElement {
         public BAQedPileupElement( final PileupElement PE ) {
-            super(PE.getRead(), PE.getOffset(), PE.isDeletion(), PE.isBeforeDeletion(), PE.isBeforeInsertion(), PE.isNextToSoftClip());
+            super(PE.getRead(), PE.getOffset(), PE.isDeletion(), PE.isBeforeDeletion(), PE.isAfterDeletion(), PE.isBeforeInsertion(), PE.isAfterInsertion(), PE.isNextToSoftClip());
         }
 
         @Override
