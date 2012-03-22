@@ -30,12 +30,12 @@ public class KBestPaths {
         // the scores for the path
         private int totalScore = 0, lowestEdge = -1;
 
-        public Path(DeBruijnVertex initialVertex) {
+        public Path( final DeBruijnVertex initialVertex ) {
             lastVertex = initialVertex;
             edges = new ArrayList<DeBruijnEdge>(0);
         }
 
-        public Path(Path p, DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, DeBruijnEdge edge) {
+        public Path( final Path p, final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final DeBruijnEdge edge ) {
             lastVertex = graph.getEdgeTarget(edge);
             edges = new ArrayList<DeBruijnEdge>(p.edges);
             edges.add(edge);
@@ -43,7 +43,7 @@ public class KBestPaths {
             lowestEdge = ( p.lowestEdge == -1 ) ? edge.getMultiplicity() : Math.min(p.lowestEdge, edge.getMultiplicity());
         }
 
-        public boolean containsEdge(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, DeBruijnEdge edge) {
+        public boolean containsEdge( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final DeBruijnEdge edge ) {
             for ( DeBruijnEdge e : edges ) {
                 if ( e.equals(graph, edge))
                     return true;
@@ -61,7 +61,7 @@ public class KBestPaths {
         public DeBruijnVertex getLastVertexInPath() { return lastVertex; }
 
         // assumes uncleaned edges and vertices, so each edge just adds one more base to the string
-        public byte[] getBases(final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph) {
+        public byte[] getBases( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph ) {
             if(edges.size() == 0) { return lastVertex.printableSequence; }
 
             int length = 0;
@@ -88,7 +88,7 @@ public class KBestPaths {
         }
     }
 
-    public static ArrayList<Path> getKBestPaths(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, int k) {
+    public static ArrayList<Path> getKBestPaths( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final int k ) {
         PriorityQueue<Path> bestPaths = new PriorityQueue<Path>(k, new PathComparator());
 
         // run a DFS for best paths
@@ -101,11 +101,11 @@ public class KBestPaths {
         return new ArrayList<Path>(bestPaths);
     }
 
-    private static void findBestPaths(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, Path path, int k, PriorityQueue<Path> bestPaths) {
+    private static void findBestPaths( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final Path path, final int k, final PriorityQueue<Path> bestPaths ) {
         findBestPaths(graph, path, k, bestPaths, new MyInt());
     }
 
-    private static void findBestPaths(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, Path path, int k, PriorityQueue<Path> bestPaths, MyInt n) {
+    private static void findBestPaths( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final Path path, final int k, final PriorityQueue<Path> bestPaths, MyInt n ) {
 
         // did we hit the end of a path?
         if ( allOutgoingEdgesHaveBeenVisited(graph, path) ) {
@@ -121,7 +121,9 @@ public class KBestPaths {
         } else {
             // recursively run DFS
             final ArrayList<DeBruijnEdge> edgeArrayList = new ArrayList<DeBruijnEdge>();
-            edgeArrayList.addAll(graph.outgoingEdgesOf(path.lastVertex));
+            for( final DeBruijnEdge e : graph.outgoingEdgesOf(path.lastVertex)) {
+                if( e.getMultiplicity() > 0 ) { edgeArrayList.add(e); } // don't traverse reference edges which had no support from the reads themselves
+            }
             Collections.sort(edgeArrayList);
             Collections.reverse(edgeArrayList);
             for ( final DeBruijnEdge edge : edgeArrayList ) {
@@ -137,8 +139,9 @@ public class KBestPaths {
         }
     }
 
-    private static boolean allOutgoingEdgesHaveBeenVisited(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, Path path) {
+    private static boolean allOutgoingEdgesHaveBeenVisited( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final Path path ) {
         for ( final DeBruijnEdge edge : graph.outgoingEdgesOf(path.lastVertex) ) {
+            if( edge.getMultiplicity() <= 0 ) { continue; } // don't traverse reference edges which had no support from the reads themselves
             if ( !path.containsEdge(graph, edge) ) {
                 return false;
             }
