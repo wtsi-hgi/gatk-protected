@@ -225,14 +225,13 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             Arrays.fill(genotypeLikelihoods, 0.0);
 
             for( final PileupElement p : context.getBasePileup() ) {
-                byte qual = p.getQual();
+                final byte qual = p.getQual();
                 if( qual > QualityUtils.MIN_USABLE_Q_SCORE ) {
                     int AA = 0; final int AB = 1; int BB = 2;
                     if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletion() || p.isBeforeInsertion() || p.isNextToSoftClip() || (p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()) ) {
                         AA = 2;
                         BB = 0;
-                        qual = (byte) ((int)qual + 6); // be overly permissive so as to not miss any slight signal of variation
-                    } 
+                    }
                     genotypeLikelihoods[AA] += QualityUtils.qualToProbLog10(qual);
                     genotypeLikelihoods[AB] += MathUtils.approximateLog10SumLog10( QualityUtils.qualToProbLog10(qual) + LOG_ONE_HALF, QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD + LOG_ONE_HALF );
                     genotypeLikelihoods[BB] += QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD;
@@ -277,7 +276,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES && activeAllelesToGenotype.isEmpty() ) { return 0; } // No alleles found in this region
 
         finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
-        final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader, 10)); // Create the reference haplotype which is the bases from the reference that make up the active region
+        final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader, 20)); // Create the reference haplotype which is the bases from the reference that make up the active region
         referenceHaplotype.setIsReference(true);
         final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), referenceHaplotype );
 

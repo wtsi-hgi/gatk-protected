@@ -17,7 +17,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private static final int KMER_OVERLAP = 6; // the additional size of a valid chunk of sequence, used to string together k-mers
     private static final int PRUNE_FACTOR = 1;
-    private static final int NUM_BEST_PATHS_PER_KMER = 9;
+    private static final int NUM_BEST_PATHS_PER_KMER = 10;
     
     private final boolean DEBUG;
     private final PrintStream GRAPH_WRITER;
@@ -41,11 +41,9 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         }
         */
 
-        // clean up the graph by merging and pruning iteratively
-        mergeNodes();
+        // clean up the graphs by pruning and merging
         pruneGraphs();
-        mergeNodes();
-        pruneGraphs();
+        eliminateNonRefPaths();
         mergeNodes();
 
         if( GRAPH_WRITER != null ) {
@@ -60,10 +58,11 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         graphs.clear();
 
         // create the graph
-        for( int kmer = 7; kmer <= 60; kmer += 8 ) {
+        for( int kmer = 7; kmer <= 65; kmer += 6 ) {
             final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
-            createGraphFromSequences( graph, reads, kmer, refHaplotype );
-            graphs.add(graph);
+            if( createGraphFromSequences( graph, reads, kmer, refHaplotype ) ) {
+                graphs.add(graph);
+            }
         }
     }
 
@@ -77,23 +76,26 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                 final ArrayList<DeBruijnVertex> verticesToRemove = new ArrayList<DeBruijnVertex>();
                 DeBruijnVertex incomingVertex = null;
                 DeBruijnVertex thisVertex = null;
+                int edgeScore = 0;
                 for( final DeBruijnEdge e : graph.edgeSet() ) {
                     incomingVertex = graph.getEdgeSource(e);
                     thisVertex = graph.getEdgeTarget(e);
-                    if( graph.inDegreeOf(thisVertex) == 1 && graph.outDegreeOf(incomingVertex) == 1) {
+                    if( !thisVertex.equals(incomingVertex) && graph.inDegreeOf(thisVertex) == 1 && graph.outDegreeOf(incomingVertex) == 1) {
                         outEdges = graph.outgoingEdgesOf(thisVertex);
                         inEdges = graph.incomingEdgesOf(incomingVertex);
-                        if( edgeSetsHaveSameStatus(e, inEdges, outEdges) ) {
-                            foundNodesToMerge = true;
-                            verticesToRemove.add(thisVertex);
-                            verticesToRemove.add(incomingVertex);
-                            break;
-                        }
+                        foundNodesToMerge = true;
+                        verticesToRemove.add(thisVertex);
+                        verticesToRemove.add(incomingVertex);
+                        edgeScore = e.getMultiplicity() - 1;
+                        break;
                     }
                 }
                 if( foundNodesToMerge ) {
                     final byte[] newVertexBases = ArrayUtils.addAll(incomingVertex.getSequence(), thisVertex.getSuffix());
-                    final DeBruijnVertex addedVertex = addToGraphIfNew(graph, newVertexBases, thisVertex.kmer);
+                    final DeBruijnVertex addedVertex = addToGraphIfNew( graph, newVertexBases, thisVertex.kmer );
+                    if( outEdges.size() + inEdges.size() > 0 ) {
+                        divideWeightToEdges(edgeScore, outEdges, inEdges);
+                    }
                     for( final DeBruijnEdge e : outEdges ) {
                         final DeBruijnEdge newEdge = new DeBruijnEdge(e.getIsRef());
                         newEdge.setMultiplicity( e.getMultiplicity() );
@@ -106,6 +108,19 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                     }
                     graph.removeAllVertices( verticesToRemove );
                 }
+            }
+        }
+    }
+
+    private static void divideWeightToEdges( int edgeScore, final Set<DeBruijnEdge> e1, final Set<DeBruijnEdge> e2 ) {
+        while( edgeScore > 0 ) {
+            for( final DeBruijnEdge e : e1 ) {
+                if( --edgeScore < 0 ) { break; }
+                e.setMultiplicity(e.getMultiplicity() + 1);
+            }
+            for( final DeBruijnEdge e : e2 ) {
+                if( --edgeScore < 0 ) { break; }
+                e.setMultiplicity(e.getMultiplicity() + 1);
             }
         }
     }
@@ -143,8 +158,35 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             graph.removeAllVertices(verticesToRemove);
         }
     }
+    
+    private void eliminateNonRefPaths() {
+        for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
+            final ArrayList<DeBruijnVertex> verticesToRemove = new ArrayList<DeBruijnVertex>();
+            boolean done = false;
+            while( !done ) {
+                done = true;
+                for( DeBruijnVertex v : graph.vertexSet() ) {
+                    if( graph.inDegreeOf(v) == 0 || graph.outDegreeOf(v) == 0 ) {
+                        boolean isRefNode = false;
+                        for( DeBruijnEdge e : graph.edgesOf(v) ) {
+                            if( e.getIsRef() ) { 
+                                isRefNode = true;
+                                break;
+                            }
+                        }
+                        if( !isRefNode ) {
+                            done = false;
+                            verticesToRemove.add(v);
+                        }
+                    }
+                }
+                graph.removeAllVertices(verticesToRemove);
+                verticesToRemove.clear();
+            }
+        }
+    }
 
-    private static void createGraphFromSequences( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final ArrayList<GATKSAMRecord> reads, final int KMER_LENGTH, final Haplotype refHaplotype ) {
+    private static boolean createGraphFromSequences( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final ArrayList<GATKSAMRecord> reads, final int KMER_LENGTH, final Haplotype refHaplotype ) {
         final byte[] refSequence = refHaplotype.getBases();
         if( refSequence.length > KMER_LENGTH + KMER_OVERLAP ) {
             final int kmersInSequence = refSequence.length - KMER_LENGTH + 1;
@@ -154,8 +196,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                 System.arraycopy(refSequence, i, kmer1, 0, KMER_LENGTH);
                 final byte[] kmer2 = new byte[KMER_LENGTH];
                 System.arraycopy(refSequence, i+1, kmer2, 0, KMER_LENGTH);
-
-                addEdgeToGraph( graph, kmer1, kmer2, true );
+                if( !addEdgeToGraph( graph, kmer1, kmer2, true ) ) { return false; }
             }
         }
 
@@ -174,13 +215,16 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                 }
             }
         }
+        return true;
     }
 
-    private static void addEdgeToGraph( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final byte[] kmer1, final byte[] kmer2, boolean isRef ) {
+    private static boolean addEdgeToGraph( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final byte[] kmer1, final byte[] kmer2, final boolean isRef ) {
 
+        final int numVertexBefore = graph.vertexSet().size();
         final DeBruijnVertex v1 = addToGraphIfNew( graph, kmer1, kmer1.length );
         final DeBruijnVertex v2 = addToGraphIfNew( graph, kmer2, kmer2.length );
-
+        if( isRef && graph.vertexSet().size() == numVertexBefore ) { return false; }
+        
         final Set<DeBruijnEdge> edges = graph.outgoingEdgesOf(v1);
         DeBruijnEdge targetEdge = null;
         for ( final DeBruijnEdge edge : edges ) {
@@ -198,15 +242,17 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             } 
             targetEdge.setMultiplicity(targetEdge.getMultiplicity() + 1);
         }
+        return true;
     }
 
     private static DeBruijnVertex addToGraphIfNew( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final byte[] kmer, final int kmerLength ) {
 
         // the graph.containsVertex() method is busted, so here's a hack around it
         final DeBruijnVertex newV = new DeBruijnVertex(kmer, kmerLength);
-        for ( final DeBruijnVertex v : graph.vertexSet() ) {
-            if ( v.equals(newV) )
+        for( final DeBruijnVertex v : graph.vertexSet() ) {
+            if( v.equals(newV) ) {
                 return v;
+            }
         }
 
         graph.addVertex(newV);
@@ -243,11 +289,11 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             for ( final KBestPaths.Path path : bestPaths ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
                 if( h.getBases() != null ) {
-                    if( h.getBases().length >= refHaplotype.getBases().length ) { // the haplotype needs to be at least as long as the active region
+                    //if( h.getBases().length >= refHaplotype.getBases().length ) { // the haplotype needs to be at least as long as the active region
                         if( !returnHaplotypes.contains(h) ) { // no reason to add a new haplotype if the bases are the same as one already present
                             returnHaplotypes.add( h );
                         }
-                    }
+                    //}
                 }
             }
         }

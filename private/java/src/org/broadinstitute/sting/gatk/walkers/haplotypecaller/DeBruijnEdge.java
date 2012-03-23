@@ -41,11 +41,10 @@ public class DeBruijnEdge implements Comparable<DeBruijnEdge> {
     }
 
     public boolean equals(DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, DeBruijnEdge edge) {
-        return (graph.getEdgeSource(this) == graph.getEdgeSource(edge)) && (graph.getEdgeTarget(this) == graph.getEdgeTarget(edge));
+        return (graph.getEdgeSource(this).equals(graph.getEdgeSource(edge))) && (graph.getEdgeTarget(this).equals(graph.getEdgeTarget(edge)));
     }
 
     public int compareTo(final DeBruijnEdge that) {
         return this.multiplicity - that.multiplicity;
     }
-
 }
