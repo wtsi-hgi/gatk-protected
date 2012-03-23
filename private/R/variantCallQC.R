@@ -385,6 +385,7 @@ removeExtraStrats <- function(df) {
   df    
 }
 
+
 expectations = list(SNPIndelRatio = 10, 
                     singletonSNPIndelRatio = 1, 
                     indelNoveltyRate = 0.5,

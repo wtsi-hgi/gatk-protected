@@ -21,7 +21,10 @@ class PostCallingQC extends QScript {
   var RPath: File = new File("../R")
 
   @Argument(shortName = "dbSNP", doc="dbSNP", required=false)
-  val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_132.b37.vcf")
+  val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_135.b37.vcf")
+
+  @Argument(shortName = "goldStandardIndels", doc="Path to gold standard indels", required=false)
+  val goldStandardIndels: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/Mills_and_1000G_gold_standard.indels.b37.sites.vcf")
 
   @Argument(shortName = "nt", doc="nt", required=false)
   val num_threads: Int = 1
@@ -48,11 +51,11 @@ class PostCallingQC extends QScript {
     this.eval :+= evalVCF
     this.dbsnp = dbSNP
     this.doNotUseAllStandardModules = true
-    this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
+    this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap", "IndelSummary")
     this.doNotUseAllStandardStratifications = true
     this.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ extraStrats
     this.num_threads = qscript.num_threads
-    this.memoryLimit = 2
+    this.memoryLimit = 4
     this.out = swapExt(evalVCF, ".vcf", prefix + ".eval")
   }
 
