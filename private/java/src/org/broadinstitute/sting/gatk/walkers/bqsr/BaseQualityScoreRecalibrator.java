@@ -118,7 +118,8 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
 
     private Map<BQSRKeyManager, Map<BitSet, RecalDatum>> tablesAndKeysMap;                                              // a map mapping each recalibration table to its corresponding key manager
     private List<Byte> qualQuantizationMap;                                                                             // histogram containing the map for qual quantization (calculated after recalibration is done)
-
+    private List<Long> empiricalQualHistogram;                                                                          // histogram containing the number of observations for each empirical quality (useful for flexible on-the-fly quantization)
+    
     protected final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();                              // list to hold the all the covariate objects that were requested (required + standard + experimental)
     protected ArrayList<Covariate> requiredCovariates;                                                                  // list to hold the all the required covaraite objects that were requested
     protected ArrayList<Covariate> optionalCovariates;                                                                  // list to hold the all the optional covariate objects that were requested
@@ -379,8 +380,9 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             long nObservations = datum.numObservations;
             qualHistogram[empiricalQual] += nObservations;                                                              // add the number of observations for every key
         }
-        QualQuantizer quantizer = new QualQuantizer(Arrays.asList(qualHistogram), RAC.QUANTIZING_LEVELS, QualityUtils.MIN_USABLE_Q_SCORE);
-        qualQuantizationMap = quantizer.getOriginalToQuantizedMap();
+        empiricalQualHistogram = Arrays.asList(qualHistogram);                                                          // histogram with the number of observations of the empirical qualities
+        QualQuantizer quantizer = new QualQuantizer(empiricalQualHistogram, RAC.QUANTIZING_LEVELS, QualityUtils.MIN_USABLE_Q_SCORE);
+        qualQuantizationMap = quantizer.getOriginalToQuantizedMap();                                                    // map with the original to quantized qual map (using the standard number of levels in the RAC)
     }
 
     private void generateReport() {
@@ -388,29 +390,32 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
 
         GATKReportTable argumentsTable = new GATKReportTable("Arguments", "Recalibration argument collection values used in this run");
         argumentsTable.addPrimaryKey("Argument");
-        argumentsTable.addColumn("Value", "null");
-        argumentsTable.set("covariate", "Value", (RAC.COVARIATES == null) ? "null" : Utils.join(",", RAC.COVARIATES));
-        argumentsTable.set("standard_covs", "Value", RAC.USE_STANDARD_COVARIATES);
-        argumentsTable.set("run_without_dbsnp", "Value", RAC.RUN_WITHOUT_DBSNP);
-        argumentsTable.set("solid_recal_mode", "Value", RAC.SOLID_RECAL_MODE);
-        argumentsTable.set("solid_nocall_strategy", "Value", RAC.SOLID_NOCALL_STRATEGY);
-        argumentsTable.set("mismatches_context_size", "Value", RAC.MISMATCHES_CONTEXT_SIZE);
-        argumentsTable.set("insertions_context_size", "Value", RAC.INSERTIONS_CONTEXT_SIZE);
-        argumentsTable.set("deletions_context_size", "Value", RAC.DELETIONS_CONTEXT_SIZE);
-        argumentsTable.set("mismatches_default_quality", "Value", RAC.MISMATCHES_DEFAULT_QUALITY);
-        argumentsTable.set("insertions_default_quality", "Value", RAC.INSERTIONS_DEFAULT_QUALITY);
-        argumentsTable.set("low_quality_tail", "Value", RAC.LOW_QUAL_TAIL);
-        argumentsTable.set("default_platform", "Value", RAC.DEFAULT_PLATFORM);
-        argumentsTable.set("force_platform", "Value", RAC.FORCE_PLATFORM);
-        argumentsTable.set("quantizing_levels", "Value", RAC.QUANTIZING_LEVELS);
+        argumentsTable.addColumn(RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, "null");
+        argumentsTable.set("covariate", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, (RAC.COVARIATES == null) ? "null" : Utils.join(",", RAC.COVARIATES));
+        argumentsTable.set("standard_covs", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.USE_STANDARD_COVARIATES);
+        argumentsTable.set("run_without_dbsnp", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.RUN_WITHOUT_DBSNP);
+        argumentsTable.set("solid_recal_mode", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.SOLID_RECAL_MODE);
+        argumentsTable.set("solid_nocall_strategy", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.SOLID_NOCALL_STRATEGY);
+        argumentsTable.set("mismatches_context_size", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.MISMATCHES_CONTEXT_SIZE);
+        argumentsTable.set("insertions_context_size", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.INSERTIONS_CONTEXT_SIZE);
+        argumentsTable.set("deletions_context_size", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.DELETIONS_CONTEXT_SIZE);
+        argumentsTable.set("mismatches_default_quality", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.MISMATCHES_DEFAULT_QUALITY);
+        argumentsTable.set("insertions_default_quality", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.INSERTIONS_DEFAULT_QUALITY);
+        argumentsTable.set("low_quality_tail", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.LOW_QUAL_TAIL);
+        argumentsTable.set("default_platform", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.DEFAULT_PLATFORM);
+        argumentsTable.set("force_platform", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.FORCE_PLATFORM);
+        argumentsTable.set("quantizing_levels", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.QUANTIZING_LEVELS);
         report.addTable(argumentsTable);
         
-        GATKReportTable quantizedTable = new GATKReportTable("Quantized", "Quality quantization map");
+        GATKReportTable quantizedTable = new GATKReportTable(RecalDataManager.QUANTIZED_REPORT_TABLE_TITLE, "Quality quantization map");
         quantizedTable.addPrimaryKey("QualityScore");
-        quantizedTable.addColumn("QuantizedScore", (byte) 0);
-        int i = 0;
-        for (byte qual : qualQuantizationMap)
-            quantizedTable.set(i++, "QuantizedScore", qual);
+        quantizedTable.addColumn(RecalDataManager.QUANTIZED_COUNT_COLUMN_NAME, 0L);
+        quantizedTable.addColumn(RecalDataManager.QUANTIZED_VALUE_COLUMN_NAME, (byte) 0);
+        
+        for (int qual = 0; qual <= QualityUtils.MAX_QUAL_SCORE; qual++) {
+            quantizedTable.set(qual, RecalDataManager.QUANTIZED_COUNT_COLUMN_NAME, empiricalQualHistogram.get(qual));
+            quantizedTable.set(qual, RecalDataManager.QUANTIZED_VALUE_COLUMN_NAME, qualQuantizationMap.get(qual));
+        }
         report.addTable(quantizedTable);
 
         int tableIndex = 0;
@@ -419,11 +424,13 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             Map<BitSet, RecalDatum> recalTable = entry.getValue();
 
             GATKReportTable reportTable = new GATKReportTable("RecalTable" + tableIndex++, "");
-            final Pair<String, String> covariateValue     = new Pair<String, String>("CovariateValue", "%s");
-            final Pair<String, String> covariateName      = new Pair<String, String>("CovariateName", "%s");
-            final Pair<String, String> eventType          = new Pair<String, String>("EventType", "%s");
-            final Pair<String, String> empiricalQuality   = new Pair<String, String>("EmpiricalQuality", "%.2f");
-            final Pair<String, String> estimatedQReported = new Pair<String, String>("EstimatedQReported", "%.2f");
+            final Pair<String, String> covariateValue     = new Pair<String, String>(RecalDataManager.COVARIATE_VALUE_COLUMN_NAME, "%s");
+            final Pair<String, String> covariateName      = new Pair<String, String>(RecalDataManager.COVARIATE_NAME_COLUMN_NAME, "%s");
+            final Pair<String, String> eventType          = new Pair<String, String>(RecalDataManager.EVENT_TYPE_COLUMN_NAME, "%s");
+            final Pair<String, String> empiricalQuality   = new Pair<String, String>(RecalDataManager.EMPIRICAL_QUALITY_COLUMN_NAME, "%.2f");
+            final Pair<String, String> estimatedQReported = new Pair<String, String>(RecalDataManager.ESTIMATED_Q_REPORTED_COLUMN_NAME, "%.2f");
+            final Pair<String, String> nObservations   = new Pair<String, String>("Observations", "%d");
+            final Pair<String, String> nErrors = new Pair<String, String>("Errors", "%d");
 
             long primaryKey = 0L;
 
@@ -445,13 +452,8 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             columnNames.add(eventType);                                                                                 // the order of these column names is important here
             columnNames.add(empiricalQuality);
             columnNames.add(estimatedQReported);
-
-            if (DEBUG_MODE) {
-                final Pair<String, String> nObservations   = new Pair<String, String>("Observations", "%d");
-                final Pair<String, String> nErrors = new Pair<String, String>("Errors", "%d");
-                columnNames.add(nObservations);
-                columnNames.add(nErrors);
-            }
+            columnNames.add(nObservations);
+            columnNames.add(nErrors);
 
 
             reportTable.addPrimaryKey("PrimaryKey", false);                                                             // every table must have a primary key (hidden)
@@ -469,11 +471,8 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
                 RecalDatum datum = recalTableEntry.getValue();
                 columnData.put(iterator.next().getFirst(), datum.getEmpiricalQuality());                                // iterator.next() gives the column name for Empirical Quality
                 columnData.put(iterator.next().getFirst(), Math.round(datum.getEstimatedQReported()));                  // iterator.next() gives the column name for EstimatedQReported
-
-                if (DEBUG_MODE) {
-                    columnData.put(iterator.next().getFirst(), datum.numObservations);
-                    columnData.put(iterator.next().getFirst(), datum.numMismatches);
-                }
+                columnData.put(iterator.next().getFirst(), datum.numObservations);
+                columnData.put(iterator.next().getFirst(), datum.numMismatches);
 
                 for (Map.Entry<String, Object> dataEntry : columnData.entrySet()) {
                     String columnName = dataEntry.getKey();
