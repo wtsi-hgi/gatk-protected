@@ -20,7 +20,7 @@ public class DeBruijnEdge implements Comparable<DeBruijnEdge> {
     }
 
     public DeBruijnEdge( final boolean isRef ) {
-        multiplicity = (isRef ? 0 : 1);
+        multiplicity = 1;
         this.isRef = isRef;
     }
 

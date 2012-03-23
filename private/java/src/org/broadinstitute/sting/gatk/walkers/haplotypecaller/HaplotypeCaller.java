@@ -277,7 +277,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES && activeAllelesToGenotype.isEmpty() ) { return 0; } // No alleles found in this region
 
         finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
-        final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader)); // Create the reference haplotype which is the bases from the reference that make up the active region
+        final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader, 10)); // Create the reference haplotype which is the bases from the reference that make up the active region
         referenceHaplotype.setIsReference(true);
         final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), referenceHaplotype );
 

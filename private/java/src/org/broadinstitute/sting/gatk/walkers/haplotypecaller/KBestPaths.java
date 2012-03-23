@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import java.util.*;
@@ -16,7 +17,7 @@ public class KBestPaths {
     // static access only
     protected KBestPaths() { }
 
-    protected static class MyInt { public int val = 0;}
+    protected static class MyInt { public int val = 0; }
 
     // class to keep track of paths
     protected static class Path {
@@ -60,23 +61,12 @@ public class KBestPaths {
 
         public DeBruijnVertex getLastVertexInPath() { return lastVertex; }
 
-        // assumes uncleaned edges and vertices, so each edge just adds one more base to the string
         public byte[] getBases( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph ) {
-            if(edges.size() == 0) { return lastVertex.printableSequence; }
-
-            int length = 0;
-            length += graph.getEdgeSource( edges.get(0) ).printableSequence.length;
+            if(edges.size() == 0) { return lastVertex.getSequence(); }
+            
+            byte[] bases = graph.getEdgeSource( edges.get(0) ).getSequence();
             for ( final DeBruijnEdge e : edges ) {
-                length += 1;
-            }
-
-            byte[] bases = new byte[length];
-            int curPos = 0;
-            for( final byte b : graph.getEdgeSource( edges.get(0) ).printableSequence ) {
-                bases[curPos++] = b;
-            }
-            for ( final DeBruijnEdge e : edges ) {
-                bases[curPos++] = graph.getEdgeTarget( e ).printableSequence[graph.getEdgeTarget( e ).printableSequence.length-1];
+                bases = ArrayUtils.addAll(bases, graph.getEdgeTarget( e ).getSuffix());
             }
             return bases;
         }
@@ -116,14 +106,12 @@ public class KBestPaths {
                 bestPaths.add(path);
             }
 
-        } else if( n.val > 10000) {
+        } else if( n.val > 2000) {
             // do nothing, just return
         } else {
             // recursively run DFS
             final ArrayList<DeBruijnEdge> edgeArrayList = new ArrayList<DeBruijnEdge>();
-            for( final DeBruijnEdge e : graph.outgoingEdgesOf(path.lastVertex)) {
-                if( e.getMultiplicity() > 0 ) { edgeArrayList.add(e); } // don't traverse reference edges which had no support from the reads themselves
-            }
+            edgeArrayList.addAll(graph.outgoingEdgesOf(path.lastVertex));
             Collections.sort(edgeArrayList);
             Collections.reverse(edgeArrayList);
             for ( final DeBruijnEdge edge : edgeArrayList ) {
@@ -140,9 +128,8 @@ public class KBestPaths {
     }
 
     private static boolean allOutgoingEdgesHaveBeenVisited( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final Path path ) {
-        for ( final DeBruijnEdge edge : graph.outgoingEdgesOf(path.lastVertex) ) {
-            if( edge.getMultiplicity() <= 0 ) { continue; } // don't traverse reference edges which had no support from the reads themselves
-            if ( !path.containsEdge(graph, edge) ) {
+        for( final DeBruijnEdge edge : graph.outgoingEdgesOf(path.lastVertex) ) {
+            if( !path.containsEdge(graph, edge) ) {
                 return false;
             }
         }

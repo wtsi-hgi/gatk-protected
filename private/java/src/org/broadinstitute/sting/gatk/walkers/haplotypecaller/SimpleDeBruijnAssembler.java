@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.jgrapht.graph.DefaultDirectedGraph;
@@ -35,13 +36,15 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         createDeBruijnGraphs( reads, refHaplotype );
 
         /*
-        mergeNodes();
         if( GRAPH_WRITER != null ) {
             printGraphs( false );
         }
         */
 
-        // prune singleton paths off the graph
+        // clean up the graph by merging and pruning iteratively
+        mergeNodes();
+        pruneGraphs();
+        mergeNodes();
         pruneGraphs();
         mergeNodes();
 
@@ -89,8 +92,8 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                     }
                 }
                 if( foundNodesToMerge ) {
-                    final String newVertexBases = incomingVertex.toString() + thisVertex.getSuffix();
-                    final DeBruijnVertex addedVertex = addToGraphIfNew(graph, newVertexBases.getBytes(), thisVertex.kmer);
+                    final byte[] newVertexBases = ArrayUtils.addAll(incomingVertex.getSequence(), thisVertex.getSuffix());
+                    final DeBruijnVertex addedVertex = addToGraphIfNew(graph, newVertexBases, thisVertex.kmer);
                     for( final DeBruijnEdge e : outEdges ) {
                         final DeBruijnEdge newEdge = new DeBruijnEdge(e.getIsRef());
                         newEdge.setMultiplicity( e.getMultiplicity() );
@@ -110,6 +113,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private static boolean edgeSetsHaveSameStatus( final DeBruijnEdge edge, final Set<DeBruijnEdge> e1, final Set<DeBruijnEdge> e2 ) {
         final Boolean refStatus = edge.getIsRef();
         final Boolean lowConfStatus = edge.getMultiplicity() > PRUNE_FACTOR;
+        if( refStatus && lowConfStatus ) { return true; }
         for( final DeBruijnEdge e : e1 ) {
             if( e.getIsRef() != refStatus ) { return false; }
             if( e.getMultiplicity() > PRUNE_FACTOR != lowConfStatus ) { return false; }
@@ -123,42 +127,20 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private void pruneGraphs() {
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
+            final ArrayList<DeBruijnEdge> edgesToRemove = new ArrayList<DeBruijnEdge>();
+            for( final DeBruijnEdge e : graph.edgeSet() ) {
+                if( e.getMultiplicity() <= PRUNE_FACTOR && !e.getIsRef() ) {
+                    edgesToRemove.add(e);
+                }
+            }
+            graph.removeAllEdges(edgesToRemove);
+            final ArrayList<DeBruijnVertex> verticesToRemove = new ArrayList<DeBruijnVertex>();
             for( final DeBruijnVertex v : graph.vertexSet() ) {
-                // If node has more than one outgoing path and some of those paths have very low weight then prune the low weight path
-                if( graph.outDegreeOf(v) > 1 ) {
-                    final ArrayList<DeBruijnEdge> edgesToRemove = new ArrayList<DeBruijnEdge>();
-                    for( final DeBruijnEdge e : graph.outgoingEdgesOf(v) ) {
-                        if( e.getMultiplicity() <= PRUNE_FACTOR ) {
-                            if( e.getIsRef() ) {
-                                e.setMultiplicity(0);
-                            } else {
-                                edgesToRemove.add(e);
-                            }
-                        }
-                    }
-                    if( edgesToRemove.size() == graph.outDegreeOf(v) ) { // don't want to remove all the edges if they all have a score of 1
-                        edgesToRemove.remove(0);
-                    }
-                    graph.removeAllEdges( edgesToRemove );
+                if( graph.inDegreeOf(v) == 0 && graph.outDegreeOf(v) == 0) {
+                    verticesToRemove.add(v);
                 }
             }
-            if( !graph.vertexSet().isEmpty() ) {
-                final ArrayList<DeBruijnVertex> verticesToRemove = new ArrayList<DeBruijnVertex>();
-                verticesToRemove.add(graph.vertexSet().iterator().next()); // just add something to get the while loop going
-                while( !verticesToRemove.isEmpty() ) {
-                    verticesToRemove.clear();
-                    // We might have created new low weight root nodes in the graph, so need to prune those as well, iteratively
-                    for( final DeBruijnVertex v : graph.vertexSet() ) {
-                        if( graph.outDegreeOf(v) == 1 && graph.outgoingEdgesOf(v).iterator().next().getMultiplicity() <= PRUNE_FACTOR && !graph.outgoingEdgesOf(v).iterator().next().getIsRef() ) {
-                            graph.removeEdge(graph.outgoingEdgesOf(v).iterator().next());
-                            verticesToRemove.add(v);
-                        } else if( graph.inDegreeOf(v) == 0 && graph.outDegreeOf(v) == 0 ) { // orphaned node
-                            verticesToRemove.add(v);
-                        }
-                    }
-                    graph.removeAllVertices( verticesToRemove );
-                }
-            }
+            graph.removeAllVertices(verticesToRemove);
         }
     }
 
@@ -213,9 +195,8 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         } else {
             if( isRef ) {
                 targetEdge.setIsRef(true);
-            } else {
-                targetEdge.setMultiplicity(targetEdge.getMultiplicity() + 1);
-            }
+            } 
+            targetEdge.setMultiplicity(targetEdge.getMultiplicity() + 1);
         }
     }
 
@@ -237,15 +218,16 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
             GRAPH_WRITER.println("digraph kmer" + count++ + (wasPruned ? "Pruned":"") +" {");
             for( final DeBruijnEdge edge : graph.edgeSet() ) {
-                if( edge.getMultiplicity() > 0 ) {
+                if( edge.getMultiplicity() > PRUNE_FACTOR ) {
                     GRAPH_WRITER.println("\t" + graph.getEdgeSource(edge).toString() + " -> " + graph.getEdgeTarget(edge).toString() + " [" + (edge.getMultiplicity() <= PRUNE_FACTOR ? "style=dotted,color=grey" : "label=\""+ edge.getMultiplicity() +"\"") + "];");
                 }
                 if( edge.getIsRef() ) {
                     GRAPH_WRITER.println("\t" + graph.getEdgeSource(edge).toString() + " -> " + graph.getEdgeTarget(edge).toString() + " [color=red];");
                 }
+                if( !edge.getIsRef() && edge.getMultiplicity() <= PRUNE_FACTOR ) { System.out.println("Graph pruning warning!"); }
             }
             for( final DeBruijnVertex v : graph.vertexSet() ) {
-                final String label = ( graph.inDegreeOf(v) == 0 ? v.toString() : v.getSuffix() );
+                final String label = ( graph.inDegreeOf(v) == 0 ? v.toString() : v.getSuffixString() );
                 GRAPH_WRITER.println("\t" + v.toString() + " [label=\"" + label + "\"]");
             }
             GRAPH_WRITER.println("}");
