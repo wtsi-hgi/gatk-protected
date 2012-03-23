@@ -25,29 +25,26 @@
 
 package org.broadinstitute.sting.gatk.walkers.bqsr;
 
-import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.MappingQualityUnavailableFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
-import org.broadinstitute.sting.utils.recalibration.QualQuantizer;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.List;
+import java.util.Map;
 
 /**
  * First pass of the base quality score recalibration -- Generates recalibration table based on various user-specified covariates (such as reported quality score, cycle, and dinucleotide).
@@ -106,28 +103,21 @@ import java.util.*;
 @Requires({DataSource.READS, DataSource.REFERENCE, DataSource.REFERENCE_BASES})                                         // filter out all reads with zero or unavailable mapping quality
 @PartitionBy(PartitionType.LOCUS)                                                                                       // this walker requires both -I input.bam and -R reference.fasta
 
-public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRecalibrator.CountedData, BaseQualityScoreRecalibrator.CountedData> implements TreeReducible<BaseQualityScoreRecalibrator.CountedData> {
+public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implements TreeReducible<Long> {
     @ArgumentCollection
-    private RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection();                                // all the command line arguments for BQSR and it's covariates
+    private final RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection();                          // all the command line arguments for BQSR and it's covariates
 
-    /**
-     * Enables debug information in the GATK Report output (example: number of observations, number of mismatches, etc.)
-     */
-    @Argument(fullName = "debug_mode", shortName = "debug", doc = "enable debug information output", required = false)
-    private boolean DEBUG_MODE = false;
-
-    private Map<BQSRKeyManager, Map<BitSet, RecalDatum>> tablesAndKeysMap;                                              // a map mapping each recalibration table to its corresponding key manager
-    private List<Byte> qualQuantizationMap;                                                                             // histogram containing the map for qual quantization (calculated after recalibration is done)
-    private List<Long> empiricalQualHistogram;                                                                          // histogram containing the number of observations for each empirical quality (useful for flexible on-the-fly quantization)
+    private QuantizationInfo quantizationInfo;                                                                          // an object that keeps track of the information necessary for quality score quantization 
     
-    protected final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();                              // list to hold the all the covariate objects that were requested (required + standard + experimental)
-    protected ArrayList<Covariate> requiredCovariates;                                                                  // list to hold the all the required covaraite objects that were requested
-    protected ArrayList<Covariate> optionalCovariates;                                                                  // list to hold the all the optional covariate objects that were requested
+    private Map<BQSRKeyManager, Map<BitSet, RecalDatum>> keysAndTablesMap;                                              // a map mapping each recalibration table to its corresponding key manager
+    
+    private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();                                // list to hold the all the covariate objects that were requested (required + standard + experimental)
+    private ArrayList<Covariate> requiredCovariates;                                                                    // list to hold the all the required covaraite objects that were requested
+    private ArrayList<Covariate> optionalCovariates;                                                                    // list to hold the all the optional covariate objects that were requested
 
     private static final String SKIP_RECORD_ATTRIBUTE = "SKIP";                                                         // used to label reads that should be skipped.
     private static final String SEEN_ATTRIBUTE = "SEEN";                                                                // used to label reads as processed.
     private static final String COVARS_ATTRIBUTE = "COVARS";                                                            // used to store covariates array as a temporary attribute inside GATKSAMRecord.\
-    private static final int SMOOTHING_CONSTANT = 1;                                                                    // used when calculating empirical qualities to avoid division by zero
 
 
     private static final String NO_DBSNP_EXCEPTION = "This calculation is critically dependent on being able to skip over known variant sites. Please provide a VCF file containing known sites of genetic variation.";
@@ -162,7 +152,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             cov.initialize(RAC);                                                                                        // initialize any covariate member variables using the shared argument collection
         }
 
-        tablesAndKeysMap = RecalDataManager.initializeTables(requiredCovariates, optionalCovariates);                   // initialize the recalibration tables and their relative key managers
+        keysAndTablesMap = RecalDataManager.initializeTables(requiredCovariates, optionalCovariates);                   // initialize the recalibration tables and their relative key managers
     }
 
 
@@ -175,13 +165,9 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
      * @param context the alignment context
      * @return returns 1, but this value isn't used in the reduce step
      */
-    public CountedData map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        // Only use data from non-dbsnp sites
-        // Assume every mismatch at a non-dbsnp site is indicative of poor quality
-        CountedData counter = new CountedData();
-
-        // Only analyze sites not present in the provided known sites
-        if (tracker.getValues(RAC.knownSites).size() == 0) {
+    public Long map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+        long countedSites = 0L;
+        if (tracker.getValues(RAC.knownSites).size() == 0) {                                                            // Only analyze sites not present in the provided known sites
             for (final PileupElement p : context.getBasePileup()) {
                 final GATKSAMRecord read = p.getRead();
                 final int offset = p.getOffset();
@@ -202,28 +188,17 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
                     read.setTemporaryAttribute(COVARS_ATTRIBUTE, RecalDataManager.computeCovariates(read, requestedCovariates));
                 }
 
-                final byte[] bases = read.getReadBases();
                 final byte refBase = ref.getBase();
-
                 // SOLID bams have inserted the reference base into the read
                 // if the color space in inconsistent with the read base so
                 // skip it
                 if (!ReadUtils.isSOLiDRead(read) || RAC.SOLID_RECAL_MODE == RecalDataManager.SOLID_RECAL_MODE.DO_NOTHING || !RecalDataManager.isInconsistentColorSpace(read, offset))
-                    updateDataForPileupElement(counter, p, refBase);                                                    // This base finally passed all the checks for a good base, so add it to the big data hashmap
-
-                else {
-                    if (refBase == bases[offset])
-                        counter.solidInsertedReferenceBases++;                                                          // calculate SOLID reference insertion rate
-                    else
-                        counter.otherColorSpaceInconsistency++;
-                }
+                    updateDataForPileupElement(p, refBase);                                                             // This base finally passed all the checks for a good base, so add it to the big data hashmap
             }
-            counter.countedSites++;
+            countedSites++;
         }
-        else
-            counter.skippedSites++;
 
-        return counter;
+        return countedSites;
     }
 
     /**
@@ -231,8 +206,8 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
      *
      * @return returns A PrintStream created from the -recalFile filename argument specified to the walker
      */
-    public CountedData reduceInit() {
-        return new CountedData();
+    public Long reduceInit() {
+        return 0L;
     }
 
     /**
@@ -242,20 +217,18 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
      * @param sum    The summing CountedData used to output the CSV data
      * @return returns The sum used to output the CSV data
      */
-    public CountedData reduce(CountedData mapped, CountedData sum) {
-        return sum.add(mapped);
+    public Long reduce(Long mapped, Long sum) {
+        sum += mapped;
+        return sum;
     }
 
-    public CountedData treeReduce(CountedData sum1, CountedData sum2) {
-        return sum1.add(sum2);
+    public Long treeReduce(Long sum1, Long sum2) {
+        sum1 += sum2;
+        return sum1;
     }
 
-    /**
-     * Write out the full data hashmap to disk in CSV format
-     *
-     * @param sum The CountedData to write out to RECAL_FILE
-     */
-    public void onTraversalDone(CountedData sum) {
+    @Override
+    public void onTraversalDone(Long result) {
         logger.info("Calculating empirical quality scores...");
         calculateEmpiricalQuals();
         logger.info("Calculating quantized quality scores...");
@@ -263,8 +236,18 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
         logger.info("Writing GATK Report...");
         generateReport();
         logger.info("...done!");
+        logger.info("Processed: " + result + " sites");
     }
 
+    /**
+     * go through the quality score table and use the # observations and the empirical quality score
+     * to build a quality score histogram for quantization. Then use the QuantizeQual algorithm to
+     * generate a quantization map (recalibrated_qual -> quantized_qual)
+     */
+    private void quantizeQualityScores() {
+        quantizationInfo = new QuantizationInfo(keysAndTablesMap, RAC.QUANTIZING_LEVELS);
+        
+    }
 
     /**
      * Major workhorse routine for this walker.
@@ -273,11 +256,10 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
      * adding one to the number of observations and potentially one to the number of mismatches for all three
      * categories (mismatches, insertions and deletions).
      *
-     * @param counter       Data structure which holds the counted bases
      * @param pileupElement The pileup element to update
      * @param refBase       The reference base at this locus
      */
-    private void updateDataForPileupElement(final CountedData counter, final PileupElement pileupElement, final byte refBase) {
+    private void updateDataForPileupElement(final PileupElement pileupElement, final byte refBase) {
         final int offset = pileupElement.getOffset();
         final ReadCovariates readCovariates = covariateKeySetFrom(pileupElement.getRead());
 
@@ -285,7 +267,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
         final RecalDatum insertionsDatum = createDatumObject(pileupElement.getQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterInsertion() : pileupElement.isBeforeInsertion());
         final RecalDatum deletionsDatum  = createDatumObject(pileupElement.getQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterDeletion() : pileupElement.isBeforeDeletion());
 
-        for (Map.Entry<BQSRKeyManager, Map<BitSet, RecalDatum>> entry : tablesAndKeysMap.entrySet()) {
+        for (Map.Entry<BQSRKeyManager, Map<BitSet, RecalDatum>> entry : keysAndTablesMap.entrySet()) {
             BQSRKeyManager keyManager = entry.getKey();
             Map<BitSet, RecalDatum> table = entry.getValue();
 
@@ -303,7 +285,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             for (BitSet key : deletionsKeys)
                 updateCovariateWithKeySet(table, key, deletionsDatum);                                                  // negative strand reads should be check if the previous base is a deletion. Positive strand reads check the next base.
         }
-        counter.countedBases++;
     }
 
     /**
@@ -332,7 +313,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
             previousDatum.increment(datum);                                                                             // add one to the number of observations and potentially one to the number of mismatches
     }
 
-
     /**
      * Get the covariate key set from a read
      *
@@ -347,169 +327,16 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<BaseQualityScoreRe
      * Calculates the empirical qualities in all recalibration tables
      */
     private void calculateEmpiricalQuals() {
-        for (Map<BitSet, RecalDatum> table : tablesAndKeysMap.values()) {
+        for (Map<BitSet, RecalDatum> table : keysAndTablesMap.values()) {
             for (RecalDatum datum : table.values()) {
-                datum.calcCombinedEmpiricalQuality(SMOOTHING_CONSTANT, QualityUtils.MAX_QUAL_SCORE);
+                datum.calcCombinedEmpiricalQuality(QualityUtils.MAX_QUAL_SCORE);
                 datum.calcEstimatedReportedQuality();
             }
         }
     }
 
-    /**
-     * go through the quality score table and use the # observations and the empirical quality score 
-     * to build a quality score histogram for quantization. Then use the QuantizeQual algorithm to 
-     * generate a quantization map (recalibrated_qual -> quantized_qual) 
-     */
-    private void quantizeQualityScores() {
-        final Long [] qualHistogram = new Long[QualityUtils.MAX_QUAL_SCORE+1];                                          // create a histogram with the empirical quality distribution
-        for (int i = 0; i < qualHistogram.length; i++)
-            qualHistogram[i] = 0L;
-
-        Map<BitSet, RecalDatum> qualTable = null;                                                                       // look for the quality score table                                                                      
-        for (Map.Entry<BQSRKeyManager, Map<BitSet, RecalDatum>> entry : tablesAndKeysMap.entrySet()) {
-            BQSRKeyManager keyManager = entry.getKey();
-            if (keyManager.getRequiredCovariates().size() == 2)                                                         // it should be the only one with 2 required covaraites
-                qualTable = entry.getValue();
-        }
-        
-        if (qualTable == null)
-            throw new ReviewedStingException("Could not find QualityScore table.");
-        
-        for (RecalDatum datum : qualTable.values()) {
-            int empiricalQual = (int) Math.round(datum.getEmpiricalQuality());                                          // convert the empirical quality to an integer ( it is already capped by MAX_QUAL )
-            long nObservations = datum.numObservations;
-            qualHistogram[empiricalQual] += nObservations;                                                              // add the number of observations for every key
-        }
-        empiricalQualHistogram = Arrays.asList(qualHistogram);                                                          // histogram with the number of observations of the empirical qualities
-        QualQuantizer quantizer = new QualQuantizer(empiricalQualHistogram, RAC.QUANTIZING_LEVELS, QualityUtils.MIN_USABLE_Q_SCORE);
-        qualQuantizationMap = quantizer.getOriginalToQuantizedMap();                                                    // map with the original to quantized qual map (using the standard number of levels in the RAC)
-    }
-
     private void generateReport() {
-        GATKReport report = new GATKReport();
-
-        GATKReportTable argumentsTable = new GATKReportTable("Arguments", "Recalibration argument collection values used in this run");
-        argumentsTable.addPrimaryKey("Argument");
-        argumentsTable.addColumn(RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, "null");
-        argumentsTable.set("covariate", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, (RAC.COVARIATES == null) ? "null" : Utils.join(",", RAC.COVARIATES));
-        argumentsTable.set("standard_covs", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.USE_STANDARD_COVARIATES);
-        argumentsTable.set("run_without_dbsnp", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.RUN_WITHOUT_DBSNP);
-        argumentsTable.set("solid_recal_mode", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.SOLID_RECAL_MODE);
-        argumentsTable.set("solid_nocall_strategy", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.SOLID_NOCALL_STRATEGY);
-        argumentsTable.set("mismatches_context_size", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.MISMATCHES_CONTEXT_SIZE);
-        argumentsTable.set("insertions_context_size", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.INSERTIONS_CONTEXT_SIZE);
-        argumentsTable.set("deletions_context_size", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.DELETIONS_CONTEXT_SIZE);
-        argumentsTable.set("mismatches_default_quality", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.MISMATCHES_DEFAULT_QUALITY);
-        argumentsTable.set("insertions_default_quality", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.INSERTIONS_DEFAULT_QUALITY);
-        argumentsTable.set("low_quality_tail", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.LOW_QUAL_TAIL);
-        argumentsTable.set("default_platform", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.DEFAULT_PLATFORM);
-        argumentsTable.set("force_platform", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.FORCE_PLATFORM);
-        argumentsTable.set("quantizing_levels", RecalDataManager.ARGUMENT_VALUE_COLUMN_NAME, RAC.QUANTIZING_LEVELS);
-        report.addTable(argumentsTable);
-        
-        GATKReportTable quantizedTable = new GATKReportTable(RecalDataManager.QUANTIZED_REPORT_TABLE_TITLE, "Quality quantization map");
-        quantizedTable.addPrimaryKey("QualityScore");
-        quantizedTable.addColumn(RecalDataManager.QUANTIZED_COUNT_COLUMN_NAME, 0L);
-        quantizedTable.addColumn(RecalDataManager.QUANTIZED_VALUE_COLUMN_NAME, (byte) 0);
-        
-        for (int qual = 0; qual <= QualityUtils.MAX_QUAL_SCORE; qual++) {
-            quantizedTable.set(qual, RecalDataManager.QUANTIZED_COUNT_COLUMN_NAME, empiricalQualHistogram.get(qual));
-            quantizedTable.set(qual, RecalDataManager.QUANTIZED_VALUE_COLUMN_NAME, qualQuantizationMap.get(qual));
-        }
-        report.addTable(quantizedTable);
-
-        int tableIndex = 0;
-        for (Map.Entry<BQSRKeyManager, Map<BitSet, RecalDatum>> entry : tablesAndKeysMap.entrySet()) {
-            BQSRKeyManager keyManager = entry.getKey();
-            Map<BitSet, RecalDatum> recalTable = entry.getValue();
-
-            GATKReportTable reportTable = new GATKReportTable("RecalTable" + tableIndex++, "");
-            final Pair<String, String> covariateValue     = new Pair<String, String>(RecalDataManager.COVARIATE_VALUE_COLUMN_NAME, "%s");
-            final Pair<String, String> covariateName      = new Pair<String, String>(RecalDataManager.COVARIATE_NAME_COLUMN_NAME, "%s");
-            final Pair<String, String> eventType          = new Pair<String, String>(RecalDataManager.EVENT_TYPE_COLUMN_NAME, "%s");
-            final Pair<String, String> empiricalQuality   = new Pair<String, String>(RecalDataManager.EMPIRICAL_QUALITY_COLUMN_NAME, "%.2f");
-            final Pair<String, String> estimatedQReported = new Pair<String, String>(RecalDataManager.ESTIMATED_Q_REPORTED_COLUMN_NAME, "%.2f");
-            final Pair<String, String> nObservations   = new Pair<String, String>("Observations", "%d");
-            final Pair<String, String> nErrors = new Pair<String, String>("Errors", "%d");
-
-            long primaryKey = 0L;
-
-            List<Covariate> requiredList = keyManager.getRequiredCovariates();                                          // ask the key manager what required covariates were used in this recal table 
-            List<Covariate> optionalList = keyManager.getOptionalCovariates();                                          // ask the key manager what optional covariates were used in this recal table
-
-            ArrayList<Pair<String, String>> columnNames = new ArrayList<Pair<String, String>>();                        // initialize the array to hold the column names
-
-            for (Covariate covariate : requiredList) {
-                String name = covariate.getClass().getSimpleName().split("Covariate")[0];                               // get the covariate names and put them in order
-                columnNames.add(new Pair<String,String>(name, "%s"));                                                   // save the required covariate name so we can reference it in the future
-            }
-
-            if (optionalList.size() > 0) {
-                columnNames.add(covariateValue);
-                columnNames.add(covariateName);
-            }
-            
-            columnNames.add(eventType);                                                                                 // the order of these column names is important here
-            columnNames.add(empiricalQuality);
-            columnNames.add(estimatedQReported);
-            columnNames.add(nObservations);
-            columnNames.add(nErrors);
-
-
-            reportTable.addPrimaryKey("PrimaryKey", false);                                                             // every table must have a primary key (hidden)
-            for (Pair<String, String> columnName : columnNames)
-                reportTable.addColumn(columnName.getFirst(), true, columnName.getSecond());                             // every table must have the event type
-
-            for (Map.Entry<BitSet, RecalDatum> recalTableEntry : recalTable.entrySet()) {                               // create a map with column name => key value for all covariate keys
-                BitSet bitSetKey = recalTableEntry.getKey();
-                Map<String, Object> columnData = new HashMap<String, Object>(columnNames.size());
-                Iterator<Pair<String, String>> iterator = columnNames.iterator();
-                for (Object key : keyManager.keySetFrom(bitSetKey)) {                                                   
-                    String columnName = iterator.next().getFirst();
-                    columnData.put(columnName, key);                                                                    
-                }                
-                RecalDatum datum = recalTableEntry.getValue();
-                columnData.put(iterator.next().getFirst(), datum.getEmpiricalQuality());                                // iterator.next() gives the column name for Empirical Quality
-                columnData.put(iterator.next().getFirst(), Math.round(datum.getEstimatedQReported()));                  // iterator.next() gives the column name for EstimatedQReported
-                columnData.put(iterator.next().getFirst(), datum.numObservations);
-                columnData.put(iterator.next().getFirst(), datum.numMismatches);
-
-                for (Map.Entry<String, Object> dataEntry : columnData.entrySet()) {
-                    String columnName = dataEntry.getKey();
-                    Object value = dataEntry.getValue();
-                    reportTable.set(primaryKey, columnName, value.toString());
-                }
-                primaryKey++;
-            }
-            report.addTable(reportTable);
-        }
-
-        report.print(RAC.RECAL_FILE);
+        RecalDataManager.outputRecalibrationReport(RAC, quantizationInfo, keysAndTablesMap, RAC.RECAL_FILE);
     }
-
-    public class CountedData {
-        private long countedSites = 0;                                                                                  // Number of loci used in the calculations, used for reporting in the output file
-        private long countedBases = 0;                                                                                  // Number of bases used in the calculations, used for reporting in the output file
-        private long skippedSites = 0;                                                                                  // Number of loci skipped because it was a dbSNP site, used for reporting in the output file
-        private long solidInsertedReferenceBases = 0;                                                                   // Number of bases where we believe SOLID has inserted the reference because the color space is inconsistent with the read base
-        private long otherColorSpaceInconsistency = 0;                                                                  // Number of bases where the color space is inconsistent with the read but the reference wasn't inserted.
-
-        /**
-         * Adds the values of other to this, returning this
-         *
-         * @param other another object
-         * @return this object with the other object incremented
-         */
-        public CountedData add(CountedData other) {
-            countedSites += other.countedSites;
-            countedBases += other.countedBases;
-            skippedSites += other.skippedSites;
-            solidInsertedReferenceBases += other.solidInsertedReferenceBases;
-            otherColorSpaceInconsistency += other.otherColorSpaceInconsistency;
-            return this;
-        }
-    }
-
-
 }
 
