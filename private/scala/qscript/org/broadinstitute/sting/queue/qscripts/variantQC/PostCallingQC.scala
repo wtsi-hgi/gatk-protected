@@ -50,6 +50,7 @@ class PostCallingQC extends QScript {
     this.excludeIntervalsString = myExcludeIntervals
     this.eval :+= evalVCF
     this.dbsnp = dbSNP
+    //this.comp :+= new TaggedFile(goldStandardIndels, "goldStandardIndel")
     this.doNotUseAllStandardModules = true
     this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap", "IndelSummary")
     this.doNotUseAllStandardStratifications = true
