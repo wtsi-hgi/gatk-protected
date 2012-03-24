@@ -278,7 +278,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
         final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader, 20)); // Create the reference haplotype which is the bases from the reference that make up the active region
         referenceHaplotype.setIsReference(true);
-        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), referenceHaplotype );
+        int PRUNE_FACTOR = determinePruneFactorFromCoverage( activeRegion );
+        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), referenceHaplotype, PRUNE_FACTOR );
 
         activeRegion.hardClipToActiveRegion(); // only evaluate the parts of reads that are overlapping the active region
         filterNonPassingReads( activeRegion ); // filter out reads from genotyping which fail mapping quality criteria
@@ -389,5 +390,20 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
 
         return returnMap;
+    }
+    
+    private int determinePruneFactorFromCoverage( final ActiveRegion activeRegion ) {
+        final ArrayList<Integer> readLengthDistribution = new ArrayList<Integer>();
+        for( final GATKSAMRecord read : activeRegion.getReads() ) {
+            readLengthDistribution.add(read.getReadLength());
+        }
+        final double meanReadLength = MathUtils.average(readLengthDistribution);
+        final double meanCoveragePerSample = (double) activeRegion.getReads().size() / ((double) activeRegion.getExtendedLoc().size() / meanReadLength) / (double) samplesList.size();
+        int PRUNE_FACTOR = 0;
+        if( meanCoveragePerSample > 100.0 ) { PRUNE_FACTOR = 10; }
+        else if( meanCoveragePerSample > 25.0 ) { PRUNE_FACTOR = 4; }
+        else if( meanCoveragePerSample > 2.0 ) { PRUNE_FACTOR = 1; }
+        if( DEBUG ) { System.out.println(String.format("Mean coverage per sample = %.1f --> prune factor = %d", meanCoveragePerSample, PRUNE_FACTOR)); }
+        return PRUNE_FACTOR;
     }
 }

@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import org.apache.commons.lang.ArrayUtils;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import java.util.*;
@@ -16,6 +17,7 @@ public class KBestPaths {
 
     // static access only
     protected KBestPaths() { }
+    private static int MAX_PATHS_TO_HOLD = 100;
 
     protected static class MyInt { public int val = 0; }
 
@@ -72,40 +74,49 @@ public class KBestPaths {
         }
     }
 
-    protected static class PathComparator implements Comparator<Path> {
+    protected static class PathComparatorTotalScore implements Comparator<Path> {
         public int compare(final Path path1, final Path path2) {
             return path1.totalScore - path2.totalScore;
         }
     }
 
-    public static ArrayList<Path> getKBestPaths( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final int k ) {
-        PriorityQueue<Path> bestPaths = new PriorityQueue<Path>(k, new PathComparator());
+    protected static class PathComparatorLowestEdge implements Comparator<Path> {
+        public int compare(final Path path1, final Path path2) {
+            return path2.lowestEdge - path1.lowestEdge;
+        }
+    }
 
+    public static List<Path> getKBestPaths( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final int k ) {
+        if( k > MAX_PATHS_TO_HOLD/2 ) { throw new ReviewedStingException("Asked for more paths than MAX_PATHS_TO_HOLD!"); }
+        final ArrayList<Path> bestPaths = new ArrayList<Path>();
+        
         // run a DFS for best paths
         for ( final DeBruijnVertex v : graph.vertexSet() ) {
             if ( graph.inDegreeOf(v) == 0 ) {
-                findBestPaths(graph, new Path(v), k, bestPaths);
+                findBestPaths(graph, new Path(v), bestPaths);
             }
         }
 
-        return new ArrayList<Path>(bestPaths);
+        Collections.sort(bestPaths, new PathComparatorLowestEdge() );
+        Collections.reverse(bestPaths);
+        return bestPaths.subList(0, Math.min(k, bestPaths.size()));
     }
 
-    private static void findBestPaths( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final Path path, final int k, final PriorityQueue<Path> bestPaths ) {
-        findBestPaths(graph, path, k, bestPaths, new MyInt());
+    private static void findBestPaths( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final Path path, final List<Path> bestPaths ) {
+        findBestPaths(graph, path, bestPaths, new MyInt());
     }
 
-    private static void findBestPaths( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final Path path, final int k, final PriorityQueue<Path> bestPaths, MyInt n ) {
+    private static void findBestPaths( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final Path path, final List<Path> bestPaths, MyInt n ) {
 
         // did we hit the end of a path?
         if ( allOutgoingEdgesHaveBeenVisited(graph, path) ) {
-            if ( bestPaths.size() < k ) {
-                bestPaths.add(path);
-            } else if ( bestPaths.peek().totalScore < path.totalScore ) {
-                bestPaths.remove(bestPaths.peek());
-                bestPaths.add(path);
+            if ( bestPaths.size() >= MAX_PATHS_TO_HOLD ) {
+                // clean out some low scoring paths
+                Collections.sort(bestPaths, new PathComparatorLowestEdge() );
+                bestPaths.removeAll(bestPaths.subList(0, 20));
             }
-        } else if( n.val > 50000) {
+            bestPaths.add(path);
+        } else if( n.val > 10000) {
             // do nothing, just return
         } else {
             // recursively run DFS
@@ -120,8 +131,7 @@ public class KBestPaths {
 
                 final Path newPath = new Path(path, graph, edge);
                 n.val++;
-                findBestPaths(graph, newPath, k, bestPaths, n);
-
+                findBestPaths(graph, newPath, bestPaths, n);
             }
         }
     }
