@@ -239,7 +239,7 @@ public class PoolCallerWalker extends LocusWalker<VariantCallContext, PoolCaller
             verboseWriter.println("AFINFO\tLOC\tREF\tALT\tMAF\tF\tAFprior\tAFposterior\tNormalizedPosterior");
 
         annotationEngine = new VariantAnnotatorEngine(Arrays.asList(annotationClassesToUse), annotationsToUse, annotationsToExclude, this, getToolkit());
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, verboseWriter, annotationEngine, samples, samples.size() * UAC.nSamplesPerPool);
+        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, verboseWriter, annotationEngine, samples, 2*samples.size() * UAC.nSamplesPerPool);
 
         // initialize the header
         Set<VCFHeaderLine> headerInfo = getHeaderInfo();
