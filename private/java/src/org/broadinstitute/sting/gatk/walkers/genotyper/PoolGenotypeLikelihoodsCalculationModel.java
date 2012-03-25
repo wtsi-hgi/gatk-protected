@@ -48,7 +48,7 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
             throw new ReviewedStingException("BUG: incorrect construction of PoolGenotypeLikelihoodsCalculationModel");
 
         PoolCallerUnifiedArgumentCollection pUAC = (PoolCallerUnifiedArgumentCollection)UAC;
-        this.treatAllReadsAsSinglePool = pUAC.TREAT_ALL_READS_AS_SINGLE_POOL;
+        this.ignoreLaneInformation = pUAC.TREAT_ALL_READS_AS_SINGLE_POOL;
         this.referenceSampleName = pUAC.referenceSampleName;
         //this.laneIDs = laneIDs;
         this.minQualityScore = pUAC.minQualityScore;

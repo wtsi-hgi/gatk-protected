@@ -5,19 +5,15 @@ import net.sf.samtools.SAMUtils;
 import org.broadinstitute.sting.gatk.walkers.poolcaller.ErrorModel;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.fragments.FragmentCollection;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 
 import static java.lang.Math.log10;
-import static java.lang.Math.pow;
 
 /**
  * Stable, error checking version of the Bayesian genotyper.  Useful for calculating the likelihoods, priors,
@@ -59,7 +55,7 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
     protected final static double log10_3 = log10(3.0);
     protected final int TWO_N;
 
-    protected boolean VERBOSE = false;
+    protected boolean VERBOSE = true;
 
     //
     // The fundamental data arrays associated with a Genotype Likelhoods object
@@ -76,7 +72,7 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
     protected final int nSamplesPerPool;
     HashMap<String, ErrorModel> perLaneErrorModels;
 
-    protected final boolean treatAllReadsAsSinglePool;
+    protected final boolean ignoreLaneInformation;
 
 
     double[][][] logPLs;
@@ -89,8 +85,10 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
         *
         * @param priors          priors
         * @param PCR_error_rate  the PCR error rate
+        * @param perLaneErrorModels error model objects for each lane
+        * @param ignoreLaneInformation  If true, lane info is ignored
         */
-    public PoolSNPGenotypeLikelihoods(PoolGenotypePriors priors, double PCR_error_rate, HashMap<String, ErrorModel> perLaneErrorModels, boolean treatAllReadsAsSinglePool) {
+    public PoolSNPGenotypeLikelihoods(PoolGenotypePriors priors, double PCR_error_rate, HashMap<String, ErrorModel> perLaneErrorModels, boolean ignoreLaneInformation) {
         this.priors = priors;
         log10_PCR_error_3 = log10(PCR_error_rate) - log10_3;
         log10_1_minus_PCR_error = log10(1.0 - PCR_error_rate);
@@ -99,7 +97,7 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
         genotypeZeros = new double[priors.getPriors().length];
         setToZero();
         this.perLaneErrorModels = perLaneErrorModels;
-        this.treatAllReadsAsSinglePool = treatAllReadsAsSinglePool;
+        this.ignoreLaneInformation = ignoreLaneInformation;
         fillCache();
 
         //createLikelihoodDataStorage();
@@ -123,6 +121,11 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
         log10Likelihoods = genotypeZeros.clone();                 // likelihoods are all zeros
         log10Posteriors = priors.getPriors().clone();     // posteriors are all the priors
         logPLs = new double[1+TWO_N][1+TWO_N][1+TWO_N];
+        
+        for(int i=0; i <=TWO_N; i++)
+            for (int j=0; j <=TWO_N; j++)
+                for (int k=0; k <=TWO_N; k++)
+                    logPLs[i][j][k] = Double.NEGATIVE_INFINITY;
     }
 
     /**
@@ -143,6 +146,46 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
     }
 
 
+     public double[][][] getLogPLs() {
+         return logPLs;
+     }
+    
+    public int[] getMostLikelyACCount() {
+        
+        int[] mlInd = new int[BaseUtils.BASES.length];
+        double maxVal = Double.NEGATIVE_INFINITY;
+
+        for (int jA = 0; jA <= TWO_N; jA++) {
+            for (int jC = 0; jC <= TWO_N - jA; jC++) {
+                for (int jG = 0; jG <= TWO_N - jA - jC; jG++) {
+                    int jT = TWO_N - jA - jC - jG;
+                    if (logPLs[jA][jC][jG] > maxVal) {
+                        maxVal = logPLs[jA][jC][jG];
+                        mlInd[0] = jA;
+                        mlInd[1] = jC;
+                        mlInd[2] = jG;
+                        mlInd[3] = jT;
+
+                    }
+                }
+            }
+        }
+        if (VERBOSE)
+            System.out.format("MLAC: %d %d %d %d\n",mlInd[0],mlInd[1],mlInd[2],mlInd[3]);
+        return mlInd;
+    }
+
+    public double getLogPLofAC(final int jA, final int jC, final int jG, final int jT) {
+
+        if(jA+jC+jG+jT != TWO_N)
+            throw new ReviewedStingException("BUG: AC elements should add up to 2N!");
+
+        return logPLs[jA][jC][jG];
+    }
+    
+    public double getLogPLofAC(final int[] ac) {
+        return getLogPLofAC(ac[0],ac[1],ac[2],ac[3]);
+    }
 
     /**
      * Returns an array of posteriors for each genotype, indexed by DiploidGenotype.ordinal values().
@@ -212,7 +255,7 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
         for (String laneID : perLaneErrorModels.keySet() ) {
             // get pileup for this lane
             ReadBackedPileup perLanePileup;
-            if (treatAllReadsAsSinglePool)
+            if (ignoreLaneInformation)
                 perLanePileup = pileup;
             else
                 perLanePileup = pileup.getPileupForLane(laneID);
@@ -222,7 +265,7 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
 
             ErrorModel errorModel = perLaneErrorModels.get(laneID);
             n += add(perLanePileup, ignoreBadBases, capBaseQualsAtMappingQual, minBaseQual, errorModel);
-            if (treatAllReadsAsSinglePool)
+            if (ignoreLaneInformation)
                 break;
             
         }
@@ -248,13 +291,16 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
             n++;
 
         }
+        if (VERBOSE)
+            System.out.format("numSeenBases: %d %d %d %d\n",numSeenBases[0],numSeenBases[1],numSeenBases[2],numSeenBases[3]);
+
         add(numSeenBases[0], numSeenBases[1], numSeenBases[2], numSeenBases[3], errorModel);
         return n;
     }
 /*    public int add(List<PileupElement> overlappingPair, boolean ignoreBadBases, boolean capBaseQualsAtMappingQual, int minBaseQual) {
         final PileupElement p1 = overlappingPair.get(0);
         final PileupElement p2 = overlappingPair.get(1);
-        String laneID = PoolCallerEngine.getLaneIDFromReadGroupString(p1.getRead().getReadGroup().getReadGroupId(), treatAllReadsAsSinglePool);
+        String laneID = PoolCallerEngine.getLaneIDFromReadGroupString(p1.getRead().getReadGroup().getReadGroupId(), ignoreLaneInformation);
         ErrorModel errorModel = perLaneErrorModels.get(laneID);
         // todo - are pairs in a fragment always sequenced in same lane?
 
@@ -329,7 +375,7 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
                                 nG*logMismatchProbabilityArray[jG][k] +
                                 nT*logMismatchProbabilityArray[jT][k];
 
-                    logPLs[jA][jC][jG] += MathUtils.logDotProduct(errorModel.getErrorModelVector(), acVec);
+                    logPLs[jA][jC][jG] = MathUtils.logDotProduct(errorModel.getErrorModelVector(), acVec);
                 }
             }
         }
@@ -525,4 +571,38 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
         }
     }
 
+    public double[] getCollapsedPLs(boolean[] dimensionPresent) {
+
+
+        int numDims = 0, idx=0;
+        for (int k=0; k < dimensionPresent.length; k++) {
+            if (dimensionPresent[k]) numDims++;
+        }
+
+        if (VERBOSE) {
+            System.out.println("Collapsed PLs:");
+            System.out.format("0:%b,1:%b,2:%b,3:%b\n",dimensionPresent[0],dimensionPresent[1],dimensionPresent[2],dimensionPresent[3]);
+        }
+
+        double[] res = new double[(1+TWO_N)*(1+TWO_N)*(1+TWO_N)];
+        for (int jA = 0; jA <= TWO_N; jA++) {
+            if (!dimensionPresent[0] && jA > 0) continue;
+            for (int jC = 0; jC <= TWO_N - jA; jC++) {
+                if (!dimensionPresent[1] && jC > 0) continue;
+                for (int jG = 0; jG <= TWO_N - jA - jC; jG++) {
+                    if (!dimensionPresent[2] && jG > 0) continue;
+                    int jT = TWO_N - jA - jC- jG;
+                    if ( !dimensionPresent[3] && jT > 0) continue;
+
+                    res[idx++] = logPLs[jA][jC][jG];
+
+                    if (VERBOSE) {
+                        System.out.format("jA:%d jC:%d jG:%d jT:%d PL:%4.2f\n",jA,jC,jG,jT,logPLs[jA][jC][jG]);
+                    }
+                }
+            }
+        }
+        return Arrays.copyOf(res,idx);
+
+    }
 }

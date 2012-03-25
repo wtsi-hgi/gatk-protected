@@ -30,6 +30,10 @@ public class PoolCallerUnifiedArgumentCollection extends UnifiedArgumentCollecti
     @Argument(fullName = "allReadsSP", shortName = "dl", doc = "expt", required = false)
     public boolean TREAT_ALL_READS_AS_SINGLE_POOL = false;
 
+    @Argument(fullName = "ignoreLaneInfo", shortName = "ignoreLane", doc = "Ignore lane when building error model, error model is then per-site", required = false)
+    public boolean IGNORE_LANE_INFO = false;
+
+
     @Input(fullName="reference_sample", shortName = "reference", doc="VCF file with the truth callset for the reference sample", required=true)
     RodBinding<VariantContext> referenceSampleRod;
 
@@ -71,6 +75,7 @@ public class PoolCallerUnifiedArgumentCollection extends UnifiedArgumentCollecti
         uac.minPower = minPower;
         uac.minReferenceDepth = minReferenceDepth;
         uac.EXCLUDE_FILTERED_REFERENCE_SITES = EXCLUDE_FILTERED_REFERENCE_SITES;
+        uac.IGNORE_LANE_INFO = IGNORE_LANE_INFO;
         return uac;
 
     }

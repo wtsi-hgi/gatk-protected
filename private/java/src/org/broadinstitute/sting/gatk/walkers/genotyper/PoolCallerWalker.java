@@ -227,6 +227,9 @@ public class PoolCallerWalker extends LocusWalker<VariantCallContext, PoolCaller
         if (UAC.TREAT_ALL_READS_AS_SINGLE_POOL) {
             samples.clear();
             samples.add(PoolGenotypeLikelihoodsCalculationModel.DUMMY_POOL);
+        }
+
+        if (UAC.TREAT_ALL_READS_AS_SINGLE_POOL || UAC.IGNORE_LANE_INFO) {
             laneIDs.clear();
             laneIDs.add(PoolGenotypeLikelihoodsCalculationModel.DUMMY_LANE);
         }
@@ -236,7 +239,7 @@ public class PoolCallerWalker extends LocusWalker<VariantCallContext, PoolCaller
             verboseWriter.println("AFINFO\tLOC\tREF\tALT\tMAF\tF\tAFprior\tAFposterior\tNormalizedPosterior");
 
         annotationEngine = new VariantAnnotatorEngine(Arrays.asList(annotationClassesToUse), annotationsToUse, annotationsToExclude, this, getToolkit());
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, verboseWriter, annotationEngine, samples);
+        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, verboseWriter, annotationEngine, samples, samples.size() * UAC.nSamplesPerPool);
 
         // initialize the header
         Set<VCFHeaderLine> headerInfo = getHeaderInfo();

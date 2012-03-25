@@ -68,7 +68,7 @@ public class UGCallVariants extends RodWalker<VariantContext, Integer> {
             trackNames.add(rb.getName());
         Set<String> samples = SampleUtils.getSampleListWithVCFHeader(getToolkit(), trackNames);
 
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
+        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, samples.size());
 
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
 

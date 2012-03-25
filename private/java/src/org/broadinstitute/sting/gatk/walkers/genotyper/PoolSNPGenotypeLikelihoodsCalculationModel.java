@@ -47,7 +47,7 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
 
     //private final boolean useAlleleFromVCF;
 
-    private final double[] likelihoodSums = new double[4];
+//    private final double[] likelihoodSums = new double[4];
 
     protected PoolSNPGenotypeLikelihoodsCalculationModel( UnifiedArgumentCollection UAC,  Logger logger) {
         super(UAC, logger);
@@ -87,7 +87,7 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
             refPileup = refContext.getBasePileup();
 
             Set<String> laneIDs = new TreeSet<String>();
-            if (UAC.TREAT_ALL_READS_AS_SINGLE_POOL)
+            if (UAC.TREAT_ALL_READS_AS_SINGLE_POOL || UAC.IGNORE_LANE_INFO)
                 laneIDs.add(PoolGenotypeLikelihoodsCalculationModel.DUMMY_LANE);
             else
                 laneIDs = parseLaneIDs(refPileup.getReadGroups());
@@ -96,10 +96,10 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
                 // get reference pileup for this lane
                 ReadBackedPileup refLanePileup = refPileup;
                 // subset for this lane
-                if (refPileup != null && !UAC.TREAT_ALL_READS_AS_SINGLE_POOL)
+                if (refPileup != null && !(UAC.TREAT_ALL_READS_AS_SINGLE_POOL || UAC.IGNORE_LANE_INFO))
                     refLanePileup = refPileup.getPileupForLane(laneID);
 
-                ReferenceSample referenceSample = new ReferenceSample(UAC.referenceSampleName, refPileup, trueReferenceAlleles);
+                ReferenceSample referenceSample = new ReferenceSample(UAC.referenceSampleName, refLanePileup, trueReferenceAlleles);
                 perLaneErrorModels.put(laneID, new ErrorModel(UAC.minQualityScore, UAC.maxQualityScore, UAC.phredScaledPrior, referenceSample, UAC.minPower));
             }
 
@@ -126,7 +126,7 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
                 pileup = createBAQedPileup( pileup );
 
             // create the GenotypeLikelihoods object
-            final PoolSNPGenotypeLikelihoods GL = new PoolSNPGenotypeLikelihoods(priors, UAC.PCR_error, perLaneErrorModels, UAC.TREAT_ALL_READS_AS_SINGLE_POOL);
+            final PoolSNPGenotypeLikelihoods GL = new PoolSNPGenotypeLikelihoods(priors, UAC.PCR_error, perLaneErrorModels, UAC.IGNORE_LANE_INFO);
             final int nGoodBases = GL.add(pileup, true, true, UAC.MIN_BASE_QUALTY_SCORE);
             if ( nGoodBases > 0 )
                 GLs.add(new PoolGenotypeData(sample.getKey(), GL, getFilteredDepth(pileup)));
@@ -162,13 +162,12 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
         final int numAlleles = alleles.size();
         final int numAltAlleles = numAlleles - 1;
 
-        final int[] alleleOrdering = new int[numAlleles];
-        int alleleOrderingIndex = 0;
-        int numLikelihoods = 0;
+
+        final boolean [] allelePresent = new boolean[]{false,false,false,false};
         for ( Allele allele : alleles ) {
-            alleleOrdering[alleleOrderingIndex++] = BaseUtils.simpleBaseToBaseIndex(allele.getBases()[0]);
-            numLikelihoods += alleleOrderingIndex;
+            allelePresent[BaseUtils.simpleBaseToBaseIndex(allele.getBases()[0])] = true;
         }
+
         builder.alleles(alleles);
 
         // create the genotypes; no-call everyone for now
@@ -177,15 +176,9 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
         noCall.add(Allele.NO_CALL);
 
         for ( PoolGenotypeData sampleData : GLs ) {
-            final double[] allLikelihoods = sampleData.GL.getLikelihoods();
-            final double[] myLikelihoods = new double[numLikelihoods];
+            // extract from multidimensional array
+            final double[] myLikelihoods = sampleData.GL.getCollapsedPLs(allelePresent);
 
-            int myLikelihoodsIndex = 0;
-            for ( int i = 0; i <= numAltAlleles; i++ ) {
-                for ( int j = i; j <= numAltAlleles; j++ ) {
-                    myLikelihoods[myLikelihoodsIndex++] = allLikelihoods[DiploidGenotype.createDiploidGenotype(alleleOrdering[i], alleleOrdering[j]).ordinal()];
-                }
-            }
 
             // normalize in log space so that max element is zero.
             final GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(MathUtils.normalizeFromLog10(myLikelihoods, false, true));
@@ -203,21 +196,30 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
     protected List<Allele> determineAlternateAlleles(final byte ref, final List<PoolGenotypeData> sampleDataList) {
 
         final int baseIndexOfRef = BaseUtils.simpleBaseToBaseIndex(ref);
-        final int PLindexOfRef = DiploidGenotype.createDiploidGenotype(ref, ref).ordinal();
+        double[] likelihoodSums = new double[4];
         for ( int i = 0; i < 4; i++ )
             likelihoodSums[i] = 0.0;
 
         // based on the GLs, find the alternate alleles with enough probability
         for ( PoolGenotypeData sampleData : sampleDataList ) {
-            final double[] likelihoods = sampleData.GL.getLikelihoods();
-            final int PLindexOfBestGL = MathUtils.maxElementIndex(likelihoods);
-            if ( PLindexOfBestGL != PLindexOfRef ) {
-                GenotypeLikelihoods.GenotypeLikelihoodsAllelePair alleles = GenotypeLikelihoods.getAllelePairUsingDeprecatedOrdering(PLindexOfBestGL);
-                if ( alleles.alleleIndex1 != baseIndexOfRef )
-                    likelihoodSums[alleles.alleleIndex1] += likelihoods[PLindexOfBestGL] - likelihoods[PLindexOfRef];
-                // don't double-count it
-                if ( alleles.alleleIndex2 != baseIndexOfRef && alleles.alleleIndex2 != alleles.alleleIndex1 )
-                    likelihoodSums[alleles.alleleIndex2] += likelihoods[PLindexOfBestGL] - likelihoods[PLindexOfRef];
+            final int[] mlAC = sampleData.GL.getMostLikelyACCount();
+            final double topLogGL = sampleData.GL.getLogPLofAC(mlAC);
+
+            int[] vec = new int[4];
+            vec[baseIndexOfRef] = sampleData.GL.TWO_N;
+            double refGL = sampleData.GL.getLogPLofAC(vec);
+
+            // check if maximum likelihood AC is all-ref for current pool. If so, skip
+            if (mlAC[baseIndexOfRef] == sampleData.GL.TWO_N)
+                continue;
+            
+            // most likely AC is not all-ref: for all non-ref alleles, add difference of max likelihood and all-ref likelihood
+            for (int i=0; i < 4; i++) {
+                if (i==baseIndexOfRef) continue;
+                
+                if (mlAC[i] > 0)
+                    likelihoodSums[i] += topLogGL - refGL;
+
             }
         }
 
