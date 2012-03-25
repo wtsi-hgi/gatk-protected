@@ -232,14 +232,22 @@ def parseStackTrace(elt, depth):
     stackTrace = elt.find("stacktrace")
     if stackTrace != None:
         strings = stackTrace.findall("string")
-        if len(strings) > 0:
-            prefix = '\n' + ' ' * (depth*2)
-            stackTraceString = prefix.join(map(lambda x: x.text, strings))
         if elt.find("exception-class") != None:
             exceptionClass = elt.find("exception-class").text
+        if len(strings) > 0:
+            offset = ' ' * (depth*2)
+            prefix = '\n' + offset
+            if depth > 0: 
+                stackTraceString = prefix
+            else:
+                stackTraceString = offset                
+            stackTraceString = stackTraceString + "### caused by: " + exceptionClass + prefix
+            stackTraceString = stackTraceString + prefix.join(map(lambda x: x.text, strings))
         if elt.find("cause") != None:
-            stackTraceString = stackTraceString + prefix + "### caused by:\n"
             stackTraceString = stackTraceString + parseStackTrace(elt.find("cause"), depth + 1)[0]
+            #subStack, subCause = parseStackTrace(elt.find("cause"), depth + 1)
+            #stackTraceString = stackTraceString + prefix + "\n### caused by: " + subCause + "\n"
+            #stackTraceString = stackTraceString + subStack
     return stackTraceString, exceptionClass
 
 def javaExceptionFile(javaException):

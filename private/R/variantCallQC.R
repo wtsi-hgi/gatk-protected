@@ -27,11 +27,18 @@ if ( onCMDLine ) {
     highlightSamples <- c()
 } else {
   projectName <- "InDevelopmentInR"
-  bySampleEval <- "/humgen/gsa-hpprojects/dev/kshakir/scratch/postqc/1kg_example.bySample.eval"
-  byACEval <- "/humgen/gsa-hpprojects/dev/kshakir/scratch/postqc/1kg_example.byAC.eval"
-  outputPDF <- "1kg_example.test.pdf"
+
+  bySampleEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012.bySample.eval"
+  byACEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012.byAC.eval"
+  
+  #bySampleEval <- "ALL.wex.broad.illumina.20110521.snps.indels.genotypes.bySample.eval"
+  #byACEval <- "ALL.wex.broad.illumina.20110521.snps.indels.genotypes.byAC.eval"
+  
+  outputPDF <- NA # "1kg_example.test.pdf"
   highlightSamples <- c() # parseHighlightSamples("29029,47243")
 }
+
+theme_set(theme_bw())
 
 print("Report")
 print(paste("Project          :", projectName))
@@ -73,7 +80,7 @@ distributePerSampleGraph <- function(perSampleGraph, distGraph) {
 
 expandVEReport <- function(d) {
   d$TiTvVariantEvaluator$tiTvRatio <- round(d$TiTvVariantEvaluator$tiTvRatio,2) 
-  d$CountVariants$deletionInsertionRatio <- round(d$CountVariants$deletionInsertionRatio,2) 
+  d$CountVariants$insertionDeletionRatio <- round(d$CountVariants$insertionDeletionRatio,2) 
   d$CountVariants$nIndels <- d$CountVariants$nInsertions + d$CountVariants$nDeletions
   return(d)
 }
@@ -101,7 +108,7 @@ summaryTable <- function(metricsBySites, metricsBySample) {
   # SNP summary statistics
   merged <- merge(metricsBySites$bySample$CountVariants, metricsBySites$bySample$TiTvVariantEvaluator)
   sub <- subset(merged, FunctionalClass=="all")
-  raw <- melt(sub, id.vars=c("Novelty"), measure.vars=c("nProcessedLoci", "nSNPs", "tiTvRatio", "nIndels", "deletionInsertionRatio"))
+  raw <- melt(sub, id.vars=c("Novelty"), measure.vars=c("nProcessedLoci", "nSNPs", "tiTvRatio", "nIndels", "insertionDeletionRatio"))
 
     # Create a data.frame with a column for missense/silent ratio by Novelty
   countMissenseSilent <- subset(metricsBySites$bySample$CountVariants, FunctionalClass %in% c("silent", "missense"))
@@ -117,12 +124,12 @@ summaryTable <- function(metricsBySites, metricsBySample) {
 
 sampleSummaryTable <- function(metricsBySamples, missenseSilentSummary) {
   # SNP summary statistics
-  raw <- melt(metricsBySamples, id.vars=c("Novelty", "Sample"), measure.vars=c("nProcessedLoci", "nSNPs", "tiTvRatio", "nIndels", "deletionInsertionRatio"))
+  raw <- melt(metricsBySamples, id.vars=c("Novelty", "Sample"), measure.vars=c("nProcessedLoci", "nSNPs", "tiTvRatio", "nIndels", "insertionDeletionRatio"))
   table <- cast(rbind(raw, missenseSilentSummary), Novelty ~ variable, mean)
   table$nSNPs <- round(table$nSNPs, 0)
   table$nIndels <- round(table$nIndels, 0)
   table$tiTvRatio <- round(table$tiTvRatio, 2)
-  table$deletionInsertionRatio <- round(table$deletionInsertionRatio, 2)
+  table$insertionDeletionRatio <- round(table$insertionDeletionRatio, 2)
   table$missenseSilentRatio <- round(table$missenseSilentRatio, 2)
   colnames(table) <- c("Novelty", "Target Size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "Del/Ins Ratio", "Ka/Ks")
   return(table)
@@ -216,14 +223,15 @@ summaryPlots <- function(metricsBySites) {
   if (sum(countVariants$nSNPs) > 0) {
     molten <- melt(subset(countFunctional, Novelty != "all"), id.vars=c("Novelty", "FunctionalClass"), measure.vars=c(c("nSNPs")))
     if ( sum(molten$value) > 0 ) {
-      p <- ggplot(data=cast(molten, Novelty + FunctionalClass ~ ..., sum), aes(x=FunctionalClass, y=nSNPs, fill=Novelty), group=FunctionalClass)
+      p <- ggplot(data=cast(molten, Novelty + FunctionalClass ~ ..., sum), aes(x=factor(FunctionalClass), y=nSNPs, fill=Novelty), group=FunctionalClass)
       p <- p + opts(title = name)
       p <- p + scale_y_log10("No. of SNPs")
       p <- p + geom_bar(position="dodge")
+      p <- p + xlab("FunctionalClass")
       print(p)
 
-      countNoNonsense = subset(countFunctional, Novelty == "all" & FunctionalClass != "nonsense")
-      p <- ggplot(data=countNoNonsense, aes(x=AlleleCount, y=nCalledLoci, color=FunctionalClass))
+      countNoNonsense = subset(countFunctional, Novelty == "all")
+      p <- ggplot(data=countNoNonsense, aes(x=AlleleCount, y=nCalledLoci, color=factor(FunctionalClass)))
       p <- p + opts(title = "Functional Class by allele count")
       p <- p + geom_point(alpha=0.5, size=3)
       p <- p + geom_line(size=1)
@@ -289,7 +297,7 @@ perSamplePlots <- function(metricsBySamples) {
   }
   xAxis <- scale_x_discrete("Sample (ordered by nSNPs)", formatter=function(x) "")
 
-  measures <- c("nSNPs", "tiTvRatio", "nSingletons", "nIndels", "deletionInsertionRatio")
+  measures <- c("nSNPs", "tiTvRatio", "nSingletons", "nIndels", "insertionDeletionRatio")
   name <- "by sample"
   for ( measure in measures ) {
     molten <- melt(metricsBySamples, id.vars=c("Novelty", "Sample", "highlightTextSizes"), measure.vars=c(measure))
@@ -307,8 +315,11 @@ perSamplePlots <- function(metricsBySamples) {
     
     if (numSamples > 2) {
       distGraph <- ggplot(data=molten, aes(x=value, group=Novelty, fill=Novelty))
-      distGraph <- distGraph + geom_density(alpha=0.5)
+      #distGraph <- distGraph + geom_density(alpha=0.5)
+      distGraph <- distGraph + geom_histogram(aes(y=..ndensity..))
+      distGraph <- distGraph + geom_density(alpha=0.5, aes(y=..scaled..))
       distGraph <- distGraph + geom_rug(aes(y=NULL, color=Novelty, position="jitter"))
+      distGraph <- distGraph + facet_grid(. ~ Novelty, scales="free")
       distGraph <- distGraph + scale_x_continuous(measure)
     } else {
       distGraph <- NA
@@ -336,7 +347,9 @@ perSamplePlots <- function(metricsBySamples) {
 
   if (numSamples > 2) {
     distGraph <- ggplot(data=d, aes(x=compRate))
-    distGraph <- distGraph + geom_density(alpha=0.5)
+    #distGraph <- distGraph + geom_density(alpha=0.5)
+    distGraph <- distGraph + geom_histogram(aes(y=..ndensity..))
+    distGraph <- distGraph + geom_density(alpha=0.5, aes(y=..scaled..))
     distGraph <- distGraph + geom_rug(aes(y=NULL, position="jitter"))
     distGraph <- distGraph + scale_x_continuous("Percent of variants in dbSNP")
   } else {
@@ -356,6 +369,125 @@ perSamplePlots <- function(metricsBySamples) {
     # how do we remove the labels?
     p <- p + xAxis
     print(p)
+  }
+}
+
+# -------------------------------------------------------
+# Detailed indel QC statistics 
+# -------------------------------------------------------
+
+removeExtraStrats <- function(df) {
+  #df <- subset(df, CompRod == "goldStandardIndel")
+  
+  for ( toRemove in c("FunctionalClass", "Novelty") ) {
+    if (toRemove %in% colnames(df)) {
+      df <- df[df[[toRemove]] == "all",]
+    }
+  }
+  df    
+}
+
+
+expectations = list(SNPIndelRatio = 10, 
+                    singletonSNPIndelRatio = 1, 
+                    indelNoveltyRate = 0.5,
+                    bpRatio_1_to_2 = 4, 
+                    bpRatio_1_to_3 = 3,
+                    bpRatio_2_to_3 = 1,
+                    frameshiftPercent = 0.75,
+                    insertionToDeletionRatio = 1)
+
+indelQCPlot <- function(metrics, measures, requestedStrat = "Sample") {
+  numSamples = dim(metrics)[1] - 1
+  metrics$strat = metrics[[requestedStrat]]
+  
+  molten <- melt(metrics, id.vars=c("strat"), measure.vars=c(measures))
+  perSampleGraph <- ggplot(data=molten, aes(x=strat, y=value, group=variable, color=variable, fill=variable))
+  if ( requestedStrat == "Sample" ) {
+    perSampleGraph <- perSampleGraph + geom_text(aes(label=strat), size=1.5) + geom_blank() # don't display a scale
+    perSampleGraph <- perSampleGraph + scale_x_discrete("Sample (ordered by nSNPs)", formatter=function(x) "")
+  } else {
+    perSampleGraph <- perSampleGraph + geom_point(size=2) + geom_line()
+    perSampleGraph <- perSampleGraph + xlab("AlleleCount")
+  }    
+  perSampleGraph <- perSampleGraph + ylab("Variable value")
+  perSampleGraph <- perSampleGraph + facet_grid(variable ~ ., scales="free")
+  # stop legend since it'll be in the distributions below
+  perSampleGraph <- perSampleGraph + opts(legend.position="top", legend.title=theme_blank())
+  if ( length(unique(molten$variable)) > 1 ) # this oddness is required to avoid a bug in ggplot2
+    perSampleGraph <- perSampleGraph + opts(legend.direction="horizontal")
+    
+  if (numSamples > 2) {
+
+    distGraph <- ggplot(data=molten, aes(x=value, group=variable, fill=variable))
+    distGraph <- distGraph + geom_histogram(aes(y=..ndensity..))
+    distGraph <- distGraph + geom_density(alpha=0.5, aes(y=..scaled..))
+    distGraph <- distGraph + geom_rug(aes(y=NULL, color=variable, position="jitter"))
+    distGraph <- distGraph + facet_grid(. ~ variable, scales="free")
+    distGraph <- distGraph + ylab("Relative frequency")
+    distGraph <- distGraph + ylab("Variable value")
+    distGraph <- distGraph + opts(axis.text.x=theme_text(angle=-45), legend.position="none")
+  } else {
+    distGraph <- NA
+  }
+  
+  distributePerSampleGraph(perSampleGraph, distGraph)
+}
+
+indelLengthDistribution <- function(indelHistogram) {
+  indelHistogram$callset <- "per sample"
+  indelHistogram$callset[indelHistogram$Sample == "all"] = "overall"
+  indelHistogram$callset = factor(indelHistogram$callset, levels=c("per sample", "overall"), ordered=T)
+  p <- ggplot(data=indelHistogram, aes(x=Length, y=Count, group=Sample, color=callset, size=callset))
+  p <- p + geom_point()
+  p <- p + geom_line()
+  p <- p + facet_grid(Novelty ~ .)
+  p <- p + scale_colour_manual(values=c(alpha("blue", 0.25), "black"))
+  p <- p + xlab("Indel length (negative is deletion)")
+  p <- p + ylab("Relative frequency")
+  print(p)
+}
+
+indelPlots <- function(bySampleReport, byACReport) {
+  IndelSummaryBySample <- removeExtraStrats(bySampleReport$IndelSummary)
+  IndelSummaryBySampleWithoutAll = subset(IndelSummaryBySample, Sample != "all")
+  IndelSummaryByAC = removeExtraStrats(subset(byACReport$IndelSummary, AlleleCount > 0)) 
+  
+  # write out the values for all IndelSummary report fields transposed for easy viewing
+  all = subset(IndelSummaryBySample, Sample == "all")
+  all = all[, !(colnames(all) %in% c("IndelSummary", "Sample", "CompRod","EvalRod") )]
+  rownames(all) <- "Combined callset"
+  textplot(t(all))
+
+  if ( T ) {
+    indelQCPlot(IndelSummaryBySampleWithoutAll, c("n_SNPs", "n_indels", "SNP_to_indel_ratio"))
+    indelQCPlot(IndelSummaryBySampleWithoutAll, c("n_singleton_SNPs", "n_singleton_indels", "SNP_to_indel_ratio_for_singletons"))
+    indelQCPlot(IndelSummaryByAC, c("SNP_to_indel_ratio"), "AlleleCount")
+    
+    indelQCPlot(IndelSummaryBySampleWithoutAll, c("indel_novelty_rate"))
+    indelQCPlot(IndelSummaryByAC, c("indel_novelty_rate"), "AlleleCount")
+    
+    # insertion to deletion information
+    indelQCPlot(IndelSummaryBySampleWithoutAll, c("insertion_to_deletion_ratio", "insertion_to_deletion_ratio_for_1bp_indels", "insertion_to_deletion_ratio_for_large_indels"))
+    #indelQCPlot(IndelSummaryByAC, c("insertion_to_deletion_ratio", "insertion_to_deletion_ratio_for_1bp_indels", "insertion_to_deletion_ratio_for_large_indels"), "AlleleCount")
+    
+    # het : hom ratios information
+    indelQCPlot(IndelSummaryBySampleWithoutAll, c("SNP_het_to_hom_ratio", "indel_het_to_hom_ratio"))
+    
+    # optional frameshift counts
+    hasFrameShift = ! is.na(max(IndelSummaryBySampleWithoutAll$frameshift_rate_for_coding_indels))
+    if ( hasFrameShift ) {
+      indelQCPlot(IndelSummaryBySampleWithoutAll, c("frameshift_rate_for_coding_indels"))
+      indelQCPlot(IndelSummaryByAC, c("frameshift_rate_for_coding_indels"), "AlleleCount")
+    } else {
+      indelQCPlot(IndelSummaryBySampleWithoutAll, c("ratio_of_1_and_2_to_3_bp_indels"))
+      #indelQCPlot(IndelSummaryByAC, c("ratio_of_1_and_2_to_3_bp_indels"), "AlleleCount")
+    }
+
+    indelQCPlot(IndelSummaryBySampleWithoutAll, c("ratio_of_1_to_2_bp_indels", "ratio_of_1_to_3_bp_indels", "ratio_of_2_to_3_bp_indels"))
+    
+    lengthHistogram <- removeExtraStrats(bySampleReport$IndelSummary.lengthHistogram)
+    indelLengthDistribution(lengthHistogram)
   }
 }
 
@@ -382,6 +514,7 @@ title(paste("Summary metrics for project", projectName), cex=3)
 
 summaryPlots(metricsBySites)
 perSamplePlots(metricsBySamples)
+indelPlots(bySampleReport, metricsBySites$byAC)
 
 if ( ! is.na(outputPDF) ) {
   dev.off()
