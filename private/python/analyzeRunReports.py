@@ -228,6 +228,11 @@ def parseException(elt):
 def parseStackTrace(elt, depth):
     stackTraceString = "NA"
     exceptionClass = "NA"
+    msgText = "NA"
+    
+    # find the message, if possible
+    if elt.find("message") != None: 
+        msgText = elt.find("message").text
 
     stackTrace = elt.find("stacktrace")
     if stackTrace != None:
@@ -241,7 +246,9 @@ def parseStackTrace(elt, depth):
                 stackTraceString = prefix
             else:
                 stackTraceString = offset                
-            stackTraceString = stackTraceString + "### caused by: " + exceptionClass + prefix
+            stackTraceString = stackTraceString + "### caused by: " + exceptionClass
+            if msgText != "NA": stackTraceString = stackTraceString + ": " + msgText
+            stackTraceString = stackTraceString + prefix
             stackTraceString = stackTraceString + prefix.join(map(lambda x: x.text, strings))
         if elt.find("cause") != None:
             stackTraceString = stackTraceString + parseStackTrace(elt.find("cause"), depth + 1)[0]
