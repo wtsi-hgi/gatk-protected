@@ -161,8 +161,8 @@ public class GenotypingEngine {
                     attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
 
                     // using the allele mapping object translate the haplotype allele into the event allele
-                    final ArrayList<Allele> eventAllelesForSample = findEventAllelesInSample( mergedVC.getAlleles(), call.getAlleles(), call.getGenotype(sample).getAlleles(), alleleMapper );
-                    genotypes.add(new Genotype(sample, eventAllelesForSample, Genotype.NO_LOG10_PERROR, null, attributes, false));
+                    genotypes.add(new Genotype(sample, findEventAllelesInSample( mergedVC.getAlleles(), call.getAlleles(), call.getGenotype(sample).getAlleles(), alleleMapper ),
+                            Genotype.NO_LOG10_PERROR, null, attributes, false));
                 }
                 returnVCs.add(new VariantContextBuilder(mergedVC).log10PError(call.getLog10PError()).genotypes(genotypes).make());
             }
@@ -195,7 +195,8 @@ public class GenotypingEngine {
     }
 
     @Ensures({"result.size() == haplotypeAllelesForSample.size()"})
-    protected static ArrayList<Allele> findEventAllelesInSample( final List<Allele> eventAlleles, final List<Allele> haplotypeAlleles, final List<Allele> haplotypeAllelesForSample, final ArrayList<ArrayList<Integer>> alleleMapper ) {
+    protected static List<Allele> findEventAllelesInSample( final List<Allele> eventAlleles, final List<Allele> haplotypeAlleles, final List<Allele> haplotypeAllelesForSample, final ArrayList<ArrayList<Integer>> alleleMapper ) {
+        if( haplotypeAllelesForSample.contains(Allele.NO_CALL) ) { return noCall; }
         final ArrayList<Allele> eventAllelesForSample = new ArrayList<Allele>();
         for( final Allele a : haplotypeAllelesForSample ) {
             final int haplotypeIndex = haplotypeAlleles.indexOf(a);

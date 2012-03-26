@@ -10,9 +10,10 @@ import java.util.*;
 
 /**
  * Created by IntelliJ IDEA.
- * User: ebanks
+ * User: ebanks, rpoplin
  * Date: Mar 14, 2011
  */
+
 public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private static final int KMER_OVERLAP = 6; // the additional size of a valid chunk of sequence, used to string together k-mers
@@ -37,12 +38,14 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         createDeBruijnGraphs( reads, refHaplotype );
 
         // clean up the graphs by pruning and merging
-        pruneGraphs();
-        eliminateNonRefPaths();
-        mergeNodes();
+        for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
+            pruneGraph( graph );
+            eliminateNonRefPaths( graph );
+            mergeNodes( graph );
+        }
 
         if( GRAPH_WRITER != null ) {
-            printGraphs( true );
+            printGraphs();
         }
 
         // find the best paths in the graphs
@@ -53,7 +56,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         graphs.clear();
 
         // create the graph
-        for( int kmer = 7; kmer <= 75; kmer += 4 ) {
+        for( int kmer = 7; kmer <= 75; kmer += 6 ) {
             final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
             if( createGraphFromSequences( graph, reads, kmer, refHaplotype ) ) {
                 graphs.add(graph);
@@ -61,98 +64,88 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         }
     }
 
-    private void mergeNodes() {
-        for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            boolean foundNodesToMerge = true;
-            while( foundNodesToMerge ) {
-                foundNodesToMerge = false;
-                Set<DeBruijnEdge> outEdges = null;
-                Set<DeBruijnEdge> inEdges = null;
-                final ArrayList<DeBruijnVertex> verticesToRemove = new ArrayList<DeBruijnVertex>();
-                DeBruijnVertex incomingVertex = null;
-                DeBruijnVertex thisVertex = null;
-                for( final DeBruijnEdge e : graph.edgeSet() ) {
-                    incomingVertex = graph.getEdgeSource(e);
-                    thisVertex = graph.getEdgeTarget(e);
-                    if( !thisVertex.equals(incomingVertex) && graph.inDegreeOf(thisVertex) == 1 && graph.outDegreeOf(incomingVertex) == 1) {
-                        outEdges = graph.outgoingEdgesOf(thisVertex);
-                        inEdges = graph.incomingEdgesOf(incomingVertex);
-                        foundNodesToMerge = true;
-                        verticesToRemove.add(thisVertex);
-                        verticesToRemove.add(incomingVertex);
-                        if( inEdges.size() == 1 && outEdges.size() == 1 ) {
-                            inEdges.iterator().next().setMultiplicity( inEdges.iterator().next().getMultiplicity() + ( e.getMultiplicity() / 2 ) );
-                            outEdges.iterator().next().setMultiplicity( outEdges.iterator().next().getMultiplicity() + ( e.getMultiplicity() / 2 ) );
-                        } else if( inEdges.size() == 1 ) {
-                            inEdges.iterator().next().setMultiplicity( inEdges.iterator().next().getMultiplicity() + ( e.getMultiplicity() - 1 ) );
-                        } else if( outEdges.size() == 1 ) {
-                            outEdges.iterator().next().setMultiplicity( outEdges.iterator().next().getMultiplicity() + ( e.getMultiplicity() - 1 ) );
-                        }
-                        break;
+    protected static void mergeNodes( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph ) {
+        boolean foundNodesToMerge = true;
+        while( foundNodesToMerge ) {
+            foundNodesToMerge = false;
+            final ArrayList<DeBruijnVertex> verticesToRemove = new ArrayList<DeBruijnVertex>();
+            for( final DeBruijnEdge e : graph.edgeSet() ) {
+                final DeBruijnVertex outgoingVertex = graph.getEdgeTarget(e);
+                final DeBruijnVertex incomingVertex = graph.getEdgeSource(e);
+                if( !outgoingVertex.equals(incomingVertex) && graph.inDegreeOf(outgoingVertex) == 1 && graph.outDegreeOf(incomingVertex) == 1) {
+                    final Set<DeBruijnEdge> outEdges = graph.outgoingEdgesOf(outgoingVertex);
+                    final Set<DeBruijnEdge> inEdges = graph.incomingEdgesOf(incomingVertex);
+                    foundNodesToMerge = true;
+                    verticesToRemove.add(outgoingVertex);
+                    verticesToRemove.add(incomingVertex);
+                    if( inEdges.size() == 1 && outEdges.size() == 1 ) {
+                        inEdges.iterator().next().setMultiplicity( inEdges.iterator().next().getMultiplicity() + ( e.getMultiplicity() / 2 ) );
+                        outEdges.iterator().next().setMultiplicity( outEdges.iterator().next().getMultiplicity() + ( e.getMultiplicity() / 2 ) );
+                    } else if( inEdges.size() == 1 ) {
+                        inEdges.iterator().next().setMultiplicity( inEdges.iterator().next().getMultiplicity() + ( e.getMultiplicity() - 1 ) );
+                    } else if( outEdges.size() == 1 ) {
+                        outEdges.iterator().next().setMultiplicity( outEdges.iterator().next().getMultiplicity() + ( e.getMultiplicity() - 1 ) );
                     }
-                }
-                if( foundNodesToMerge ) {
-                    final byte[] newVertexBases = ArrayUtils.addAll(incomingVertex.getSequence(), thisVertex.getSuffix());
-                    final DeBruijnVertex addedVertex = addToGraphIfNew( graph, newVertexBases, thisVertex.kmer );
-                    for( final DeBruijnEdge e : outEdges ) {
-                        final DeBruijnEdge newEdge = new DeBruijnEdge(e.getIsRef());
-                        newEdge.setMultiplicity( e.getMultiplicity() );
-                        graph.addEdge(addedVertex, graph.getEdgeTarget(e), newEdge);
+
+                    final byte[] newVertexBases = ArrayUtils.addAll(incomingVertex.getSequence(), outgoingVertex.getSuffix());
+                    final DeBruijnVertex addedVertex = new DeBruijnVertex( newVertexBases, outgoingVertex.kmer );
+                    graph.addVertex(addedVertex);
+                    for( final DeBruijnEdge edge : outEdges ) {
+                        final DeBruijnEdge newEdge = new DeBruijnEdge(edge.getIsRef());
+                        newEdge.setMultiplicity( edge.getMultiplicity() );
+                        graph.addEdge(addedVertex, graph.getEdgeTarget(edge), newEdge);
                     }
-                    for( final DeBruijnEdge e : inEdges ) {
-                        final DeBruijnEdge newEdge = new DeBruijnEdge(e.getIsRef());
-                        newEdge.setMultiplicity( e.getMultiplicity() );
-                        graph.addEdge(graph.getEdgeSource(e), addedVertex, newEdge);
+                    for( final DeBruijnEdge edge : inEdges ) {
+                        final DeBruijnEdge newEdge = new DeBruijnEdge(edge.getIsRef());
+                        newEdge.setMultiplicity( edge.getMultiplicity() );
+                        graph.addEdge(graph.getEdgeSource(edge), addedVertex, newEdge);
                     }
-                    graph.removeAllVertices( verticesToRemove );
+                    break;
                 }
             }
+            graph.removeAllVertices( verticesToRemove );
         }
     }
 
-    private void pruneGraphs() {
-        for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            final ArrayList<DeBruijnEdge> edgesToRemove = new ArrayList<DeBruijnEdge>();
-            for( final DeBruijnEdge e : graph.edgeSet() ) {
-                if( e.getMultiplicity() <= PRUNE_FACTOR && !e.getIsRef() ) {
-                    edgesToRemove.add(e);
-                }
+    protected void pruneGraph( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph ) {
+        final ArrayList<DeBruijnEdge> edgesToRemove = new ArrayList<DeBruijnEdge>();
+        for( final DeBruijnEdge e : graph.edgeSet() ) {
+            if( e.getMultiplicity() <= PRUNE_FACTOR && !e.getIsRef() ) {
+                edgesToRemove.add(e);
             }
-            graph.removeAllEdges(edgesToRemove);
-            final ArrayList<DeBruijnVertex> verticesToRemove = new ArrayList<DeBruijnVertex>();
-            for( final DeBruijnVertex v : graph.vertexSet() ) {
-                if( graph.inDegreeOf(v) == 0 && graph.outDegreeOf(v) == 0) {
-                    verticesToRemove.add(v);
+        }
+        graph.removeAllEdges(edgesToRemove);
+        final ArrayList<DeBruijnVertex> verticesToRemove = new ArrayList<DeBruijnVertex>();
+        for( final DeBruijnVertex v : graph.vertexSet() ) {
+            if( graph.inDegreeOf(v) == 0 && graph.outDegreeOf(v) == 0) {
+                verticesToRemove.add(v);
+            }
+        }
+        graph.removeAllVertices(verticesToRemove);
+    }
+
+    protected static void eliminateNonRefPaths( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph ) {
+        final ArrayList<DeBruijnVertex> verticesToRemove = new ArrayList<DeBruijnVertex>();
+        boolean done = false;
+        while( !done ) {
+            done = true;
+            for( DeBruijnVertex v : graph.vertexSet() ) {
+                if( graph.inDegreeOf(v) == 0 || graph.outDegreeOf(v) == 0 ) {
+                    boolean isRefNode = false;
+                    for( DeBruijnEdge e : graph.edgesOf(v) ) {
+                        if( e.getIsRef() ) {
+                            isRefNode = true;
+                            break;
+                        }
+                    }
+                    if( !isRefNode ) {
+                        done = false;
+                        verticesToRemove.add(v);
+                    }
                 }
             }
             graph.removeAllVertices(verticesToRemove);
-        }
-    }
-    
-    private void eliminateNonRefPaths() {
-        for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            final ArrayList<DeBruijnVertex> verticesToRemove = new ArrayList<DeBruijnVertex>();
-            boolean done = false;
-            while( !done ) {
-                done = true;
-                for( DeBruijnVertex v : graph.vertexSet() ) {
-                    if( graph.inDegreeOf(v) == 0 || graph.outDegreeOf(v) == 0 ) {
-                        boolean isRefNode = false;
-                        for( DeBruijnEdge e : graph.edgesOf(v) ) {
-                            if( e.getIsRef() ) { 
-                                isRefNode = true;
-                                break;
-                            }
-                        }
-                        if( !isRefNode ) {
-                            done = false;
-                            verticesToRemove.add(v);
-                        }
-                    }
-                }
-                graph.removeAllVertices(verticesToRemove);
-                verticesToRemove.clear();
-            }
+            verticesToRemove.clear();
         }
     }
 
@@ -166,7 +159,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                 System.arraycopy(refSequence, i, kmer1, 0, KMER_LENGTH);
                 final byte[] kmer2 = new byte[KMER_LENGTH];
                 System.arraycopy(refSequence, i+1, kmer2, 0, KMER_LENGTH);
-                if( !addEdgeToGraph( graph, kmer1, kmer2, true ) ) { return false; }
+                if( !addKmersToGraph(graph, kmer1, kmer2, true) ) { return false; }
             }
         }
 
@@ -181,58 +174,38 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
                     final byte[] kmer2 = new byte[KMER_LENGTH];
                     System.arraycopy(sequence, i+1, kmer2, 0, KMER_LENGTH);
 
-                    addEdgeToGraph( graph, kmer1, kmer2, false );
+                    addKmersToGraph(graph, kmer1, kmer2, false);
                 }
             }
         }
         return true;
     }
 
-    private static boolean addEdgeToGraph( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final byte[] kmer1, final byte[] kmer2, final boolean isRef ) {
+    private static boolean addKmersToGraph( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final byte[] kmer1, final byte[] kmer2, final boolean isRef ) {
 
         final int numVertexBefore = graph.vertexSet().size();
-        final DeBruijnVertex v1 = addToGraphIfNew( graph, kmer1, kmer1.length );
-        final DeBruijnVertex v2 = addToGraphIfNew( graph, kmer2, kmer2.length );
+        final DeBruijnVertex v1 = new DeBruijnVertex( kmer1, kmer1.length );
+        graph.addVertex(v1);
+        final DeBruijnVertex v2 = new DeBruijnVertex( kmer2, kmer2.length );
+        graph.addVertex(v2);
         if( isRef && graph.vertexSet().size() == numVertexBefore ) { return false; }
-        
-        final Set<DeBruijnEdge> edges = graph.outgoingEdgesOf(v1);
-        DeBruijnEdge targetEdge = null;
-        for ( final DeBruijnEdge edge : edges ) {
-            if ( graph.getEdgeTarget(edge).equals(v2) ) {
-                targetEdge = edge;
-                break;
-            }
-        }
 
+        final DeBruijnEdge targetEdge = graph.getEdge(v1, v2);
         if ( targetEdge == null ) {
             graph.addEdge(v1, v2, new DeBruijnEdge( isRef ));
         } else {
             if( isRef ) {
-                targetEdge.setIsRef(true);
+                targetEdge.setIsRef( true );
             } 
             targetEdge.setMultiplicity(targetEdge.getMultiplicity() + 1);
         }
         return true;
     }
 
-    private static DeBruijnVertex addToGraphIfNew( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final byte[] kmer, final int kmerLength ) {
-
-        // the graph.containsVertex() method is busted, so here's a hack around it
-        final DeBruijnVertex newV = new DeBruijnVertex(kmer, kmerLength);
-        for( final DeBruijnVertex v : graph.vertexSet() ) {
-            if( v.equals(newV) ) {
-                return v;
-            }
-        }
-
-        graph.addVertex(newV);
-        return newV;
-    }
-    
-    private void printGraphs( final boolean wasPruned ) {
+    private void printGraphs() {
         int count = 0;
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            GRAPH_WRITER.println("digraph kmer" + count++ + (wasPruned ? "Pruned":"") +" {");
+            GRAPH_WRITER.println("digraph kmer" + count++ +" {");
             for( final DeBruijnEdge edge : graph.edgeSet() ) {
                 if( edge.getMultiplicity() > PRUNE_FACTOR ) {
                     GRAPH_WRITER.println("\t" + graph.getEdgeSource(edge).toString() + " -> " + graph.getEdgeTarget(edge).toString() + " [" + (edge.getMultiplicity() <= PRUNE_FACTOR ? "style=dotted,color=grey" : "label=\""+ edge.getMultiplicity() +"\"") + "];");

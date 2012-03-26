@@ -23,6 +23,11 @@ public class DeBruijnVertex {
         return v instanceof DeBruijnVertex && Arrays.equals(sequence, ((DeBruijnVertex) v).sequence);
     }
 
+    @Override
+    public int hashCode() { // necessary to override here so that graph.containsVertex() works the same way as vertex.equals() as one might expect
+        return Arrays.hashCode(sequence);
+    }
+
     public String toString() {
         return new String(sequence);
     }   

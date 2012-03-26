@@ -44,6 +44,7 @@ public class DeBruijnEdge implements Comparable<DeBruijnEdge> {
         return (graph.getEdgeSource(this).equals(graph.getEdgeSource(edge))) && (graph.getEdgeTarget(this).equals(graph.getEdgeTarget(edge)));
     }
 
+    @Override
     public int compareTo(final DeBruijnEdge that) {
         return this.multiplicity - that.multiplicity;
     }
