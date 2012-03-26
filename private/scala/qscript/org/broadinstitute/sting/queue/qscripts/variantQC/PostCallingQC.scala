@@ -56,7 +56,7 @@ class PostCallingQC extends QScript {
     this.doNotUseAllStandardStratifications = true
     this.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ extraStrats
     this.num_threads = qscript.num_threads
-    this.memoryLimit = 4
+    this.memoryLimit = 8
     this.out = swapExt(evalVCF, ".vcf", prefix + ".eval")
   }
 
