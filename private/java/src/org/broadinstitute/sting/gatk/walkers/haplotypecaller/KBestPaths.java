@@ -113,7 +113,7 @@ public class KBestPaths {
             if ( bestPaths.size() >= MAX_PATHS_TO_HOLD ) {
                 // clean out some low scoring paths
                 Collections.sort(bestPaths, new PathComparatorLowestEdge() );
-                bestPaths.removeAll(bestPaths.subList(0, 20));
+                for(int iii = 0; iii < 20; iii++) { bestPaths.remove(0); }
             }
             bestPaths.add(path);
         } else if( n.val > 10000) {
