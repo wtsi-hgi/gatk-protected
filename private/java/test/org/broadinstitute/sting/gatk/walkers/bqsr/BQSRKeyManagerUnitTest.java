@@ -115,7 +115,7 @@ public class BQSRKeyManagerUnitTest {
                     System.arraycopy(expectedRequired, 0, expected, 0, nRequired);
                     if (optionalCovariates.size() > 0) {
                         expected[expected.length-3] = expectedCovariate[cov];
-                        expected[expected.length-2] = cov++;
+                        expected[expected.length-2] = optionalCovariates.get(cov++).getClass().getSimpleName().split("Covariate")[0];
                     }
                     expected[expected.length-1] = EventType.eventFrom(eventType);
 
