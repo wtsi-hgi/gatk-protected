@@ -180,7 +180,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             throw new UserException.CouldNotReadInputFile(getToolkit().getArguments().referenceFile, e);
         }
 
-        assemblyEngine = makeAssembler(ASSEMBLER_TO_USE, DEBUG);
+        assemblyEngine = new SimpleDeBruijnAssembler( DEBUG, graphWriter );
         likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, false, noBanded );
         genotypingEngine = new GenotypingEngine( DEBUG );
     }
@@ -225,14 +225,13 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             Arrays.fill(genotypeLikelihoods, 0.0);
 
             for( final PileupElement p : context.getBasePileup() ) {
-                byte qual = p.getQual();
+                final byte qual = p.getQual();
                 if( qual > QualityUtils.MIN_USABLE_Q_SCORE ) {
                     int AA = 0; final int AB = 1; int BB = 2;
                     if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletion() || p.isBeforeInsertion() || p.isNextToSoftClip() || (p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()) ) {
                         AA = 2;
                         BB = 0;
-                        qual = (byte) ((int)qual + 6); // be overly permissive so as to not miss any slight signal of variation
-                    } 
+                    }
                     genotypeLikelihoods[AA] += QualityUtils.qualToProbLog10(qual);
                     genotypeLikelihoods[AB] += MathUtils.approximateLog10SumLog10( QualityUtils.qualToProbLog10(qual) + LOG_ONE_HALF, QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD + LOG_ONE_HALF );
                     genotypeLikelihoods[BB] += QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD;
@@ -277,9 +276,10 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES && activeAllelesToGenotype.isEmpty() ) { return 0; } // No alleles found in this region
 
         finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
-        final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader)); // Create the reference haplotype which is the bases from the reference that make up the active region
+        final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader, 20)); // Create the reference haplotype which is the bases from the reference that make up the active region
         referenceHaplotype.setIsReference(true);
-        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), referenceHaplotype );
+        int PRUNE_FACTOR = determinePruneFactorFromCoverage( activeRegion );
+        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), referenceHaplotype, PRUNE_FACTOR );
 
         activeRegion.hardClipToActiveRegion(); // only evaluate the parts of reads that are overlapping the active region
         filterNonPassingReads( activeRegion ); // filter out reads from genotyping which fail mapping quality criteria
@@ -330,15 +330,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     // private helper functions
     //
     //---------------------------------------------------------------------------------------------------------------
-
-    private LocalAssemblyEngine makeAssembler( final LocalAssemblyEngine.ASSEMBLER type, final boolean debug ) {
-        switch ( type ) {
-            case SIMPLE_DE_BRUIJN:
-                return new SimpleDeBruijnAssembler( debug );
-            default:
-                throw new UserException.BadInput("Assembler type " + type + " is not valid/supported");
-        }
-    }
 
     private void finalizeActiveRegion( final ActiveRegion activeRegion ) {
         if( DEBUG ) { System.out.println("\nAssembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:"); }
@@ -399,5 +390,20 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
 
         return returnMap;
+    }
+    
+    private int determinePruneFactorFromCoverage( final ActiveRegion activeRegion ) {
+        final ArrayList<Integer> readLengthDistribution = new ArrayList<Integer>();
+        for( final GATKSAMRecord read : activeRegion.getReads() ) {
+            readLengthDistribution.add(read.getReadLength());
+        }
+        final double meanReadLength = MathUtils.average(readLengthDistribution);
+        final double meanCoveragePerSample = (double) activeRegion.getReads().size() / ((double) activeRegion.getExtendedLoc().size() / meanReadLength) / (double) samplesList.size();
+        int PRUNE_FACTOR = 0;
+        if( meanCoveragePerSample > 100.0 ) { PRUNE_FACTOR = 10; }
+        else if( meanCoveragePerSample > 25.0 ) { PRUNE_FACTOR = 4; }
+        else if( meanCoveragePerSample > 2.0 ) { PRUNE_FACTOR = 1; }
+        if( DEBUG ) { System.out.println(String.format("Mean coverage per sample = %.1f --> prune factor = %d", meanCoveragePerSample, PRUNE_FACTOR)); }
+        return PRUNE_FACTOR;
     }
 }
