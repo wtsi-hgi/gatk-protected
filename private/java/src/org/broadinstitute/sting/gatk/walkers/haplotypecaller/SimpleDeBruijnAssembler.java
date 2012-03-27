@@ -237,7 +237,11 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         }
 
         if( DEBUG ) { 
-            System.out.println("Found " + returnHaplotypes.size() + " candidate haplotypes to evaluate every read against.");
+            if( returnHaplotypes.size() > 1 ) {
+                System.out.println("Found " + returnHaplotypes.size() + " candidate haplotypes to evaluate every read against.");
+            } else {
+                System.out.println("Found only the reference haplotype in the assembly graph.");
+            }
         }
 
         return returnHaplotypes;
