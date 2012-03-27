@@ -181,7 +181,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
 
         assemblyEngine = new SimpleDeBruijnAssembler( DEBUG, graphWriter );
-        likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, false, noBanded );
+        likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, DEBUG, noBanded );
         genotypingEngine = new GenotypingEngine( DEBUG );
     }
 
@@ -295,7 +295,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
                                                                                                        getPaddedLoc(activeRegion), activeRegion.getLocation(), getToolkit().getGenomeLocParser() );
         
         for( final VariantContext vc : vcs ) {
-            if( DEBUG ) { System.out.println(vc); }
+            if( DEBUG && samplesList.size() <= 10 ) { System.out.println(vc); }
             vcfWriter.add(vc);
         }
 
