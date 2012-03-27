@@ -63,7 +63,7 @@ class G1KPhaseISummaryTable extends QScript {
   val myIntervals: List[String] = null;
 
   @Argument(shortName = "nt", fullName = "nt", doc="Number of threads to use", required=false)
-  val NumThreads: Int = 1;
+  val NumThreads: Int = 4;
 
   @Argument(shortName = "pop", fullName = "pop", doc="Only run population", required=false)
   val OnlyPop: String = null;
