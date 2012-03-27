@@ -69,7 +69,7 @@ public class GenotypingEngine {
                     genotypeLikelihoods[glIndex++] = haplotypeLikelihoodMatrix[iii][jjj]; // for example: AA,AB,BB,AC,BC,CC
                 }
             }
-            if( DEBUG ) { System.out.println(sample + " --> " + Arrays.toString(genotypeLikelihoods)); }
+            //if( DEBUG ) { System.out.println(sample + " --> " + Arrays.toString(genotypeLikelihoods)); }
             final HashMap<String, Object> attributes = new HashMap<String, Object>();
             attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
             genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));

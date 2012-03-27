@@ -88,13 +88,15 @@ class G1KPhaseISummaryTable extends QScript {
 
   val populations = List("EUR", "ASN", "AFR", "AMR", "ALL")
 
-  val callsets = Range(1,22).map("/humgen/1kg/DCC/ftp/technical/working/20120117_new_phase1_intgrated_genotypes/ALL.chr%d.merged_umich.20101123.snps_indels_svs.vcf.gz".format(_))
-  val X_callset = "/humgen/1kg/DCC/ftp/technical/working/20111121_chrX_phase1_integrated_genotypes/ALL.chrX.merged_beagle_mach.20101123.snps_indels_svs.genotypes.vcf.gz"
+  val callsets = Range(1,22).map("/humgen/1kg/DCC/ftp/release/20110521/ALL.chr%d.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz".format(_))
+  val X_callset = "/humgen/1kg/DCC/ftp/release/20110521/ALL.chrX.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz"
 
   val CCDS_BED = new File("resources/ucsc.ccds.bed")
   //val CAPTURE_BED = new File("resources/20110225.exome.consensus.annotation.bed")
   val GENCODE_BED = new File("resources/gencode7.coding.bed")
-  val INTERVALS = Map("CCDS" -> CCDS_BED, "GENCODE" -> GENCODE_BED) // "CAPTURE" -> CAPTURE_BED,
+  // we've converged on using GENCODE
+  //val INTERVALS = Map("CCDS" -> CCDS_BED, "GENCODE" -> GENCODE_BED) // "CAPTURE" -> CAPTURE_BED,
+  val INTERVALS = Map("GENCODE" -> GENCODE_BED) // "CAPTURE" -> CAPTURE_BED,
 
   def script = {
     for ( population <- if ( OnlyPop != null ) List(OnlyPop) else populations ) {
