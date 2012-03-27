@@ -21,12 +21,12 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
     @Test
     public void testHaplotypeCallerMultiSample() {
 
-        HCTest(CEUTRIO_BAM, "", "6e2d95cbfb3736f441b218e858d904d5");
+        HCTest(CEUTRIO_BAM, "", "b24c659e03f7ec2f124e876faacf62ba");
     }
 
     @Test
     public void testHaplotypeCallerSingleSample() {
-        HCTest(NA12878_BAM, "", "f28c05d7e4d5e9eb6a538f69b1d7c4de");
+        HCTest(NA12878_BAM, "", "d1e831f24fed956ccbc1a304275e099d");
     }
 }
 
