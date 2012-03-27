@@ -30,8 +30,6 @@ package org.broadinstitute.sting.utils.recalibration;
 
 
 import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.gatk.walkers.haplotypecaller.LikelihoodCalculationEngine;
-import org.broadinstitute.sting.utils.Median;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.Utils;
 import org.testng.Assert;
@@ -41,7 +39,6 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 
