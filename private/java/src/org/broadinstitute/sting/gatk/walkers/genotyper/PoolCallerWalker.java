@@ -25,6 +25,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
+import net.sf.samtools.SAMReadGroupRecord;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.DownsampleType;
 import org.broadinstitute.sting.gatk.arguments.DbsnpArgumentCollection;
@@ -114,10 +115,10 @@ import java.util.*;
 @Reference(window=@Window(start=-200,stop=200))
 @By(DataSource.REFERENCE)
 @Downsample(by=DownsampleType.BY_SAMPLE, toCoverage=250)
-public class UnifiedGenotyper extends LocusWalker<VariantCallContext, UnifiedGenotyper.UGStatistics> implements TreeReducible<UnifiedGenotyper.UGStatistics>, AnnotatorCompatibleWalker {
+public class PoolCallerWalker extends LocusWalker<VariantCallContext, PoolCallerWalker.UGStatistics> implements TreeReducible<PoolCallerWalker.UGStatistics>, AnnotatorCompatibleWalker {
 
     @ArgumentCollection
-    private UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
+    private PoolCallerUnifiedArgumentCollection UAC = new PoolCallerUnifiedArgumentCollection();
 
     /**
      * rsIDs from this file are used to populate the ID column of the output.  Also, the DB INFO flag will be set when appropriate.
@@ -137,7 +138,6 @@ public class UnifiedGenotyper extends LocusWalker<VariantCallContext, UnifiedGen
     @Output(doc="File to which variants should be written",required=true)
     protected VCFWriter writer = null;
 
-    @Hidden
     @Argument(fullName = "debug_file", shortName = "debug_file", doc = "File to print all of the annotated and detailed debugging output", required = false)
     protected PrintStream verboseWriter = null;
 
@@ -163,6 +163,7 @@ public class UnifiedGenotyper extends LocusWalker<VariantCallContext, UnifiedGen
     @Argument(fullName="group", shortName="G", doc="One or more classes/groups of annotations to apply to variant calls", required=false)
     protected String[] annotationClassesToUse = { "Standard" };
 
+
     // the calculation arguments
     private UnifiedGenotyperEngine UG_engine = null;
 
@@ -174,11 +175,11 @@ public class UnifiedGenotyper extends LocusWalker<VariantCallContext, UnifiedGen
     public boolean includeReadsWithDeletionAtLoci() { return true; }
 
     // enable extended events for indels
-    @Override
+/*    @Override
     public boolean generateExtendedEvents() {
         return (UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.SNP && UAC.GenotypingMode != GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES);
     }
-
+  */
     /**
      * Inner class for collecting output statistics from the UG
      */
@@ -211,18 +212,35 @@ public class UnifiedGenotyper extends LocusWalker<VariantCallContext, UnifiedGen
         // warn the user for misusing EMIT_ALL_SITES
         if ( UAC.OutputMode == UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES &&
                 UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY &&
-                UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.SNP )
+                UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.POOLSNP )
             logger.warn("WARNING: note that the EMIT_ALL_SITES option is intended only for point mutations (SNPs) in DISCOVERY mode or generally when running in GENOTYPE_GIVEN_ALLELES mode; it will by no means produce a comprehensive set of indels in DISCOVERY mode");
-        
+
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
+        samples.remove(UAC.referenceSampleName);
+
+        Set<String> laneIDs = new TreeSet<String>();
+
+        for(SAMReadGroupRecord rg : getToolkit().getSAMFileHeader().getReadGroups()) {
+            laneIDs.add(PoolGenotypeLikelihoodsCalculationModel.getLaneIDFromReadGroupString(rg.getReadGroupId()));
+        }
+
+        if (UAC.TREAT_ALL_READS_AS_SINGLE_POOL) {
+            samples.clear();
+            samples.add(PoolGenotypeLikelihoodsCalculationModel.DUMMY_POOL);
+        }
+
+        if (UAC.TREAT_ALL_READS_AS_SINGLE_POOL || UAC.IGNORE_LANE_INFO) {
+            laneIDs.clear();
+            laneIDs.add(PoolGenotypeLikelihoodsCalculationModel.DUMMY_LANE);
+        }
 
         // initialize the verbose writer
         if ( verboseWriter != null )
-            verboseWriter.println("AFINFO\tLOC\tREF\tALT\tMAF\tF\tAFprior\tMLE\tMAP");
+            verboseWriter.println("AFINFO\tLOC\tREF\tALT\tMAF\tF\tAFprior\tAFposterior\tNormalizedPosterior");
 
         annotationEngine = new VariantAnnotatorEngine(Arrays.asList(annotationClassesToUse), annotationsToUse, annotationsToExclude, this, getToolkit());
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, verboseWriter, annotationEngine, samples, 2*samples.size());
+        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, verboseWriter, annotationEngine, samples, 2*samples.size() * UAC.nSamplesPerPool);
 
         // initialize the header
         Set<VCFHeaderLine> headerInfo = getHeaderInfo();
@@ -318,7 +336,7 @@ public class UnifiedGenotyper extends LocusWalker<VariantCallContext, UnifiedGen
             sum.nCallsMade++;
             writer.add(value);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(e.getMessage());
+            throw new IllegalArgumentException(e.getMessage() + "; this is often caused by using the --assume_single_sample_reads argument with the wrong sample name");
         }
 
         return sum;
@@ -343,4 +361,5 @@ public class UnifiedGenotyper extends LocusWalker<VariantCallContext, UnifiedGen
             metricsWriter.println(String.format("Actual calls made                            %d", sum.nCallsMade));
         }
     }
+
 }

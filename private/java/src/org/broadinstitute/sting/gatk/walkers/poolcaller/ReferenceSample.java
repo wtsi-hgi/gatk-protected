@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.poolcaller;
 
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
 
 import java.util.Collection;
 
@@ -20,15 +21,15 @@ import java.util.Collection;
 public class ReferenceSample {
     private String name;
     private ReadBackedPileup pileup;
-    private Collection<Byte> trueBases;
+    private Collection<Allele> trueAlleles;
 
     /**
      * Creates a reference sample object
      */
-    public ReferenceSample(String name, ReadBackedPileup pileup, Collection<Byte> trueBases) {
+    public ReferenceSample(String name, ReadBackedPileup pileup, Collection<Allele> trueAlleles) {
         this.name = name;
         this.pileup = pileup;
-        this.trueBases = trueBases;
+        this.trueAlleles = trueAlleles;
     }
 
     public String getName() {
@@ -39,7 +40,7 @@ public class ReferenceSample {
         return pileup;
     }
 
-    public Collection<Byte> getTrueBases() {
-        return trueBases;
+    public Collection<Allele> getTrueAlleles() {
+        return trueAlleles;
     }
 }

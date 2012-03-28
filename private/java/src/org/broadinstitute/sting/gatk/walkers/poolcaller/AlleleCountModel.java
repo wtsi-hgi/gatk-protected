@@ -6,6 +6,7 @@ import net.sf.picard.util.MathUtil;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 
@@ -23,8 +24,8 @@ public class AlleleCountModel extends ProbabilityModel implements Cloneable {
     private double minCallQuall;
     private ErrorModel errorModel;
     private final double THETA = 0.001; // Human heterozygozity rate
-    private byte bestAltBase;
-    private byte refBase;
+    private Allele bestAltAllele;
+    private Allele refAllele;
     ArrayList<Allele> altAlleles = new ArrayList<Allele>();
     private double phredScaledConfidence;
     private int idxOfMaxAC;
@@ -37,14 +38,15 @@ public class AlleleCountModel extends ProbabilityModel implements Cloneable {
         model = calculateLog10ProbabilityDistribution(errorModel, matches, mismatches);
     }
 
-    public AlleleCountModel(int maxAlleleCount, ErrorModel errorModel, Integer[] numSeenBases,  double minCallQual, byte refBase, boolean doAlleleDiscovery, List<Allele> allelesToTest) {
+    public AlleleCountModel(int maxAlleleCount, ErrorModel errorModel, Integer[] numSeenBases,  double minCallQual, 
+                            Allele refAllele, boolean doAlleleDiscovery, List<Allele> allelesToTest) {
         this.maxAlleleCount = maxAlleleCount;
         this.minCallQuall = minCallQual;
         this.errorModel = errorModel;
-        this.refBase = refBase;
+        this.refAllele = refAllele;
 
         // compute model for all bases,
-        model = calculateLog10ProbabilityDistributionForAllBases(errorModel, numSeenBases, refBase, doAlleleDiscovery, allelesToTest);
+        model = calculateLog10ProbabilityDistributionForSNPs(errorModel, numSeenBases, refAllele, doAlleleDiscovery, allelesToTest);
 
     }
  /*   public AlleleCountModel(AlleleCountModel acm) {
@@ -61,6 +63,8 @@ public class AlleleCountModel extends ProbabilityModel implements Cloneable {
 
 
     public void merge(AlleleCountModel mergeModel) {
+        if (mergeModel == null)
+            return;
         // I need to know which model is the largest so I can iterate on him (the j index) and guarantee that
         // once we run out of terms it is because the smaller one (the k index) has exhausted all it's terms
         AlleleCountModel largerModel = (maxAlleleCount >= mergeModel.getMaxAlleleCount()) ? this : mergeModel;
@@ -179,10 +183,12 @@ public class AlleleCountModel extends ProbabilityModel implements Cloneable {
      *
      * @param errorModel
      * @param numSeenBases
-     * @param refBase
+     * @param refAllele
      * @return
      */
-    public double [] calculateLog10ProbabilityDistributionForAllBases(ErrorModel errorModel, Integer[] numSeenBases, byte refBase, boolean doAlleleDiscovery, List<Allele> alleles) {
+    public double [] calculateLog10ProbabilityDistributionForSNPs(ErrorModel errorModel, Integer[] numSeenBases, Allele refAllele, boolean doAlleleDiscovery, List<Allele> alleles) {
+        
+        byte refBase = refAllele.getBases()[0];
         double [][] p = new double[BaseUtils.BASES.length][maxAlleleCount+1];
         int refPos = BaseUtils.simpleBaseToBaseIndex(refBase);
 
@@ -235,10 +241,10 @@ public class AlleleCountModel extends ProbabilityModel implements Cloneable {
 
         if (idxOfMaxAC == 0) {
             // best alt AC is zero, so this is a reference site
-            bestAltBase = refBase;
+            bestAltAllele = Allele.create(refBase);
         }
         else {
-            bestAltBase = BaseUtils.BASES[bestAlleleIdx];
+            bestAltAllele = Allele.create(BaseUtils.BASES[bestAlleleIdx]);
         }
 
         //altAlleles =
@@ -390,12 +396,36 @@ public class AlleleCountModel extends ProbabilityModel implements Cloneable {
         return errorModel.hasPowerForMaxAC(maxAlleleCount);
     }
 
-    public byte getAltBase() {
-        return bestAltBase;
+    public Allele getAltAllele() {
+        return bestAltAllele;
     }
 
     public boolean isVariant() {
-        return (refBase != bestAltBase);
+        return ( refAllele.compareTo(bestAltAllele)!=0);
+    }
+
+    public Pair<Integer,Integer> get95PctACConfidenceInterval() {
+        // get normalized linear version of probability model
+        double[] normalizedModel = MathUtils.normalizeFromLog10(model);
+        int lowIdx, highIdx;
+
+        double cumsum = 0.0;
+        // get cumulative sum (CDF)
+        for (lowIdx=0; lowIdx < normalizedModel.length; lowIdx++) {
+            cumsum += normalizedModel[lowIdx];
+            if (cumsum > 0.05)
+                break;
+        }
+        //lowIdx--;
+        cumsum = 0.0;
+        for (highIdx = normalizedModel.length-1; highIdx>=0; highIdx--) {
+            cumsum += normalizedModel[highIdx];
+            if (cumsum > 0.05)
+                break;
+
+        }
+
+        return new Pair<Integer, Integer>(lowIdx, highIdx);
     }
 
 }

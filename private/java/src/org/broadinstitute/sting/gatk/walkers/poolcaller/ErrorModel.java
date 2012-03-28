@@ -4,6 +4,7 @@ import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import net.sf.picard.util.MathUtil;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
 
 /**
  * Created by IntelliJ IDEA.
@@ -47,7 +48,9 @@ public class ErrorModel extends ProbabilityModel {
             hasData = true;
             int coverage = data.length;
             int matches = 0;
-            for (byte base : referenceSample.getTrueBases()) {
+            for (Allele allele : referenceSample.getTrueAlleles()) {
+                byte base = allele.getBases()[0];
+                // todo: tmp, need to generalize for indels
                 matches += MathUtils.countOccurrences(base, data);
             }
             int mismatches = coverage - matches;
@@ -108,6 +111,10 @@ public class ErrorModel extends ProbabilityModel {
     }
     public boolean hasData() {
         return hasData;
+    }
+
+    public double[] getErrorModelVector() {
+        return model;
     }
 @Requires({"maxAlleleCount >= 0"})
 //todo -- memoize this function
