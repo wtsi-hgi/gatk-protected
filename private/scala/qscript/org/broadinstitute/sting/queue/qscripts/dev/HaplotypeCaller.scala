@@ -22,7 +22,7 @@ class HaplotypeCallerScript extends QScript {
   var lowpass: Boolean = false
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
-    memoryLimit = 2;
+    memoryLimit = 4;
   }
 
   def script = {
