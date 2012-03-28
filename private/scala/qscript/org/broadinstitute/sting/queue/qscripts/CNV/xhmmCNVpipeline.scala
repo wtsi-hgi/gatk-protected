@@ -177,6 +177,7 @@ class xhmmCNVpipeline extends QScript {
     override def commandLine = super.commandLine +
       " --omitDepthOutputAtEachBase --omitLocusTable --minBaseQuality 0 --minMappingQuality " + minMappingQuality +
       " --start " + START_BIN + " --stop " + MAX_DEPTH + " --nBins " + NUM_BINS +
+      " --includeRefNSites" +
       " -o " + commandLineSuppliedOutputFilesPrefix
 
     override def shortDescription = "DOC: " + t.DoC_output
