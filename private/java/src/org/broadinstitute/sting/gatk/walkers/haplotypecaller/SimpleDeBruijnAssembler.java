@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
+import com.google.java.contract.Ensures;
 import org.apache.commons.lang.ArrayUtils;
 import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -17,7 +18,7 @@ import java.util.*;
 public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private static final int KMER_OVERLAP = 6; // the additional size of a valid chunk of sequence, used to string together k-mers
-    private static final int NUM_BEST_PATHS_PER_KMER = 7;
+    private static final int NUM_BEST_PATHS_PER_KMER_GRAPH = 7;
     
     private final boolean DEBUG;
     private final PrintStream GRAPH_WRITER;
@@ -181,7 +182,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         return true;
     }
 
-    private static boolean addKmersToGraph( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final byte[] kmer1, final byte[] kmer2, final boolean isRef ) {
+    protected static boolean addKmersToGraph( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final byte[] kmer1, final byte[] kmer2, final boolean isRef ) {
 
         final int numVertexBefore = graph.vertexSet().size();
         final DeBruijnVertex v1 = new DeBruijnVertex( kmer1, kmer1.length );
@@ -223,12 +224,13 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         }
     }
 
+    @Ensures({"result.contains(refHaplotype)"})
     private ArrayList<Haplotype> findBestPaths( final Haplotype refHaplotype ) {
         final ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
         returnHaplotypes.add( refHaplotype );
 
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
-            for ( final KBestPaths.Path path : KBestPaths.getKBestPaths(graph, NUM_BEST_PATHS_PER_KMER) ) {
+            for ( final KBestPaths.Path path : KBestPaths.getKBestPaths(graph, NUM_BEST_PATHS_PER_KMER_GRAPH) ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
                 if( !returnHaplotypes.contains(h) ) { // no reason to add a new haplotype if the bases are the same as one already present
                     returnHaplotypes.add( h );
