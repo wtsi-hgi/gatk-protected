@@ -50,7 +50,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
     }
 
     public List<Allele> getLog10PNonRef(final VariantContext vc,
-                                        final double[][] log10AlleleFrequencyPriors,
+                                        final double[] log10AlleleFrequencyPriors,
                                         final AlleleFrequencyCalculationResult result) {
 
         GenotypesContext GLs = vc.getGenotypes();
@@ -94,9 +94,10 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
     public static void simplePoolBiallelic(final GenotypesContext GLs,
                                                final int numAlternateAlleles,
                                                final int nSamplesPerPool,
-                                               final double[][] log10AlleleFrequencyPriors,
+                                               final double[] log10AlleleFrequencyPriors,
                                                final AlleleFrequencyCalculationResult result) {
 
+        int[] alleleCounts = new int[numAlternateAlleles];
         final ArrayList<double[]> genotypeLikelihoods = getGLs(GLs);
         final int numSamples = genotypeLikelihoods.size()-1;
         final int numChr = 2*(numSamples*nSamplesPerPool);
@@ -107,7 +108,17 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
             combinedLikelihoods = combinePoolNaively(genotypeLikelihoods.get(p), combinedLikelihoods);    
         }
 
-        result.log10AlleleFrequencyLikelihoods[0] = MathUtils.vectorSum(combinedLikelihoods,log10AlleleFrequencyPriors[0]);
+        final double log10Lof0 =combinedLikelihoods[0];
+        result.setLog10LikelihoodOfAFzero(log10Lof0);
+        result.setLog10PosteriorOfAFzero(log10Lof0 + log10AlleleFrequencyPriors[0]);
+        
+        for (int k=1; k < combinedLikelihoods.length; k++) {
+            //Arrays.fill(alleleCounts,0);
+            alleleCounts[0] = k;
+            result.updateMLEifNeeded(combinedLikelihoods[k],alleleCounts);
+            result.updateMAPifNeeded(combinedLikelihoods[k] + log10AlleleFrequencyPriors[k],alleleCounts);
+        }
+        //result.log10AlleleFrequencyLikelihoods[0] = MathUtils.vectorSum(combinedLikelihoods,log10AlleleFrequencyPriors);
     }
 
 
