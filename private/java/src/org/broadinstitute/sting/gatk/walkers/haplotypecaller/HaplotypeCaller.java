@@ -273,16 +273,18 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
         if( !activeRegion.isActive ) { return 0; } // Not active so nothing to do!
         if( activeRegion.size() == 0 && UG_engine.getUAC().GenotypingMode != GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) { return 0; } // No reads here so nothing to do!
-        if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES && activeAllelesToGenotype.isEmpty() ) { return 0; } // No alleles found in this region
+        if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES && activeAllelesToGenotype.isEmpty() ) { return 0; } // No alleles found in this region so nothing to do!
 
         finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
         final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader, 20)); // Create the reference haplotype which is the bases from the reference that make up the active region
         referenceHaplotype.setIsReference(true);
         int PRUNE_FACTOR = determinePruneFactorFromCoverage( activeRegion );
         final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), referenceHaplotype, PRUNE_FACTOR );
+        if( haplotypes.size() == 1 ) { return 1; } // only the reference haplotype remains so nothing else to do!
 
         activeRegion.hardClipToActiveRegion(); // only evaluate the parts of reads that are overlapping the active region
         filterNonPassingReads( activeRegion ); // filter out reads from genotyping which fail mapping quality criteria
+        if( activeRegion.size() == 0 ) { return 1; } // no reads remain after filtering so nothing else to do!
 
         // evaluate each sample's reads against all haplotypes
         final HashMap<String, ArrayList<GATKSAMRecord>> perSampleReadList = splitReadsBySample( activeRegion.getReads() );
