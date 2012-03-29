@@ -228,7 +228,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
                 final byte qual = p.getQual();
                 if( qual > QualityUtils.MIN_USABLE_Q_SCORE ) {
                     int AA = 0; final int AB = 1; int BB = 2;
-                    if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletion() || p.isBeforeInsertion() || p.isNextToSoftClip() || (p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()) ) {
+                    if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletedBase() || p.isBeforeInsertion() || p.isNextToSoftClip() || (p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()) ) {
                         AA = 2;
                         BB = 0;
                     }

@@ -267,7 +267,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
         final RecalDatum mismatchesDatum = createDatumObject(pileupElement.getQual(), !BaseUtils.basesAreEqual(pileupElement.getBase(), refBase));
         final RecalDatum insertionsDatum = createDatumObject(pileupElement.getQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterInsertion() : pileupElement.isBeforeInsertion());
-        final RecalDatum deletionsDatum  = createDatumObject(pileupElement.getQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterDeletion() : pileupElement.isBeforeDeletion());
+        final RecalDatum deletionsDatum  = createDatumObject(pileupElement.getQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterDeletedBase() : pileupElement.isBeforeDeletedBase());
 
         for (Map.Entry<BQSRKeyManager, Map<BitSet, RecalDatum>> entry : keysAndTablesMap.entrySet()) {
             BQSRKeyManager keyManager = entry.getKey();
