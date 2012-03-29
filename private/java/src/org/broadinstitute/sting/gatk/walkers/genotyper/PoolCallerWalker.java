@@ -115,7 +115,7 @@ import java.util.*;
 @Reference(window=@Window(start=-200,stop=200))
 @By(DataSource.REFERENCE)
 @Downsample(by=DownsampleType.BY_SAMPLE, toCoverage=250)
-public class PoolCallerWalker extends LocusWalker<VariantCallContext, PoolCallerWalker.UGStatistics> implements TreeReducible<PoolCallerWalker.UGStatistics>, AnnotatorCompatibleWalker {
+public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, PoolCallerWalker.UGStatistics> implements TreeReducible<PoolCallerWalker.UGStatistics>, AnnotatorCompatibleWalker {
 
     @ArgumentCollection
     private PoolCallerUnifiedArgumentCollection UAC = new PoolCallerUnifiedArgumentCollection();
@@ -299,7 +299,7 @@ public class PoolCallerWalker extends LocusWalker<VariantCallContext, PoolCaller
      * @param rawContext contextual information around the locus
      * @return the VariantCallContext object
      */
-    public VariantCallContext map(RefMetaDataTracker tracker, ReferenceContext refContext, AlignmentContext rawContext) {
+    public List<VariantCallContext> map(RefMetaDataTracker tracker, ReferenceContext refContext, AlignmentContext rawContext) {
         return UG_engine.calculateLikelihoodsAndGenotypes(tracker, refContext, rawContext);
     }
 
@@ -313,34 +313,43 @@ public class PoolCallerWalker extends LocusWalker<VariantCallContext, PoolCaller
         return lhs;
     }
 
-    public UGStatistics reduce(VariantCallContext value, UGStatistics sum) {
+    public UGStatistics reduce(List<VariantCallContext> calls, UGStatistics sum) {
         // we get a point for reaching reduce
         sum.nBasesVisited++;
 
-        // can't call the locus because of no coverage
-        if ( value == null )
-            return sum;
+        boolean wasCallable = false;
+        boolean wasConfidentlyCalled = false;
 
-        // A call was attempted -- the base was potentially callable
-        sum.nBasesCallable++;
+        for ( VariantCallContext call : calls ) {
+            if ( call == null )
+                continue;
 
-        // the base was confidently callable
-        sum.nBasesCalledConfidently += value.confidentlyCalled ? 1 : 0;
+            // A call was attempted -- the base was callable
+            wasCallable = true;
 
-        // can't make a call here
-        if ( !value.shouldEmit )
-            return sum;
+            // was the base confidently callable?
+            wasConfidentlyCalled = call.confidentlyCalled;
 
-        try {
-            // we are actually making a call
-            sum.nCallsMade++;
-            writer.add(value);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(e.getMessage() + "; this is often caused by using the --assume_single_sample_reads argument with the wrong sample name");
+            if ( call.shouldEmit ) {
+                try {
+                    // we are actually making a call
+                    sum.nCallsMade++;
+                    writer.add(call);
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException(e.getMessage());
+                }
+            }
         }
+
+        if ( wasCallable )
+            sum.nBasesCallable++;
+
+        if ( wasConfidentlyCalled )
+            sum.nBasesCalledConfidently++;
 
         return sum;
     }
+
 
     public void onTraversalDone(UGStatistics sum) {
         logger.info(String.format("Visited bases                                %d", sum.nBasesVisited));

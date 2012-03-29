@@ -404,9 +404,9 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
                 VariantCallContext call;
                 if ( vcComp.isIndel() ) {
                     //throw new UserException.BadInput("CalibrateGenotypeLikelihoods does not currently support indel GL calibration.  This capability needs to be tested and verified to be working with the new genotyping code for indels in UG");
-                    call = indelEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue());
+                    call = indelEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue()).get(0);
                 } else {
-                    call = snpEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue());
+                    call = snpEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue()).get(0);
                 }
 
                 if ( call == null )

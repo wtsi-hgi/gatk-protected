@@ -56,7 +56,7 @@ public class GreedyGLGenotyperWalker extends RodWalker<Integer, Integer>  implem
             if (excludeMultiallelics && !vc.isBiallelic())
                 continue;
 
-            GenotypesContext genotypes = engine.assignGenotypes(vc);
+            GenotypesContext genotypes = VariantContextUtils.assignGenotypes(vc);
 
             // finish constructing the resulting VC
             GenomeLoc loc = getToolkit().getGenomeLocParser().createGenomeLoc(vc);

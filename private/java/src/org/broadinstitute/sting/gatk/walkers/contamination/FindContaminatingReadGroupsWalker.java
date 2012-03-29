@@ -108,7 +108,7 @@ public class FindContaminatingReadGroupsWalker extends LocusWalker<Integer, Inte
         double altBalance = ((double) altCount)/((double) totalCount);
 
         if (altBalance > 0.70) {
-            VariantCallContext ugResult = ug.calculateLikelihoodsAndGenotypes(tracker, ref, context);
+            VariantCallContext ugResult = ug.calculateLikelihoodsAndGenotypes(tracker, ref, context).get(0);
 
             if (ugResult != null && ugResult.getNSamples() > 0) {
                 return ugResult.getGenotype(0).isHet();
