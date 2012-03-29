@@ -72,7 +72,7 @@ public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> 
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
 
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples,2*samples.size());
+        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples,UnifiedGenotyperEngine.DEFAULT_PLOIDY);
 
         // initialize the header
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
