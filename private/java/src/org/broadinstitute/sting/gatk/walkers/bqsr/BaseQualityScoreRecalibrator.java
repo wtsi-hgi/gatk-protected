@@ -112,8 +112,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
     private Map<BQSRKeyManager, Map<BitSet, RecalDatum>> keysAndTablesMap;                                              // a map mapping each recalibration table to its corresponding key manager
     
     private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();                                // list to hold the all the covariate objects that were requested (required + standard + experimental)
-    private ArrayList<Covariate> requiredCovariates;                                                                    // list to hold the all the required covaraite objects that were requested
-    private ArrayList<Covariate> optionalCovariates;                                                                    // list to hold the all the optional covariate objects that were requested
 
     private static final String SKIP_RECORD_ATTRIBUTE = "SKIP";                                                         // used to label reads that should be skipped.
     private static final String SEEN_ATTRIBUTE = "SEEN";                                                                // used to label reads as processed.
@@ -141,8 +139,8 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
         }
 
         Pair<ArrayList<Covariate>, ArrayList<Covariate>> covariates = RecalDataManager.initializeCovariates(RAC);       // initialize the required and optional covariates
-        requiredCovariates = covariates.getFirst();                                                                     // assign them to our global variables
-        optionalCovariates = covariates.getSecond();                                                                    // assign them to our global variables
+        ArrayList<Covariate> requiredCovariates = covariates.getFirst();
+        ArrayList<Covariate> optionalCovariates = covariates.getSecond();
         requestedCovariates.addAll(requiredCovariates);                                                                 // add all required covariates to the list of requested covariates
         requestedCovariates.addAll(optionalCovariates);                                                                 // add all optional covariates to the list of requested covariates
 
@@ -155,6 +153,13 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
         keysAndTablesMap = RecalDataManager.initializeTables(requiredCovariates, optionalCovariates);                   // initialize the recalibration tables and their relative key managers
     }
 
+    private boolean readHasBeenSkipped(GATKSAMRecord read) {
+        return read.containsTemporaryAttribute(SKIP_RECORD_ATTRIBUTE);
+    }
+
+    private boolean seenRead(GATKSAMRecord read) {
+        return read.containsTemporaryAttribute(SEEN_ATTRIBUTE);
+    }
 
     /**
      * For each read at this locus get the various covariate values and increment that location in the map based on
@@ -172,27 +177,24 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
                 final GATKSAMRecord read = p.getRead();
                 final int offset = p.getOffset();
 
-                if (read.containsTemporaryAttribute(SKIP_RECORD_ATTRIBUTE) || read.getBaseQualities()[offset] == 0)
-                    continue;                                                                                           // This read has been marked to be skipped or has quality 0.
+                if (readHasBeenSkipped(read) || read.getBaseQualities()[offset] == 0)                                   // This read has been marked to be skipped or base has quality 0.
+                    continue;
 
-                if (!read.containsTemporaryAttribute(SEEN_ATTRIBUTE)) {
+                if (!seenRead(read)) {
                     read.setTemporaryAttribute(SEEN_ATTRIBUTE, true);
-                    RecalDataManager.parseSAMRecord(read, RAC);
-
-                    if (!(RAC.SOLID_NOCALL_STRATEGY == RecalDataManager.SOLID_NOCALL_STRATEGY.THROW_EXCEPTION) && RecalDataManager.checkNoCallColorSpace(read)) {
+                    RecalDataManager.parsePlatformForRead(read, RAC);
+                    if (!RecalDataManager.checkColorSpace(RAC.SOLID_NOCALL_STRATEGY, read)) {
                         read.setTemporaryAttribute(SKIP_RECORD_ATTRIBUTE, true);
-                        continue;                                                                                       // Skip over reads with no calls in the color space if the user requested it
+                        continue;
                     }
-
-                    RecalDataManager.parseColorSpace(read);
                     read.setTemporaryAttribute(COVARS_ATTRIBUTE, RecalDataManager.computeCovariates(read, requestedCovariates));
                 }
 
                 final byte refBase = ref.getBase();
-                // SOLID bams have inserted the reference base into the read
-                // if the color space in inconsistent with the read base so
-                // skip it
-                if (!ReadUtils.isSOLiDRead(read) || RAC.SOLID_RECAL_MODE == RecalDataManager.SOLID_RECAL_MODE.DO_NOTHING || !RecalDataManager.isInconsistentColorSpace(read, offset))
+
+                if (!ReadUtils.isSOLiDRead(read) ||                                                                     // SOLID bams have inserted the reference base into the read if the color space in inconsistent with the read base so skip it
+                    RAC.SOLID_RECAL_MODE == RecalDataManager.SOLID_RECAL_MODE.DO_NOTHING ||
+                    !RecalDataManager.isInconsistentColorSpace(read, offset))
                     updateDataForPileupElement(p, refBase);                                                             // This base finally passed all the checks for a good base, so add it to the big data hashmap
             }
             countedSites++;
@@ -302,7 +304,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      * Generic functionality to add to the number of observations and mismatches given a covariate key set
      *
      * @param recalTable the recalibration table to use
-     * @param hashKey the key to the hash map in bitset representation aggregating all the covariate keys and the event type
+     * @param hashKey key to the hash map in bitset representation aggregating all the covariate keys and the event type
      * @param datum the RecalDatum object with the observation/error information 
      */
     private void updateCovariateWithKeySet(Map<BitSet, RecalDatum> recalTable, BitSet hashKey, RecalDatum datum) {
