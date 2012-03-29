@@ -1,3 +1,4 @@
+import org.broadinstitute.sting.gatk.walkers.bqsr.RecalDataManager
 import org.broadinstitute.sting.queue.extensions.gatk.BaseQualityScoreRecalibrator
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.util.QScriptUtils
@@ -20,6 +21,7 @@ class BQSR extends QScript {
       walker.knownSites ++= dbSNP
       walker.input_file :+= bam
       walker.memoryLimit = 4
+      walker.solid_nocall_strategy = RecalDataManager.SOLID_NOCALL_STRATEGY.PURGE_READ
       walker.scatterCount = scatterCount
       add(walker)
     }
