@@ -124,7 +124,6 @@ public class GenotypingEngine {
         }
         
         // Walk along each position in the key set and create each event to be outputted
-        final int firstLocInSet = startPosKeySet.first();
         for( final int loc : startPosKeySet ) {
             if( loc >= activeRegionWindow.getStart() && loc <= activeRegionWindow.getStop() ) {
                 final ArrayList<VariantContext> eventsAtThisLoc = new ArrayList<VariantContext>();
@@ -163,7 +162,7 @@ public class GenotypingEngine {
 
                     // using the allele mapping object translate the haplotype allele into the event allele
                     genotypes.add(new Genotype(sample, findEventAllelesInSample( mergedVC.getAlleles(), call.getAlleles(), call.getGenotype(sample).getAlleles(), alleleMapper ),
-                            Genotype.NO_LOG10_PERROR, null, attributes, loc != firstLocInSet));
+                            Genotype.NO_LOG10_PERROR, null, attributes, loc != startPosKeySet.first()));
                 }
                 returnVCs.add(new VariantContextBuilder(mergedVC).log10PError(call.getLog10PError()).genotypes(genotypes).make());
             }
