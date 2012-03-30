@@ -107,6 +107,12 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     @Argument(fullName="keepRG", shortName="keepRG", doc="keepRG", required = false)
     protected String keepRG = null;
+    
+    @Argument(fullName="mnpLookAhead", shortName="mnpLookAhead", doc = "The number of bases to combine together to form MNPs out of nearby consecutive SNPs on the same haplotype", required = false)
+    protected int MNP_LOOK_AHEAD = 0;
+
+    @Argument(fullName="fullHaplotype", shortName="fullHaplotype", doc = "If specified, output the full haplotype sequence instead of converting to individual variants w.r.t. the reference", required = false)
+    protected boolean OUTPUT_FULL_HAPLOTYPE_SEQUENCE = false;
 
     @Argument(fullName="gcpHMM", shortName="gcpHMM", doc="gcpHMM", required = false)
     protected int gcpHMM = 10;
@@ -182,7 +188,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
         assemblyEngine = new SimpleDeBruijnAssembler( DEBUG, graphWriter );
         likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, DEBUG, noBanded );
-        genotypingEngine = new GenotypingEngine( DEBUG );
+        genotypingEngine = new GenotypingEngine( DEBUG, MNP_LOOK_AHEAD, OUTPUT_FULL_HAPLOTYPE_SEQUENCE );
     }
 
     //---------------------------------------------------------------------------------------------------------------

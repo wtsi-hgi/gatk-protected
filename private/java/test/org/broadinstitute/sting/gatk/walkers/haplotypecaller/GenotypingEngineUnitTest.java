@@ -128,6 +128,7 @@ public class GenotypingEngineUnitTest extends BaseTest {
         byte[] ref;
         byte[] hap;
         HashMap<Integer,Byte> expected;
+        GenotypingEngine ge = new GenotypingEngine(false, 0, false);
 
         public BasicGenotypingTestProvider(String refString, String hapString, HashMap<Integer, Byte> expected) {
             super(BasicGenotypingTestProvider.class, String.format("Haplotype to VCF test: ref = %s, alignment = %s", refString,hapString));
@@ -137,7 +138,7 @@ public class GenotypingEngineUnitTest extends BaseTest {
         }
         
         public HashMap<Integer,VariantContext> calcAlignment() {
-            return GenotypingEngine.generateVCsFromAlignment( new SWPairwiseAlignment(ref, hap), ref, hap, genomeLocParser.createGenomeLoc("4",1,1+ref.length), "name");
+            return ge.generateVCsFromAlignment( new SWPairwiseAlignment(ref, hap), ref, hap, genomeLocParser.createGenomeLoc("4",1,1+ref.length), "name");
         }
     }
 

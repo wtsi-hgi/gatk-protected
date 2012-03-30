@@ -40,10 +40,14 @@ import java.util.*;
 public class GenotypingEngine {
 
     private final boolean DEBUG;
+    private final int MNP_LOOK_AHEAD;
+    private final boolean OUTPUT_FULL_HAPLOTYPE_SEQUENCE;
     private final static List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
 
-    public GenotypingEngine( final boolean DEBUG ) {
+    public GenotypingEngine( final boolean DEBUG, final int MNP_LOOK_AHEAD, final boolean OUTPUT_FULL_HAPLOTYPE_SEQUENCE ) {
         this.DEBUG = DEBUG;
+        this.MNP_LOOK_AHEAD = MNP_LOOK_AHEAD;
+        this.OUTPUT_FULL_HAPLOTYPE_SEQUENCE = OUTPUT_FULL_HAPLOTYPE_SEQUENCE;
         noCall.add(Allele.NO_CALL);
     }
 
@@ -74,7 +78,8 @@ public class GenotypingEngine {
             attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
             genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
         }
-        final VariantCallContext call = UG_engine.calculateGenotypes(new VariantContextBuilder().loc(activeRegionWindow).alleles(allelesToGenotype).genotypes(genotypes).make(), UG_engine.getUAC().GLmodel);
+        final VariantCallContext call = UG_engine.calculateGenotypes(new VariantContextBuilder().loc(
+                activeRegionWindow.getContig(), activeRegionWindow.getStart()-20, activeRegionWindow.getStop()+20).alleles(allelesToGenotype).genotypes(genotypes).make(), UG_engine.getUAC().GLmodel);
         if( call == null ) { return new ArrayList<VariantContext>(); } // exact model says that the call confidence is below the specified confidence threshold so nothing to do here
 
         // Prepare the list of haplotypes that need to be run through Smith-Waterman for output to VCF
@@ -86,6 +91,11 @@ public class GenotypingEngine {
         }
         haplotypes.removeAll(haplotypesToRemove);
 
+        if( OUTPUT_FULL_HAPLOTYPE_SEQUENCE ) {
+            final ArrayList<VariantContext> returnVCs = new ArrayList<VariantContext>();
+            returnVCs.add(call);
+            return returnVCs;
+        }
         return callEventsFromHaplotypes(call, haplotypes, ref, refLoc, activeRegionWindow, genomeLocParser);
     }
 
@@ -219,13 +229,12 @@ public class GenotypingEngine {
         return false;
     }
 
-    protected static HashMap<Integer,VariantContext> generateVCsFromAlignment( final SWPairwiseAlignment swConsensus, final byte[] ref, final byte[] alignment, final GenomeLoc refLoc, final String sourceNameToAdd ) {
+    protected HashMap<Integer,VariantContext> generateVCsFromAlignment( final SWPairwiseAlignment swConsensus, final byte[] ref, final byte[] alignment, final GenomeLoc refLoc, final String sourceNameToAdd ) {
         final HashMap<Integer,VariantContext> vcs = new HashMap<Integer,VariantContext>();
 
         int refPos = swConsensus.getAlignmentStart2wrt1();
         if( refPos < 0 ) { return null; } // Protection against SW failures
         int alignmentPos = 0;
-        final int lookAhead = 0; // Used to create MNPs out of nearby SNPs on the same haplotype
 
         for( final CigarElement ce : swConsensus.getCigar().getCigarElements() ) {
             final int elementLength = ce.getLength();
@@ -280,7 +289,7 @@ public class GenotypingEngine {
                         if( stopOfMismatch != -1) {
                             numSinceMismatch++;
                         }
-                        if( numSinceMismatch > lookAhead || (iii == elementLength - 1 && stopOfMismatch != -1) ) {
+                        if( numSinceMismatch > MNP_LOOK_AHEAD || (iii == elementLength - 1 && stopOfMismatch != -1) ) {
                             final byte[] refBases = Arrays.copyOfRange( ref, refPosStartOfMismatch, refPosStartOfMismatch + (stopOfMismatch - startOfMismatch) + 1 );
                             final byte[] mismatchBases = Arrays.copyOfRange( alignment, startOfMismatch, stopOfMismatch + 1 );
                             final ArrayList<Allele> snpAlleles = new ArrayList<Allele>();

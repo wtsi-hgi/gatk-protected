@@ -131,10 +131,10 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         boolean done = false;
         while( !done ) {
             done = true;
-            for( DeBruijnVertex v : graph.vertexSet() ) {
+            for( final DeBruijnVertex v : graph.vertexSet() ) {
                 if( graph.inDegreeOf(v) == 0 || graph.outDegreeOf(v) == 0 ) {
                     boolean isRefNode = false;
-                    for( DeBruijnEdge e : graph.edgesOf(v) ) {
+                    for( final DeBruijnEdge e : graph.edgesOf(v) ) {
                         if( e.getIsRef() ) {
                             isRefNode = true;
                             break;
@@ -209,7 +209,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         } else {
             if( isRef ) {
                 targetEdge.setIsRef( true );
-            } 
+            }
             targetEdge.setMultiplicity(targetEdge.getMultiplicity() + 1);
         }
         return true;
