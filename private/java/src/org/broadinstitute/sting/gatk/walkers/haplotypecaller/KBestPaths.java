@@ -47,11 +47,13 @@ public class KBestPaths {
         }
 
         public boolean containsEdge( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph, final DeBruijnEdge edge ) {
-            for ( DeBruijnEdge e : edges ) {
-                if ( e.equals(graph, edge))
+            final DeBruijnVertex targetVertex = graph.getEdgeTarget(edge);
+            for( final DeBruijnEdge e : edges ) {
+                if( e.equals(graph, edge) || graph.getEdgeTarget(e).equals(targetVertex) ) {
                     return true;
+                }
             }
-
+            
             return false;
         }
 
@@ -64,10 +66,10 @@ public class KBestPaths {
         public DeBruijnVertex getLastVertexInPath() { return lastVertex; }
 
         public byte[] getBases( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph ) {
-            if(edges.size() == 0) { return lastVertex.getSequence(); }
+            if( edges.size() == 0 ) { return lastVertex.getSequence(); }
             
             byte[] bases = graph.getEdgeSource( edges.get(0) ).getSequence();
-            for ( final DeBruijnEdge e : edges ) {
+            for( final DeBruijnEdge e : edges ) {
                 bases = ArrayUtils.addAll(bases, graph.getEdgeTarget( e ).getSuffix());
             }
             return bases;
@@ -91,8 +93,8 @@ public class KBestPaths {
         final ArrayList<Path> bestPaths = new ArrayList<Path>();
         
         // run a DFS for best paths
-        for ( final DeBruijnVertex v : graph.vertexSet() ) {
-            if ( graph.inDegreeOf(v) == 0 ) {
+        for( final DeBruijnVertex v : graph.vertexSet() ) {
+            if( graph.inDegreeOf(v) == 0 ) {
                 findBestPaths(graph, new Path(v), bestPaths);
             }
         }
