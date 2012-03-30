@@ -19,13 +19,14 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private static final int KMER_OVERLAP = 6; // the additional size of a valid chunk of sequence, used to string together k-mers
     private static final int NUM_BEST_PATHS_PER_KMER_GRAPH = 7;
-    
+    private static final byte MIN_QUALITY = (byte) 10;
+
     private final boolean DEBUG;
     private final PrintStream GRAPH_WRITER;
     private final ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>> graphs = new ArrayList<DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>>();
 
     private int PRUNE_FACTOR = 1;
-
+    
     public SimpleDeBruijnAssembler( final boolean debug, final PrintStream graphWriter ) {
         super();
         DEBUG = debug;
@@ -164,18 +165,29 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             }
         }
 
-        for ( final GATKSAMRecord read : reads ) {
+        for( final GATKSAMRecord read : reads ) {
             final byte[] sequence = read.getReadBases();
+            final byte[] qualities = read.getBaseQualities();
             if( sequence.length > KMER_LENGTH + KMER_OVERLAP ) {
                 final int kmersInSequence = sequence.length - KMER_LENGTH + 1;
-                for (int i = 0; i < kmersInSequence - 1; i++) {
-                    // get the kmers
-                    final byte[] kmer1 = new byte[KMER_LENGTH];
-                    System.arraycopy(sequence, i, kmer1, 0, KMER_LENGTH);
-                    final byte[] kmer2 = new byte[KMER_LENGTH];
-                    System.arraycopy(sequence, i+1, kmer2, 0, KMER_LENGTH);
+                for( int iii = 0; iii < kmersInSequence - 1; iii++ ) {                    
+                    // if the qualities of all the bases in the kmers are high enough
+                    boolean badKmer = false;
+                    for( int jjj = iii; jjj < iii + KMER_LENGTH + 1; jjj++) {
+                        if( qualities[jjj] < MIN_QUALITY ) {
+                            badKmer = true;
+                            break;
+                        }
+                    }
+                    if( !badKmer ) {
+                        // get the kmers
+                        final byte[] kmer1 = new byte[KMER_LENGTH];
+                        System.arraycopy(sequence, iii, kmer1, 0, KMER_LENGTH);
+                        final byte[] kmer2 = new byte[KMER_LENGTH];
+                        System.arraycopy(sequence, iii+1, kmer2, 0, KMER_LENGTH);
 
-                    addKmersToGraph(graph, kmer1, kmer2, false);
+                        addKmersToGraph(graph, kmer1, kmer2, false);
+                    }
                 }
             }
         }

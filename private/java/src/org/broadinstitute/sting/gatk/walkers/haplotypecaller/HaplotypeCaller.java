@@ -165,10 +165,10 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         // initialize the UnifiedGenotyper Engine which is used to call into the exact model
         UAC.MAX_ALTERNATE_ALLELES = 4;
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, UnifiedGenotyperEngine.DEFAULT_PLOIDY);
-        UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_CONFIDENT_SITES; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_VARIANTS_ONLY; // low values used for isActive determination only, default/user-specified values used for actual calling
         UAC.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY; // low values used for isActive determination only, default/user-specified values used for actual calling
-        UAC.STANDARD_CONFIDENCE_FOR_CALLING = 0.01; // low values used for isActive determination only, default/user-specified values used for actual calling
-        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = 0.01; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.STANDARD_CONFIDENCE_FOR_CALLING = 0.2; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = 0.2; // low values used for isActive determination only, default/user-specified values used for actual calling
         UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, UnifiedGenotyperEngine.DEFAULT_PLOIDY);
         // initialize the output VCF header
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
@@ -224,14 +224,16 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             final double[] genotypeLikelihoods = new double[3]; // ref versus non-ref (any event)
             Arrays.fill(genotypeLikelihoods, 0.0);
 
-            for( final PileupElement p : context.getBasePileup() ) {
+            for( final PileupElement p : splitContexts.get(sample).getBasePileup() ) {
                 final byte qual = p.getQual();
                 if( qual > QualityUtils.MIN_USABLE_Q_SCORE ) {
                     int AA = 0; final int AB = 1; int BB = 2;
-                    if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletedBase() || p.isBeforeInsertion() || p.isNextToSoftClip() || (p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()) ) {
+                    if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletedBase() || p.isBeforeInsertion() || p.isNextToSoftClip() ||
+                            (!p.getRead().getNGSPlatform().equals(NGSPlatform.SOLID) && (p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead())) ) {
                         AA = 2;
                         BB = 0;
                     }
+
                     genotypeLikelihoods[AA] += QualityUtils.qualToProbLog10(qual);
                     genotypeLikelihoods[AB] += MathUtils.approximateLog10SumLog10( QualityUtils.qualToProbLog10(qual) + LOG_ONE_HALF, QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD + LOG_ONE_HALF );
                     genotypeLikelihoods[BB] += QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD;

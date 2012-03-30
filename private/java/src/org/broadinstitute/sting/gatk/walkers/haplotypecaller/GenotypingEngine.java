@@ -162,12 +162,11 @@ public class GenotypingEngine {
 
                     // using the allele mapping object translate the haplotype allele into the event allele
                     genotypes.add(new Genotype(sample, findEventAllelesInSample( mergedVC.getAlleles(), call.getAlleles(), call.getGenotype(sample).getAlleles(), alleleMapper ),
-                            Genotype.NO_LOG10_PERROR, null, attributes, false));
+                            Genotype.NO_LOG10_PERROR, null, attributes, loc != startPosKeySet.first()));
                 }
                 returnVCs.add(new VariantContextBuilder(mergedVC).log10PError(call.getLog10PError()).genotypes(genotypes).make());
             }
         }
-
         return returnVCs;
     }
 
@@ -226,7 +225,7 @@ public class GenotypingEngine {
         int refPos = swConsensus.getAlignmentStart2wrt1();
         if( refPos < 0 ) { return null; } // Protection against SW failures
         int alignmentPos = 0;
-        final int lookAhead = 5; // Used to create MNPs out of nearby SNPs on the same haplotype
+        final int lookAhead = 0; // Used to create MNPs out of nearby SNPs on the same haplotype
 
         for( final CigarElement ce : swConsensus.getCigar().getCigarElements() ) {
             final int elementLength = ce.getLength();

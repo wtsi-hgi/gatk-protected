@@ -189,6 +189,4 @@ public class SimpleDeBruijnAssemblerUnitTest extends BaseTest {
         }
         return true;
     }
-
-
 }
