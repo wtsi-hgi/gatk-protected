@@ -49,6 +49,81 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
     }
 
+    public static class SumIterator {
+        private int[] currentState;
+        private final int[] finalState;
+        private final int restrictSumTo;
+        private final int dim;
+        private boolean hasNext;
+        private int linearIndex;
+        
+        public SumIterator(int[] finalState,int restrictSumTo) {
+            this.finalState = finalState;
+            this.dim = finalState.length;
+            this.restrictSumTo = restrictSumTo;
+            currentState = new int[dim];
+            reset();
+            if (restrictSumTo>0) {
+                next();
+                linearIndex = 0;
+            }
+        }
+
+        public void next() {
+            if (restrictSumTo > 0) {
+                do {
+                    hasNext = next(finalState, dim);
+                    if (!hasNext)
+                        break;
+                }
+                while(getCurrentSum() != restrictSumTo);
+
+            }
+            else
+                hasNext = next(finalState, dim);
+
+            if (hasNext)
+                linearIndex++;
+        }
+        private boolean next(final int[] finalState, final int numValues) {
+            int x = currentState[numValues-1]+1;
+
+            if (x > finalState[numValues-1]) {
+                // recurse into subvector
+                currentState[numValues-1] = 0;
+                if (numValues > 1) {
+                    return next(finalState,numValues-1);
+                }
+                else
+                    return false;
+            }
+            else
+                currentState[numValues-1] = x;
+
+            return true;
+            
+        }
+        
+        public void reset() {
+            Arrays.fill(currentState,0); 
+            hasNext = true;
+            linearIndex = 0;
+        }
+        public int[] getCurrentVector() {
+            return currentState;
+        }
+        public int getCurrentSum() {
+            return (int)MathUtils.sum(currentState);
+        }
+        
+        public int getLinearIndex() {
+            return linearIndex;
+        }
+        
+        public boolean hasNext() {
+            return hasNext;
+        }
+    }
     public List<Allele> getLog10PNonRef(final VariantContext vc,
                                         final double[] log10AlleleFrequencyPriors,
                                         final AlleleFrequencyCalculationResult result) {

@@ -174,12 +174,7 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
     @Override
     public boolean includeReadsWithDeletionAtLoci() { return true; }
 
-    // enable extended events for indels
-/*    @Override
-    public boolean generateExtendedEvents() {
-        return (UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.SNP && UAC.GenotypingMode != GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES);
-    }
-  */
+
     /**
      * Inner class for collecting output statistics from the UG
      */

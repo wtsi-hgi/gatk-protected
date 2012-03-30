@@ -47,12 +47,13 @@ import static java.lang.Math.log10;
  * model.
  */
 public class PoolSNPGenotypeLikelihoods implements Cloneable {
-    public final static double DEFAULT_PCR_ERROR_RATE = 1e-4;
+    /*public final static double DEFAULT_PCR_ERROR_RATE = 1e-4;
 
     protected final static int FIXED_PLOIDY = 2;
     protected final static int MAX_PLOIDY = FIXED_PLOIDY + 1;
     protected final static double ploidyAdjustment = log10(FIXED_PLOIDY);
     protected final static double log10_3 = log10(3.0);
+    */
     protected final int TWO_N;
 
     protected boolean VERBOSE = true;
@@ -67,8 +68,8 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
     protected PoolGenotypePriors priors = null;
 
     // TODO: don't calculate this each time through
-    protected double log10_PCR_error_3;
-    protected double log10_1_minus_PCR_error;
+    //protected double log10_PCR_error_3;
+    //protected double log10_1_minus_PCR_error;
     protected final int nSamplesPerPool;
     HashMap<String, ErrorModel> perLaneErrorModels;
 
@@ -90,8 +91,8 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
         */
     public PoolSNPGenotypeLikelihoods(PoolGenotypePriors priors, double PCR_error_rate, HashMap<String, ErrorModel> perLaneErrorModels, boolean ignoreLaneInformation) {
         this.priors = priors;
-        log10_PCR_error_3 = log10(PCR_error_rate) - log10_3;
-        log10_1_minus_PCR_error = log10(1.0 - PCR_error_rate);
+       // log10_PCR_error_3 = log10(PCR_error_rate) - log10_3;
+      //  log10_1_minus_PCR_error = log10(1.0 - PCR_error_rate);
         nSamplesPerPool = priors.getNSamplesPerPool();
         TWO_N = 2*nSamplesPerPool;
         genotypeZeros = new double[priors.getPriors().length];
