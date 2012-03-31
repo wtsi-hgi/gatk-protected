@@ -66,7 +66,7 @@ import java.util.*;
  *
  * <h2>Input</h2>
  * <p>
- * None! Although on-the-fly base quality score recalibration tables are highly recommended.
+ * Input bam file(s) from which to make calls
  * </p>
  *
  * <h2>Output</h2>
@@ -81,7 +81,6 @@ import java.util.*;
  *     -T HaplotypeCaller
  *     -R reference/human_g1k_v37.fasta
  *     -I input.bam
- *     -BQSR input.kmer.8.recal_data.csv [[optional, but recommended]]
  *     -o output.raw.snps.indels.vcf
  * </pre>
  *
@@ -127,10 +126,10 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private UnifiedGenotyperEngine UG_engine = null;
     private UnifiedGenotyperEngine UG_engine_simple_genotyper = null;
     
-    @Argument(fullName="debug", shortName="debug", doc="If specified print out very verbose debug information about each triggering interval", required = false)
+    @Argument(fullName="debug", shortName="debug", doc="If specified, print out very verbose debug information about each triggering active region", required = false)
     protected boolean DEBUG;
 
-    @Argument(fullName="noBanded", shortName="noBanded", doc="If specified don't use the banded option", required = false)
+    @Argument(fullName="noBanded", shortName="noBanded", doc="If specified, don't use the banded option", required = false)
     protected boolean noBanded;
 
     // the assembly engine
@@ -169,7 +168,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         samplesList.addAll( samples );
         // initialize the UnifiedGenotyper Engine which is used to call into the exact model
-        UAC.MAX_ALTERNATE_ALLELES = 4;
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, UnifiedGenotyperEngine.DEFAULT_PLOIDY);
         UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_VARIANTS_ONLY; // low values used for isActive determination only, default/user-specified values used for actual calling
         UAC.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY; // low values used for isActive determination only, default/user-specified values used for actual calling
@@ -268,7 +266,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     public Integer map( final ActiveRegion activeRegion, final RefMetaDataTracker metaDataTracker ) {
 
         final ArrayList<VariantContext> activeAllelesToGenotype = new ArrayList<VariantContext>();
-        /* BUGBUG: GENOTYPE_GIVEN_ALLELES mode temporarily disabled
+        /*
         if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
             for( final VariantContext vc : allelesToGenotype ) {
                 if( activeRegion.getLocation().overlapsP( getToolkit().getGenomeLocParser().createGenomeLoc(vc) ) ) {
@@ -298,10 +296,10 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         final HashMap<String, ArrayList<GATKSAMRecord>> perSampleReadList = splitReadsBySample( activeRegion.getReads() );
         likelihoodCalculationEngine.computeReadLikelihoods( haplotypes, perSampleReadList );
 
-        // subset down to only the best haplotypes (chosen per sample) to be genotyped in all samples
-        final ArrayList<Haplotype> bestHaplotypesPerSample = likelihoodCalculationEngine.selectBestHaplotypes( haplotypes );
+        // subset down to only the best haplotypes to be genotyped in all samples
+        final ArrayList<Haplotype> bestHaplotypes = likelihoodCalculationEngine.selectBestHaplotypes( haplotypes );
 
-        final ArrayList<VariantContext> vcs = genotypingEngine.assignGenotypeLikelihoodsAndCallEvents( UG_engine, bestHaplotypesPerSample, activeRegion.getFullReference(referenceReader, REFERENCE_PADDING),
+        final ArrayList<VariantContext> vcs = genotypingEngine.assignGenotypeLikelihoodsAndCallEvents( UG_engine, bestHaplotypes, activeRegion.getFullReference(referenceReader, REFERENCE_PADDING),
                                                                                                        getPaddedLoc(activeRegion), activeRegion.getLocation(), getToolkit().getGenomeLocParser() );
         
         for( final VariantContext vc : vcs ) {
