@@ -444,7 +444,7 @@ indelLengthDistribution <- function(indelHistogram) {
   numSamples = length(unique(indelHistogram$Sample))
   indelHistogram$callset[indelHistogram$Sample == "all"] = "overall"
   indelHistogram$callset = factor(indelHistogram$callset, levels=c("per sample", "overall"), ordered=T)
-  p <- ggplot(data=subset(indelHistogram, Sample != "all"), aes(x=Length, y=Count, group=interaction(Length, callset), fill=callset))
+  p <- ggplot(data=subset(indelHistogram, Sample != "all"), aes(x=Length, y=Freq, group=interaction(Length, callset), fill=callset))
   p <- p + geom_boxplot()
   p <- p + geom_line(aes(group=Sample, color=callset), data=subset(indelHistogram, Sample == "all"), size=2)
   p <- p + facet_grid(Novelty ~ .)
