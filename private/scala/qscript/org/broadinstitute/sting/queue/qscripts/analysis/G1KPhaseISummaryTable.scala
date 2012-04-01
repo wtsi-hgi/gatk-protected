@@ -65,8 +65,8 @@ class G1KPhaseISummaryTable extends QScript {
   @Argument(shortName = "nt", fullName = "nt", doc="Number of threads to use", required=false)
   val NumThreads: Int = 4;
 
-  @Argument(shortName = "pop", fullName = "pop", doc="Only run population", required=false)
-  val OnlyPop: String = null;
+  @Argument(shortName = "allPops", fullName = "allPops", doc="Run all populations, not just ALL", required=false)
+  val allPops: Boolean = false;
 
 //  val b37_decoy = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
   val bundle = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/")
@@ -99,11 +99,11 @@ class G1KPhaseISummaryTable extends QScript {
   val INTERVALS = Map("GENCODE" -> GENCODE_BED) // "CAPTURE" -> CAPTURE_BED,
 
   def script = {
-    for ( population <- if ( OnlyPop != null ) List(OnlyPop) else populations ) {
+    for ( population <- if ( allPops ) populations else List("ALL") ) {
       for ( (cnvName, cnvFile) <- Map("inclusive" -> knownCNVsInclusive, "precise" -> knownCNVsPrecise) ) {
         for ( (geneSetName, geneIntervals) <- INTERVALS ) {
-          add(new evalVariants(population, geneSetName, geneIntervals, cnvName, cnvFile))
-          val evX = new evalVariants(population, geneSetName, geneIntervals, cnvName, cnvFile)
+          add(new evalVariants(population, geneSetName, geneIntervals, cnvName, cnvFile, "autosome"))
+          val evX = new evalVariants(population, geneSetName, geneIntervals, cnvName, cnvFile, "X")
           evX.eval = List(X_callset)
           add(evX)
         }
@@ -119,7 +119,7 @@ class G1KPhaseISummaryTable extends QScript {
   }
 
   // 5.) Variant Evaluation Base(OPTIONAL)
-  class evalVariants(pop: String, geneSetName: String, geneIntervals: File, cnvName: String, cnvFile: File) extends VariantEval with UNIVERSAL_GATK_ARGS {
+  class evalVariants(pop: String, geneSetName: String, geneIntervals: File, cnvName: String, cnvFile: File, callsetName: String) extends VariantEval with UNIVERSAL_GATK_ARGS {
     for ( callset <- callsets )
       this.eval :+= new File(callset)
     this.mergeEvals = true
@@ -127,7 +127,7 @@ class G1KPhaseISummaryTable extends QScript {
     this.comp :+= new TaggedFile(dbSNP_b37_135_minus_1000g, "dbSNP_135_minus_1000g")
     //this.comp :+= new TaggedFile(dbSNP_b37, "dbSNP_132")
     this.sample = List("%s.samples.list".format(pop))
-    this.out = new File("%s.samples.genes_%s.cnvs_%s.eval".format(pop, geneSetName, cnvName))
+    this.out = new File("%s.samples.%s_calls.genes_%s.cnvs_%s.eval".format(pop, callsetName, geneSetName, cnvName))
     this.noEV = true
     this.EV = List("VariantSummary")
     this.noST = true
