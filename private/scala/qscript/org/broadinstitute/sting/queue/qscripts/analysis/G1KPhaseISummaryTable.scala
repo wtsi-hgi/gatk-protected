@@ -88,7 +88,7 @@ class G1KPhaseISummaryTable extends QScript {
 
   val populations = List("EUR", "ASN", "AFR", "AMR", "ALL")
 
-  val callsets = Range(1,22).map("/humgen/1kg/DCC/ftp/release/20110521/ALL.chr%d.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz".format(_))
+  val callsets = Range(1,23).map("/humgen/1kg/DCC/ftp/release/20110521/ALL.chr%d.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz".format(_))
   val X_callset = "/humgen/1kg/DCC/ftp/release/20110521/ALL.chrX.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz"
 
   val CCDS_BED = new File("resources/ucsc.ccds.bed")
