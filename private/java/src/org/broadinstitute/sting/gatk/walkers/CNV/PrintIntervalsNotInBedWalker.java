@@ -56,10 +56,6 @@ public class PrintIntervalsNotInBedWalker extends RodWalker<Integer, Integer> {
     public void initialize() {
     }
 
-    public boolean generateExtendedEvents() {
-        return false;
-    }
-
     public Integer reduceInit() {
         return 0;
     }
