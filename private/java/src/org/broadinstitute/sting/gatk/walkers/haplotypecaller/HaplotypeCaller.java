@@ -171,8 +171,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, UnifiedGenotyperEngine.DEFAULT_PLOIDY);
         UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_VARIANTS_ONLY; // low values used for isActive determination only, default/user-specified values used for actual calling
         UAC.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY; // low values used for isActive determination only, default/user-specified values used for actual calling
-        UAC.STANDARD_CONFIDENCE_FOR_CALLING = 0.2; // low values used for isActive determination only, default/user-specified values used for actual calling
-        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = 0.2; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.STANDARD_CONFIDENCE_FOR_CALLING = 0.3; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = 0.3; // low values used for isActive determination only, default/user-specified values used for actual calling
         UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, UnifiedGenotyperEngine.DEFAULT_PLOIDY);
         // initialize the output VCF header
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
@@ -233,11 +233,10 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
                 if( qual > QualityUtils.MIN_USABLE_Q_SCORE ) {
                     int AA = 0; final int AB = 1; int BB = 2;
                     if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletedBase() || p.isBeforeInsertion() || p.isNextToSoftClip() ||
-                            (!p.getRead().getNGSPlatform().equals(NGSPlatform.SOLID) && (p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead())) ) {
+                            (!p.getRead().getNGSPlatform().equals(NGSPlatform.SOLID) && ((p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()))) ) {
                         AA = 2;
                         BB = 0;
                     }
-
                     genotypeLikelihoods[AA] += QualityUtils.qualToProbLog10(qual);
                     genotypeLikelihoods[AB] += MathUtils.approximateLog10SumLog10( QualityUtils.qualToProbLog10(qual) + LOG_ONE_HALF, QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD + LOG_ONE_HALF );
                     genotypeLikelihoods[BB] += QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD;
@@ -252,7 +251,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         final ArrayList<Allele> alleles = new ArrayList<Allele>();
         alleles.add( Allele.create("A", true) ); // fake ref Allele
         alleles.add( Allele.create("G", false) ); // fake alt Allele
-        final VariantCallContext vcOut = UG_engine_simple_genotyper.calculateGenotypes(new VariantContextBuilder("HCisActive!", context.getContig(), context.getLocation().getStart(), context.getLocation().getStop(), alleles).genotypes(genotypes).make(), GenotypeLikelihoodsCalculationModel.Model.SNP);
+        final VariantCallContext vcOut = UG_engine_simple_genotyper.calculateGenotypes(new VariantContextBuilder("HCisActive!", context.getContig(), context.getLocation().getStart(), context.getLocation().getStop(), alleles).genotypes(genotypes).make(), GenotypeLikelihoodsCalculationModel.Model.INDEL);
         return ( vcOut == null ? 0.0 : QualityUtils.qualToProb( vcOut.getPhredScaledQual() ) );
     }
 
