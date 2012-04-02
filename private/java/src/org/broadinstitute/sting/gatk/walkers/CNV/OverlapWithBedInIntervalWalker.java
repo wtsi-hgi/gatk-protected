@@ -61,10 +61,6 @@ public class OverlapWithBedInIntervalWalker extends RodWalker<CumulativeBaseOver
     public void initialize() {
     }
 
-    public boolean generateExtendedEvents() {
-        return false;
-    }
-
     public CumulativeBaseOverlapCount reduceInit() {
         return new CumulativeBaseOverlapCount();
     }

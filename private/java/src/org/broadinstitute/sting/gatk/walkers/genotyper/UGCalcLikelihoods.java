@@ -65,9 +65,6 @@ public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> 
     // enable deletions in the pileup
     public boolean includeReadsWithDeletionAtLoci() { return true; }
 
-    // enable extended events for indels
-    public boolean generateExtendedEvents() { return UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.SNP; }
-
     public void initialize() {
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());

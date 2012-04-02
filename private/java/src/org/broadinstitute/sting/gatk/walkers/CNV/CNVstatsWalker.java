@@ -80,10 +80,6 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
     public void initialize() {
     }
 
-    public boolean generateExtendedEvents() {
-        return false;
-    }
-
     public CNVstatistics reduceInit() {
         return new CNVstatistics();
     }
