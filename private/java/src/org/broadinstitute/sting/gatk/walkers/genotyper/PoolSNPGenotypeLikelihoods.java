@@ -75,35 +75,6 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
                                       final HashMap<String, ErrorModel> perLaneErrorModels, final boolean ignoreLaneInformation) {
         super(alleles, logLikelihoods, ploidy, perLaneErrorModels, ignoreLaneInformation);
     }
-    /**
-     * Cloning of the object
-     * @return clone
-     * @throws CloneNotSupportedException
-     */
-    /*   protected Object clone() throws CloneNotSupportedException {
-         PoolSNPGenotypeLikelihoods c = (PoolSNPGenotypeLikelihoods)super.clone();
-         c.priors = priors;
-         c.log10Likelihoods = log10Likelihoods.clone();
-         c.log10Posteriors = log10Posteriors.clone();
-         return c;
-     }
-    */     //
-
-    /*
-     public double getLogPLofAC(final int jA, final int jC, final int jG, final int jT) {
-
-         if(jA+jC+jG+jT != numChromosomes)
-             throw new ReviewedStingException("BUG: AC elements should add up to 2N!");
-
-
-         return logPLs.get(new int[]{jA, jC, jG, jT});
-     }
-
-     public double getLogPLofAC(final int[] ac) {
-         return getLogPLofAC(ac[0],ac[1],ac[2],ac[3]);
-     }
-    */
-
 
     // -------------------------------------------------------------------------------------
     //
@@ -293,36 +264,6 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
         return 1;
     }
 
-    /*
-     public static double[] convertToVectorIndex(final double[][][] plMatrix, final int TWO_N) {
-         // sum_0 to M i = M*(M+1)/2
-         // sum_j=0 to j=(M-jA) (M-jA-j) = (M-jA)(M-jA+1)-(M-jA)(M-jA+1)/2 = (M-jA)(M-jA+1)/2
-         // todo -closed form solution to this!!
-         int len =0;
-         for (int jA = 0; jA <= TWO_N; jA++) {
-             for (int jC = 0; jC <= TWO_N - jA; jC++) {
-                 len += 1+TWO_N - jA - jC;
-               }
-         }
-
-         //int len = (BaseUtils.BASES.length) * (BaseUtils.BASES.length +1)/2;
-
-         double plVec[] = new double[len];
-
-         int idx = len-1;
-         for (int jA = 0; jA <= TWO_N; jA++) {
-             for (int jC = 0; jC <= TWO_N - jA; jC++) {
-                 for (int jG = 0; jG <= TWO_N - jA - jC; jG++) {
-                     // reverse ordering to match DiploidGenotype ordering for SNP case, i.e.
-                     // ordering for N=1 would be AA,AC,AG,AT,CC,CG,CT,GG,GT
-                     plVec[idx--] = plMatrix[jA][jC][jG];
-
-                 }
-             }
-         }
-         return plVec;
-     }
-    */
     /**
      * Helper function that returns the phred-scaled base quality score we should use for calculating
      * likelihoods for a pileup element.  May return 0 to indicate that the observation is bad, and may
