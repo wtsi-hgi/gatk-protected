@@ -1,12 +1,9 @@
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -115,6 +112,67 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
     public static String getLaneIDFromReadGroupString(String readGroupID) {
         String [] parsedID = readGroupID.split("\\.");
         return parsedID[0] + "." + parsedID[1];
+    }
+
+    protected static class PoolGenotypeData {
+
+        public final String name;
+        public final PoolSNPGenotypeLikelihoods GL;
+        public final int depth;
+
+        public PoolGenotypeData(final String name, final PoolSNPGenotypeLikelihoods GL, final int depth) {
+            this.name = name;
+            this.GL = GL;
+            this.depth = depth;
+        }
+    }
+
+    private final int REFERENCE_IDX = 0;
+    // determines the alleles to use
+    protected List<Allele> determineAlternateAlleles(final List<PoolGenotypeData> sampleDataList) {
+
+
+        final List<Allele> allAlleles = sampleDataList.get(0).GL.getAlleles();
+        double[] likelihoodSums = new double[allAlleles.size()];
+
+        // based on the GLs, find the alternate alleles with enough probability
+        for ( PoolGenotypeData sampleData : sampleDataList ) {
+            final int[] mlAC = sampleData.GL.getMostLikelyACCount();
+            final double topLogGL = sampleData.GL.getLogPLofAC(mlAC);
+
+            int[] vec = new int[allAlleles.size()];
+
+            if (sampleData.GL.getAlleles().size() != allAlleles.size())
+                throw new ReviewedStingException("BUG: inconsistent size of alleles!");
+
+            // ref allele is always first in array list
+            if (sampleData.GL.alleles.get(0).isNonReference())
+                throw new ReviewedStingException("BUG: first allele in list is not reference!");
+
+            vec[REFERENCE_IDX] = sampleData.GL.numChromosomes;
+            double refGL = sampleData.GL.getLogPLofAC(vec);
+
+            // check if maximum likelihood AC is all-ref for current pool. If so, skip
+            if (mlAC[REFERENCE_IDX] == sampleData.GL.numChromosomes)
+                continue;
+
+            // most likely AC is not all-ref: for all non-ref alleles, add difference of max likelihood and all-ref likelihood
+            for (int i=0; i < mlAC.length; i++) {
+                if (i==REFERENCE_IDX) continue;
+
+                if (mlAC[i] > 0)
+                    likelihoodSums[i] += topLogGL - refGL;
+
+            }
+        }
+
+        final List<Allele> allelesToUse = new ArrayList<Allele>();
+        for ( int i = 0; i < likelihoodSums.length; i++ ) {
+            if ( likelihoodSums[i] > 0.0 )
+                allelesToUse.add(allAlleles.get(i));
+        }
+
+        return allelesToUse;
     }
 
 }

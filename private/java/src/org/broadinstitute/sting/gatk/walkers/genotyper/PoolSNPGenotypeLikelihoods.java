@@ -9,10 +9,12 @@ import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.*;
 
+import static java.lang.Math.log;
 import static java.lang.Math.log10;
 
 /**
@@ -46,189 +48,62 @@ import static java.lang.Math.log10;
  * From then on, you can call any of the add() routines to update the likelihoods and posteriors in the above
  * model.
  */
-public class PoolSNPGenotypeLikelihoods implements Cloneable {
-    /*public final static double DEFAULT_PCR_ERROR_RATE = 1e-4;
-
-    protected final static int FIXED_PLOIDY = 2;
-    protected final static int MAX_PLOIDY = FIXED_PLOIDY + 1;
-    protected final static double ploidyAdjustment = log10(FIXED_PLOIDY);
-    protected final static double log10_3 = log10(3.0);
-    */
-    protected final int TWO_N;
-
-    protected boolean VERBOSE = true;
-
-    //
-    // The fundamental data arrays associated with a Genotype Likelhoods object
-    //
-    protected double[] log10Likelihoods = null;
-    protected double[] log10Posteriors = null;
-    private final double[] genotypeZeros;
-
-    protected PoolGenotypePriors priors = null;
+public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implements Cloneable*/ {
 
     // TODO: don't calculate this each time through
     //protected double log10_PCR_error_3;
     //protected double log10_1_minus_PCR_error;
-    protected final int nSamplesPerPool;
-    HashMap<String, ErrorModel> perLaneErrorModels;
-
-    protected final boolean ignoreLaneInformation;
 
 
-    double[][][] logPLs;
-    private double[][] logMismatchProbabilityArray;    
+    //    double[][][] logPLs;
+    private double[][] logMismatchProbabilityArray;
     static private final double qualVec[] = new double[SAMUtils.MAX_PHRED_SCORE+1];
-    //RecursivePLHolder plHolder;
 
-        /**
-        * Create a new GenotypeLikelhoods object with given priors and PCR error rate for each pool genotype
-        *
-        * @param priors          priors
-        * @param PCR_error_rate  the PCR error rate
-        * @param perLaneErrorModels error model objects for each lane
-        * @param ignoreLaneInformation  If true, lane info is ignored
-        */
-    public PoolSNPGenotypeLikelihoods(PoolGenotypePriors priors, double PCR_error_rate, HashMap<String, ErrorModel> perLaneErrorModels, boolean ignoreLaneInformation) {
-        this.priors = priors;
-       // log10_PCR_error_3 = log10(PCR_error_rate) - log10_3;
-      //  log10_1_minus_PCR_error = log10(1.0 - PCR_error_rate);
-        nSamplesPerPool = priors.getNSamplesPerPool();
-        TWO_N = 2*nSamplesPerPool;
-        genotypeZeros = new double[priors.getPriors().length];
-        setToZero();
-        this.perLaneErrorModels = perLaneErrorModels;
-        this.ignoreLaneInformation = ignoreLaneInformation;
+    /**
+     * Create a new GenotypeLikelhoods object with given priors and PCR error rate for each pool genotype
+     *
+     * @param priors          priors
+     * @param perLaneErrorModels error model objects for each lane
+     * @param ignoreLaneInformation  If true, lane info is ignored
+     */
+    public PoolSNPGenotypeLikelihoods(List<Allele> alleles, PoolGenotypePriors priors, HashMap<String, ErrorModel> perLaneErrorModels, boolean ignoreLaneInformation) {
+
+        super(alleles,priors, perLaneErrorModels, ignoreLaneInformation);
         fillCache();
-
-        //createLikelihoodDataStorage();
-        //plHolder = new RecursivePLHolder(TWO_N, BaseUtils.BASES.length);
     }
-
+    public PoolSNPGenotypeLikelihoods(final List<Allele> alleles, final double[] logLikelihoods, final int ploidy,
+                                      final HashMap<String, ErrorModel> perLaneErrorModels, final boolean ignoreLaneInformation) {
+        super(alleles, logLikelihoods, ploidy, perLaneErrorModels, ignoreLaneInformation);
+    }
     /**
      * Cloning of the object
      * @return clone
      * @throws CloneNotSupportedException
      */
-    protected Object clone() throws CloneNotSupportedException {
-        PoolSNPGenotypeLikelihoods c = (PoolSNPGenotypeLikelihoods)super.clone();
-        c.priors = priors;
-        c.log10Likelihoods = log10Likelihoods.clone();
-        c.log10Posteriors = log10Posteriors.clone();
-        return c;
-    }
-        //
-    protected void setToZero() {
-        log10Likelihoods = genotypeZeros.clone();                 // likelihoods are all zeros
-        log10Posteriors = priors.getPriors().clone();     // posteriors are all the priors
-        logPLs = new double[1+TWO_N][1+TWO_N][1+TWO_N];
-        
-        for(int i=0; i <=TWO_N; i++)
-            for (int j=0; j <=TWO_N; j++)
-                for (int k=0; k <=TWO_N; k++)
-                    logPLs[i][j][k] = Double.NEGATIVE_INFINITY;
-    }
-
-    /**
-     * Returns an array of log10 likelihoods for each genotype, indexed by DiploidGenotype.ordinal values()
-     * @return likelihoods array
-     */
-    public double[] getLikelihoods() {
-        return log10Likelihoods;
-    }
-
-    /**
-     * Returns an array of posteriors for each genotype, indexed by DiploidGenotype.ordinal values().
-     *
-     * @return raw log10 (not-normalized posteriors) as a double array
-     */
-    public double[] getPosteriors() {
-        return log10Posteriors;
-    }
-
-
-     public double[][][] getLogPLs() {
-         return logPLs;
+    /*   protected Object clone() throws CloneNotSupportedException {
+         PoolSNPGenotypeLikelihoods c = (PoolSNPGenotypeLikelihoods)super.clone();
+         c.priors = priors;
+         c.log10Likelihoods = log10Likelihoods.clone();
+         c.log10Posteriors = log10Posteriors.clone();
+         return c;
      }
-    
-    public int[] getMostLikelyACCount() {
-        
-        int[] mlInd = new int[BaseUtils.BASES.length];
-        double maxVal = Double.NEGATIVE_INFINITY;
+    */     //
 
-        for (int jA = 0; jA <= TWO_N; jA++) {
-            for (int jC = 0; jC <= TWO_N - jA; jC++) {
-                for (int jG = 0; jG <= TWO_N - jA - jC; jG++) {
-                    int jT = TWO_N - jA - jC - jG;
-                    if (logPLs[jA][jC][jG] > maxVal) {
-                        maxVal = logPLs[jA][jC][jG];
-                        mlInd[0] = jA;
-                        mlInd[1] = jC;
-                        mlInd[2] = jG;
-                        mlInd[3] = jT;
+    /*
+     public double getLogPLofAC(final int jA, final int jC, final int jG, final int jT) {
 
-                    }
-                }
-            }
-        }
-        if (VERBOSE)
-            System.out.format("MLAC: %d %d %d %d\n",mlInd[0],mlInd[1],mlInd[2],mlInd[3]);
-        return mlInd;
-    }
-
-    public double getLogPLofAC(final int jA, final int jC, final int jG, final int jT) {
-
-        if(jA+jC+jG+jT != TWO_N)
-            throw new ReviewedStingException("BUG: AC elements should add up to 2N!");
-
-        return logPLs[jA][jC][jG];
-    }
-    
-    public double getLogPLofAC(final int[] ac) {
-        return getLogPLofAC(ac[0],ac[1],ac[2],ac[3]);
-    }
-
-    /**
-     * Returns an array of posteriors for each genotype, indexed by DiploidGenotype.ordinal values().
-     *
-     * @return normalized posterors as a double array
-     */
-/*    public double[] getNormalizedPosteriors() {
-        double[] normalized = new double[log10Posteriors.length];
-        double sum = 0.0;
-
-        // for precision purposes, we need to add (or really subtract, since everything is negative)
-        // the largest posterior value from all entries so that numbers don't get too small
-        double maxValue = log10Posteriors[0];
-        for (int i = 1; i < log10Posteriors.length; i++) {
-            if ( maxValue < log10Posteriors[i] )
-                maxValue = log10Posteriors[i];
-        }
-
-        // collect the posteriors
-        for ( DiploidGenotype g : DiploidGenotype.values() ) {
-            double posterior = Math.pow(10, getPosterior(g) - maxValue);
-            normalized[g.ordinal()] = posterior;
-            sum += posterior;
-        }
-
-        // normalize
-        for (int i = 0; i < normalized.length; i++)
-            normalized[i] /= sum;
-
-        return normalized;
-    }
-  */
+         if(jA+jC+jG+jT != numChromosomes)
+             throw new ReviewedStingException("BUG: AC elements should add up to 2N!");
 
 
-    /**
-     * Returns an array of priors for each genotype, indexed by DiploidGenotype.ordinal values().
-     *
-     * @return log10 prior as a double array
-     */
-    public double[] getPriors() {
-        return priors.getPriors();
-    }
+         return logPLs.get(new int[]{jA, jC, jG, jT});
+     }
+
+     public double getLogPLofAC(final int[] ac) {
+         return getLogPLofAC(ac[0],ac[1],ac[2],ac[3]);
+     }
+    */
+
 
     // -------------------------------------------------------------------------------------
     //
@@ -268,9 +143,9 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
             n += add(perLanePileup, ignoreBadBases, capBaseQualsAtMappingQual, minBaseQual, errorModel);
             if (ignoreLaneInformation)
                 break;
-            
+
         }
-        log10Likelihoods = convertToVectorIndex(logPLs, TWO_N);
+//        log10Likelihoods = convertToVectorIndex(logPLs, numChromosomes);
         return n;
     }
 
@@ -298,28 +173,6 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
         add(numSeenBases[0], numSeenBases[1], numSeenBases[2], numSeenBases[3], errorModel);
         return n;
     }
-/*    public int add(List<PileupElement> overlappingPair, boolean ignoreBadBases, boolean capBaseQualsAtMappingQual, int minBaseQual) {
-        final PileupElement p1 = overlappingPair.get(0);
-        final PileupElement p2 = overlappingPair.get(1);
-        String laneID = PoolCallerEngine.getLaneIDFromReadGroupString(p1.getRead().getReadGroup().getReadGroupId(), ignoreLaneInformation);
-        ErrorModel errorModel = perLaneErrorModels.get(laneID);
-        // todo - are pairs in a fragment always sequenced in same lane?
-
-        final byte observedBase1 = p1.getBase();
-        final byte qualityScore1 = qualToUse(p1, ignoreBadBases, capBaseQualsAtMappingQual, minBaseQual);
-        final byte observedBase2 = p2.getBase();
-        final byte qualityScore2 = qualToUse(p2, ignoreBadBases, capBaseQualsAtMappingQual, minBaseQual);
-
-        if ( qualityScore1 == 0 ) {
-            if ( qualityScore2 == 0 ) // abort early if we didn't see any good bases
-                return 0;
-            else {
-                return add(observedBase2, qualityScore2, (byte)0, (byte)0, errorModel);
-            }
-        } else {
-            return add(observedBase1, qualityScore1, observedBase2, qualityScore2, errorModel);
-        }
-    }     */
 
     /**
      * Calculates the pool's probability for all possible allele counts for all bases. Calculation is based on the error model
@@ -358,63 +211,119 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
      *
      *
      * where:
-      */
-    private int add(int nA, int nC, int nG, int nT, ErrorModel errorModel) {
-        int minQ = errorModel.getMinQualityScore();
-        int maxQ = errorModel.getMaxQualityScore();
-        for (int jA = 0; jA <= TWO_N; jA++) {
-            for (int jC = 0; jC <= TWO_N - jA; jC++) {
-                for (int jG = 0; jG <= TWO_N - jA - jC; jG++) {
-                    int jT = TWO_N - jA - jC - jG;
-                    // for observed base X, add Q(jX,k) to likelihood vector for all k in error model
-                    //likelihood(jA,jC,jG,jT) = logsum(logPr (errorModel[k],nA*Q(jA,k) +  nC*Q(jC,k) + nG*Q(jG,k) + nT*Q(jT,k))
-                    double[] acVec = new double[maxQ - minQ + 1];
+     */
+    private int add(final int nA, final int nC, final int nG, final int nT, final ErrorModel errorModel) {
+        final int minQ = errorModel.getMinQualityScore();
+        final int maxQ = errorModel.getMaxQualityScore();
 
-                    for (int k=minQ; k<=maxQ; k++)
-                        acVec[k-minQ] = nA*logMismatchProbabilityArray[jA][k] +
-                                nC*logMismatchProbabilityArray[jC][k] +
-                                nG*logMismatchProbabilityArray[jG][k] +
-                                nT*logMismatchProbabilityArray[jT][k];
+        List<Allele> myAlleles = new ArrayList<Allele>(alleles);
 
-                    logPLs[jA][jC][jG] = MathUtils.logDotProduct(errorModel.getErrorModelVector(), acVec);
+        final int[] initialState = getInitialStateVector(nAlleles,numChromosomes);
+        
+        int[] newInitialState;
+        
+        if (myAlleles.size() < BaseUtils.BASES.length) {
+             newInitialState = new int[BaseUtils.BASES.length];
+            // likelihood only defined for subset of possible alleles. Fill then with other alleles to have all possible ones,
+            for (byte b : BaseUtils.BASES) {
+                // if base is not included in myAlleles, add new allele
+                boolean found = false;
+                for (Allele a: alleles) {
+                    if (a.getBases()[0] == b) {
+                        found = true;
+                        break;
+                    }
                 }
+                if (!found) {
+                    myAlleles.add(Allele.create(b,false));
+                }
+
+
+            }
+
+            int k=0;
+            for (int is: initialState)
+                newInitialState[k++] = is;
+        }
+        else
+            newInitialState = initialState;
+
+        SumIterator iterator = new SumIterator(newInitialState,numChromosomes);
+
+        int kk=0;
+        // compute permutation vector to figure out mapping from indices to bases
+        int idx = 0;
+        int[] alleleIndices = new int[myAlleles.size()];
+        for (byte b : BaseUtils.BASES) {
+            kk=0;
+            for (Allele a: myAlleles) {
+                if (a.getBases()[0] == b) {
+                    alleleIndices[idx++] = kk;
+                    break;
+                }
+                kk++;
             }
         }
 
+        while (iterator.hasNext()) {
+            // for observed base X, add Q(jX,k) to likelihood vector for all k in error model
+            //likelihood(jA,jC,jG,jT) = logsum(logPr (errorModel[k],nA*Q(jA,k) +  nC*Q(jC,k) + nG*Q(jG,k) + nT*Q(jT,k))
+            double[] acVec = new double[maxQ - minQ + 1];
+            int[] currentCnt = iterator.getCurrentVector();
+            int jA = currentCnt[alleleIndices[0]];
+            int jC = currentCnt[alleleIndices[1]];
+            int jG = currentCnt[alleleIndices[2]];
+            int jT = currentCnt[alleleIndices[3]];
+            for (int k=minQ; k<=maxQ; k++)
+                acVec[k-minQ] = nA*logMismatchProbabilityArray[jA][k] +
+                        nC*logMismatchProbabilityArray[jC][k] +
+                        nG*logMismatchProbabilityArray[jG][k] +
+                        nT*logMismatchProbabilityArray[jT][k];
+
+            double pl = MathUtils.logDotProduct(errorModel.getErrorModelVector(), acVec);
+            if (alleles.size() < BaseUtils.BASES.length)
+                currentCnt = Arrays.copyOfRange(currentCnt,0,alleles.size());
+            setLogPLs(currentCnt, pl);
+            kk++;
+            iterator.next();
+        }
+
+//System.out.format("Put k=%d\n",kk);
 
         return 1;
     }
 
-    public static double[] convertToVectorIndex(final double[][][] plMatrix, final int TWO_N) {
-        // sum_0 to M i = M*(M+1)/2
-        // sum_j=0 to j=(M-jA) (M-jA-j) = (M-jA)(M-jA+1)-(M-jA)(M-jA+1)/2 = (M-jA)(M-jA+1)/2
-        // todo -closed form solution to this!!
-        int len =0;
-        for (int jA = 0; jA <= TWO_N; jA++) {
-            for (int jC = 0; jC <= TWO_N - jA; jC++) {
-                len += 1+TWO_N - jA - jC;
-              }
-        }
+    /*
+     public static double[] convertToVectorIndex(final double[][][] plMatrix, final int TWO_N) {
+         // sum_0 to M i = M*(M+1)/2
+         // sum_j=0 to j=(M-jA) (M-jA-j) = (M-jA)(M-jA+1)-(M-jA)(M-jA+1)/2 = (M-jA)(M-jA+1)/2
+         // todo -closed form solution to this!!
+         int len =0;
+         for (int jA = 0; jA <= TWO_N; jA++) {
+             for (int jC = 0; jC <= TWO_N - jA; jC++) {
+                 len += 1+TWO_N - jA - jC;
+               }
+         }
 
-        //int len = (BaseUtils.BASES.length) * (BaseUtils.BASES.length +1)/2;
+         //int len = (BaseUtils.BASES.length) * (BaseUtils.BASES.length +1)/2;
 
-        double plVec[] = new double[len];
+         double plVec[] = new double[len];
 
-        int idx = len-1;
-        for (int jA = 0; jA <= TWO_N; jA++) {
-            for (int jC = 0; jC <= TWO_N - jA; jC++) {
-                for (int jG = 0; jG <= TWO_N - jA - jC; jG++) {
-                    // reverse ordering to match DiploidGenotype ordering for SNP case, i.e.
-                    // ordering for N=1 would be AA,AC,AG,AT,CC,CG,CT,GG,GT
-                    plVec[idx--] = plMatrix[jA][jC][jG];
+         int idx = len-1;
+         for (int jA = 0; jA <= TWO_N; jA++) {
+             for (int jC = 0; jC <= TWO_N - jA; jC++) {
+                 for (int jG = 0; jG <= TWO_N - jA - jC; jG++) {
+                     // reverse ordering to match DiploidGenotype ordering for SNP case, i.e.
+                     // ordering for N=1 would be AA,AC,AG,AT,CC,CG,CT,GG,GT
+                     plVec[idx--] = plMatrix[jA][jC][jG];
 
-                }
-            }
-        }
-        return plVec;
-    }
-
-     /**
+                 }
+             }
+         }
+         return plVec;
+     }
+    */
+    /**
      * Helper function that returns the phred-scaled base quality score we should use for calculating
      * likelihoods for a pileup element.  May return 0 to indicate that the observation is bad, and may
      * cap the quality score by the mapping quality of the read itself.
@@ -514,44 +423,6 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
             baseZeros[BaseUtils.simpleBaseToBaseIndex(base)] = 0.0;
         }
     }
-       
-      /*
-    class RecursivePLHolder {
-        int size;
-        int recursionLevel;
-        Object[] pls;
-        RecursivePLHolder(int size, int recursionLevel) {
-            this.size = size;
-            this.recursionLevel = recursionLevel;
-            if (recursionLevel> 1) {
-                pls = new RecursivePLHolder[size];
-                for (int k=0; k < size; k++) {
-                    pls[k] = new RecursivePLHolder(size-k,recursionLevel-1);
-                }
-            }
-            else {
-                pls = new Double[TWO_N];
-            }
-        }
-        
-        Object get(int k) {
-            return pls[k];
-        }
-        void set(int[] indx, Double val[]) {
-            if (indx.length != recursionLevel)
-                throw new ReviewedStingException("BUG: inconsistent vector size with recursion levels");
- 
-            if (recursionLevel == 1)
-                pls[indx[0]] = val;
-            else {
-                RecursivePLHolder s = (RecursivePLHolder)pls[indx[0]]; 
-                int[] subIdx = new int[indx.length-1];
-                for (int k=1; k < indx.length; k++)
-                    subIdx[k-1] = indx[k];
-                s.set(subIdx, val);
-            }
-        }
-    }   */
 
 
     static {
@@ -563,47 +434,12 @@ public class PoolSNPGenotypeLikelihoods implements Cloneable {
     private void fillCache() {
         // cache Q(j,k) = log10(j/2N*(1-ek) + (2N-j)/2N*ek) for j = 0:2N
 
-        logMismatchProbabilityArray = new double[1+TWO_N][1+SAMUtils.MAX_PHRED_SCORE];
-        for (int i=0; i <= TWO_N; i++) {
+        logMismatchProbabilityArray = new double[1+numChromosomes][1+SAMUtils.MAX_PHRED_SCORE];
+        for (int i=0; i <= numChromosomes; i++) {
             for (int j=0; j <= SAMUtils.MAX_PHRED_SCORE; j++) {
-                double phi = (double)i/TWO_N;
+                double phi = (double)i/numChromosomes;
                 logMismatchProbabilityArray[i][j] = Math.log10(phi * (1.0-qualVec[j]) + qualVec[j]/3.0 * (1.0-phi));
             }
         }
-    }
-
-    public double[] getCollapsedPLs(boolean[] dimensionPresent) {
-
-
-        int numDims = 0, idx=0;
-        for (int k=0; k < dimensionPresent.length; k++) {
-            if (dimensionPresent[k]) numDims++;
-        }
-
-        if (VERBOSE) {
-            System.out.println("Collapsed PLs:");
-            System.out.format("0:%b,1:%b,2:%b,3:%b\n",dimensionPresent[0],dimensionPresent[1],dimensionPresent[2],dimensionPresent[3]);
-        }
-
-        double[] res = new double[(1+TWO_N)*(1+TWO_N)*(1+TWO_N)];
-        for (int jA = 0; jA <= TWO_N; jA++) {
-            if (!dimensionPresent[0] && jA > 0) continue;
-            for (int jC = 0; jC <= TWO_N - jA; jC++) {
-                if (!dimensionPresent[1] && jC > 0) continue;
-                for (int jG = 0; jG <= TWO_N - jA - jC; jG++) {
-                    if (!dimensionPresent[2] && jG > 0) continue;
-                    int jT = TWO_N - jA - jC- jG;
-                    if ( !dimensionPresent[3] && jT > 0) continue;
-
-                    res[idx++] = logPLs[jA][jC][jG];
-
-                    if (VERBOSE) {
-                        System.out.format("jA:%d jC:%d jG:%d jT:%d PL:%4.2f\n",jA,jC,jG,jT,logPLs[jA][jC][jG]);
-                    }
-                }
-            }
-        }
-        return Arrays.copyOf(res,idx);
-
     }
 }

@@ -35,6 +35,7 @@ import org.broadinstitute.sting.gatk.walkers.poolcaller.ReferenceSample;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
@@ -116,6 +117,17 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
             contexts = newContext;
         }
         ArrayList<PoolGenotypeData> GLs = new ArrayList<PoolGenotypeData>(contexts.size());
+        final List<Allele> allAlleles = new ArrayList<Allele>(alleles);  // this contains only ref Allele up to now
+
+        if (alternateAllelesToUse == null) {
+            // add all possible alleles 
+            for (byte b: BaseUtils.BASES) {
+                if (refBase != b)
+                    allAlleles.add(Allele.create(b));
+            }
+        }  else {
+            allAlleles.addAll(alternateAllelesToUse);
+        }
         for ( Map.Entry<String, AlignmentContext> sample : contexts.entrySet() ) {
             // skip reference sample
             if (sample.getKey().equals(UAC.referenceSampleName))
@@ -126,7 +138,7 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
                 pileup = createBAQedPileup( pileup );
 
             // create the GenotypeLikelihoods object
-            final PoolSNPGenotypeLikelihoods GL = new PoolSNPGenotypeLikelihoods(priors, UAC.PCR_error, perLaneErrorModels, UAC.IGNORE_LANE_INFO);
+            final PoolSNPGenotypeLikelihoods GL = new PoolSNPGenotypeLikelihoods(allAlleles, priors, perLaneErrorModels, UAC.IGNORE_LANE_INFO);
             final int nGoodBases = GL.add(pileup, true, true, UAC.MIN_BASE_QUALTY_SCORE);
             if ( nGoodBases > 0 )
                 GLs.add(new PoolGenotypeData(sample.getKey(), GL, getFilteredDepth(pileup)));
@@ -145,7 +157,7 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
             alleles.addAll(vc.getAlternateAlleles());
         } else {
 
-            alleles.addAll(determineAlternateAlleles(refBase, GLs));
+            alleles.addAll(determineAlternateAlleles( GLs));
 
             // if there are no non-ref alleles...
             if ( alleles.size() == 1 ) {
@@ -163,10 +175,6 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
         final int numAltAlleles = numAlleles - 1;
 
 
-        final boolean [] allelePresent = new boolean[]{false,false,false,false};
-        for ( Allele allele : alleles ) {
-            allelePresent[BaseUtils.simpleBaseToBaseIndex(allele.getBases()[0])] = true;
-        }
 
         builder.alleles(alleles);
 
@@ -177,8 +185,9 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
 
         for ( PoolGenotypeData sampleData : GLs ) {
             // extract from multidimensional array
-            final double[] myLikelihoods = sampleData.GL.getCollapsedPLs(allelePresent);
-
+            final double[] myLikelihoods = PoolGenotypeLikelihoods.subsetToAlleles(sampleData.GL.getLikelihoods(),sampleData.GL.numChromosomes,
+            allAlleles, alleles);
+//            final double[] myLikelihoods = sampleData.GL.subsetToAlleles(alleles).getLikelihoods();
 
             // normalize in log space so that max element is zero.
             final GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(MathUtils.normalizeFromLog10(myLikelihoods, false, true));
@@ -190,46 +199,6 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
         }
 
         return builder.genotypes(genotypes).make();
-    }
-
-    // determines the alleles to use
-    protected List<Allele> determineAlternateAlleles(final byte ref, final List<PoolGenotypeData> sampleDataList) {
-
-        final int baseIndexOfRef = BaseUtils.simpleBaseToBaseIndex(ref);
-        double[] likelihoodSums = new double[4];
-        for ( int i = 0; i < 4; i++ )
-            likelihoodSums[i] = 0.0;
-
-        // based on the GLs, find the alternate alleles with enough probability
-        for ( PoolGenotypeData sampleData : sampleDataList ) {
-            final int[] mlAC = sampleData.GL.getMostLikelyACCount();
-            final double topLogGL = sampleData.GL.getLogPLofAC(mlAC);
-
-            int[] vec = new int[4];
-            vec[baseIndexOfRef] = sampleData.GL.TWO_N;
-            double refGL = sampleData.GL.getLogPLofAC(vec);
-
-            // check if maximum likelihood AC is all-ref for current pool. If so, skip
-            if (mlAC[baseIndexOfRef] == sampleData.GL.TWO_N)
-                continue;
-            
-            // most likely AC is not all-ref: for all non-ref alleles, add difference of max likelihood and all-ref likelihood
-            for (int i=0; i < 4; i++) {
-                if (i==baseIndexOfRef) continue;
-                
-                if (mlAC[i] > 0)
-                    likelihoodSums[i] += topLogGL - refGL;
-
-            }
-        }
-
-        final List<Allele> allelesToUse = new ArrayList<Allele>(3);
-        for ( int i = 0; i < 4; i++ ) {
-            if ( likelihoodSums[i] > 0.0 )
-                allelesToUse.add(Allele.create(BaseUtils.baseIndexToSimpleBase(i), false));
-        }
-
-        return allelesToUse;
     }
 
 
@@ -251,16 +220,4 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
         public byte getQual( final int offset ) { return BAQ.calcBAQFromTag(getRead(), offset, true); }
     }
 
-    private static class PoolGenotypeData {
-
-        public final String name;
-        public final PoolSNPGenotypeLikelihoods GL;
-        public final int depth;
-
-        public PoolGenotypeData(final String name, final PoolSNPGenotypeLikelihoods GL, final int depth) {
-            this.name = name;
-            this.GL = GL;
-            this.depth = depth;
-        }
-    }
 }

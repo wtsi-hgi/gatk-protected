@@ -27,6 +27,7 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
@@ -36,94 +37,25 @@ import java.util.*;
 public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
     // private final static boolean DEBUG = false;
-
-    private final static double MAX_LOG10_ERROR_TO_STOP_EARLY = 6; // we want the calculation to be accurate to 1 / 10^6
+    static final String MAXIMUM_LIKELIHOOD_AC_KEY = "MLAC";
+    static final String MAXIMUM_LIKELIHOOD_AF_KEY= "MLAF";
     final protected PoolCallerUnifiedArgumentCollection UAC;
 
+    private final int ploidy;
+    
     protected PoolAFCalculationModel(UnifiedArgumentCollection UAC, int N, Logger logger, PrintStream verboseWriter) {
         super(UAC, N, logger, verboseWriter);
-        if (UAC instanceof PoolCallerUnifiedArgumentCollection)
+        if (UAC instanceof PoolCallerUnifiedArgumentCollection) {
             this.UAC = (PoolCallerUnifiedArgumentCollection)UAC;
-        else
+        }
+        else {
             this.UAC = new PoolCallerUnifiedArgumentCollection(); // dummy copy
+        }
+        ploidy = 2*this.UAC.nSamplesPerPool;
+
 
     }
 
-    public static class SumIterator {
-        private int[] currentState;
-        private final int[] finalState;
-        private final int restrictSumTo;
-        private final int dim;
-        private boolean hasNext;
-        private int linearIndex;
-        
-        public SumIterator(int[] finalState,int restrictSumTo) {
-            this.finalState = finalState;
-            this.dim = finalState.length;
-            this.restrictSumTo = restrictSumTo;
-            currentState = new int[dim];
-            reset();
-            if (restrictSumTo>0) {
-                next();
-                linearIndex = 0;
-            }
-        }
-
-        public void next() {
-            if (restrictSumTo > 0) {
-                do {
-                    hasNext = next(finalState, dim);
-                    if (!hasNext)
-                        break;
-                }
-                while(getCurrentSum() != restrictSumTo);
-
-            }
-            else
-                hasNext = next(finalState, dim);
-
-            if (hasNext)
-                linearIndex++;
-        }
-        private boolean next(final int[] finalState, final int numValues) {
-            int x = currentState[numValues-1]+1;
-
-            if (x > finalState[numValues-1]) {
-                // recurse into subvector
-                currentState[numValues-1] = 0;
-                if (numValues > 1) {
-                    return next(finalState,numValues-1);
-                }
-                else
-                    return false;
-            }
-            else
-                currentState[numValues-1] = x;
-
-            return true;
-            
-        }
-        
-        public void reset() {
-            Arrays.fill(currentState,0); 
-            hasNext = true;
-            linearIndex = 0;
-        }
-        public int[] getCurrentVector() {
-            return currentState;
-        }
-        public int getCurrentSum() {
-            return (int)MathUtils.sum(currentState);
-        }
-        
-        public int getLinearIndex() {
-            return linearIndex;
-        }
-        
-        public boolean hasNext() {
-            return hasNext;
-        }
-    }
     public List<Allele> getLog10PNonRef(final VariantContext vc,
                                         final double[] log10AlleleFrequencyPriors,
                                         final AlleleFrequencyCalculationResult result) {
@@ -132,21 +64,70 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         List<Allele> alleles = vc.getAlleles();
 
         // don't try to genotype too many alternate alleles
-        if ( vc.getAlternateAlleles().size() > MAX_ALTERNATE_ALLELES_TO_GENOTYPE ) {
+         if ( vc.getAlternateAlleles().size() > MAX_ALTERNATE_ALLELES_TO_GENOTYPE ) {
             logger.warn("this tool is currently set to genotype at most " + MAX_ALTERNATE_ALLELES_TO_GENOTYPE + " alternate alleles in a given context, but the context at " + vc.getChr() + ":" + vc.getStart() + " has " + (vc.getAlternateAlleles().size()) + " alternate alleles so only the top alleles will be used; see the --max_alternate_alleles argument");
 
             alleles = new ArrayList<Allele>(MAX_ALTERNATE_ALLELES_TO_GENOTYPE + 1);
             alleles.add(vc.getReference());
-/*            alleles.addAll(chooseMostLikelyAlternateAlleles(vc, MAX_ALTERNATE_ALLELES_TO_GENOTYPE));
+            alleles.addAll(chooseMostLikelyAlternateAlleles(vc, MAX_ALTERNATE_ALLELES_TO_GENOTYPE, ploidy));
 
-            // todo - this is wrong for pool calls!!
-            GLs = UnifiedGenotyperEngine.subsetAlleles(vc, alleles, false);
-  */      }
+
+            GLs = subsetAlleles(vc, alleles, false, ploidy);
+        }
 
         simplePoolBiallelic(GLs, alleles.size() - 1, UAC.nSamplesPerPool, log10AlleleFrequencyPriors, result);
 
         return alleles;
     }
+
+
+    private static final int PL_INDEX_OF_HOM_REF = 0;
+    private static final class LikelihoodSum implements Comparable<LikelihoodSum> {
+        public double sum = 0.0;
+        public Allele allele;
+
+        public LikelihoodSum(Allele allele) { this.allele = allele; }
+
+        public int compareTo(LikelihoodSum other) {
+            final double diff = sum - other.sum;
+            return ( diff < 0.0 ) ? 1 : (diff > 0.0 ) ? -1 : 0;
+        }
+    }
+    private static final List<Allele> chooseMostLikelyAlternateAlleles(VariantContext vc, int numAllelesToChoose, int ploidy) {
+        final int numOriginalAltAlleles = vc.getAlternateAlleles().size();
+        final LikelihoodSum[] likelihoodSums = new LikelihoodSum[numOriginalAltAlleles];
+        for ( int i = 0; i < numOriginalAltAlleles; i++ )
+            likelihoodSums[i] = new LikelihoodSum(vc.getAlternateAllele(i));
+
+        // based on the GLs, find the alternate alleles with the most probability; sum the GLs for the most likely genotype
+        final ArrayList<double[]> GLs = getGLs(vc.getGenotypes());
+        for ( final double[] likelihoods : GLs ) {
+            final int PLindexOfBestGL = MathUtils.maxElementIndex(likelihoods);
+            if ( PLindexOfBestGL != PL_INDEX_OF_HOM_REF ) {
+                GenotypeLikelihoods.GenotypeLikelihoodsAllelePair alleles = GenotypeLikelihoods.getAllelePair(PLindexOfBestGL);
+                if ( alleles.alleleIndex1 != 0 )
+                    likelihoodSums[alleles.alleleIndex1-1].sum += likelihoods[PLindexOfBestGL];// - likelihoods[PL_INDEX_OF_HOM_REF];
+                // don't double-count it
+                if ( alleles.alleleIndex2 != 0 && alleles.alleleIndex2 != alleles.alleleIndex1 )
+                    likelihoodSums[alleles.alleleIndex2-1].sum += likelihoods[PLindexOfBestGL];// - likelihoods[PL_INDEX_OF_HOM_REF];
+            }
+        }
+
+        // sort them by probability mass and choose the best ones
+        Collections.sort(Arrays.asList(likelihoodSums));
+        final ArrayList<Allele> bestAlleles = new ArrayList<Allele>(numAllelesToChoose);
+        for ( int i = 0; i < numAllelesToChoose; i++ )
+            bestAlleles.add(likelihoodSums[i].allele);
+
+        final ArrayList<Allele> orderedBestAlleles = new ArrayList<Allele>(numAllelesToChoose);
+        for ( Allele allele : vc.getAlternateAlleles() ) {
+            if ( bestAlleles.contains(allele) )
+                orderedBestAlleles.add(allele);
+        }
+
+        return orderedBestAlleles;
+    }
+
 
 
     private static final ArrayList<double[]> getGLs(GenotypesContext GLs) {
@@ -235,6 +216,109 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         
 
         return MathUtils.normalizeFromLog10(result,false, true);
+    }
+
+    public GenotypesContext subsetAlleles(final VariantContext vc,
+                                                      final List<Allele> allelesToUse,
+                                                      final boolean assignGenotypes,
+                                                      final int ploidy) {
+        // the genotypes with PLs
+        final GenotypesContext oldGTs = vc.getGenotypes();
+        List<Allele> NO_CALL_ALLELES = new ArrayList<Allele>(ploidy);
+        
+        for (int k=0; k < ploidy; k++)
+            NO_CALL_ALLELES.add(Allele.NO_CALL);
+
+        // samples
+        final List<String> sampleIndices = oldGTs.getSampleNamesOrderedByName();
+
+        // the new genotypes to create
+        final GenotypesContext newGTs = GenotypesContext.create();
+
+        // we need to determine which of the alternate alleles (and hence the likelihoods) to use and carry forward
+        final int numOriginalAltAlleles = vc.getAlternateAlleles().size();
+        final int numNewAltAlleles = allelesToUse.size() - 1;
+
+
+        // create the new genotypes
+        for ( int k = 0; k < oldGTs.size(); k++ ) {
+            final Genotype g = oldGTs.get(sampleIndices.get(k));
+            if ( !g.hasLikelihoods() ) {
+                newGTs.add(new Genotype(g.getSampleName(), NO_CALL_ALLELES, Genotype.NO_LOG10_PERROR, null, null, false));
+                continue;
+            }
+
+            // create the new likelihoods array from the alleles we are allowed to use
+            final double[] originalLikelihoods = g.getLikelihoods().getAsVector();
+            double[] newLikelihoods;
+            if ( numOriginalAltAlleles == numNewAltAlleles) {
+                newLikelihoods = originalLikelihoods;
+            } else {
+                newLikelihoods = PoolGenotypeLikelihoods.subsetToAlleles(originalLikelihoods, ploidy, vc.getAlleles(),allelesToUse);
+
+                // might need to re-normalize
+                newLikelihoods = MathUtils.normalizeFromLog10(newLikelihoods, false, true);
+            }
+
+            // if there is no mass on the (new) likelihoods, then just no-call the sample
+            if ( MathUtils.sum(newLikelihoods) > VariantContextUtils.SUM_GL_THRESH_NOCALL ) {
+                newGTs.add(new Genotype(g.getSampleName(), NO_CALL_ALLELES, Genotype.NO_LOG10_PERROR, null, null, false));
+            }
+            else {
+                Map<String, Object> attrs = new HashMap<String, Object>(g.getAttributes());
+                if ( numNewAltAlleles == 0 )
+                    attrs.remove(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY);
+                else
+                    attrs.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(newLikelihoods));
+
+                // if we weren't asked to assign a genotype, then just no-call the sample
+                if ( !assignGenotypes || MathUtils.sum(newLikelihoods) > VariantContextUtils.SUM_GL_THRESH_NOCALL )
+                    newGTs.add(new Genotype(g.getSampleName(), NO_CALL_ALLELES, Genotype.NO_LOG10_PERROR, null, attrs, false));
+                else
+                    newGTs.add(assignGenotype(g, newLikelihoods, allelesToUse, ploidy, attrs));
+            }
+        }
+
+        return newGTs;
+
+    }
+    /**
+     * Assign genotypes (GTs) to the samples in the Variant Context greedily based on the PLs
+     *
+     * @param originalGT           the original genotype
+     * @param newLikelihoods       the PL array
+     * @param allelesToUse         the list of alleles to choose from (corresponding to the PLs)
+     * @param attrs                the annotations to use when creating the genotype
+     *
+     * @return genotype
+     */
+    private static Genotype assignGenotype(final Genotype originalGT, final double[] newLikelihoods, final List<Allele> allelesToUse, 
+                                           final int numChromosomes, final Map<String, Object> attrs) {
+        final int numNewAltAlleles = allelesToUse.size() - 1;
+        
+
+
+        // find the genotype with maximum likelihoods
+        int PLindex = numNewAltAlleles == 0 ? 0 : MathUtils.maxElementIndex(newLikelihoods);
+
+        int[] mlAlleleCount = PoolGenotypeLikelihoods.getAlleleCountFromPLIndex(allelesToUse.size(), numChromosomes, PLindex);
+        final ArrayList<String> alleleFreqs = new ArrayList<String>();
+        final ArrayList<Integer> alleleCounts = new ArrayList<Integer>();
+
+        ArrayList<Allele> myAlleles = new ArrayList<Allele>();
+
+        int AN = numChromosomes;
+        for (int k=1; k < mlAlleleCount.length; k++) {
+            alleleCounts.add(mlAlleleCount[k]);
+            final String freq = String.format(VariantContextUtils.makePrecisionFormatStringFromDenominatorValue((double)AN), ((double)mlAlleleCount[k] / (double)AN));
+            alleleFreqs.add(freq);
+            
+        }
+        attrs.put(MAXIMUM_LIKELIHOOD_AC_KEY, alleleCounts.size() == 1 ? alleleCounts.get(0) : alleleCounts);
+        attrs.put(MAXIMUM_LIKELIHOOD_AF_KEY, alleleFreqs.size() == 1 ? alleleFreqs.get(0) : alleleFreqs);
+
+        final double qual = numNewAltAlleles == 0 ? Genotype.NO_LOG10_PERROR : GenotypeLikelihoods.getQualFromLikelihoods(PLindex, newLikelihoods);
+        return new Genotype(originalGT.getSampleName(), myAlleles, qual, null, attrs, false);
     }
 
 }
