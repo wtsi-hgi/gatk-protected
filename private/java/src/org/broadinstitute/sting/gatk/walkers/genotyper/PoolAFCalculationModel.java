@@ -81,7 +81,6 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
     }
 
 
-    private static final int PL_INDEX_OF_HOM_REF = 0;
     private static final class LikelihoodSum implements Comparable<LikelihoodSum> {
         public double sum = 0.0;
         public Allele allele;
@@ -102,14 +101,14 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         // based on the GLs, find the alternate alleles with the most probability; sum the GLs for the most likely genotype
         final ArrayList<double[]> GLs = getGLs(vc.getGenotypes());
         for ( final double[] likelihoods : GLs ) {
+
             final int PLindexOfBestGL = MathUtils.maxElementIndex(likelihoods);
-            if ( PLindexOfBestGL != PL_INDEX_OF_HOM_REF ) {
-                GenotypeLikelihoods.GenotypeLikelihoodsAllelePair alleles = GenotypeLikelihoods.getAllelePair(PLindexOfBestGL);
-                if ( alleles.alleleIndex1 != 0 )
-                    likelihoodSums[alleles.alleleIndex1-1].sum += likelihoods[PLindexOfBestGL];// - likelihoods[PL_INDEX_OF_HOM_REF];
-                // don't double-count it
-                if ( alleles.alleleIndex2 != 0 && alleles.alleleIndex2 != alleles.alleleIndex1 )
-                    likelihoodSums[alleles.alleleIndex2-1].sum += likelihoods[PLindexOfBestGL];// - likelihoods[PL_INDEX_OF_HOM_REF];
+            final int[] acCount = PoolGenotypeLikelihoods.getAlleleCountFromPLIndex(numOriginalAltAlleles,ploidy,PLindexOfBestGL);
+
+                for (int k=0; k < acCount.length;k++) {
+                if (acCount[k] > 0)
+                    likelihoodSums[k].sum += likelihoods[PLindexOfBestGL];
+
             }
         }
 

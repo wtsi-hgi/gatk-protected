@@ -210,12 +210,11 @@ public abstract class PoolGenotypeLikelihoods {
         int vecDim = GenotypeLikelihoods.calculateNumLikelihoods(nAlleles, numChromosomes);
         double[] ss = new double[vecDim];
         Arrays.fill(ss,Double.NEGATIVE_INFINITY);
-        //alleleConformationList = new ArrayList<IntArrayWrapper>(vecDim);
-        logPLs = initializePLsFromVector(nAlleles, numChromosomes, ss/*, alleleConformationList*/);
+        logPLs = initializePLsFromVector(nAlleles, numChromosomes, ss);
     }
 
     public static Map<IntArrayWrapper,Double> initializePLsFromVector(final int nAlleles, final int numChromosomes, 
-                                                                      final double[] logVec/*, ArrayList<IntArrayWrapper> alleleConformationList*/) {
+                                                                      final double[] logVec) {
         SumIterator iterator = new SumIterator(getInitialStateVector(nAlleles,numChromosomes),numChromosomes);
         Map<IntArrayWrapper,Double> logPLs = new HashMap<IntArrayWrapper,Double>();
 
@@ -231,26 +230,12 @@ public abstract class PoolGenotypeLikelihoods {
         return logPLs;
     }
 
-    public static List<Integer> asIntegerList(int[] vec) {
-        Integer[] ivec = new Integer[vec.length];
-        int idx = 0;
-        for (int k:vec)
-            ivec[idx++] = k;
-        return Arrays.asList(ivec);
+/*    public static int[] getAlleleCountFromPLIndexGivenPLVector(final int nAlleles, final int numChromosomes, final int PLindex, final double[] logVec) {
+        Map<IntArrayWrapper,Double> plMap =  initializePLsFromVector(nAlleles, numChromosomes, logVec);
+        return getAlleleCountFromPLIndex(nAlleles, numChromosomes, PLindex);
 
-    }
-    
-    public static int[] asIntArray(List<Integer> vec) {
-        int[] ivec = new int[vec.size()];
-        
-        int idx = 0;
-        for (Integer k : vec)
-            ivec[idx++] = k;
-        
-        return ivec;
-    }
-    
-    public static int[] getAlleleCountFromPLIndex(int nAlleles, int numChromosomes, int PLindex) {
+    }    */
+    public static int[] getAlleleCountFromPLIndex(final int nAlleles, final int numChromosomes, final int PLindex) {
         SumIterator iterator = new SumIterator(getInitialStateVector(nAlleles,numChromosomes),numChromosomes);
         while (iterator.hasNext()) {
             int[] plVec = iterator.getCurrentVector();
