@@ -105,9 +105,9 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
             final int PLindexOfBestGL = MathUtils.maxElementIndex(likelihoods);
             final int[] acCount = PoolGenotypeLikelihoods.getAlleleCountFromPLIndex(1+numOriginalAltAlleles,ploidy,PLindexOfBestGL);
 
-                for (int k=0; k < acCount.length;k++) {
+                for (int k=1; k < acCount.length;k++) {
                 if (acCount[k] > 0)
-                    likelihoodSums[k].sum += likelihoods[PLindexOfBestGL];
+                    likelihoodSums[k-1].sum += likelihoods[PLindexOfBestGL];
 
             }
         }
