@@ -36,6 +36,7 @@ import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -252,7 +253,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
     }
 
     /**
-     * Major workhorse routine for this walker.
      * Loop through the list of requested covariates and pick out the value from the read, offset, and reference
      * Using the list of covariate values as a key, pick out the RecalDatum and increment,
      * adding one to the number of observations and potentially one to the number of mismatches for all three
@@ -266,8 +266,8 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
         final ReadCovariates readCovariates = covariateKeySetFrom(pileupElement.getRead());
 
         final RecalDatum mismatchesDatum = createDatumObject(pileupElement.getQual(), !BaseUtils.basesAreEqual(pileupElement.getBase(), refBase));
-        final RecalDatum insertionsDatum = createDatumObject(pileupElement.getQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterInsertion() : pileupElement.isBeforeInsertion());
-        final RecalDatum deletionsDatum  = createDatumObject(pileupElement.getQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterDeletedBase() : pileupElement.isBeforeDeletedBase());
+        final RecalDatum insertionsDatum = createDatumObject(pileupElement.getBaseInsertionQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterInsertion() : pileupElement.isBeforeInsertion());
+        final RecalDatum deletionsDatum  = createDatumObject(pileupElement.getBaseDeletionQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterDeletedBase() : pileupElement.isBeforeDeletedBase());
 
         for (Map.Entry<BQSRKeyManager, Map<BitSet, RecalDatum>> entry : keysAndTablesMap.entrySet()) {
             BQSRKeyManager keyManager = entry.getKey();
@@ -277,15 +277,18 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
             List<BitSet> insertionsKeys = keyManager.bitSetsFromAllKeys(readCovariates.getInsertionsKeySet(offset), EventType.BASE_INSERTION);
             List<BitSet> deletionsKeys  = keyManager.bitSetsFromAllKeys(readCovariates.getDeletionsKeySet(offset), EventType.BASE_DELETION);
 
-
+            if (mismatchesDatum.numObservations > 1 || insertionsDatum.numObservations > 1 || deletionsDatum.numObservations > 1)
+                throw new ReviewedStingException("datum has more observations than it should");
+            
+            
             for (BitSet key : mismatchesKeys)
-                updateCovariateWithKeySet(table, key, mismatchesDatum);                                                 // the three arrays WON'T always have the same length
+                updateCovariateWithKeySet(table, key, mismatchesDatum);                              // the three arrays WON'T always have the same length
 
             for (BitSet key : insertionsKeys)
-                updateCovariateWithKeySet(table, key, insertionsDatum);                                                 // negative strand reads should be check if the previous base is an insertion. Positive strand reads check the next base.
+                updateCovariateWithKeySet(table, key, insertionsDatum);                              // the three arrays WON'T always have the same length
 
             for (BitSet key : deletionsKeys)
-                updateCovariateWithKeySet(table, key, deletionsDatum);                                                  // negative strand reads should be check if the previous base is a deletion. Positive strand reads check the next base.
+                updateCovariateWithKeySet(table, key, deletionsDatum);                               // the three arrays WON'T always have the same length
         }
     }
 
@@ -297,7 +300,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      * @return a new RecalDatum object with the observation and the error
      */
     private RecalDatum createDatumObject(byte reportedQual, boolean isError) {
-        return new RecalDatum(1, isError ? 1:0, reportedQual, 0.0);                                                     // initialized with zeros, will be incremented at end of method.
+        return new RecalDatum(1, isError ? 1:0, reportedQual, 0.0);
     }
 
     /**
@@ -307,12 +310,12 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      * @param hashKey key to the hash map in bitset representation aggregating all the covariate keys and the event type
      * @param datum the RecalDatum object with the observation/error information 
      */
-    private void updateCovariateWithKeySet(Map<BitSet, RecalDatum> recalTable, BitSet hashKey, RecalDatum datum) {
+    private void updateCovariateWithKeySet(final Map<BitSet, RecalDatum> recalTable, final BitSet hashKey, final RecalDatum datum) {
         RecalDatum previousDatum = recalTable.get(hashKey);                                                             // using the list of covariate values as a key, pick out the RecalDatum from the data HashMap
         if (previousDatum == null)                                                                                      // key doesn't exist yet in the map so make a new bucket and add it
-            recalTable.put(hashKey, datum);                                                                             // initialized with zeros, will be incremented at end of method.
+            recalTable.put(hashKey, datum.copy());
         else
-            previousDatum.increment(datum);                                                                             // add one to the number of observations and potentially one to the number of mismatches
+            previousDatum.combine(datum);                                                                               // add one to the number of observations and potentially one to the number of mismatches
     }
 
     /**
