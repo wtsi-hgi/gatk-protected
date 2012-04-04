@@ -96,7 +96,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
         seed = new int[]{3,3,3,3};
         iterator = runIterator(seed,3);
         //  Assert.assertTrue(compareIntArrays(iterator.getCurrentVector(), seed));
-        Assert.assertEquals(iterator.getLinearIndex(),9);
+        Assert.assertEquals(iterator.getLinearIndex(),19);
 
 
 
@@ -106,11 +106,11 @@ public class PoolGenotypeLikelihoodsUnitTest {
         PoolGenotypeLikelihoods.SumIterator iterator = new PoolGenotypeLikelihoods.SumIterator(seed, restrictSumTo);
 
         while(iterator.hasNext()) {
-            System.out.format("\n%d:",iterator.getLinearIndex());
+         /*    System.out.format("\n%d:",iterator.getLinearIndex());
             int[] a =  iterator.getCurrentVector();
             for (int i=0; i < seed.length; i++)
                 System.out.format("%d ",a[i]);
-
+           */
             iterator.next();
         }
 

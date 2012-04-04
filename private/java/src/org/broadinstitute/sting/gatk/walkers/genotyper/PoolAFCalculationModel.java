@@ -39,6 +39,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
     // private final static boolean DEBUG = false;
     static final String MAXIMUM_LIKELIHOOD_AC_KEY = "MLAC";
     static final String MAXIMUM_LIKELIHOOD_AF_KEY= "MLAF";
+    static final int MAX_LENGTH_FOR_POOL_PL_LOGGING = 10; // if PL vectors longer than this # of elements, don't log them
     final protected PoolCallerUnifiedArgumentCollection UAC;
 
     private final int ploidy;
@@ -289,6 +290,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
      * @param originalGT           the original genotype
      * @param newLikelihoods       the PL array
      * @param allelesToUse         the list of alleles to choose from (corresponding to the PLs)
+     * @param numChromosomes        Number of chromosomes per pool
      * @param attrs                the annotations to use when creating the genotype
      *
      * @return genotype
@@ -315,8 +317,12 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
             alleleFreqs.add(freq);
             
         }
+        // per-pool logging of AC and AF
         attrs.put(MAXIMUM_LIKELIHOOD_AC_KEY, alleleCounts.size() == 1 ? alleleCounts.get(0) : alleleCounts);
         attrs.put(MAXIMUM_LIKELIHOOD_AF_KEY, alleleFreqs.size() == 1 ? alleleFreqs.get(0) : alleleFreqs);
+        
+        if (newLikelihoods.length > MAX_LENGTH_FOR_POOL_PL_LOGGING)
+            attrs.remove(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY);
 
         final double qual = numNewAltAlleles == 0 ? Genotype.NO_LOG10_PERROR : GenotypeLikelihoods.getQualFromLikelihoods(PLindex, newLikelihoods);
         return new Genotype(originalGT.getSampleName(), myAlleles, qual, null, attrs, false);
