@@ -64,7 +64,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         List<Allele> alleles = vc.getAlleles();
 
         // don't try to genotype too many alternate alleles
-         if ( vc.getAlternateAlleles().size() > MAX_ALTERNATE_ALLELES_TO_GENOTYPE ) {
+        if ( vc.getAlternateAlleles().size() > MAX_ALTERNATE_ALLELES_TO_GENOTYPE ) {
             logger.warn("this tool is currently set to genotype at most " + MAX_ALTERNATE_ALLELES_TO_GENOTYPE + " alternate alleles in a given context, but the context at " + vc.getChr() + ":" + vc.getStart() + " has " + (vc.getAlternateAlleles().size()) + " alternate alleles so only the top alleles will be used; see the --max_alternate_alleles argument");
 
             alleles = new ArrayList<Allele>(MAX_ALTERNATE_ALLELES_TO_GENOTYPE + 1);
@@ -92,6 +92,8 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
             return ( diff < 0.0 ) ? 1 : (diff > 0.0 ) ? -1 : 0;
         }
     }
+
+
     private static final List<Allele> chooseMostLikelyAlternateAlleles(VariantContext vc, int numAllelesToChoose, int ploidy) {
         final int numOriginalAltAlleles = vc.getAlternateAlleles().size();
         final LikelihoodSum[] likelihoodSums = new LikelihoodSum[numOriginalAltAlleles];
@@ -104,8 +106,8 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
             final int PLindexOfBestGL = MathUtils.maxElementIndex(likelihoods);
             final int[] acCount = PoolGenotypeLikelihoods.getAlleleCountFromPLIndex(1+numOriginalAltAlleles,ploidy,PLindexOfBestGL);
-
-                for (int k=1; k < acCount.length;k++) {
+            // by convention, first count coming from getAlleleCountFromPLIndex comes from reference allele
+            for (int k=1; k < acCount.length;k++) {
                 if (acCount[k] > 0)
                     likelihoodSums[k-1].sum += likelihoods[PLindexOfBestGL];
 
