@@ -9,7 +9,7 @@ library(ggplot2)
 args <- commandArgs(TRUE)
 
 onCMDLine <- ! is.na(args[1])
-LOAD_DATA <- F
+LOAD_DATA <- T
 
 # creates an array of c(sampleName1, ..., sampleNameN)
 parseHighlightSamples <- function(s) {
@@ -28,18 +28,18 @@ if ( onCMDLine ) {
 } else {
   projectName <- "InDevelopmentInR"
 
-  #bySampleEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012.bySample.eval"
-  #byACEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012.byAC.eval"
+  bySampleEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012.bySample.eval"
+  byACEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012.byAC.eval"
 
-  bySampleEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.annotated.bySample.eval"
-  byACEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.annotated.byAC.eval"
+  #bySampleEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.annotated.bySample.eval"
+  #byACEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.annotated.byAC.eval"
   
-  #bySampleEval <- "ALL.wex.broad.illumina.20110521.snps.indels.genotypes.bySample.eval"
-  #byACEval <- "ALL.wex.broad.illumina.20110521.snps.indels.genotypes.byAC.eval"
+  #bySampleEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes.bySample.eval"
+  #byACEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes.byAC.eval"
   
   # comment out to stop printing to PDF
-  #outputPDF <- NA
-  outputPDF <- "variantCallQC.pdf"
+  outputPDF <- NA
+  #outputPDF <- "variantCallQC.pdf"
   highlightSamples <- c() # parseHighlightSamples("29029,47243")
 }
 
@@ -392,35 +392,25 @@ removeExtraStrats <- function(df) {
   df    
 }
 
-
-expectations = list(SNPIndelRatio = 10, 
-                    singletonSNPIndelRatio = 1, 
-                    indelNoveltyRate = 0.5,
-                    bpRatio_1_to_2 = 4, 
-                    bpRatio_1_to_3 = 3,
-                    bpRatio_2_to_3 = 1,
-                    frameshiftPercent = 0.75,
-                    insertionToDeletionRatio = 1)
-
 indelQCPlot <- function(metrics, measures, requestedStrat = "Sample") {
   numSamples = dim(metrics)[1] - 1
   metrics$strat = metrics[[requestedStrat]]
   
-  molten <- melt(metrics, id.vars=c("strat"), measure.vars=c(measures))
+  molten <- melt(metrics, id.vars=c("strat", "n_indels"), measure.vars=c(measures))
   perSampleGraph <- ggplot(data=molten, aes(x=strat, y=value, group=variable, color=variable, fill=variable))
   if ( requestedStrat == "Sample" ) {
     perSampleGraph <- perSampleGraph + geom_text(aes(label=strat), size=1.5) + geom_blank() # don't display a scale
     perSampleGraph <- perSampleGraph + scale_x_discrete("Sample (ordered by nSNPs)", formatter=function(x) "")
   } else {
-    perSampleGraph <- perSampleGraph + geom_point(size=2) + geom_smooth()
+    perSampleGraph <- perSampleGraph + geom_point(aes(size=log10(n_indels))) + geom_smooth(aes(weight=log10(n_indels)))
     perSampleGraph <- perSampleGraph + scale_x_log10("AlleleCount")
   }    
   perSampleGraph <- perSampleGraph + ylab("Variable value")
   perSampleGraph <- perSampleGraph + facet_grid(variable ~ ., scales="free")
   # stop legend since it'll be in the distributions below
-  perSampleGraph <- perSampleGraph + opts(legend.position="top", legend.title=theme_blank())
-  if ( length(unique(molten$variable)) > 1 ) # this oddness is required to avoid a bug in ggplot2
-    perSampleGraph <- perSampleGraph + opts(legend.direction="horizontal")
+  #perSampleGraph <- perSampleGraph + opts(legend.position="top", legend.title=theme_blank())
+  #if ( length(unique(molten$variable)) > 1 ) # this oddness is required to avoid a bug in ggplot2
+  #  perSampleGraph <- perSampleGraph + opts(legend.direction="horizontal")
     
   if (numSamples > 2) {
 
@@ -444,14 +434,15 @@ indelLengthDistribution <- function(indelHistogram) {
   numSamples = length(unique(indelHistogram$Sample))
   indelHistogram$callset[indelHistogram$Sample == "all"] = "overall"
   indelHistogram$callset = factor(indelHistogram$callset, levels=c("per sample", "overall"), ordered=T)
-  p <- ggplot(data=subset(indelHistogram, Sample != "all"), aes(x=Length, y=Freq, group=interaction(Length, callset), fill=callset))
+  p <- ggplot(data=subset(indelHistogram, Sample != "all"), aes(x=Length, y=Freq, group=interaction(callset, Length), fill=callset))
   p <- p + geom_boxplot()
+  #p <- p + geom_point(position="jitter")
   p <- p + geom_line(aes(group=Sample, color=callset), data=subset(indelHistogram, Sample == "all"), size=2)
-  p <- p + facet_grid(Novelty ~ .)
-  p <- p + scale_x_continuous("Indel length (negative is deletion)", breaks=unique(sort(lengthHistogram$Length)))
+  p <- p + scale_x_continuous("Indel length (negative is deletion)", breaks=unique(sort(indelHistogram$Length)))
   p <- p + ylab("Relative frequency")
   print(p)
 }
+#indelLengthDistribution(removeExtraStrats(bySampleReport$IndelLengthHistogram))
 
 indelPlots <- function(bySampleReport, byACReport) {
   IndelSummaryBySample <- removeExtraStrats(bySampleReport$IndelSummary)
@@ -490,8 +481,8 @@ indelPlots <- function(bySampleReport, byACReport) {
     }
 
     indelQCPlot(IndelSummaryBySampleWithoutAll, c("ratio_of_1_to_2_bp_indels", "ratio_of_1_to_3_bp_indels", "ratio_of_2_to_3_bp_indels"))
-    
-    lengthHistogram <- removeExtraStrats(bySampleReport$IndelSummary.lengthHistogram)
+
+    lengthHistogram <- removeExtraStrats(bySampleReport$IndelLengthHistogram)
     indelLengthDistribution(lengthHistogram)
   }
 }
