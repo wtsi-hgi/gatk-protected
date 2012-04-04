@@ -37,6 +37,7 @@ class PostCallingQC extends QScript {
 
       // The basic summary eval broken down by sample
       val bySample = new Eval(evalVCF, ".bySample", Seq("Sample"))
+      bySample.evalModule :+= "IndelLengthHistogram"
       add(bySample)
 
       val qc = new QCRScript(evalVCF, byAC.out, bySample.out)
