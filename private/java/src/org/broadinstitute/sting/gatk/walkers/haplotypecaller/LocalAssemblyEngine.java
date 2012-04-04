@@ -19,5 +19,5 @@ public abstract class LocalAssemblyEngine {
     protected LocalAssemblyEngine() {
     }
 
-    public abstract ArrayList<Haplotype> runLocalAssembly(ArrayList<GATKSAMRecord> reads, Haplotype refHaplotype, int PRUNE_FACTOR);
+    public abstract ArrayList<Haplotype> runLocalAssembly(ArrayList<GATKSAMRecord> reads, Haplotype refHaplotype, byte[] fullReferenceWithPadding, int PRUNE_FACTOR);
 }

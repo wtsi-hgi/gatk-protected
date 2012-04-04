@@ -281,10 +281,11 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES && activeAllelesToGenotype.isEmpty() ) { return 0; } // No alleles found in this region so nothing to do!
 
         finalizeActiveRegion( activeRegion ); // merge overlapping fragments, clip adapter and low qual tails
-        final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader, 20)); // Create the reference haplotype which is the bases from the reference that make up the active region
+        final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader)); // Create the reference haplotype which is the bases from the reference that make up the active region
         referenceHaplotype.setIsReference(true);
+        final byte[] fullReferenceWithPadding = activeRegion.getFullReference(referenceReader, REFERENCE_PADDING);
         int PRUNE_FACTOR = determinePruneFactorFromCoverage( activeRegion );
-        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), referenceHaplotype, PRUNE_FACTOR );
+        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion.getReads(), referenceHaplotype, fullReferenceWithPadding, PRUNE_FACTOR );
         if( haplotypes.size() == 1 ) { return 1; } // only the reference haplotype remains so nothing else to do!
 
         activeRegion.hardClipToActiveRegion(); // only evaluate the parts of reads that are overlapping the active region
@@ -298,7 +299,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         // subset down to only the best haplotypes to be genotyped in all samples
         final ArrayList<Haplotype> bestHaplotypes = likelihoodCalculationEngine.selectBestHaplotypes( haplotypes );
 
-        final ArrayList<VariantContext> vcs = genotypingEngine.assignGenotypeLikelihoodsAndCallEvents( UG_engine, bestHaplotypes, activeRegion.getFullReference(referenceReader, REFERENCE_PADDING),
+        final ArrayList<VariantContext> vcs = genotypingEngine.assignGenotypeLikelihoodsAndCallEvents( UG_engine, bestHaplotypes, fullReferenceWithPadding,
                                                                                                        getPaddedLoc(activeRegion), activeRegion.getLocation(), getToolkit().getGenomeLocParser() );
         
         for( final VariantContext vc : vcs ) {
@@ -407,9 +408,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         final double meanReadLength = MathUtils.average(readLengthDistribution);
         final double meanCoveragePerSample = (double) activeRegion.getReads().size() / ((double) activeRegion.getExtendedLoc().size() / meanReadLength) / (double) samplesList.size();
         int PRUNE_FACTOR = 0;
-        if( meanCoveragePerSample > 100.0 ) { PRUNE_FACTOR = 10; }
+        if( meanCoveragePerSample > 100.0 ) { PRUNE_FACTOR = 8; }
         else if( meanCoveragePerSample > 25.0 ) { PRUNE_FACTOR = 4; }
-        else if( meanCoveragePerSample > 2.0 ) { PRUNE_FACTOR = 1; }
+        else if( meanCoveragePerSample > 2.5 ) { PRUNE_FACTOR = 1; }
         if( DEBUG ) { System.out.println(String.format("Mean coverage per sample = %.1f --> prune factor = %d", meanCoveragePerSample, PRUNE_FACTOR)); }
         return PRUNE_FACTOR;
     }

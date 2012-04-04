@@ -27,6 +27,7 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
+import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
@@ -78,8 +79,7 @@ public class GenotypingEngine {
             attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
             genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
         }
-        final VariantCallContext call = UG_engine.calculateGenotypes(new VariantContextBuilder().loc(
-                activeRegionWindow.getContig(), activeRegionWindow.getStart()-20, activeRegionWindow.getStop()+20).alleles(allelesToGenotype).genotypes(genotypes).make(), UG_engine.getUAC().GLmodel);
+        final VariantCallContext call = UG_engine.calculateGenotypes(new VariantContextBuilder().loc(activeRegionWindow).alleles(allelesToGenotype).genotypes(genotypes).make(), UG_engine.getUAC().GLmodel);
         if( call == null ) { return new ArrayList<VariantContext>(); } // exact model says that the call confidence is below the specified confidence threshold so nothing to do here
 
         // Prepare the list of haplotypes that need to be run through Smith-Waterman for output to VCF
@@ -104,11 +104,6 @@ public class GenotypingEngine {
                                                                final GenomeLoc activeRegionWindow, final GenomeLocParser genomeLocParser ) {
 
         final ArrayList<VariantContext> returnVCs = new ArrayList<VariantContext>();
-        // Smith-Waterman parameters originally copied from IndelRealigner
-        final double SW_MATCH = 5.0;
-        final double SW_MISMATCH = -8.0;
-        final double SW_GAP = -30.0;
-        final double SW_GAP_EXTEND = -1.4;
 
         // Run Smith-Waterman on each called haplotype to figure out what events need to be written out in a VCF file
         final TreeSet<Integer> startPosKeySet = new TreeSet<Integer>();
@@ -116,13 +111,12 @@ public class GenotypingEngine {
         int count = 0;
         if( DEBUG ) { System.out.println("=== Best Haplotypes ==="); }
         for( final Haplotype h : haplotypes ) {
-            final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, h.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
             if( DEBUG ) {
                 System.out.println( h.toString() );
-                System.out.println( "> Cigar = " + swConsensus.getCigar() );
+                System.out.println( "> Cigar = " + h.getCigar() );
             }
             // Walk along the alignment and turn any difference from the reference into an event
-            final HashMap<Integer,VariantContext> eventMap = generateVCsFromAlignment( swConsensus, ref, h.getBases(), refLoc, "HC" + count++ );
+            final HashMap<Integer,VariantContext> eventMap = generateVCsFromAlignment( h.getAlignmentStartHapwrtRef(), h.getCigar(), ref, h.getBases(), refLoc, "HC" + count++ );
             fullEventDictionary.add(eventMap);
             startPosKeySet.addAll(eventMap.keySet());
         }
@@ -229,14 +223,14 @@ public class GenotypingEngine {
         return false;
     }
 
-    protected HashMap<Integer,VariantContext> generateVCsFromAlignment( final SWPairwiseAlignment swConsensus, final byte[] ref, final byte[] alignment, final GenomeLoc refLoc, final String sourceNameToAdd ) {
+    protected HashMap<Integer,VariantContext> generateVCsFromAlignment( final int alignmentStartHapwrtRef, final Cigar cigar, final byte[] ref, final byte[] alignment, final GenomeLoc refLoc, final String sourceNameToAdd ) {
         final HashMap<Integer,VariantContext> vcs = new HashMap<Integer,VariantContext>();
 
-        int refPos = swConsensus.getAlignmentStart2wrt1();
+        int refPos = alignmentStartHapwrtRef;
         if( refPos < 0 ) { return null; } // Protection against SW failures
         int alignmentPos = 0;
 
-        for( final CigarElement ce : swConsensus.getCigar().getCigarElements() ) {
+        for( final CigarElement ce : cigar.getCigarElements() ) {
             final int elementLength = ce.getLength();
             switch( ce.getOperator() ) {
                 case I:
