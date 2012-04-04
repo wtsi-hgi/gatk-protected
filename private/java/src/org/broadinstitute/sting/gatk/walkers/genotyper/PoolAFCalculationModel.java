@@ -29,6 +29,7 @@ import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.io.PrintStream;
@@ -75,6 +76,11 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
             GLs = subsetAlleles(vc, alleles, false, ploidy);
         }
+
+
+        // todo - tmp: only support biallelic pool calls for now
+        if (MAX_ALTERNATE_ALLELES_TO_GENOTYPE >1)
+            throw new UserException("No support yet for multiallelic pool calls, please rerun with -maxAlleles 1");
 
         simplePoolBiallelic(GLs, alleles.size() - 1, UAC.nSamplesPerPool, log10AlleleFrequencyPriors, result);
 
@@ -220,6 +226,14 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         return MathUtils.normalizeFromLog10(result,false, true);
     }
 
+    /**
+     * From a given variant context, extract a given subset of alleles, and update genotype context accordingly
+     * @param vc                                variant context with alleles and genotype likelihoods
+     * @param allelesToUse                      alleles to subset
+     * @param assignGenotypes                   true: assign hard genotypes, false: leave as no-call
+     * @param ploidy                            number of chromosomes per sample (pool)
+     * @return
+     */
     public GenotypesContext subsetAlleles(final VariantContext vc,
                                                       final List<Allele> allelesToUse,
                                                       final boolean assignGenotypes,
@@ -302,18 +316,17 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
 
         // find the genotype with maximum likelihoods
-        int PLindex = numNewAltAlleles == 0 ? 0 : MathUtils.maxElementIndex(newLikelihoods);
+        final int PLindex = numNewAltAlleles == 0 ? 0 : MathUtils.maxElementIndex(newLikelihoods);
 
-        int[] mlAlleleCount = PoolGenotypeLikelihoods.getAlleleCountFromPLIndex(allelesToUse.size(), numChromosomes, PLindex);
+        final int[] mlAlleleCount = PoolGenotypeLikelihoods.getAlleleCountFromPLIndex(allelesToUse.size(), numChromosomes, PLindex);
         final ArrayList<String> alleleFreqs = new ArrayList<String>();
         final ArrayList<Integer> alleleCounts = new ArrayList<Integer>();
 
         ArrayList<Allele> myAlleles = new ArrayList<Allele>();
 
-        int AN = numChromosomes;
         for (int k=1; k < mlAlleleCount.length; k++) {
             alleleCounts.add(mlAlleleCount[k]);
-            final String freq = String.format(VariantContextUtils.makePrecisionFormatStringFromDenominatorValue((double)AN), ((double)mlAlleleCount[k] / (double)AN));
+            final String freq = String.format(VariantContextUtils.makePrecisionFormatStringFromDenominatorValue((double)numChromosomes), ((double)mlAlleleCount[k] / (double)numChromosomes));
             alleleFreqs.add(freq);
             
         }
