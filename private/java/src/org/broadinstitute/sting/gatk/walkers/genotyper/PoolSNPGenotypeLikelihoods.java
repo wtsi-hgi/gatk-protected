@@ -18,50 +18,18 @@ import static java.lang.Math.log;
 import static java.lang.Math.log10;
 
 /**
- * Stable, error checking version of the Bayesian genotyper.  Useful for calculating the likelihoods, priors,
+ * Stable, error checking version of the pool genotyper.  Useful for calculating the likelihoods, priors,
  * and posteriors given a pile of bases and quality scores
  *
- * Suppose we have bases b1, b2, ..., bN with qualities scores q1, q2, ..., qN.  This object
- * calculates:
- *
- * P(G | D) = P(G) * P(D | G)
- *
- * where
- *
- * P(D | G) = sum_i log10 P(bi | G)
- *
- * and
- *
- * P(bi | G) = 1 - P(error | q1) if bi is in G
- *           = P(error | q1) / 3 if bi is not in G
- *
- * for homozygous genotypes and for heterozygous genotypes:
- *
- * P(bi | G) = 1 - P(error | q1) / 2 + P(error | q1) / 6 if bi is in G
- *           = P(error | q1) / 3 if bi is not in G
- *
- * for each of the 10 unique diploid genotypes AA, AC, AG, .., TT
- *
- * Everything is stored as arrays indexed by DiploidGenotype.ordinal() values in log10 space.
- *
- * The priors contain the relative probabilities of each genotype, and must be provided at object creation.
- * From then on, you can call any of the add() routines to update the likelihoods and posteriors in the above
- * model.
- */
+*/
 public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implements Cloneable*/ {
 
-    // TODO: don't calculate this each time through
-    //protected double log10_PCR_error_3;
-    //protected double log10_1_minus_PCR_error;
-
-
-    //    double[][][] logPLs;
     private double[][] logMismatchProbabilityArray;
     static private final double qualVec[] = new double[SAMUtils.MAX_PHRED_SCORE+1];
 
     /**
      * Create a new GenotypeLikelhoods object with given priors and PCR error rate for each pool genotype
-     *
+     * @param alleles           Alleles associated with this likelihood object
      * @param priors          priors
      * @param perLaneErrorModels error model objects for each lane
      * @param ignoreLaneInformation  If true, lane info is ignored
@@ -71,6 +39,8 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
         super(alleles,priors, perLaneErrorModels, ignoreLaneInformation);
         fillCache();
     }
+
+
     public PoolSNPGenotypeLikelihoods(final List<Allele> alleles, final double[] logLikelihoods, final int ploidy,
                                       final HashMap<String, ErrorModel> perLaneErrorModels, final boolean ignoreLaneInformation) {
         super(alleles, logLikelihoods, ploidy, perLaneErrorModels, ignoreLaneInformation);
@@ -116,11 +86,11 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
                 break;
 
         }
-//        log10Likelihoods = convertToVectorIndex(logPLs, numChromosomes);
+
         return n;
     }
 
-    public int add(ReadBackedPileup pileup, boolean ignoreBadBases, boolean capBaseQualsAtMappingQual, int minBaseQual, ErrorModel errorModel) {
+    private int add(ReadBackedPileup pileup, boolean ignoreBadBases, boolean capBaseQualsAtMappingQual, int minBaseQual, ErrorModel errorModel) {
         int n=0;
         int[] numSeenBases = new int[BaseUtils.BASES.length];
 
@@ -189,12 +159,7 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
 
         List<Allele> myAlleles = new ArrayList<Allele>(alleles);
 
-        final int[] initialState = getInitialStateVector(nAlleles,numChromosomes);
-        
-        int[] newInitialState;
-        
         if (myAlleles.size() < BaseUtils.BASES.length) {
-             newInitialState = new int[BaseUtils.BASES.length];
             // likelihood only defined for subset of possible alleles. Fill then with other alleles to have all possible ones,
             for (byte b : BaseUtils.BASES) {
                 // if base is not included in myAlleles, add new allele
@@ -212,14 +177,9 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
 
             }
 
-            int k=0;
-            for (int is: initialState)
-                newInitialState[k++] = is;
         }
-        else
-            newInitialState = initialState;
 
-        SumIterator iterator = new SumIterator(newInitialState,numChromosomes);
+        SumIterator iterator = new SumIterator(nAlleles,numChromosomes);
 
         int kk=0;
         // compute permutation vector to figure out mapping from indices to bases
@@ -240,7 +200,10 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
             // for observed base X, add Q(jX,k) to likelihood vector for all k in error model
             //likelihood(jA,jC,jG,jT) = logsum(logPr (errorModel[k],nA*Q(jA,k) +  nC*Q(jC,k) + nG*Q(jG,k) + nT*Q(jT,k))
             double[] acVec = new double[maxQ - minQ + 1];
-            int[] currentCnt = iterator.getCurrentVector();
+
+            // fill currentCnt with either current iterator state, or pad with zeros if iterator is shorter because we had less alleles
+            int[] currentCnt = Arrays.copyOf(iterator.getCurrentVector(),BaseUtils.BASES.length);
+
             int jA = currentCnt[alleleIndices[0]];
             int jC = currentCnt[alleleIndices[1]];
             int jG = currentCnt[alleleIndices[2]];
@@ -252,10 +215,8 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
                         nT*logMismatchProbabilityArray[jT][k];
 
             double pl = MathUtils.logDotProduct(errorModel.getErrorModelVector(), acVec);
-            if (alleles.size() < BaseUtils.BASES.length)
-                currentCnt = Arrays.copyOfRange(currentCnt,0,alleles.size());
-            setLogPLs(currentCnt, pl);
-            kk++;
+
+            setLogPLs(Arrays.copyOf(currentCnt,alleles.size()), pl);
             iterator.next();
         }
 
@@ -357,14 +318,6 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
     //
     // Constant static data
     //
-    private final static double[] baseZeros = new double[BaseUtils.BASES.length];
-
-    static {
-        for ( byte base : BaseUtils.BASES ) {
-            baseZeros[BaseUtils.simpleBaseToBaseIndex(base)] = 0.0;
-        }
-    }
-
 
     static {
         // cache 10^(-k/10)

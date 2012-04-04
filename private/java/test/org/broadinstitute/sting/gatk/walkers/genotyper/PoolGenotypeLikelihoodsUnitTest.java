@@ -25,8 +25,8 @@ public class PoolGenotypeLikelihoodsUnitTest {
         // basic test storing a given PL vector in a PoolGenotypeLikelihoods object and then retrieving it back
 
         int ploidy = 20;
-        int numAltAlleles = 4;
-        int res = GenotypeLikelihoods.calculateNumLikelihoods(numAltAlleles, ploidy);
+        int numAlleles = 4;
+        int res = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, ploidy);
  //       System.out.format("Alt Alleles: %d, Ploidy: %d, #Likelihoods: %d\n", numAltAlleles, ploidy, res);
 
         List<Allele> alleles = new ArrayList<Allele>();
@@ -46,6 +46,56 @@ public class PoolGenotypeLikelihoodsUnitTest {
         Assert.assertEquals(gls, glnew);
     }
 
+    @Test
+    public void testSubsetToAlleles() {
+        
+        int ploidy = 2;
+        int numAlleles = 4;
+        int res = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, ploidy);
+        //       System.out.format("Alt Alleles: %d, Ploidy: %d, #Likelihoods: %d\n", numAltAlleles, ploidy, res);
+
+        List<Allele> originalAlleles = new ArrayList<Allele>();
+        originalAlleles.add(Allele.create("T",true));
+        originalAlleles.add(Allele.create("C",false));
+        originalAlleles.add(Allele.create("A",false));
+        originalAlleles.add(Allele.create("G",false));
+
+        double[] oldLikelihoods = new double[res];
+
+        for (int k=0; k < oldLikelihoods.length; k++)
+            oldLikelihoods[k]= (double)k;
+
+        List<Allele> allelesToSubset = new ArrayList<Allele>();
+        allelesToSubset.add(Allele.create("A",false));
+        allelesToSubset.add(Allele.create("C",false));
+        
+        double[] newGLs = PoolGenotypeLikelihoods.subsetToAlleles(oldLikelihoods, ploidy,
+        originalAlleles, allelesToSubset);
+
+
+        /*
+            For P=2, N=4, default iteration order:
+                0:2 0 0 0
+                1:1 1 0 0
+                2:0 2 0 0
+                3:1 0 1 0
+                4:0 1 1 0
+                5:0 0 2 0
+                6:1 0 0 1
+                7:0 1 0 1
+                8:0 0 1 1
+                9:0 0 0 2
+
+            For P=2,N=2, iteration order is:
+                0:2 0
+                1:1 1
+                2:0 2
+
+            From first list, if we're extracting alleles 2 and 1, we need all elements that have zero at positions 0 and 3.
+            These are only elements {2,4,5}. Since test is flipping alleles 2 and 1, order is reversed.
+  */
+        Assert.assertEquals(newGLs,new double[]{5.0,4.0,2.0});
+    }
     @Test
     public void testIndexIterator() {
         int[] seed = new int[]{1,2,3,4};
@@ -106,11 +156,11 @@ public class PoolGenotypeLikelihoodsUnitTest {
         PoolGenotypeLikelihoods.SumIterator iterator = new PoolGenotypeLikelihoods.SumIterator(seed, restrictSumTo);
 
         while(iterator.hasNext()) {
-         /*    System.out.format("\n%d:",iterator.getLinearIndex());
+             System.out.format("\n%d:",iterator.getLinearIndex());
             int[] a =  iterator.getCurrentVector();
             for (int i=0; i < seed.length; i++)
                 System.out.format("%d ",a[i]);
-           */
+
             iterator.next();
         }
 

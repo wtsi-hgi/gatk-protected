@@ -41,20 +41,6 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
         else
             this.UAC = new PoolCallerUnifiedArgumentCollection(); // dummy copy
 
- /*       if (!(UAC instanceof PoolCallerUnifiedArgumentCollection)) 
-            throw new ReviewedStingException("BUG: incorrect construction of PoolGenotypeLikelihoodsCalculationModel");
-
-        PoolCallerUnifiedArgumentCollection pUAC = (PoolCallerUnifiedArgumentCollection)UAC;
-        this.ignoreLaneInformation = pUAC.TREAT_ALL_READS_AS_SINGLE_POOL;
-        this.referenceSampleName = pUAC.referenceSampleName;
-        //this.laneIDs = laneIDs;
-        this.minQualityScore = pUAC.minQualityScore;
-        this.maxQualityScore = pUAC.maxQualityScore;
-        this.sitePhredScalePrior = pUAC.phredScaledPrior;
-        this.samplesPerPool = pUAC.nSamplesPerPool;
-        this.minPower = pUAC.minPower;
-        this.referenceSampleRod = pUAC.referenceSampleRod;
-   */     
     }
 
 
@@ -114,6 +100,10 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
         return parsedID[0] + "." + parsedID[1];
     }
 
+
+    /** Wrapper class that encapsulates likelihood object and sample name
+     *
+     */
     protected static class PoolGenotypeData {
 
         public final String name;
@@ -127,11 +117,11 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
         }
     }
 
-    private final int REFERENCE_IDX = 0;
     // determines the alleles to use
     protected List<Allele> determineAlternateAlleles(final List<PoolGenotypeData> sampleDataList) {
 
 
+        final int REFERENCE_IDX = 0;
         final List<Allele> allAlleles = sampleDataList.get(0).GL.getAlleles();
         double[] likelihoodSums = new double[allAlleles.size()];
 
