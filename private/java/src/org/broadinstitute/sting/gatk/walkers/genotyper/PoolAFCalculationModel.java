@@ -37,7 +37,6 @@ import java.util.*;
 
 public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
-    // private final static boolean DEBUG = false;
     static final String MAXIMUM_LIKELIHOOD_AC_KEY = "MLAC";
     static final String MAXIMUM_LIKELIHOOD_AF_KEY= "MLAF";
     static final int MAX_LENGTH_FOR_POOL_PL_LOGGING = 10; // if PL vectors longer than this # of elements, don't log them
@@ -88,20 +87,8 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
     }
 
 
-    private static final class LikelihoodSum implements Comparable<LikelihoodSum> {
-        public double sum = 0.0;
-        public Allele allele;
 
-        public LikelihoodSum(Allele allele) { this.allele = allele; }
-
-        public int compareTo(LikelihoodSum other) {
-            final double diff = sum - other.sum;
-            return ( diff < 0.0 ) ? 1 : (diff > 0.0 ) ? -1 : 0;
-        }
-    }
-
-
-    private static final List<Allele> chooseMostLikelyAlternateAlleles(VariantContext vc, int numAllelesToChoose, int ploidy) {
+    private static List<Allele> chooseMostLikelyAlternateAlleles(VariantContext vc, int numAllelesToChoose, int ploidy) {
         final int numOriginalAltAlleles = vc.getAlternateAlleles().size();
         final LikelihoodSum[] likelihoodSums = new LikelihoodSum[numOriginalAltAlleles];
         for ( int i = 0; i < numOriginalAltAlleles; i++ )
@@ -137,24 +124,14 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
     }
 
 
-
-    private static final ArrayList<double[]> getGLs(GenotypesContext GLs) {
-        ArrayList<double[]> genotypeLikelihoods = new ArrayList<double[]>(GLs.size());
-
-        genotypeLikelihoods.add(new double[]{0.0,0.0,0.0}); // dummy
-        for ( Genotype sample : GLs.iterateInSampleNameOrder() ) {
-            if ( sample.hasLikelihoods() ) {
-                double[] gls = sample.getLikelihoods().getAsVector();
-
-                if ( MathUtils.sum(gls) < UnifiedGenotyperEngine.SUM_GL_THRESH_NOCALL )
-                    genotypeLikelihoods.add(gls);
-            }
-        }
-
-        return genotypeLikelihoods;
-    }
-
-
+    /**
+     * Simple non-optimized version that combined GLs from several pools and produces global AF distribution.
+     * @param GLs                              Inputs genotypes context with per-pool GLs
+     * @param numAlternateAlleles              Number of alternate alleles
+     * @param nSamplesPerPool                  Number of samples per pool
+     * @param log10AlleleFrequencyPriors       Frequency priors
+     * @param result                           object to fill with output values
+     */
     public static void simplePoolBiallelic(final GenotypesContext GLs,
                                                final int numAlternateAlleles,
                                                final int nSamplesPerPool,
@@ -164,10 +141,10 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         int[] alleleCounts = new int[numAlternateAlleles];
         final ArrayList<double[]> genotypeLikelihoods = getGLs(GLs);
         final int numSamples = genotypeLikelihoods.size()-1;
-        final int numChr = 2*(numSamples*nSamplesPerPool);
 
         double[] combinedLikelihoods = new double[1];
-        
+
+        // Combine each pool incrementally - likelihoods will be renormalized at each step
         for (int p=1; p<genotypeLikelihoods.size(); p++) {
             combinedLikelihoods = combinePoolNaively(genotypeLikelihoods.get(p), combinedLikelihoods);    
         }
@@ -177,7 +154,6 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         result.setLog10PosteriorOfAFzero(log10Lof0 + log10AlleleFrequencyPriors[0]);
         
         for (int k=1; k < combinedLikelihoods.length; k++) {
-            //Arrays.fill(alleleCounts,0);
             alleleCounts[0] = k;
             result.updateMLEifNeeded(combinedLikelihoods[k],alleleCounts);
             result.updateMAPifNeeded(combinedLikelihoods[k] + log10AlleleFrequencyPriors[k],alleleCounts);
@@ -186,20 +162,23 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
     }
 
 
-    /* For two pools of size m1 and m2, we can compute the combined likelihood as:
-   Pr(D|AC=k) = Sum_{j=0}^k Pr(D|AC1=j) Pr(D|AC2=k-j) * choose(m1,j)*choose(m2,k-j)/choose(m1+m2,k)
-
-    */
-
+    /**
+     * Naive combiner of two biallelic pools (of arbitrary size).
+     * For two pools of size m1 and m2, we can compute the combined likelihood as:
+     *   Pr(D|AC=k) = Sum_{j=0}^k Pr(D|AC1=j) Pr(D|AC2=k-j) * choose(m1,j)*choose(m2,k-j)/choose(m1+m2,k)
+     * @param x               GL vector, x[k] = Pr(AC_i = k) for alt allele i
+     * @param y               Second GL vector
+     * @return                Combined likelihood vector
+     */
     public static double[] combinePoolNaively(double[] x, double[] y) {
      
-        int m1 = x.length;
-        int m2 = y.length;
+        final int m1 = x.length;
+        final int m2 = y.length;
         double[] result = new double[m1+m2-1];
 
         result[0] = x[0]+y[0];
         for (int k=1; k < result.length; k++) {
-            double den = MathUtils.log10BinomialCoefficient(m1+m2,k);
+            final double den = MathUtils.log10BinomialCoefficient(m1+m2,k);
             double[] acc = new double[k+1];
             Arrays.fill(acc,Double.NEGATIVE_INFINITY);
 
@@ -227,7 +206,8 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
     }
 
     /**
-     * From a given variant context, extract a given subset of alleles, and update genotype context accordingly
+     * From a given variant context, extract a given subset of alleles, and update genotype context accordingly,
+     * including updating the PL's, and assign genotypes accordingly
      * @param vc                                variant context with alleles and genotype likelihoods
      * @param allelesToUse                      alleles to subset
      * @param assignGenotypes                   true: assign hard genotypes, false: leave as no-call
@@ -324,6 +304,13 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
         ArrayList<Allele> myAlleles = new ArrayList<Allele>();
 
+        // add list of called ML genotypes to alleles list
+        // TODO - too unwieldy?
+        int idx = 0;
+        for (int mlind = 0; mlind < mlAlleleCount.length; mlind++) {
+            for (int k=0; k < mlAlleleCount[mlind]; k++)
+                myAlleles.add(idx++,allelesToUse.get(mlind));
+        }
         for (int k=1; k < mlAlleleCount.length; k++) {
             alleleCounts.add(mlAlleleCount[k]);
             final String freq = String.format(VariantContextUtils.makePrecisionFormatStringFromDenominatorValue((double)numChromosomes), ((double)mlAlleleCount[k] / (double)numChromosomes));

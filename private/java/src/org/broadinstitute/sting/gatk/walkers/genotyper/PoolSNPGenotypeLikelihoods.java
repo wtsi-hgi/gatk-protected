@@ -151,13 +151,22 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
      *
      *
      *
-     * where:
+     * where: nA,nC,nG,nT = counts of bases observed in pileup.
+     * We don't store 4-D array but rather store in internal map of int[]-> Double
+     *
+     * @param nA
+     * @param nC
+     * @param nG
+     * @param nT
+     * @param errorModel
+     * @return
      */
     private int add(final int nA, final int nC, final int nG, final int nT, final ErrorModel errorModel) {
         final int minQ = errorModel.getMinQualityScore();
         final int maxQ = errorModel.getMaxQualityScore();
 
         List<Allele> myAlleles = new ArrayList<Allele>(alleles);
+
 
         if (myAlleles.size() < BaseUtils.BASES.length) {
             // likelihood only defined for subset of possible alleles. Fill then with other alleles to have all possible ones,
