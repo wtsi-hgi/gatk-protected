@@ -16,7 +16,7 @@ public class BaseQualityScoreRecalibratorIntegrationTest extends WalkerTest {
         String BAM = "public/testdata/exampleBAM.bam";
         String DBSNP = "public/testdata/exampleDBSNP.vcf";
         String base = String.format("-T BaseQualityScoreRecalibrator -R %s -I %s -knownSites %s", REF, BAM, DBSNP) + " -o %s ";
-        WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("0d1bddbdce2cde5efbf432695f712b71"));
+        WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("94f9f303355d850af410d883957f6b85"));
         executeTest("recalibrateTest", spec);
     }
 
@@ -26,7 +26,7 @@ public class BaseQualityScoreRecalibratorIntegrationTest extends WalkerTest {
         String BAM = "public/testdata/exampleBAM.bam";
         String GRP = "public/testdata/exampleGRP.grp";
         String base = String.format("-T PrintReads -R %s -I %s -BQSR %s", REF, BAM, GRP) + " -o %s ";
-        WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("a66dd80ae9b5aa95a2f85953c749978f"));
+        WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("43580eb68b6e52152e029c3975c132e9"));
         executeTest("onTheFlyRecalibrationTest", spec);
     }
 
