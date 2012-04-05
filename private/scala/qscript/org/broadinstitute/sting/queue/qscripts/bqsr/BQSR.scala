@@ -21,8 +21,7 @@ class BQSR extends QScript {
       walker.out = swapExt(bam, ".bam", ".grp")
       walker.knownSites ++= dbSNP
       walker.input_file :+= bam
-      walker.memoryLimit = 4
-      walker.dcov = 10000
+      walker.memoryLimit = 2
       walker.solid_nocall_strategy = RecalDataManager.SOLID_NOCALL_STRATEGY.PURGE_READ
       walker.scatterCount = scatterCount
       if (recalFile != null)
