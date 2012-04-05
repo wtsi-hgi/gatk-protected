@@ -154,12 +154,12 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
      * where: nA,nC,nG,nT = counts of bases observed in pileup.
      * We don't store 4-D array but rather store in internal map of int[]-> Double
      *
-     * @param nA
-     * @param nC
-     * @param nG
-     * @param nT
-     * @param errorModel
-     * @return
+     * @param nA                      Number of A's in pileup
+     * @param nC                      Number of C's in pileup
+     * @param nG                      Number of G's in pileup
+     * @param nT                      Number of T's in pileup
+     * @param errorModel              Site error model object, in essence pr(site Quality = k)
+     * @return                        number of observations added
      */
     private int add(final int nA, final int nC, final int nG, final int nT, final ErrorModel errorModel) {
         final int minQ = errorModel.getMinQualityScore();
@@ -167,22 +167,15 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
 
         List<Allele> myAlleles = new ArrayList<Allele>(alleles);
 
+        byte refByte = alleles.get(0).getBases()[0];  // by construction, first allele in list is always ref!
 
         if (myAlleles.size() < BaseUtils.BASES.length) {
             // likelihood only defined for subset of possible alleles. Fill then with other alleles to have all possible ones,
             for (byte b : BaseUtils.BASES) {
                 // if base is not included in myAlleles, add new allele
-                boolean found = false;
-                for (Allele a: alleles) {
-                    if (a.getBases()[0] == b) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    myAlleles.add(Allele.create(b,false));
-                }
-
+                boolean isRef = (b==refByte);
+                if (!myAlleles.contains(Allele.create(b,isRef)))
+                    myAlleles.add(Allele.create(b,isRef));
 
             }
 
@@ -190,19 +183,12 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
 
         SumIterator iterator = new SumIterator(nAlleles,numChromosomes);
 
-        int kk=0;
         // compute permutation vector to figure out mapping from indices to bases
         int idx = 0;
         int[] alleleIndices = new int[myAlleles.size()];
         for (byte b : BaseUtils.BASES) {
-            kk=0;
-            for (Allele a: myAlleles) {
-                if (a.getBases()[0] == b) {
-                    alleleIndices[idx++] = kk;
-                    break;
-                }
-                kk++;
-            }
+            boolean isRef = (b==refByte);
+            alleleIndices[idx++] = myAlleles.indexOf(Allele.create(b,isRef));
         }
 
         while (iterator.hasNext()) {
@@ -228,8 +214,6 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
             setLogPLs(Arrays.copyOf(currentCnt,alleles.size()), pl);
             iterator.next();
         }
-
-//System.out.format("Put k=%d\n",kk);
 
         return 1;
     }

@@ -60,6 +60,8 @@ public abstract class PoolGenotypeLikelihoods {
 
     public PoolGenotypeLikelihoods(final List<Allele> alleles, final PoolGenotypePriors priors,
                                    final HashMap<String, ErrorModel> perLaneErrorModels, final boolean ignoreLaneInformation) {
+        if (alleles.get(0).isNonReference())
+            throw new ReviewedStingException("BUG: first allele in PoolGenotypeLikelihoods must be ref!");
         this.priors = priors;
         this.alleles = alleles;
         this.nAlleles = alleles.size();
