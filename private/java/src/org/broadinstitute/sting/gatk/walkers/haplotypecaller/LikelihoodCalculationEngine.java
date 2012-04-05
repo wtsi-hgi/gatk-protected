@@ -240,7 +240,7 @@ public class LikelihoodCalculationEngine {
             haplotypeLikelihoodMatrix[hap1][hap2] = Double.NEGATIVE_INFINITY;
         }
         
-        if( DEBUG ) { System.out.println("Found " + (bestHaplotypesIndexList.size() - 1) + " alternate haplotypes to genotype in all samples."); }
+        if( DEBUG ) { System.out.println("Chose " + (bestHaplotypesIndexList.size() - 1) + " alternate haplotypes to genotype in all samples."); }
 
         final ArrayList<Haplotype> bestHaplotypes = new ArrayList<Haplotype>();
         for( final int hIndex : bestHaplotypesIndexList ) {

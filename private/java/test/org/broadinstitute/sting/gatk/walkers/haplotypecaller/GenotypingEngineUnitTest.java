@@ -138,7 +138,8 @@ public class GenotypingEngineUnitTest extends BaseTest {
         }
         
         public HashMap<Integer,VariantContext> calcAlignment() {
-            return ge.generateVCsFromAlignment( new SWPairwiseAlignment(ref, hap), ref, hap, genomeLocParser.createGenomeLoc("4",1,1+ref.length), "name");
+            final SWPairwiseAlignment alignment = new SWPairwiseAlignment(ref, hap);
+            return ge.generateVCsFromAlignment( alignment.getAlignmentStart2wrt1(), alignment.getCigar(), ref, hap, genomeLocParser.createGenomeLoc("4",1,1+ref.length), "name");
         }
     }
 

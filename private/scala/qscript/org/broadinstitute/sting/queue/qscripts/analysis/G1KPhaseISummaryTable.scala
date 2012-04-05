@@ -131,6 +131,7 @@ class G1KPhaseISummaryTable extends QScript {
     this.noEV = true
     this.EV = List("VariantSummary")
     this.noST = true
+    this.keepAC0 = true
     this.stratIntervals = geneIntervals
     this.ST = List("IntervalStratification")
     this.nt = NumThreads
