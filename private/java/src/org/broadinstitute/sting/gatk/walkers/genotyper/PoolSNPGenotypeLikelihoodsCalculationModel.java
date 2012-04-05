@@ -60,7 +60,6 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
                                          final ReferenceContext ref,
                                          Map<String, AlignmentContext> contexts,
                                          final AlignmentContextUtils.ReadOrientation contextType,
-                                         final GenotypePriors dummyPriors,
                                          final List<Allele> alternateAllelesToUse,
                                          final boolean useBAQedPileup,
                                          final GenomeLocParser locParser) {

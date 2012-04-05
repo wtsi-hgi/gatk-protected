@@ -4,18 +4,14 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 import net.sf.samtools.SAMUtils;
 import org.broadinstitute.sting.gatk.walkers.poolcaller.ErrorModel;
 import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 
 import java.util.*;
 
-import static java.lang.Math.log;
-import static java.lang.Math.log10;
 
 /**
  * Stable, error checking version of the pool genotyper.  Useful for calculating the likelihoods, priors,
@@ -261,52 +257,10 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
     public String toString() {
         double sum = 0;
         StringBuilder s = new StringBuilder();
-        for (int i=0; i < priors.getPriors().length; i++) {
-            s.append(String.format("%d %.10f ", i, log10Likelihoods[i]));
-            sum += Math.pow(10,log10Likelihoods[i]);
-        }
         s.append(String.format(" %f", sum));
         return s.toString();
     }
 
-    // -----------------------------------------------------------------------------------------------------------------
-    //
-    //
-    // Validation routines
-    //
-    //
-    // -----------------------------------------------------------------------------------------------------------------
-
-    public boolean validate() {
-        return validate(true);
-    }
-
-    public boolean validate(boolean throwException) {
-        try {
-            priors.validate(throwException);
-
-            for (int i=0; i < priors.getPriors().length; i++) {
-                String bad = null;
-
-                if ( ! MathUtils.wellFormedDouble(log10Likelihoods[i]) || ! MathUtils.isNegativeOrZero(log10Likelihoods[i]) ) {
-                    bad = String.format("Likelihood %f is badly formed", log10Likelihoods[i]);
-                } else if ( ! MathUtils.wellFormedDouble(log10Posteriors[i]) || ! MathUtils.isNegativeOrZero(log10Posteriors[i]) ) {
-                    bad = String.format("Posterior %f is badly formed", log10Posteriors[i]);
-                }
-
-                if ( bad != null ) {
-                    throw new IllegalStateException(String.format("At %d: %s", i, bad));
-                }
-            }
-        } catch ( IllegalStateException e ) {
-            if ( throwException )
-                throw new RuntimeException(e);
-            else
-                return false;
-        }
-
-        return true;
-    }
 
     //
     // Constant static data

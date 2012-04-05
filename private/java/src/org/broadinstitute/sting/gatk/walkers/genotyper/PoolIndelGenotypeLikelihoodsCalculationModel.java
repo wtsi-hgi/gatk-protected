@@ -95,7 +95,6 @@ public class PoolIndelGenotypeLikelihoodsCalculationModel extends PoolGenotypeLi
                                          final ReferenceContext ref,
                                          final Map<String, AlignmentContext> contexts,
                                          final AlignmentContextUtils.ReadOrientation contextType,
-                                         final GenotypePriors dummyPriors,
                                          final List<Allele> alternateAllelesToUse,
                                          final boolean useBAQedPileup,
                                          final GenomeLocParser locParser) {

@@ -45,8 +45,6 @@ public abstract class PoolGenotypeLikelihoods {
     protected double[] log10Posteriors = null;
     protected final double[] genotypeZeros;
 
-    protected PoolGenotypePriors priors = null;
-
     protected final int nSamplesPerPool;
     protected final HashMap<String, ErrorModel> perLaneErrorModels;
 
@@ -62,7 +60,6 @@ public abstract class PoolGenotypeLikelihoods {
                                    final HashMap<String, ErrorModel> perLaneErrorModels, final boolean ignoreLaneInformation) {
         if (alleles.get(0).isNonReference())
             throw new ReviewedStingException("BUG: first allele in PoolGenotypeLikelihoods must be ref!");
-        this.priors = priors;
         this.alleles = alleles;
         this.nAlleles = alleles.size();
         nSamplesPerPool = priors.getNSamplesPerPool();
@@ -339,14 +336,6 @@ public abstract class PoolGenotypeLikelihoods {
         }
 
         return logVec;
-    }
-    /**
-     * Returns an array of priors for each genotype, indexed by DiploidGenotype.ordinal values().
-     *
-     * @return log10 prior as a double array
-     */
-    public double[] getPriors() {
-        return priors.getPriors();
     }
 
     /**
