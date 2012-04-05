@@ -347,7 +347,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             alleles.add(Allele.create(hypothesis.toString()));
             vcb.alleles(alleles);
             VariantContext asCon = vcb.make();
-            GenotypesContext genAssigned = VariantContextUtils.assignGenotypes(asCon);
+            GenotypesContext genAssigned = VariantContextUtils.assignDiploidGenotypes(asCon);
             vcb.genotypes(genAssigned);
             final double[] normalizedPosteriors = UnifiedGenotyperEngine.generateNormalizedPosteriors(result, new double[2]);
             logger.debug(normalizedPosteriors[0]);
