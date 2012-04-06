@@ -20,22 +20,23 @@ if ( onCMDLine ) {
   projectName <- args[1]
   bySampleEval <- args[2]
   byACEval <- args[3]
-  outputPDF <- args[4]
-  if ( ! is.na(args[5]) )
-    highlightSamples <- parseHighlightSamples(args[5])
+  IndelQCEval <- args[4]
+  outputPDF <- args[5]
+  if ( ! is.na(args[6]) )
+    highlightSamples <- parseHighlightSamples(args[6])
   else
     highlightSamples <- c()
 } else {
   projectName <- "InDevelopmentInR"
 
-  bySampleEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012.bySample.eval"
-  byACEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012.byAC.eval"
-
-  #bySampleEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.annotated.bySample.eval"
-  #byACEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.annotated.byAC.eval"
+  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012"
+  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.annotated"
+  root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes"
+  #root <- "/humgen/gsa-hpprojects/ESP/calls/broadOnly_chr1_v2/esp.all.unannotated.chr1"
   
-  #bySampleEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes.bySample.eval"
-  #byACEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes.byAC.eval"
+  bySampleEval <- paste(root, "bySample.eval", sep=".")
+  byACEval <- paste(root, "byAC.eval", sep=".")
+  IndelQCEval <- paste(root, "indelQC.eval", sep=".")
   
   # comment out to stop printing to PDF
   outputPDF <- NA
@@ -49,6 +50,7 @@ print("Report")
 print(paste("Project          :", projectName))
 print(paste("bySampleEval     :", bySampleEval))
 print(paste("byACEval         :", byACEval))
+print(paste("IndelQC          :", IndelQCEval))
 print(paste("outputPDF        :", outputPDF))
 print(paste("highlightSamples :", highlightSamples))
 
@@ -79,8 +81,8 @@ distributeLogGraph <- function(graph, xName) {
   distributeGraphRows(list(continuousGraph, logGraph))
 }
 
-distributePerSampleGraph <- function(perSampleGraph, distGraph) {
-  distributeGraphRows(list(perSampleGraph, distGraph), c(2,1))
+distributePerSampleGraph <- function(perSampleGraph, distGraph, ratio=c(2,1)) {
+  distributeGraphRows(list(perSampleGraph, distGraph), ratio)
 }
 
 expandVEReport <- function(d) {
@@ -219,7 +221,7 @@ summaryPlots <- function(metricsBySites) {
       p <- p + geom_line(size=2)
     }
     p <- p + geom_point(alpha=0.5, aes(size=log10(nIndels)))
-    print(p)
+    distributeLogGraph(p, "Allele count (AC)")
   }
   
   countFunctional <- subset(metricsBySites$byAC$CountVariants, FunctionalClass != "all" & AlleleCount > 0)
@@ -381,10 +383,8 @@ perSamplePlots <- function(metricsBySamples) {
 # Detailed indel QC statistics 
 # -------------------------------------------------------
 
-removeExtraStrats <- function(df) {
-  #df <- subset(df, CompRod == "goldStandardIndel")
-  
-  for ( toRemove in c("FunctionalClass", "Novelty") ) {
+removeExtraStrats <- function(df, moreToRemove=c()) {
+  for ( toRemove in c("FunctionalClass", "Novelty", moreToRemove) ) {
     if (toRemove %in% colnames(df)) {
       df <- df[df[[toRemove]] == "all",]
     }
@@ -392,11 +392,20 @@ removeExtraStrats <- function(df) {
   df    
 }
 
-indelQCPlot <- function(metrics, measures, requestedStrat = "Sample") {
+indelQCPlot <- function(metrics, measures, requestedStrat = "Sample", fixHistogramX=F, anotherStrat = NULL) {
   numSamples = dim(metrics)[1] - 1
   metrics$strat = metrics[[requestedStrat]]
   
-  molten <- melt(metrics, id.vars=c("strat", "n_indels"), measure.vars=c(measures))
+  otherFacet = "."
+  id.vars = c("strat", "n_indels")
+  
+  # keep track of the other strat and it's implied facet value
+  if (! is.null(anotherStrat)) { 
+    id.vars = c(id.vars, anotherStrat)
+    otherFacet = anotherStrat
+  }
+  
+  molten <- melt(metrics, id.vars=id.vars, measure.vars=c(measures))
   perSampleGraph <- ggplot(data=molten, aes(x=strat, y=value, group=variable, color=variable, fill=variable))
   if ( requestedStrat == "Sample" ) {
     perSampleGraph <- perSampleGraph + geom_text(aes(label=strat), size=1.5) + geom_blank() # don't display a scale
@@ -406,27 +415,28 @@ indelQCPlot <- function(metrics, measures, requestedStrat = "Sample") {
     perSampleGraph <- perSampleGraph + scale_x_log10("AlleleCount")
   }    
   perSampleGraph <- perSampleGraph + ylab("Variable value")
-  perSampleGraph <- perSampleGraph + facet_grid(variable ~ ., scales="free")
-  # stop legend since it'll be in the distributions below
-  #perSampleGraph <- perSampleGraph + opts(legend.position="top", legend.title=theme_blank())
-  #if ( length(unique(molten$variable)) > 1 ) # this oddness is required to avoid a bug in ggplot2
-  #  perSampleGraph <- perSampleGraph + opts(legend.direction="horizontal")
+
+  perSampleGraph <- perSampleGraph + facet_grid(paste("variable ~ ", otherFacet), scales="free")
+
     
   if (numSamples > 2) {
-
     distGraph <- ggplot(data=molten, aes(x=value, group=variable, fill=variable))
     distGraph <- distGraph + geom_histogram(aes(y=..ndensity..))
     distGraph <- distGraph + geom_density(alpha=0.5, aes(y=..scaled..))
     distGraph <- distGraph + geom_rug(aes(y=NULL, color=variable, position="jitter"))
-    distGraph <- distGraph + facet_grid(. ~ variable, scales="free")
+    scale = "free"
+    if ( fixHistogramX ) scale = "fixed"
+    distGraph <- distGraph + facet_grid(paste(otherFacet, " ~ variable"), scales=scale)
     distGraph <- distGraph + ylab("Relative frequency")
     distGraph <- distGraph + ylab("Variable value")
-    distGraph <- distGraph + opts(axis.text.x=theme_text(angle=-45), legend.position="none")
+    distGraph <- distGraph + opts(axis.text.x=theme_text(angle=-45)) # , legend.position="none")
   } else {
     distGraph <- NA
   }
   
-  distributePerSampleGraph(perSampleGraph, distGraph)
+  print(perSampleGraph)
+  print(distGraph)
+  #distributePerSampleGraph(perSampleGraph, distGraph)
 }
 
 indelLengthDistribution <- function(indelHistogram) {
@@ -434,55 +444,64 @@ indelLengthDistribution <- function(indelHistogram) {
   numSamples = length(unique(indelHistogram$Sample))
   indelHistogram$callset[indelHistogram$Sample == "all"] = "overall"
   indelHistogram$callset = factor(indelHistogram$callset, levels=c("per sample", "overall"), ordered=T)
-  p <- ggplot(data=subset(indelHistogram, Sample != "all"), aes(x=Length, y=Freq, group=interaction(callset, Length), fill=callset))
+  p <- ggplot(data=subset(indelHistogram, Sample != "all"), aes(x=Length, y=Freq, group=interaction(Length, TandemRepeat), fill=TandemRepeat))
+  p <- p + geom_vline(x=c(-9,-6,-3,3,6,9), linetype="dashed", color="grey",size=2)
   p <- p + geom_boxplot()
-  #p <- p + geom_point(position="jitter")
-  p <- p + geom_line(aes(group=Sample, color=callset), data=subset(indelHistogram, Sample == "all"), size=2)
-  p <- p + scale_x_continuous("Indel length (negative is deletion)", breaks=unique(sort(indelHistogram$Length)))
-  p <- p + ylab("Relative frequency")
-  print(p)
-}
-#indelLengthDistribution(removeExtraStrats(bySampleReport$IndelLengthHistogram))
+  p <- p + scale_x_continuous(breaks=unique(sort(indelHistogram$Length)))
+  p <- p + xlab("Indel length (negative is deletion)") + ylab("Relative frequency")
 
-indelPlots <- function(bySampleReport, byACReport) {
-  IndelSummaryBySample <- removeExtraStrats(bySampleReport$IndelSummary)
+  p2 <- p + facet_grid(TandemRepeat ~ .)
+  #p2 <- p2 + geom_point(position="jitter")
+  p2 <- p2 + geom_line(aes(group=Sample, color=TandemRepeat), data=subset(indelHistogram, Sample == "all"), size=2)
+  
+  print(p)
+  print(p2)
+  #distributePerSampleGraph(p, p2, ratio=c(1,1))
+}
+#indelLengthDistribution(lengthHistogram)
+
+indelPlots <- function(IndelQCReport, byACReport) {
+  IndelSummaryBySample <- IndelQCReport$IndelSummary
   IndelSummaryBySampleWithoutAll = subset(IndelSummaryBySample, Sample != "all")
+  IndelSummaryBySampleNoOtherStrats <- removeExtraStrats(IndelSummaryBySampleWithoutAll, c("OneBPIndel", "TandemRepeat"))
   IndelSummaryByAC = removeExtraStrats(subset(byACReport$IndelSummary, AlleleCount > 0)) 
   
   # write out the values for all IndelSummary report fields transposed for easy viewing
-  all = subset(IndelSummaryBySample, Sample == "all")
+  all = subset(removeExtraStrats(IndelSummaryBySample, c("OneBPIndel", "TandemRepeat")), Sample == "all")
   all = all[, !(colnames(all) %in% c("IndelSummary", "Sample", "CompRod","EvalRod") )]
   rownames(all) <- "Combined callset"
   textplot(t(all))
 
+  indelQCPlotWithAllStrats <- function(values, ...) {
+    indelQCPlot(IndelSummaryBySampleNoOtherStrats, values, ...)
+    indelQCPlot(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("OneBPIndel")), values, anotherStrat="TandemRepeat",...)
+    indelQCPlot(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("TandemRepeat")), values, anotherStrat="OneBPIndel",...)
+  }
+  
   if ( T ) {
-    indelQCPlot(IndelSummaryBySampleWithoutAll, c("n_SNPs", "n_indels", "SNP_to_indel_ratio"))
-    indelQCPlot(IndelSummaryBySampleWithoutAll, c("n_singleton_SNPs", "n_singleton_indels", "SNP_to_indel_ratio_for_singletons"))
+    indelQCPlotWithAllStrats(c("n_SNPs", "n_indels", "SNP_to_indel_ratio"))
+    indelQCPlotWithAllStrats(c("n_indels_matching_gold_standard", "gold_standard_matching_rate"))
+    indelQCPlot(IndelSummaryBySampleNoOtherStrats, c("n_singleton_SNPs", "n_singleton_indels", "SNP_to_indel_ratio_for_singletons"))
     indelQCPlot(IndelSummaryByAC, c("SNP_to_indel_ratio"), "AlleleCount")
     
-    indelQCPlot(IndelSummaryBySampleWithoutAll, c("indel_novelty_rate"))
+    indelQCPlotWithAllStrats(c("indel_novelty_rate"))
     indelQCPlot(IndelSummaryByAC, c("indel_novelty_rate"), "AlleleCount")
     
     # insertion to deletion information
-    indelQCPlot(IndelSummaryBySampleWithoutAll, c("insertion_to_deletion_ratio", "insertion_to_deletion_ratio_for_1bp_indels", "insertion_to_deletion_ratio_for_large_indels"))
-    #indelQCPlot(IndelSummaryByAC, c("insertion_to_deletion_ratio", "insertion_to_deletion_ratio_for_1bp_indels", "insertion_to_deletion_ratio_for_large_indels"), "AlleleCount")
-    
+    indelQCPlotWithAllStrats(c("insertion_to_deletion_ratio"), fixHistogramX=T)
+    indelQCPlotWithAllStrats(c("ratio_of_1_and_2_to_3_bp_insertions", "ratio_of_1_and_2_to_3_bp_deletions"), fixHistogramX=T)
+
     # het : hom ratios information
-    indelQCPlot(IndelSummaryBySampleWithoutAll, c("SNP_het_to_hom_ratio", "indel_het_to_hom_ratio"))
-    
+    indelQCPlotWithAllStrats(c("SNP_het_to_hom_ratio", "indel_het_to_hom_ratio"), fixHistogramX=T)
+
     # optional frameshift counts
-    hasFrameShift = ! is.na(max(IndelSummaryBySampleWithoutAll$frameshift_rate_for_coding_indels))
+    hasFrameShift = ! is.na(max(IndelSummaryBySampleNoOtherStrats$frameshift_rate_for_coding_indels))
     if ( hasFrameShift ) {
-      indelQCPlot(IndelSummaryBySampleWithoutAll, c("frameshift_rate_for_coding_indels"))
+      indelQCPlot(IndelSummaryBySampleNoOtherStrats, c("frameshift_rate_for_coding_indels"))
       indelQCPlot(IndelSummaryByAC, c("frameshift_rate_for_coding_indels"), "AlleleCount")
-    } else {
-      indelQCPlot(IndelSummaryBySampleWithoutAll, c("ratio_of_1_and_2_to_3_bp_indels"))
-      #indelQCPlot(IndelSummaryByAC, c("ratio_of_1_and_2_to_3_bp_indels"), "AlleleCount")
-    }
+    } 
 
-    indelQCPlot(IndelSummaryBySampleWithoutAll, c("ratio_of_1_to_2_bp_indels", "ratio_of_1_to_3_bp_indels", "ratio_of_2_to_3_bp_indels"))
-
-    lengthHistogram <- removeExtraStrats(bySampleReport$IndelLengthHistogram)
+    lengthHistogram <- removeExtraStrats(IndelQCReport$IndelLengthHistogram, c("OneBPIndel"))
     indelLengthDistribution(lengthHistogram)
   }
 }
@@ -495,6 +514,7 @@ indelPlots <- function(bySampleReport, byACReport) {
 if ( onCMDLine || LOAD_DATA ) {
   bySampleReport <- gsa.read.gatkreport(bySampleEval)
   byACReport <- gsa.read.gatkreport(byACEval)
+  IndelQCReport <- gsa.read.gatkreport(IndelQCEval)
   metricsBySites <- createMetricsBySites(bySampleReport, byACReport)
   metricsBySamples <- createMetricsBySamples(bySampleReport)
   missenseSilentSummary <- createMissenseSilentSummary(bySampleReport)
@@ -510,7 +530,7 @@ title(paste("Summary metrics for project", projectName), cex=3)
 
 summaryPlots(metricsBySites)
 perSamplePlots(metricsBySamples)
-indelPlots(bySampleReport, metricsBySites$byAC)
+indelPlots(IndelQCReport, metricsBySites$byAC)
 
 if ( ! is.na(outputPDF) ) {
   dev.off()
