@@ -153,7 +153,7 @@ public class GenotypingEngine {
 
                 if( DEBUG ) {
                     System.out.println("Genotyping event at " + loc + " with alleles = " + mergedVC.getAlleles());
-                    System.out.println("Event/haplotype allele mapping = " + alleleMapper);
+                    //System.out.println("Event/haplotype allele mapping = " + alleleMapper);
                 }
 
                 // Grab the genotype likelihoods from the appropriate places in the haplotype likelihood matrix -- calculation performed independently per sample

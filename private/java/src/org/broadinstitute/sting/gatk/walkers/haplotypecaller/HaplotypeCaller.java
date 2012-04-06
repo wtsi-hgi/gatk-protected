@@ -230,10 +230,10 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             Arrays.fill(genotypeLikelihoods, 0.0);
 
             for( final PileupElement p : splitContexts.get(sample).getBasePileup() ) {
-                final byte qual = p.getQual();
+                final byte qual = ( p.isNextToSoftClip() || p.isBeforeInsertion() || p.isAfterInsertion() ? ( p.getQual() > QualityUtils.MIN_USABLE_Q_SCORE ? p.getQual() : (byte) 20 ) : p.getQual() );
                 if( qual > QualityUtils.MIN_USABLE_Q_SCORE ) {
                     int AA = 0; final int AB = 1; int BB = 2;
-                    if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletedBase() || p.isBeforeInsertion() || p.isNextToSoftClip() ||
+                    if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletedBase() || p.isAfterDeletedBase() || p.isBeforeInsertion() || p.isAfterInsertion() || p.isNextToSoftClip() ||
                             (!p.getRead().getNGSPlatform().equals(NGSPlatform.SOLID) && ((p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()))) ) {
                         AA = 2;
                         BB = 0;
@@ -411,7 +411,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         final double meanReadLength = MathUtils.average(readLengthDistribution);
         final double meanCoveragePerSample = (double) activeRegion.getReads().size() / ((double) activeRegion.getExtendedLoc().size() / meanReadLength) / (double) samplesList.size();
         int PRUNE_FACTOR = 0;
-        if( meanCoveragePerSample > 100.0 ) { PRUNE_FACTOR = 8; }
+        if( meanCoveragePerSample > 100.0 ) { PRUNE_FACTOR = 10; }
         else if( meanCoveragePerSample > 25.0 ) { PRUNE_FACTOR = 4; }
         else if( meanCoveragePerSample > 2.5 ) { PRUNE_FACTOR = 1; }
         if( DEBUG ) { System.out.println(String.format("Mean coverage per sample = %.1f --> prune factor = %d", meanCoveragePerSample, PRUNE_FACTOR)); }

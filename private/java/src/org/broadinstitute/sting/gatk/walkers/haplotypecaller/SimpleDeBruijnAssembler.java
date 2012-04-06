@@ -25,10 +25,10 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private static final byte MIN_QUALITY = (byte) 12;
 
     // Smith-Waterman parameters originally copied from IndelRealigner
-    private static final double SW_MATCH = 5.0;
-    private static final double SW_MISMATCH = -8.0;
-    private static final double SW_GAP = -30.0;
-    private static final double SW_GAP_EXTEND = -1.4;
+    private static final double SW_MATCH = 4.0;
+    private static final double SW_MISMATCH = -10.0;
+    private static final double SW_GAP = -25.0;
+    private static final double SW_GAP_EXTEND = -1.3;
 
     private final boolean DEBUG;
     private final PrintStream GRAPH_WRITER;
@@ -292,10 +292,8 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         final int hapStop = ReadUtils.getReadCoordinateForReferenceCoordinate( haplotype.getAlignmentStartHapwrtRef(), haplotype.getCigar(), activeRegionStop, ReadUtils.ClippingTail.RIGHT_TAIL, true );
         byte[] newHaplotypeBases;
         // extend partial haplotypes to contain the full active region sequence
-        if( hapStart == ReadUtils.CLIPPING_GOAL_NOT_REACHED && hapStop == ReadUtils.CLIPPING_GOAL_NOT_REACHED && swConsensus.getAlignmentStart2wrt1() > activeRegionStart && swConsensus.getAlignmentStart2wrt1() < activeRegionStop ) {
-            newHaplotypeBases = ArrayUtils.addAll(ArrayUtils.addAll(ArrayUtils.subarray(ref, activeRegionStart, swConsensus.getAlignmentStart2wrt1()), ArrayUtils.subarray(haplotype.getBases(), 0, haplotype.getBases().length)), ArrayUtils.subarray(ref, swConsensus.getAlignmentStart2wrt1() + swConsensus.getCigar().getReferenceLength(), activeRegionStop));
-        } else if( hapStart == ReadUtils.CLIPPING_GOAL_NOT_REACHED && hapStop == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) {
-            return; // piece of haplotype isn't contained within the active region so don't build a haplotype out of it
+        if( hapStart == ReadUtils.CLIPPING_GOAL_NOT_REACHED && hapStop == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) {
+            return; // piece of haplotype isn't anchored within the active region so don't build a haplotype out of it
         } else if( hapStart == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) {
             newHaplotypeBases = ArrayUtils.addAll( ArrayUtils.subarray(ref, activeRegionStart, swConsensus.getAlignmentStart2wrt1()), ArrayUtils.subarray(haplotype.getBases(), 0, hapStop) );
         } else if( hapStop == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) {
