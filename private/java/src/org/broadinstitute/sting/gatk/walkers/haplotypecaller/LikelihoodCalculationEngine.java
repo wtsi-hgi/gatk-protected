@@ -30,13 +30,17 @@ import com.google.java.contract.Requires;
 import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.PairHMM;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.util.*;
 
 public class LikelihoodCalculationEngine {
 
     private final static double LOG_ONE_HALF = -Math.log10(2.0);
+    private static final double BEST_LIKELIHOOD_THRESHOLD = 0.1;
     private final byte constantGCP;
     private final boolean DEBUG;
     private final PairHMM pairHMM;
@@ -125,12 +129,11 @@ public class LikelihoodCalculationEngine {
     @Requires({"haplotypes.size() > 0"})
     @Ensures({"result.length == result[0].length", "result.length == haplotypes.size()"})
     public static double[][] computeDiploidHaplotypeLikelihoods( final ArrayList<Haplotype> haplotypes, final String sample ) {
-        // set up the default 1-to-1 haplotype mapping object
-        final ArrayList<ArrayList<Integer>> haplotypeMapping = new ArrayList<ArrayList<Integer>>();
-        final int numHaplotypes = haplotypes.size();
-        for( int iii = 0; iii < numHaplotypes; iii++ ) {
-            final ArrayList<Integer> list = new ArrayList<Integer>();
-            list.add(iii);
+        // set up the default 1-to-1 haplotype mapping object, BUGBUG: target for future optimization?
+        final ArrayList<ArrayList<Haplotype>> haplotypeMapping = new ArrayList<ArrayList<Haplotype>>();
+        for( final Haplotype h : haplotypes ) {
+            final ArrayList<Haplotype> list = new ArrayList<Haplotype>();
+            list.add(h);
             haplotypeMapping.add(list);
         }
         return computeDiploidHaplotypeLikelihoods( haplotypes, sample, haplotypeMapping );
@@ -138,7 +141,7 @@ public class LikelihoodCalculationEngine {
     
     @Requires({"haplotypes.size() > 0","haplotypeMapping.size() > 0","haplotypeMapping.size() <= haplotypes.size()"})
     @Ensures({"result.length == result[0].length", "result.length == haplotypeMapping.size()"})
-    public static double[][] computeDiploidHaplotypeLikelihoods( final ArrayList<Haplotype> haplotypes, final String sample, final ArrayList<ArrayList<Integer>> haplotypeMapping ) {
+    public static double[][] computeDiploidHaplotypeLikelihoods( final ArrayList<Haplotype> haplotypes, final String sample, final ArrayList<ArrayList<Haplotype>> haplotypeMapping ) {
 
         final int numHaplotypes = haplotypeMapping.size();
         final int numReads = haplotypes.get(0).getReadLikelihoods(sample).length; // BUGBUG: assume all haplotypes saw the same reads
@@ -150,10 +153,10 @@ public class LikelihoodCalculationEngine {
         // compute the diploid haplotype likelihoods
         for( int iii = 0; iii < numHaplotypes; iii++ ) {
             for( int jjj = 0; jjj <= iii; jjj++ ) {                
-                for( final int iii_mapped : haplotypeMapping.get(iii) ) {
-                    final double[] readLikelihoods_iii = haplotypes.get(iii_mapped).getReadLikelihoods(sample);
-                    for( final int jjj_mapped : haplotypeMapping.get(jjj) ) {
-                        final double[] readLikelihoods_jjj = haplotypes.get(jjj_mapped).getReadLikelihoods(sample);
+                for( final Haplotype iii_mapped : haplotypeMapping.get(iii) ) {
+                    final double[] readLikelihoods_iii = iii_mapped.getReadLikelihoods(sample);
+                    for( final Haplotype jjj_mapped : haplotypeMapping.get(jjj) ) {
+                        final double[] readLikelihoods_jjj = jjj_mapped.getReadLikelihoods(sample);
                         double haplotypeLikelihood = 0.0;
                         for( int kkk = 0; kkk < numReads; kkk++ ) {
                             // Compute log10(10^x1/2 + 10^x2/2) = log10(10^x1+10^x2)-log10(2)
@@ -247,5 +250,42 @@ public class LikelihoodCalculationEngine {
             bestHaplotypes.add( haplotypes.get(hIndex) );
         }
         return bestHaplotypes;
+    }
+
+    public static HashMap<String, HashMap<Allele, ArrayList<GATKSAMRecord>>> partitionReadsBasedOnLikelihoods( final HashMap<String, ArrayList<GATKSAMRecord>> perSampleReadList, final Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> call) {
+        final HashMap<String, HashMap<Allele, ArrayList<GATKSAMRecord>>> returnMap = new HashMap<String, HashMap<Allele, ArrayList<GATKSAMRecord>>>();
+        for( final String sample : perSampleReadList.keySet() ) {
+            final HashMap<Allele, ArrayList<GATKSAMRecord>> alleleReadMap = new HashMap<Allele, ArrayList<GATKSAMRecord>>();
+            final ArrayList<GATKSAMRecord> readsForThisSample = perSampleReadList.get(sample);
+            for( int iii = 0; iii < readsForThisSample.size(); iii++ ) {
+                // VariantContext and haplotypeMapper have alleles in same order!
+                double likelihoods[] = new double[call.getFirst().getAlleles().size()];
+                for( int jjj = 0; jjj < call.getFirst().getAlleles().size(); jjj++ ) {
+                    double maxLikelihood = Double.NEGATIVE_INFINITY;
+                    for( final Haplotype h : call.getSecond().get(jjj) ) { // use the max likelihood from all the haplotypes which mapped to this allele
+                        final double likelihood = h.getReadLikelihoods(sample)[iii];
+                        if( likelihood > maxLikelihood ) {
+                            maxLikelihood = likelihood;
+                        }
+                    }
+                    likelihoods[jjj] = maxLikelihood;
+                }
+                int bestAllele = MathUtils.maxElementIndex(likelihoods);
+                double bestLikelihood = likelihoods[bestAllele];
+                likelihoods[bestAllele] = Double.NEGATIVE_INFINITY;
+                Allele allele = Allele.NO_CALL;
+                if( bestLikelihood - likelihoods[MathUtils.maxElementIndex(likelihoods)] > BEST_LIKELIHOOD_THRESHOLD ) {
+                    allele = call.getFirst().getAlleles().get(bestAllele);
+                }
+                ArrayList<GATKSAMRecord> readList = alleleReadMap.get(allele);
+                if( readList == null ) {
+                    readList = new ArrayList<GATKSAMRecord>();
+                    alleleReadMap.put(allele, readList);
+                }
+                readList.add(readsForThisSample.get(iii));
+            }
+            returnMap.put(sample, alleleReadMap);
+        }
+        return returnMap;
     }
 }

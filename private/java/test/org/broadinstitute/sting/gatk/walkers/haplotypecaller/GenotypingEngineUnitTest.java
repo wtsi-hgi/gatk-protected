@@ -46,27 +46,32 @@ public class GenotypingEngineUnitTest extends BaseTest {
         haplotypeAlleles.add( Allele.create("AACA", false) );
         haplotypeAlleles.add( Allele.create("CATA", false) );
         haplotypeAlleles.add( Allele.create("CACA", false) );
+        final ArrayList<Haplotype> haplotypes = new ArrayList<Haplotype>();
+        haplotypes.add(new Haplotype("AATA".getBytes()));
+        haplotypes.add(new Haplotype("AACA".getBytes()));
+        haplotypes.add(new Haplotype("CATA".getBytes()));
+        haplotypes.add(new Haplotype("CACA".getBytes()));
         final List<Allele> haplotypeAllelesForSample = new ArrayList<Allele>();
         haplotypeAllelesForSample.add( Allele.create("CATA", false) );
         haplotypeAllelesForSample.add( Allele.create("CACA", false) );
-        final ArrayList<ArrayList<Integer>> alleleMapper = new ArrayList<ArrayList<Integer>>();
-        ArrayList<Integer> Aallele = new ArrayList<Integer>();
-        Aallele.add(0);
-        Aallele.add(1);
-        ArrayList<Integer> Callele = new ArrayList<Integer>();
-        Callele.add(2);
-        Callele.add(3);
+        final ArrayList<ArrayList<Haplotype>> alleleMapper = new ArrayList<ArrayList<Haplotype>>();
+        ArrayList<Haplotype> Aallele = new ArrayList<Haplotype>();
+        Aallele.add(haplotypes.get(0));
+        Aallele.add(haplotypes.get(1));
+        ArrayList<Haplotype> Callele = new ArrayList<Haplotype>();
+        Callele.add(haplotypes.get(2));
+        Callele.add(haplotypes.get(3));
         alleleMapper.add(Aallele);
         alleleMapper.add(Callele);
         final List<Allele> eventAllelesForSample = new ArrayList<Allele>();
         eventAllelesForSample.add( Allele.create("C", false) );
         eventAllelesForSample.add( Allele.create("C", false) );
 
-        if(!compareAlleleLists(eventAllelesForSample, GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper))) {
-            logger.warn("calc alleles = " + GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper));
+        if(!compareAlleleLists(eventAllelesForSample, GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper, haplotypes))) {
+            logger.warn("calc alleles = " + GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper, haplotypes));
             logger.warn("expected alleles = " + eventAllelesForSample);
         }
-        Assert.assertTrue(compareAlleleLists(eventAllelesForSample, GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper)));
+        Assert.assertTrue(compareAlleleLists(eventAllelesForSample, GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper, haplotypes)));
     }
 
     @Test
@@ -83,20 +88,28 @@ public class GenotypingEngineUnitTest extends BaseTest {
         haplotypeAlleles.add( Allele.create("TACA", false) );
         haplotypeAlleles.add( Allele.create("TTCA", false) );
         haplotypeAlleles.add( Allele.create("TTTA", false) );
+        final ArrayList<Haplotype> haplotypes = new ArrayList<Haplotype>();
+        haplotypes.add(new Haplotype("AATA".getBytes()));
+        haplotypes.add(new Haplotype("AACA".getBytes()));
+        haplotypes.add(new Haplotype("CATA".getBytes()));
+        haplotypes.add(new Haplotype("CACA".getBytes()));
+        haplotypes.add(new Haplotype("TACA".getBytes()));
+        haplotypes.add(new Haplotype("TTCA".getBytes()));
+        haplotypes.add(new Haplotype("TTTA".getBytes()));
         final List<Allele> haplotypeAllelesForSample = new ArrayList<Allele>();
         haplotypeAllelesForSample.add( Allele.create("TTTA", false) );
         haplotypeAllelesForSample.add( Allele.create("AATA", true) );
-        final ArrayList<ArrayList<Integer>> alleleMapper = new ArrayList<ArrayList<Integer>>();
-        ArrayList<Integer> Aallele = new ArrayList<Integer>();
-        Aallele.add(0);
-        Aallele.add(1);
-        ArrayList<Integer> Callele = new ArrayList<Integer>();
-        Callele.add(2);
-        Callele.add(3);
-        ArrayList<Integer> Tallele = new ArrayList<Integer>();
-        Tallele.add(4);
-        Tallele.add(5);
-        Tallele.add(6);
+        final ArrayList<ArrayList<Haplotype>> alleleMapper = new ArrayList<ArrayList<Haplotype>>();
+        ArrayList<Haplotype> Aallele = new ArrayList<Haplotype>();
+        Aallele.add(haplotypes.get(0));
+        Aallele.add(haplotypes.get(1));
+        ArrayList<Haplotype> Callele = new ArrayList<Haplotype>();
+        Callele.add(haplotypes.get(2));
+        Callele.add(haplotypes.get(3));
+        ArrayList<Haplotype> Tallele = new ArrayList<Haplotype>();
+        Tallele.add(haplotypes.get(4));
+        Tallele.add(haplotypes.get(5));
+        Tallele.add(haplotypes.get(6));
         alleleMapper.add(Aallele);
         alleleMapper.add(Callele);
         alleleMapper.add(Tallele);
@@ -104,11 +117,11 @@ public class GenotypingEngineUnitTest extends BaseTest {
         eventAllelesForSample.add( Allele.create("A", true) );
         eventAllelesForSample.add( Allele.create("T", false) );
 
-        if(!compareAlleleLists(eventAllelesForSample, GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper))) {
-            logger.warn("calc alleles = " + GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper));
+        if(!compareAlleleLists(eventAllelesForSample, GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper, haplotypes))) {
+            logger.warn("calc alleles = " + GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper, haplotypes));
             logger.warn("expected alleles = " + eventAllelesForSample);
         }
-        Assert.assertTrue(compareAlleleLists(eventAllelesForSample, GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper)));
+        Assert.assertTrue(compareAlleleLists(eventAllelesForSample, GenotypingEngine.findEventAllelesInSample(eventAlleles, haplotypeAlleles, haplotypeAllelesForSample, alleleMapper, haplotypes)));
     }
 
     private boolean compareAlleleLists(List<Allele> l1, List<Allele> l2) {

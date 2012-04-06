@@ -48,6 +48,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.fragments.FragmentCollection;
@@ -299,12 +300,14 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         // subset down to only the best haplotypes to be genotyped in all samples
         final ArrayList<Haplotype> bestHaplotypes = likelihoodCalculationEngine.selectBestHaplotypes( haplotypes );
 
-        final ArrayList<VariantContext> vcs = genotypingEngine.assignGenotypeLikelihoodsAndCallEvents( UG_engine, bestHaplotypes, fullReferenceWithPadding,
-                                                                                                       getPaddedLoc(activeRegion), activeRegion.getLocation(), getToolkit().getGenomeLocParser() );
-        
-        for( final VariantContext vc : vcs ) {
-            if( DEBUG && samplesList.size() <= 10 ) { System.out.println(vc); }
-            vcfWriter.add(vc);
+        for( final Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> call :
+                genotypingEngine.assignGenotypeLikelihoodsAndCallEvents( UG_engine, bestHaplotypes, fullReferenceWithPadding, getPaddedLoc(activeRegion), activeRegion.getLocation(), getToolkit().getGenomeLocParser() ) ) {
+            if( DEBUG && samplesList.size() <= 10 ) { System.out.println(call.getFirst()); }
+
+            // Call to VariantAnnotator should go here before the VC, call.getFirst(), is written out to disk
+            final HashMap<String, HashMap<Allele, ArrayList<GATKSAMRecord>>> readMap = LikelihoodCalculationEngine.partitionReadsBasedOnLikelihoods(perSampleReadList, call);
+
+            vcfWriter.add(call.getFirst());
         }
 
         if( DEBUG ) { System.out.println("----------------------------------------------------------------------------------"); }
