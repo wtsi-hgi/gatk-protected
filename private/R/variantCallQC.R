@@ -29,9 +29,9 @@ if ( onCMDLine ) {
 } else {
   projectName <- "InDevelopmentInR"
 
-  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012"
-  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.annotated"
-  root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes"
+  root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012"
+  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.all.unannotated.chr1"
+  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes"
   #root <- "/humgen/gsa-hpprojects/ESP/calls/broadOnly_chr1_v2/esp.all.unannotated.chr1"
   
   bySampleEval <- paste(root, "bySample.eval", sep=".")
@@ -327,6 +327,7 @@ perSamplePlots <- function(metricsBySamples) {
       distGraph <- distGraph + geom_density(alpha=0.5, aes(y=..scaled..))
       distGraph <- distGraph + geom_rug(aes(y=NULL, color=Novelty, position="jitter"))
       distGraph <- distGraph + facet_grid(. ~ Novelty, scales="free")
+      distGraph <- distGraph + ylab("Relative frequency")
       distGraph <- distGraph + scale_x_continuous(measure)
     } else {
       distGraph <- NA
@@ -358,6 +359,7 @@ perSamplePlots <- function(metricsBySamples) {
     distGraph <- distGraph + geom_histogram(aes(y=..ndensity..))
     distGraph <- distGraph + geom_density(alpha=0.5, aes(y=..scaled..))
     distGraph <- distGraph + geom_rug(aes(y=NULL, position="jitter"))
+    distGraph <- distGraph + ylab("Relative frequency")
     distGraph <- distGraph + scale_x_continuous("Percent of variants in dbSNP")
   } else {
     distGraph <- NA
@@ -428,7 +430,7 @@ indelQCPlot <- function(metrics, measures, requestedStrat = "Sample", fixHistogr
     if ( fixHistogramX ) scale = "fixed"
     distGraph <- distGraph + facet_grid(paste(otherFacet, " ~ variable"), scales=scale)
     distGraph <- distGraph + ylab("Relative frequency")
-    distGraph <- distGraph + ylab("Variable value")
+    distGraph <- distGraph + xlab("Variable value (see facet for variable by color)")
     distGraph <- distGraph + opts(axis.text.x=theme_text(angle=-45)) # , legend.position="none")
   } else {
     distGraph <- NA
@@ -479,11 +481,16 @@ indelPlots <- function(IndelQCReport, byACReport) {
   }
   
   if ( T ) {
-    indelQCPlotWithAllStrats(c("n_SNPs", "n_indels", "SNP_to_indel_ratio"))
-    indelQCPlotWithAllStrats(c("n_indels_matching_gold_standard", "gold_standard_matching_rate"))
+    indelQCPlot(IndelSummaryBySampleNoOtherStrats, c("n_SNPs", "n_indels", "SNP_to_indel_ratio"))
     indelQCPlot(IndelSummaryBySampleNoOtherStrats, c("n_singleton_SNPs", "n_singleton_indels", "SNP_to_indel_ratio_for_singletons"))
+    indelQCPlotWithAllStrats(c("n_indels", "n_singleton_indels"))
     indelQCPlot(IndelSummaryByAC, c("SNP_to_indel_ratio"), "AlleleCount")
+    indelQCPlotWithAllStrats(c("n_indels_matching_gold_standard", "gold_standard_matching_rate"))
     
+    if ( all$n_multiallelic_indel_sites > 0 ) { # if there are at least some multi-allelic sites
+      indelQCPlotWithAllStrats(c("n_multiallelic_indel_sites", "percent_of_sites_with_more_than_2_alleles"))
+    }
+
     indelQCPlotWithAllStrats(c("indel_novelty_rate"))
     indelQCPlot(IndelSummaryByAC, c("indel_novelty_rate"), "AlleleCount")
     
