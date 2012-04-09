@@ -4,6 +4,7 @@ import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -32,7 +33,6 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
     }
 
     final protected PoolCallerUnifiedArgumentCollection UAC;
-    protected PoolGenotypePriors priors = null;
 
     protected PoolGenotypeLikelihoodsCalculationModel(UnifiedArgumentCollection UAC, Logger logger) {
         super(UAC,logger);
@@ -127,10 +127,8 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
 
         // based on the GLs, find the alternate alleles with enough probability
         for ( PoolGenotypeData sampleData : sampleDataList ) {
-            final int[] mlAC = sampleData.GL.getMostLikelyACCount();
-            final double topLogGL = sampleData.GL.getLogPLofAC(mlAC);
-
-            int[] vec = new int[allAlleles.size()];
+            final Pair<int[],Double> mlACPair = sampleData.GL.getMostLikelyACCount();
+            final double topLogGL = mlACPair.second;
 
             if (sampleData.GL.getAlleles().size() != allAlleles.size())
                 throw new ReviewedStingException("BUG: inconsistent size of alleles!");
@@ -139,18 +137,17 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
             if (sampleData.GL.alleles.get(0).isNonReference())
                 throw new ReviewedStingException("BUG: first allele in list is not reference!");
 
-            vec[REFERENCE_IDX] = sampleData.GL.numChromosomes;
-            double refGL = sampleData.GL.getLogPLofAC(vec);
+            double refGL = sampleData.GL.getLikelihoods()[REFERENCE_IDX];
 
             // check if maximum likelihood AC is all-ref for current pool. If so, skip
-            if (mlAC[REFERENCE_IDX] == sampleData.GL.numChromosomes)
+            if (mlACPair.first[REFERENCE_IDX] == sampleData.GL.numChromosomes)
                 continue;
 
             // most likely AC is not all-ref: for all non-ref alleles, add difference of max likelihood and all-ref likelihood
-            for (int i=0; i < mlAC.length; i++) {
+            for (int i=0; i < mlACPair.first.length; i++) {
                 if (i==REFERENCE_IDX) continue;
 
-                if (mlAC[i] > 0)
+                if (mlACPair.first[i] > 0)
                     likelihoodSums[i] += topLogGL - refGL;
 
             }

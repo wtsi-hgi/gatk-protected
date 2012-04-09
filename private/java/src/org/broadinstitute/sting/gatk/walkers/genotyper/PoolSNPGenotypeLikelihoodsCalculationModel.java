@@ -52,7 +52,6 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
 
     protected PoolSNPGenotypeLikelihoodsCalculationModel( UnifiedArgumentCollection UAC,  Logger logger) {
         super(UAC, logger);
-        priors =  new PoolGenotypePriors(UAC.heterozygosity, this.UAC.nSamplesPerPool);
 
     }
 
@@ -64,8 +63,6 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
                                          final boolean useBAQedPileup,
                                          final GenomeLocParser locParser) {
 
-        if ( !(priors instanceof PoolGenotypePriors) )
-            throw new StingException("Only pool-based  priors are supported in the SNP GL model");
 
         final byte refBase = ref.getBase();
         final int indexOfRefBase = BaseUtils.simpleBaseToBaseIndex(refBase);
@@ -137,7 +134,7 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
                 pileup = createBAQedPileup( pileup );
 
             // create the GenotypeLikelihoods object
-            final PoolSNPGenotypeLikelihoods GL = new PoolSNPGenotypeLikelihoods(allAlleles, priors, perLaneErrorModels, UAC.IGNORE_LANE_INFO);
+            final PoolSNPGenotypeLikelihoods GL = new PoolSNPGenotypeLikelihoods(allAlleles, null, UAC.nSamplesPerPool*2, perLaneErrorModels, UAC.IGNORE_LANE_INFO);
             final int nGoodBases = GL.add(pileup, true, true, UAC.MIN_BASE_QUALTY_SCORE);
             if ( nGoodBases > 0 )
                 GLs.add(new PoolGenotypeData(sample.getKey(), GL, getFilteredDepth(pileup)));
@@ -186,7 +183,6 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
             // extract from multidimensional array
             final double[] myLikelihoods = PoolGenotypeLikelihoods.subsetToAlleles(sampleData.GL.getLikelihoods(),sampleData.GL.numChromosomes,
             allAlleles, alleles);
-//            final double[] myLikelihoods = sampleData.GL.subsetToAlleles(alleles).getLikelihoods();
 
             // normalize in log space so that max element is zero.
             final GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(MathUtils.normalizeFromLog10(myLikelihoods, false, true));

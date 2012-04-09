@@ -73,7 +73,6 @@ public class PoolIndelGenotypeLikelihoodsCalculationModel extends PoolGenotypeLi
     protected PoolIndelGenotypeLikelihoodsCalculationModel(final UnifiedArgumentCollection UAC, final Logger logger) {
         super(UAC, logger);
 
-        priors =  new PoolGenotypePriors(UAC.INDEL_HETEROZYGOSITY, this.UAC.nSamplesPerPool);
 
         pairModel = new PairHMMIndelErrorModel(UAC.INDEL_GAP_OPEN_PENALTY, UAC.INDEL_GAP_CONTINUATION_PENALTY,
                 UAC.OUTPUT_DEBUG_INDEL_INFO, !UAC.DONT_DO_BANDED_INDEL_COMPUTATION);

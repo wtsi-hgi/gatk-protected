@@ -27,7 +27,9 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import org.broadinstitute.sting.gatk.walkers.poolcaller.ErrorModel;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 
@@ -41,36 +43,18 @@ public abstract class PoolGenotypeLikelihoods {
     //
     // The fundamental data arrays associated with a Genotype Likelhoods object
     //
-    protected double[] log10Likelihoods = null;
-    protected double[] log10Posteriors = null;
-    protected final double[] genotypeZeros;
+    protected final double[] log10Likelihoods;
 
     protected final int nSamplesPerPool;
     protected final HashMap<String, ErrorModel> perLaneErrorModels;
-
+    protected final int likelihoodDim;
     protected final boolean ignoreLaneInformation;
 
-    protected Map<IntArrayWrapper,Double> logPLs;
-//    protected ArrayList<IntArrayWrapper> alleleConformationList;
-    
     protected final int nAlleles;
     protected final List<Allele> alleles;
 
-    public PoolGenotypeLikelihoods(final List<Allele> alleles, final PoolGenotypePriors priors,
-                                   final HashMap<String, ErrorModel> perLaneErrorModels, final boolean ignoreLaneInformation) {
-        if (alleles.get(0).isNonReference())
-            throw new ReviewedStingException("BUG: first allele in PoolGenotypeLikelihoods must be ref!");
-        this.alleles = alleles;
-        this.nAlleles = alleles.size();
-        nSamplesPerPool = priors.getNSamplesPerPool();
-        numChromosomes = 2*nSamplesPerPool;
-        genotypeZeros = new double[priors.getPriors().length];
-        this.perLaneErrorModels = perLaneErrorModels;
-        this.ignoreLaneInformation = ignoreLaneInformation;
-        initializePLs();
-
-    }
-
+    private static final int MAX_NUM_ALLELES_TO_CACHE = 20;
+    private static final int MAX_NUM_SAMPLES_PER_POOL = 1000;
     // constructor with given logPL elements
     public PoolGenotypeLikelihoods(final List<Allele> alleles, final double[] logLikelihoods, final int ploidy,
                                    final HashMap<String, ErrorModel> perLaneErrorModels, final boolean ignoreLaneInformation) {
@@ -81,47 +65,25 @@ public abstract class PoolGenotypeLikelihoods {
         this.perLaneErrorModels = perLaneErrorModels;
         this.ignoreLaneInformation = ignoreLaneInformation;
         // check sizes
-        if (logLikelihoods.length != GenotypeLikelihoods.calculateNumLikelihoods(nAlleles,ploidy))
-            throw new ReviewedStingException("BUG: inconsistent parameters when creating PoolGenotypeLikelihoods object");
-        logPLs = initializePLsFromVector(nAlleles, numChromosomes, logLikelihoods);
-        genotypeZeros = new double[logLikelihoods.length];
+        if (nAlleles > MAX_NUM_ALLELES_TO_CACHE)
+            throw new UserException("No support for this number of alleles");
+
+        if (nSamplesPerPool > MAX_NUM_SAMPLES_PER_POOL)
+            throw new UserException("No support for such large number of samples per pool");
+
+        likelihoodDim = GenotypeLikelihoods.calculateNumLikelihoods(nAlleles, numChromosomes);
+
+        if (logLikelihoods == null){
+            log10Likelihoods = new double[likelihoodDim]; 
+            Arrays.fill(log10Likelihoods,Double.NEGATIVE_INFINITY);
+        } else {
+            if (logLikelihoods.length != likelihoodDim)
+                throw new ReviewedStingException("BUG: inconsistent parameters when creating PoolGenotypeLikelihoods object");
+
+            log10Likelihoods = logLikelihoods; //.clone(); // is clone needed?
+        }           
     }
 
-    /**
-     * Wrapper class because we can't directly implement a hash of int[] -> double:
-     * In java, an array of primitive types is not equal to another one when an element-wise comparison is made,
-     * so this just encapsulates the array and adds the equals method to do element-wise comparison.
-     *
-     */
-    protected final static class IntArrayWrapper /*implements Comparable<Object> */
-    {
-        private final int[] data;
-
-        public IntArrayWrapper(int[] data)
-        {
-            if (data == null)
-            {
-                throw new NullPointerException();
-            }
-            this.data = data.clone();
-        }
-
-        @Override
-        public boolean equals(Object other)
-        {
-            if (!(other instanceof IntArrayWrapper))
-            {
-                return false;
-            }
-            return Arrays.equals(data, ((IntArrayWrapper)other).data);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Arrays.hashCode(data);
-        }
-    }
 
     /**
      * Crucial inner class that handles addressing elements of pool likelihoods. We store likelihoods as a map
@@ -143,6 +105,7 @@ public abstract class PoolGenotypeLikelihoods {
         private final int dim;
         private boolean hasNext;
         private int linearIndex;
+        private int currentSum;
 
         /**
          * Default constructor. Typical use case: restrictSumTo = -1 if there's no sum restriction, or will generate int[]
@@ -157,10 +120,7 @@ public abstract class PoolGenotypeLikelihoods {
             this.restrictSumTo = restrictSumTo;
             currentState = new int[dim];
             reset();
-            if (restrictSumTo>0) {
-                next();
-                linearIndex = 0;
-            }
+
         }
 
         /**
@@ -181,50 +141,52 @@ public abstract class PoolGenotypeLikelihoods {
         }
         
         public void next() {
-            if (restrictSumTo > 0) {
-                do {
-                    hasNext = next(finalState, 0);
-                    if (!hasNext)
-                        break;
-                }
-                while(getCurrentSum() != restrictSumTo);
-
-            }
-            else
-                hasNext = next(finalState, 0);
-
+            int initialDim = (restrictSumTo > 0)?1:0;
+            hasNext = next(finalState, initialDim);
             if (hasNext)
                 linearIndex++;
         }
-        private boolean next(final int[] finalState, final int initialDim) {
-            final int x = currentState[initialDim]+1;
 
-            if (x > finalState[initialDim]) {
-                // recurse into subvector
-                currentState[initialDim] = 0;
-                if (initialDim < dim-1) {
-                    return next(finalState,initialDim+1);
+        private boolean next(final int[] finalState, int initialDim) {
+            boolean hasNextState = false;
+            for (int currentDim=initialDim; currentDim < finalState.length; currentDim++) {
+                final int x = currentState[currentDim]+1;
+
+                if (x > finalState[currentDim] || (currentSum >= restrictSumTo && initialDim > 0)) {
+                    // update vector sum, and reset position
+                    currentSum -= currentState[currentDim];
+                    currentState[currentDim] = 0;
+                    if (currentDim >= dim-1) {
+                        hasNextState = false;
+                        break;
+                    }
                 }
-                else
-                    return false;
+                else {
+                    currentState[currentDim] = x;
+                    hasNextState = true;
+                    currentSum++;
+                    break;
+                }
             }
-            else
-                currentState[initialDim] = x;
-            
-            return true;
-
+            if (initialDim > 0) {
+                currentState[0] = restrictSumTo - currentSum;
+            }
+            return hasNextState;
         }
 
         public void reset() {
             Arrays.fill(currentState, 0);
+            if (restrictSumTo > 0)
+                currentState[0] = restrictSumTo;
             hasNext = true;
             linearIndex = 0;
+            currentSum = 0;
         }
         public int[] getCurrentVector() {
             return currentState;
         }
         public int getCurrentSum() {
-            return (int) MathUtils.sum(currentState);
+            return currentSum;
         }
 
         public int getLinearIndex() {
@@ -244,147 +206,49 @@ public abstract class PoolGenotypeLikelihoods {
      * @return likelihoods array
      */
     public double[] getLikelihoods() {
-        final SumIterator iterator = new SumIterator(nAlleles,numChromosomes);
-        int idx = 0;
-        final int n = GenotypeLikelihoods.calculateNumLikelihoods(nAlleles, numChromosomes);
-        double[] logPLVector = new double[n];
-        while (iterator.hasNext()) {
-            logPLVector[idx++] = logPLs.get(new IntArrayWrapper(iterator.getCurrentVector()));
-            iterator.next();
-
-        }
-        
-        // sanity check. Did we traverse the whole logPL map?
-        if (idx != n)
-            throw new ReviewedStingException("BUG: inconsistent size of logPLs");
-        return logPLVector;
+        return log10Likelihoods;
     }
 
 
-    /**
-     * Initialize hash map with correct keys and set all likelihoods to -infinity 
-     */
-    private void initializePLs() {
-        final int vecDim = GenotypeLikelihoods.calculateNumLikelihoods(nAlleles, numChromosomes);
-        double[] ss = new double[vecDim];
-        Arrays.fill(ss,Double.NEGATIVE_INFINITY);
-        logPLs = initializePLsFromVector(nAlleles, numChromosomes, ss);
-    }
+
+
 
     /**
-     * Given a particular vector of PL's, construct a hash map of int[]-> double with these PL values.
-     * @param nAlleles               Number of alleles
-     * @param numChromosomes         Ploidy
-     * @param logVec                 Vector of likelihoods to fill
-     * @return                       Map filled with logVec
-     */
-    public static Map<IntArrayWrapper,Double> initializePLsFromVector(final int nAlleles, final int numChromosomes, 
-                                                                      final double[] logVec) {
-        final SumIterator iterator = new SumIterator(nAlleles,numChromosomes);
-        Map<IntArrayWrapper,Double> logPLs = new HashMap<IntArrayWrapper,Double>();
-
-        int k=0;
-        while (iterator.hasNext()) {
-            IntArrayWrapper key = new IntArrayWrapper( iterator.getCurrentVector());
-            //alleleConformationList.add(k,key);
-            logPLs.put(key,logVec[k++]);
-
-            iterator.next();
-
-        }
-        return logPLs;
-    }
-
-    /**
-     * Given a scalar index, what's the alelle count conformation corresponding to it?
-     * @param nAlleles                    Number of alleles
-     * @param numChromosomes              Ploidy
-     * @param PLindex                     Index to query
-     * @return                            Allele count conformation, according to iteration order from SumIterator
-     */
-    public static int[] getAlleleCountFromPLIndex(final int nAlleles, final int numChromosomes, final int PLindex) {
-        final SumIterator iterator = new SumIterator(nAlleles,numChromosomes);
-        while (iterator.hasNext()) {
-            final int[] plVec = iterator.getCurrentVector();
-            if (iterator.getLinearIndex() == PLindex)
-                return plVec;
-
-            iterator.next();
-        }
-
-        return null;
-
-    }
-
-    /**
-     * Helper routine. Given Map of int[] -> double in canonical ordering, unwrap it to linear vector,
-     * with ordering given by SumIterator.
-     * @param nAlleles                          Number of Alleles
-     * @param numChromosomes                    Ploidy (number of chromosomes)
-     * @param logPLs                            Map of IntArrayWrapper to Double containing actual likelihood values
-     * @return                                  Likelihood vector
-     */
-    public static double[] getPLVectorFromPLObject(final int nAlleles, final int numChromosomes, 
-                                                   final Map<IntArrayWrapper,Double> logPLs) {
-
-        final SumIterator iterator = new SumIterator(nAlleles,numChromosomes);
-        int k=0;
-        double[] logVec = new double[GenotypeLikelihoods.calculateNumLikelihoods(nAlleles, numChromosomes)];
-        while (iterator.hasNext()) {
-            logVec[k++] = logPLs.get(new IntArrayWrapper(iterator.getCurrentVector()));
-            iterator.next();
-        }
-
-        return logVec;
-    }
-
-    /**
-     * Set particular element of logPL map
-     * @param alleleCounts          allele count conformation to modify
+     * Set particular element of logPL vector
+     * @param idx          index of allele count conformation to modify
      * @param pl                    Likelihood to associate with map
      */
-    public void setLogPLs(final int[] alleleCounts, final double pl) {
-        if (alleleCounts.length != nAlleles || !logPLs.containsKey(new IntArrayWrapper(alleleCounts)))
-            throw new ReviewedStingException("BUG: trying to call setLogPLs with wrong key");
-        
-        logPLs.put(new IntArrayWrapper(alleleCounts), pl);
-        
-    }
-
-    /**
-     * Query likelihood map 
-     * @param ac            Allele count conformation to query
-     * @return              Likelihood of that conformation
-     */
-    public double getLogPLofAC(final int[] ac) {
-        return logPLs.get(new IntArrayWrapper(ac));
+    public void setLogPLs(final int idx, final double pl) {
+            log10Likelihoods[idx] = pl;
     }
 
     /** Compute most likely AC conformation based on currently stored PL's - just loop through log PL map and output max value
      *
      * @return vector with most likely allele count, ordered according to this object's alleles
      */
-    public int[] getMostLikelyACCount() {
+    public Pair<int[],Double> getMostLikelyACCount() {
 
-        final int[] mlInd = new int[nAlleles];
+        int[] mlInd = null;
         double maxVal = Double.NEGATIVE_INFINITY;
-        IntArrayWrapper mlList = new IntArrayWrapper(mlInd);
-        
-        for (Map.Entry<IntArrayWrapper,Double> elt : logPLs.entrySet()) {
-            double val = elt.getValue();
-            if (val > maxVal) {
-                maxVal = val;
-                mlList = elt.getKey();
+
+        final SumIterator iterator = new SumIterator(alleles.size(),numChromosomes);
+
+        int idx = 0;
+        while (iterator.hasNext()) {
+            double pl = log10Likelihoods[idx++];
+            if (pl > maxVal) {
+                maxVal = pl;
+                mlInd = iterator.getCurrentVector().clone();
                 
             }
+            iterator.next();
         }
         if (VERBOSE) {
             System.out.print("MLAC: ");
-            for (int k:mlInd)
-                System.out.format("%d ",k);
+            outputVectorAsString(mlInd);
             System.out.println();
         }
-        return mlList.data;
+        return new Pair<int[], Double>(mlInd,maxVal);
     }
 
     /**
@@ -398,9 +262,9 @@ public abstract class PoolGenotypeLikelihoods {
      */
     public static double[] subsetToAlleles(final double[] oldLikelihoods, final int numChromosomes,
                                                    final List<Allele> originalAlleles, final List<Allele> allelesToSubset) {
-        final Map<IntArrayWrapper,Double> oldPLs = initializePLsFromVector(originalAlleles.size(),numChromosomes, oldLikelihoods);
 
-        Map<IntArrayWrapper,Double> newPLs = new HashMap<IntArrayWrapper,Double>();
+        int newPLSize = PoolGenotypeLikelihoods.getNumLikelihoodElements(allelesToSubset.size(), numChromosomes);
+        double[] newPLs = new double[newPLSize];
 
 
         int idx = 0;
@@ -425,37 +289,118 @@ public abstract class PoolGenotypeLikelihoods {
             outputVectorAsString(permutationKey);    
         }
 
-        for (final Map.Entry<IntArrayWrapper,Double> elt : oldPLs.entrySet()) {
-            final IntArrayWrapper vec = elt.getKey();
+        final SumIterator iterator = new SumIterator(originalAlleles.size(),numChromosomes);
+
+        while (iterator.hasNext()) {
             // for each entry in logPL table, associated originally with allele count stored in vec[],
             // see if this allele count conformation will be present in new logPL table.
             // For entry to be present, elements in dimensions not present in requested allele list have to have count = 0
-            //
+            int[] pVec = iterator.getCurrentVector();
+            double pl = oldLikelihoods[iterator.getLinearIndex()];
+            
             boolean keyPresent = true;
             for (int k=0; k < allelePresent.length; k++)
-                if (!allelePresent[k] && vec.data[k]>0)
+                if ( pVec[k]>0 && !allelePresent[k] )
                     keyPresent = false;
 
-            if (!keyPresent) continue; // skip to next entry in logPLs if this conformation is not present in subset
+            if (keyPresent) {// skip to next entry in logPLs if this conformation is not present in subset
 
-            final IntArrayWrapper newCount = new IntArrayWrapper(new int[allelesToSubset.size()]);
-
-            // map from old allele mapping count to new allele mapping
-            // In pseudo-Matlab notation: newCount = vec[permutationKey] for permutationKey vector
-            for (idx = 0; idx < newCount.data.length; idx++)
-                newCount.data[idx] =  vec.data[permutationKey[idx]];
-
-            // compute new key: all dimensions not present in
-            newPLs.put(newCount, elt.getValue());
-            if (VERBOSE) {
-                System.out.print("Old Key:");
-                outputVectorAsString(vec.data);
-                System.out.print("New Key:");
-                outputVectorAsString(newCount.data);
+                final int[] newCount = new int[allelesToSubset.size()];
+    
+                // map from old allele mapping count to new allele mapping
+                // In pseudo-Matlab notation: newCount = vec[permutationKey] for permutationKey vector
+                for (idx = 0; idx < newCount.length; idx++)
+                    newCount[idx] =  pVec[permutationKey[idx]];
+    
+                // get corresponding index from new count
+                int outputIdx = PoolGenotypeLikelihoods.getLinearIndex(newCount, allelesToSubset.size(), numChromosomes);
+                newPLs[outputIdx] = pl;
+                if (VERBOSE) {
+                    System.out.print("Old Key:");
+                    outputVectorAsString(pVec);
+                    System.out.print("New Key:");
+                    outputVectorAsString(newCount);
+                }
             }
+            iterator.next();
         }
 
-        return getPLVectorFromPLObject(allelesToSubset.size(), numChromosomes, newPLs);
+        return  newPLs;
+    }
+
+    protected static int getLinearIndex(int[] vectorIdx, int numAlleles, int numChromosomes) {
+
+        // brain-dead implementation.
+        // BIG to-do, ideally, should compute closed form formula for this
+        final SumIterator iterator = new SumIterator(numAlleles,numChromosomes);
+
+ 
+        while (iterator.hasNext()) {
+            int[] vec = iterator.getCurrentVector();
+            if (Arrays.equals(vec,vectorIdx))
+                return iterator.getLinearIndex();
+            iterator.next();
+            
+        }
+
+
+        return -1;
+        
+    }
+
+    /**
+     * Given a scalar index, what's the alelle count conformation corresponding to it?
+     * @param nAlleles                    Number of alleles
+     * @param numChromosomes              Ploidy
+     * @param PLindex                     Index to query
+     * @return                            Allele count conformation, according to iteration order from SumIterator
+     */
+    public static int[] getAlleleCountFromPLIndex(final int nAlleles, final int numChromosomes, final int PLindex) {
+
+        // todo - another brain-dead inefficient implementation, can do much better by computing in closed form
+        final SumIterator iterator = new SumIterator(nAlleles,numChromosomes);
+        while (iterator.hasNext()) {
+            final int[] plVec = iterator.getCurrentVector();
+            if (iterator.getLinearIndex() == PLindex)
+                return plVec;
+
+            iterator.next();
+        }
+
+        return null;
+
+    }
+
+    /*
+    * a cache of the PL ivector sizes as a function of # of alleles and pool sizes
+    */
+    
+    public static int getNumLikelihoodElements(int numAlleles, int ploidy) {
+        return GenotypeLikelihoodVectorSizes[numAlleles][ploidy];
+    }
+
+    private final static int[][] GenotypeLikelihoodVectorSizes = fillGLVectorSizeCache(MAX_NUM_ALLELES_TO_CACHE, 2*MAX_NUM_SAMPLES_PER_POOL);
+
+    private static int[][] fillGLVectorSizeCache(int maxAlleles, int maxPloidy) {
+        
+        int[][] cache = new int[maxAlleles][maxPloidy];
+        for (int numAlleles=1; numAlleles < maxAlleles; numAlleles++) {
+            for (int ploidy=0; ploidy < maxPloidy; ploidy++) {
+
+                if (numAlleles == 1)
+                    cache[numAlleles][ploidy] = 1;
+                else if (ploidy == 1)
+                    cache[numAlleles][ploidy] = numAlleles;
+                else {
+                    int acc =0;
+                    for (int k=0; k <= ploidy; k++ )
+                        acc += cache[numAlleles-1][ploidy-k];
+
+                    cache[numAlleles][ploidy] = acc;
+                }
+            }
+        }
+        return cache;
     }
 
     
