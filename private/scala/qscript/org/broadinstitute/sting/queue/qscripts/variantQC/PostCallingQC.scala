@@ -37,10 +37,15 @@ class PostCallingQC extends QScript {
 
       // The basic summary eval broken down by sample
       val bySample = new Eval(evalVCF, ".bySample", Seq("Sample"))
-      bySample.evalModule :+= "IndelLengthHistogram"
       add(bySample)
 
-      val qc = new QCRScript(evalVCF, byAC.out, bySample.out)
+      // The basic summary eval broken down by sample
+      val indelQC = new Eval(evalVCF, ".indelQC", Seq("Sample"))
+      indelQC.stratificationModule = Seq("EvalRod", "CompRod", "Sample", "TandemRepeat", "OneBPIndel")
+      indelQC.evalModule = List("IndelSummary", "IndelLengthHistogram")
+      add(indelQC)
+
+      val qc = new QCRScript(evalVCF, byAC.out, bySample.out, indelQC.out)
       add(qc)
     }
   }
@@ -51,8 +56,8 @@ class PostCallingQC extends QScript {
     this.excludeIntervalsString = myExcludeIntervals
     this.eval :+= evalVCF
     this.dbsnp = dbSNP
-    //this.comp :+= new TaggedFile(goldStandardIndels, "goldStandardIndel")
     this.doNotUseAllStandardModules = true
+    this.gold = goldStandardIndels
     this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap", "IndelSummary")
     this.doNotUseAllStandardStratifications = true
     this.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ extraStrats
@@ -61,9 +66,9 @@ class PostCallingQC extends QScript {
     this.out = swapExt(evalVCF, ".vcf", prefix + ".eval")
   }
 
-  class QCRScript(@Input var vcf: File, @Input var byAC: File, @Input var bySite: File) extends CommandLineFunction {
+  class QCRScript(@Input var vcf: File, @Input var byAC: File, @Input var bySite: File, @Input var indelQC: File) extends CommandLineFunction {
     @Output var pdf: File = swapExt(vcf, ".vcf", ".pdf")
     private val project = vcf.getName.stripSuffix(".vcf")
-    def commandLine = "Rscript %s/variantCallQC.R %s %s %s %s".format(RPath, project, bySite, byAC, pdf)
+    def commandLine = "Rscript %s/variantCallQC.R %s %s %s %s %s".format(RPath, project, bySite, byAC, indelQC, pdf)
   }
 }

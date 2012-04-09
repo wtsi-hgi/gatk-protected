@@ -7,10 +7,11 @@ class Recal extends QScript {
   @Input(shortName = "b", required=true,  doc = "List of BAM files")      var bamList: List[File] = _
   @Input(shortName = "i", required=false, doc = "Intervals file")         var intervalsFile: List[File] = Nil
   @Input(shortName = "r", required=false, doc = "Reference sequence")     var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
-
   @Output(shortName = "o", required=true,  doc = "output file name")      var output: File = _
-
   @Argument(shortName = "s", required=false, doc = "scatter/gather")      var scatterCount: Int = 200
+  @Argument(shortName = "m", required=false, doc = "memory limit")        var memLimit: Int = 4
+  @Argument(shortName = "qq", required=false, doc = "quantization lvls")  var nLevels: Int = -1
+
 
   def script {
     val walker = new PrintReads();
@@ -18,7 +19,8 @@ class Recal extends QScript {
     walker.intervalsString = intervalsFile
     walker.out = output
     walker.input_file = bamList
-    walker.memoryLimit = 4
+    walker.memoryLimit = memLimit
+    walker.qq = nLevels
     walker.scatterCount = scatterCount
     add(walker)
   }

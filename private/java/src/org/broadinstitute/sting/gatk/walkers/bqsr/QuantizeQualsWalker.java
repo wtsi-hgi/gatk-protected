@@ -78,7 +78,7 @@ public class QuantizeQualsWalker extends ReadWalker<SAMRecord, SAMFileWriter> {
     @Argument(fullName = "qualityHistogram", shortName = "Q", doc="", required = true)
     File qualHistogramFile;
 
-    @Argument(fullName = "nLevels", shortName = "nLevels", doc="The number of quality levels to include in output", required = false)
+    @Argument(fullName = "quantizationLevels", shortName = "quantizationLevels", doc="The number of quality levels to include in output", required = false)
     int nQualityLevels = 8;
 
     @Argument(fullName = "minInterestingQual", shortName = "minInterestingQual", doc="Quality scores less than or equal to this value are considered uninteresting, are can be freely merged together", required = false)
