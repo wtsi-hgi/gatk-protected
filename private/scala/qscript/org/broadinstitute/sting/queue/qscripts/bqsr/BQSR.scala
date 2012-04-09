@@ -11,6 +11,9 @@ class BQSR extends QScript {
   @Argument(shortName = "s", required=false, doc = "scatter/gather")     var scatterCount: Int = 200
   @Input(doc="dbsnp ROD to use (must be in VCF format)", fullName="dbsnp", shortName="d", required=true) var dbSNP: Seq[File] = Seq()
   @Input(shortName = "recal", required=false, doc = "recalibration report") var recalFile: File = null
+  @Argument(shortName = "m", required=false, doc = "memory limit")        var memLimit: Int = 4
+  @Argument(shortName = "qq", required=false, doc = "quantization lvls")  var nLevels: Int = -1
+
 
   def script {
     val bams = QScriptUtils.createSeqFromFile(bamList);
@@ -21,7 +24,8 @@ class BQSR extends QScript {
       walker.out = swapExt(bam, ".bam", ".grp")
       walker.knownSites ++= dbSNP
       walker.input_file :+= bam
-      walker.memoryLimit = 2
+      walker.memoryLimit = memLimit
+      walker.qq = nLevels
       walker.solid_nocall_strategy = RecalDataManager.SOLID_NOCALL_STRATEGY.PURGE_READ
       walker.scatterCount = scatterCount
       if (recalFile != null)
