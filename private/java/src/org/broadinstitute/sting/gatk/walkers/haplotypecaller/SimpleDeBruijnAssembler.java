@@ -20,9 +20,9 @@ import java.util.*;
 
 public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
-    private static final int KMER_OVERLAP = 6; // the additional size of a valid chunk of sequence, used to string together k-mers
-    private static final int NUM_BEST_PATHS_PER_KMER_GRAPH = 10;
-    private static final byte MIN_QUALITY = (byte) 12;
+    private static final int KMER_OVERLAP = 10; // the additional size of a valid chunk of sequence, used to string together k-mers
+    private static final int NUM_BEST_PATHS_PER_KMER_GRAPH = 8;
+    private static final byte MIN_QUALITY = (byte) 18;
 
     // Smith-Waterman parameters originally copied from IndelRealigner
     private static final double SW_MATCH = 4.0;
@@ -284,7 +284,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         haplotype.setAlignmentStartHapwrtRef(swConsensus.getAlignmentStart2wrt1());
         haplotype.setCigar(swConsensus.getCigar());
 
-        if( swConsensus.getCigar().toString().contains("S") || swConsensus.getCigar().getReferenceLength() < 10 ) { // protect against SW failures
+        if( swConsensus.getCigar().toString().contains("S") || swConsensus.getCigar().getReferenceLength() < 20 ) { // protect against SW failures
             return;
         }
 
