@@ -26,20 +26,15 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
     /**
      * Create a new GenotypeLikelhoods object with given priors and PCR error rate for each pool genotype
      * @param alleles           Alleles associated with this likelihood object
-     * @param priors          priors
+     * @param logLikelihoods     Likelihoods (can be null if no likelihoods known)
+     * @param ploidy            Ploidy of sample (# of chromosomes)
      * @param perLaneErrorModels error model objects for each lane
      * @param ignoreLaneInformation  If true, lane info is ignored
      */
-    public PoolSNPGenotypeLikelihoods(List<Allele> alleles, PoolGenotypePriors priors, HashMap<String, ErrorModel> perLaneErrorModels, boolean ignoreLaneInformation) {
-
-        super(alleles,priors, perLaneErrorModels, ignoreLaneInformation);
-        fillCache();
-    }
-
-
     public PoolSNPGenotypeLikelihoods(final List<Allele> alleles, final double[] logLikelihoods, final int ploidy,
                                       final HashMap<String, ErrorModel> perLaneErrorModels, final boolean ignoreLaneInformation) {
         super(alleles, logLikelihoods, ploidy, perLaneErrorModels, ignoreLaneInformation);
+        fillCache();
     }
 
     // -------------------------------------------------------------------------------------
@@ -187,6 +182,7 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
             alleleIndices[idx++] = myAlleles.indexOf(Allele.create(b,isRef));
         }
 
+        int plIdx = 0;
         while (iterator.hasNext()) {
             // for observed base X, add Q(jX,k) to likelihood vector for all k in error model
             //likelihood(jA,jC,jG,jT) = logsum(logPr (errorModel[k],nA*Q(jA,k) +  nC*Q(jC,k) + nG*Q(jG,k) + nT*Q(jT,k))
@@ -207,7 +203,7 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
 
             double pl = MathUtils.logDotProduct(errorModel.getErrorModelVector(), acVec);
 
-            setLogPLs(Arrays.copyOf(currentCnt,alleles.size()), pl);
+            setLogPLs(plIdx++, pl);
             iterator.next();
         }
 

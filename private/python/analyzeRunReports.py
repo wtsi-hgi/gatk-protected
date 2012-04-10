@@ -649,6 +649,7 @@ class SQLSetupTable(SQLRecordHandler):
 
         self.execute("DROP TABLE " + self.name)
         self.execute("CREATE TABLE " + self.name + " (" + ", ".join(map(self.fieldDescription, self.getFields())) + ")")
+        self.execute("CREATE INDEX EndTimeIndex on " + self.name + " (end_time)")
         # initialize database
         SQLRecordHandler.finalize(self, args)
         sys.exit(0)

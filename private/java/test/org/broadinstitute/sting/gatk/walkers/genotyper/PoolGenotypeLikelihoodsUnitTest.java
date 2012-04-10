@@ -47,6 +47,39 @@ public class PoolGenotypeLikelihoodsUnitTest {
     }
 
     @Test
+    public void testElementStorageCache() {
+        // compare cached element storage with compuationally hard-coded iterative computation
+
+        for (int ploidy = 2; ploidy < 10; ploidy++) {
+            for (int nAlleles = 2; nAlleles < 10; nAlleles++)
+                Assert.assertEquals(PoolGenotypeLikelihoods.getNumLikelihoodElements(nAlleles,ploidy),
+                        GenotypeLikelihoods.calculateNumLikelihoods(nAlleles,ploidy));
+        }
+
+    }
+    
+    @Test
+    public void testVectorToLinearIndex() {
+        
+        // create iterator, compare linear index given by iterator with closed form function
+        int numAlleles = 4;
+        int ploidy = 2;
+        PoolGenotypeLikelihoods.SumIterator iterator = new PoolGenotypeLikelihoods.SumIterator(numAlleles, ploidy);
+
+        while(iterator.hasNext()) {
+            System.out.format("\n%d:",iterator.getLinearIndex());
+            int[] a =  iterator.getCurrentVector();
+            for (int i=0; i < a.length; i++)
+                System.out.format("%d ",a[i]);
+
+            
+            int computedIdx = PoolGenotypeLikelihoods.getLinearIndex(a, numAlleles, ploidy);
+            System.out.format("Computed idx = %d\n",computedIdx);
+            iterator.next();
+        }
+
+    }
+    @Test
     public void testSubsetToAlleles() {
         
         int ploidy = 2;
@@ -148,6 +181,11 @@ public class PoolGenotypeLikelihoodsUnitTest {
         //  Assert.assertTrue(compareIntArrays(iterator.getCurrentVector(), seed));
         Assert.assertEquals(iterator.getLinearIndex(),19);
 
+        // 8-ploid, # alleles = 6
+        seed = new int[]{8,8,8,8,8,8};
+        iterator = runIterator(seed,8);
+        //  Assert.assertTrue(compareIntArrays(iterator.getCurrentVector(), seed));
+        Assert.assertEquals(iterator.getLinearIndex(),1286);
 
 
     }

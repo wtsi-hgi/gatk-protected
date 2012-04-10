@@ -41,6 +41,7 @@ import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -235,7 +236,7 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
             verboseWriter.println("AFINFO\tLOC\tREF\tALT\tMAF\tF\tAFprior\tAFposterior\tNormalizedPosterior");
 
         annotationEngine = new VariantAnnotatorEngine(Arrays.asList(annotationClassesToUse), annotationsToUse, annotationsToExclude, this, getToolkit());
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, verboseWriter, annotationEngine, samples, UnifiedGenotyperEngine.DEFAULT_PLOIDY * UAC.nSamplesPerPool);
+        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, verboseWriter, annotationEngine, samples, VariantContextUtils.DEFAULT_PLOIDY * UAC.nSamplesPerPool);
 
         // initialize the header
         Set<VCFHeaderLine> headerInfo = getHeaderInfo();
