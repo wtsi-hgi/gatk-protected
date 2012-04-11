@@ -265,10 +265,10 @@ public class LikelihoodCalculationEngine {
         return bestHaplotypes;
     }
 
-    public static HashMap<String, HashMap<Allele, ArrayList<GATKSAMRecord>>> partitionReadsBasedOnLikelihoods( final HashMap<String, ArrayList<GATKSAMRecord>> perSampleReadList, final Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> call) {
-        final HashMap<String, HashMap<Allele, ArrayList<GATKSAMRecord>>> returnMap = new HashMap<String, HashMap<Allele, ArrayList<GATKSAMRecord>>>();
+    public static Map<String, Map<Allele, List<GATKSAMRecord>>> partitionReadsBasedOnLikelihoods( final HashMap<String, ArrayList<GATKSAMRecord>> perSampleReadList, final Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> call) {
+        final Map<String, Map<Allele, List<GATKSAMRecord>>> returnMap = new HashMap<String, Map<Allele, List<GATKSAMRecord>>>();
         for( final String sample : perSampleReadList.keySet() ) {
-            final HashMap<Allele, ArrayList<GATKSAMRecord>> alleleReadMap = new HashMap<Allele, ArrayList<GATKSAMRecord>>();
+            final Map<Allele, List<GATKSAMRecord>> alleleReadMap = new HashMap<Allele, List<GATKSAMRecord>>();
             final ArrayList<GATKSAMRecord> readsForThisSample = perSampleReadList.get(sample);
             for( int iii = 0; iii < readsForThisSample.size(); iii++ ) {
                 // VariantContext and haplotypeMapper have alleles in same order!
@@ -290,7 +290,7 @@ public class LikelihoodCalculationEngine {
                 if( bestLikelihood - likelihoods[MathUtils.maxElementIndex(likelihoods)] > BEST_LIKELIHOOD_THRESHOLD ) {
                     allele = call.getFirst().getAlleles().get(bestAllele);
                 }
-                ArrayList<GATKSAMRecord> readList = alleleReadMap.get(allele);
+                List<GATKSAMRecord> readList = alleleReadMap.get(allele);
                 if( readList == null ) {
                     readList = new ArrayList<GATKSAMRecord>();
                     alleleReadMap.put(allele, readList);

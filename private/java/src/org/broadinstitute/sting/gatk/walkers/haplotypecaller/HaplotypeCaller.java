@@ -37,6 +37,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
+import org.broadinstitute.sting.gatk.walkers.annotator.VariantAnnotatorEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
@@ -148,6 +149,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     // the genotyping engine
     GenotypingEngine genotypingEngine = null;
 
+    // the annotation engine
+    private VariantAnnotatorEngine annotationEngine;
+
     // fasta reference reader to supplement the edges of the reference sequence
     private IndexedFastaSequenceFile referenceReader;
 
@@ -195,6 +199,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         assemblyEngine = new SimpleDeBruijnAssembler( DEBUG, graphWriter );
         likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, DEBUG, noBanded );
         genotypingEngine = new GenotypingEngine( DEBUG, MNP_LOOK_AHEAD, OUTPUT_FULL_HAPLOTYPE_SEQUENCE );
+        annotationEngine = new VariantAnnotatorEngine(getToolkit());
     }
 
     //---------------------------------------------------------------------------------------------------------------
@@ -322,14 +327,15 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         // subset down to only the best haplotypes to be genotyped in all samples
         final ArrayList<Haplotype> bestHaplotypes = likelihoodCalculationEngine.selectBestHaplotypes( haplotypes );
 
-        for( final Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> call :
+        for( Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> call :
                 genotypingEngine.assignGenotypeLikelihoodsAndCallEvents( UG_engine, bestHaplotypes, fullReferenceWithPadding, getPaddedLoc(activeRegion), activeRegion.getLocation(), getToolkit().getGenomeLocParser() ) ) {
             if( DEBUG && samplesList.size() <= 10 ) { System.out.println(call.getFirst()); }
 
             // Call to VariantAnnotator should go here before the VC, call.getFirst(), is written out to disk
-            //final HashMap<String, HashMap<Allele, ArrayList<GATKSAMRecord>>> readMap = LikelihoodCalculationEngine.partitionReadsBasedOnLikelihoods(perSampleReadList, call);
+            final Map<String, Map<Allele, List<GATKSAMRecord>>> readMap = LikelihoodCalculationEngine.partitionReadsBasedOnLikelihoods(perSampleReadList, call);
+            final VariantContext annotatedCall = annotationEngine.annotateContext(readMap, call.getFirst());
 
-            vcfWriter.add(call.getFirst());
+            vcfWriter.add(annotatedCall);
         }
 
         if( DEBUG ) { System.out.println("----------------------------------------------------------------------------------"); }
