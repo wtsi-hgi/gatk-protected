@@ -29,7 +29,6 @@ package org.broadinstitute.sting.utils;
 // the imports for unit testing.
 
 
-import org.broad.tribble.util.ParsingUtils;
 import org.broadinstitute.sting.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
@@ -40,8 +39,8 @@ import java.util.*;
 
 public class PairHMMUnitTest extends BaseTest {
     final static boolean EXTENSIVE_TESTING = true;
-    PairHMM hmm = new PairHMM( true ); // reference implementation
-    PairHMM bandedHMM = new PairHMM( false ); // algorithm with banding
+    PairHMM hmm = new PairHMM( false ); // reference implementation
+    PairHMM bandedHMM = new PairHMM( true ); // algorithm with banding
 
     // --------------------------------------------------------------------------------
     //

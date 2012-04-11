@@ -41,14 +41,29 @@ public class PairHMM {
     private static final byte DEFAULT_GCP = (byte) 10;
     private static final double BANDING_TOLERANCE = 22.0;
     private static final int BANDING_CLUSTER_WINDOW = 12;
-    private final boolean noBanded;
+    private final boolean doBanded;
 
     public PairHMM() {
-        noBanded = false;
+        doBanded = false;
     }
 
-    public PairHMM( final boolean noBanded ) {
-        this.noBanded = noBanded;
+    public PairHMM( final boolean doBanded ) {
+        this.doBanded = doBanded;
+    }
+
+    
+    public void initializeArrays(final double[][] matchMetricArray, final double[][] XMetricArray, final double[][] YMetricArray,
+                                 final int X_METRIC_LENGTH) {
+
+        for( int iii=0; iii < X_METRIC_LENGTH; iii++ ) {
+            Arrays.fill(matchMetricArray[iii], Double.NEGATIVE_INFINITY);
+            Arrays.fill(XMetricArray[iii], Double.NEGATIVE_INFINITY);
+            Arrays.fill(YMetricArray[iii], Double.NEGATIVE_INFINITY);
+        }
+
+        // the initial condition
+        matchMetricArray[1][1] = 0.0; // Math.log10(1.0);
+
     }
 
     @Requires({"readBases.length == readQuals.length","readBases.length == insertionGOP.length","readBases.length == deletionGOP.length","readBases.length == overallGCP.length"})
@@ -65,14 +80,7 @@ public class PairHMM {
         final double[][] XMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
         final double[][] YMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
 
-        for( int iii=0; iii < X_METRIC_LENGTH; iii++ ) {
-            Arrays.fill(matchMetricArray[iii], Double.NEGATIVE_INFINITY);
-            Arrays.fill(XMetricArray[iii], Double.NEGATIVE_INFINITY);
-            Arrays.fill(YMetricArray[iii], Double.NEGATIVE_INFINITY);
-        }
-
-        // the initial condition
-        matchMetricArray[1][1] = 0.0; // Math.log10(1.0);
+        initializeArrays(matchMetricArray, XMetricArray, YMetricArray, X_METRIC_LENGTH);
 
         return computeReadLikelihoodGivenHaplotype(haplotypeBases, readBases, readQuals, insertionGOP, deletionGOP, overallGCP, 0, matchMetricArray, XMetricArray, YMetricArray);
     }
@@ -87,7 +95,7 @@ public class PairHMM {
         final int X_METRIC_LENGTH = readBases.length + 1;
         final int Y_METRIC_LENGTH = haplotypeBases.length + 1;
 
-        if( false ) {
+        if( doBanded ) {
             final ArrayList<Integer> workQueue = new ArrayList<Integer>(); // holds a queue of starting work location (indices along the diagonal). Will be sorted each step
             final ArrayList<Integer> workToBeAdded = new ArrayList<Integer>();
             final ArrayList<Double> calculatedValues = new ArrayList<Double>();
