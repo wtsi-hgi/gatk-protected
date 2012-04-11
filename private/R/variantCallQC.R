@@ -479,6 +479,11 @@ indelPlots <- function(IndelQCReport, byACReport) {
     indelQCPlot(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("OneBPIndel")), values, anotherStrat="TandemRepeat",...)
     indelQCPlot(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("TandemRepeat")), values, anotherStrat="OneBPIndel",...)
   }
+
+  indelQCPlotWithTandemStrat <- function(values, ...) {
+    indelQCPlot(IndelSummaryBySampleNoOtherStrats, values, ...)
+    indelQCPlot(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("OneBPIndel")), values, anotherStrat="TandemRepeat",...)
+  }
   
   if ( T ) {
     indelQCPlot(IndelSummaryBySampleNoOtherStrats, c("n_SNPs", "n_indels", "SNP_to_indel_ratio"))
@@ -496,7 +501,9 @@ indelPlots <- function(IndelQCReport, byACReport) {
     
     # insertion to deletion information
     indelQCPlotWithAllStrats(c("insertion_to_deletion_ratio"), fixHistogramX=T)
-    indelQCPlotWithAllStrats(c("ratio_of_1_and_2_to_3_bp_insertions", "ratio_of_1_and_2_to_3_bp_deletions"), fixHistogramX=T)
+    
+    # special handling of these ratios, as OneBP strat doesn't make sense
+    indelQCPlotWithTandemStrat(c("ratio_of_1_and_2_to_3_bp_insertions", "ratio_of_1_and_2_to_3_bp_deletions"), fixHistogramX=T)
 
     # het : hom ratios information
     indelQCPlotWithAllStrats(c("SNP_het_to_hom_ratio", "indel_het_to_hom_ratio"), fixHistogramX=T)
