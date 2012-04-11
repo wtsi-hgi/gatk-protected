@@ -137,8 +137,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Argument(fullName="debug", shortName="debug", doc="If specified, print out very verbose debug information about each triggering active region", required = false)
     protected boolean DEBUG;
 
-    @Argument(fullName="noBanded", shortName="noBanded", doc="If specified, don't use the banded option", required = false)
-    protected boolean noBanded;
+    @Argument(fullName="doBanded", shortName="doBanded", doc="If specified, use the banded option", required = false)
+    protected boolean doBanded = false;
 
     // the assembly engine
     LocalAssemblyEngine assemblyEngine = null;
@@ -197,7 +197,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
 
         assemblyEngine = new SimpleDeBruijnAssembler( DEBUG, graphWriter );
-        likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, DEBUG, noBanded );
+        likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, DEBUG, doBanded );
         genotypingEngine = new GenotypingEngine( DEBUG, MNP_LOOK_AHEAD, OUTPUT_FULL_HAPLOTYPE_SEQUENCE );
         annotationEngine = new VariantAnnotatorEngine(getToolkit());
     }
