@@ -34,18 +34,20 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.utils.R.RScriptExecutor;
+import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.io.Resource;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.List;
-import java.util.Map;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
+import java.util.*;
 
 /**
  * First pass of the base quality score recalibration -- Generates recalibration table based on various user-specified covariates (such as reported quality score, cycle, and dinucleotide).
@@ -110,9 +112,9 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
     private QuantizationInfo quantizationInfo;                                                                          // an object that keeps track of the information necessary for quality score quantization 
     
-    private Map<BQSRKeyManager, Map<BitSet, RecalDatum>> keysAndTablesMap;                                              // a map mapping each recalibration table to its corresponding key manager
+    private LinkedHashMap<BQSRKeyManager, Map<BitSet, RecalDatum>> keysAndTablesMap;                                    // a map mapping each recalibration table to its corresponding key manager
     
-    private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();                                // list to hold the all the covariate objects that were requested (required + standard + experimental)
+    private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();                                        // list to hold the all the covariate objects that were requested (required + standard + experimental)
 
     private static final String SKIP_RECORD_ATTRIBUTE = "SKIP";                                                         // used to label reads that should be skipped.
     private static final String SEEN_ATTRIBUTE = "SEEN";                                                                // used to label reads as processed.
@@ -120,6 +122,9 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
 
     private static final String NO_DBSNP_EXCEPTION = "This calculation is critically dependent on being able to skip over known variant sites. Please provide a VCF file containing known sites of genetic variation.";
+
+    private static final String SCRIPT_FILE = "BQSR.R";
+
 
     /**
      * Parse the -cov arguments and create a list of covariates to be used here
@@ -158,8 +163,12 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
         return read.containsTemporaryAttribute(SKIP_RECORD_ATTRIBUTE);
     }
 
-    private boolean seenRead(GATKSAMRecord read) {
-        return read.containsTemporaryAttribute(SEEN_ATTRIBUTE);
+    private boolean isLowQualityBase(GATKSAMRecord read, int offset) {
+        return read.getBaseQualities()[offset] < QualityUtils.MIN_USABLE_Q_SCORE;
+    }
+
+    private boolean readNotSeen(GATKSAMRecord read) {
+        return !read.containsTemporaryAttribute(SEEN_ATTRIBUTE);
     }
 
     /**
@@ -178,13 +187,13 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
                 final GATKSAMRecord read = p.getRead();
                 final int offset = p.getOffset();
 
-                if (readHasBeenSkipped(read) || read.getBaseQualities()[offset] == 0)                                   // This read has been marked to be skipped or base has quality 0.
+                if (readHasBeenSkipped(read) || isLowQualityBase(read, offset))                                         // This read has been marked to be skipped or base is low quality (we don't recalibrate low quality bases)
                     continue;
 
-                if (!seenRead(read)) {
+                if (readNotSeen(read)) {
                     read.setTemporaryAttribute(SEEN_ATTRIBUTE, true);
                     RecalDataManager.parsePlatformForRead(read, RAC);
-                    if (!RecalDataManager.checkColorSpace(RAC.SOLID_NOCALL_STRATEGY, read)) {
+                    if (RecalDataManager.isColorSpaceConsistent(RAC.SOLID_NOCALL_STRATEGY, read)) {
                         read.setTemporaryAttribute(SKIP_RECORD_ATTRIBUTE, true);
                         continue;
                     }
@@ -195,7 +204,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
                 if (!ReadUtils.isSOLiDRead(read) ||                                                                     // SOLID bams have inserted the reference base into the read if the color space in inconsistent with the read base so skip it
                     RAC.SOLID_RECAL_MODE == RecalDataManager.SOLID_RECAL_MODE.DO_NOTHING ||
-                    !RecalDataManager.isInconsistentColorSpace(read, offset))
+                        RecalDataManager.isColorSpaceConsistent(read, offset))
                     updateDataForPileupElement(p, refBase);                                                             // This base finally passed all the checks for a good base, so add it to the big data hashmap
             }
             countedSites++;
@@ -234,12 +243,128 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
     public void onTraversalDone(Long result) {
         logger.info("Calculating empirical quality scores...");
         calculateEmpiricalQuals();
+        logger.info("Generating recalibration plots...");
+        generatePlots();
         logger.info("Calculating quantized quality scores...");
         quantizeQualityScores();
         logger.info("Writing GATK Report...");
         generateReport();
         logger.info("...done!");
         logger.info("Processed: " + result + " sites");
+    }
+
+    private void generatePlots() {
+
+        final PrintStream deltaTableStream;
+        final File deltaTableFileName = new File(RAC.RECAL_FILE + ".csv");
+        final File plotFileName = new File(RAC.RECAL_FILE + ".pdf");
+        try {
+            deltaTableStream = new PrintStream(deltaTableFileName);
+        } catch (FileNotFoundException e) {
+            throw new UserException.CouldNotCreateOutputFile(deltaTableFileName, "File " + RAC.RECAL_FILE + ".csv could not be created");
+        }
+
+        final String RECALIBRATED = "RECALIBRATED";
+        final String ORIGINAL = "ORIGINAL";
+        File recalFile = getToolkit().getArguments().BQSR_RECAL_FILE;
+
+        if (recalFile != null) {
+            RecalibrationReport report = new RecalibrationReport(recalFile);
+            writeCSV(deltaTableStream, report.getKeysAndTablesMap(), ORIGINAL, true);
+            writeCSV(deltaTableStream, keysAndTablesMap, RECALIBRATED, false);
+        }
+        else
+            writeCSV(deltaTableStream, keysAndTablesMap, ORIGINAL, true);
+
+        deltaTableStream.close();
+
+        RScriptExecutor executor = new RScriptExecutor();
+        executor.addScript(new Resource(SCRIPT_FILE, BaseQualityScoreRecalibrator.class));
+        executor.addArgs(deltaTableFileName.getAbsolutePath());
+        executor.addArgs(plotFileName.getAbsolutePath());
+        executor.exec();
+    }
+
+    private void writeCSV(PrintStream deltaTableFile, LinkedHashMap<BQSRKeyManager, Map<BitSet, RecalDatum>> map, String recalibrationMode, boolean printHeader) {
+        final int QUALITY_SCORE_COVARIATE_INDEX = 1;
+        final Map<BitSet, AccuracyDatum> deltaTable = new HashMap<BitSet, AccuracyDatum>();
+
+
+        for (Map.Entry<BQSRKeyManager, Map<BitSet, RecalDatum>> tableEntry : map.entrySet()) {
+            BQSRKeyManager keyManager = tableEntry.getKey();
+
+            if (keyManager.getOptionalCovariates().size() > 0) {                                                        // only need the 'all covariates' table
+                Map<BitSet, RecalDatum> table = tableEntry.getValue();
+
+                // create a key manager for the delta table
+                List<Covariate> requiredCovariates = keyManager.getRequiredCovariates().subList(0, 1);                  // include the read group covariate as the only required covariate
+                List<Covariate> optionalCovariates = keyManager.getRequiredCovariates().subList(1, 2);                  // include the quality score covariate as an optional covariate
+                optionalCovariates.addAll(keyManager.getOptionalCovariates());                                          // include all optional covariates
+                BQSRKeyManager deltaKeyManager = new BQSRKeyManager(requiredCovariates, optionalCovariates);            // initialize the key manager
+
+
+                // create delta table
+                for (Map.Entry<BitSet, RecalDatum> entry : table.entrySet()) {                                          // go through every element in the covariates table to create the delta table
+                    RecalDatum recalDatum = entry.getValue();                                                           // the current element (recal datum)
+
+                    List<Object> covs = keyManager.keySetFrom(entry.getKey());                                          // extract the key objects from the bitset key
+                    byte originalQuality = Byte.parseByte((String) covs.get(QUALITY_SCORE_COVARIATE_INDEX));            // save the original quality for accuracy calculation later on
+                    covs.remove(QUALITY_SCORE_COVARIATE_INDEX);                                                         // reset the quality score covariate to 0 from the keyset (so we aggregate all rows regardless of QS)
+                    BitSet deltaKey = deltaKeyManager.bitSetFromKey(covs.toArray());                                    // create a new bitset key for the delta table
+                    addToDeltaTable(deltaTable, deltaKey, recalDatum, originalQuality);                                 // add this covariate to the delta table
+
+                    covs.set(1, originalQuality);                                                                       // replace the covariate value with the quality score
+                    covs.set(2, "QualityScore");                                                                        // replace the covariate name with QualityScore (for the QualityScore covariate)
+                    deltaKey = deltaKeyManager.bitSetFromKey(covs.toArray());                                           // create a new bitset key for the delta table
+                    addToDeltaTable(deltaTable, deltaKey, recalDatum, originalQuality);                                 // add this covariate to the delta table
+                }
+
+                // print header
+                if (printHeader) {
+                    List<String> header = new LinkedList<String>();
+                    header.add("ReadGroup");
+                    header.add("CovariateValue");
+                    header.add("CovariateName");
+                    header.add("EventType");
+                    header.add("Observations");
+                    header.add("Errors");
+                    header.add("EmpiricalQuality");
+                    header.add("AverageReportedQuality");
+                    header.add("Accuracy");
+                    header.add("Recalibration");
+                    deltaTableFile.println(Utils.join(",", header));
+                }
+
+                // print each data line
+                for(Map.Entry<BitSet, AccuracyDatum> deltaEntry : deltaTable.entrySet()) {
+                    List<Object> deltaKeys = deltaKeyManager.keySetFrom(deltaEntry.getKey());
+                    RecalDatum deltaDatum = deltaEntry.getValue();
+                    deltaTableFile.print(Utils.join(",", deltaKeys));
+                    deltaTableFile.print("," + deltaDatum.toString());
+                    deltaTableFile.println("," + recalibrationMode);
+                }
+
+            }
+
+        }
+    }
+
+    /**
+     * Updates the current AccuracyDatum element in the delta table.
+     *
+     * If it doesn't have an element yet, it creates an AccuracyDatum element and adds it to the delta table.
+     *
+     * @param deltaTable the delta table
+     * @param deltaKey the key to the table
+     * @param recalDatum the recal datum to combine with the accuracyDatum element in the table
+     * @param originalQuality the quality score to we can calculate the accuracy for the accuracyDatum element
+     */
+    private void addToDeltaTable(Map<BitSet, AccuracyDatum> deltaTable, BitSet deltaKey, RecalDatum recalDatum, byte originalQuality) {
+        AccuracyDatum deltaDatum = deltaTable.get(deltaKey);                                                            // check if we already have a RecalDatum for this key
+        if (deltaDatum == null)
+            deltaTable.put(deltaKey, new AccuracyDatum(recalDatum, originalQuality));                                   // if we don't have a key yet, create a new one with the same values as the curent datum
+        else
+            deltaDatum.combine(recalDatum, originalQuality);                                                            // if we do have a datum, combine it with this one.
     }
 
     /**
@@ -276,10 +401,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
             List<BitSet> mismatchesKeys = keyManager.bitSetsFromAllKeys(readCovariates.getMismatchesKeySet(offset), EventType.BASE_SUBSTITUTION);
             List<BitSet> insertionsKeys = keyManager.bitSetsFromAllKeys(readCovariates.getInsertionsKeySet(offset), EventType.BASE_INSERTION);
             List<BitSet> deletionsKeys  = keyManager.bitSetsFromAllKeys(readCovariates.getDeletionsKeySet(offset), EventType.BASE_DELETION);
-
-            if (mismatchesDatum.numObservations > 1 || insertionsDatum.numObservations > 1 || deletionsDatum.numObservations > 1)
-                throw new ReviewedStingException("datum has more observations than it should");
-            
             
             for (BitSet key : mismatchesKeys)
                 updateCovariateWithKeySet(table, key, mismatchesDatum);                              // the three arrays WON'T always have the same length
@@ -334,14 +455,22 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
     private void calculateEmpiricalQuals() {
         for (Map<BitSet, RecalDatum> table : keysAndTablesMap.values()) {
             for (RecalDatum datum : table.values()) {
-                datum.calcCombinedEmpiricalQuality(QualityUtils.MAX_QUAL_SCORE);
+                datum.calcCombinedEmpiricalQuality();
                 datum.calcEstimatedReportedQuality();
             }
         }
     }
 
     private void generateReport() {
-        RecalDataManager.outputRecalibrationReport(RAC, quantizationInfo, keysAndTablesMap, RAC.RECAL_FILE);
+        PrintStream output;
+        File filename = new File(RAC.RECAL_FILE + ".grp");
+        try {
+            output = new PrintStream(filename);
+        } catch (FileNotFoundException e) {
+            throw new UserException.CouldNotCreateOutputFile(filename, "could not be created");
+        }
+
+        RecalDataManager.outputRecalibrationReport(RAC, quantizationInfo, keysAndTablesMap, output);
     }
 }
 

@@ -70,22 +70,22 @@ import java.util.List;
  *
  */
 public class QuantizeQualsWalker extends ReadWalker<SAMRecord, SAMFileWriter> {
-    final protected static Logger logger = Logger.getLogger(QuantizeQualsWalker.class);
+    private final static Logger logger = Logger.getLogger(QuantizeQualsWalker.class);
 
     @Output(doc="Write output to this BAM filename instead of STDOUT")
     SAMFileWriter out;
 
     @Argument(fullName = "qualityHistogram", shortName = "Q", doc="", required = true)
-    File qualHistogramFile;
+    private File qualHistogramFile;
 
     @Argument(fullName = "quantizationLevels", shortName = "quantizationLevels", doc="The number of quality levels to include in output", required = false)
-    int nQualityLevels = 8;
+    private int nQualityLevels = 8;
 
     @Argument(fullName = "minInterestingQual", shortName = "minInterestingQual", doc="Quality scores less than or equal to this value are considered uninteresting, are can be freely merged together", required = false)
-    int minInterestingQual = 10;
+    private int minInterestingQual = 10;
 
     @Output(fullName = "report", shortName = "report", doc="Write GATK report of quantization process to this file", required = false)
-    PrintStream reportOut = null;
+    private PrintStream reportOut = null;
 
     @Argument(fullName = "maxQualToInclude", shortName = "maxQualToInclude", doc="Only quality scores <= this value are considered for remapping", required = false)
     private int MAX_QUAL_TO_INCLUDE = QualityUtils.MAX_QUAL_SCORE;
