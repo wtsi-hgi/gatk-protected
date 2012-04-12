@@ -26,6 +26,7 @@
 package org.broadinstitute.sting.gatk.walkers.qc;
 
 import net.sf.samtools.SAMReadGroupRecord;
+import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
@@ -264,14 +265,14 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         if (doIndels)  {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
             uac.DONT_DO_BANDED_INDEL_COMPUTATION = noBandedIndelGLs;
-           indelEngine = new UnifiedGenotyperEngine(getToolkit(), uac);
+            indelEngine = new UnifiedGenotyperEngine(getToolkit(), uac, Logger.getLogger(UnifiedGenotyperEngine.class), null, null, samples,2*samples.size() );
         }
         else {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.SNP;
-            snpEngine = new UnifiedGenotyperEngine(getToolkit(), uac);
+            snpEngine = new UnifiedGenotyperEngine(getToolkit(), uac, Logger.getLogger(UnifiedGenotyperEngine.class), null, null, samples,2*samples.size() );
 
         }
-    }
+   }
 
 
     //---------------------------------------------------------------------------------------------------------------
@@ -402,12 +403,14 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             byRG.put(new SAMReadGroupRecord("ALL"), context);     // uncomment to include a synthetic RG for all RG for the sample
             for ( Map.Entry<SAMReadGroupRecord, AlignmentContext> rgAC : byRG.entrySet() ) {
                 VariantCallContext call;
-                if ( vcComp.isIndel() ) {
+                if ( (vcComp.isIndel() || vcComp.isMixed()) && doIndels ) {
                     //throw new UserException.BadInput("CalibrateGenotypeLikelihoods does not currently support indel GL calibration.  This capability needs to be tested and verified to be working with the new genotyping code for indels in UG");
                     call = indelEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue()).get(0);
-                } else {
+                } else if (vcComp.isSNP() && !doIndels) {
                     call = snpEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue()).get(0);
                 }
+                else
+                    break;
 
                 if ( call == null )
                     throw new ReviewedStingException("Unexpected genotyping failure " + sample + " at " + ref.getLocus() + " call " + call);
