@@ -56,9 +56,9 @@ public class PairHMM {
     public double computeReadLikelihoodGivenHaplotype( final byte[] haplotypeBases, final byte[] readBases, final byte[] readQuals,
                                                        final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP ) {
 
-        // M, X, and Y arrays are of size read and haplotype + 1 because of an extra column for initial conditions
-        final int X_METRIC_LENGTH = readBases.length + 1;
-        final int Y_METRIC_LENGTH = haplotypeBases.length + 1;
+        // M, X, and Y arrays are of size read and haplotype + 1 because of an extra column for initial conditions and + 1 to consider the final base in a non-global alignment
+        final int X_METRIC_LENGTH = readBases.length + 2;
+        final int Y_METRIC_LENGTH = haplotypeBases.length + 2;
 
         // initial arrays to hold the probabilities of being in the match, insertion and deletion cases
         final double[][] matchMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
@@ -83,9 +83,9 @@ public class PairHMM {
                                                        final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP, final int hapStartIndex,
                                                        final double[][] matchMetricArray, final double[][] XMetricArray, final double[][] YMetricArray ) {
 
-        // M, X, and Y arrays are of size read and haplotype + 1 because of an extra column for initial conditions
-        final int X_METRIC_LENGTH = readBases.length + 1;
-        final int Y_METRIC_LENGTH = haplotypeBases.length + 1;
+        // M, X, and Y arrays are of size read and haplotype + 1 because of an extra column for initial conditions and + 1 to consider the final base in a non-global alignment
+        final int X_METRIC_LENGTH = readBases.length + 2;
+        final int Y_METRIC_LENGTH = haplotypeBases.length + 2;
 
         if( false ) {
             final ArrayList<Integer> workQueue = new ArrayList<Integer>(); // holds a queue of starting work location (indices along the diagonal). Will be sorted each step
@@ -229,8 +229,8 @@ public class PairHMM {
         XMetricArray[indI][indJ] = qBaseReadLog10 + MathUtils.approximateLog10SumLog10(matchMetricArray[indI-1][indJ] + d1, XMetricArray[indI-1][indJ] + e1);
 
         // update the Y (deletion) array, with penalty of zero on the left and right flanks to allow for a local alignment within the haplotype
-        final double d2 = ( im1 == 0 || im1 == readBases.length - 1 ? 0.0 : QualityUtils.qualToErrorProbLog10(deletionGOP[im1-1]) );
-        final double e2 = ( im1 == 0 || im1 == readBases.length - 1 ? 0.0 : QualityUtils.qualToErrorProbLog10(overallGCP[im1-1]) );
+        final double d2 = ( im1 == 0 || im1 == readBases.length ? 0.0 : QualityUtils.qualToErrorProbLog10(deletionGOP[im1-1]) );
+        final double e2 = ( im1 == 0 || im1 == readBases.length ? 0.0 : QualityUtils.qualToErrorProbLog10(overallGCP[im1-1]) );
         final double qBaseRefLog10 = 0.0; // Math.log10(1.0) -- we don't have an estimate for this emission probability so assume q=1.0
         YMetricArray[indI][indJ] = qBaseRefLog10 + MathUtils.approximateLog10SumLog10(matchMetricArray[indI][indJ-1] + d2, YMetricArray[indI][indJ-1] + e2);
     }

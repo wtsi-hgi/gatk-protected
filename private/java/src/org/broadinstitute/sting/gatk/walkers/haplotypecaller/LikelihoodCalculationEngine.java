@@ -66,8 +66,10 @@ public class LikelihoodCalculationEngine {
             final int haplotypeLength = haplotypes.get(jjj).getBases().length;
             if( haplotypeLength > Y_METRIC_LENGTH ) { Y_METRIC_LENGTH = haplotypeLength; }
         }
-        X_METRIC_LENGTH++;
-        Y_METRIC_LENGTH++;
+
+        // M, X, and Y arrays are of size read and haplotype + 1 because of an extra column for initial conditions and + 1 to consider the final base in a non-global alignment
+        X_METRIC_LENGTH += 2;
+        Y_METRIC_LENGTH += 2;
 
         // initial arrays to hold the probabilities of being in the match, insertion and deletion cases
         final double[][] matchMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
