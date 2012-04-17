@@ -37,6 +37,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
+import org.broadinstitute.sting.gatk.walkers.annotator.VariantAnnotatorEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
@@ -89,8 +90,8 @@ import java.util.*;
  * @since 8/22/11
  */
 
-@PartitionBy(PartitionType.INTERVAL)
-@ActiveRegionExtension(extension=30)
+@PartitionBy(PartitionType.LOCUS)
+@ActiveRegionExtension(extension=40,maxRegion=230)
 public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     /**
@@ -120,6 +121,12 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Argument(fullName="downsampleRegion", shortName="dr", doc="coverage per sample to downsample each region to", required = false)
     protected int DOWNSAMPLE_PER_SAMPLE_PER_REGION = 1000;
 
+    @Argument(fullName="useExpandedTriggerSet", shortName="expandedTriggers", doc = "If specified, use additional, experimental triggers designed to capture larger indels but which may lead to an increase in the false positive rate", required=false)
+    protected boolean USE_EXPANDED_TRIGGER_SET = false;
+
+    @Argument(fullName="useAllelesTrigger", shortName="allelesTrigger", doc = "If specified, use additional, trigger on variants found in an external alleles file", required=false)
+    protected boolean USE_ALLELES_TRIGGER = false;
+
     @ArgumentCollection
     private UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
 
@@ -142,6 +149,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     // the genotyping engine
     GenotypingEngine genotypingEngine = null;
 
+    // the annotation engine
+    private VariantAnnotatorEngine annotationEngine;
+
     // fasta reference reader to supplement the edges of the reference sequence
     private IndexedFastaSequenceFile referenceReader;
 
@@ -149,7 +159,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private static final int REFERENCE_PADDING = 120;
 
     // bases with quality less than or equal to this value are trimmed off the tails of the reads
-    private static final byte MIN_TAIL_QUALITY = 15;
+    private static final byte MIN_TAIL_QUALITY = 18;
 
     private ArrayList<String> samplesList = new ArrayList<String>();
     private final static double LOG_ONE_HALF = -Math.log10(2.0);
@@ -172,9 +182,10 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
         UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_VARIANTS_ONLY; // low values used for isActive determination only, default/user-specified values used for actual calling
         UAC.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY; // low values used for isActive determination only, default/user-specified values used for actual calling
-        UAC.STANDARD_CONFIDENCE_FOR_CALLING = 0.3; // low values used for isActive determination only, default/user-specified values used for actual calling
-        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = 0.3; // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.STANDARD_CONFIDENCE_FOR_CALLING = (USE_EXPANDED_TRIGGER_SET ? 0.3 : 4.0); // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = (USE_EXPANDED_TRIGGER_SET ? 0.3 : 4.0); // low values used for isActive determination only, default/user-specified values used for actual calling
         UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
+
         // initialize the output VCF header
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
 
@@ -188,6 +199,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         assemblyEngine = new SimpleDeBruijnAssembler( DEBUG, graphWriter );
         likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, DEBUG, doBanded );
         genotypingEngine = new GenotypingEngine( DEBUG, MNP_LOOK_AHEAD, OUTPUT_FULL_HAPLOTYPE_SEQUENCE );
+        annotationEngine = new VariantAnnotatorEngine(getToolkit());
     }
 
     //---------------------------------------------------------------------------------------------------------------
@@ -202,12 +214,13 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     // enable non primary reads in the active region
     @Override
-    public boolean wantsNonPrimaryReads() { return false; }
+    public boolean wantsNonPrimaryReads() { return true; }
 
     @Override
     @Ensures({"result >= 0.0", "result <= 1.0"})
     public double isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
 
+        /*
         if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
             for( final VariantContext vc : tracker.getValues(UG_engine.getUAC().alleles) ) {
                 if(!allelesToGenotype.contains(vc)) {
@@ -218,6 +231,11 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
                 return 1.0;
             }
         }
+        */
+        if( USE_ALLELES_TRIGGER ) {
+            return ( tracker.getValues(UG_engine.getUAC().alleles).size() > 0 ? 1.0 : 0.0 );
+        }
+
         if( context == null ) { return 0.0; }
 
         final List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
@@ -230,13 +248,22 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             Arrays.fill(genotypeLikelihoods, 0.0);
 
             for( final PileupElement p : splitContexts.get(sample).getBasePileup() ) {
-                final byte qual = ( p.isNextToSoftClip() || p.isBeforeInsertion() || p.isAfterInsertion() ? ( p.getQual() > QualityUtils.MIN_USABLE_Q_SCORE ? p.getQual() : (byte) 20 ) : p.getQual() );
-                if( qual > QualityUtils.MIN_USABLE_Q_SCORE ) {
+                final byte qual = ( USE_EXPANDED_TRIGGER_SET ?
+                                        ( p.isNextToSoftClip() || p.isBeforeInsertion() || p.isAfterInsertion() ? ( p.getQual() > QualityUtils.MIN_USABLE_Q_SCORE ? p.getQual() : (byte) 20 ) : p.getQual() )
+                                        : p.getQual() );
+                if( p.isDeletion() || qual > (USE_EXPANDED_TRIGGER_SET ? QualityUtils.MIN_USABLE_Q_SCORE : (byte) 18) ) {
                     int AA = 0; final int AB = 1; int BB = 2;
-                    if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletedBase() || p.isAfterDeletedBase() || p.isBeforeInsertion() || p.isAfterInsertion() || p.isNextToSoftClip() ||
-                            (!p.getRead().getNGSPlatform().equals(NGSPlatform.SOLID) && ((p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()))) ) {
-                        AA = 2;
-                        BB = 0;
+                    if( USE_EXPANDED_TRIGGER_SET ) {
+                        if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletedBase() || p.isAfterDeletedBase() || p.isBeforeInsertion() || p.isAfterInsertion() || p.isNextToSoftClip() ||
+                                (!p.getRead().getNGSPlatform().equals(NGSPlatform.SOLID) && ((p.getRead().getReadPairedFlag() && p.getRead().getMateUnmappedFlag()) || BadMateFilter.hasBadMate(p.getRead()))) ) {
+                            AA = 2;
+                            BB = 0;
+                        }
+                    } else {
+                        if( p.getBase() != ref.getBase() || p.isDeletion() || p.isBeforeDeletedBase() || p.isAfterDeletedBase() || p.isBeforeInsertion() || p.isAfterInsertion() || p.isNextToSoftClip() ) {
+                            AA = 2;
+                            BB = 0;
+                        }
                     }
                     genotypeLikelihoods[AA] += QualityUtils.qualToProbLog10(qual);
                     genotypeLikelihoods[AB] += MathUtils.approximateLog10SumLog10( QualityUtils.qualToProbLog10(qual) + LOG_ONE_HALF, QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD + LOG_ONE_HALF );
@@ -300,14 +327,15 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         // subset down to only the best haplotypes to be genotyped in all samples
         final ArrayList<Haplotype> bestHaplotypes = likelihoodCalculationEngine.selectBestHaplotypes( haplotypes );
 
-        for( final Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> call :
+        for( Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> call :
                 genotypingEngine.assignGenotypeLikelihoodsAndCallEvents( UG_engine, bestHaplotypes, fullReferenceWithPadding, getPaddedLoc(activeRegion), activeRegion.getLocation(), getToolkit().getGenomeLocParser() ) ) {
             if( DEBUG && samplesList.size() <= 10 ) { System.out.println(call.getFirst()); }
 
             // Call to VariantAnnotator should go here before the VC, call.getFirst(), is written out to disk
-            final HashMap<String, HashMap<Allele, ArrayList<GATKSAMRecord>>> readMap = LikelihoodCalculationEngine.partitionReadsBasedOnLikelihoods(perSampleReadList, call);
+            final Map<String, Map<Allele, List<GATKSAMRecord>>> readMap = LikelihoodCalculationEngine.partitionReadsBasedOnLikelihoods(perSampleReadList, call);
+            final VariantContext annotatedCall = annotationEngine.annotateContext(readMap, call.getFirst());
 
-            vcfWriter.add(call.getFirst());
+            vcfWriter.add(annotatedCall);
         }
 
         if( DEBUG ) { System.out.println("----------------------------------------------------------------------------------"); }
@@ -372,7 +400,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private void filterNonPassingReads( final ActiveRegion activeRegion ) {
         final ArrayList<GATKSAMRecord> readsToRemove = new ArrayList<GATKSAMRecord>();
         for( final GATKSAMRecord rec : activeRegion.getReads() ) {
-            if( rec.getReadLength() < 10 || rec.getMappingQuality() <= 18 || BadMateFilter.hasBadMate(rec) || (keepRG != null && !rec.getReadGroup().getId().equals(keepRG)) ) {
+            if( rec.getReadLength() < 24 || rec.getMappingQuality() <= 20 || BadMateFilter.hasBadMate(rec) || (keepRG != null && !rec.getReadGroup().getId().equals(keepRG)) ) {
                 readsToRemove.add(rec);
             }
         }
@@ -412,8 +440,10 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         final double meanCoveragePerSample = (double) activeRegion.getReads().size() / ((double) activeRegion.getExtendedLoc().size() / meanReadLength) / (double) samplesList.size();
         int PRUNE_FACTOR = 0;
         if( meanCoveragePerSample > 100.0 ) { PRUNE_FACTOR = 10; }
+        else if( meanCoveragePerSample > 55.0 ) { PRUNE_FACTOR = 6; }
         else if( meanCoveragePerSample > 25.0 ) { PRUNE_FACTOR = 4; }
-        else if( meanCoveragePerSample > 2.5 ) { PRUNE_FACTOR = 1; }
+        else if( meanCoveragePerSample > 8.0 ) { PRUNE_FACTOR = 2; }
+        else if( meanCoveragePerSample > 2.0 ) { PRUNE_FACTOR = 1; }
         if( DEBUG ) { System.out.println(String.format("Mean coverage per sample = %.1f --> prune factor = %d", meanCoveragePerSample, PRUNE_FACTOR)); }
         return PRUNE_FACTOR;
     }

@@ -1,7 +1,9 @@
 library(gplots)
 library(gsalib)
 library(ggplot2)
-#library(tools)
+
+# for testing only
+#source("~/Desktop/broadLocal/GATK/unstable/public/R/src/org/broadinstitute/sting/utils/R/gsalib/R/gsa.variantqc.utils.R")
 
 # TODOs:
 #  Assumes you have indels in your call set.  If not you will get errors
@@ -11,27 +13,19 @@ args <- commandArgs(TRUE)
 onCMDLine <- ! is.na(args[1])
 LOAD_DATA <- T
 
-# creates an array of c(sampleName1, ..., sampleNameN)
-parseHighlightSamples <- function(s) {
-  return(unlist(strsplit(s, ",", fixed=T)))
-}
-
 if ( onCMDLine ) {
   projectName <- args[1]
   bySampleEval <- args[2]
   byACEval <- args[3]
   IndelQCEval <- args[4]
   outputPDF <- args[5]
-  if ( ! is.na(args[6]) )
-    highlightSamples <- parseHighlightSamples(args[6])
-  else
-    highlightSamples <- c()
 } else {
   projectName <- "InDevelopmentInR"
 
-  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012"
-  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.annotated"
-  root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes"
+  root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012"
+  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/GoT2D_final_dgi_batch_1"
+  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.all.unannotated.chr1"
+  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes"
   #root <- "/humgen/gsa-hpprojects/ESP/calls/broadOnly_chr1_v2/esp.all.unannotated.chr1"
   
   bySampleEval <- paste(root, "bySample.eval", sep=".")
@@ -41,7 +35,6 @@ if ( onCMDLine ) {
   # comment out to stop printing to PDF
   outputPDF <- NA
   #outputPDF <- "variantCallQC.pdf"
-  highlightSamples <- c() # parseHighlightSamples("29029,47243")
 }
 
 theme_set(theme_bw())
@@ -52,38 +45,6 @@ print(paste("bySampleEval     :", bySampleEval))
 print(paste("byACEval         :", byACEval))
 print(paste("IndelQC          :", IndelQCEval))
 print(paste("outputPDF        :", outputPDF))
-print(paste("highlightSamples :", highlightSamples))
-
-# -------------------------------------------------------
-# Utilities for displaying multiple plots per page
-# -------------------------------------------------------
-
-# Viewport (layout 2 graphs top to bottom)
-distributeGraphRows <- function(graphs, heights = c()) {
-  if (length(heights) == 0) {
-    heights <- rep.int(1, length(graphs))
-  }
-  heights <- heights[!is.na(graphs)]
-  graphs <- graphs[!is.na(graphs)]
-  numGraphs <- length(graphs)
-  Layout <- grid.layout(nrow = numGraphs, ncol = 1, heights=heights)
-  grid.newpage()
-  pushViewport(viewport(layout = Layout))
-  subplot <- function(x) viewport(layout.pos.row = x, layout.pos.col = 1)
-  for (i in 1:numGraphs) {
-    print(graphs[[i]], vp = subplot(i))
-  }
-}
-
-distributeLogGraph <- function(graph, xName) {
-  continuousGraph <- graph + scale_x_continuous(xName)
-  logGraph <- graph + scale_x_log10(xName) + opts(title="")
-  distributeGraphRows(list(continuousGraph, logGraph))
-}
-
-distributePerSampleGraph <- function(perSampleGraph, distGraph, ratio=c(2,1)) {
-  distributeGraphRows(list(perSampleGraph, distGraph), ratio)
-}
 
 expandVEReport <- function(d) {
   d$TiTvVariantEvaluator$tiTvRatio <- round(d$TiTvVariantEvaluator$tiTvRatio,2) 
@@ -169,26 +130,6 @@ summaryPlots <- function(metricsBySites) {
   acGraph <- acGraph + geom_line(size=1)
   acGraph <- acGraph + facet_grid(variable ~ ., scales="free")
   distributeLogGraph(acGraph, "Allele count (AC)")
-
-  # Counts vs. Allele frequency 
-  name <- "Variant counts by allele count"
-  for ( measure in c("nSNPs", "nIndels")) {
-    molten <- melt(subset(countVariants, AC > 0), id.vars=c("Novelty", "AC"), measure.vars=c(measure))
-    if ( sum(molten$value > 0) ) {
-      p <- ggplot(data=molten, aes(x=AC, y=value+1, color=Novelty), group=variable)
-      p <- p + opts(title = paste(name, ":", measure))
-      p <- p + scale_y_log10("Number of variants")
-      p <- p + scale_x_log10("Allele count (AC)")
-      if (numAC > 2) {
-        p <- p + geom_smooth(aes(weight=value), size=1, method="lm", formula = y ~ x)
-      } else {
-        p <- p + geom_line(size=1)
-      }
-      p <- p + geom_point(alpha=0.5, size=4)
-      p <- p + facet_grid(Novelty ~ ., scales="free")
-      print(p)
-    }
-  }
   
   name <- "Transition / transversion ratio by allele count"
   # nSNPs > 0 => requires that we have some data here, otherwise Ti/Tv is zero from VE  
@@ -198,30 +139,8 @@ summaryPlots <- function(metricsBySites) {
     acGraph <- ggplot(data=byACNoAll, aes(x=AC, y=tiTvRatio, color=Novelty))
     acGraph <- acGraph + scale_y_continuous("Transition / transversion ratio", limits=c(0,4))
     acGraph <- acGraph + opts(title = name)
-    if (numAC > 2) {
-      acGraph <- acGraph + geom_smooth(size=2)
-    } else {
-      acGraph <- acGraph + geom_line(size=2)
-    }
-    acGraph <- acGraph + geom_point(aes(size=log10(nSNPs), weight=nSNPs), alpha=0.5)
+    acGraph <- acGraph + geom_point(aes(size=log10(nSNPs), weight=nSNPs), alpha=0.5) + geom_line()
     distributeLogGraph(acGraph, "Allele count (AC)")
-  }
- 
-  # SNPs to indels ratio by allele frequency
-  name <- "SNPs to indels ratio by allele count"
-  if ( sum(countVariants$nIndels) > 0 & sum(countVariants$nSNPs) > 0 ) {
-    countVariants$SNP.Indel.Ratio <- countVariants$nSNPs / countVariants$nIndels
-    countVariants$SNP.Indel.Ratio[countVariants$nIndels == 0] <- NaN
-    p <- ggplot(data=subset(countVariants, Novelty == "all" & nSNPs > 0), aes(x=AC, y=SNP.Indel.Ratio))
-    p <- p + opts(title = name)
-    p <- p + scale_y_continuous("SNP to indel ratio")
-    if (numAC > 2) {
-      p <- p + geom_smooth(size=2, aes(weight=nIndels))
-    } else {
-      p <- p + geom_line(size=2)
-    }
-    p <- p + geom_point(alpha=0.5, aes(size=log10(nIndels)))
-    distributeLogGraph(p, "Allele count (AC)")
   }
   
   countFunctional <- subset(metricsBySites$byAC$CountVariants, FunctionalClass != "all" & AlleleCount > 0)
@@ -249,6 +168,7 @@ summaryPlots <- function(metricsBySites) {
 }
 
 addSection <- function(name) {
+    print(paste("Running section", name))
     par("mar", c(5, 4, 4, 2))
     frame()
     title(name, cex=2)
@@ -266,9 +186,6 @@ createMetricsBySamples <- function(bySampleReport) {
   x <- subset(r, Novelty=="all")
   r$Sample <- factor(x$Sample, levels=x$Sample[order(x$nSNPs)])
 
-  # add highlight info
-  r$highlight <- r$Sample %in% highlightSamples
-
   return(subset(r, Sample != "all"))
 }
 
@@ -284,98 +201,29 @@ createMissenseSilentSummary <- function(bySampleReport) {
 # -------------------------------------------------------
 
 perSamplePlots <- function(metricsBySamples) {
-  # Some ggplot function do not work with two or less samples, for example
-  # PASS: ggplot(data=data.frame(Grouping=c('a','a','a','c','c','c'),Values=1:6),aes(x=Values,group=Grouping)) + geom_density()
-  # FAIL: ggplot(data=data.frame(Grouping=c('a','a','b','b','c','c'),Values=1:6),aes(x=Values,group=Grouping)) + geom_density()
-  #   Error: attempt to apply non-function
-  numSamples <- length(unique(metricsBySamples$Sample))
-  metricsBySamples$highlightTextSizes <- c(1,2)[metricsBySamples$highlight+1]
-  if (TRUE %in% metricsBySamples$highlight) {
-    # TODO: How do you scale the relative aes and the geom_text at the same time?
-    # In R 2.13 the font size is much bigger and not sure the syntax to size it correctly
-    sampleTextLabel <- geom_text(aes(label=Sample, size=highlightTextSizes))
-    sampleTextLabelScale <- scale_size("Highlighted samples", to=c(3,5), breaks=c(1,2), labels=c("regular", "highlighted"))
-  } else {
-    # Nothing to highlight
-    # If the size was in the aes then R 2.13 wasn't scaling the text
-    # https://groups.google.com/d/msg/ggplot2/uj38mwCyY0Q/dOHhLyLEW8YJ
-    sampleTextLabel <- geom_text(aes(label=Sample), size=1.5)
-    sampleTextLabelScale <- geom_blank() # don't display a scale
-  }
-  xAxis <- scale_x_discrete("Sample (ordered by nSNPs)", formatter=function(x) "")
-
-  measures <- c("nSNPs", "tiTvRatio", "nSingletons", "nIndels", "insertionDeletionRatio")
-  name <- "by sample"
-  for ( measure in measures ) {
-    molten <- melt(metricsBySamples, id.vars=c("Novelty", "Sample", "highlightTextSizes"), measure.vars=c(measure))
-
-    perSampleGraph <- ggplot(data=molten, aes(x=Sample, y=value, group=Novelty, color=Novelty), y=value)
-    perSampleGraph <- perSampleGraph + opts(title = paste(measure, name))
-    if (numSamples > 2) {
-      perSampleGraph <- perSampleGraph + geom_smooth(alpha=0.5, aes(group=Novelty))
-    } else {
-      perSampleGraph <- perSampleGraph + geom_line(alpha=0.5, size=1)
+  # TODO - add MNPs
+  #measuresSets <- list(c("nSNPs", "nIndels"), c("tiTvRatio", "insertionDeletionRatio")) # for testing
+  measuresSets <- list(c("nSNPs", "nIndels", "nSingletons"), c("tiTvRatio", "insertionDeletionRatio", "hetHomRatio"))
+  for ( measures in measuresSets ) {
+    plotVariantQC(metricsBySamples, measures, requestedStrat = "Sample", fixHistogramX=F, anotherStrat = "Novelty", nObsField = "nSNPs", 
+                  onSamePage=T, facetVariableOnXPerSample=F, facetVariableOnXForDist=T)
+    for ( measure in measures ) {
+      plotVariantQC(metricsBySamples, measure, requestedStrat = "Sample", fixHistogramX=F, anotherStrat = "Novelty", nObsField = "nSNPs", 
+                    onSamePage=T, facetVariableOnXPerSample=T, facetVariableOnXForDist=F)
     }
-    perSampleGraph <- perSampleGraph + sampleTextLabel + sampleTextLabelScale
-    perSampleGraph <- perSampleGraph + facet_grid(Novelty ~ ., scales="free")
-    perSampleGraph <- perSampleGraph + xAxis
-    
-    if (numSamples > 2) {
-      distGraph <- ggplot(data=molten, aes(x=value, group=Novelty, fill=Novelty))
-      #distGraph <- distGraph + geom_density(alpha=0.5)
-      distGraph <- distGraph + geom_histogram(aes(y=..ndensity..))
-      distGraph <- distGraph + geom_density(alpha=0.5, aes(y=..scaled..))
-      distGraph <- distGraph + geom_rug(aes(y=NULL, color=Novelty, position="jitter"))
-      distGraph <- distGraph + facet_grid(. ~ Novelty, scales="free")
-      distGraph <- distGraph + scale_x_continuous(measure)
-    } else {
-      distGraph <- NA
+      
+    # known / novel ratio by sample
+    # TODO -- would ideally not conflate SNPs and Indels
+    d <- subset(metricsBySamples, Novelty == "all" & CompRod == "dbsnp")
+    noveltyRateName <- "Percent of variants in dbSNP"
+    d[[noveltyRateName]] <- d$compRate
+    plotVariantQC(d, c(noveltyRateName), requestedStrat = "Sample", fixHistogramX=F, nObsField = "nSNPs", onSamePage=T)
+  
+    for ( novelty in c("all", "known", "novel") ) {
+      subd = subset(metricsBySamples, Novelty==novelty)
+      plotVariantQC(subd, measures, requestedStrat = "Sample", fixHistogramX=F, nObsField = "nSNPs", onSamePage=T, 
+                    moreTitle=paste(novelty, "sites"), facetVariableOnXPerSample=F, facetVariableOnXForDist=T)
     }
-
-    distributePerSampleGraph(perSampleGraph, distGraph)
-  }
-    
-  # known / novel ratio by sample
-  # TODO -- would ideally not conflate SNPs and Indels
-  d <- subset(metricsBySamples, Novelty == "all" & CompRod == "dbsnp")
-  title <- opts(title = "Novelty rate by sample")
-
-  perSampleGraph <- ggplot(data=d, aes(x=Sample, y=compRate))
-  perSampleGraph <- perSampleGraph + title
-  if (numSamples > 2) {
-    perSampleGraph <- perSampleGraph + geom_smooth(alpha=0.5, aes(group=Novelty))
-  } else {
-    perSampleGraph <- perSampleGraph + geom_line(alpha=0.5, size=1)
-  }
-  perSampleGraph <- perSampleGraph + sampleTextLabel + sampleTextLabelScale
-  perSampleGraph <- perSampleGraph + geom_rug(aes(x=NULL, position="jitter"))
-  perSampleGraph <- perSampleGraph + xAxis
-  perSampleGraph <- perSampleGraph + scale_y_continuous("Percent of variants in dbSNP")
-
-  if (numSamples > 2) {
-    distGraph <- ggplot(data=d, aes(x=compRate))
-    #distGraph <- distGraph + geom_density(alpha=0.5)
-    distGraph <- distGraph + geom_histogram(aes(y=..ndensity..))
-    distGraph <- distGraph + geom_density(alpha=0.5, aes(y=..scaled..))
-    distGraph <- distGraph + geom_rug(aes(y=NULL, position="jitter"))
-    distGraph <- distGraph + scale_x_continuous("Percent of variants in dbSNP")
-  } else {
-    distGraph <- NA
-  }
-
-  distributePerSampleGraph(perSampleGraph, distGraph)
-
-  for ( novelty in c("all", "known", "novel") ) {
-    # TODO -- how can I color it as before?
-    # TODO -- add marginal distributions?
-    molten <- melt(subset(metricsBySamples, Novelty==novelty), id.vars=c("Sample", "highlightTextSizes"), measure.vars=measures)
-    p <- ggplot(data=molten, aes(x=Sample, y=value))
-    p <- p + opts(title = paste(name, ":", novelty))
-    p <- p + sampleTextLabel + sampleTextLabelScale
-    p <- p + facet_grid(variable ~ ., scales="free")
-    # how do we remove the labels?
-    p <- p + xAxis
-    print(p)
   }
 }
 
@@ -383,60 +231,19 @@ perSamplePlots <- function(metricsBySamples) {
 # Detailed indel QC statistics 
 # -------------------------------------------------------
 
-removeExtraStrats <- function(df, moreToRemove=c()) {
-  for ( toRemove in c("FunctionalClass", "Novelty", moreToRemove) ) {
-    if (toRemove %in% colnames(df)) {
-      df <- df[df[[toRemove]] == "all",]
-    }
-  }
-  df    
-}
-
-indelQCPlot <- function(metrics, measures, requestedStrat = "Sample", fixHistogramX=F, anotherStrat = NULL) {
-  numSamples = dim(metrics)[1] - 1
-  metrics$strat = metrics[[requestedStrat]]
+plotRatioByAlleleCount <- function(AC, num, denom, name, expectedValue, keepFullAC=F) {
+#   if ( ! keepFullAC & max(AC) > 50 ) { # only do this if we have so many samples that the high AC values get too sparse
+#     scaleFactor <- overallScaleFactor * log10(max(AC))
+#     print(list(scaleFactor=scaleFactor, maxAC = max(AC), overallScaleFactor = overallScaleFactor))
+#     new <- compute.ratio.on.LogLinear.AC.intervals(AC, num, denom, scaleFactor)
+#     df <- data.frame(AlleleCount = new$AC, nobs = new$denom, ratio=new$ratio)
+#   } else {
+    df <- data.frame(AlleleCount = AC, nobs = denom, ratio = num / denom)
+    df <- subset(df, num > 0 & denom > 0)
+#   }
   
-  otherFacet = "."
-  id.vars = c("strat", "n_indels")
-  
-  # keep track of the other strat and it's implied facet value
-  if (! is.null(anotherStrat)) { 
-    id.vars = c(id.vars, anotherStrat)
-    otherFacet = anotherStrat
-  }
-  
-  molten <- melt(metrics, id.vars=id.vars, measure.vars=c(measures))
-  perSampleGraph <- ggplot(data=molten, aes(x=strat, y=value, group=variable, color=variable, fill=variable))
-  if ( requestedStrat == "Sample" ) {
-    perSampleGraph <- perSampleGraph + geom_text(aes(label=strat), size=1.5) + geom_blank() # don't display a scale
-    perSampleGraph <- perSampleGraph + scale_x_discrete("Sample (ordered by nSNPs)", formatter=function(x) "")
-  } else {
-    perSampleGraph <- perSampleGraph + geom_point(aes(size=log10(n_indels))) + geom_smooth(aes(weight=log10(n_indels)))
-    perSampleGraph <- perSampleGraph + scale_x_log10("AlleleCount")
-  }    
-  perSampleGraph <- perSampleGraph + ylab("Variable value")
-
-  perSampleGraph <- perSampleGraph + facet_grid(paste("variable ~ ", otherFacet), scales="free")
-
-    
-  if (numSamples > 2) {
-    distGraph <- ggplot(data=molten, aes(x=value, group=variable, fill=variable))
-    distGraph <- distGraph + geom_histogram(aes(y=..ndensity..))
-    distGraph <- distGraph + geom_density(alpha=0.5, aes(y=..scaled..))
-    distGraph <- distGraph + geom_rug(aes(y=NULL, color=variable, position="jitter"))
-    scale = "free"
-    if ( fixHistogramX ) scale = "fixed"
-    distGraph <- distGraph + facet_grid(paste(otherFacet, " ~ variable"), scales=scale)
-    distGraph <- distGraph + ylab("Relative frequency")
-    distGraph <- distGraph + ylab("Variable value")
-    distGraph <- distGraph + opts(axis.text.x=theme_text(angle=-45)) # , legend.position="none")
-  } else {
-    distGraph <- NA
-  }
-  
-  print(perSampleGraph)
-  print(distGraph)
-  #distributePerSampleGraph(perSampleGraph, distGraph)
+  df[[name]] <- df$ratio
+  plotVariantQC(df, c(name), requestedStrat = "AlleleCount", nObsField="nobs")
 }
 
 indelLengthDistribution <- function(indelHistogram) {
@@ -472,38 +279,52 @@ indelPlots <- function(IndelQCReport, byACReport) {
   rownames(all) <- "Combined callset"
   textplot(t(all))
 
-  indelQCPlotWithAllStrats <- function(values, ...) {
-    indelQCPlot(IndelSummaryBySampleNoOtherStrats, values, ...)
-    indelQCPlot(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("OneBPIndel")), values, anotherStrat="TandemRepeat",...)
-    indelQCPlot(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("TandemRepeat")), values, anotherStrat="OneBPIndel",...)
+  plotVariantQCWithAllStrats <- function(values, ...) {
+    plotVariantQC(IndelSummaryBySampleNoOtherStrats, values, ...)
+    plotVariantQC(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("OneBPIndel")), values, anotherStrat="TandemRepeat", ...)
+    plotVariantQC(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("TandemRepeat")), values, anotherStrat="OneBPIndel",...)
+  }
+
+  plotVariantQCWithTandemStrat <- function(values, ...) {
+    plotVariantQC(IndelSummaryBySampleNoOtherStrats, values, ...)
+    plotVariantQC(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("OneBPIndel")), values, anotherStrat="TandemRepeat",...)
   }
   
   if ( T ) {
-    indelQCPlotWithAllStrats(c("n_SNPs", "n_indels", "SNP_to_indel_ratio"))
-    indelQCPlotWithAllStrats(c("n_indels_matching_gold_standard", "gold_standard_matching_rate"))
-    indelQCPlot(IndelSummaryBySampleNoOtherStrats, c("n_singleton_SNPs", "n_singleton_indels", "SNP_to_indel_ratio_for_singletons"))
-    indelQCPlot(IndelSummaryByAC, c("SNP_to_indel_ratio"), "AlleleCount")
+    plotVariantQC(IndelSummaryBySampleNoOtherStrats, c("n_SNPs", "n_indels", "SNP_to_indel_ratio"))
+    plotVariantQC(IndelSummaryBySampleNoOtherStrats, c("n_singleton_SNPs", "n_singleton_indels", "SNP_to_indel_ratio_for_singletons"))
+    plotVariantQCWithAllStrats(c("n_indels", "n_singleton_indels"))
+    plotVariantQCWithAllStrats(c("n_indels_matching_gold_standard", "gold_standard_matching_rate"))
     
-    indelQCPlotWithAllStrats(c("indel_novelty_rate"))
-    indelQCPlot(IndelSummaryByAC, c("indel_novelty_rate"), "AlleleCount")
+    if ( all$n_multiallelic_indel_sites > 0 ) { # if there are at least some multi-allelic sites
+      plotVariantQCWithAllStrats(c("n_multiallelic_indel_sites", "percent_of_sites_with_more_than_2_alleles"))
+    }
+
+    plotVariantQCWithAllStrats(c("indel_novelty_rate"))
     
     # insertion to deletion information
-    indelQCPlotWithAllStrats(c("insertion_to_deletion_ratio"), fixHistogramX=T)
-    indelQCPlotWithAllStrats(c("ratio_of_1_and_2_to_3_bp_insertions", "ratio_of_1_and_2_to_3_bp_deletions"), fixHistogramX=T)
+    plotVariantQCWithAllStrats(c("insertion_to_deletion_ratio"), fixHistogramX=T)
+    
+    # special handling of these ratios, as OneBP strat doesn't make sense
+    plotVariantQCWithTandemStrat(c("ratio_of_1_and_2_to_3_bp_insertions", "ratio_of_1_and_2_to_3_bp_deletions"), fixHistogramX=T)
 
     # het : hom ratios information
-    indelQCPlotWithAllStrats(c("SNP_het_to_hom_ratio", "indel_het_to_hom_ratio"), fixHistogramX=T)
+    plotVariantQCWithAllStrats(c("SNP_het_to_hom_ratio", "indel_het_to_hom_ratio"), fixHistogramX=T)
+ 
+    plotRatioByAlleleCount(IndelSummaryByAC$AlleleCount, IndelSummaryByAC$n_insertions, IndelSummaryByAC$n_deletions, "Insertion to deletion ratio", 1)
+    plotRatioByAlleleCount(IndelSummaryByAC$AlleleCount, IndelSummaryByAC$n_novel_indels*100, IndelSummaryByAC$n_indels, "% novel indels", 50)
+    plotRatioByAlleleCount(IndelSummaryByAC$AlleleCount, IndelSummaryByAC$n_SNPs, IndelSummaryByAC$n_indels, "SNP to indel ratio", 50)
 
     # optional frameshift counts
     hasFrameShift = ! is.na(max(IndelSummaryBySampleNoOtherStrats$frameshift_rate_for_coding_indels))
     if ( hasFrameShift ) {
-      indelQCPlot(IndelSummaryBySampleNoOtherStrats, c("frameshift_rate_for_coding_indels"))
-      indelQCPlot(IndelSummaryByAC, c("frameshift_rate_for_coding_indels"), "AlleleCount")
+      plotVariantQC(IndelSummaryBySampleNoOtherStrats, c("frameshift_rate_for_coding_indels"))
+      plotRatioByAlleleCount(IndelSummaryByAC$AlleleCount, IndelSummaryByAC$n_coding_indels_frameshifting * 100, IndelSummaryByAC$n_coding_indels_frameshifting + IndelSummaryByAC$n_coding_indels_in_frame, "Indel frameshift rate (%)", 0.1)
     } 
 
     lengthHistogram <- removeExtraStrats(IndelQCReport$IndelLengthHistogram, c("OneBPIndel"))
     indelLengthDistribution(lengthHistogram)
-  }
+   }
 }
 
 # -------------------------------------------------------
@@ -520,21 +341,17 @@ if ( onCMDLine || LOAD_DATA ) {
   missenseSilentSummary <- createMissenseSilentSummary(bySampleReport)
 }
 
-if ( ! is.na(outputPDF) ) {
-  pdf(outputPDF, height=8.5, width=11)
-}
+openPDF(outputPDF)
 
 # Table of overall counts and quality
 textplot(overallSummaryTable(metricsBySites, metricsBySamples, missenseSilentSummary), show.rownames=F)
 title(paste("Summary metrics for project", projectName), cex=3)
 
+addSection("Summary plots")
 summaryPlots(metricsBySites)
+addSection("Properties per sample")
 perSamplePlots(metricsBySamples)
+addSection("Detailed indel QC metrics")
 indelPlots(IndelQCReport, metricsBySites$byAC)
 
-if ( ! is.na(outputPDF) ) {
-  dev.off()
-  if (exists("compactPDF")) {
-    compactPDF(outputPDF)
-  }
-}
+closePDF(outputPDF)

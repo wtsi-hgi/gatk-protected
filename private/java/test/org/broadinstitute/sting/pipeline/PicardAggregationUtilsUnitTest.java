@@ -26,6 +26,7 @@ package org.broadinstitute.sting.pipeline;
 
 import org.apache.commons.io.FileUtils;
 import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -57,18 +58,28 @@ public class PicardAggregationUtilsUnitTest {
     public void testGetSampleBam() throws Exception {
         File sampleBam = new File(PicardAggregationUtils.getSampleBam(PROJECT, SAMPLE, latestVersion));
         Assert.assertTrue(sampleBam.exists());
+
         File latestSampleBam = new File(PicardAggregationUtils.getSampleBam(PROJECT, SAMPLE));
         Assert.assertTrue(latestSampleBam.exists());
         Assert.assertEquals(latestSampleBam, sampleBam);
+
+        File currentSampleBam = new File(PicardAggregationUtils.getCurrentSampleBam(PROJECT, SAMPLE));
+        Assert.assertTrue(currentSampleBam.exists());
+        Assert.assertEquals(currentSampleBam.getCanonicalFile(), sampleBam.getCanonicalFile());
     }
 
     @Test(dependsOnMethods = "testGetLatestVersion")
     public void testGetSampleDir() throws Exception {
         File sampleDir = new File(PicardAggregationUtils.getSampleDir(PROJECT, SAMPLE, latestVersion));
         Assert.assertTrue(sampleDir.exists());
+
         File latestSampleDir = new File(PicardAggregationUtils.getSampleDir(PROJECT, SAMPLE));
         Assert.assertTrue(latestSampleDir.exists());
         Assert.assertEquals(latestSampleDir, sampleDir);
+
+        File currentSampleDir = new File(PicardAggregationUtils.getCurrentSampleDir(PROJECT, SAMPLE));
+        Assert.assertTrue(currentSampleDir.exists());
+        Assert.assertEquals(currentSampleDir.getCanonicalFile(), sampleDir.getCanonicalFile());
     }
 
     @Test(dependsOnMethods = "testGetLatestVersion")
@@ -108,6 +119,19 @@ public class PicardAggregationUtilsUnitTest {
         List<String> bams = PicardAggregationUtils.getSampleBams(picardSamples);
         for (String bam: bams)
             Assert.assertTrue(new File(bam).exists(), "bam does not exist: " + bam);
+    }
+
+    @Test(expectedExceptions = UserException.CouldNotReadInputFile.class)
+    public void testParseThrowOnBadTsv() throws IOException {
+        File tsv = writeTsv(MISSING_PROJECT, MISSING_SAMPLE);
+        List<PicardSample> picardSamples = PicardAggregationUtils.parseSamples(tsv);
+    }
+
+    @Test
+    public void testParseCatchOnBadTsv() throws IOException {
+        File tsv = writeTsv(MISSING_PROJECT, MISSING_SAMPLE);
+        List<PicardSample> picardSamples = PicardAggregationUtils.parseSamples(tsv, false);
+        Assert.assertEquals(picardSamples.size(), 0);
     }
 
     @Test

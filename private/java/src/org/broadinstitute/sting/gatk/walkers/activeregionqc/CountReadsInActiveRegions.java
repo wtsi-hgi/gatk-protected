@@ -42,10 +42,10 @@ public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInAc
 
     @Override
     public double isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
-        if( GenomeAnalysisEngine.getRandomGenerator().nextDouble() > 0.9995 ) {
+        if( GenomeAnalysisEngine.getRandomGenerator().nextDouble() > 0.995 ) {
             coinFlip = !coinFlip;
         }
-        return ( coinFlip ? 0.9995 : 0.0 );
+        return ( coinFlip ? 0.999 : 0.0 );
     }
 
     @Override

@@ -1,39 +1,41 @@
 /*
- * Copyright (c) 2011, The Broad Institute 
+ * Copyright (c) 2012, The Broad Institute
  *
- * Permission is hereby granted, free of charge, to any person 
- * obtaining a copy of this software and associated documentation 
- * files (the "Software"), to deal in the Software without 
- * restriction, including without limitation the rights to use, 
- * copy, modify, merge, publish, distribute, sublicense, and/or sell 
- * copies of the Software, and to permit persons to whom the 
- * Software is furnished to do so, subject to the following 
- * conditions: 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
  *
- * The above copyright notice and this permission notice shall be 
- * included in all copies or substantial portions of the Software. 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
- * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT 
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import io.Source
-import org.broadinstitute.sting.queue.extensions.samtools.{SamtoolsIndexFunction, SamtoolsMergeFunction}
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.utils.interval.IntervalUtils
+import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model
 
 class WholeGenomePipeline extends QScript {
   @Input(doc="Bam file list", shortName = "I", required=true)
   var bamList: File = _
 
+  @Input(doc="If set will skip indel realignment", shortName = "skipClean", required=false)
+  var skipClean = false
+
   @Input(doc="Exclude intervals list", shortName = "XL", required=false)
-  var excludeIntervals: List[File] = Nil
+  var excludeIntervals: Seq[File] = Nil
 
   @Argument(doc="path to tmp space for storing intermediate bam files", shortName="cleanerTmpDir", required=true)
   var cleanerTmpDir: String = _
@@ -41,192 +43,196 @@ class WholeGenomePipeline extends QScript {
   @Argument(doc="Flag for running the whole genome (wg) or chromosome 20 (chr20). The default is chr20.", shortName="runType", required=false)
   var runType = "chr20"
 
-  @Argument(doc="Chunk size. Defaults to 3,000,000", shortName="chunk", required=false)
-  var chunkSize = 3000000
+  @Argument(doc="Chunk size. Defaults to 250,000", shortName="chunk", required=false)
+  var chunkSize = 250000
 
-  @Argument(doc="Memory limit. Defaults to 4g", shortName="pipeMemory", required=false)
+  @Argument(doc="Standard memory limit. Defaults to 4g", shortName="pipeMem", required=false)
   var pipelineMemoryLimit = 4
 
-  val resources = "/humgen/gsa-pipeline/resources/5777/b37/"
-  val reference = resources + "human_g1k_v37.fasta"
-  val dbsnp = resources + "dbsnp_132.b37.vcf"
-  val indels = resources + "1000G_indels_for_realignment.b37.vcf"
-  val omni = resources + "1000G_omni2.5.b37.sites.vcf"
-  val hapmap = resources + "hapmap_3.3.b37.sites.vcf"
+  @Argument(doc="Memory limit for VQSR. Defaults to 32g", shortName="vqsrMem", required=false)
+  var vqsrMemoryLimit = 32
 
-  trait CommandLineGATKArgs extends CommandLineGATK {
-    this.reference_sequence = reference
-    this.intervalsString = runIntervals
-    this.memoryLimit = pipelineMemoryLimit
-  }
+  @Argument(doc="Memory limit for variant calling and indel realignment. Defaults to 4g", shortName="callMem", required=false)
+  var callMemoryLimit = 4
 
-  case class Interval(chr: String, start: Long, stop: Long) {
-    override def toString = "%s:%d-%d".format(chr, start, stop)
-  }
-
-  var runIntervals = List.empty[String]
+  @Argument(doc="Memory reservation for variant calling and indel realignment. Defaults to caller memory limit", shortName="callRes", required=false)
+  var callMemoryReservation: Option[Double] = None
 
   def script() {
+    // TODO: examine dontRequestMultipleCores as a global variable versus a local
+    // -nit uses a background thread to avoid 1024 ulimit, but the thread 1-10% of a CPU.
+    this.qSettings.dontRequestMultipleCores = true
 
+    var runIntervals = Seq.empty[String]
     var intervals = Traversable.empty[Interval]
 
+    var reference = "/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta"
+    val resources = "/humgen/gsa-pipeline/resources/b37/v4/"
+    val dbsnp129 = resources + "dbsnp_135.b37.excluding_sites_after_129.vcf"
+    val dbsnp135 = resources + "dbsnp_135.b37.vcf"
+    val hapmap = resources + "hapmap_3.3.b37.sites.vcf"
+    val k1gOmni = resources + "1000G_omni2.5.b37.sites.vcf"
+    val k1gPhase1Indels = resources + "1000G_phase1.indels.b37.vcf"
+    val millsK1gIndels = resources + "Mills_and_1000G_gold_standard.indels.b37.sites.vcf"
+
+    trait CommandLineGATKArgs extends CommandLineGATK {
+      this.reference_sequence = reference
+      this.intervalsString = runIntervals
+      this.memoryLimit = pipelineMemoryLimit
+    }
+
+    trait CallerGATKArgs extends CommandLineGATKArgs {
+      this.residentRequest = callMemoryReservation
+      this.memoryLimit = callMemoryLimit
+      this.javaMemoryLimit = callMemoryLimit
+      this.residentLimit = callMemoryLimit * 1.2
+    }
+
+    trait VQSRGATKArgs extends CommandLineGATKArgs {
+      this.memoryLimit = vqsrMemoryLimit
+    }
+
+    case class Interval(chr: String, start: Long, stop: Long) {
+      override def toString = "%s:%d-%d".format(chr, start, stop)
+    }
+
     runType = runType.toLowerCase
+    val contigSizes = IntervalUtils.getContigSizes(reference)
     if (runType == "wg") {
-      val contigs = (1 to 22).map(_.toString) ++ List("X", "Y", "MT")
-      val sizes = IntervalUtils.getContigSizes(reference)
-      intervals = contigs.map(chr => new Interval(chr, 1, sizes.get(chr).longValue))
+      val contigs = (1 to 22).map(_.toString) ++ Seq("X", "Y", "MT")
+      intervals = contigs.map(chr => new Interval(chr, 1, contigSizes.get(chr).longValue))
       runIntervals = Nil
     } else {
       val locs = Map(
         "cent1" -> new Interval("1", 121429168, 121529168),
         "cent16" -> new Interval("16", 40844464, 40944464),
-        "chr20" -> new Interval("20", 1, 63025520),
+        "chr20" -> new Interval("20", 1, contigSizes.get("20").longValue),
         "chr20_100k" -> new Interval("20", 100001, 200000))
 
       locs.get(runType) match {
         case Some(range) =>
-          intervals = List(range)
-          runIntervals = List(range.toString)
+          intervals = Seq(range)
+          runIntervals = Seq(range.toString)
         case None =>
           throw new RuntimeException("Invalid runType: " + runType + ". Must be one of: " + locs.keys.mkString(", ") + ", or wg")
       }
     }
 
-    val project = Array(".bams.list", ".bam.list", ".list").foldLeft(bamList.getName)(_.stripSuffix(_))
-    val projectBase = project + "." + runType
+    require(bamList != null && bamList.getName.endsWith(".bam.list"), "-I/--bamList must be specified as <projectName>.bam.list")
+    val project = bamList.getName.stripSuffix(".bam.list")
 
-    val mergeBam = new SamtoolsMergeFunction
-    mergeBam.inputBams = Source.fromFile(bamList).getLines().toList
-    if (runType != "wg")
-      mergeBam.region = intervals.head.toString
-    mergeBam.memoryLimit = pipelineMemoryLimit
-    mergeBam.outputBam = cleanerTmpDir + "/" + projectBase + ".unclean.bam"
-    mergeBam.jobOutputFile = projectBase + ".unclean.bam.out"
-    mergeBam.isIntermediate = true
-    mergeBam.memoryLimit = pipelineMemoryLimit
-    add(mergeBam)
+    var snpChrVcfs = Seq.empty[File]
+    var indelChrVcfs = Seq.empty[File]
+    val glModels = Seq(Model.SNP, Model.INDEL)
 
-    val indexBam = new SamtoolsIndexFunction
-    indexBam.bamFile = mergeBam.outputBam
-    indexBam.memoryLimit = pipelineMemoryLimit
-    indexBam.jobOutputFile = projectBase + ".unclean.bam.bai.out"
-    indexBam.isIntermediate = true
-    add(indexBam)
-
-    var chunkVcfs = List.empty[File]
     for (interval <- intervals) {
+      var snpChunkVcfs = Seq.empty[File]
+      var indelChunkVcfs = Seq.empty[File]
+
       val chr = interval.chr
       val chrStart = interval.start
       val chrStop = interval.stop
+      val chrSize = interval.stop - interval.start + 1
+      val chrDir = "chrs/" + chr + "/"
+      val chrBase = project + ".chr" + chr
 
       var start = chrStart
       var chunkNumber = 1
+      val chunkCount = (chrSize / chunkSize) + (if (chrSize % chunkSize == 0) 0 else 1)
+      val chunkFormat = "%s_chunk_%%0%dd_of_%d".format(chrBase, chunkCount.toString.length(), chunkCount)
 
       while (start <= chrStop) {
         val stop = (start + chunkSize - 1) min chrStop
 
-        val chunkBase: String = "chunks/" + project + "." + runType + "_chunk_" + chr + "_" + chunkNumber
+        val chunkBase: String = chrDir + "chunks/" + chunkFormat.format(chunkNumber)
         val tmpBase: String = cleanerTmpDir + "/" + chunkBase
 
-        val chunkInterval = List("%s:%d-%d".format(chr, start, stop))
+        val chunkInterval = Seq("%s:%d-%d".format(chr, start, stop))
 
-        val target = new RealignerTargetCreator with CommandLineGATKArgs
-        target.input_file :+= mergeBam.outputBam
-        target.intervalsString = chunkInterval
-        target.excludeIntervals = excludeIntervals
-        target.mismatchFraction = 0.0
-        target.rodBind :+= RodBind("dbsnp", "VCF", dbsnp)
-        target.rodBind :+= RodBind("indels", "VCF", indels)
-        target.out = tmpBase + ".target.intervals"
-        target.jobOutputFile = chunkBase + ".target.intervals.out"
-        target.isIntermediate = true
-        add(target)
+        var call_input_file = bamList
 
-        val clean = new IndelRealigner with CommandLineGATKArgs
-        clean.input_file :+= mergeBam.outputBam
-        clean.intervalsString = chunkInterval
-        clean.excludeIntervals = excludeIntervals
-        clean.targetIntervals = target.out
-        clean.rodBind :+= RodBind("dbsnp", "VCF", dbsnp)
-        clean.rodBind :+= RodBind("indels", "VCF", indels)
-        clean.consensusDeterminationModel = org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel.USE_READS
-        clean.simplifyBAM = true
-        clean.bam_compression = 1
-        clean.out = tmpBase + ".cleaned.bam"
-        clean.jobOutputFile = chunkBase + ".cleaned.bam.out"
-        clean.isIntermediate = true
-        add(clean)
+        if (!skipClean) {
+          val target = new RealignerTargetCreator with CallerGATKArgs
+          target.input_file :+= bamList
+          target.intervalsString = chunkInterval
+          target.excludeIntervals = excludeIntervals
+          target.known :+= k1gPhase1Indels
+          target.known :+= millsK1gIndels
+          //target.num_threads = 2
+          //target.num_io_threads = 2 // Avoid 1024 ulimits
+          target.out = tmpBase + ".target.intervals"
+          target.isIntermediate = true
+          add(target)
 
-        val call = new UnifiedGenotyper with CommandLineGATKArgs
-        call.input_file :+= clean.out
-        call.intervalsString = chunkInterval
-        call.excludeIntervals = excludeIntervals
-        call.rodBind :+= RodBind("dbsnp", "VCF", dbsnp)
-        call.downsample_to_coverage = 50
-        call.standard_min_confidence_threshold_for_calling = 4.0
-        call.standard_min_confidence_threshold_for_emitting = 4.0
-        call.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
-        call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
-        call.GSA_PRODUCTION_ONLY = true
-        call.out = chunkBase + ".vcf"
-        call.jobOutputFile = call.out + ".out"
-        add(call)
+          val clean = new IndelRealigner with CallerGATKArgs
+          clean.input_file :+= bamList
+          clean.intervalsString = chunkInterval
+          clean.excludeIntervals = excludeIntervals
+          clean.targetIntervals = target.out
+          clean.knownAlleles :+= k1gPhase1Indels
+          clean.knownAlleles :+= millsK1gIndels
+          clean.simplifyBAM = true
+          //clean.num_threads = 2
+          //clean.num_io_threads = 2 // Avoid 1024 ulimits
+          clean.out = tmpBase + ".cleaned.bam"
+          clean.isIntermediate = true
+          add(clean)
 
-        chunkVcfs :+= call.out
+          call_input_file = clean.out
+        }
+
+        for (glModel <- glModels) {
+          val call = new UnifiedGenotyper with CallerGATKArgs
+          call.input_file :+= call_input_file
+          call.intervalsString = chunkInterval
+          call.excludeIntervals = excludeIntervals
+          call.dbsnp = dbsnp135
+          call.downsample_to_coverage = 50
+          call.standard_min_confidence_threshold_for_calling = 4.0
+          call.standard_min_confidence_threshold_for_emitting = 4.0
+          call.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+          call.genotype_likelihoods_model = glModel
+          call.out = tmpBase + "." + glModel.toString.toLowerCase + "s.vcf"
+          call.isIntermediate = true
+          add(call)
+
+          glModel match {
+            case Model.SNP =>
+              snpChunkVcfs :+= call.out
+            case Model.INDEL =>
+              call.max_alternate_alleles = 2 // reduce processing time with fewer alts
+              indelChunkVcfs :+= call.out
+          }
+        }
+
         start += chunkSize
         chunkNumber += 1
       }
+
+      for (glModel <- glModels) {
+        val chunkVcfs = glModel match {
+          case Model.SNP => snpChunkVcfs
+          case Model.INDEL => indelChunkVcfs
+        }
+
+        val combineChunks = new CombineVariants with CommandLineGATKArgs
+        combineChunks.variant = chunkVcfs.zipWithIndex.map { case (vcf, index) => TaggedFile(vcf, "input"+index) }
+        combineChunks.rod_priority_list = chunkVcfs.zipWithIndex.map { case (vcf, index) => "input"+index }.mkString(",")
+        combineChunks.assumeIdenticalSamples = true
+        combineChunks.out = chrDir + chrBase + "." + glModel.toString.toLowerCase + "s.unfiltered.vcf"
+        add(combineChunks)
+
+        glModel match {
+          case Model.SNP =>
+            snpChrVcfs :+= combineChunks.out
+          case Model.INDEL =>
+            indelChrVcfs :+= combineChunks.out
+        }
+      }
     }
 
-    val combineChunks = new CombineVariants with CommandLineGATKArgs
-    combineChunks.rodBind = chunkVcfs.zipWithIndex.map { case (vcf, index) => RodBind("input"+index, "VCF", vcf) }
-    combineChunks.rod_priority_list = chunkVcfs.zipWithIndex.map { case (vcf, index) => "input"+index }.mkString(",")
-    combineChunks.filteredrecordsmergetype = org.broadinstitute.sting.gatk.contexts.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
-    combineChunks.assumeIdenticalSamples = true
-    combineChunks.out = projectBase + ".unfiltered.vcf"
-    combineChunks.jobOutputFile = combineChunks.out + ".out"
-    add(combineChunks)
-
-    val selectSNPs = new SelectVariants with CommandLineGATKArgs
-    selectSNPs.selectSNPs = true
-    selectSNPs.rodBind :+= RodBind("variant", "VCF", combineChunks.out)
-    selectSNPs.out = projectBase + ".snps.unrecalibrated.vcf"
-    selectSNPs.jobOutputFile = selectSNPs.out + ".out"
-    add(selectSNPs)
-
-    val selectIndels = new SelectVariants with CommandLineGATKArgs
-    selectIndels.selectIndels = true
-    selectIndels.rodBind :+= RodBind("variant", "VCF", combineChunks.out)
-    selectIndels.out = projectBase + ".indels.unfiltered.vcf"
-    selectIndels.jobOutputFile = selectIndels.out + ".out"
-    add(selectIndels)
-
-    val filterIndels = new VariantFiltration with CommandLineGATKArgs
-    filterIndels.variantVCF = selectIndels.out
-    filterIndels.filterName = List("Indel_QUAL", "Indel_SB", "Indel_QD", "Indel_HRun", "Indel_HaplotypeScore")
-    filterIndels.filterExpression = List("QUAL<30.0", "SB>-1.0", "QD<2.0", "HRun>15", "HaplotypeScore>20.0")
-    filterIndels.out = projectBase + ".indels.filtered.vcf"
-    filterIndels.jobOutputFile = filterIndels.out + ".out"
-    add(filterIndels)
-
-    val combineSNPsIndels = new CombineVariants with CommandLineGATKArgs
-    combineSNPsIndels.rodBind :+= RodBind("indels", "VCF", selectIndels.out)
-    combineSNPsIndels.rodBind :+= RodBind("snps", "VCF", selectSNPs.out)
-    combineSNPsIndels.rod_priority_list = "indels,snps"
-    combineSNPsIndels.filteredRecordsMergeType = org.broadinstitute.sting.gatk.contexts.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
-    combineSNPsIndels.assumeIdenticalSamples = true
-    combineSNPsIndels.out = projectBase + ".unrecalibrated.vcf"
-    combineSNPsIndels.jobOutputFile = combineSNPsIndels.out + ".out"
-    add(combineSNPsIndels)
- 
-    val vr = new VariantRecalibrator with CommandLineGATKArgs
-    vr.rodBind :+= RodBind("input", "VCF", combineSNPsIndels.out)
-    vr.rodBind :+= RodBind("hapmap", "VCF", hapmap, "known=false,training=true,truth=true,prior=15.0")
-    vr.rodBind :+= RodBind("omni", "VCF", omni, "known=false,training=true,truth=false,prior=12.0")
-    vr.rodBind :+= RodBind("dbsnp", "VCF", dbsnp, "known=true,training=false,truth=false,prior=8.0")
-    vr.trustAllPolymorphic = true
-    vr.use_annotation = List("QD", "HaplotypeScore", "HRun", "MQRankSum", "ReadPosRankSum")
-    vr.TStranche = List(
+    val tranche = 98.5
+    val tranches = Seq(
       "100.0", "99.9", "99.5", "99.3",
       "99.0", "98.9", "98.8",
       "98.5", "98.4", "98.3", "98.2", "98.1",
@@ -234,35 +240,64 @@ class WholeGenomePipeline extends QScript {
       "97.0",
       "95.0",
       "90.0")
-    vr.tranches_file = projectBase + ".tranches"
-    vr.recal_file = projectBase + ".recal"
-    vr.jobOutputFile = vr.recal_file + ".out"
-    vr.memoryLimit = 32
-    add(vr)
+    var evalVcfs = Seq.empty[File]
 
-    for (tranche <- vr.TStranche) {
-      val ar = new ApplyRecalibration with CommandLineGATKArgs
-      ar.rodBind :+= RodBind("input", "VCF", combineSNPsIndels.out)
-      ar.tranches_file = vr.tranches_file
-      ar.recal_file = vr.recal_file
-      ar.ts_filter_level = tranche.toDouble
-      ar.out = projectBase + ".recalibrated." + tranche + ".vcf"
-      ar.jobOutputFile = ar.out + ".out"
-      ar.memoryLimit = 32
-      add(ar)
+    for (glModel <- glModels) {
+      val buildModel = new VariantRecalibrator with VQSRGATKArgs
+      buildModel.trustAllPolymorphic = true
+      buildModel.TStranche = tranches
+      buildModel.recal_file = project + "." + glModel.toString.toLowerCase + "s.recal"
+      buildModel.tranches_file = project + "." + glModel.toString.toLowerCase + "s.tranches"
+      add(buildModel)
 
+      glModel match {
+        case Model.SNP =>
+          buildModel.input = snpChrVcfs
+          buildModel.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+          buildModel.use_annotation = Seq("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "FS", "MQ", "InbreedingCoeff", "DP")
+          buildModel.resource :+= TaggedFile(hapmap, "training=true,truth=true,prior=15.0")
+          buildModel.resource :+= TaggedFile(k1gOmni, "training=true,prior=12.0")
+          buildModel.resource :+= TaggedFile(dbsnp135, "known=true,prior=6.0")
+        case Model.INDEL =>
+          buildModel.input = indelChrVcfs
+          buildModel.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+          buildModel.use_annotation = Seq("QD", "FS", "HaplotypeScore", "ReadPosRankSum", "InbreedingCoeff")
+          buildModel.resource :+= TaggedFile(millsK1gIndels, "known=true,training=true,truth=true,prior=12.0")
+      }
+
+
+      for (chrVcf <- buildModel.input) {
+        val applyRecalibration = new ApplyRecalibration with VQSRGATKArgs
+        applyRecalibration.input :+= chrVcf
+        applyRecalibration.recal_file = buildModel.recal_file
+        applyRecalibration.tranches_file = buildModel.tranches_file
+        applyRecalibration.ts_filter_level = tranche
+        applyRecalibration.out = swapBaseExt(chrVcf, ".unfiltered.vcf", ".recalibrated.tranche_" + tranche.toString.replace(".", "_") + ".vcf")
+        add(applyRecalibration)
+
+        evalVcfs :+= applyRecalibration.out
+      }
+    }
+
+    for (strats <- Seq(
+      Seq("AlleleCount"),
+      Seq("Sample")
+    )) {
       val eval = new VariantEval with CommandLineGATKArgs
-      eval.tranchesFile = vr.tranches_file
-      eval.rodBind :+= RodBind("eval", "VCF", ar.out)
-      eval.rodBind :+= RodBind("dbsnp", "VCF", dbsnp)
-      eval.doNotUseAllStandardStratifications = true
+      eval.eval = evalVcfs
+      eval.mergeEvals = true
+      eval.dbsnp = dbsnp129
       eval.doNotUseAllStandardModules = true
-      eval.evalModule = List("TiTvVariantEvaluator", "CountVariants")
-      eval.stratificationModule = List("EvalRod", "CompRod", "Novelty")
-      eval.out = swapExt(ar.out, ".vcf", ".eval")
-      eval.jobOutputFile = eval.out + ".out"
-      eval.memoryLimit = 32
+      eval.evalModule = Seq("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
+      eval.doNotUseAllStandardStratifications = true
+      eval.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ strats
+      eval.out = project + strats.map(_.toLowerCase).mkString(".by_", "_", "") + ".eval"
+      eval
+
       add(eval)
     }
   }
+
+  private def swapBaseExt(file: File, oldExt: String, newExt: String): File =
+    file.getParentFile + "/" + swapExt(file, oldExt, newExt)
 }

@@ -45,6 +45,10 @@ public class PicardAggregationUtils {
     public static final String PICARD_AGGREGATION_DIR = aggregationFsUtil.AGGREGATION_DIRECTORY.getAbsolutePath() + "/";
 
     public static List<PicardSample> parseSamples(File tsv) {
+        return parseSamples(tsv, true);
+    }
+
+    public static List<PicardSample> parseSamples(File tsv, boolean throwErrors) {
         List<PicardSample> picardSamples = new ArrayList<PicardSample>();
         int errors = 0;
 
@@ -76,7 +80,7 @@ public class PicardAggregationUtils {
             it.close();
         }
 
-        if (errors > 0)
+        if (throwErrors && errors > 0)
             throw new UserException.CouldNotReadInputFile(tsv, String.format("See logger errors for problematic lines."));
 
         return picardSamples;
@@ -116,7 +120,19 @@ public class PicardAggregationUtils {
      * @return The path to the sample BAM.
      */
     public static String getSampleBam(String project, String sample, int version) {
-        return getSampleDir(project, sample, version) + IoUtil.makeFileNameSafe(sample) + ".bam";
+        return getSampleFile(project, sample, version, "bam");
+    }
+
+    /**
+     * Returns the path to the sample file.
+     * @param project Project
+     * @param sample Sample
+     * @param version Version
+     * @param extension Extension
+     * @return The path to the sample file.
+     */
+    public static String getSampleFile(String project, String sample, int version, String extension) {
+        return getSampleDir(project, sample, version) + IoUtil.makeFileNameSafe(sample) + "." + extension;
     }
 
     /**
@@ -126,7 +142,18 @@ public class PicardAggregationUtils {
      * @return The path to the latest BAM.
      */
     public static String getSampleBam(String project, String sample) {
-        return getSampleDir(project, sample) + IoUtil.makeFileNameSafe(sample) + ".bam";
+        return getSampleFile(project, sample, "bam");
+    }
+
+    /**
+     * Returns the path to the latest file.
+     * @param project Project
+     * @param sample Sample
+     * @param extension Extension
+     * @return The path to the latest file.
+     */
+    public static String getSampleFile(String project, String sample, String extension) {
+        return getSampleDir(project, sample) + IoUtil.makeFileNameSafe(sample) + "." + extension;
     }
 
     /**
@@ -138,6 +165,37 @@ public class PicardAggregationUtils {
      */
     public static String getSampleDir(String project, String sample, int version) {
         return PICARD_AGGREGATION_DIR + String.format("%s/%s/v%d/", IoUtil.makeFileNameSafe(project), IoUtil.makeFileNameSafe(sample), version);
+    }
+
+    /**
+     * Returns the sample directory using the current symbolic link.
+     * @param project Project
+     * @param sample Sample
+     * @return the sample directory.
+     */
+    public static String getCurrentSampleDir(String project, String sample) {
+        return PICARD_AGGREGATION_DIR + String.format("%s/%s/current/", IoUtil.makeFileNameSafe(project), IoUtil.makeFileNameSafe(sample));
+    }
+
+    /**
+     * Returns the sample bam using the current symbolic link.
+     * @param project Project
+     * @param sample Sample
+     * @return the sample directory.
+     */
+    public static String getCurrentSampleBam(String project, String sample) {
+        return getCurrentSampleFile(project, sample, "bam");
+    }
+
+    /**
+     * Returns the sample file using the current symbolic link.
+     * @param project Project
+     * @param sample Sample
+     * @param extension Extension.
+     * @return the sample directory.
+     */
+    public static String getCurrentSampleFile(String project, String sample, String extension) {
+        return PICARD_AGGREGATION_DIR + String.format("%1$s/%2$s/current/%2$s.%3$s", IoUtil.makeFileNameSafe(project), IoUtil.makeFileNameSafe(sample), extension);
     }
 
     /**
