@@ -306,7 +306,7 @@ class xhmmCNVpipeline extends QScript {
         try {
           val locVal = locValStr.toDouble
           if (locVal < minVal || locVal > maxVal)
-            outWriter.printf("%s", locus)
+            outWriter.printf("%s%n", locus)
         }
         catch {
           case nfe: NumberFormatException => println("Ignoring non-numeric value " + locValStr + " for locus " + locus)
