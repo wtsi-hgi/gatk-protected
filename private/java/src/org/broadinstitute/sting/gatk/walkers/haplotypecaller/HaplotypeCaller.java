@@ -444,6 +444,13 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         else if( meanCoveragePerSample > 25.0 ) { PRUNE_FACTOR = 4; }
         else if( meanCoveragePerSample > 8.0 ) { PRUNE_FACTOR = 2; }
         else if( meanCoveragePerSample > 2.0 ) { PRUNE_FACTOR = 1; }
+
+        //if( meanCoveragePerSample > 6.0 ) {
+        //    PRUNE_FACTOR = (int) Math.floor( Math.sqrt( meanCoveragePerSample - 2.0 ) );
+        //} else if( meanCoveragePerSample > 2.5 ) {
+        //    PRUNE_FACTOR = 1;
+        //}
+
         if( DEBUG ) { System.out.println(String.format("Mean coverage per sample = %.1f --> prune factor = %d", meanCoveragePerSample, PRUNE_FACTOR)); }
         return PRUNE_FACTOR;
     }

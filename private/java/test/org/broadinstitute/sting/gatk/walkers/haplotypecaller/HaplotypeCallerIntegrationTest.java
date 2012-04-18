@@ -26,7 +26,7 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
 
     @Test
     public void testHaplotypeCallerSingleSample() {
-        HCTest(NA12878_BAM, "", "5b3c776e98492abda576574aaaa3870f");
+        HCTest(NA12878_BAM, "", "ec05e8aedc92a6ddccb417c43317fd5d");
     }
 }
 
