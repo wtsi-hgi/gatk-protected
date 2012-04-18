@@ -204,12 +204,12 @@ class xhmmCNVpipeline extends QScript {
       excludeTargets ::= excludeTargetsBasedOnGC.out
     }
 
-    class CalculateRepeatComplexity() extends CommandLineFunction {
+    class CalculateRepeatComplexity(outFile : String) extends CommandLineFunction {
       @Input(doc="")
       var intervals: File = prepTargets.out
 
       @Output(doc="")
-      var out : File = _
+      var out : File = new File(outFile)
 
       val regFile : String = outputBase.getPath + ".targets.reg"
       val locDB : String = outputBase.getPath + ".targets.LOCDB"
@@ -231,8 +231,7 @@ class xhmmCNVpipeline extends QScript {
     }
 
     if (minTargRepeats > 0 || maxTargRepeats < 1) {
-      val calcRepeatComplexity = new CalculateRepeatComplexity()
-      calcRepeatComplexity.out = outputBase.getPath + TARGS_REPEAT_COMPLEXITY_SUFFIX
+      val calcRepeatComplexity = new CalculateRepeatComplexity(outputBase.getPath + TARGS_REPEAT_COMPLEXITY_SUFFIX)
       add(calcRepeatComplexity)
 
       val excludeTargetsBasedOnRepeats = new ExcludeTargetsBasedOnValue(calcRepeatComplexity.out, EXTREME_REPEAT_COMPLEXITY_SUFFIX, minTargRepeats, maxTargRepeats)
