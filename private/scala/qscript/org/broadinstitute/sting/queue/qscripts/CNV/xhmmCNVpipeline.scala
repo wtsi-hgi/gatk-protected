@@ -135,7 +135,12 @@ class xhmmCNVpipeline extends QScript {
   // A group has a list of samples and bam files to use for DoC
   class Group(val name: String, val samples: List[String], val bams: List[File]) {
     // getName() just includes the file name WITHOUT the path:
-    def DoC_output = new File(name + "." + outputBase.getName())
+    val groupOutputName = name + "." + outputBase.getName()
+
+    // Comment this out, so that when jobs are scattered in DoC class below, they do not scatter into outputs at directories that don't exist!!! :
+    //def DoC_output = new File(outputBase.getParentFile(), groupOutputName)
+
+    def DoC_output = new File(groupOutputName)
 
     override def toString(): String = String.format("[Group %s [%s] with samples %s against bams %s]", name, DoC_output, samples, bams)
   }
@@ -162,12 +167,12 @@ class xhmmCNVpipeline extends QScript {
       this.scatterCount = scatterCountInput
       this.scatterClass = classOf[IntervalScatterFunction]
 
+      // The HACK for DoC to work properly within Queue:
+      val commandLineSuppliedOutputFilesPrefix = t.DoC_output
+
       @Output
       @Gather(classOf[org.broadinstitute.sting.queue.function.scattergather.SimpleTextGatherFunction])
-      var intervalSampleOut: File = new File(t.DoC_output.getPath() + DOC_OUTPUT_SUFFIX)
-
-      // The HACK for DoC to work properly within Queue:
-      val commandLineSuppliedOutputFilesPrefix = new File(intervalSampleOut.getParentFile(), t.DoC_output.getName())
+      var intervalSampleOut: File = new File(commandLineSuppliedOutputFilesPrefix.getPath() + DOC_OUTPUT_SUFFIX)
 
       override def commandLine = super.commandLine +
         " --omitDepthOutputAtEachBase --omitLocusTable --minBaseQuality 0 --minMappingQuality " + minMappingQuality +
@@ -175,7 +180,7 @@ class xhmmCNVpipeline extends QScript {
         " --includeRefNSites" +
         " -o " + commandLineSuppliedOutputFilesPrefix
 
-      override def shortDescription = "DOC: " + t.DoC_output
+      override def shortDescription = "DoC: " + commandLineSuppliedOutputFilesPrefix
 
       this.jobOutputFile = commandLineSuppliedOutputFilesPrefix + ".out"
     }
@@ -185,12 +190,15 @@ class xhmmCNVpipeline extends QScript {
     Console.out.printf("Samples are %s%n", samples)
 
     val groups: List[Group] = buildDoCgroups(samples, sampleToBams)
+    var docs: List[DoC] = List[DoC]()
     for (group <- groups) {
       Console.out.printf("Group is %s%n", group)
-      add(new DoC(group))
+      val doc = new DoC(group)
+      docs ::= doc
+      add(doc)
     }
 
-    val mergeDepths = new MergeGATKdepths(groups.map(u => new File(u.DoC_output.getPath() + DOC_OUTPUT_SUFFIX)))
+    val mergeDepths = new MergeGATKdepths(docs.map(u => u.intervalSampleOut))
     add(mergeDepths)
 
     var excludeTargets : List[File] = List[File]()
@@ -215,9 +223,9 @@ class xhmmCNVpipeline extends QScript {
       val locDB : String = outputBase.getPath + ".targets.LOCDB"
 
       val removeFiles = "rm -f " + regFile + " " + locDB
-      val createRegFile = "cat " + intervals + " | awk 'BEGIN{OFS=\"\\t\"; print \"#CHR\\tBP1\\tBP2\\tID\"} {split($1,a,\":\"); chr=a[1]; if (match(chr,\"chr\")==0) {chr=\"chr\"chr} split(a[2],b,\"-\"); bp1=b[1]; bp2=bp1; if (length(b) > 1) {bp2=b[2]} print chr,bp1,bp2,\"target_\"NR}' > " + regFile
+      val createRegFile = "cat " + intervals + " | awk 'BEGIN{OFS=\"\\t\"; print \"#CHR\\tBP1\\tBP2\\tID\"} {split($1,a,\":\"); chr=a[1]; if (match(chr,\"chr\")==0) {chr=\"chr\"chr} split(a[2],b,\"-\"); bp1=b[1]; bp2=bp1; if (length(b) > 1) {bp2=b[2]} print chr,bp1,bp2,NR}' > " + regFile
       val createLOCDB = pseqExec + " . loc-load --locdb " + locDB + " --file " + regFile + " --group targets"
-      val calcRepeatMaskedPercent = pseqExec + " . loc-stats --locdb " + locDB + " --group targets --seqdb " + pseqSeqDB + " | awk '{if (NR > 1) print $10}' | paste " + intervals + " - | awk '{print $1\"\\t\"$2}' > " + out
+      val calcRepeatMaskedPercent = pseqExec + " . loc-stats --locdb " + locDB + " --group targets --seqdb " + pseqSeqDB + " | awk '{if (NR > 1) print $_}' | sort -k1 -g | awk '{print $10}' | paste " + intervals + " - | awk '{print $1\"\\t\"$2}' > " + out
 
       var command: String =
         removeFiles +
@@ -294,9 +302,16 @@ class xhmmCNVpipeline extends QScript {
         val line = elems.next
         val splitLine = line.split("\t")
         val locus = splitLine(0)
-        val locVal = splitLine(1).toDouble
-        if (locVal < minVal || locVal > maxVal)
-          outWriter.printf("%s", locus)
+        val locValStr = splitLine(1)
+        try {
+          val locVal = locValStr.toDouble
+          if (locVal < minVal || locVal > maxVal)
+            outWriter.printf("%s%n", locus)
+        }
+        catch {
+          case nfe: NumberFormatException => println("Ignoring non-numeric value " + locValStr + " for locus " + locus)
+          case e: Exception => throw e
+        }
       }
 
       outWriter.close
