@@ -137,8 +137,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Argument(fullName="debug", shortName="debug", doc="If specified, print out very verbose debug information about each triggering active region", required = false)
     protected boolean DEBUG;
 
-    @Argument(fullName="doBanded", shortName="doBanded", doc="If specified, use the banded option", required = false)
-    protected boolean doBanded = false;
+    @Argument(fullName="noBanded", shortName="noBanded", doc="If specified, don't use the banded option", required = false)
+    protected boolean noBanded;
 
     // the assembly engine
     LocalAssemblyEngine assemblyEngine = null;
@@ -197,7 +197,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
 
         assemblyEngine = new SimpleDeBruijnAssembler( DEBUG, graphWriter );
-        likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, DEBUG, doBanded );
+        likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, DEBUG, noBanded );
         genotypingEngine = new GenotypingEngine( DEBUG, MNP_LOOK_AHEAD, OUTPUT_FULL_HAPLOTYPE_SEQUENCE );
         annotationEngine = new VariantAnnotatorEngine(getToolkit());
     }
@@ -444,6 +444,13 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         else if( meanCoveragePerSample > 25.0 ) { PRUNE_FACTOR = 4; }
         else if( meanCoveragePerSample > 8.0 ) { PRUNE_FACTOR = 2; }
         else if( meanCoveragePerSample > 2.0 ) { PRUNE_FACTOR = 1; }
+
+        //if( meanCoveragePerSample > 6.0 ) {
+        //    PRUNE_FACTOR = (int) Math.floor( Math.sqrt( meanCoveragePerSample - 2.0 ) );
+        //} else if( meanCoveragePerSample > 2.5 ) {
+        //    PRUNE_FACTOR = 1;
+        //}
+
         if( DEBUG ) { System.out.println(String.format("Mean coverage per sample = %.1f --> prune factor = %d", meanCoveragePerSample, PRUNE_FACTOR)); }
         return PRUNE_FACTOR;
     }
