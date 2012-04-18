@@ -38,6 +38,7 @@ import org.broadinstitute.sting.utils.R.RScriptExecutor;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.io.Resource;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
@@ -243,11 +244,12 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
     public void onTraversalDone(Long result) {
         logger.info("Calculating empirical quality scores...");
         calculateEmpiricalQuals();
-        logger.info("Generating recalibration plots...");
-        generatePlots();
         logger.info("Calculating quantized quality scores...");
         quantizeQualityScores();
-        logger.info("Writing GATK Report...");
+        logger.info("Generating recalibration plots...");
+        if (!RAC.NO_PLOTS)
+            generatePlots();
+        logger.info("Writing recalibration report...");
         generateReport();
         logger.info("...done!");
         logger.info("Processed: " + result + " sites");
@@ -283,6 +285,10 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
         executor.addArgs(deltaTableFileName.getAbsolutePath());
         executor.addArgs(plotFileName.getAbsolutePath());
         executor.exec();
+
+        if (!RAC.KEEP_INTERMEDIATE_FILES)
+            if (!deltaTableFileName.delete())
+                 throw new ReviewedStingException("Could not find file " + deltaTableFileName.getAbsolutePath());
     }
 
     private void writeCSV(PrintStream deltaTableFile, LinkedHashMap<BQSRKeyManager, Map<BitSet, RecalDatum>> map, String recalibrationMode, boolean printHeader) {
