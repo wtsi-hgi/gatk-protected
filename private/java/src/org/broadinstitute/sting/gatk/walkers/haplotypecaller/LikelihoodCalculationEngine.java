@@ -45,8 +45,8 @@ public class LikelihoodCalculationEngine {
     private final boolean DEBUG;
     private final PairHMM pairHMM;
 
-    public LikelihoodCalculationEngine( final byte constantGCP, final boolean debug, final boolean doBanded ) {
-        pairHMM = new PairHMM( doBanded );
+    public LikelihoodCalculationEngine( final byte constantGCP, final boolean debug, final boolean noBanded ) {
+        pairHMM = new PairHMM( noBanded );
         this.constantGCP = constantGCP;
         DEBUG = debug;
     }
