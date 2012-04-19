@@ -87,6 +87,11 @@ public class PairHMM {
         final int X_METRIC_LENGTH = readBases.length + 2;
         final int Y_METRIC_LENGTH = haplotypeBases.length + 2;
 
+        // ensure that all the qual scores have valid values
+        for( int iii = 0; iii < readQuals.length; iii++ ) {
+            readQuals[iii] = ( readQuals[iii] < QualityUtils.MIN_USABLE_Q_SCORE ? QualityUtils.MIN_USABLE_Q_SCORE : (readQuals[iii] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : readQuals[iii]) );
+        }
+
         if( false ) {
             final ArrayList<Integer> workQueue = new ArrayList<Integer>(); // holds a queue of starting work location (indices along the diagonal). Will be sorted each step
             final ArrayList<Integer> workToBeAdded = new ArrayList<Integer>();
@@ -197,7 +202,7 @@ public class PairHMM {
         // final probability is the log10 sum of the last element in all three state arrays
         final int endI = X_METRIC_LENGTH - 1;
         final int endJ = Y_METRIC_LENGTH - 1;
-        return MathUtils.approximateLog10SumLog10(new double[]{matchMetricArray[endI][endJ], XMetricArray[endI][endJ], YMetricArray[endI][endJ]});
+        return MathUtils.approximateLog10SumLog10(matchMetricArray[endI][endJ], XMetricArray[endI][endJ], YMetricArray[endI][endJ]);
     }
 
     private void updateCell( final int indI, final int indJ, final byte[] haplotypeBases, final byte[] readBases,
@@ -213,14 +218,13 @@ public class PairHMM {
         if( im1 > 0 && jm1 > 0 ) { // the emission probability is applied when leaving the state
             final byte x = readBases[im1-1];
             final byte y = haplotypeBases[jm1-1];
-            final byte qual = ( readQuals[im1-1] < QualityUtils.MIN_USABLE_Q_SCORE ? QualityUtils.MIN_USABLE_Q_SCORE : (readQuals[im1-1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : readQuals[im1-1]) );
+            final byte qual = readQuals[im1-1];
             pBaseReadLog10 = ( x == y || x == (byte) 'N' || y == (byte) 'N' ? QualityUtils.qualToProbLog10(qual) : QualityUtils.qualToErrorProbLog10(qual) );
         }
         final int qualIndexGOP = ( im1 == 0 ? DEFAULT_GOP + DEFAULT_GOP : ( insertionGOP[im1-1] + deletionGOP[im1-1] > MAX_CACHED_QUAL ? MAX_CACHED_QUAL : insertionGOP[im1-1] + deletionGOP[im1-1]) );
         final double d0 = QualityUtils.qualToProbLog10((byte)qualIndexGOP);
         final double e0 = ( im1 == 0 ? QualityUtils.qualToProbLog10(DEFAULT_GCP) : QualityUtils.qualToProbLog10(overallGCP[im1-1]) );
-        matchMetricArray[indI][indJ] = pBaseReadLog10 + MathUtils.approximateLog10SumLog10(
-                new double[]{matchMetricArray[indI-1][indJ-1] + d0, XMetricArray[indI-1][indJ-1] + e0, YMetricArray[indI-1][indJ-1] + e0});
+        matchMetricArray[indI][indJ] = pBaseReadLog10 + MathUtils.approximateLog10SumLog10(matchMetricArray[indI-1][indJ-1] + d0, XMetricArray[indI-1][indJ-1] + e0, YMetricArray[indI-1][indJ-1] + e0);
 
         // update the X (insertion) array
         final double d1 = ( im1 == 0 ? QualityUtils.qualToErrorProbLog10(DEFAULT_GOP) : QualityUtils.qualToErrorProbLog10(insertionGOP[im1-1]) );

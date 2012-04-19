@@ -26,7 +26,7 @@ public class BaseQualityScoreRecalibratorIntegrationTest extends WalkerTest {
         String BAM = "public/testdata/exampleBAM.bam";
         String GRP = "public/testdata/exampleGRP.grp";
         String base = String.format("-T PrintReads -R %s -I %s -BQSR %s", REF, BAM, GRP) + " -o %s ";
-        WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("85ee028eea6c26bbc8641775b5f1b3df"));
+        WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("ba62830dfe91e8bbe1d0fbff90faa5b0"));
         executeTest("onTheFlyRecalibrationTest", spec);
     }
 

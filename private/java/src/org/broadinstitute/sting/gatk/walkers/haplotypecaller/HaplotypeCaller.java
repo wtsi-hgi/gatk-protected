@@ -179,7 +179,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         samplesList.addAll( samples );
         // initialize the UnifiedGenotyper Engine which is used to call into the exact model
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
+        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC.clone(), logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
         UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_VARIANTS_ONLY; // low values used for isActive determination only, default/user-specified values used for actual calling
         UAC.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY; // low values used for isActive determination only, default/user-specified values used for actual calling
         UAC.STANDARD_CONFIDENCE_FOR_CALLING = (USE_EXPANDED_TRIGGER_SET ? 0.3 : 4.0); // low values used for isActive determination only, default/user-specified values used for actual calling
@@ -317,23 +317,23 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         if( haplotypes.size() == 1 ) { return 1; } // only the reference haplotype remains so nothing else to do!
 
         activeRegion.hardClipToActiveRegion(); // only evaluate the parts of reads that are overlapping the active region
-        filterNonPassingReads( activeRegion ); // filter out reads from genotyping which fail mapping quality criteria
+        final List<GATKSAMRecord> filteredReads = filterNonPassingReads( activeRegion ); // filter out reads from genotyping which fail mapping quality based criteria
         if( activeRegion.size() == 0 ) { return 1; } // no reads remain after filtering so nothing else to do!
 
         // evaluate each sample's reads against all haplotypes
         final HashMap<String, ArrayList<GATKSAMRecord>> perSampleReadList = splitReadsBySample( activeRegion.getReads() );
+        final HashMap<String, ArrayList<GATKSAMRecord>> perSampleFilteredReadList = splitReadsBySample( filteredReads );
         likelihoodCalculationEngine.computeReadLikelihoods( haplotypes, perSampleReadList );
 
         // subset down to only the best haplotypes to be genotyped in all samples
         final ArrayList<Haplotype> bestHaplotypes = likelihoodCalculationEngine.selectBestHaplotypes( haplotypes );
 
-        for( Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> call :
-                genotypingEngine.assignGenotypeLikelihoodsAndCallEvents( UG_engine, bestHaplotypes, fullReferenceWithPadding, getPaddedLoc(activeRegion), activeRegion.getLocation(), getToolkit().getGenomeLocParser() ) ) {
-            if( DEBUG && samplesList.size() <= 10 ) { System.out.println(call.getFirst()); }
+        for( final Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> callResult :
+                genotypingEngine.assignGenotypeLikelihoodsAndCallIndependentEvents( UG_engine, bestHaplotypes, fullReferenceWithPadding, getPaddedLoc(activeRegion), activeRegion.getLocation(), getToolkit().getGenomeLocParser() ) ) {
+            if( DEBUG && samplesList.size() <= 10 ) { System.out.println(callResult.getFirst()); }
 
-            // Call to VariantAnnotator should go here before the VC, call.getFirst(), is written out to disk
-            final Map<String, Map<Allele, List<GATKSAMRecord>>> readMap = LikelihoodCalculationEngine.partitionReadsBasedOnLikelihoods(perSampleReadList, call);
-            final VariantContext annotatedCall = annotationEngine.annotateContext(readMap, call.getFirst());
+            final Map<String, Map<Allele, List<GATKSAMRecord>>> stratifiedReadMap = LikelihoodCalculationEngine.partitionReadsBasedOnLikelihoods(perSampleReadList, perSampleFilteredReadList, callResult);
+            final VariantContext annotatedCall = annotationEngine.annotateContext(stratifiedReadMap, callResult.getFirst());
 
             vcfWriter.add(annotatedCall);
         }
@@ -397,14 +397,15 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
     }
 
-    private void filterNonPassingReads( final ActiveRegion activeRegion ) {
+    private List<GATKSAMRecord> filterNonPassingReads( final ActiveRegion activeRegion ) {
         final ArrayList<GATKSAMRecord> readsToRemove = new ArrayList<GATKSAMRecord>();
         for( final GATKSAMRecord rec : activeRegion.getReads() ) {
-            if( rec.getReadLength() < 24 || rec.getMappingQuality() <= 20 || BadMateFilter.hasBadMate(rec) || (keepRG != null && !rec.getReadGroup().getId().equals(keepRG)) ) {
+            if( rec.getReadLength() < 20 || rec.getMappingQuality() <= 20 || BadMateFilter.hasBadMate(rec) || (keepRG != null && !rec.getReadGroup().getId().equals(keepRG)) ) {
                 readsToRemove.add(rec);
             }
         }
         activeRegion.removeAll( readsToRemove );
+        return readsToRemove;
     }
 
     private GenomeLoc getPaddedLoc( final ActiveRegion activeRegion ) {
@@ -413,7 +414,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         return getToolkit().getGenomeLocParser().createGenomeLoc(activeRegion.getReferenceLoc().getContig(), padLeft, padRight);
     }
 
-    private HashMap<String, ArrayList<GATKSAMRecord>> splitReadsBySample( final ArrayList<GATKSAMRecord> reads ) {
+    private HashMap<String, ArrayList<GATKSAMRecord>> splitReadsBySample( final List<GATKSAMRecord> reads ) {
         final HashMap<String, ArrayList<GATKSAMRecord>> returnMap = new HashMap<String, ArrayList<GATKSAMRecord>>();
         for( final String sample : samplesList) {
             ArrayList<GATKSAMRecord> readList = returnMap.get( sample );
@@ -439,11 +440,12 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         final double meanReadLength = MathUtils.average(readLengthDistribution);
         final double meanCoveragePerSample = (double) activeRegion.getReads().size() / ((double) activeRegion.getExtendedLoc().size() / meanReadLength) / (double) samplesList.size();
         int PRUNE_FACTOR = 0;
-        if( meanCoveragePerSample > 100.0 ) { PRUNE_FACTOR = 10; }
-        else if( meanCoveragePerSample > 55.0 ) { PRUNE_FACTOR = 6; }
-        else if( meanCoveragePerSample > 25.0 ) { PRUNE_FACTOR = 4; }
-        else if( meanCoveragePerSample > 8.0 ) { PRUNE_FACTOR = 2; }
-        else if( meanCoveragePerSample > 2.0 ) { PRUNE_FACTOR = 1; }
+        if( meanCoveragePerSample > 6.0 ) {
+            PRUNE_FACTOR = (int) Math.floor( Math.sqrt( meanCoveragePerSample - 2.0 ) );
+        } else if( meanCoveragePerSample > 2.5 ) {
+            PRUNE_FACTOR = 1;
+        }
+
         if( DEBUG ) { System.out.println(String.format("Mean coverage per sample = %.1f --> prune factor = %d", meanCoveragePerSample, PRUNE_FACTOR)); }
         return PRUNE_FACTOR;
     }

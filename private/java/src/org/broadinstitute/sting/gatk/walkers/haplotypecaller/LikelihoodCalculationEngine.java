@@ -106,16 +106,12 @@ public class LikelihoodCalculationEngine {
             Arrays.fill( overallGCP, constantGCP ); // Is there a way to derive empirical estimates for this from the data?
             Haplotype previousHaplotypeSeen = null;
 
-            // Very short reads are given very little weight in the haplotype likelihood calculation
-            final int mappingLength = read.getAlignmentEnd() - read.getAlignmentStart() + 1;
-            final double mappingProb = 1.0 - Math.max(0.0, (100.0 - ((double)mappingLength)) / 100.0); //BUGBUG: 101!, needs to pull from the empirical read length distribution per read group
-
-            for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {            
+            for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
                 final Haplotype haplotype = haplotypes.get(jjj);
                 final int haplotypeStart = ( previousHaplotypeSeen == null ? 0 : computeFirstDifferingPosition(haplotype.getBases(), previousHaplotypeSeen.getBases()) );
                 previousHaplotypeSeen = haplotype;
 
-                readLikelihoods[jjj][iii] = (mappingProb * mappingProb) * pairHMM.computeReadLikelihoodGivenHaplotype(haplotype.getBases(), read.getReadBases(),
+                readLikelihoods[jjj][iii] = pairHMM.computeReadLikelihoodGivenHaplotype(haplotype.getBases(), read.getReadBases(),
                         read.getBaseQualities(), read.getBaseInsertionQualities(), read.getBaseDeletionQualities(), overallGCP,
                         haplotypeStart, matchMetricArray, XMetricArray, YMetricArray);
             }
@@ -223,7 +219,8 @@ public class LikelihoodCalculationEngine {
         int hap2 = 0;
         int chosenSample = 0;
         //double bestElement = Double.NEGATIVE_INFINITY;
-        while( bestHaplotypesIndexList.size() < 7 && bestHaplotypesIndexList.size() < sampleKeySet.size() * 2 + 1 ) {
+        final int maxChosenHaplotypes = Math.min( 15, sampleKeySet.size() * 2 + 1 );
+        while( bestHaplotypesIndexList.size() < maxChosenHaplotypes ) {
             double maxElement = Double.NEGATIVE_INFINITY;
             for( int kkk = 0; kkk < sampleCount; kkk++ ) {
                 for( int iii = 0; iii < numHaplotypes; iii++ ) {
@@ -267,7 +264,7 @@ public class LikelihoodCalculationEngine {
         return bestHaplotypes;
     }
 
-    public static Map<String, Map<Allele, List<GATKSAMRecord>>> partitionReadsBasedOnLikelihoods( final HashMap<String, ArrayList<GATKSAMRecord>> perSampleReadList, final Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> call) {
+    public static Map<String, Map<Allele, List<GATKSAMRecord>>> partitionReadsBasedOnLikelihoods( final HashMap<String, ArrayList<GATKSAMRecord>> perSampleReadList, final HashMap<String, ArrayList<GATKSAMRecord>> perSampleFilteredReadList, final Pair<VariantContext, ArrayList<ArrayList<Haplotype>>> call) {
         final Map<String, Map<Allele, List<GATKSAMRecord>>> returnMap = new HashMap<String, Map<Allele, List<GATKSAMRecord>>>();
         for( final String sample : perSampleReadList.keySet() ) {
             final Map<Allele, List<GATKSAMRecord>> alleleReadMap = new HashMap<Allele, List<GATKSAMRecord>>();
@@ -299,6 +296,13 @@ public class LikelihoodCalculationEngine {
                 }
                 readList.add(readsForThisSample.get(iii));
             }
+            // add the filtered reads to the NO_CALL list
+            List<GATKSAMRecord> readList = alleleReadMap.get(Allele.NO_CALL);
+            if( readList == null ) {
+                readList = new ArrayList<GATKSAMRecord>();
+                alleleReadMap.put(Allele.NO_CALL, readList);
+            }
+            readList.addAll(perSampleFilteredReadList.get(sample));
             returnMap.put(sample, alleleReadMap);
         }
         return returnMap;
