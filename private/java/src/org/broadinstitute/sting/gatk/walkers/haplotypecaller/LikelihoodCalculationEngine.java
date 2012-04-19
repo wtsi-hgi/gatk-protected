@@ -45,8 +45,8 @@ public class LikelihoodCalculationEngine {
     private final boolean DEBUG;
     private final PairHMM pairHMM;
 
-    public LikelihoodCalculationEngine( final byte constantGCP, final boolean debug, final boolean doBanded ) {
-        pairHMM = new PairHMM( doBanded );
+    public LikelihoodCalculationEngine( final byte constantGCP, final boolean debug, final boolean noBanded ) {
+        pairHMM = new PairHMM( noBanded );
         this.constantGCP = constantGCP;
         DEBUG = debug;
     }
@@ -76,15 +76,8 @@ public class LikelihoodCalculationEngine {
         final double[][] XMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
         final double[][] YMetricArray = new double[X_METRIC_LENGTH][Y_METRIC_LENGTH];
 
-        for( int iii=0; iii < X_METRIC_LENGTH; iii++ ) {
-            Arrays.fill(matchMetricArray[iii], Double.NEGATIVE_INFINITY);
-            Arrays.fill(XMetricArray[iii], Double.NEGATIVE_INFINITY);
-            Arrays.fill(YMetricArray[iii], Double.NEGATIVE_INFINITY);
-        }
+        PairHMM.initializeArrays(matchMetricArray, XMetricArray, YMetricArray, X_METRIC_LENGTH);
 
-        // the initial condition
-        matchMetricArray[1][1] = 0.0; // Math.log10(1.0);
-        
         // for each sample's reads
         for( final String sample : perSampleReadList.keySet() ) {
             //if( DEBUG ) { System.out.println("Evaluating sample " + sample + " with " + perSampleReadList.get( sample ).size() + " passing reads"); }
