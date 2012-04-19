@@ -300,7 +300,7 @@ class xhmmCNVpipeline extends QScript {
 
       while (elems.hasNext) {
         val line = elems.next
-        val splitLine = line.split("\t")
+        val splitLine = line.split("\\s+")
         val locus = splitLine(0)
         val locValStr = splitLine(1)
         try {
