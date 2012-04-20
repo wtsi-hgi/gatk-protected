@@ -34,13 +34,9 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.R.RScriptExecutor;
-import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.io.Resource;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
@@ -124,7 +120,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
     private static final String NO_DBSNP_EXCEPTION = "This calculation is critically dependent on being able to skip over known variant sites. Please provide a VCF file containing known sites of genetic variation.";
 
-    private static final String SCRIPT_FILE = "BQSR.R";
 
 
     /**
@@ -144,6 +139,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
             RecalDataManager.listAvailableCovariates(logger);
             System.exit(0);
         }
+        RAC.recalibrationReport = getToolkit().getArguments().BQSR_RECAL_FILE;                                          // if we have a recalibration file, record it so it goes on the report table
 
         Pair<ArrayList<Covariate>, ArrayList<Covariate>> covariates = RecalDataManager.initializeCovariates(RAC);       // initialize the required and optional covariates
         ArrayList<Covariate> requiredCovariates = covariates.getFirst();
@@ -258,121 +254,15 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
     private void generatePlots() {
 
-        final PrintStream deltaTableStream;
-        final File deltaTableFileName = new File(RAC.RECAL_FILE + ".csv");
-        final File plotFileName = new File(RAC.RECAL_FILE + ".pdf");
-        try {
-            deltaTableStream = new PrintStream(deltaTableFileName);
-        } catch (FileNotFoundException e) {
-            throw new UserException.CouldNotCreateOutputFile(deltaTableFileName, "File " + RAC.RECAL_FILE + ".csv could not be created");
-        }
-
-        final String RECALIBRATED = "RECALIBRATED";
-        final String ORIGINAL = "ORIGINAL";
         File recalFile = getToolkit().getArguments().BQSR_RECAL_FILE;
-
         if (recalFile != null) {
             RecalibrationReport report = new RecalibrationReport(recalFile);
-            writeCSV(deltaTableStream, report.getKeysAndTablesMap(), ORIGINAL, true);
-            writeCSV(deltaTableStream, keysAndTablesMap, RECALIBRATED, false);
+            RecalDataManager.generateRecalibrationPlot(RAC.RECAL_FILE, report.getKeysAndTablesMap(), keysAndTablesMap, RAC.KEEP_INTERMEDIATE_FILES);
         }
         else
-            writeCSV(deltaTableStream, keysAndTablesMap, ORIGINAL, true);
-
-        deltaTableStream.close();
-
-        RScriptExecutor executor = new RScriptExecutor();
-        executor.addScript(new Resource(SCRIPT_FILE, BaseQualityScoreRecalibrator.class));
-        executor.addArgs(deltaTableFileName.getAbsolutePath());
-        executor.addArgs(plotFileName.getAbsolutePath());
-        executor.exec();
-
-        if (!RAC.KEEP_INTERMEDIATE_FILES)
-            if (!deltaTableFileName.delete())
-                 throw new ReviewedStingException("Could not find file " + deltaTableFileName.getAbsolutePath());
+            RecalDataManager.generateRecalibrationPlot(RAC.RECAL_FILE, keysAndTablesMap, RAC.KEEP_INTERMEDIATE_FILES);
     }
 
-    private void writeCSV(PrintStream deltaTableFile, LinkedHashMap<BQSRKeyManager, Map<BitSet, RecalDatum>> map, String recalibrationMode, boolean printHeader) {
-        final int QUALITY_SCORE_COVARIATE_INDEX = 1;
-        final Map<BitSet, AccuracyDatum> deltaTable = new HashMap<BitSet, AccuracyDatum>();
-
-
-        for (Map.Entry<BQSRKeyManager, Map<BitSet, RecalDatum>> tableEntry : map.entrySet()) {
-            BQSRKeyManager keyManager = tableEntry.getKey();
-
-            if (keyManager.getOptionalCovariates().size() > 0) {                                                        // only need the 'all covariates' table
-                Map<BitSet, RecalDatum> table = tableEntry.getValue();
-
-                // create a key manager for the delta table
-                List<Covariate> requiredCovariates = keyManager.getRequiredCovariates().subList(0, 1);                  // include the read group covariate as the only required covariate
-                List<Covariate> optionalCovariates = keyManager.getRequiredCovariates().subList(1, 2);                  // include the quality score covariate as an optional covariate
-                optionalCovariates.addAll(keyManager.getOptionalCovariates());                                          // include all optional covariates
-                BQSRKeyManager deltaKeyManager = new BQSRKeyManager(requiredCovariates, optionalCovariates);            // initialize the key manager
-
-
-                // create delta table
-                for (Map.Entry<BitSet, RecalDatum> entry : table.entrySet()) {                                          // go through every element in the covariates table to create the delta table
-                    RecalDatum recalDatum = entry.getValue();                                                           // the current element (recal datum)
-
-                    List<Object> covs = keyManager.keySetFrom(entry.getKey());                                          // extract the key objects from the bitset key
-                    byte originalQuality = Byte.parseByte((String) covs.get(QUALITY_SCORE_COVARIATE_INDEX));            // save the original quality for accuracy calculation later on
-                    covs.remove(QUALITY_SCORE_COVARIATE_INDEX);                                                         // reset the quality score covariate to 0 from the keyset (so we aggregate all rows regardless of QS)
-                    BitSet deltaKey = deltaKeyManager.bitSetFromKey(covs.toArray());                                    // create a new bitset key for the delta table
-                    addToDeltaTable(deltaTable, deltaKey, recalDatum, originalQuality);                                 // add this covariate to the delta table
-
-                    covs.set(1, originalQuality);                                                                       // replace the covariate value with the quality score
-                    covs.set(2, "QualityScore");                                                                        // replace the covariate name with QualityScore (for the QualityScore covariate)
-                    deltaKey = deltaKeyManager.bitSetFromKey(covs.toArray());                                           // create a new bitset key for the delta table
-                    addToDeltaTable(deltaTable, deltaKey, recalDatum, originalQuality);                                 // add this covariate to the delta table
-                }
-
-                // print header
-                if (printHeader) {
-                    List<String> header = new LinkedList<String>();
-                    header.add("ReadGroup");
-                    header.add("CovariateValue");
-                    header.add("CovariateName");
-                    header.add("EventType");
-                    header.add("Observations");
-                    header.add("Errors");
-                    header.add("EmpiricalQuality");
-                    header.add("AverageReportedQuality");
-                    header.add("Accuracy");
-                    header.add("Recalibration");
-                    deltaTableFile.println(Utils.join(",", header));
-                }
-
-                // print each data line
-                for(Map.Entry<BitSet, AccuracyDatum> deltaEntry : deltaTable.entrySet()) {
-                    List<Object> deltaKeys = deltaKeyManager.keySetFrom(deltaEntry.getKey());
-                    RecalDatum deltaDatum = deltaEntry.getValue();
-                    deltaTableFile.print(Utils.join(",", deltaKeys));
-                    deltaTableFile.print("," + deltaDatum.toString());
-                    deltaTableFile.println("," + recalibrationMode);
-                }
-
-            }
-
-        }
-    }
-
-    /**
-     * Updates the current AccuracyDatum element in the delta table.
-     *
-     * If it doesn't have an element yet, it creates an AccuracyDatum element and adds it to the delta table.
-     *
-     * @param deltaTable the delta table
-     * @param deltaKey the key to the table
-     * @param recalDatum the recal datum to combine with the accuracyDatum element in the table
-     * @param originalQuality the quality score to we can calculate the accuracy for the accuracyDatum element
-     */
-    private void addToDeltaTable(Map<BitSet, AccuracyDatum> deltaTable, BitSet deltaKey, RecalDatum recalDatum, byte originalQuality) {
-        AccuracyDatum deltaDatum = deltaTable.get(deltaKey);                                                            // check if we already have a RecalDatum for this key
-        if (deltaDatum == null)
-            deltaTable.put(deltaKey, new AccuracyDatum(recalDatum, originalQuality));                                   // if we don't have a key yet, create a new one with the same values as the curent datum
-        else
-            deltaDatum.combine(recalDatum, originalQuality);                                                            // if we do have a datum, combine it with this one.
-    }
 
     /**
      * go through the quality score table and use the # observations and the empirical quality score
@@ -381,7 +271,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      */
     private void quantizeQualityScores() {
         quantizationInfo = new QuantizationInfo(keysAndTablesMap, RAC.QUANTIZING_LEVELS);
-        
     }
 
     /**
@@ -470,11 +359,10 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
     private void generateReport() {
         PrintStream output;
-        File filename = new File(RAC.RECAL_FILE + ".grp");
         try {
-            output = new PrintStream(filename);
+            output = new PrintStream(RAC.RECAL_FILE);
         } catch (FileNotFoundException e) {
-            throw new UserException.CouldNotCreateOutputFile(filename, "could not be created");
+            throw new UserException.CouldNotCreateOutputFile(RAC.RECAL_FILE, "could not be created");
         }
 
         RecalDataManager.outputRecalibrationReport(RAC, quantizationInfo, keysAndTablesMap, output);
