@@ -91,7 +91,7 @@ import java.util.*;
  */
 
 @PartitionBy(PartitionType.LOCUS)
-@ActiveRegionExtension(extension=40,maxRegion=230)
+@ActiveRegionExtension(extension=50,maxRegion=300)
 public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     /**
@@ -400,7 +400,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private List<GATKSAMRecord> filterNonPassingReads( final ActiveRegion activeRegion ) {
         final ArrayList<GATKSAMRecord> readsToRemove = new ArrayList<GATKSAMRecord>();
         for( final GATKSAMRecord rec : activeRegion.getReads() ) {
-            if( rec.getReadLength() < 20 || rec.getMappingQuality() <= 20 || BadMateFilter.hasBadMate(rec) || (keepRG != null && !rec.getReadGroup().getId().equals(keepRG)) ) {
+            if( rec.getReadLength() < 24 || rec.getMappingQuality() <= 20 || BadMateFilter.hasBadMate(rec) || (keepRG != null && !rec.getReadGroup().getId().equals(keepRG)) ) {
                 readsToRemove.add(rec);
             }
         }
