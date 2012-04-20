@@ -28,7 +28,6 @@ distributeGraphRows <- function(graphs, heights = c()) {
 for(cov in levels(data$CovariateName)) {    # for each covariate in turn  
   d = data[data$CovariateName==cov,]        # pull out just the data for this covariate so we can treat the non-numeric values appropriately
   if( cov == "Context" ) {
-    d = subset(d, grepl(pattern="AAAAA...", CovariateValue))
     d$CovariateValue = as.character(d$CovariateValue)
   } else {
     d$CovariateValue = as.numeric(levels(d$CovariateValue))[as.integer(d$CovariateValue)] # efficient way to convert factors back to their real values

@@ -231,7 +231,6 @@ class WholeGenomePipeline extends QScript {
       }
     }
 
-    val tranche = 98.5
     val tranches = Seq(
       "100.0", "99.9", "99.5", "99.3",
       "99.0", "98.9", "98.8",
@@ -246,7 +245,7 @@ class WholeGenomePipeline extends QScript {
       val buildModel = new VariantRecalibrator with VQSRGATKArgs
       buildModel.trustAllPolymorphic = true
       buildModel.TStranche = tranches
-      buildModel.recal_file = project + "." + glModel.toString.toLowerCase + "s.recal"
+      buildModel.recal_file = project + "." + glModel.toString.toLowerCase + "s.recal.vcf"
       buildModel.tranches_file = project + "." + glModel.toString.toLowerCase + "s.tranches"
       add(buildModel)
 
@@ -267,7 +266,12 @@ class WholeGenomePipeline extends QScript {
 
 
       for (chrVcf <- buildModel.input) {
-        val applyRecalibration = new ApplyRecalibration with VQSRGATKArgs
+        val tranche = glModel match {
+          case Model.SNP => 98.5
+          case Model.INDEL => 98.5
+        }
+
+        val applyRecalibration = new ApplyRecalibration with CommandLineGATKArgs
         applyRecalibration.input :+= chrVcf
         applyRecalibration.recal_file = buildModel.recal_file
         applyRecalibration.tranches_file = buildModel.tranches_file

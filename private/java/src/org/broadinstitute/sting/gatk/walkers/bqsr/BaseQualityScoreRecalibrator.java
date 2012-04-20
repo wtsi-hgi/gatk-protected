@@ -246,9 +246,10 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
         calculateEmpiricalQuals();
         logger.info("Calculating quantized quality scores...");
         quantizeQualityScores();
-        logger.info("Generating recalibration plots...");
-        if (!RAC.NO_PLOTS)
+        if (!RAC.NO_PLOTS) {
+            logger.info("Generating recalibration plots...");
             generatePlots();
+        }
         logger.info("Writing recalibration report...");
         generateReport();
         logger.info("...done!");

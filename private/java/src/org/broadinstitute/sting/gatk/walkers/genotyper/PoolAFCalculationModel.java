@@ -163,6 +163,21 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
 
     /**
+     * Naive combiner of two multiallelic pools - number of alt alleles must be the same.
+     * Math is generalization of biallelic combiner.
+     *
+     * For vector K representing an allele count conformation,
+     * Pr(D | AC = K) = Sum_G Pr(D|AC1 = G) Pr (D|AC2=K-G) * F(G,K)
+     * where F(G,K) = choose(m1,[g0 g1 ...])*choose(m2,[...
+     * @param x
+     * @param y
+     * @return
+     */
+    public static double[] combineMultiallelicPoolNaively(double[] x, double[] y, int ploidy1, int ploidy2, int numAlleles) {
+
+        return null;//Double.NEGATIVE_INFINITY;
+    }
+    /**
      * Naive combiner of two biallelic pools (of arbitrary size).
      * For two pools of size m1 and m2, we can compute the combined likelihood as:
      *   Pr(D|AC=k) = Sum_{j=0}^k Pr(D|AC1=j) Pr(D|AC2=k-j) * choose(m1,j)*choose(m2,k-j)/choose(m1+m2,k)
