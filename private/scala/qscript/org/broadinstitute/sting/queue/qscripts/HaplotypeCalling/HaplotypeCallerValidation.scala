@@ -6,6 +6,7 @@ import org.broadinstitute.sting.utils.text.XReadLines
 import collection.JavaConversions._
 import org.broadinstitute.sting.utils.{GenomeLoc, GenomeLocParser}
 import org.broadinstitute.sting.gatk.datasources.reference.ReferenceDataSource
+import org.broadinstitute.sting.queue.function.QFunction
 
 class HaplotypeCallerValidation extends QScript {
   qscript =>
@@ -37,15 +38,27 @@ class HaplotypeCallerValidation extends QScript {
   def script = {
     val sampleToBamSM = sampleToBAM_SMfromMapFile(sample_bam_SM)
 
-    class Run(val name: String, val locus: GenomeLoc, val samples: List[String]) extends HaplotypeCaller with CommandLineGATKArgs {
+    class HCrun(val name: String, val locus: GenomeLoc, val samples: List[String]) extends HaplotypeCaller with CommandLineGATKArgs {
       this.intervalsString = List(locus.toString)
       this.input_file = samples.reverse.map(s => sampleToBamSM(s).bam)
-      this.out = name + ".vcf"
+      this.out = name + ".HC.vcf"
+
+      // Get full haplotypes (at the expense of missing out on the lower frequency variants with lots of samples):
+      this.genotypeFullActiveRegion = true
     }
 
-    def createRuns(runsFile: File) : List[Run] = {
+    class UGrun(val name: String, val locus: GenomeLoc, val samples: List[String]) extends UnifiedGenotyper with CommandLineGATKArgs {
+      this.intervalsString = List(locus.toString)
+      this.input_file = samples.reverse.map(s => sampleToBamSM(s).bam)
+      this.out = name + ".UG.vcf"
+
+      this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+      this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+    }
+
+    def createRuns(runsFile: File) : List[QFunction] = {
       var locParser = new GenomeLocParser(new ReferenceDataSource(referenceFile).getReference)
-      var runs = List[Run]()
+      var runs = List[QFunction]()
 
       var elems = asScalaIterator(new XReadLines(runsFile))
       while (elems.hasNext) {
@@ -71,7 +84,8 @@ class HaplotypeCallerValidation extends QScript {
           locus = locParser.setStop(locus, locus.getStop + extent)
         }
 
-        runs ::= new Run(name, locus, samples)
+        runs ::= new HCrun(name, locus, samples)
+        runs ::= new UGrun(name, locus, samples)
       }
 
       return runs
