@@ -9,8 +9,8 @@ import java.util.Arrays;
  * @author carneiro
  * @since 3/27/12
  */
-public class BaseQualityScoreRecalibratorIntegrationTest extends WalkerTest {
-    @Test(enabled = true)
+public class BQSRIntegrationTest extends WalkerTest {
+    @Test(enabled = false)
     public void recalibrateTest() {
         String REF = "public/testdata/exampleFASTA.fasta";
         String BAM = "public/testdata/exampleBAM.bam";
@@ -20,7 +20,7 @@ public class BaseQualityScoreRecalibratorIntegrationTest extends WalkerTest {
         executeTest("recalibrateTest", spec);
     }
 
-    @Test(enabled = true)
+    @Test(enabled = false)
     public void onTheFlyRecalibrationTest() {
         String REF = "public/testdata/exampleFASTA.fasta";
         String BAM = "public/testdata/exampleBAM.bam";
