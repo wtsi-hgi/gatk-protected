@@ -445,9 +445,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         final double meanReadLength = MathUtils.average(readLengthDistribution);
         final double meanCoveragePerSample = (double) activeRegion.getReads().size() / ((double) activeRegion.getExtendedLoc().size() / meanReadLength) / (double) samplesList.size();
         int PRUNE_FACTOR = 0;
-        if( meanCoveragePerSample > 6.0 ) {
-            PRUNE_FACTOR = (int) Math.floor( Math.sqrt( meanCoveragePerSample - 2.0 ) );
-        } else if( meanCoveragePerSample > 2.5 ) {
+        if( meanCoveragePerSample > 8.5 ) {
+            PRUNE_FACTOR = (int) Math.floor( Math.sqrt( meanCoveragePerSample - 3.0 ) );
+        } else if( meanCoveragePerSample > 3.0 ) {
             PRUNE_FACTOR = 1;
         }
 
