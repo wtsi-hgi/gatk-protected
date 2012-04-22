@@ -30,6 +30,7 @@ import com.google.java.contract.Requires;
 import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.PairHMM;
+import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
@@ -92,12 +93,16 @@ public class LikelihoodCalculationEngine {
         final int numHaplotypes = haplotypes.size();
         final int numReads = reads.size();
         final double[][] readLikelihoods = new double[numHaplotypes][numReads];
-        
         for( int iii = 0; iii < numReads; iii++ ) {
             final GATKSAMRecord read = reads.get(iii);
             final byte[] overallGCP = new byte[read.getReadLength()];
             Arrays.fill( overallGCP, constantGCP ); // Is there a way to derive empirical estimates for this from the data?
             Haplotype previousHaplotypeSeen = null;
+            final byte[] readQuals = read.getBaseQualities();
+            for( int kkk = 0; kkk < readQuals.length; kkk++ ) {
+                readQuals[kkk] = ( readQuals[kkk] > (byte) read.getMappingQuality() ? (byte) read.getMappingQuality() : readQuals[kkk] );
+                readQuals[kkk] = ( readQuals[kkk] < (byte) 18 ? QualityUtils.MIN_USABLE_Q_SCORE : readQuals[kkk] );
+            }
 
             for( int jjj = 0; jjj < numHaplotypes; jjj++ ) {
                 final Haplotype haplotype = haplotypes.get(jjj);
@@ -105,7 +110,7 @@ public class LikelihoodCalculationEngine {
                 previousHaplotypeSeen = haplotype;
 
                 readLikelihoods[jjj][iii] = pairHMM.computeReadLikelihoodGivenHaplotype(haplotype.getBases(), read.getReadBases(),
-                        read.getBaseQualities(), read.getBaseInsertionQualities(), read.getBaseDeletionQualities(), overallGCP,
+                        readQuals, read.getBaseInsertionQualities(), read.getBaseDeletionQualities(), overallGCP,
                         haplotypeStart, matchMetricArray, XMetricArray, YMetricArray);
             }
         }
