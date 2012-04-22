@@ -7,6 +7,7 @@ import collection.JavaConversions._
 import org.broadinstitute.sting.utils.{GenomeLoc, GenomeLocParser}
 import org.broadinstitute.sting.gatk.datasources.reference.ReferenceDataSource
 import org.broadinstitute.sting.queue.function.QFunction
+import scala.math._
 
 class HaplotypeCallerValidation extends QScript {
   qscript =>
@@ -40,7 +41,7 @@ class HaplotypeCallerValidation extends QScript {
 
     class HCrun(val name: String, val locus: GenomeLoc, val samples: List[String]) extends HaplotypeCaller with CommandLineGATKArgs {
       this.intervalsString = List(locus.toString)
-      this.input_file = samples.reverse.map(s => sampleToBamSM(s).bam)
+      this.input_file = samples.reverse.map(s => {if (sampleToBamSM.contains(s)) sampleToBamSM(s).bam else throw new IllegalArgumentException("Sample " + s + " not found in " + sample_bam_SM)})
       this.out = name + ".HC.vcf"
 
       // Get full haplotypes (at the expense of missing out on the lower frequency variants with lots of samples):
@@ -49,7 +50,7 @@ class HaplotypeCallerValidation extends QScript {
 
     class UGrun(val name: String, val locus: GenomeLoc, val samples: List[String]) extends UnifiedGenotyper with CommandLineGATKArgs {
       this.intervalsString = List(locus.toString)
-      this.input_file = samples.reverse.map(s => sampleToBamSM(s).bam)
+      this.input_file = samples.reverse.map(s => {if (sampleToBamSM.contains(s)) sampleToBamSM(s).bam else throw new IllegalArgumentException("Sample " + s + " not found in " + sample_bam_SM)})
       this.out = name + ".UG.vcf"
 
       this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
@@ -80,8 +81,8 @@ class HaplotypeCallerValidation extends QScript {
           if (splitLoc.length > 1) {
             extent = splitLoc(1).toInt
           }
-          locus = locParser.setStart(locus, locus.getStart - extent)
-          locus = locParser.setStop(locus, locus.getStop + extent)
+          locus = locParser.setStart(locus, max(1, locus.getStart - extent))
+          locus = locParser.setStop(locus, min(locParser.getContigInfo(locus.getContig).getSequenceLength, locus.getStop + extent))
         }
 
         runs ::= new HCrun(name, locus, samples)
