@@ -22,8 +22,8 @@ if ( onCMDLine ) {
 } else {
   projectName <- "InDevelopmentInR"
 
-  root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012"
-  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/GoT2D_final_dgi_batch_1"
+  #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012"
+  root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/GoT2D_final_dgi_batch_1"
   #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.all.unannotated.chr1"
   #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes"
   #root <- "/humgen/gsa-hpprojects/ESP/calls/broadOnly_chr1_v2/esp.all.unannotated.chr1"
@@ -139,7 +139,7 @@ summaryPlots <- function(metricsBySites) {
     acGraph <- ggplot(data=byACNoAll, aes(x=AC, y=tiTvRatio, color=Novelty))
     acGraph <- acGraph + scale_y_continuous("Transition / transversion ratio", limits=c(0,4))
     acGraph <- acGraph + opts(title = name)
-    acGraph <- acGraph + geom_point(aes(size=log10(nSNPs), weight=nSNPs), alpha=0.5) + geom_line()
+    acGraph <- acGraph + geom_point(aes(size=log10(nSNPs), weight=nSNPs), alpha=0.5) + geom_smooth()
     distributeLogGraph(acGraph, "Allele count (AC)")
   }
   
@@ -232,18 +232,20 @@ perSamplePlots <- function(metricsBySamples) {
 # -------------------------------------------------------
 
 plotRatioByAlleleCount <- function(AC, num, denom, name, expectedValue, keepFullAC=F) {
-#   if ( ! keepFullAC & max(AC) > 50 ) { # only do this if we have so many samples that the high AC values get too sparse
-#     scaleFactor <- overallScaleFactor * log10(max(AC))
-#     print(list(scaleFactor=scaleFactor, maxAC = max(AC), overallScaleFactor = overallScaleFactor))
-#     new <- compute.ratio.on.LogLinear.AC.intervals(AC, num, denom, scaleFactor)
-#     df <- data.frame(AlleleCount = new$AC, nobs = new$denom, ratio=new$ratio)
-#   } else {
-    df <- data.frame(AlleleCount = AC, nobs = denom, ratio = num / denom)
-    df <- subset(df, num > 0 & denom > 0)
-#   }
+  df <- data.frame(AlleleCount = AC, nobs = denom, num = num, denom = denom, ratio = num / denom)
+  df <- subset(df, num > 0 & denom > 0)
+  
+  maxAC = max(AC)
+  note = NULL
+  if ( maxAC > 100 ) {
+    highAC = maxAC * 0.1 # all values with MAF > 10%
+    highACValues = subset(df, AlleleCount > highAC)
+    highACRatio = sum(highACValues$num) / sum(highACValues$denom)
+    note=paste("Note ratios at high MAF with many samples may appear artificially low.  Ratio for MAF > 10% is", sprintf("%.2f", highACRatio))
+  }    
   
   df[[name]] <- df$ratio
-  plotVariantQC(df, c(name), requestedStrat = "AlleleCount", nObsField="nobs")
+  plotVariantQC(df, c(name), requestedStrat = "AlleleCount", nObsField="nobs", note = note)
 }
 
 indelLengthDistribution <- function(indelHistogram) {
@@ -324,6 +326,9 @@ indelPlots <- function(IndelQCReport, byACReport) {
 
     lengthHistogram <- removeExtraStrats(IndelQCReport$IndelLengthHistogram, c("OneBPIndel"))
     indelLengthDistribution(lengthHistogram)
+   } else {
+     # for testing only
+     plotRatioByAlleleCount(IndelSummaryByAC$AlleleCount, IndelSummaryByAC$n_insertions, IndelSummaryByAC$n_deletions, "Insertion to deletion ratio", 1)
    }
 }
 
