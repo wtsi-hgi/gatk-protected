@@ -118,7 +118,7 @@ public class GenotypingEngine {
                 System.out.println( "> Cigar = " + h.getCigar() );
             }
             // Walk along the alignment and turn any difference from the reference into an event
-            h.setEventMap( generateVCsFromAlignment( h.getAlignmentStartHapwrtRef(), h.getCigar(), ref, h.getBases(), refLoc, "HC" + count++ ) );
+            h.setEventMap( generateVCsFromAlignment( h.getAlignmentStartHapwrtRef(), h.getCigar(), ref, h.getBases(), refLoc, "HC" + count++, MNP_LOOK_AHEAD ) );
             startPosKeySet.addAll(h.getEventMap().keySet());
         }
         
@@ -189,7 +189,7 @@ public class GenotypingEngine {
         if( DEBUG ) { System.out.println("=== Best Haplotypes ==="); }
         for( final Haplotype h : haplotypes ) {
             // Walk along the alignment and turn any difference from the reference into an event
-            h.setEventMap( generateVCsFromAlignment( h.getAlignmentStartHapwrtRef(), h.getCigar(), ref, h.getBases(), refLoc, "HC" + count++ ) );
+            h.setEventMap( generateVCsFromAlignment( h.getAlignmentStartHapwrtRef(), h.getCigar(), ref, h.getBases(), refLoc, "HC" + count++, MNP_LOOK_AHEAD ) );
             startPosKeySet.addAll(h.getEventMap().keySet());
             if( DEBUG ) {
                 System.out.println( h.toString() );
@@ -302,7 +302,7 @@ public class GenotypingEngine {
         return false;
     }
 
-    protected HashMap<Integer,VariantContext> generateVCsFromAlignment( final int alignmentStartHapwrtRef, final Cigar cigar, final byte[] ref, final byte[] alignment, final GenomeLoc refLoc, final String sourceNameToAdd ) {
+    protected static HashMap<Integer,VariantContext> generateVCsFromAlignment( final int alignmentStartHapwrtRef, final Cigar cigar, final byte[] ref, final byte[] alignment, final GenomeLoc refLoc, final String sourceNameToAdd, final int MNP_LOOK_AHEAD ) {
         final HashMap<Integer,VariantContext> vcs = new HashMap<Integer,VariantContext>();
 
         int refPos = alignmentStartHapwrtRef;
