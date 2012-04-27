@@ -43,7 +43,8 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
     final protected PoolCallerUnifiedArgumentCollection UAC;
 
     private final int ploidy;
-    
+    private final static double MAX_LOG10_ERROR_TO_STOP_EARLY = 6; // we want the calculation to be accurate to 1 / 10^6
+
     protected PoolAFCalculationModel(UnifiedArgumentCollection UAC, int N, Logger logger, PrintStream verboseWriter) {
         super(UAC, N, logger, verboseWriter);
         if (UAC instanceof PoolCallerUnifiedArgumentCollection) {
@@ -132,7 +133,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
      * @param log10AlleleFrequencyPriors       Frequency priors
      * @param result                           object to fill with output values
      */
-    public static void simplePoolBiallelic(final GenotypesContext GLs,
+    protected static void simplePoolBiallelic(final GenotypesContext GLs,
                                                final int numAlternateAlleles,
                                                final int nSamplesPerPool,
                                                final double[] log10AlleleFrequencyPriors,
@@ -181,19 +182,45 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
      * Naive combiner of two biallelic pools (of arbitrary size).
      * For two pools of size m1 and m2, we can compute the combined likelihood as:
      *   Pr(D|AC=k) = Sum_{j=0}^k Pr(D|AC1=j) Pr(D|AC2=k-j) * choose(m1,j)*choose(m2,k-j)/choose(m1+m2,k)
-     * @param x               GL vector, x[k] = Pr(AC_i = k) for alt allele i
-     * @param y               Second GL vector
+     * @param xx               GL vector, x[k] = Pr(AC_i = k) for alt allele i
+     * @param yy               Second GL vector
      * @return                Combined likelihood vector
      */
-    public static double[] combinePoolNaively(double[] x, double[] y) {
+    public static double[] combinePoolNaively(final double[] xx, final double[] yy) {
      
-        final int m1 = x.length;
-        final int m2 = y.length;
-        double[] result = new double[m1+m2-1];
+        final int m1 = xx.length;
+        final int m2 = yy.length;
+        final double[] result = new double[m1+m2-1];
 
-        result[0] = x[0]+y[0];
+        /** Pre-fill result array and incorporate weights into input vectors
+        * Say L1(k) = Pr(D|AC1=k) * choose(m1,k)
+        * and L2(k) = Pr(D|AC2=k) * choose(m2,k)
+        * equation reduces to
+        * Pr(D|AC=k) = 1/choose(m1+m2,k) * Sum_{j=0}^k L1(k) L2(k-j)
+        * which is just plain convolution of L1 and L2 (with pre-existing vector)
+           */
+
+        // intialize result vector to log10(1/choose(m1+m2,k)).
+
+        for (int k=0; k < result.length; k++)
+            result[k] = - MathUtils.log10BinomialCoefficient(m1+m2,k);
+
+
+        final double[] x = xx.clone();
+        final double[] y = yy.clone();
+
+        for (int k=0; k < x.length; k++)
+            x[k] += MathUtils.log10BinomialCoefficient(m1,k);
+
+        for (int k=0; k < y.length; k++)
+            y[k] +=  MathUtils.log10BinomialCoefficient(m2,k);
+
+
+        result[0] += x[0]+y[0];
+
+        double maxElement = result[0];
+        int maxElementIdx = 0;
         for (int k=1; k < result.length; k++) {
-            final double den = MathUtils.log10BinomialCoefficient(m1+m2,k);
             double[] acc = new double[k+1];
             Arrays.fill(acc,Double.NEGATIVE_INFINITY);
 
@@ -211,13 +238,24 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
                 else
                     continue;
 
-                acc[j] = x1+ y1 + MathUtils.log10BinomialCoefficient(m1,j) + MathUtils.log10BinomialCoefficient(m2,k-j) - den;
+                if (Double.isInfinite(x1) || Double.isInfinite(y1))
+                    continue;
+                acc[j] = x1+ y1;
             }    
-            result[k] = MathUtils.log10sumLog10(acc);
+            result[k] += MathUtils.log10sumLog10(acc);
+            maxElementIdx = k;
+            double maxDiff = result[k] - maxElement;
+            if (maxDiff > 0)
+                maxElement = result[k];
+            else if (maxDiff < maxElement - MAX_LOG10_ERROR_TO_STOP_EARLY) {
+                break;
+            }
+
+
         }
         
 
-        return MathUtils.normalizeFromLog10(result,false, true);
+        return MathUtils.normalizeFromLog10(Arrays.copyOf(result,maxElementIdx+1),false, true);
     }
 
     /**

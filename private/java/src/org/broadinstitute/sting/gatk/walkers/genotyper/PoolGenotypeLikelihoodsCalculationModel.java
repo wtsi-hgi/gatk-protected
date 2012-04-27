@@ -96,6 +96,7 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
      * @return just the lane id (the XXX.Y string)
      */
     public static String getLaneIDFromReadGroupString(String readGroupID) {
+       // System.out.println(readGroupID);
         String [] parsedID = readGroupID.split("\\.");
         return parsedID[0] + "." + parsedID[1];
     }

@@ -1,5 +1,14 @@
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
+import net.sf.samtools.SAMFileHeader;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.pileup.PileupElement;
+import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
+import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
+import org.broadinstitute.sting.utils.sam.ArtificialSAMUtils;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 import org.testng.Assert;
@@ -7,6 +16,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by IntelliJ IDEA.
@@ -213,5 +223,55 @@ public class PoolGenotypeLikelihoodsUnitTest {
         }
         return prod;
     }
+
+    @Test
+    public void testErrorModel() {
+        final ArtificialReadPileupTestProvider refPileupTestProvider = new ArtificialReadPileupTestProvider(1,"ref");
+        final byte minQ = 5;
+        final byte maxQ = 40;
+        final byte refByte = refPileupTestProvider.getRefByte();
+        final byte altByte = refByte == (byte)'T'? (byte) 'C': (byte)'T';
+        final String refSampleName = refPileupTestProvider.getSampleNames().get(0);
+        final List<Allele> trueAlleles = new ArrayList<Allele>();
+        trueAlleles.add(Allele.create(refByte, true));
+
+        final int[] matchArray = {95, 995, 9995, 10000};
+        final int[] mismatchArray = {1,5,10,20};
+
+        for (int matches: matchArray) {
+            for (int mismatches: mismatchArray) {
+                // get artificial alignment context for ref sample
+                Map<String,AlignmentContext> refContext = refPileupTestProvider.getAlignmentContextFromAlleles(0, new String(new byte[]{altByte}), new int[]{matches, mismatches});
+                ReadBackedPileup refPileup = refContext.get(refSampleName).getBasePileup();
+                ErrorModel emodel = new ErrorModel(minQ,maxQ, (byte)20, refPileup, trueAlleles, 0.0);
+                final double[] errorVec = emodel.getErrorModelVector().getProbabilityVector();
+
+                final double mlEst = -10.0*Math.log10((double)mismatches/(double)(matches+mismatches));
+                final int peakIdx = (int)Math.round(mlEst);
+                System.out.format("Matches:%d Mismatches:%d peakIdx:%d\n",matches, mismatches, peakIdx);
+                Assert.assertEquals(MathUtils.maxElementIndex(errorVec),peakIdx);
+
+            }
+        }
+
+
+    }
+    @Test
+    public void testAddPileupToPoolGL() {
+        int minQ = 30;
+        int maxQ = 40;
+        int numSamples = 2;
+
+        // have a high quality site say Q40 site, and create artificial pileups for one single sample, at coverage N, with given
+        // true pool AC = x.
+
+        ArtificialReadPileupTestProvider refPileupTestProvider = new ArtificialReadPileupTestProvider(1,"ref");
+
+//        Map<String,AlignmentContext> refContext = refPileupTestProvider.getAlignmentContextFromAlleles(0, "T", new int[]{matches, mismatches});
+/*        ReferenceSample refsample = new ReferenceSample("ref",pileup, trueAlleles);
+        ErrorModel emodel = new ErrorModel(minQ,maxQ,(byte)20,refSample,0.0);
+  */  }
+    
+    
 
 }

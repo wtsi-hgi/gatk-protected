@@ -25,9 +25,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
-import net.sf.samtools.Cigar;
-import net.sf.samtools.CigarElement;
-import net.sf.samtools.CigarOperator;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -37,7 +34,6 @@ import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.SWPairwiseAlignment;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -46,7 +42,7 @@ import java.util.*;
  * Haplotype-based resolution of variants in 2 different eval files.
  *
  * <p>
- * HaplotypeBasedEval is a tool that takes 2 VCF files and constructs haplotypes based on the variants inside them.
+ * HaplotypeResolver is a tool that takes 2 VCF files and constructs haplotypes based on the variants inside them.
  * From that, it can resolve potential differences in variant calls that are inherently the same (or similar) variants.
  * Records are annotated with the set and status attributes.
  *
@@ -64,15 +60,23 @@ import java.util.*;
  * <pre>
  * java -Xmx1g -jar GenomeAnalysisTK.jar \
  *   -R ref.fasta \
- *   -T HaplotypeBasedEval \
+ *   -T HaplotypeResolver \
  *   -V:v1 input1.vcf \
  *   -V:v2 input2.vcf \
  *   -o output.vcf
  * </pre>
  *
  */
-@Reference(window=@Window(start=-HaplotypeBasedEval.ACTIVE_WINDOW,stop=HaplotypeBasedEval.ACTIVE_WINDOW))
-public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
+@Reference(window=@Window(start=-HaplotypeResolver.ACTIVE_WINDOW,stop= HaplotypeResolver.ACTIVE_WINDOW))
+public class HaplotypeResolver extends RodWalker<Integer, Integer> {
+
+    protected static final String INTERSECTION_SET = "intersection";
+    protected static final String SAME_STATUS = "same";
+    protected static final String SOME_ALLELES_MATCH_STATUS = "someAllelesMatch";
+    protected static final String SAME_START_DIFFERENT_ALLELES_STATUS = "sameStartDifferentAlleles";
+    protected static final String SAME_BY_HAPLOTYPE_STATUS = "sameByHaplotype";
+    protected static final String ONE_ALLELE_SUBSET_OF_OTHER_STATUS = "OneAlleleSubsetOfOther";
+    protected static final String OVERLAPPING_EVENTS_STATUS = "overlappingEvents";
 
     protected final static int MAX_DISTANCE_BETWEEN_MERGED_RECORDS = 50;
     protected final static int MAX_HAPLOTYPE_TO_CONSIDER = 1000;
@@ -193,7 +197,7 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
             }
         }
 
-        writeAndPurgeAllEqualVariants(sourceVCs1, sourceVCs2, "same");
+        writeAndPurgeAllEqualVariants(sourceVCs1, sourceVCs2, SAME_STATUS);
 
         if ( sourceVCs1.isEmpty() ) {
             writeAll(sourceVCs2, source2, null);
@@ -235,10 +239,10 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
             final GenomeLoc loc1 = getToolkit().getGenomeLocParser().createGenomeLoc(current1);
             final GenomeLoc loc2 = getToolkit().getGenomeLocParser().createGenomeLoc(current2);
 
-            if ( loc1.equals(loc2) ) {
+            if ( loc1.equals(loc2) ||
+                    (loc1.getStart() == loc2.getStart() && (current1.getAlternateAlleles().size() > 1 || current2.getAlternateAlleles().size() > 1)) ) {
                 // test the alleles
-                if ( current1.getAlternateAllele(0).equals(current2.getAlternateAllele(0)) ) {
-                    writeOne(current1, "intersection", status);
+                if ( determineAndWriteOverlap(current1, current2, status) ) {
                     sourceVCs1.remove(currentIndex1);
                     sourceVCs2.remove(currentIndex2);
                     size1--;
@@ -257,6 +261,43 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
                 current2 = (currentIndex2 < size2 ? sourceVCs2.get(currentIndex2): null);
             }
         }
+    }
+
+    private boolean determineAndWriteOverlap(final VariantContext vc1, final VariantContext vc2, final String status) {
+        final int allelesFrom1In2 = findOverlap(vc1, vc2);
+        final int allelesFrom2In1 = findOverlap(vc2, vc1);
+        final int totalAllelesIn1 = vc1.getAlternateAlleles().size();
+        final int totalAllelesIn2 = vc2.getAlternateAlleles().size();
+
+        final boolean allAllelesFrom1Overlap = allelesFrom1In2 == totalAllelesIn1;
+        final boolean allAllelesFrom2Overlap = allelesFrom2In1 == totalAllelesIn2;
+
+        boolean thereIsOverlap = true;
+
+        if ( allAllelesFrom1Overlap && allAllelesFrom2Overlap ) {
+            writeOne(vc1, INTERSECTION_SET, status);
+        } else if ( allAllelesFrom1Overlap ) {
+            writeOne(vc2, INTERSECTION_SET, source1 + "IsSubsetOf" + source2);
+        } else if ( allAllelesFrom2Overlap ) {
+            writeOne(vc1, INTERSECTION_SET, source2 + "IsSubsetOf" + source1);
+        } else if ( allelesFrom1In2 > 0 ) {
+            writeOne(vc1, INTERSECTION_SET, SOME_ALLELES_MATCH_STATUS);
+        } else if ( totalAllelesIn1 > 1 || totalAllelesIn2 > 1 ) { // we don't handle multi-allelics in the haplotype-based reconstruction
+            writeOne(vc1, INTERSECTION_SET, SAME_START_DIFFERENT_ALLELES_STATUS);
+        } else {
+            thereIsOverlap = false;
+        }
+
+        return thereIsOverlap;
+    }
+
+    private static int findOverlap(final VariantContext target, final VariantContext comparison) {
+        int overlap = 0;
+        for ( final Allele allele : target.getAlternateAlleles() ) {
+            if ( comparison.hasAlternateAllele(allele) )
+                overlap++;
+        }
+        return overlap;
     }
 
     private static final double SW_MATCH = 4.0;
@@ -292,7 +333,7 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
         final List<VariantContext> source1Alleles = new ArrayList<VariantContext>(source1Map.values());
         final List<VariantContext> source2Alleles = new ArrayList<VariantContext>(source2Map.values());
 
-        writeAndPurgeAllEqualVariants(source1Alleles, source2Alleles, "sameByHaplotype");
+        writeAndPurgeAllEqualVariants(source1Alleles, source2Alleles, SAME_BY_HAPLOTYPE_STATUS);
         if ( source1Alleles.isEmpty() ) {
             writeAll(source2Alleles, source2, null);
         } else if ( source2Alleles.isEmpty() ) {
@@ -303,8 +344,6 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
     }
 
     private byte[] generateHaplotype(final List<VariantContext> sourceVCs, final ReferenceContext refContext) {
-
-        // TODO -- handle multi-allelic events
 
         final StringBuilder sb = new StringBuilder();
 
@@ -362,14 +401,14 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
                         final String allele1 = current1.getAlternateAllele(0).getBaseString();
                         final String allele2 = current2.getAlternateAllele(0).getBaseString();
                         if ( allele1.indexOf(allele2) != -1 || allele2.indexOf(allele1) != -1 )
-                            status = "OneAlleleSubsetOfOther";
+                            status = ONE_ALLELE_SUBSET_OF_OTHER_STATUS;
                         else
-                            status = "sameStartDifferentAllele";
+                            status = SAME_START_DIFFERENT_ALLELES_STATUS;
                     } else {
-                        status = "overlappingAllelesDifferentEvents";
+                        status = OVERLAPPING_EVENTS_STATUS;
                     }
 
-                    writeOne(current1, "intersection", status);
+                    writeOne(current1, INTERSECTION_SET, status);
                     currentIndex1++;
                     currentIndex2++;
                     current1 = (currentIndex1 < size1 ? sourceVCs1.get(currentIndex1): null);

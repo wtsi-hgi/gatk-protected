@@ -282,7 +282,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      * @param pileupElement The pileup element to update
      * @param refBase       The reference base at this locus
      */
-    private void updateDataForPileupElement(final PileupElement pileupElement, final byte refBase) {
+    private synchronized void updateDataForPileupElement(final PileupElement pileupElement, final byte refBase) {
         final int offset = pileupElement.getOffset();
         final ReadCovariates readCovariates = covariateKeySetFrom(pileupElement.getRead());
 
