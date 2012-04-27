@@ -42,7 +42,7 @@ import java.util.*;
  * Haplotype-based resolution of variants in 2 different eval files.
  *
  * <p>
- * HaplotypeBasedEval is a tool that takes 2 VCF files and constructs haplotypes based on the variants inside them.
+ * HaplotypeResolver is a tool that takes 2 VCF files and constructs haplotypes based on the variants inside them.
  * From that, it can resolve potential differences in variant calls that are inherently the same (or similar) variants.
  * Records are annotated with the set and status attributes.
  *
@@ -60,15 +60,15 @@ import java.util.*;
  * <pre>
  * java -Xmx1g -jar GenomeAnalysisTK.jar \
  *   -R ref.fasta \
- *   -T HaplotypeBasedEval \
+ *   -T HaplotypeResolver \
  *   -V:v1 input1.vcf \
  *   -V:v2 input2.vcf \
  *   -o output.vcf
  * </pre>
  *
  */
-@Reference(window=@Window(start=-HaplotypeBasedEval.ACTIVE_WINDOW,stop=HaplotypeBasedEval.ACTIVE_WINDOW))
-public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
+@Reference(window=@Window(start=-HaplotypeResolver.ACTIVE_WINDOW,stop= HaplotypeResolver.ACTIVE_WINDOW))
+public class HaplotypeResolver extends RodWalker<Integer, Integer> {
 
     protected static final String INTERSECTION_SET = "intersection";
     protected static final String SAME_STATUS = "same";
