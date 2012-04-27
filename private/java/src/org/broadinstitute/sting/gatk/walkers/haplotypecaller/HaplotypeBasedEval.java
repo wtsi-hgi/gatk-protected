@@ -70,6 +70,14 @@ import java.util.*;
 @Reference(window=@Window(start=-HaplotypeBasedEval.ACTIVE_WINDOW,stop=HaplotypeBasedEval.ACTIVE_WINDOW))
 public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
 
+    protected static final String INTERSECTION_SET = "intersection";
+    protected static final String SAME_STATUS = "same";
+    protected static final String SOME_ALLELES_MATCH_STATUS = "someAllelesMatch";
+    protected static final String SAME_START_DIFFERENT_ALLELES_STATUS = "sameStartDifferentAlleles";
+    protected static final String SAME_BY_HAPLOTYPE_STATUS = "sameByHaplotype";
+    protected static final String ONE_ALLELE_SUBSET_OF_OTHER_STATUS = "OneAlleleSubsetOfOther";
+    protected static final String OVERLAPPING_EVENTS_STATUS = "overlappingEvents";
+
     protected final static int MAX_DISTANCE_BETWEEN_MERGED_RECORDS = 50;
     protected final static int MAX_HAPLOTYPE_TO_CONSIDER = 1000;
     protected final static int MAX_VARIANT_SIZE_TO_CONSIDER = 100;
@@ -189,7 +197,7 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
             }
         }
 
-        writeAndPurgeAllEqualVariants(sourceVCs1, sourceVCs2, "same");
+        writeAndPurgeAllEqualVariants(sourceVCs1, sourceVCs2, SAME_STATUS);
 
         if ( sourceVCs1.isEmpty() ) {
             writeAll(sourceVCs2, source2, null);
@@ -266,15 +274,15 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
         boolean thereIsOverlap = true;
 
         if ( allAllelesFrom1Overlap && allAllelesFrom2Overlap ) {
-            writeOne(vc1, "intersection", status);
+            writeOne(vc1, INTERSECTION_SET, status);
         } else if ( allAllelesFrom1Overlap ) {
-            writeOne(vc2, "intersection", source1 + "IsSubsetOf" + source2);
+            writeOne(vc2, INTERSECTION_SET, source1 + "IsSubsetOf" + source2);
         } else if ( allAllelesFrom2Overlap ) {
-            writeOne(vc1, "intersection", source2 + "IsSubsetOf" + source1);
+            writeOne(vc1, INTERSECTION_SET, source2 + "IsSubsetOf" + source1);
         } else if ( allelesFrom1In2 > 0 ) {
-            writeOne(vc1, "intersection", "someAllelesTheSame");
+            writeOne(vc1, INTERSECTION_SET, SOME_ALLELES_MATCH_STATUS);
         } else if ( totalAllelesIn1 > 1 || totalAllelesIn2 > 1 ) { // we don't handle multi-allelics in the haplotype-based reconstruction
-            writeOne(vc1, "intersection", "noAllelesTheSame");
+            writeOne(vc1, INTERSECTION_SET, SAME_START_DIFFERENT_ALLELES_STATUS);
         } else {
             thereIsOverlap = false;
         }
@@ -324,7 +332,7 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
         final List<VariantContext> source1Alleles = new ArrayList<VariantContext>(source1Map.values());
         final List<VariantContext> source2Alleles = new ArrayList<VariantContext>(source2Map.values());
 
-        writeAndPurgeAllEqualVariants(source1Alleles, source2Alleles, "sameByHaplotype");
+        writeAndPurgeAllEqualVariants(source1Alleles, source2Alleles, SAME_BY_HAPLOTYPE_STATUS);
         if ( source1Alleles.isEmpty() ) {
             writeAll(source2Alleles, source2, null);
         } else if ( source2Alleles.isEmpty() ) {
@@ -392,14 +400,14 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
                         final String allele1 = current1.getAlternateAllele(0).getBaseString();
                         final String allele2 = current2.getAlternateAllele(0).getBaseString();
                         if ( allele1.indexOf(allele2) != -1 || allele2.indexOf(allele1) != -1 )
-                            status = "OneAlleleSubsetOfOther";
+                            status = ONE_ALLELE_SUBSET_OF_OTHER_STATUS;
                         else
-                            status = "sameStartDifferentAllele";
+                            status = SAME_START_DIFFERENT_ALLELES_STATUS;
                     } else {
-                        status = "overlappingAllelesDifferentEvents";
+                        status = OVERLAPPING_EVENTS_STATUS;
                     }
 
-                    writeOne(current1, "intersection", status);
+                    writeOne(current1, INTERSECTION_SET, status);
                     currentIndex1++;
                     currentIndex2++;
                     current1 = (currentIndex1 < size1 ? sourceVCs1.get(currentIndex1): null);
