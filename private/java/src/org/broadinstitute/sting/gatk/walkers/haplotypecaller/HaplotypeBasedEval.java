@@ -25,9 +25,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
-import net.sf.samtools.Cigar;
-import net.sf.samtools.CigarElement;
-import net.sf.samtools.CigarOperator;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -37,7 +34,6 @@ import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.SWPairwiseAlignment;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -237,8 +233,7 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
 
             if ( loc1.equals(loc2) ) {
                 // test the alleles
-                if ( current1.getAlternateAllele(0).equals(current2.getAlternateAllele(0)) ) {
-                    writeOne(current1, "intersection", status);
+                if ( determineAndWriteOverlap(current1, current2, status) ) {
                     sourceVCs1.remove(currentIndex1);
                     sourceVCs2.remove(currentIndex2);
                     size1--;
@@ -257,6 +252,43 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
                 current2 = (currentIndex2 < size2 ? sourceVCs2.get(currentIndex2): null);
             }
         }
+    }
+
+    private boolean determineAndWriteOverlap(final VariantContext vc1, final VariantContext vc2, final String status) {
+        final int allelesFrom1In2 = findOverlap(vc1, vc2);
+        final int allelesFrom2In1 = findOverlap(vc2, vc1);
+        final int totalAllelesIn1 = vc1.getAlternateAlleles().size();
+        final int totalAllelesIn2 = vc2.getAlternateAlleles().size();
+
+        final boolean allAllelesFrom1Overlap = allelesFrom1In2 == totalAllelesIn1;
+        final boolean allAllelesFrom2Overlap = allelesFrom2In1 == totalAllelesIn2;
+
+        boolean thereIsOverlap = true;
+
+        if ( allAllelesFrom1Overlap && allAllelesFrom2Overlap ) {
+            writeOne(vc1, "intersection", status);
+        } else if ( allAllelesFrom1Overlap ) {
+            writeOne(vc2, "intersection", source1 + "IsSubsetOf" + source2);
+        } else if ( allAllelesFrom2Overlap ) {
+            writeOne(vc1, "intersection", source2 + "IsSubsetOf" + source1);
+        } else if ( allelesFrom1In2 > 0 ) {
+            writeOne(vc1, "intersection", "someAllelesTheSame");
+        } else if ( totalAllelesIn1 > 1 || totalAllelesIn2 > 1 ) { // we don't handle multi-allelics in the haplotype-based reconstruction
+            writeOne(vc1, "intersection", "noAllelesTheSame");
+        } else {
+            thereIsOverlap = false;
+        }
+
+        return thereIsOverlap;
+    }
+
+    private static int findOverlap(final VariantContext target, final VariantContext comparison) {
+        int overlap = 0;
+        for ( final Allele allele : target.getAlternateAlleles() ) {
+            if ( comparison.hasAlternateAllele(allele) )
+                overlap++;
+        }
+        return overlap;
     }
 
     private static final double SW_MATCH = 4.0;
@@ -303,8 +335,6 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
     }
 
     private byte[] generateHaplotype(final List<VariantContext> sourceVCs, final ReferenceContext refContext) {
-
-        // TODO -- handle multi-allelic events
 
         final StringBuilder sb = new StringBuilder();
 
