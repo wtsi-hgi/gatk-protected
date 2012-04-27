@@ -98,6 +98,15 @@ class xhmmCNVpipeline extends QScript {
   @Argument(shortName = "genotypeParams", doc = "xhmm command-line parameters for genotyping step", required = false)
   var genotypeCommandLineParams: String = ""
 
+  @Argument(shortName = "genotypeSubsegments", doc = "Should we also genotype all subsegments of the discovered CNV?", required = false)
+  var genotypeSubsegments: Boolean = false
+
+  @Argument(shortName = "maxTargetsInSubsegment", doc = "If genotypeSubsegments, then only consider sub-segments consisting of this number of targets or fewer", required = false)
+  var maxTargetsInSubsegment = 30
+
+  @Argument(shortName = "subsegmentGenotypeThreshold", doc = "If genotypeSubsegments, this is the default genotype quality threshold for the sub-segments", required = false)
+  var subsegmentGenotypeThreshold = 20.0
+
   @Argument(shortName = "longJobQueue", doc = "Job queue to run the 'long-running' commands", required = false)
   var longJobQueue: String = ""
 
@@ -267,6 +276,11 @@ class xhmmCNVpipeline extends QScript {
 
     val genotype = new GenotypeCNVs(filterZscore.filteredZscored, discover.xcnv, filterOriginal.sameFiltered)
     add(genotype)
+
+    if (genotypeSubsegments) {
+      val genotypeSegs = new GenotypeCNVandSubsegments(filterZscore.filteredZscored, discover.xcnv, filterOriginal.sameFiltered)
+      add(genotypeSegs)
+    }
   }
 
   class PrepareTargets(intervalsIn : List[File], outIntervals : String) extends CommandLineFunction {
@@ -525,7 +539,7 @@ class xhmmCNVpipeline extends QScript {
     override def description = "Discovers CNVs in normalized data: " + command
   }
 
-  class GenotypeCNVs(inputParam: File, xcnv: File, origRDParam: File) extends CommandLineFunction with LongRunTime {
+  abstract class BaseGenotypeCNVs(inputParam: File, xcnv: File, origRDParam: File) extends CommandLineFunction with LongRunTime {
     @Input(doc = "")
     val input = inputParam
 
@@ -538,9 +552,6 @@ class xhmmCNVpipeline extends QScript {
     @Input(doc = "")
     val inXcnv = xcnv
 
-    @Output
-    val vcf: File = new File(outputBase.getPath + ".vcf")
-
     var command: String =
       xhmmExec + " --genotype" +
       " -p " + xhmmParams +
@@ -548,11 +559,33 @@ class xhmmCNVpipeline extends QScript {
       " -g " + inXcnv +
       " -F " + referenceFile +
       " -R " + origRD +
-      " -v " +  vcf +
       " " + genotypeCommandLineParams
+  }
+
+  class GenotypeCNVs(inputParam: File, xcnv: File, origRDParam: File) extends BaseGenotypeCNVs(inputParam, xcnv, origRDParam) {
+    @Output
+    val vcf: File = new File(outputBase.getPath + ".vcf")
+
+    command +=
+      " -v " +  vcf
 
     def commandLine = command
 
     override def description = "Genotypes discovered CNVs in all samples: " + command
+  }
+
+  class GenotypeCNVandSubsegments(inputParam: File, xcnv: File, origRDParam: File) extends BaseGenotypeCNVs(inputParam, xcnv, origRDParam) {
+    @Output
+    val vcf: File = new File(outputBase.getPath + ".subsegments.vcf")
+
+    command +=
+      " -v " +  vcf +
+      " --subsegments" +
+      " --maxTargetsInSubsegment " + maxTargetsInSubsegment +
+      " --genotypeQualThresholdWhenNoExact " + subsegmentGenotypeThreshold
+
+    def commandLine = command
+
+    override def description = "Genotypes discovered CNVs (and their sub-segments, of up to " + maxTargetsInSubsegment + " targets) in all samples: " + command
   }
 }

@@ -22,6 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import collection.immutable.ListMap
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.utils.interval.IntervalUtils
@@ -61,10 +62,7 @@ class WholeGenomePipeline extends QScript {
   def script() {
     // TODO: examine dontRequestMultipleCores as a global variable versus a local
     // -nit uses a background thread to avoid 1024 ulimit, but the thread 1-10% of a CPU.
-    this.qSettings.dontRequestMultipleCores = true
-
-    var runIntervals = Seq.empty[String]
-    var intervals = Traversable.empty[Interval]
+    //this.qSettings.dontRequestMultipleCores = true
 
     var reference = "/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta"
     val resources = "/humgen/gsa-pipeline/resources/b37/v4/"
@@ -77,7 +75,6 @@ class WholeGenomePipeline extends QScript {
 
     trait CommandLineGATKArgs extends CommandLineGATK {
       this.reference_sequence = reference
-      this.intervalsString = runIntervals
       this.memoryLimit = pipelineMemoryLimit
     }
 
@@ -92,40 +89,45 @@ class WholeGenomePipeline extends QScript {
       this.memoryLimit = vqsrMemoryLimit
     }
 
-    case class Interval(chr: String, start: Long, stop: Long) {
-      override def toString = "%s:%d-%d".format(chr, start, stop)
+    case class Interval(description: String, chr: String, start: Long, stop: Long) {
+      def intervalString = "%s:%d-%d".format(chr, start, stop)
     }
 
     runType = runType.toLowerCase
     val contigSizes = IntervalUtils.getContigSizes(reference)
+    var callIntervals = Seq.empty[Interval]
+    var vqsrIntervals = Seq.empty[Interval]
+    var evalIntervals = Seq.empty[Interval]
     if (runType == "wg") {
       val contigs = (1 to 22).map(_.toString) ++ Seq("X", "Y", "MT")
-      intervals = contigs.map(chr => new Interval(chr, 1, contigSizes.get(chr).longValue))
-      runIntervals = Nil
+      callIntervals = contigs.map(chr => new Interval("chr" + chr, chr, 1, contigSizes.get(chr).longValue))
+      vqsrIntervals = Nil
+      evalIntervals = callIntervals.find(_.description == "chr20").toSeq
     } else {
-      val locs = Map(
-        "cent1" -> new Interval("1", 121429168, 121529168),
-        "cent16" -> new Interval("16", 40844464, 40944464),
-        "chr20" -> new Interval("20", 1, contigSizes.get("20").longValue),
-        "chr20_100k" -> new Interval("20", 100001, 200000))
+      val locs = Seq(
+        new Interval("cent1", "1", 121429168, 121529168),
+        new Interval("cent16", "16", 40844464, 40944464),
+        new Interval("chr20", "20", 1, contigSizes.get("20").longValue),
+        new Interval("chr20_100k", "20", 100001, 200000))
 
-      locs.get(runType) match {
-        case Some(range) =>
-          intervals = Seq(range)
-          runIntervals = Seq(range.toString)
+      locs.find(_.description == runType) match {
+        case Some(interval) =>
+          callIntervals = Seq(interval)
+          vqsrIntervals = Seq(interval)
+          evalIntervals = Seq(interval)
         case None =>
-          throw new RuntimeException("Invalid runType: " + runType + ". Must be one of: " + locs.keys.mkString(", ") + ", or wg")
+          throw new RuntimeException("Invalid runType: " + runType + ". Must be one of: " + locs.map(_.description).mkString(", ") + ", or wg")
       }
     }
 
     require(bamList != null && bamList.getName.endsWith(".bam.list"), "-I/--bamList must be specified as <projectName>.bam.list")
     val project = bamList.getName.stripSuffix(".bam.list")
 
-    var snpChrVcfs = Seq.empty[File]
-    var indelChrVcfs = Seq.empty[File]
+    var snpChrVcfs = ListMap.empty[Interval, File]
+    var indelChrVcfs = ListMap.empty[Interval, File]
     val glModels = Seq(Model.SNP, Model.INDEL)
 
-    for (interval <- intervals) {
+    for (interval <- callIntervals) {
       var snpChunkVcfs = Seq.empty[File]
       var indelChunkVcfs = Seq.empty[File]
 
@@ -216,17 +218,19 @@ class WholeGenomePipeline extends QScript {
         }
 
         val combineChunks = new CombineVariants with CommandLineGATKArgs
+        combineChunks.intervalsString = Seq(interval.intervalString)
         combineChunks.variant = chunkVcfs.zipWithIndex.map { case (vcf, index) => TaggedFile(vcf, "input"+index) }
         combineChunks.rod_priority_list = chunkVcfs.zipWithIndex.map { case (vcf, index) => "input"+index }.mkString(",")
+        combineChunks.suppressCommandLineHeader = true
         combineChunks.assumeIdenticalSamples = true
         combineChunks.out = chrDir + chrBase + "." + glModel.toString.toLowerCase + "s.unfiltered.vcf"
         add(combineChunks)
 
         glModel match {
           case Model.SNP =>
-            snpChrVcfs :+= combineChunks.out
+            snpChrVcfs += interval -> combineChunks.out
           case Model.INDEL =>
-            indelChrVcfs :+= combineChunks.out
+            indelChrVcfs += interval -> combineChunks.out
         }
       }
     }
@@ -243,43 +247,47 @@ class WholeGenomePipeline extends QScript {
 
     for (glModel <- glModels) {
       val buildModel = new VariantRecalibrator with VQSRGATKArgs
+      buildModel.intervalsString = vqsrIntervals.map(_.intervalString)
       buildModel.trustAllPolymorphic = true
       buildModel.TStranche = tranches
       buildModel.recal_file = project + "." + glModel.toString.toLowerCase + "s.recal.vcf"
       buildModel.tranches_file = project + "." + glModel.toString.toLowerCase + "s.tranches"
       add(buildModel)
 
+      var tranche = 98.5
+      var chrVcfs = ListMap.empty[Interval, File]
       glModel match {
         case Model.SNP =>
-          buildModel.input = snpChrVcfs
+          chrVcfs = snpChrVcfs
+          //tranche = ...
+          buildModel.input = snpChrVcfs.values.toSeq
           buildModel.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
           buildModel.use_annotation = Seq("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "FS", "MQ", "InbreedingCoeff", "DP")
           buildModel.resource :+= TaggedFile(hapmap, "training=true,truth=true,prior=15.0")
           buildModel.resource :+= TaggedFile(k1gOmni, "training=true,prior=12.0")
           buildModel.resource :+= TaggedFile(dbsnp135, "known=true,prior=6.0")
         case Model.INDEL =>
-          buildModel.input = indelChrVcfs
+          chrVcfs = indelChrVcfs
+          //tranche = ...
+          buildModel.input = indelChrVcfs.values.toSeq
           buildModel.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
           buildModel.use_annotation = Seq("QD", "FS", "HaplotypeScore", "ReadPosRankSum", "InbreedingCoeff")
           buildModel.resource :+= TaggedFile(millsK1gIndels, "known=true,training=true,truth=true,prior=12.0")
       }
 
-
-      for (chrVcf <- buildModel.input) {
-        val tranche = glModel match {
-          case Model.SNP => 98.5
-          case Model.INDEL => 98.5
-        }
-
+      for ((interval, chrVcf) <- chrVcfs) {
         val applyRecalibration = new ApplyRecalibration with CommandLineGATKArgs
+        applyRecalibration.intervalsString = Seq(interval.intervalString)
         applyRecalibration.input :+= chrVcf
+        applyRecalibration.mode = buildModel.mode
         applyRecalibration.recal_file = buildModel.recal_file
         applyRecalibration.tranches_file = buildModel.tranches_file
         applyRecalibration.ts_filter_level = tranche
         applyRecalibration.out = swapBaseExt(chrVcf, ".unfiltered.vcf", ".recalibrated.tranche_" + tranche.toString.replace(".", "_") + ".vcf")
         add(applyRecalibration)
 
-        evalVcfs :+= applyRecalibration.out
+        if (evalIntervals.contains(interval))
+          evalVcfs :+= applyRecalibration.out
       }
     }
 
@@ -290,14 +298,13 @@ class WholeGenomePipeline extends QScript {
       val eval = new VariantEval with CommandLineGATKArgs
       eval.eval = evalVcfs
       eval.mergeEvals = true
+      eval.intervalsString = evalIntervals.map(_.intervalString)
       eval.dbsnp = dbsnp129
       eval.doNotUseAllStandardModules = true
       eval.evalModule = Seq("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
       eval.doNotUseAllStandardStratifications = true
       eval.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ strats
-      eval.out = project + strats.map(_.toLowerCase).mkString(".by_", "_", "") + ".eval"
-      eval
-
+      eval.out = project + evalIntervals.map(_.description).mkString(".", "_", "") + strats.map(_.toLowerCase).mkString(".by_", "_", "") + ".eval"
       add(eval)
     }
   }
