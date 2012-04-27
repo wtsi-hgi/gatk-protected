@@ -239,7 +239,8 @@ public class HaplotypeBasedEval extends RodWalker<Integer, Integer> {
             final GenomeLoc loc1 = getToolkit().getGenomeLocParser().createGenomeLoc(current1);
             final GenomeLoc loc2 = getToolkit().getGenomeLocParser().createGenomeLoc(current2);
 
-            if ( loc1.equals(loc2) ) {
+            if ( loc1.equals(loc2) ||
+                    (loc1.getStart() == loc2.getStart() && (current1.getAlternateAlleles().size() > 1 || current2.getAlternateAlleles().size() > 1)) ) {
                 // test the alleles
                 if ( determineAndWriteOverlap(current1, current2, status) ) {
                     sourceVCs1.remove(currentIndex1);
