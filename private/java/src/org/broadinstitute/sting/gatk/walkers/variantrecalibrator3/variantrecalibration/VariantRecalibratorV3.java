@@ -33,6 +33,7 @@ import org.broadinstitute.sting.gatk.walkers.PartitionBy;
 import org.broadinstitute.sting.gatk.walkers.PartitionType;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
+import org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibrator;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.R.RScriptExecutor;
@@ -324,10 +325,12 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
         // this automatically evaluates the data todo -- change the name so this is clear
         initialEngine.trainClassifier(dataManager,false);
         logger.info(String.format("Taking worst %.2f percent of variants as a negative set for second round of learning",VRAC.PERCENT_BAD_VARIANTS_FOR_RF));
-        ExpandingArrayList<VariantDatum> worstClassified = dataManager.selectWorstVariants(VRAC.PERCENT_BAD_VARIANTS_FOR_RF,VRAC.MIN_NUM_BAD_VARIANTS);
+        ExpandingArrayList<VariantDatum> worstClassified = dataManager.selectWorstVariantsNoThresholding(VRAC.PERCENT_BAD_VARIANTS_FOR_RF,VRAC.MIN_NUM_BAD_VARIANTS);
         for ( VariantDatum d : worstClassified ) {
             d.atNegativeTrainingSite = true;
         }
+        dataManager.removeWorstPositiveTrainingSites(VRAC.IGNORE_WORST_PERCENT_GOOD);
+        dataManager.reclassifyBestPositiveSites(VRAC.ADDITIONAL_GOOD_FOR_TREE);
         finalEngine.trainClassifier(dataManager, true);
 
         initialEngine.calculateWorstPerformingAnnotation( dataManager.getData() );
@@ -355,7 +358,7 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
 
         // Execute the RScript command to plot the table of truth values
         RScriptExecutor executor = new RScriptExecutor();
-        executor.addScript(new Resource(PLOT_TRANCHES_RSCRIPT, VariantRecalibratorV3.class));
+        executor.addScript(new Resource(PLOT_TRANCHES_RSCRIPT, VariantRecalibrator.class));
         executor.addArgs(TRANCHES_FILE.getAbsoluteFile(), TARGET_TITV);
         // Print out the command line to make it clear to the user what is being executed and how one might modify it
         logger.info("Executing: " + executor.getApproximateCommandLine());
@@ -382,33 +385,35 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
         stream.println("outputPDF <- \"" + RSCRIPT_FILE + ".pdf\"");
         stream.println("pdf(outputPDF)"); // Unfortunately this is a huge pdf file, BUGBUG: need to work on reducing the file size
 
-        for(int iii = 0; iii < dataManager.finalKeys.size(); iii++) {
-            for( int jjj = iii + 1; jjj < dataManager.finalKeys.size(); jjj++) {
+        for(int iii = 0; iii < dataManager.initialKeys.size(); iii++) {
+            for( int jjj = iii + 1; jjj < dataManager.initialKeys.size(); jjj++) {
                 logger.info( "Building " + USE_ANNOTATIONS[iii] + " x " + USE_ANNOTATIONS[jjj] + " plot...");
 
                 final ExpandingArrayList<VariantDatum> fakeData = new ExpandingArrayList<VariantDatum>();
                 double minAnn1 = 100.0, maxAnn1 = -100.0, minAnn2 = 100.0, maxAnn2 = -100.0;
                 for( final VariantDatum datum : randomData ) {
-                    minAnn1 = Math.min(minAnn1, datum.finalAnnotations[iii]);
-                    maxAnn1 = Math.max(maxAnn1, datum.finalAnnotations[iii]);
-                    minAnn2 = Math.min(minAnn2, datum.finalAnnotations[jjj]);
-                    maxAnn2 = Math.max(maxAnn2, datum.finalAnnotations[jjj]);
+                    minAnn1 = Math.min(minAnn1, datum.initialAnnotations[iii]);
+                    maxAnn1 = Math.max(maxAnn1, datum.initialAnnotations[iii]);
+                    minAnn2 = Math.min(minAnn2, datum.initialAnnotations[jjj]);
+                    maxAnn2 = Math.max(maxAnn2, datum.initialAnnotations[jjj]);
                 }
                 // Create a fake set of data which spans the full extent of these two annotation dimensions in order to calculate the model PDF projected to 2D
                 for(double ann1 = minAnn1; ann1 <= maxAnn1; ann1+=0.1) {
                     for(double ann2 = minAnn2; ann2 <= maxAnn2; ann2+=0.1) {
                         final VariantDatum datum = new VariantDatum();
                         datum.prior = 0.0;
-                        datum.finalAnnotations = new double[randomData.get(0).finalAnnotations.length];
-                        datum.isNullFinal = new boolean[randomData.get(0).finalAnnotations.length];
-                        for(int ann=0; ann< datum.finalAnnotations.length; ann++) {
-                            datum.finalAnnotations[ann] = 0.0;
-                            datum.isNullFinal[ann] = true;
+                        datum.initialAnnotations = new double[randomData.get(0).initialAnnotations.length];
+                        datum.isNullInitial = new boolean[randomData.get(0).initialAnnotations.length];
+                        for(int ann=0; ann< datum.initialAnnotations.length; ann++) {
+                            datum.initialAnnotations[ann] = 0.0;
+                            datum.isNullInitial[ann] = true;
                         }
-                        datum.finalAnnotations[iii] = ann1;
-                        datum.finalAnnotations[jjj] = ann2;
-                        datum.isNullFinal[iii] = false;
-                        datum.isNullFinal[jjj] = false;
+                        datum.initialAnnotations[iii] = ann1;
+                        datum.initialAnnotations[jjj] = ann2;
+                        datum.isNullInitial[iii] = false;
+                        datum.isNullInitial[jjj] = false;
+                        datum.finalAnnotations = datum.initialAnnotations;
+                        datum.isNullFinal = datum.isNullInitial;
                         fakeData.add(datum);
                     }
                 }

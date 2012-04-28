@@ -25,12 +25,18 @@
 
 package org.broadinstitute.sting.gatk.walkers.variantrecalibrator3.variantrecalibration;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.walkers.bqsr.RecalDataManager;
 import org.broadinstitute.sting.utils.collections.ExpandingArrayList;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -60,9 +66,14 @@ public class GMMRecalibratorEngine extends VariantRecalibratorEngine<GaussianMix
         super(VRAC);
     }
 
+    @Deprecated
     protected GaussianMixtureModel generateModel(final List<VariantDatum> data, boolean isFinal) {
+        throw new ReviewedStingException("This implementaiton is deprecated. Please use the one allowing ngaussians immediately specified.");
+    }
+
+    protected GaussianMixtureModel generateModel(final List<VariantDatum> data, boolean isFinal, int nGaussians) {
         double[] annots = isFinal ? data.get(0).finalAnnotations : data.get(0).initialAnnotations;
-        return new  GaussianMixtureModel( VRAC.MAX_GAUSSIANS, annots.length, VRAC.SHRINKAGE, VRAC.DIRICHLET_PARAMETER, VRAC.PRIOR_COUNTS,isFinal );
+        return new GaussianMixtureModel( nGaussians, annots.length, VRAC.SHRINKAGE, VRAC.DIRICHLET_PARAMETER, VRAC.PRIOR_COUNTS,isFinal );
     }
 
     public void evaluateData( final List<VariantDatum> data, final GaussianMixtureModel model, final boolean evaluateContrastively) {
@@ -83,7 +94,7 @@ public class GMMRecalibratorEngine extends VariantRecalibratorEngine<GaussianMix
             final double thisLod = evaluateDatum( datum, model );
             if( Double.isNaN(thisLod) ) {
                 model.failedToConverge = true;
-                return;
+                //return;
             }
 
             double lod = ( evaluateContrastively ?
@@ -126,26 +137,31 @@ public class GMMRecalibratorEngine extends VariantRecalibratorEngine<GaussianMix
 
     public void trainClassifier(VariantDataManager dataManager,boolean isFinal) {
         ExpandingArrayList<VariantDatum> trainingData = dataManager.getTrainingData();
-        goodModel = generateModel(trainingData,isFinal);
+        goodModel = generateModel(trainingData,isFinal,VRAC.POS_MAX_GAUSSIANS);
         this.variationalBayesExpectationMaximization(goodModel,trainingData);
         this.evaluateData(dataManager.getData(),goodModel,false);
 
+        if ( goodModel.failedToConverge ) {
+            throw new UserException("NaN LOD value assigned. Clustering with this few variants and these annotations is unsafe. Please consider raising the number of variants used to train the negative model (via --percentBadVariants 0.05, for example) or lowering the maximum number of Gaussians to use in the model (via --maxGaussians 4, for example)");
+        }
+
         final ExpandingArrayList<VariantDatum> negativeTrainingData = dataManager.selectWorstVariants(VRAC.PERCENT_BAD_VARIANTS,VRAC.MIN_NUM_BAD_VARIANTS);
-        badModel = this.generateModel(negativeTrainingData,isFinal);
+        badModel = this.generateModel(negativeTrainingData,isFinal,VRAC.NEG_MAX_GAUSSIANS);
         this.variationalBayesExpectationMaximization(badModel,negativeTrainingData);
         this.evaluateData(dataManager.getData(),badModel,true);
 
         // Detect if the negative model failed to converge because of too few points and/or too many Gaussians and try again
-        while( badModel.failedToConverge && VRAC.MAX_GAUSSIANS > 4 ) {
+        while( badModel.failedToConverge && VRAC.NEG_MAX_GAUSSIANS > 1 ) {
             logger.info("Negative model failed to converge. Retrying...");
-            VRAC.MAX_GAUSSIANS--;
-            badModel = this.generateModel( negativeTrainingData,isFinal );
+            VRAC.NEG_MAX_GAUSSIANS--;
+            badModel = this.generateModel( negativeTrainingData,isFinal, VRAC.NEG_MAX_GAUSSIANS );
             this.evaluateData( dataManager.getData(), goodModel, false );
             this.evaluateData( dataManager.getData(), badModel, true );
         }
 
-        if( badModel.failedToConverge || goodModel.failedToConverge ) {
-            throw new UserException("NaN LOD value assigned. Clustering with this few variants and these annotations is unsafe. Please consider raising the number of variants used to train the negative model (via --percentBadVariants 0.05, for example) or lowering the maximum number of Gaussians to use in the model (via --maxGaussians 4, for example)");
+        if( badModel.failedToConverge ) {
+            logger.warn("Bad model consistently failing to converge; using flat prior. NaN LOD value assigned. Clustering with this few variants and these annotations is unsafe. Please consider raising the number of variants used to train the negative model (via --percentBadVariants 0.05, for example) or lowering the maximum number of Gaussians to use in the model (via --maxGaussians 4, for example)");
+            this.evaluateData( dataManager.getData(), goodModel, false );
         }
     }
 

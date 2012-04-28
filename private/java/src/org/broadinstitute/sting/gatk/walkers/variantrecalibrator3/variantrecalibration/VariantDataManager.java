@@ -25,6 +25,8 @@
 
 package org.broadinstitute.sting.gatk.walkers.variantrecalibrator3.variantrecalibration;
 
+import ca.mcgill.mcb.pcingola.collections.ArrayUtil;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -34,11 +36,10 @@ import org.broadinstitute.sting.utils.collections.ExpandingArrayList;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Created by IntelliJ IDEA.
@@ -101,12 +102,12 @@ public class VariantDataManager {
         for( int iii = 0; iii < meanVector.length; iii++ ) {
             final double theMean = meanVector[iii];
             final double theSTD = Math.sqrt(varianceVector[iii]/(obsCounts[iii]-1));
-            logger.info( allKeys.get(iii) + String.format(": \t mean = %.2f\t standard deviation = %.2f", theMean, theSTD) );
+            logger.info( allKeys.get(iii) + String.format(": \t mean = %.8f\t standard deviation = %.8f", theMean, theSTD) );
             if( obsCounts[iii] == 0 ) {
                 throw new UserException.BadInput("Values for " + allKeys.get(iii) + " annotation not detected for ANY training variant in the input callset. VariantAnnotator may be used to add these annotations. See http://www.broadinstitute.org/gsa/wiki/index.php/VariantAnnotator");
             }
 
-            foundZeroVarianceAnnotation = foundZeroVarianceAnnotation || (theSTD < 1E-6);
+            foundZeroVarianceAnnotation |= (theSTD < 1E-6);
             int initIdx = -1;
             int finIdx = -1;
             if ( initialTraining[iii] )
@@ -128,9 +129,13 @@ public class VariantDataManager {
             for( final double val : datum.initialAnnotations ) {
                 remove = remove || (Math.abs(val) > VRAC.STD_THRESHOLD);
             }
+            /**
+             * todo -- i'm pretty sure we don't want to threshold on the final annotations
+             *
             for ( final double val : datum.finalAnnotations ) {
                 remove = remove || (Math.abs(val) > VRAC.STD_THRESHOLD);
             }
+             */
             datum.failingSTDThreshold = remove;
         }
     }
@@ -140,9 +145,9 @@ public class VariantDataManager {
             datum.initialAnnotations[initIdx] = datum.isNullInitial[initIdx] ? GenomeAnalysisEngine.getRandomGenerator().nextGaussian() : (datum.initialAnnotations[initIdx] - mean)/std;
         }
 
-        if ( finalIdx > -1 ) {
+        /*if ( finalIdx > -1 ) {
             datum.finalAnnotations[finalIdx] = datum.isNullFinal[finalIdx] ? GenomeAnalysisEngine.getRandomGenerator().nextGaussian() : (datum.finalAnnotations[finalIdx] - mean)/std;
-        }
+        }*/ // don't actually want to normalize the final data
     }
 
      public void addTrainingSet( final TrainingSet trainingSet ) {
@@ -241,18 +246,20 @@ public class VariantDataManager {
 
     public void decodeAnnotations( final VariantDatum datum, final VariantContext vc, final boolean jitter ) {
         final double[] annotations = new double[allKeys.size()];
+        final double[] rawAnnotations = new double[allKeys.size()];
         final boolean[] isNull = new boolean[allKeys.size()];
         int iii = 0;
         for( final String key : allKeys ) {
             isNull[iii] = false;
-            annotations[iii] = decodeAnnotation( key, vc, jitter );
+            annotations[iii] = decodeAnnotation( key, vc, jitter,true ); // jitters and does special hard-coded stuff
+            rawAnnotations[iii] = decodeAnnotation(key,vc,false,false); // no jitter, no hard-coded stuff
             if( Double.isNaN(annotations[iii]) ) { isNull[iii] = true; }
             iii++;
         }
         if ( datum.atPositiveTrainingSite ) {
             updateStatistics(annotations,isNull);
         }
-        segregateInitialFinalAnnotations(annotations,isNull,datum);
+        segregateInitialFinalAnnotations(annotations,rawAnnotations,isNull,datum);
     }
 
     private void updateStatistics(double[] vector, boolean[] isNull) {
@@ -267,7 +274,68 @@ public class VariantDataManager {
         }
     }
 
-    private void segregateInitialFinalAnnotations(double[] annotations, boolean[] isNull, VariantDatum datum) {
+    public void removeWorstPositiveTrainingSites(double ignorePercentage) {
+        ExpandingArrayList<VariantDatum> trainingData = new ExpandingArrayList<VariantDatum>();
+        for ( VariantDatum datum : data ) {
+            if ( datum.atPositiveTrainingSite ) {
+                trainingData.add(datum);
+            }
+        }
+
+        Collections.sort(trainingData);
+        int stop = (int) Math.round(ignorePercentage*trainingData.size());
+        logger.info(String.format("Un-classifying the worst %.2f percent of positive training data with LOD<=%.2f",100*ignorePercentage,trainingData.get(stop).getLod()));
+        for ( int idx = 0; idx < stop; idx++ ) {
+            trainingData.get(idx).atPositiveTrainingSite=false;
+        }
+    }
+
+    public void reclassifyBestPositiveSites(double topPercentage) {
+        int stopIdx = data.size()-1-((int) (topPercentage*data.size()));
+        Collections.sort(data);
+        logger.info(String.format("Classifying the best %.2f percent of classified sites with LOD >= %.2f",100*topPercentage,data.get(stopIdx).getLod()));
+        for ( int ctr = 0; ctr < (int) (topPercentage*data.size()); ctr++ ) {
+            int idx = data.size()-1-ctr;
+            data.get(idx).atPositiveTrainingSite = true;
+        }
+    }
+
+    public ExpandingArrayList<VariantDatum> selectWorstVariantsNoThresholding( double bottomPercentage, final int minimumNumber ) {
+        // The return value is the list of training variants
+        final ExpandingArrayList<VariantDatum> trainingData = new ExpandingArrayList<VariantDatum>();
+
+        // First add to the training list all sites overlapping any bad sites training tracks
+        for( final VariantDatum datum : data ) {
+            if( datum.atNegativeTrainingSite && !datum.failingSTDThreshold && !Double.isInfinite(datum.getLod()) ) {
+                trainingData.add( datum );
+            }
+        }
+        final int numBadSitesAdded = trainingData.size();
+        logger.info( "Found " + numBadSitesAdded + " variants overlapping bad sites training tracks." );
+
+        // Next sort the variants by the LOD coming from the positive model and add to the list the bottom X percent of variants
+        Collections.sort( data );
+        final int numToAdd = Math.max( minimumNumber - trainingData.size(), Math.round((float)bottomPercentage * data.size()) );
+        if( numToAdd > data.size() ) {
+            throw new UserException.BadInput( "Error during negative model training. Minimum number of variants to use in training is larger than the whole call set. One can attempt to lower the --minNumBadVariants arugment but this is unsafe." );
+        } else if( numToAdd == minimumNumber - trainingData.size() ) {
+            logger.warn( "WARNING: Training with very few variant sites! Please check the model reporting PDF to ensure the quality of the model is reliable." );
+            bottomPercentage = ((float) numToAdd) / ((float) data.size());
+        }
+        int index = 0, numAdded = 0;
+        while( numAdded < numToAdd ) {
+            final VariantDatum datum = data.get(index++);
+            if( !datum.atNegativeTrainingSite ) {
+                datum.atNegativeTrainingSite = true;
+                trainingData.add( datum );
+                numAdded++;
+            }
+        }
+        logger.info( "Additionally training with worst " + String.format("%.3f", (float) bottomPercentage * 100.0f) + "% of passing data --> " + (trainingData.size() - numBadSitesAdded) + " variants with LOD <= " + String.format("%.4f", data.get(index).getLod()) + "." );
+        return trainingData;
+    }
+
+    private void segregateInitialFinalAnnotations(double[] annotations, double[] rawAnnotations, boolean[] isNull, VariantDatum datum) {
         double[] init = new double[initialKeys.size()];
         double[] finT = new double[finalKeys.size()];
         boolean[] nullInit = new boolean[initialKeys.size()];
@@ -281,7 +349,7 @@ public class VariantDataManager {
                 initIdx++;
             }
             if ( finalTraining[idx] ) {
-                finT[finIdx] = annotations[idx];
+                finT[finIdx] = rawAnnotations[idx];
                 nullFinal[finIdx] = isNull[idx];
                 finIdx++;
             }
@@ -292,26 +360,28 @@ public class VariantDataManager {
         datum.isNullFinal = nullFinal;
     }
 
-    private static double decodeAnnotation( final String annotationKey, final VariantContext vc, final boolean jitter ) {
+    private static double decodeAnnotation( final String annotationKey, final VariantContext vc, final boolean jitter, final boolean specialSauce ) {
         double value;
 
         try {
             value = Double.parseDouble( (String)vc.getAttribute( annotationKey ) );
             if( Double.isInfinite(value) ) { value = Double.NaN; }
-            if( jitter && annotationKey.equalsIgnoreCase("HRUN") ) { // Integer valued annotations must be jittered a bit to work in this GMM, and RF doesn't care
-                  value += -0.25 + 0.5 * GenomeAnalysisEngine.getRandomGenerator().nextDouble();
+            if( jitter && annotationKey.equalsIgnoreCase("HRUN") ) { // Integer valued annotations must be jittered a bit to work in this GMM
+                if ( specialSauce ) {
+                    value += -0.25 + 0.5 * GenomeAnalysisEngine.getRandomGenerator().nextDouble();
+                }
             }
 
             if (vc.isIndel() && annotationKey.equalsIgnoreCase("QD")) {
             // normalize QD by event length for indel case
                 int eventLength = Math.abs(vc.getAlternateAllele(0).getBaseString().length() - vc.getReference().getBaseString().length()); // ignore multi-allelic complication here for now
-                if (eventLength > 0) { // sanity check
+                if (eventLength > 0 && specialSauce ) { // sanity check
                     value /= (double)eventLength;
                 }
             }
 
-            if( jitter && annotationKey.equalsIgnoreCase("HaplotypeScore") && MathUtils.compareDoubles(value, 0.0, 0.0001) == 0 ) { value = -0.2 + 0.4*GenomeAnalysisEngine.getRandomGenerator().nextDouble(); }
-            if( jitter && annotationKey.equalsIgnoreCase("FS") && MathUtils.compareDoubles(value, 0.0, 0.001) == 0 ) { value = -0.2 + 0.4*GenomeAnalysisEngine.getRandomGenerator().nextDouble(); }
+            if( specialSauce && jitter && annotationKey.equalsIgnoreCase("HaplotypeScore") && MathUtils.compareDoubles(value, 0.0, 0.0001) == 0 ) { value = -0.2 + 0.4*GenomeAnalysisEngine.getRandomGenerator().nextDouble(); }
+            if( specialSauce && jitter && annotationKey.equalsIgnoreCase("FS") && MathUtils.compareDoubles(value, 0.0, 0.001) == 0 ) { value = -0.2 + 0.4*GenomeAnalysisEngine.getRandomGenerator().nextDouble(); }
         } catch( Exception e ) {
             value = Double.NaN; // The VQSR works with missing data by marginalizing over the missing dimension when evaluating the Gaussian mixture model
         }
@@ -334,9 +404,8 @@ public class VariantDataManager {
                     datum.atPositiveTrainingSite = datum.atPositiveTrainingSite || trainingSet.isTraining;
                     datum.prior = Math.max( datum.prior, trainingSet.prior );
                     datum.consensusCount += ( trainingSet.isConsensus ? 1 : 0 );
-                }
-                if( trainVC != null ) {
                     datum.atNegativeTrainingSite = datum.atNegativeTrainingSite || trainingSet.isAntiTraining;
+                    datum.atMonomorphicSite = datum.atMonomorphicSite || trainingSet.isMonomorphic;
                 }
             }
         }
