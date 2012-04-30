@@ -30,13 +30,9 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.poolcaller.ErrorModel;
-import org.broadinstitute.sting.gatk.walkers.poolcaller.ReferenceSample;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
@@ -96,8 +92,8 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
                 if (refPileup != null && !(UAC.TREAT_ALL_READS_AS_SINGLE_POOL || UAC.IGNORE_LANE_INFO))
                     refLanePileup = refPileup.getPileupForLane(laneID);
 
-                ReferenceSample referenceSample = new ReferenceSample(UAC.referenceSampleName, refLanePileup, trueReferenceAlleles);
-                perLaneErrorModels.put(laneID, new ErrorModel(UAC.minQualityScore, UAC.maxQualityScore, UAC.phredScaledPrior, referenceSample, UAC.minPower));
+                //ReferenceSample referenceSample = new ReferenceSample(UAC.referenceSampleName, refLanePileup, trueReferenceAlleles);
+                perLaneErrorModels.put(laneID, new ErrorModel(UAC.minQualityScore, UAC.maxQualityScore, UAC.phredScaledPrior,  refLanePileup, trueReferenceAlleles, UAC.minPower));
             }
 
 

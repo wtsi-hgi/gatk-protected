@@ -2,7 +2,6 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 
 import net.sf.samtools.SAMUtils;
-import org.broadinstitute.sting.gatk.walkers.poolcaller.ErrorModel;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -153,8 +152,8 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
      * @return                        number of observations added
      */
     private int add(final int nA, final int nC, final int nG, final int nT, final ErrorModel errorModel) {
-        final int minQ = errorModel.getMinQualityScore();
-        final int maxQ = errorModel.getMaxQualityScore();
+        final int minQ = errorModel.getMinSignificantQualityScore();
+        final int maxQ = errorModel.getMaxSignificantQualityScore();
 
         List<Allele> myAlleles = new ArrayList<Allele>(alleles);
 
@@ -187,6 +186,7 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
             // for observed base X, add Q(jX,k) to likelihood vector for all k in error model
             //likelihood(jA,jC,jG,jT) = logsum(logPr (errorModel[k],nA*Q(jA,k) +  nC*Q(jC,k) + nG*Q(jG,k) + nT*Q(jT,k))
             double[] acVec = new double[maxQ - minQ + 1];
+            Arrays.fill(acVec,Double.NEGATIVE_INFINITY);
 
             // fill currentCnt with either current iterator state, or pad with zeros if iterator is shorter because we had less alleles
             int[] currentCnt = Arrays.copyOf(iterator.getCurrentVector(),BaseUtils.BASES.length);
@@ -201,7 +201,7 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
                         nG*logMismatchProbabilityArray[jG][k] +
                         nT*logMismatchProbabilityArray[jT][k];
 
-            double pl = MathUtils.logDotProduct(errorModel.getErrorModelVector(), acVec);
+            double pl = MathUtils.logDotProduct(errorModel.getErrorModelVector().getProbabilityVector(minQ,maxQ), acVec);
 
             setLogPLs(plIdx++, pl);
             iterator.next();
