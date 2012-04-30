@@ -25,6 +25,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
+import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -41,7 +42,7 @@ public abstract class PoolGenotypeLikelihoods {
     //
     // The fundamental data arrays associated with a Genotype Likelhoods object
     //
-    protected final double[] log10Likelihoods;
+    protected double[] log10Likelihoods;
 
     protected final int nSamplesPerPool;
     protected final HashMap<String, ErrorModel> perLaneErrorModels;
@@ -220,6 +221,9 @@ public abstract class PoolGenotypeLikelihoods {
             log10Likelihoods[idx] = pl;
     }
 
+    public void renormalize() {
+        log10Likelihoods = MathUtils.normalizeFromLog10(log10Likelihoods,false,true);
+    }
     /** Compute most likely AC conformation based on currently stored PL's - just loop through log PL map and output max value
      *
      * @return vector with most likely allele count, ordered according to this object's alleles
@@ -401,16 +405,40 @@ public abstract class PoolGenotypeLikelihoods {
         return cache;
     }
 
-    
+    /**
+     * Return a string representation of this object in a moderately usable form
+     *
+     * @return string representation
+     */
+    public String toString() {
+        StringBuilder s = new StringBuilder(1000);
+
+        s.append("Alleles:");
+        for (Allele a: this.alleles){
+            s.append(a.getDisplayString());
+            s.append(",");
+        }
+        s.append("\nGLs:\n");
+        SumIterator iterator = new SumIterator(nAlleles,numChromosomes);
+        while (iterator.hasNext()) {
+            s.append("Count [");
+            StringBuilder b = new StringBuilder(iterator.getCurrentVector().length*2);
+            for (int it:iterator.getCurrentVector()) {
+                b.append(it);
+                b.append(",");
+            }
+            s.append(b.toString());
+            s.append(String.format("] GL=%4.3f\n",this.getLikelihoods()[iterator.getLinearIndex()]) );
+            iterator.next();
+        }
+        return s.toString();
+    }
+
+
     // small helper routines to dump primitive array to screen
     public static void outputVectorAsString(int[] array) {
         for (int d:array) 
             System.out.format("%d ",d);
-        System.out.println();
-    }
-    public static void outputVectorAsString(double[] array) {
-        for (double d:array)
-            System.out.format("%4.3f ",d);
         System.out.println();
     }
 }

@@ -81,26 +81,21 @@ public class ErrorModel  {
         this.probabilityVector = new ProbabilityVector(model, compressRange);
     }
 
-    @Requires({
-            "q >= minQualityScore",
-            "q <= maxQualityScore",
-            "coverage >= 0",
-            "matches >= 0",
-            "matches <= coverage",
-            "mismatches >= 0",
-            "mismatches <= coverage"
-    })
-    @Ensures({"result <= 0", "! Double.isInfinite(result)", "! Double.isNaN(result)"})
-//todo -- memoize this function
-    // returns log10(p^mismatches* (1-p)^matches * choose(coverage,mismatches) * prior)
 
-    private double log10ProbabilitySiteGivenQual(byte q, int coverage, int matches, int mismatches) {
-        double probMismatch = MathUtils.phredScaleToProbability(q);
-        return MathUtils.phredScaleToLog10Probability(phredScaledPrior) +
-                MathUtils.log10BinomialCoefficient(coverage, mismatches) +
-                mismatches * Math.log10(probMismatch) +
-                matches * Math.log10(1-probMismatch);
+    /**
+     * Simple constructor that just takes a given log-probability vector as error model.
+     * Only intended for unit testing, not general usage.
+     * @param pvector       Given vector of log-probabilities
+     *
+     */
+    public ErrorModel(double[] pvector) {
+        this.maxQualityScore = (byte)(pvector.length-1);
+        this.minQualityScore = 0;
+        this.probabilityVector = new ProbabilityVector(pvector, compressRange);
+
     }
+
+
 
     /**
      * What's the log-likelihood that a site's quality is equal to q? If we see N observations and n mismatches,
@@ -114,6 +109,13 @@ public class ErrorModel  {
      * @param mismatches            Number of mismatches
      * @return                      Likelihood of observations as a function of q
      */
+    @Requires({
+            "q >= minQualityScore",
+            "q <= maxQualityScore",
+            "coverage >= 0",
+            "mismatches >= 0",
+            "mismatches <= coverage"
+    })
     private double log10PoissonProbabilitySiteGivenQual(byte q, int coverage, int mismatches) {
         // same as   log10ProbabilitySiteGivenQual but with Poisson approximation to avoid numerical underflows
         double lambda = MathUtils.phredScaleToProbability(q) * (double )coverage;

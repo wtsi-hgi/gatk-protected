@@ -207,6 +207,8 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
             iterator.next();
         }
 
+        // normalize PL's
+        renormalize();
         return 1;
     }
 
@@ -215,11 +217,11 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
      * likelihoods for a pileup element.  May return 0 to indicate that the observation is bad, and may
      * cap the quality score by the mapping quality of the read itself.
      *
-     * @param p
-     * @param ignoreBadBases
-     * @param capBaseQualsAtMappingQual
-     * @param minBaseQual
-     * @return
+     * @param p                            Pileup element
+     * @param ignoreBadBases               Flag to ignore bad bases
+     * @param capBaseQualsAtMappingQual    Whether to cap base Q at mapping quality
+     * @param minBaseQual                  Min qual to use
+     * @return                             New phred-scaled base quality
      */
     private static byte qualToUse(PileupElement p, boolean ignoreBadBases, boolean capBaseQualsAtMappingQual, int minBaseQual) {
         if ( ignoreBadBases && !BaseUtils.isRegularBase( p.getBase() ) )
@@ -244,18 +246,6 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
     //
     //
     // -----------------------------------------------------------------------------------------------------------------
-
-    /**
-     * Return a string representation of this object in a moderately usable form
-     *
-     * @return string representation
-     */
-    public String toString() {
-        double sum = 0;
-        StringBuilder s = new StringBuilder();
-        s.append(String.format(" %f", sum));
-        return s.toString();
-    }
 
 
     //

@@ -1,32 +1,50 @@
+/*
+ * Copyright (c) 2010.
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+ * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
-import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMUtils;
+import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.gatk.walkers.Walker;
+import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.pileup.PileupElement;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
-import org.broadinstitute.sting.utils.sam.ArtificialSAMUtils;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-/**
- * Created by IntelliJ IDEA.
- * User: delangel
- * Date: 4/3/12
- * Time: 7:26 PM
- * To change this template use File | Settings | File Templates.
- */
+
 public class PoolGenotypeLikelihoodsUnitTest {
 
+    final UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
+    final Logger logger = Logger.getLogger(Walker.class);
+    private static final boolean VERBOSE = false;
 
     @Test
     public void testStoringLikelihoodElements() {
@@ -37,7 +55,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
         int ploidy = 20;
         int numAlleles = 4;
         int res = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, ploidy);
- //       System.out.format("Alt Alleles: %d, Ploidy: %d, #Likelihoods: %d\n", numAltAlleles, ploidy, res);
+        //       System.out.format("Alt Alleles: %d, Ploidy: %d, #Likelihoods: %d\n", numAltAlleles, ploidy, res);
 
         List<Allele> alleles = new ArrayList<Allele>();
         alleles.add(Allele.create("T",true));
@@ -67,10 +85,10 @@ public class PoolGenotypeLikelihoodsUnitTest {
         }
 
     }
-    
+
     @Test
     public void testVectorToLinearIndex() {
-        
+
         // create iterator, compare linear index given by iterator with closed form function
         int numAlleles = 4;
         int ploidy = 2;
@@ -79,10 +97,10 @@ public class PoolGenotypeLikelihoodsUnitTest {
         while(iterator.hasNext()) {
             System.out.format("\n%d:",iterator.getLinearIndex());
             int[] a =  iterator.getCurrentVector();
-            for (int i=0; i < a.length; i++)
-                System.out.format("%d ",a[i]);
+            for (int aa: a)
+                System.out.format("%d ",aa);
 
-            
+
             int computedIdx = PoolGenotypeLikelihoods.getLinearIndex(a, numAlleles, ploidy);
             System.out.format("Computed idx = %d\n",computedIdx);
             iterator.next();
@@ -91,7 +109,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
     }
     @Test
     public void testSubsetToAlleles() {
-        
+
         int ploidy = 2;
         int numAlleles = 4;
         int res = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, ploidy);
@@ -111,9 +129,9 @@ public class PoolGenotypeLikelihoodsUnitTest {
         List<Allele> allelesToSubset = new ArrayList<Allele>();
         allelesToSubset.add(Allele.create("A",false));
         allelesToSubset.add(Allele.create("C",false));
-        
+
         double[] newGLs = PoolGenotypeLikelihoods.subsetToAlleles(oldLikelihoods, ploidy,
-        originalAlleles, allelesToSubset);
+                originalAlleles, allelesToSubset);
 
 
         /*
@@ -204,7 +222,8 @@ public class PoolGenotypeLikelihoodsUnitTest {
         PoolGenotypeLikelihoods.SumIterator iterator = new PoolGenotypeLikelihoods.SumIterator(seed, restrictSumTo);
 
         while(iterator.hasNext()) {
-             System.out.format("\n%d:",iterator.getLinearIndex());
+            if (VERBOSE)
+                System.out.format("\n%d:",iterator.getLinearIndex());
             int[] a =  iterator.getCurrentVector();
             for (int i=0; i < seed.length; i++)
                 System.out.format("%d ",a[i]);
@@ -218,8 +237,8 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
     private static int prod(int[] x) {
         int prod = 1;
-        for (int k=0; k < x.length; k++) {
-            prod *= (1+x[k]);
+        for (int xx : x) {
+            prod *= (1+xx);
         }
         return prod;
     }
@@ -242,13 +261,13 @@ public class PoolGenotypeLikelihoodsUnitTest {
             for (int mismatches: mismatchArray) {
                 // get artificial alignment context for ref sample
                 Map<String,AlignmentContext> refContext = refPileupTestProvider.getAlignmentContextFromAlleles(0, new String(new byte[]{altByte}), new int[]{matches, mismatches});
-                ReadBackedPileup refPileup = refContext.get(refSampleName).getBasePileup();
-                ErrorModel emodel = new ErrorModel(minQ,maxQ, (byte)20, refPileup, trueAlleles, 0.0);
+                final ReadBackedPileup refPileup = refContext.get(refSampleName).getBasePileup();
+                final ErrorModel emodel = new ErrorModel(minQ,maxQ, (byte)20, refPileup, trueAlleles, 0.0);
                 final double[] errorVec = emodel.getErrorModelVector().getProbabilityVector();
 
                 final double mlEst = -10.0*Math.log10((double)mismatches/(double)(matches+mismatches));
                 final int peakIdx = (int)Math.round(mlEst);
-                System.out.format("Matches:%d Mismatches:%d peakIdx:%d\n",matches, mismatches, peakIdx);
+                if (VERBOSE) System.out.format("Matches:%d Mismatches:%d peakIdx:%d\n",matches, mismatches, peakIdx);
                 Assert.assertEquals(MathUtils.maxElementIndex(errorVec),peakIdx);
 
             }
@@ -258,20 +277,89 @@ public class PoolGenotypeLikelihoodsUnitTest {
     }
     @Test
     public void testAddPileupToPoolGL() {
-        int minQ = 30;
-        int maxQ = 40;
-        int numSamples = 2;
+
+        // dummy error model - Q=infinity FAPP so that there's no source of uncertainty
+        final double[] emv = new double[SAMUtils.MAX_PHRED_SCORE+1];
+        Arrays.fill(emv, Double.NEGATIVE_INFINITY);
+        emv[SAMUtils.MAX_PHRED_SCORE] = 0;
+
+        final int numSamples = 1;
 
         // have a high quality site say Q40 site, and create artificial pileups for one single sample, at coverage N, with given
         // true pool AC = x.
 
-        ArtificialReadPileupTestProvider refPileupTestProvider = new ArtificialReadPileupTestProvider(1,"ref");
+        final ArtificialReadPileupTestProvider readPileupTestProvider = new ArtificialReadPileupTestProvider(numSamples,"sample", (byte)SAMUtils.MAX_PHRED_SCORE);
+        final ErrorModel emodel = new ErrorModel(emv);
 
-//        Map<String,AlignmentContext> refContext = refPileupTestProvider.getAlignmentContextFromAlleles(0, "T", new int[]{matches, mismatches});
-/*        ReferenceSample refsample = new ReferenceSample("ref",pileup, trueAlleles);
-        ErrorModel emodel = new ErrorModel(minQ,maxQ,(byte)20,refSample,0.0);
-  */  }
-    
-    
+        final int eventLength = 0; // test snp only
+        final byte refByte = readPileupTestProvider.getRefByte();
+        final byte altByte = refByte == (byte)'T'? (byte) 'C': (byte)'T';
+
+        final int refIdx = BaseUtils.simpleBaseToBaseIndex(refByte);
+        final int altIdx = BaseUtils.simpleBaseToBaseIndex(altByte);
+
+        final List<Allele> allAlleles = new ArrayList<Allele>();  // this contains only ref Allele up to now
+        final Set<String> laneIDs = new TreeSet<String>();
+        laneIDs.add(PoolGenotypeLikelihoodsCalculationModel.DUMMY_LANE);
+
+        final HashMap<String, ErrorModel> perLaneErrorModels = new HashMap<String, ErrorModel>();
+
+        // build per-lane error model for all lanes present in ref sample
+        for (String laneID : laneIDs)
+            perLaneErrorModels.put(laneID, emodel);
+
+
+        for (byte b: BaseUtils.BASES) {
+            if (refByte == b)
+                allAlleles.add(Allele.create(b,true));
+            else
+                allAlleles.add(Allele.create(b, false));
+        }
+
+
+        final int[] depthVector = {100,1000,10000};
+        //final double[] alleleFrequencyVector = {0.01,0.1,0.5,1.0};
+        final int[] spVector = {1,2,4,8,12};
+        //final int[] spVector = {1};
+        for (int depth : depthVector) {
+            for (int nSamplesPerPool : spVector) {
+                final int ploidy = 2*nSamplesPerPool;
+                for (int ac =0; ac <=ploidy; ac++) {
+
+                    // simulate pileup with given AC and depth
+                    int altDepth = (int)Math.round( (double)ac/(double)ploidy * (double)depth);
+                    final int[] numReadsPerAllele = {depth-altDepth,altDepth};
+                    final Map<String,AlignmentContext> alignmentContextMap =
+                            readPileupTestProvider.getAlignmentContextFromAlleles(eventLength, new String(new byte[]{altByte}), numReadsPerAllele);
+
+                    // get now likelihoods for this
+
+                    final PoolSNPGenotypeLikelihoods GL = new PoolSNPGenotypeLikelihoods(allAlleles, null, nSamplesPerPool*2, perLaneErrorModels, true);
+                    final int nGoodBases = GL.add(alignmentContextMap.get("sample0000").getBasePileup(), true, false, UAC.MIN_BASE_QUALTY_SCORE);
+                    if (VERBOSE) {
+                        System.out.format("Depth:%d, AC:%d, altDepth:%d, samplesPerPool:%d\nGLs:", depth,ac,altDepth, nSamplesPerPool);
+                        System.out.println(GL.toString());
+                    }
+                    Assert.assertEquals(nGoodBases, depth);
+                    Pair<int[],Double> mlPair = GL.getMostLikelyACCount();
+
+                    // Most likely element has to be conformation REF = nSamples-AC,ALT = AC
+                    if (ac == 0) {
+                        Assert.assertEquals(mlPair.first[refIdx],ploidy);
+                    } else {
+                        Assert.assertEquals(mlPair.first[altIdx],ac);
+                        Assert.assertEquals(mlPair.first[refIdx],ploidy-ac);
+                    }
+
+                }
+            }
+
+
+        }
+
+
+    }
+
+
 
 }
