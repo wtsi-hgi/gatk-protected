@@ -25,6 +25,7 @@
 import org.apache.commons.io.FilenameUtils
 import org.broadinstitute.sting.pipeline.PicardAggregationUtils
 import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
 import org.broadinstitute.sting.queue.function.ListWriterFunction
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.utils.exceptions.UserException
@@ -107,6 +108,8 @@ class ReducedReadsCalling extends QScript {
       reducedBamList :+= reducedBAMFile
 
       // reduce
+      // TODO -- fix Queue so that ReadFilters work correctly
+      // val reduce = new ReduceReads() with CommandLineGATKArgs with ExpandedIntervals with BadMate
       val reduce = new ReduceReads() with CommandLineGATKArgs with ExpandedIntervals
       reduce.memoryLimit = reducedMemoryLimit
       reduce.input_file :+= new File(file)
@@ -125,26 +128,59 @@ class ReducedReadsCalling extends QScript {
     val call = new UnifiedGenotyper with CommandLineGATKArgs with ExpandedIntervals
     call.input_file = Seq(writeBamList.listFile)
     call.dbsnp = dbsnp132
-    call.downsample_to_coverage = 600
-    call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
-    call.out = projectName + ".unfiltered.vcf"
-    call.jobOutputFile = call.out + ".out"
-    call.scatterCount = qscript.variantCallerScatterCount
-    add(call)
 
-    val selectSNPs = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
-    selectSNPs.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.SNP
-    selectSNPs.variant = call.out
-    selectSNPs.out = projectName + ".snps.unfiltered.vcf"
-    selectSNPs.jobOutputFile = selectSNPs.out + ".out"
-    add(selectSNPs)
+    // TODO -- 600 is too high when there are many samples; find a better value
+    // call.downsample_to_coverage = 600
+    call.downsample_to_coverage = 60
 
-    val selectIndels = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
-    selectIndels.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.INDEL
-    selectIndels.variant = call.out
-    selectIndels.out = projectName + ".indels.unfiltered.vcf"
-    selectIndels.jobOutputFile = selectIndels.out + ".out"
-    add(selectIndels)
+    val CALL_TOGETHER = false
+    var snpsFile: String = null
+    var indelsFile: String = null
+
+    // to call both at once
+    if ( CALL_TOGETHER ) {
+      call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+      call.out = projectName + ".unfiltered.vcf"
+      call.jobOutputFile = call.out + ".out"
+      call.scatterCount = qscript.variantCallerScatterCount
+      add(call)
+
+      val selectSNPs = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
+      selectSNPs.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.SNP
+      selectSNPs.variant = call.out
+      selectSNPs.out = projectName + ".snps.unfiltered.vcf"
+      selectSNPs.jobOutputFile = selectSNPs.out + ".out"
+      snpsFile = selectSNPs.out
+      add(selectSNPs)
+
+      val selectIndels = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
+      selectIndels.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.INDEL
+      selectIndels.variant = call.out
+      selectIndels.out = projectName + ".indels.unfiltered.vcf"
+      selectIndels.jobOutputFile = selectIndels.out + ".out"
+      indelsFile = selectIndels.out
+      add(selectIndels)
+    } else {
+      call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+      call.out = projectName + ".snps.unfiltered.vcf"
+      call.jobOutputFile = call.out + ".out"
+      call.scatterCount = qscript.variantCallerScatterCount
+      snpsFile = call.out
+      add(call)
+
+      val callIndels = new UnifiedGenotyper with CommandLineGATKArgs with ExpandedIntervals
+      callIndels.input_file = call.input_file
+      callIndels.dbsnp = call.dbsnp
+      callIndels.downsample_to_coverage = call.downsample_to_coverage
+      callIndels.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
+      callIndels.max_alternate_alleles = 2
+      callIndels.out = projectName + ".indels.unfiltered.vcf"
+      callIndels.jobOutputFile = callIndels.out + ".out"
+      callIndels.scatterCount = qscript.variantCallerScatterCount
+      indelsFile = callIndels.out
+      add(callIndels)
+    }
+
 
     val trancheLevels = Seq(
       "100.0", "99.9", "99.5", "99.3",
@@ -160,7 +196,7 @@ class ReducedReadsCalling extends QScript {
     // TODO --   maybe we should run VQSR in parallel?
 
     val buildSNPModel = new VariantRecalibrator with CommandLineGATKArgs with ExpandedIntervals
-    buildSNPModel.input :+= selectSNPs.out
+    buildSNPModel.input :+= snpsFile
     buildSNPModel.resource :+= TaggedFile(hapmap, "training=true,truth=true,prior=15.0")
     buildSNPModel.resource :+= TaggedFile(omni, "training=true,truth=true,prior=12.0")
     buildSNPModel.resource :+= TaggedFile(k1gTrainingHighQuality, "training=true,prior=12.0")
@@ -178,7 +214,7 @@ class ReducedReadsCalling extends QScript {
     add(buildSNPModel)
 
     val applySNPModel = new ApplyRecalibration with CommandLineGATKArgs with ExpandedIntervals
-    applySNPModel.input :+= selectSNPs.out
+    applySNPModel.input :+= snpsFile
     applySNPModel.tranches_file = buildSNPModel.tranches_file
     applySNPModel.recal_file = buildSNPModel.recal_file
     applySNPModel.ts_filter_level = 98.5
@@ -188,7 +224,7 @@ class ReducedReadsCalling extends QScript {
     add(applySNPModel)
 
     val filterIndels = new VariantFiltration with CommandLineGATKArgs with ExpandedIntervals
-    filterIndels.variant = selectIndels.out
+    filterIndels.variant = indelsFile
     filterIndels.filterName = Seq("Indel_FS", "Indel_QD", "Indel_ReadPosRankSum", "Indel_InbreedingCoeff")
     filterIndels.filterExpression = Seq("FS>200.0", "QD<2.0", "ReadPosRankSum<-20.0", "InbreedingCoeff<-0.8")
     filterIndels.out = projectName + ".indels.filtered.vcf"
@@ -204,7 +240,7 @@ class ReducedReadsCalling extends QScript {
     combineSNPsIndels.jobOutputFile = combineSNPsIndels.out + ".out"
     add(combineSNPsIndels)
 
-    val eval = new VariantEval with CommandLineGATKArgs
+    val eval = new VariantEval with CommandLineGATKArgs with ExpandedIntervals
     eval.eval :+= combineSNPsIndels.out
     eval.dbsnp = dbsnp129
     eval.doNotUseAllStandardModules = true
@@ -214,5 +250,23 @@ class ReducedReadsCalling extends QScript {
     eval.out = projectName + ".eval"
     eval.jobOutputFile = eval.out + ".out"
     add(eval)
+
+    val snpEff = new SnpEff
+    snpEff.inVcf = combineSNPsIndels.out
+    snpEff.config = "/humgen/gsa-pipeline/resources/snpEff/v2_0_5/snpEff.config"
+    snpEff.genomeVersion = "GRCh37.64"
+    snpEff.onlyCoding = true
+    snpEff.outVcf = projectName + ".snpeff.vcf"
+    snpEff.jobOutputFile = snpEff.outVcf + ".out"
+    snpEff.memoryLimit = 4
+    add(snpEff)
+
+    val annotate = new VariantAnnotator with CommandLineGATKArgs with ExpandedIntervals
+    annotate.variant = combineSNPsIndels.out
+    annotate.snpEffFile = snpEff.outVcf
+    annotate.annotation :+= "SnpEff"
+    annotate.out = projectName + ".annotated.vcf"
+    annotate.jobOutputFile = annotate.out + ".out"
+    add(annotate)
   }
 }

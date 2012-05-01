@@ -457,7 +457,7 @@ public class SlidingWindow {
         int refStop = windowHeader.get(stop).location;
 
         for (GATKSAMRecord read : readsInWindow) {
-            GATKSAMRecord trimmedRead = trimToVariableRegion(read, refStart, refStop);
+            GATKSAMRecord trimmedRead = ReadClipper.hardClipToRegion(read, refStart, refStop);
             if (trimmedRead.getReadLength() > 0) {
                 allReads.add(trimmedRead);
             }
@@ -748,33 +748,6 @@ public class SlidingWindow {
                     break;
             }
         }
-    }
-
-    /**
-     * Hard clip the read to the variable region (from refStart to refStop)
-     *
-     * @param read     the read to be clipped
-     * @param refStart the beginning of the variant region (inclusive)
-     * @param refStop  the end of the variant region (inclusive)
-     * @return the read hard clipped to the variant region
-     */
-    protected GATKSAMRecord trimToVariableRegion(GATKSAMRecord read, int refStart, int refStop) {
-        int start = read.getAlignmentStart();
-        int stop = read.getAlignmentEnd();
-
-        // check if the read is contained in region
-        GATKSAMRecord clippedRead = read;
-        if (start <= refStop && stop >= refStart) {
-            if (start < refStart && stop > refStop)
-                clippedRead = ReadClipper.hardClipBothEndsByReferenceCoordinates(read, refStart - 1, refStop + 1);
-            else if (start < refStart)
-                clippedRead = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refStart - 1);
-            else if (stop > refStop)
-                clippedRead = ReadClipper.hardClipByReferenceCoordinatesRightTail(read, refStop + 1);
-            return clippedRead;
-        } else
-            return GATKSAMRecord.emptyRead(read);
-
     }
 
     /**

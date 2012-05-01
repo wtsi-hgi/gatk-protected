@@ -59,4 +59,9 @@ public class PicardIntervals {
         result = 31 * result + (targets != null ? targets.hashCode() : 0);
         return result;
     }
+
+    @Override
+    public String toString() {
+        return String.format("PicardIntervals[reference='%s',targets='%s']", reference, targets);
+    }
 }

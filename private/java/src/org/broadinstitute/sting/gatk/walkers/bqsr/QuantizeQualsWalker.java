@@ -24,32 +24,24 @@
 
 package org.broadinstitute.sting.gatk.walkers.bqsr;
 
-import net.sf.picard.util.QualityUtil;
 import net.sf.samtools.SAMFileWriter;
-import net.sf.samtools.SAMReadGroupRecord;
 import net.sf.samtools.SAMRecord;
-import net.sf.samtools.SAMUtils;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
-import org.broadinstitute.sting.gatk.walkers.BAQMode;
-import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.recalibration.QualQuantizer;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.File;
 import java.io.PrintStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Quantizes the quality scores in a BAM file
@@ -78,22 +70,22 @@ import java.util.*;
  *
  */
 public class QuantizeQualsWalker extends ReadWalker<SAMRecord, SAMFileWriter> {
-    final protected static Logger logger = Logger.getLogger(QuantizeQualsWalker.class);
+    private final static Logger logger = Logger.getLogger(QuantizeQualsWalker.class);
 
     @Output(doc="Write output to this BAM filename instead of STDOUT")
     SAMFileWriter out;
 
     @Argument(fullName = "qualityHistogram", shortName = "Q", doc="", required = true)
-    File qualHistogramFile;
+    private File qualHistogramFile;
 
-    @Argument(fullName = "nLevels", shortName = "nLevels", doc="The number of quality levels to include in output", required = false)
-    int nQualityLevels = 8;
+    @Argument(fullName = "quantizationLevels", shortName = "quantizationLevels", doc="The number of quality levels to include in output", required = false)
+    private int nQualityLevels = 8;
 
     @Argument(fullName = "minInterestingQual", shortName = "minInterestingQual", doc="Quality scores less than or equal to this value are considered uninteresting, are can be freely merged together", required = false)
-    int minInterestingQual = 10;
+    private int minInterestingQual = 10;
 
     @Output(fullName = "report", shortName = "report", doc="Write GATK report of quantization process to this file", required = false)
-    PrintStream reportOut = null;
+    private PrintStream reportOut = null;
 
     @Argument(fullName = "maxQualToInclude", shortName = "maxQualToInclude", doc="Only quality scores <= this value are considered for remapping", required = false)
     private int MAX_QUAL_TO_INCLUDE = QualityUtils.MAX_QUAL_SCORE;

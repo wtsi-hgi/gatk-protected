@@ -8,6 +8,7 @@ import datetime
 import re
 import MySQLdb
 import unittest
+import traceback
 
 MISSING_VALUE = "NA"
 RUN_REPORT_LIST = "GATK-run-reports"
@@ -210,24 +211,51 @@ def parseException(elt):
     msgElt = elt.find("message")
     msgText = "MISSING"
     userException = "NA"
-    stackTraceString = "NA"
     runStatus = RUN_STATUS_SUCCESS
     if msgElt != None: 
         msgText = msgElt.text
         runStatus = "sting-exception"
     
-    stackTrace = elt.find("stacktrace")
-    if stackTrace != None:
-        strings = stackTrace.findall("string")
-        if len(strings) > 0:
-            stackTraceString = '\n'.join(map(lambda x: x.text, strings))
+    stackTraceString, exceptionClass = parseStackTrace(elt, 0)
     
     if elt.find("is-user-exception") != None:
         #print elt.find("is-user-exception")
         userException = elt.find("is-user-exception").text
         if userException == "true": runStatus = "user-exception"
     #if runStatus != "completed": print stackTrace, elt.find('stacktrace')
-    return msgText, stackTraceString, userException, runStatus
+    return msgText, stackTraceString, userException, runStatus, exceptionClass
+
+def parseStackTrace(elt, depth):
+    stackTraceString = "NA"
+    exceptionClass = "NA"
+    msgText = "NA"
+    
+    # find the message, if possible
+    if elt.find("message") != None: 
+        msgText = elt.find("message").text
+
+    stackTrace = elt.find("stacktrace")
+    if stackTrace != None:
+        strings = stackTrace.findall("string")
+        if elt.find("exception-class") != None:
+            exceptionClass = elt.find("exception-class").text
+        if len(strings) > 0:
+            offset = ' ' * (depth*2)
+            prefix = '\n' + offset
+            if depth > 0: 
+                stackTraceString = prefix
+            else:
+                stackTraceString = offset                
+            stackTraceString = stackTraceString + "### caused by: " + exceptionClass
+            if msgText != "NA": stackTraceString = stackTraceString + ": " + msgText
+            stackTraceString = stackTraceString + prefix
+            stackTraceString = stackTraceString + prefix.join(map(lambda x: x.text, strings))
+        if elt.find("cause") != None:
+            stackTraceString = stackTraceString + parseStackTrace(elt.find("cause"), depth + 1)[0]
+            #subStack, subCause = parseStackTrace(elt.find("cause"), depth + 1)
+            #stackTraceString = stackTraceString + prefix + "\n### caused by: " + subCause + "\n"
+            #stackTraceString = stackTraceString + subStack
+    return stackTraceString, exceptionClass
 
 def javaExceptionFile(javaException):
     m = re.search("\((.*\.java:.*)\)", javaException)
@@ -277,6 +305,35 @@ class TestSequenceFunctions(unittest.TestCase):
             self.assertEquals(parsed[0], expectedResult[0])
             self.assertEquals(parsed[1], expectedResult[1])
 
+class TestDateDecoding(unittest.TestCase):
+    def setUp(self):
+        self.data = {
+            "2012/3/12" : "2012-03-12",
+            "2011/3/12" : "2011-03-12",
+            "2012/4/12" : "2012-04-12",
+            "2012/04/12" : "2012-04-12",
+            "2012/12/12" : "2012-12-12",
+            "2012-3-12" : "2012-03-12",
+            "2012-4-12" : "2012-04-12"
+            }
+
+    def test_parsing(self):
+        for runtimeString, expectedResult in self.data.iteritems():
+            for time in ['', ' 1:2:3', ' x']:
+                parsed = parseRuntime(runtimeString + time)
+                print '%s : expected= %s observed = %s' % (runtimeString, str(expectedResult), str(parsed))
+                self.assertEquals(parsed, expectedResult)
+
+def parseRuntime(runtimeString):
+    if runtimeString == "ND":
+        x = "NULL"
+    else:
+        runtimeString = runtimeString.replace("-", "/")
+        fullDate = datetime.datetime.strptime(runtimeString.split()[0], "%Y/%m/%d")
+        x = fullDate.date().isoformat()
+    #print 'DATE', x #, dateAsString
+    return x
+
 class RecordDecoder:
     def __init__(self):
         self.fields = list()
@@ -284,6 +341,9 @@ class RecordDecoder:
     
         def id(elt): return elt.text
         def toString(elt): return '%s' % elt.text
+
+        def formatRuntime(elt):
+            return parseRuntime(toString(elt))
 
         def formatMajorVersion(elt):
             return parseGATKVersion(elt.text)[0]
@@ -311,17 +371,26 @@ class RecordDecoder:
         def formatExceptionUser(elt):
             return '%s' % parseException(elt)[2]
 
+        def formatExceptionClass(elt):
+            return '%s' % parseException(elt)[4]
+
         def formatRunStatus(elt):
             #print 'formatRunStatus', parseException(elt)
             return parseException(elt)[3]
+
+        def formatHostName(elt):
+            if elt != None and elt.text != None:
+                return elt.text
+            else:
+                return 'unknown'
             
         def formatDomainName(elt):
-            if elt != None:
-                parts = elt.text.split(".")
-                if len(parts) >= 2:
-                    return '.'.join(parts[-2:])
-                else:
-                    return 'unknown'
+            hostname = formatHostName(elt)
+            parts = hostname.split(".")
+            if len(parts) >= 2:
+                return '.'.join(parts[-2:])
+            else:
+                return 'unknown'
         
         def add(names, func):
             for name in names:
@@ -331,14 +400,14 @@ class RecordDecoder:
             self.fields.extend(fields)
             self.formatters[key] = zip(fields, funcs)
     
-        add(["id", "walker-name", "phone-home-type"], id)
+        add(["id", "walker-name"], id)
         addComplex("svn-version", ["svn-version", "gatk-version", "gatk-minor-version", "release-type"], [id, formatMajorVersion, formatMinorVersion, formatReleaseType])
-        add(["start-time", "end-time"], toString)      
-        add(["run-time", "java-tmp-directory", "working-directory", "user-name"], id)
-        addComplex("host-name", ["host-name", "domain-name"], [id, formatDomainName])
+        add(["start-time", "end-time"], formatRuntime)      
+        add(["run-time", "user-name"], id)
+        addComplex("host-name", ["host-name", "domain-name"], [formatHostName, formatDomainName])
         add(["java", "machine"], toString)
-        add(["max-memory", "total-memory", "iterations", "reads"], id)
-        addComplex("exception", ["exception-msg", "stacktrace", "exception-at-brief", "is-user-exception", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatRunStatus])
+        add(["max-memory", "total-memory", "iterations"], id)
+        addComplex("exception", ["exception-msg", "stacktrace", "exception-at-brief", "is-user-exception", "exception-class", "run-status"], [formatExceptionMsg, formatExceptionAt, formatExceptionAtBrief, formatExceptionUser, formatExceptionClass, formatRunStatus])
         #add(["command-line"], toString)          
         
     def decode(self, report):
@@ -386,9 +455,11 @@ class AbstractRecordAsTable(StageHandler):
                 return val
             
             print >> self.out, "\t".join([ oneField(field) for field in self.getFields() ])
-        except:
-            #print 'Failed to convert to table ', parsed
-            print 'Failed to convert to table', record
+        except Exception, inst:
+            print 'Failed to convert to table', id, inst
+            if OPTIONS.verbose: 
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                traceback.print_exception(exc_type, exc_value, exc_traceback)
             pass
     
 # def 
@@ -453,119 +524,6 @@ class Archive(RecordAsXML):
         
 addHandler('archive', Archive)
 
-class ExceptionReport(StageHandler):
-    #FIELDS = ["Msg", "At", "SVN.versions", "Walkers", 'Occurrences', 'IDs']
-    def __init__(self, name, out):
-        StageHandler.__init__(self, name, out)
-        self.exceptions = []
-
-    def initialize(self, args):
-        self.decoder = RecordDecoder()
-        #print >> self.out, "\t".join(self.FIELDS)
-        
-    def processRecord(self, record):
-        for elt in record:
-            if eltIsException(elt):
-                self.exceptions.append(self.decoder.decode(record))
-                break
-
-    def finalize(self, args):
-        commonExceptions = list()
-        
-        def addToCommons(ex):
-            for common in commonExceptions:
-                if common.equals(ex):
-                    common.update(ex)
-                    return
-            commonExceptions.append(CommonException(ex))
-
-        for ex in self.exceptions:
-            addToCommons(ex)
-        commonExceptions = sorted(commonExceptions, None, lambda x: x.counts)   
-            
-        for common in commonExceptions:
-            msg, at, svns, walkers, counts, ids, duration, users, userError = common.toStrings()
-            
-            if not matchesExceptionSelection(userError):
-                continue
-                
-            print >> self.out, ''.join(['*'] * 80)
-            print >> self.out, 'Exception              :', msg
-            print >> self.out, '    is-user-exception? :', userError
-            print >> self.out, '    at                 :', at
-            print >> self.out, '    walkers            :', walkers
-            print >> self.out, '    svns               :', svns
-            print >> self.out, '    duration           :', duration
-            print >> self.out, '    occurrences        :', counts
-            print >> self.out, '    users              :', users
-            print >> self.out, '    ids                :', ids
-            
-
-def matchesExceptionSelection(userError):
-    if OPTIONS.exception_selection == "all":
-        return True
-    elif OPTIONS.exception_selection == "user" and userError == "true":
-        return True
-    elif OPTIONS.exception_selection == "sting" and userError == "false":
-        return True
-    return False
-    
-class CommonException:
-    MAX_SET_ITEMS_TO_SHOW = 5
-
-    def __init__(self, ex):
-        self.msgs = set([ex['exception-msg']])
-        self.at = ex['stacktrace']
-        self.svns = set([ex['svn-version']])
-        self.users = set([ex['user-name']])
-        self.userError = ex['is-user-exception']
-        self.counts = 1
-        self.times = set([decodeTime(ex['end-time'])])
-        self.walkers = set([ex['walker-name']])
-        self.ids = set([ex['id']])
-        
-    def equals(self, ex):
-        return self.at == ex['stacktrace']
-        
-    def update(self, ex):
-        self.msgs.add(ex['exception-msg'])
-        self.svns.add(ex['svn-version'])
-        self.users.add(ex['user-name'])
-        self.counts += 1
-        self.walkers.add(ex['walker-name'])
-        self.times.add(decodeTime(ex['end-time']))
-        self.ids.add(ex['id'])
-
-    def bestExample(self, examples):
-        def takeShorter(x, y):
-            if len(y) < len(x):
-                return y
-            else:
-                return x
-        return reduce(takeShorter, examples)
-        
-    def setString(self, s):
-        if len(s) > self.MAX_SET_ITEMS_TO_SHOW:
-            s = [x for x in s][0:self.MAX_SET_ITEMS_TO_SHOW] + ["..."]
-        return ','.join(s)
-        
-    def duration(self):
-        x = sorted(filter(lambda x: x != "ND", self.times))
-        if len(x) >= 2:
-            return "-".join(map(lambda x: x.strftime("%m/%d/%y"), [x[0], x[-1]]))
-        elif len(x) == 1:
-            return x[0]
-        else:
-            return "ND"
-            
-        
-    def toStrings(self):
-        return [self.bestExample(self.msgs), self.at, self.setString(self.svns), self.setString(self.walkers), self.counts, self.setString(self.ids), self.duration(), self.setString(self.users), self.userError] 
-
-addHandler('exceptions', ExceptionReport)
-
-  
-  
 class SummaryReport(StageHandler):
     #FIELDS = ["Msg", "At", "SVN.versions", "Walkers", 'Occurrences', 'IDs']
     def __init__(self, name, out):
@@ -619,7 +577,13 @@ class SQLRecordHandler(StageHandler):
         pass
 
     def getFields(self):
-        return ["id", "walker-name", "gatk-version", "gatk-minor-version", "svn-version", "start-time", "end-time", "run-time", "user-name", "host-name", "domain-name", "total-memory", "stacktrace", "exception-at-brief", "exception-msg", "is-user-exception", "run-status", "release-type"]
+        return ["id", "walker-name", "gatk-version", 
+                "gatk-minor-version", "svn-version", 
+                "start-time", "end-time", "run-time", 
+                "user-name", "host-name", "domain-name", 
+                "total-memory", "stacktrace", "exception-at-brief", 
+                "exception-msg", "is-user-exception", "exception-class", 
+                "run-status", "release-type"]
         
     def finalize(self, args):
         if DB_EXISTS and not OPTIONS.dryRun: 
@@ -663,11 +627,15 @@ class InsertRecordIntoTable(SQLRecordHandler):
             self.execute("INSERT INTO " + self.name + " VALUES(" + ", ".join(values) + ")")
         except Exception, inst:
             print 'Skipping excepting record', id, inst
+            if OPTIONS.verbose: 
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                traceback.print_exception(exc_type, exc_value, exc_traceback)
             pass
 
 DEFAULT_SIZE = 128
 SIZE_OVERRIDES = {
     "domain-name" : 256, 
+    "exception-class" : 1024, 
     "exception-at-brief" : 1024, 
     "stacktrace" : 8192, 
     "exception-msg" : 2048, 
@@ -681,6 +649,7 @@ class SQLSetupTable(SQLRecordHandler):
 
         self.execute("DROP TABLE " + self.name)
         self.execute("CREATE TABLE " + self.name + " (" + ", ".join(map(self.fieldDescription, self.getFields())) + ")")
+        self.execute("CREATE INDEX EndTimeIndex on " + self.name + " (end_time)")
         # initialize database
         SQLRecordHandler.finalize(self, args)
         sys.exit(0)
@@ -730,13 +699,6 @@ def resolveFiles(paths):
     map( resolve1, paths )
     return allFiles
 
-def decodeTime(time):
-    if time == "ND":
-        return "ND"
-    else:
-        return datetime.datetime.strptime(time.split()[0], "%Y/%m/%d")
-    #return datetime.datetime.strptime(time, "%Y/%m/%d %H.%M.%S")
-
 def eltTagEquals(elt, tag, value, startsWith = None):
     if elt == None:
         return False
@@ -755,37 +717,12 @@ def passesFilters(elt):
     if OPTIONS.maxDays != None:
         now = datetime.datetime.today()
         now = datetime.datetime(now.year, now.month, now.day)
-        #    <start-time>2010/08/31 15.38.00</start-time>
-        eltTime = decodeTime(elt.find('end-time').text)
+        eltTime = parseRuntime(elt.find('end-time').text)
         diff = now - eltTime
-        #print eltTime, now, diff, diff.days
         if diff.days > OPTIONS.maxDays:
             return False
 
     return True
-    
-def readReportsSlow(files):
-    #print files
-    for file in files:
-        if OPTIONS.verbose: print 'Reading file', file
-        input = openFile(file)
-        try:
-            tree = ElementTree(file=input)
-        except:
-            print "Ignoring excepting file", file
-            continue
-
-        elem = tree.getroot()
-        if elem.tag == RUN_REPORT_LIST:
-            counter = 0
-            for sub in elem:
-                if passesFilters(sub):
-                    counter += 1
-                    if counter % 1000 == 0: print 'Returning', counter
-                    yield sub
-        else:
-            if passesFilters(elem):
-                yield elem
     
 def readReports(files):
     #print files

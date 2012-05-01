@@ -42,6 +42,7 @@ public class VariantDatum implements Comparable<VariantDatum> {
     public Double initialLod = null;
     public Double finalLod = null;
     public boolean atTruthSite;
+    public boolean atMonomorphicSite;
     public boolean atPositiveTrainingSite;
     public boolean atNegativeTrainingSite;
     public boolean isTransition;

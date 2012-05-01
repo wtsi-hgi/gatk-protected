@@ -63,10 +63,10 @@ class G1KPhaseISummaryTable extends QScript {
   val myIntervals: List[String] = null;
 
   @Argument(shortName = "nt", fullName = "nt", doc="Number of threads to use", required=false)
-  val NumThreads: Int = 1;
+  val NumThreads: Int = 4;
 
-  @Argument(shortName = "pop", fullName = "pop", doc="Only run population", required=false)
-  val OnlyPop: String = null;
+  @Argument(shortName = "allPops", fullName = "allPops", doc="Run all populations, not just ALL", required=false)
+  val allPops: Boolean = false;
 
 //  val b37_decoy = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
   val bundle = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/")
@@ -74,26 +74,39 @@ class G1KPhaseISummaryTable extends QScript {
   val dbSNP_b37 = new File(bundle.getPath + "/dbsnp_132.b37.vcf")
 
   val dbSNP_b37_129 = new File(bundle.getPath + "/dbsnp_132.b37.excluding_sites_after_129.vcf")
-  //val pilotCalls = new File("resources/pilotSites.vcf")
+  val dbSNP_b37_135_minus_1000g = new File("resources/dbSNP_135.no1000GProduction.vcf")
+
+  // CNV information
   val knownCNVsFile = new File("resources/known_deletions.bed")
+  // an inclusive bed file that contains all human SVs from dbVAR classified as 'germline SVs'.
+  val knownCNVsInclusive = new File("resources/dbvar.human.all.sets.GRCh37.ucsc.bed")
+  // is a high precision bed file that contains all human SVs from dbVAR
+  // that are classified as 'germline SVs' and are annotated with the
+  // "Method"-tag "Sequencing" or "Sequence alignment" (http://www.ncbi.nlm.nih.gov/dbvar/studies/)
+  // -- i.e., a bed file of SVs with basically nucleotide resolution breakpoint information.
+  val knownCNVsPrecise = new File("resources/dbvar.human.sequencing.sets.GRCh37.ucsc.bed")
 
   val populations = List("EUR", "ASN", "AFR", "AMR", "ALL")
 
-  val callsets = Range(1,22).map("/humgen/1kg/releases/main_project_phaseI/ALL.chr%d.merged_beagle_mach.20101123.snps_indels_svs.genotypes.vcf.gz".format(_))
-  val X_callset = "/humgen/1kg/releases/main_project_phaseI/ALL.chrX.merged_beagle_mach.20101123.snps_indels_svs.genotypes.vcf.gz"
+  val callsets = Range(1,23).map("/humgen/1kg/DCC/ftp/release/20110521/ALL.chr%d.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz".format(_))
+  val X_callset = "/humgen/1kg/DCC/ftp/release/20110521/ALL.chrX.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz"
 
   val CCDS_BED = new File("resources/ucsc.ccds.bed")
   //val CAPTURE_BED = new File("resources/20110225.exome.consensus.annotation.bed")
   val GENCODE_BED = new File("resources/gencode7.coding.bed")
-  val INTERVALS = Map("CCDS" -> CCDS_BED, "GENCODE" -> GENCODE_BED) // "CAPTURE" -> CAPTURE_BED,
+  // we've converged on using GENCODE
+  //val INTERVALS = Map("CCDS" -> CCDS_BED, "GENCODE" -> GENCODE_BED) // "CAPTURE" -> CAPTURE_BED,
+  val INTERVALS = Map("GENCODE" -> GENCODE_BED) // "CAPTURE" -> CAPTURE_BED,
 
   def script = {
-    for ( population <- if ( OnlyPop != null ) List(OnlyPop) else populations ) {
-      for ( (geneSetName, geneIntervals) <- INTERVALS ) {
-        add(new evalVariants(population, geneSetName, geneIntervals))
-        val evX = new evalVariants(population, geneSetName, geneIntervals)
-        evX.eval = List(X_callset)
-        add(evX)
+    for ( population <- if ( allPops ) populations else List("ALL") ) {
+      for ( (cnvName, cnvFile) <- Map("inclusive" -> knownCNVsInclusive, "precise" -> knownCNVsPrecise) ) {
+        for ( (geneSetName, geneIntervals) <- INTERVALS ) {
+          add(new evalVariants(population, geneSetName, geneIntervals, cnvName, cnvFile, "autosome"))
+          val evX = new evalVariants(population, geneSetName, geneIntervals, cnvName, cnvFile, "X")
+          evX.eval = List(X_callset)
+          add(evX)
+        }
       }
     }
   }
@@ -106,21 +119,22 @@ class G1KPhaseISummaryTable extends QScript {
   }
 
   // 5.) Variant Evaluation Base(OPTIONAL)
-  class evalVariants(pop: String, geneSetName: String, geneIntervals: File) extends VariantEval with UNIVERSAL_GATK_ARGS {
+  class evalVariants(pop: String, geneSetName: String, geneIntervals: File, cnvName: String, cnvFile: File, callsetName: String) extends VariantEval with UNIVERSAL_GATK_ARGS {
     for ( callset <- callsets )
       this.eval :+= new File(callset)
     this.mergeEvals = true
-    this.comp :+= new TaggedFile(dbSNP_b37_129, "dbSNP_129")
-    //this.comp :+= new TaggedFile(pilotCalls, "pilot")
-    this.comp :+= new TaggedFile(dbSNP_b37, "dbSNP_132")
+    //this.comp :+= new TaggedFile(dbSNP_b37_129, "dbSNP_129")
+    this.comp :+= new TaggedFile(dbSNP_b37_135_minus_1000g, "dbSNP_135_minus_1000g")
+    //this.comp :+= new TaggedFile(dbSNP_b37, "dbSNP_132")
     this.sample = List("%s.samples.list".format(pop))
-    this.out = new File("%s.samples.genes_%s.eval".format(pop, geneSetName))
+    this.out = new File("%s.samples.%s_calls.genes_%s.cnvs_%s.eval".format(pop, callsetName, geneSetName, cnvName))
     this.noEV = true
     this.EV = List("VariantSummary")
     this.noST = true
+    this.keepAC0 = true
     this.stratIntervals = geneIntervals
     this.ST = List("IntervalStratification")
     this.nt = NumThreads
-    this.knownCNVs = knownCNVsFile
+    this.knownCNVs = cnvFile
   }
 }

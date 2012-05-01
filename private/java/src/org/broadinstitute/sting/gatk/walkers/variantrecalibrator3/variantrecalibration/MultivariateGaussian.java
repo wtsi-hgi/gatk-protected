@@ -30,6 +30,7 @@ import org.apache.commons.math.special.Gamma;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.collections.ExpandingArrayList;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 
 import java.util.Arrays;
@@ -150,6 +151,9 @@ public class MultivariateGaussian {
         final double pi = Gamma.digamma( hyperParameter_lambda ) - Gamma.digamma( sumHyperParameterLambda );
         final double beta = (-1.0 * mu.length) / (2.0 * hyperParameter_b);
         cachedDenomLog10 = (pi / Math.log(10.0)) + (lambda / Math.log(10.0)) + (beta / Math.log(10.0));
+        if ( Double.isNaN(cachedDenomLog10) ) {
+            throw new ReviewedStingException("Denominator cannot become NaN");
+        }
     }
 
     public double evaluateDatumLog10( final VariantDatum datum ) {
@@ -222,6 +226,10 @@ public class MultivariateGaussian {
         hyperParameter_b = sumProb + SHRINKAGE;
         hyperParameter_lambda = sumProb + DIRICHLET_PARAMETER;
 
+        if ( sigma.det() < 1e-10 ) {
+            logger.warn("Sigma matrix is near-singular");
+        }
+
         resetPVarInGaussian(); // clean up some memory
     }
 
@@ -236,7 +244,7 @@ public class MultivariateGaussian {
             sumProb += prob;
             incrementMu( datum, prob );
         }
-        if ( Double.compare(sumProb,0.0) == 1 )
+        if ( Double.compare(sumProb,0.0) == 0 )
             logger.debug("No data appear to be assigned to this subgaussian.");
         divideEqualsMu( sumProb );
 
@@ -253,6 +261,10 @@ public class MultivariateGaussian {
             sigma.plusEquals( pVarSigma );
         }
         sigma.timesEquals( 1.0 / sumProb );
+
+        if ( sigma.det() < 1e-10 ) {
+            logger.warn("Sigma matrix is near-singular");
+        }
 
         resetPVarInGaussian(); // clean up some memory
     }

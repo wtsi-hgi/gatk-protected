@@ -335,10 +335,10 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                      "hypothesis "+hypothesis.toString()+" . Would suggest running with full smith waterman to avoid misgenotyping");
                 attributes.put("FSWF",true);
             }
-            AlleleFrequencyCalculationResult result = new AlleleFrequencyCalculationResult(1,2*GLs.size());
-            double[][] prior = computeAlleleFrequencyPriors(GLs.size()*2+1);
+            AlleleFrequencyCalculationResult result = new AlleleFrequencyCalculationResult(1);
+            double[] prior = computeAlleleFrequencyPriors(GLs.size()*2+1);
             // gls, num alt, priors, result, preserve
-            ExactAFCalculationModel.linearExactMultiAllelic(GLs,1,prior,result,true);
+            ExactAFCalculationModel.linearExactMultiAllelic(GLs,1,prior,result);
             VariantContextBuilder vcb = new VariantContextBuilder("EJG",refPos.getContig(),refPos.getStop(),refPos.getStop(),Arrays.asList(ref,alt));
             vcb.genotypes(GLs);
             vcb.referenceBaseForIndel(paddingBase);
@@ -347,18 +347,18 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             alleles.add(Allele.create(hypothesis.toString()));
             vcb.alleles(alleles);
             VariantContext asCon = vcb.make();
-            GenotypesContext genAssigned = UnifiedGenotyperEngine.assignGenotypes(asCon);
+            GenotypesContext genAssigned = VariantContextUtils.assignDiploidGenotypes(asCon);
             vcb.genotypes(genAssigned);
-            double[] normPost= MathUtils.normalizeFromLog10(result.log10AlleleFrequencyLikelihoods[0],true);
-            logger.debug(normPost[0]);
+            final double[] normalizedPosteriors = UnifiedGenotyperEngine.generateNormalizedPosteriors(result, new double[2]);
+            logger.debug(normalizedPosteriors[0]);
             double log10err;
-            if ( Double.isInfinite(normPost[0]) ) {
-                log10err = result.log10AlleleFrequencyLikelihoods[0][0];
+            if ( Double.isInfinite(normalizedPosteriors[0]) ) {
+                log10err = result.getLog10LikelihoodOfAFzero();
             } else {
-                log10err = normPost[0];
+                log10err = normalizedPosteriors[0];
             }
             vcb.log10PError(log10err);
-            attributes.put("MLEAC",MathUtils.maxElementIndex(result.log10AlleleFrequencyLikelihoods[0]));
+            attributes.put("MLEAC",result.getAlleleCountsOfMLE()[0]);
             VariantContextUtils.calculateChromosomeCounts(vcb.make(),attributes,false);
             vcb.attributes(attributes);
             vcfWriter.add(vcb.make());
@@ -366,21 +366,21 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
 
     }
 
-    private double[][] computeAlleleFrequencyPriors(int N) {
+    private double[] computeAlleleFrequencyPriors(int N) {
         // todo -- this stolen from the UG, maybe call into it?
         // calculate the allele frequency priors for 1-N
         double sum = 0.0;
         double heterozygosity = 0.0000001; // ~ 10 differences per person = 10/3gb ~ 1/100 mil
-        double[][] priors = new double[1][2*N+1];
+        double[] priors = new double[2*N+1];
 
         for (int i = 1; i <= 2*N; i++) {
             double value = heterozygosity / (double)i;
-            priors[0][i] = Math.log10(value);
+            priors[i] = Math.log10(value);
             sum += value;
         }
 
         // null frequency for AF=0 is (1 - sum(all other frequencies))
-        priors[0][0] = Math.log10(1.0 - sum);
+        priors[0] = Math.log10(1.0 - sum);
         return priors;
     }
 

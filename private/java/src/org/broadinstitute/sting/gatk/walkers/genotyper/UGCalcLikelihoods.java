@@ -36,6 +36,7 @@ import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -65,14 +66,11 @@ public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> 
     // enable deletions in the pileup
     public boolean includeReadsWithDeletionAtLoci() { return true; }
 
-    // enable extended events for indels
-    public boolean generateExtendedEvents() { return UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.SNP; }
-
     public void initialize() {
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
 
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
+        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
 
         // initialize the header
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
@@ -102,7 +100,7 @@ public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> 
         try {
             writer.add(value);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(e.getMessage() + "; this is often caused by using the --assume_single_sample_reads argument with the wrong sample name");
+            throw new IllegalArgumentException(e.getMessage());
         }
 
         return sum + 1;

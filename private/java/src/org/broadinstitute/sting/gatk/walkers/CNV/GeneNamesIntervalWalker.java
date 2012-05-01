@@ -60,10 +60,6 @@ public class GeneNamesIntervalWalker extends RodWalker<GeneNames, GeneNames> {
     public void initialize() {
     }
 
-    public boolean generateExtendedEvents() {
-        return false;
-    }
-
     public GeneNames reduceInit() {
         return new GeneNames();
     }

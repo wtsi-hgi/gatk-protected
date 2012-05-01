@@ -1,6 +1,5 @@
 package org.broadinstitute.sting.gatk.walkers.misc;
 
-import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.commandline.RodBinding;
@@ -10,15 +9,11 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.By;
 import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
-import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.GenotypeConcordance;
 import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
-import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;

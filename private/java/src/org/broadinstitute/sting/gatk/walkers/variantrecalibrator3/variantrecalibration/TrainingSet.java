@@ -44,6 +44,7 @@ public class TrainingSet {
     public boolean isAntiTraining = false;
     public boolean isTruth = false;
     public boolean isConsensus = false;
+    public boolean isMonomorphic = false;
     public double prior = 0.0;
 
     protected final static Logger logger = Logger.getLogger(TrainingSet.class);
@@ -62,11 +63,12 @@ public class TrainingSet {
             isTruth = tags.containsKey("truth") && tags.getValue("truth").equals("true");
             isConsensus = tags.containsKey("consensus") && tags.getValue("consensus").equals("true");
             prior = ( tags.containsKey("prior") ? Double.parseDouble(tags.getValue("prior")) : prior );
+            isMonomorphic = tags.containsKey("monomorphic") && tags.getValue("monomorphic").equals("true");
         }
 
         // Report back to the user which tracks were found and the properties that were detected
         if( !isConsensus && !isAntiTraining ) {
-            logger.info( String.format( "Found %s track: \tKnown = %s \tTraining = %s \tTruth = %s \tPrior = Q%.1f", name, isKnown, isTraining, isTruth, prior) );
+            logger.info( String.format( "Found %s track: \tKnown = %s \tTraining = %s \tTruth = %s \t Monomorphic = %s \tPrior = Q%.1f", name, isKnown, isTraining, isTruth, isMonomorphic,prior) );
         } else if( isConsensus ) {
             logger.info( String.format( "Found consensus track: %s", name) );
         } else {

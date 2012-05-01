@@ -45,9 +45,11 @@ public class VariantRecalibratorArgumentCollection {
     }
 
     @Argument(fullName = "mode", shortName = "mode", doc = "Recalibration mode to employ: 1.) SNP for recalibrating only snps (emitting indels untouched in the output VCF); 2.) INDEL for indels; and 3.) BOTH for recalibrating both snps and indels simultaneously.", required = false)
-    public VariantRecalibratorArgumentCollection.Mode MODE = VariantRecalibratorArgumentCollection.Mode.SNP;
-    @Argument(fullName="maxGaussians", shortName="mG", doc="The maximum number of Gaussians to try during variational Bayes algorithm", required=false)
-    public int MAX_GAUSSIANS = 10;
+    public VariantRecalibratorArgumentCollection.Mode MODE = VariantRecalibratorArgumentCollection.Mode.BOTH;
+    @Argument(fullName="posMaxGaussians", shortName="pmg", doc="The maximum number of Gaussians to try during variational Bayes algorithm", required=false)
+    public int POS_MAX_GAUSSIANS = 10;
+    @Argument(fullName="negMaxGaussians",shortName="nmg",doc="The maximum number of Gaussians to try during variational Bayes (negative)",required=false)
+    public int NEG_MAX_GAUSSIANS = 10;
     @Argument(fullName="maxIterations", shortName="mI", doc="The maximum number of VBEM iterations to be performed in variational Bayes algorithm. Procedure will normally end when convergence is detected.", required=false)
     public int MAX_ITERATIONS = 100;
     @Argument(fullName="numKMeans", shortName="nKM", doc="The number of k-means iterations to perform in order to initialize the means of the Gaussians in the Gaussian mixture model.", required=false)
@@ -66,6 +68,12 @@ public class VariantRecalibratorArgumentCollection {
     public double PERCENT_BAD_VARIANTS = 0.03;
     @Argument(fullName="percentBadVariantsForTree",shortName="percentBadTree",doc="What percentage of the worst scoring variants to use when building the decision tree/random forest",required=false)
     public double PERCENT_BAD_VARIANTS_FOR_RF = 0.10;
+    @Hidden
+    @Argument(fullName="ignorePercentWorstGoodVariants",shortName="ignoreWorst",doc="What percentage of the worst scoring training sites to ignore when building the RF",required=false)
+    public double IGNORE_WORST_PERCENT_GOOD = 0.05;
+    @Hidden
+    @Argument(fullName="additionalPercentGoodVariants",doc = "Percentage of the best scoring sites to use as training sites for RF",required=false)
+    public double ADDITIONAL_GOOD_FOR_TREE = 0.05;
     @Argument(fullName="minNumBadVariants", shortName="minNumBad", doc="The minimum amount of worst scoring variants to use when building the Gaussian mixture model of bad variants. Will override -percentBad argument if necessary.", required=false)
     public int MIN_NUM_BAD_VARIANTS = 2500;
     // todo -- these don't belong here and shouldn't be required. Hack for RF.

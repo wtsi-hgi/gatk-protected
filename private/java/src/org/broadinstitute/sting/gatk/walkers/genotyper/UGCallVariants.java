@@ -68,7 +68,7 @@ public class UGCallVariants extends RodWalker<VariantContext, Integer> {
             trackNames.add(rb.getName());
         Set<String> samples = SampleUtils.getSampleListWithVCFHeader(getToolkit(), trackNames);
 
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples);
+        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
 
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
 
@@ -131,7 +131,7 @@ public class UGCallVariants extends RodWalker<VariantContext, Integer> {
             VariantContextUtils.calculateChromosomeCounts(builder, true);
             writer.add(builder.make());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(e.getMessage() + "; this is often caused by using the --assume_single_sample_reads argument with the wrong sample name");
+            throw new IllegalArgumentException(e.getMessage());
         }
 
         return sum + 1;

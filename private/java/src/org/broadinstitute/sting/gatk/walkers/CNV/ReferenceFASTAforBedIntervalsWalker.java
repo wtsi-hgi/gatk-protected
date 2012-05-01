@@ -64,10 +64,6 @@ public class ReferenceFASTAforBedIntervalsWalker extends RodWalker<Integer, Inte
         this.intervalSequences = new HashMap<GenomeLoc, FastaSequence>();
     }
 
-    public boolean generateExtendedEvents() {
-        return false;
-    }
-
     public Integer reduceInit() {
         return 0;
     }
