@@ -127,7 +127,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Argument(fullName="useExpandedTriggerSet", shortName="expandedTriggers", doc = "If specified, use additional, experimental triggers designed to capture larger indels but which may lead to an increase in the false positive rate", required=false)
     protected boolean USE_EXPANDED_TRIGGER_SET = false;
 
-    @Argument(fullName="useAllelesTrigger", shortName="allelesTrigger", doc = "If specified, use additional, trigger on variants found in an external alleles file", required=false)
+    @Argument(fullName="useAllelesTrigger", shortName="allelesTrigger", doc = "If specified, use additional trigger on variants found in an external alleles file", required=false)
     protected boolean USE_ALLELES_TRIGGER = false;
 
     @ArgumentCollection
@@ -340,7 +340,33 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             final Map<String, Map<Allele, List<GATKSAMRecord>>> stratifiedReadMap = LikelihoodCalculationEngine.partitionReadsBasedOnLikelihoods(perSampleReadList, perSampleFilteredReadList, callResult);
             final VariantContext annotatedCall = annotationEngine.annotateContext(stratifiedReadMap, callResult.getFirst());
 
-            vcfWriter.add(annotatedCall);
+            // add some custom annotations to the calls
+            final Map<String, Object> myAttributes = new LinkedHashMap<String, Object>(annotatedCall.getAttributes());
+            // Calculate the number of variants on the haplotype
+            int maxNumVar = 0;
+            for( int iii = 1; iii < callResult.getSecond().size(); iii++ ) {
+                for( final Haplotype h : callResult.getSecond().get(iii) ) {
+                    final int numVar = h.getEventMap().size();
+                    if( numVar > maxNumVar ) { maxNumVar = numVar; }
+                }
+            }
+            // Calculate the event length
+            int maxLength = 0;
+            for ( final Allele a : annotatedCall.getAlternateAlleles() ) {
+                final int length = a.length() - annotatedCall.getReference().length();
+                if( Math.abs(length) > Math.abs(maxLength) ) { maxLength = length; }
+            }
+            myAttributes.put("NVH", maxNumVar);
+            myAttributes.put("NumHapEval", bestHaplotypes.size());
+            myAttributes.put("NumHapAssembly", haplotypes.size());
+            myAttributes.put("ActiveRegionSize", activeRegion.getLocation().size());
+            myAttributes.put("EVENTLENGTH", maxLength);
+
+            //if( likelihoodCalculationEngine.haplotypeScore != null ) {
+            //    myAttributes.put("HaplotypeScore", String.format("%.4f", likelihoodCalculationEngine.haplotypeScore));
+            //}
+
+            vcfWriter.add( new VariantContextBuilder(annotatedCall).attributes(myAttributes).make() );
         }
 
         if( DEBUG ) { System.out.println("----------------------------------------------------------------------------------"); }
