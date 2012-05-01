@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.utils.db;
+package org.broadinstitute.sting.mongodb;
 
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
