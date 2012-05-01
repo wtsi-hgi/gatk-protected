@@ -127,7 +127,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Argument(fullName="useExpandedTriggerSet", shortName="expandedTriggers", doc = "If specified, use additional, experimental triggers designed to capture larger indels but which may lead to an increase in the false positive rate", required=false)
     protected boolean USE_EXPANDED_TRIGGER_SET = false;
 
-    @Argument(fullName="useAllelesTrigger", shortName="allelesTrigger", doc = "If specified, use additional, trigger on variants found in an external alleles file", required=false)
+    @Argument(fullName="useAllelesTrigger", shortName="allelesTrigger", doc = "If specified, use additional trigger on variants found in an external alleles file", required=false)
     protected boolean USE_ALLELES_TRIGGER = false;
 
     @ArgumentCollection
