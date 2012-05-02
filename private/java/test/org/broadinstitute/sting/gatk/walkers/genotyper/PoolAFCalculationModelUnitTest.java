@@ -26,7 +26,8 @@ public class PoolAFCalculationModelUnitTest extends BaseTest {
 
     static double[] AA1, AB1, BB1;
     static double[] AA2, AB2, AC2, BB2, BC2, CC2;
-    static double[] A4_1, B4_1, C4_1, D4_1, E4_1;
+    static double[] A4_1, B4_1, C4_1, D4_1, E4_1,F4_1;
+    static double[] A4_400, B4_310, C4_220, D4_130, E4_121, F4_013;
     static final int numSamples = 4;
     static final int samplePloidy = 4;   // = 2*samplesPerPool
 
@@ -37,7 +38,7 @@ public class PoolAFCalculationModelUnitTest extends BaseTest {
         AB1 = new double[]{-20.0, 0.0, -20.0};
         BB1 = new double[]{-20.0, -20.0, 0.0};
 
-        // diploid, nAlleles = 3
+        // diploid, nAlleles = 3. Ordering is [2 0 0] [1 1 0] [0 2 0] [1 0 1] [0 1 1] [0 0 2], ie AA AB BB AC BC CC
         AA2 = new double[]{0.0, -20.0, -20.0, -20.0, -20.0, -20.0};
         AB2 = new double[]{-20.0, 0.0, -20.0, -20.0, -20.0, -20.0};
         AC2 = new double[]{-20.0, -20.0, -20.0, 0.0, -20.0, -20.0};
@@ -47,11 +48,23 @@ public class PoolAFCalculationModelUnitTest extends BaseTest {
         
         // pool (i.e. polyploid cases)
         // NAlleles = 2, ploidy=4
-        A4_1 = new double[]{0.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0};
-        B4_1 = new double[]{-20.0, 0.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0};
-        C4_1 = new double[]{-20.0, -20.0, 0.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0};
-        D4_1 = new double[]{-20.0, -20.0, 0.0,   0.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0};
-        E4_1 = new double[]{-20.0, -20.0, 0.0,   0.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0};
+        // ordering is [4 0] [3 1] [2 2 ] [1 3] [0 4]
+
+        A4_1 = new double[]{0.0, -20.0, -20.0, -20.0, -20.0};
+        B4_1 = new double[]{-20.0, 0.0, -20.0, -20.0, -20.0};
+        C4_1 = new double[]{-20.0, -20.0, 0.0, -20.0, -20.0};
+        D4_1 = new double[]{-20.0, -20.0, 0.0,   0.0, -20.0};
+        E4_1 = new double[]{-20.0, -20.0, 0.0,   0.0, -20.0};
+        F4_1 = new double[]{-20.0, -20.0, -20.0,   -20.0, 0.0};
+
+        // NAlleles = 3, ploidy = 4
+        // ordering is [4 0 0] [3 1 0] [2 2 0] [1 3 0] [0 4 0] [3 0 1] [2 1 1] [1 2 1] [0 3 1] [2 0 2] [1 1 2] [0 2 2] [1 0 3] [0 1 3] [0 0 4]
+        A4_400 = new double[]{0.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0};
+        B4_310 = new double[]{-20.0, 0.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0};
+        C4_220 = new double[]{-20.0, -20.0, 0.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0};
+        D4_130 = new double[]{-20.0, -20.0, -20.0,   0.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0};
+        E4_121 = new double[]{-20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0,   0.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0};
+        F4_013 = new double[]{-20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, 0.0, -20.0};
 
     }
 
@@ -103,14 +116,24 @@ public class PoolAFCalculationModelUnitTest extends BaseTest {
         new GetGLsTest("B2C1", 2, 2, createGenotype("AB1", AB2,2), createGenotype("AB2", AB2,2), createGenotype("AC", AC2,2));
         new GetGLsTest("B3C2a", 2, 2, createGenotype("AB", AB2,2), createGenotype("BC1", BC2,2), createGenotype("BC2", BC2,2));
         new GetGLsTest("B3C2b", 2, 2, createGenotype("AB", AB2,2), createGenotype("BB", BB2,2), createGenotype("CC", CC2,2));
-    /*
+
         // bi-allelic pool case
         new GetGLsTest("P0", 1, samplePloidy, createGenotype("A4_1", A4_1,samplePloidy), createGenotype("A4_1", A4_1,samplePloidy), createGenotype("A4_1", A4_1,samplePloidy));
         new GetGLsTest("P1", 1, samplePloidy,createGenotype("A4_1", A4_1,samplePloidy), createGenotype("B4_1", B4_1,samplePloidy), createGenotype("A4_1", A4_1,samplePloidy));
         new GetGLsTest("P2a", 1,samplePloidy, createGenotype("A4_1", A4_1,samplePloidy), createGenotype("C4_1", C4_1,samplePloidy), createGenotype("A4_1", A4_1,samplePloidy));
         new GetGLsTest("P2b", 1, samplePloidy,createGenotype("B4_1", B4_1,samplePloidy), createGenotype("B4_1", B4_1,samplePloidy), createGenotype("A4_1", A4_1,samplePloidy));
         new GetGLsTest("P4", 1, samplePloidy,createGenotype("A4_1", A4_1,samplePloidy), createGenotype("C4_1", C4_1,samplePloidy), createGenotype("C4_1", C4_1,samplePloidy));
-      */
+        new GetGLsTest("P6", 1, samplePloidy,createGenotype("A4_1", A4_1,samplePloidy), createGenotype("F4_1", C4_1,samplePloidy), createGenotype("C4_1", C4_1,samplePloidy));
+        new GetGLsTest("P8", 1, samplePloidy,createGenotype("A4_1", A4_1,samplePloidy), createGenotype("F4_1", C4_1,samplePloidy), createGenotype("F4_1", C4_1,samplePloidy));
+
+        // multi-allelic pool case
+        new GetGLsTest("B1C3", 2, samplePloidy,createGenotype("A4_400", A4_400,samplePloidy), createGenotype("A4_400", A4_400,samplePloidy), createGenotype("F4_013", F4_013,samplePloidy));
+        new GetGLsTest("B3C9", 2, samplePloidy,createGenotype("F4_013", F4_013,samplePloidy), createGenotype("F4_013", F4_013,samplePloidy), createGenotype("F4_013", F4_013,samplePloidy));
+        new GetGLsTest("B6C0", 2, samplePloidy,createGenotype("B4_310", B4_310,samplePloidy), createGenotype("C4_220", C4_220,samplePloidy), createGenotype("D4_130", D4_130,samplePloidy));
+        new GetGLsTest("B6C4", 2, samplePloidy,createGenotype("D4_130", D4_130,samplePloidy), createGenotype("E4_121", E4_121,samplePloidy), createGenotype("F4_013", F4_013,samplePloidy));
+        new GetGLsTest("B4C7", 2, samplePloidy,createGenotype("F4_013", F4_013,samplePloidy), createGenotype("E4_121", E4_121,samplePloidy), createGenotype("F4_013", F4_013,samplePloidy));
+        new GetGLsTest("B2C3", 2, samplePloidy,createGenotype("A4_400", A4_400,samplePloidy), createGenotype("F4_013", F4_013,samplePloidy), createGenotype("B4_310", B4_310,samplePloidy));
+
         return GetGLsTest.getTests(GetGLsTest.class);
     }
 
@@ -122,7 +145,6 @@ public class PoolAFCalculationModelUnitTest extends BaseTest {
         double[] priors = new double[len];  // flat priors
 
         PoolAFCalculationModel.combineSinglePools(cfg.GLs, cfg.numAltAlleles, cfg.ploidy/2, priors, result);
-
         int nameIndex = 1;
         for ( int allele = 0; allele < cfg.numAltAlleles; allele++, nameIndex+=2 ) {
             int expectedAlleleCount = Integer.valueOf(cfg.name.substring(nameIndex, nameIndex+1));
