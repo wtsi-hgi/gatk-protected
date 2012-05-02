@@ -22,7 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.mongodb;
+package org.broadinstitute.sting.gatk.walkers.mongodb;
 
 import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;

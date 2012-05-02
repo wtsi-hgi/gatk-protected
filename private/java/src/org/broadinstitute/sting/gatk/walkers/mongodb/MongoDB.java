@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.mongodb;
+package org.broadinstitute.sting.gatk.walkers.mongodb;
 
 import com.mongodb.DB;
 import com.mongodb.DBCollection;

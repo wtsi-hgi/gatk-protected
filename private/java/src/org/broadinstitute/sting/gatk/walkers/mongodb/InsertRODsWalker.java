@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.mongodb;
+package org.broadinstitute.sting.gatk.walkers.mongodb;
 
 /**
  * Created with IntelliJ IDEA.
@@ -18,7 +18,6 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
-import org.broadinstitute.sting.mongodb.MongoDB;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -31,7 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Inserts all of the RODs in the input data set. Data is inserted using VariantContext.toMongoDB().
+ * Inserts all of the RODs in the input data set. Data is inserted using toMongoDB().
  */
 public class InsertRODsWalker extends RodWalker<Integer, Integer> {
     @Input(fullName="input", shortName = "input", doc="The input ROD which should be inserted into the DB.", required=true)
