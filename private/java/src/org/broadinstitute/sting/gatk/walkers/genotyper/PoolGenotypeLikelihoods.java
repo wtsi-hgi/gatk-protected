@@ -184,10 +184,10 @@ public abstract class PoolGenotypeLikelihoods {
         public int[] getCurrentVector() {
             return currentState;
         }
-        public int getCurrentSum() {
+      /*  public int getCurrentSum() {
             return currentSum;
         }
-
+        */
         public int getLinearIndex() {
             return linearIndex;
         }
@@ -330,7 +330,7 @@ public abstract class PoolGenotypeLikelihoods {
         return  newPLs;
     }
 
-    protected static int getLinearIndex(int[] vectorIdx, int numAlleles, int numChromosomes) {
+    public static int getLinearIndex(int[] vectorIdx, int numAlleles, int numChromosomes) {
 
         // brain-dead implementation.
         // BIG to-do, ideally, should compute closed form formula for this

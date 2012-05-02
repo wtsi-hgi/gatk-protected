@@ -29,7 +29,6 @@ import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.io.PrintStream;
@@ -77,12 +76,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
             GLs = subsetAlleles(vc, alleles, false, ploidy);
         }
 
-
-        // todo - tmp: only support biallelic pool calls for now
-        if (MAX_ALTERNATE_ALLELES_TO_GENOTYPE >1)
-            throw new UserException("No support yet for multiallelic pool calls, please rerun with -maxAlleles 1");
-
-        simplePoolBiallelic(GLs, alleles.size() - 1, UAC.nSamplesPerPool, log10AlleleFrequencyPriors, result);
+        combineSinglePools(GLs, alleles.size() - 1, UAC.nSamplesPerPool, log10AlleleFrequencyPriors, result);
 
         return alleles;
     }
@@ -126,14 +120,14 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
 
     /**
-     * Simple non-optimized version that combined GLs from several pools and produces global AF distribution.
+     * Simple non-optimized version that combines GLs from several pools and produces global AF distribution.
      * @param GLs                              Inputs genotypes context with per-pool GLs
      * @param numAlternateAlleles              Number of alternate alleles
      * @param nSamplesPerPool                  Number of samples per pool
      * @param log10AlleleFrequencyPriors       Frequency priors
      * @param result                           object to fill with output values
      */
-    protected static void simplePoolBiallelic(final GenotypesContext GLs,
+    protected static void combineSinglePools(final GenotypesContext GLs,
                                                final int numAlternateAlleles,
                                                final int nSamplesPerPool,
                                                final double[] log10AlleleFrequencyPriors,
@@ -141,25 +135,52 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
         int[] alleleCounts = new int[numAlternateAlleles];
         final ArrayList<double[]> genotypeLikelihoods = getGLs(GLs);
-        final int numSamples = genotypeLikelihoods.size()-1;
+ //       final int numSamples = genotypeLikelihoods.size()-1;
 
         double[] combinedLikelihoods = new double[1];
 
+        int ploidy1 = 0;
+        int ploidy2 = 2*nSamplesPerPool;
         // Combine each pool incrementally - likelihoods will be renormalized at each step
-        for (int p=1; p<genotypeLikelihoods.size(); p++) {
-            combinedLikelihoods = combinePoolNaively(genotypeLikelihoods.get(p), combinedLikelihoods);    
-        }
+        if (numAlternateAlleles > 1) {
+            for (int p=1; p<genotypeLikelihoods.size(); p++) {
+                combinedLikelihoods = combineMultiallelicPoolNaively(combinedLikelihoods, genotypeLikelihoods.get(p), ploidy1, ploidy2,
+                        numAlternateAlleles+1);
+                ploidy1 = ploidy2 + ploidy1; // total number of chromosomes in combinedLikelihoods
+            }
+            final double log10Lof0 =combinedLikelihoods[0];
+            result.setLog10LikelihoodOfAFzero(log10Lof0);
+            result.setLog10PosteriorOfAFzero(log10Lof0 + log10AlleleFrequencyPriors[0]);
 
-        final double log10Lof0 =combinedLikelihoods[0];
-        result.setLog10LikelihoodOfAFzero(log10Lof0);
-        result.setLog10PosteriorOfAFzero(log10Lof0 + log10AlleleFrequencyPriors[0]);
-        
-        for (int k=1; k < combinedLikelihoods.length; k++) {
-            alleleCounts[0] = k;
-            result.updateMLEifNeeded(combinedLikelihoods[k],alleleCounts);
-            result.updateMAPifNeeded(combinedLikelihoods[k] + log10AlleleFrequencyPriors[k],alleleCounts);
+            PoolGenotypeLikelihoods.SumIterator iterator = new PoolGenotypeLikelihoods.SumIterator(numAlternateAlleles+1,ploidy1);
+            while(iterator.hasNext()) {
+                alleleCounts = Arrays.copyOfRange(iterator.getCurrentVector(),1,iterator.getCurrentVector().length);
+                final int k = iterator.getLinearIndex();
+                result.updateMLEifNeeded(combinedLikelihoods[k], alleleCounts);
+                result.updateMAPifNeeded(combinedLikelihoods[k] + log10AlleleFrequencyPriors[k],alleleCounts);
+ /*
+                System.out.format("\nK:%d:  ",iterator.getLinearIndex());
+                int[] a =  iterator.getCurrentVector();
+                for (int i=0; i < a.length; i++)
+                    System.out.format("%d ",a[i]);
+ */
+                iterator.next();
+            }
         }
-        //result.log10AlleleFrequencyLikelihoods[0] = MathUtils.vectorSum(combinedLikelihoods,log10AlleleFrequencyPriors);
+        else {
+            // simple biallelic logic, for efficiency
+            for (int p=1; p<genotypeLikelihoods.size(); p++)
+                combinedLikelihoods = combineBiallelicPoolNaively(genotypeLikelihoods.get(p), combinedLikelihoods);
+            final double log10Lof0 =combinedLikelihoods[0];
+            result.setLog10LikelihoodOfAFzero(log10Lof0);
+            result.setLog10PosteriorOfAFzero(log10Lof0 + log10AlleleFrequencyPriors[0]);
+
+            for (int k=1; k < combinedLikelihoods.length; k++) {
+                alleleCounts[0] = k;
+                result.updateMLEifNeeded(combinedLikelihoods[k],alleleCounts);
+                result.updateMAPifNeeded(combinedLikelihoods[k] + log10AlleleFrequencyPriors[k],alleleCounts);
+            }
+        }
     }
 
 
@@ -169,14 +190,79 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
      *
      * For vector K representing an allele count conformation,
      * Pr(D | AC = K) = Sum_G Pr(D|AC1 = G) Pr (D|AC2=K-G) * F(G,K)
-     * where F(G,K) = choose(m1,[g0 g1 ...])*choose(m2,[...
-     * @param x
-     * @param y
-     * @return
+     * where F(G,K) = choose(m1,[g0 g1 ...])*choose(m2,[...]) / choose(m1+m2,[k1 k2 ...])
+     * @param xx                    First log-likelihood pool GL vector
+     * @param yy                    Second pool GL vector
+     * @param ploidy1               Ploidy of first pool (# of chromosomes in it)
+     * @param ploidy2               Ploidy of second pool
+     * @param numAlleles            Number of alleles
+     * @return                      Combined AC distribution
      */
-    public static double[] combineMultiallelicPoolNaively(double[] x, double[] y, int ploidy1, int ploidy2, int numAlleles) {
+    public static double[] combineMultiallelicPoolNaively(double[] xx, double[] yy, int ploidy1, int ploidy2, int numAlleles) {
 
-        return null;//Double.NEGATIVE_INFINITY;
+        final int dim1 = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, ploidy1);
+        final int dim2 = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, ploidy2);
+
+        if (dim1 != xx.length || dim2 != yy.length)
+            throw new ReviewedStingException("BUG: Inconsistent vector length");
+        if (ploidy1 == 0)
+            return yy.clone();
+        else if (ploidy2 == 0)
+            return xx.clone();
+
+        final int m1 = xx.length;
+        final int m2 = yy.length;
+        final int newPloidy = ploidy1 + ploidy2;
+
+        // Say L1(K) = Pr(D|AC1=K) * choose(m1,K)
+        // and L2(K) = Pr(D|AC2=K) * choose(m2,K)
+        PoolGenotypeLikelihoods.SumIterator firstIterator = new PoolGenotypeLikelihoods.SumIterator(numAlleles,ploidy1);
+        PoolGenotypeLikelihoods.SumIterator secondIterator = new PoolGenotypeLikelihoods.SumIterator(numAlleles,ploidy2);
+        final double[] x = xx.clone();
+        final double[] y = yy.clone();
+
+        while(firstIterator.hasNext()) {
+            x[firstIterator.getLinearIndex()] += MathUtils.log10MultinomialCoefficient(ploidy1,firstIterator.getCurrentVector());
+            firstIterator.next();
+        }
+
+        while(secondIterator.hasNext()) {
+            y[secondIterator.getLinearIndex()] += MathUtils.log10MultinomialCoefficient(ploidy2,secondIterator.getCurrentVector());
+            secondIterator.next();
+        }
+
+        // initialize output to -log10(choose(m1+m2,[k1 k2...])
+        final int outputDim = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, newPloidy);
+        final double[] result = new double[outputDim];
+        final PoolGenotypeLikelihoods.SumIterator outputIterator = new PoolGenotypeLikelihoods.SumIterator(numAlleles,newPloidy);
+
+        while(outputIterator.hasNext()) {
+            result[outputIterator.getLinearIndex()] = -MathUtils.log10MultinomialCoefficient(newPloidy,outputIterator.getCurrentVector());
+            outputIterator.next();
+        }
+
+        // Now, result(K) =  logSum_G (L1(G)+L2(K-G)) where G are all possible vectors that sum UP to K
+        outputIterator.reset();
+        double outerMax = Double.NEGATIVE_INFINITY;
+        while(outputIterator.hasNext()) {
+            
+            // for current conformation, get all possible ways to break vector K into two components G1 and G2
+            final PoolGenotypeLikelihoods.SumIterator innerIterator = new PoolGenotypeLikelihoods.SumIterator(numAlleles,ploidy1);
+            double innerMax = Double.NEGATIVE_INFINITY;
+            while (innerIterator.hasNext()) {
+                final int[] g2 = MathUtils.vectorDiff(outputIterator.getCurrentVector(), innerIterator.getCurrentVector());
+                if (g2[MathUtils.minElementIndex(g2)] >= 0) {
+                    final int idx2 = PoolGenotypeLikelihoods.getLinearIndex(g2,numAlleles,ploidy2);
+                    final double sum = x[innerIterator.getLinearIndex()] + y[idx2];
+                    result[outputIterator.getLinearIndex()] = MathUtils.approximateLog10SumLog10(result[outputIterator.getLinearIndex()], sum);
+                }
+                innerIterator.next();
+            }
+            
+            outputIterator.next();
+        }
+        
+        return MathUtils.normalizeFromLog10(result,false,true);
     }
     /**
      * Naive combiner of two biallelic pools (of arbitrary size).
@@ -186,7 +272,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
      * @param yy               Second GL vector
      * @return                Combined likelihood vector
      */
-    public static double[] combinePoolNaively(final double[] xx, final double[] yy) {
+    public static double[] combineBiallelicPoolNaively(final double[] xx, final double[] yy) {
      
         final int m1 = xx.length;
         final int m2 = yy.length;
@@ -265,7 +351,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
      * @param allelesToUse                      alleles to subset
      * @param assignGenotypes                   true: assign hard genotypes, false: leave as no-call
      * @param ploidy                            number of chromosomes per sample (pool)
-     * @return
+     * @return                                  GenotypesContext with new PLs
      */
     public GenotypesContext subsetAlleles(final VariantContext vc,
                                                       final List<Allele> allelesToUse,
