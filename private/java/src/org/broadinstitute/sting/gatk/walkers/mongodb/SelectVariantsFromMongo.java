@@ -620,7 +620,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             String source = (String)oneResult.get("source");
             String id = (String)oneResult.get("id");
             Double error = (Double)oneResult.get("error");
-            Long stop = (Long)oneResult.get("stop");
+            Long stop = Long.valueOf(oneResult.get("stop").toString());     // Mongo sometimes returns an Integer instead of a Long.  TODO: why?
 
             VariantContextBuilder builder = new VariantContextBuilder(source, contig, start, stop, sourceRodAllelePair.getSecond());
 
