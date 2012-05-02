@@ -31,13 +31,13 @@ class BQSR extends QScript {
       val inRecalFile = swapExt(bam, ".bam", ".original.grp")
       val outRecalFile = swapExt(bam, ".bam", ".recal.grp")
       if (firstPass)
-        add(BQSR(bam, inRecalFile, null, goodReadGroup, !secondPass, true))
+        add(BQSR(bam, inRecalFile, null, goodReadGroup, !secondPass && keepIntermediates, true))
       if (secondPass)
-        add(BQSR(bam, outRecalFile, inRecalFile, goodReadGroup, true, false))
+        add(BQSR(bam, outRecalFile, inRecalFile, goodReadGroup, keepIntermediates, noPlots))
     }
   }
 
-  case class BQSR (bam: File, output: File, input: File, readGroup: String, keepIntermediates: Boolean, noPlots: Boolean) extends BaseQualityScoreRecalibrator {
+  case class BQSR (bam: File, output: File, input: File, readGroup: String, keepCSV: Boolean, dontGeneratePlots: Boolean) extends BaseQualityScoreRecalibrator {
     this.reference_sequence = referenceFile
     this.intervalsString = intervalsFile
     this.out = output
@@ -48,8 +48,9 @@ class BQSR extends QScript {
     this.mcs = mismatchesContextSize
     this.ics = insertionsContextSize
     this.dcs = deletionsContextSize
-    this.no_plots = noPlots
-    this.keep_intermediate_files = keepIntermediates
+    this.BQSR = input
+    this.no_plots = if (scatter > 0) {dontGeneratePlots} else {true}
+    this.keep_intermediate_files = if (scatter > 0) {keepCSV} else {false}
     this.solid_nocall_strategy = RecalDataManager.SOLID_NOCALL_STRATEGY.PURGE_READ
     this.scatterCount = scatter
   }
