@@ -385,11 +385,11 @@ public class HaplotypeResolver extends RodWalker<Integer, Integer> {
             if ( current1 == null ) {
                 writeOne(current2, source2, null);
                 currentIndex2++;
-                current2 = (currentIndex2 < size2 ? sourceVCs2.get(currentIndex2): null);
+                current2 = (currentIndex2 < size2 ? source2Alleles.get(currentIndex2): null);
             } else if ( current2 == null ) {
                 writeOne(current1, source1, null);
                 currentIndex1++;
-                current1 = (currentIndex1 < size1 ? sourceVCs1.get(currentIndex1): null);
+                current1 = (currentIndex1 < size1 ? source1Alleles.get(currentIndex1): null);
             } else {
 
                 final GenomeLoc loc1 = getToolkit().getGenomeLocParser().createGenomeLoc(current1);
@@ -411,16 +411,16 @@ public class HaplotypeResolver extends RodWalker<Integer, Integer> {
                     writeOne(current1, INTERSECTION_SET, status);
                     currentIndex1++;
                     currentIndex2++;
-                    current1 = (currentIndex1 < size1 ? sourceVCs1.get(currentIndex1): null);
-                    current2 = (currentIndex2 < size2 ? sourceVCs2.get(currentIndex2): null);
+                    current1 = (currentIndex1 < size1 ? source1Alleles.get(currentIndex1): null);
+                    current2 = (currentIndex2 < size2 ? source2Alleles.get(currentIndex2): null);
                 } else if ( loc1.isBefore(loc2) ) {
                     writeOne(current1, source1, null);
                     currentIndex1++;
-                    current1 = (currentIndex1 < size1 ? sourceVCs1.get(currentIndex1): null);
+                    current1 = (currentIndex1 < size1 ? source1Alleles.get(currentIndex1): null);
                 } else {
                     writeOne(current2, source2, null);
                     currentIndex2++;
-                    current2 = (currentIndex2 < size2 ? sourceVCs2.get(currentIndex2): null);
+                    current2 = (currentIndex2 < size2 ? source2Alleles.get(currentIndex2): null);
                 }
             }
         }
