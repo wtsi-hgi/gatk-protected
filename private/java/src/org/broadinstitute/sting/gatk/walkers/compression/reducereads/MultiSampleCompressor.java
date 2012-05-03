@@ -48,7 +48,6 @@ public class MultiSampleCompressor implements Compressor {
 
     public MultiSampleCompressor(SAMFileHeader header,
                                  final int contextSize,
-                                 final int contextSizeIndels,
                                  final int downsampleCoverage,
                                  final int minMappingQuality,
                                  final double minAltProportionToTriggerVariant,
@@ -57,7 +56,7 @@ public class MultiSampleCompressor implements Compressor {
                                  final ReduceReadsWalker.DownsampleStrategy downsampleStrategy) {
         for ( String name : SampleUtils.getSAMFileSamples(header) ) {
             compressorsPerSample.put(name,
-                    new SingleSampleCompressor(name, contextSize, contextSizeIndels, downsampleCoverage,
+                    new SingleSampleCompressor(name, contextSize, downsampleCoverage,
                                     minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, downsampleStrategy));
         }
     }

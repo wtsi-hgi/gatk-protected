@@ -26,8 +26,6 @@ public class SlidingWindow {
     // Sliding Window data
     protected LinkedList<GATKSAMRecord> readsInWindow;
     protected LinkedList<HeaderElement> windowHeader;
-    protected int contextSizeMismatches;
-    protected int contextSizeIndels;
     protected int contextSize;                                      // the largest context size (between mismatches and indels)
     protected int startLocation;
     protected int stopLocation;
@@ -55,7 +53,17 @@ public class SlidingWindow {
     protected int MIN_MAPPING_QUALITY;
 
     protected ReduceReadsWalker.DownsampleStrategy downsampleStrategy;
-    
+
+
+    /**
+     * The types of synthetic reads to use in the finalizeAndAdd method
+     */
+    private enum ConsensusType {
+        CONSENSUS,
+        FILTERED,
+        BOTH
+    }
+
     public int getStopLocation() {
         return stopLocation;
     }
@@ -69,12 +77,10 @@ public class SlidingWindow {
     }
 
 
-    public SlidingWindow(String contig, int contigIndex, int contextSizeMismatches, int contextSizeIndels, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality, int downsampleCoverage, final ReduceReadsWalker.DownsampleStrategy downsampleStrategy) {
+    public SlidingWindow(String contig, int contigIndex, int contextSize, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality, int downsampleCoverage, final ReduceReadsWalker.DownsampleStrategy downsampleStrategy) {
         this.startLocation = -1;
         this.stopLocation = -1;
-        this.contextSizeMismatches = contextSizeMismatches;
-        this.contextSizeIndels = contextSizeIndels;
-        this.contextSize = Math.max(contextSizeIndels, contextSizeMismatches);
+        this.contextSize = contextSize;
         this.downsampleCoverage = downsampleCoverage;
 
         this.MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT = minAltProportionToTriggerVariant;
@@ -104,13 +110,13 @@ public class SlidingWindow {
 
     /**
      * Add a read to the sliding window and slides the window accordingly.
-     * <p/>
+     * 
      * Reads are assumed to be in order, therefore, when a read is added the sliding window can
      * assume that no more reads will affect read.getUnclippedStart() - contextSizeMismatches. The window
      * slides forward to that position and returns all reads that may have been finalized in the
      * sliding process.
      *
-     * @param read
+     * @param read the read
      * @return a list of reads that have been finished by sliding the window.
      */
     public List<GATKSAMRecord> addRead(GATKSAMRecord read) {
@@ -131,14 +137,14 @@ public class SlidingWindow {
 
     /**
      * Determines if the window can be slid given the new incoming read.
-     * <p/>
+     * 
      * We check from the start of the window to the (unclipped) start of the new incoming read if there
      * is any variant.
-     * <p/>
+     * 
      * If there are no variant sites, we slide the left side of the window to the unclipped start of the
      * new incoming read minus the context size (we can only guarantee that the reads before this point
      * will not be in any variant region ever)
-     * <p/>
+     * 
      * If there are variant sites, we check if it's time to close the variant region.
      *
      * @param incomingReadUnclippedStart the incoming read's start position. Must be the unclipped start!
@@ -192,17 +198,9 @@ public class SlidingWindow {
         for (int i = startLocation; i < stop; i++) {
             if (headerElementIterator.hasNext()) {
                 HeaderElement headerElement = headerElementIterator.next();
-                int context = 0;
 
-                if (headerElement.isVariantFromDeletions() || headerElement.isVariantFromInsertions())
-                    context = Math.max(context, contextSizeIndels);
-
-                // if context has been set to indels, only do mismatches if contextSize is bigger
-                if ((context > 0 && contextSizeMismatches > contextSizeIndels) || headerElement.isVariantFromMismatches())
-                    context = Math.max(context, contextSizeMismatches);
-
-                if (context > 0)
-                    markVariantRegion(markedSites, i - startLocation, context);
+                if (headerElement.isVariantFromDeletions(MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT) || headerElement.isVariantFromInsertions(MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT) || headerElement.isVariantFromMismatches(MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT))
+                    markVariantRegion(markedSites, i - startLocation);
 
             } else
                 break;
@@ -215,18 +213,17 @@ public class SlidingWindow {
      *
      * @param markedSites         the boolean array to bear the marks
      * @param variantSiteLocation the location where a variant site was found
-     * @param context             the number of bases to mark on each side of the variant site
      */
-    protected void markVariantRegion(boolean[] markedSites, int variantSiteLocation, int context) {
-        int from = (variantSiteLocation < context) ? 0 : variantSiteLocation - context;
-        int to = (variantSiteLocation + context + 1 > markedSites.length) ? markedSites.length : variantSiteLocation + context + 1;
+    protected void markVariantRegion(boolean[] markedSites, int variantSiteLocation) {
+        int from = (variantSiteLocation < contextSize) ? 0 : variantSiteLocation - contextSize;
+        int to = (variantSiteLocation + contextSize + 1 > markedSites.length) ? markedSites.length : variantSiteLocation + contextSize + 1;
         for (int i = from; i < to; i++)
             markedSites[i] = true;
     }
 
     /**
      * Adds bases to the running consensus or filtered data accordingly
-     * <p/>
+     * 
      * If adding a sequence with gaps, it will finalize multiple consensus reads and keep the last running consensus
      *
      * @param start the first header index to add to consensus
@@ -377,17 +374,16 @@ public class SlidingWindow {
 
     /**
      * Adds bases to the filtered data synthetic read.
-     * <p/>
+     * 
      * Different from the addToConsensus method, this method assumes a contiguous sequence of filteredData
      * bases.
      *
      * @param start the first header index to add to consensus
      * @param end   the first header index NOT TO add to consensus
-     * @return a list of consensus reads generated by this call. Empty list if no consensus was generated.
      */
     private void addToFilteredData(int start, int end) {
         if (filteredDataConsensus == null)
-            filteredDataConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, filteredDataReadName + filteredDataConsensusCounter++, windowHeader.get(start).location, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG);
+            filteredDataConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, filteredDataReadName + filteredDataConsensusCounter++, windowHeader.get(start).getLocation(), GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG);
 
         ListIterator<HeaderElement> headerElementIterator = windowHeader.listIterator(start);
         for (int index = start; index < end; index++) {
@@ -401,26 +397,25 @@ public class SlidingWindow {
             if (!headerElement.hasFilteredData())
                 throw new ReviewedStingException("No filtered data in " + index);
 
-            BaseIndex base = headerElement.filteredBaseCounts.baseIndexWithMostCounts();
-            byte count = (byte) Math.min(headerElement.filteredBaseCounts.countOfMostCommonBase(), Byte.MAX_VALUE);
-            byte qual = headerElement.filteredBaseCounts.averageQualsOfMostCommonBase();
+            BaseIndex base = headerElement.getFilteredBaseCounts().baseIndexWithMostCounts();
+            byte count = (byte) Math.min(headerElement.getFilteredBaseCounts().countOfMostCommonBase(), Byte.MAX_VALUE);
+            byte qual = headerElement.getFilteredBaseCounts().averageQualsOfMostCommonBase();
             filteredDataConsensus.add(base, count, qual, headerElement.getRMS());
         }
     }
 
     /**
      * Adds bases to the filtered data synthetic read.
-     * <p/>
+     * 
      * Different from the addToConsensus method, this method assumes a contiguous sequence of filteredData
      * bases.
      *
      * @param start the first header index to add to consensus
      * @param end   the first header index NOT TO add to consensus
-     * @return a list of consensus reads generated by this call. Empty list if no consensus was generated.
      */
     private void addToRunningConsensus(int start, int end) {
         if (runningConsensus == null)
-            runningConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, consensusReadName + consensusCounter++, windowHeader.get(start).location, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG);
+            runningConsensus = new SyntheticRead(header, readGroupAttribute, contig, contigIndex, consensusReadName + consensusCounter++, windowHeader.get(start).getLocation(), GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG);
 
         Iterator<HeaderElement> headerElementIterator = windowHeader.listIterator(start);
         for (int index = start; index < end; index++) {
@@ -431,9 +426,9 @@ public class SlidingWindow {
             if (!headerElement.hasConsensusData())
                 throw new ReviewedStingException("No CONSENSUS data in " + index);
 
-            BaseIndex base = headerElement.consensusBaseCounts.baseIndexWithMostCounts();
-            byte count = (byte) Math.min(headerElement.consensusBaseCounts.countOfMostCommonBase(), Byte.MAX_VALUE);
-            byte qual = headerElement.consensusBaseCounts.averageQualsOfMostCommonBase();
+            BaseIndex base = headerElement.getConsensusBaseCounts().baseIndexWithMostCounts();
+            byte count = (byte) Math.min(headerElement.getConsensusBaseCounts().countOfMostCommonBase(), Byte.MAX_VALUE);
+            byte qual = headerElement.getConsensusBaseCounts().averageQualsOfMostCommonBase();
             runningConsensus.add(base, count, qual, headerElement.getRMS());
         }
     }
@@ -453,8 +448,8 @@ public class SlidingWindow {
 
         syntheticReads.addAll(finalizeAndAdd(ConsensusType.BOTH));  // Finalize consensus if there is one to finalize before the Variant Region
 
-        int refStart = windowHeader.get(start).location;            // Clipping operations are reference based, not read based
-        int refStop = windowHeader.get(stop).location;
+        int refStart = windowHeader.get(start).getLocation();            // Clipping operations are reference based, not read based
+        int refStop = windowHeader.get(stop).getLocation();
 
         for (GATKSAMRecord read : readsInWindow) {
             GATKSAMRecord trimmedRead = ReadClipper.hardClipToRegion(read, refStart, refStop);
@@ -578,21 +573,10 @@ public class SlidingWindow {
      */
     protected void slide(int shift) {
         if (shift > 0) {
-            LinkedList<GATKSAMRecord> newSlidingReads = new LinkedList<GATKSAMRecord>();
-
             // drop base baseCounts out of the window
             for (int i = 0; i < shift; i++)
                 windowHeader.remove();
             startLocation += shift;
-
-            // clip reads to new window
-            int refLeftPosition = windowHeader.peekFirst().location;  // todo -- should I just get startLocation ?  (works if there are no gaps)
-            for (GATKSAMRecord read : readsInWindow) {
-                GATKSAMRecord clippedRead = clipStart(read, refLeftPosition);
-                if (clippedRead != null)
-                    newSlidingReads.add(clippedRead);
-            }
-            readsInWindow = newSlidingReads;
         }
     }
 
@@ -730,7 +714,7 @@ public class SlidingWindow {
                     int nDeletionsToAdd = cigarElement.getLength();
                     while (nDeletionsToAdd-- > 0) {                               // deletions are added to the baseCounts with the read mapping quality as it's quality score
                         headerElement = headerElementIterator.next();
-                        headerElement.addBase((byte) 'D', (byte) read.getMappingQuality(), read.getMappingQuality());
+                        headerElement.addBase((byte) 'D', (byte) read.getMappingQuality(), read.getMappingQuality(), MIN_BASE_QUAL_TO_COUNT, MIN_MAPPING_QUALITY);
                         locationIndex++;
                     }
                     break;
@@ -741,7 +725,7 @@ public class SlidingWindow {
                     int nBasesToAdd = cigarElement.getLength();
                     while (nBasesToAdd-- > 0) {
                         headerElement = headerElementIterator.next();
-                        headerElement.addBase(bases[readBaseIndex], quals[readBaseIndex], read.getMappingQuality());
+                        headerElement.addBase(bases[readBaseIndex], quals[readBaseIndex], read.getMappingQuality(), MIN_BASE_QUAL_TO_COUNT, MIN_MAPPING_QUALITY);
                         readBaseIndex++;
                         locationIndex++;
                     }
@@ -764,178 +748,6 @@ public class SlidingWindow {
         if (refNewStart <= read.getAlignmentStart())
             return read;
         return ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refNewStart - 1);
-    }
-
-    /**
-     * The element that describes the header of the sliding window.
-     * <p/>
-     * Each site has a header element containing the counts of each base, it's reference based location and whether or not the site
-     * has insertions (to it's right). It also contains information about the bases that have been filtered out due to mapping or base
-     * quality.
-     */
-    protected class HeaderElement {
-        protected BaseCounts consensusBaseCounts;      // How many A,C,G,T (and D's) are in this site.
-        protected BaseCounts filteredBaseCounts;       // How many A,C,G,T (and D's) were filtered out in this site.
-        protected int insertionsToTheRight;            // How many reads in this site had insertions to the immediate right
-        protected int location;                        // Genome location of this site (the sliding window knows which contig we're at
-        protected LinkedList<Integer> mappingQuality;  // keeps the mapping quality of each read that contributed to this element (site)
-
-        public int getLocation() {
-            return location;
-        }
-
-        /**
-         * Creates a new HeaderElement with the default location 0
-         */
-        public HeaderElement() {
-            this(0);
-        }
-
-        /**
-         * Creates a new HeaderElement with the following default values:
-         * - empty consensusBaseCounts
-         * - empty filteredBaseCounts
-         * - 0 insertions to the right
-         * - empty mappingQuality list
-         *
-         * @param location the reference location for the new element
-         */
-        public HeaderElement(int location) {
-            this(new BaseCounts(), new BaseCounts(), 0, location, new LinkedList<Integer>());
-        }
-
-        /**
-         * Creates a new HeaderElement with all given parameters
-         *
-         * @param consensusBaseCounts  the BaseCounts object for the running consensus synthetic read
-         * @param filteredBaseCounts   the BaseCounts object for the filtered data synthetic read
-         * @param insertionsToTheRight number of insertions to the right of this HeaderElement
-         * @param location             the reference location of this reference element
-         * @param mappingQuality       the list of mapping quality values of all reads that contributed to this HeaderElement
-         */
-        public HeaderElement(BaseCounts consensusBaseCounts, BaseCounts filteredBaseCounts, int insertionsToTheRight, int location, LinkedList<Integer> mappingQuality) {
-            this.consensusBaseCounts = consensusBaseCounts;
-            this.filteredBaseCounts = filteredBaseCounts;
-            this.insertionsToTheRight = insertionsToTheRight;
-            this.location = location;
-            this.mappingQuality = mappingQuality;
-        }
-
-        /**
-         * Whether or not the site represented by this HeaderElement is variant according to the
-         * definitions of variant by insertion, deletion and mismatches.
-         *
-         * @return true if site is variant by any definition. False otherwise.
-         */
-        public boolean isVariant() {
-            return hasConsensusData() && (isVariantFromInsertions() || isVariantFromMismatches() || isVariantFromDeletions());
-        }
-
-        /**
-         * Adds a new base to the HeaderElement updating all counts accordingly
-         *
-         * @param base           the base to add
-         * @param qual           the base quality
-         * @param mappingQuality the mapping quality of the read this base belongs to
-         */
-        public void addBase(byte base, byte qual, int mappingQuality) {
-            if (qual >= MIN_BASE_QUAL_TO_COUNT && mappingQuality >= MIN_MAPPING_QUALITY)
-                consensusBaseCounts.incr(base, qual); // If the base passes filters, it is included in the consensus base counts
-            else
-                filteredBaseCounts.incr(base, qual);  // If the base fails filters, it is included with the filtered data base counts
-
-            this.mappingQuality.add(mappingQuality);  // Filtered or not, the RMS mapping quality includes all bases in this site
-        }
-
-        /**
-         * Adds an insertions to the right of the HeaderElement and updates all counts accordingly.
-         * All insertions should be added to the right of the element.
-         */
-        public void addInsertionToTheRight() {
-            insertionsToTheRight++;
-        }
-
-        /**
-         * Does this HeaderElement contain consensus data?
-         *
-         * @return whether or not this HeaderElement contains consensus data
-         */
-        public boolean hasConsensusData() {
-            return consensusBaseCounts.totalCount() > 0;
-        }
-
-        /**
-         * Does this HeaderElement contain filtered data?
-         *
-         * @return whether or not this HeaderElement contains filtered data
-         */
-        public boolean hasFilteredData() {
-            return filteredBaseCounts.totalCount() > 0;
-        }
-
-        /**
-         * A HeaderElement is empty if it has no consensus or filtered data
-         *
-         * @return whether or not this HeaderElement has no data
-         */
-        public boolean isEmpty() {
-            return (!hasFilteredData() && !hasConsensusData());
-        }
-
-        /**
-         * The RMS of the mapping qualities of all reads that contributed to this HeaderElement
-         *
-         * @return the RMS of the mapping qualities of all reads that contributed to this HeaderElement
-         */
-        public double getRMS() {
-            return MathUtils.rms(mappingQuality);
-        }
-
-        /**
-         * Whether or not the HeaderElement is variant due to excess insertions
-         *
-         * @return whether or not the HeaderElement is variant due to excess insertions
-         */
-        private boolean isVariantFromInsertions() {
-            int numberOfBases = consensusBaseCounts.totalCount();
-            if (numberOfBases == 0 && insertionsToTheRight > 0)
-                return true;  // we only have insertions
-            else if (numberOfBases == 0)
-                return false; // we don't have anything
-
-            // if we have bases and insertions, check the ratio
-            return ((double) insertionsToTheRight / numberOfBases) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
-        }
-
-        /**
-         * Whether or not the HeaderElement is variant due to excess deletions
-         *
-         * @return whether or not the HeaderElement is variant due to excess insertions
-         */
-        private boolean isVariantFromDeletions() {
-            return consensusBaseCounts.baseIndexWithMostCounts() == BaseIndex.D || consensusBaseCounts.baseCountProportion(BaseIndex.D) > MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;
-        }
-
-        /**
-         * Whether or not the HeaderElement is variant due to excess mismatches
-         *
-         * @return whether or not the HeaderElement is variant due to excess insertions
-         */
-        private boolean isVariantFromMismatches() {
-            BaseIndex mostCommon = consensusBaseCounts.baseIndexWithMostCountsWithoutIndels();
-            double mostCommonProportion = consensusBaseCounts.baseCountProportionWithoutIndels(mostCommon);
-            return mostCommonProportion != 0.0 && mostCommonProportion < (1 - MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT);
-        }
-
-    }
-
-    /**
-     * The types of synthetic to use in the finalizeAndAdd method
-     */
-    private enum ConsensusType {
-        CONSENSUS,
-        FILTERED,
-        BOTH
     }
 
     /**

@@ -88,14 +88,8 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     /**
      * The number of bases to keep around mismatches (potential variation)
      */
-    @Argument(fullName = "context_size_mismatches", shortName = "csmm", doc = "", required = false)
-    protected int contextSizeMismatches = 10;
-
-    /**
-     * The number of bases to keep around indels (potential variation)
-     */
-    @Argument(fullName = "context_size_indels", shortName = "csindel", doc = "", required = false)
-    protected int contextSizeIndels = 10;
+    @Argument(fullName = "context_size", shortName = "cs", doc = "", required = false)
+    protected int contextSize = 10;
 
     /**
      * The minimum mapping quality to be considered for the consensus synthetic read. Reads that have
@@ -175,7 +169,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      * A value of 0 turns downsampling off.
      */
     @Argument(fullName = "downsample_coverage", shortName = "ds", doc = "", required = false)
-    protected int downsampleCoverage = 100;
+    protected int downsampleCoverage = 0;
 
     @Hidden
     @Argument(fullName = "", shortName = "dl", doc = "", required = false)
@@ -290,7 +284,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      */
     @Override
     public ReduceReadsStash reduceInit() {
-        return new ReduceReadsStash(new MultiSampleCompressor(getToolkit().getSAMFileHeader(), contextSizeMismatches, contextSizeIndels, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, downsampleStrategy));
+        return new ReduceReadsStash(new MultiSampleCompressor(getToolkit().getSAMFileHeader(), contextSize, downsampleCoverage, minMappingQuality, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, downsampleStrategy));
     }
 
     /**
