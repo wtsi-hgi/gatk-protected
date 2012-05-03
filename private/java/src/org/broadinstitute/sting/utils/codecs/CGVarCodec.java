@@ -24,9 +24,7 @@
 
 package org.broadinstitute.sting.utils.codecs;
 
-import org.broad.tribble.AbstractFeatureCodec;
-import org.broad.tribble.Feature;
-import org.broad.tribble.readers.LineReader;
+import org.broad.tribble.AsciiFeatureCodec;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -69,7 +67,7 @@ import java.util.regex.Pattern;
  * @author Eric Banks
  * @since 2011
  */
-public class CGVarCodec extends AbstractFeatureCodec {
+public class CGVarCodec extends AsciiFeatureCodec<VariantContext> {
 
     private static final String REF_TYPE = "ref";
     private static final String SNP_TYPE = "snp";
@@ -80,13 +78,8 @@ public class CGVarCodec extends AbstractFeatureCodec {
     // the minimum number of features in the CG file line
     private static final int minimumFeatureCount = 8;
 
-    /**
-     * decode the location only
-     * @param line the input line to decode
-     * @return a HapMapFeature
-     */
-    public Feature decodeLoc(String line) {
-        return decode(line);
+    public CGVarCodec() {
+        super(VariantContext.class);
     }
 
     /**
@@ -94,7 +87,7 @@ public class CGVarCodec extends AbstractFeatureCodec {
      * @param line the input line to decode
      * @return a VariantContext
      */
-    public Feature decode(String line) {
+    public VariantContext decode(String line) {
         String[] array = line.split("\\s+");
 
         // make sure the split was successful - that we got an appropriate number of fields
@@ -147,25 +140,6 @@ public class CGVarCodec extends AbstractFeatureCodec {
 
         // create a new feature given the array
         return new VariantContextBuilder("CGI", array[3], start, end, alleles).id(RSID).attributes(attrs).make();
-    }
-
-    public Class<VariantContext> getFeatureType() {
-        return VariantContext.class;
-    }
-
-    // There's no spec and no character to distinguish header lines...
-    private final static int NUM_HEADER_LINES = 12;
-    public Object readHeader(LineReader reader) {
-        return null;
-
-        //String headerLine = null;
-        //try {
-        //    for (int i = 0; i < NUM_HEADER_LINES; i++)
-        //        headerLine = reader.readLine();
-        //} catch (IOException e) {
-        //    throw new IllegalArgumentException("Unable to read a line from the line reader");
-        //}
-        //return headerLine;
     }
 
     private static final Pattern DBSNP_PATTERN = Pattern.compile("^dbsnp\\.\\d+:(.*)");

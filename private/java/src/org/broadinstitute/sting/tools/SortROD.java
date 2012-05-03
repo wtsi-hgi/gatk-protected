@@ -29,12 +29,14 @@ import net.sf.picard.reference.ReferenceSequenceFile;
 import net.sf.picard.reference.ReferenceSequenceFileFactory;
 import net.sf.samtools.util.SortingCollection;
 import org.apache.log4j.BasicConfigurator;
+import org.broad.tribble.AsciiFeatureCodec;
 import org.broad.tribble.Feature;
 import org.broad.tribble.FeatureCodec;
 import org.broad.tribble.bed.BEDCodec;
 import org.broad.tribble.dbsnp.OldDbSNPCodec;
 import org.broad.tribble.gelitext.GeliTextCodec;
 import org.broad.tribble.readers.AsciiLineReader;
+import org.broad.tribble.readers.PositionalBufferedStream;
 import org.broadinstitute.sting.gatk.features.maf.MafCodec;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
@@ -113,12 +115,12 @@ public class SortROD {
         }
 
         // determine the codec
-        FeatureCodec featureCodec = getFeatureCodec(featureFile,rodType);
+        AsciiFeatureCodec featureCodec = getFeatureCodec(featureFile,rodType);
         ReferenceSequenceFile ref = ReferenceSequenceFileFactory.getReferenceSequenceFile(refFile);
 
         AsciiLineReader reader = null;
         try {
-            reader = new AsciiLineReader(new FileInputStream(featureFile));
+            reader = new AsciiLineReader(new PositionalBufferedStream(new FileInputStream(featureFile)));
         } catch (FileNotFoundException e) {
             System.err.println("File "+featureFile.getAbsolutePath()+" doesn't exist");
             System.exit(1);
@@ -184,7 +186,7 @@ public class SortROD {
     }
 
 
-    public static FeatureCodec getFeatureCodec(File featureFile, String rodType) {
+    public static AsciiFeatureCodec getFeatureCodec(File featureFile, String rodType) {
         // quickly determine the codec type
         if ( rodType != null ) {
             if (rodType.equals("vcf") ) return new VCFCodec();
@@ -263,11 +265,10 @@ public class SortROD {
     }
 
     static class FeatureComparator implements Comparator<String> {
-
-        FeatureCodec codec ;
+        AsciiFeatureCodec codec ;
         GenomeLocParser parser;
 
-        public FeatureComparator (FeatureCodec codec, GenomeLocParser parser) {
+        public FeatureComparator (AsciiFeatureCodec codec, GenomeLocParser parser) {
             this.codec = codec;
             this.parser=parser;
         }

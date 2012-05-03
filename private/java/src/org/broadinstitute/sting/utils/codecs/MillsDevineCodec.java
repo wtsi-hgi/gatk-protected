@@ -26,6 +26,7 @@
 package org.broadinstitute.sting.utils.codecs;
 
 import org.broad.tribble.AbstractFeatureCodec;
+import org.broad.tribble.AsciiFeatureCodec;
 import org.broad.tribble.Feature;
 import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
@@ -61,7 +62,7 @@ import java.util.regex.Pattern;
  * @author Guillermo del Angel
  * @since 2010
  */
-public class MillsDevineCodec extends AbstractFeatureCodec {
+public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
 
     private static final String DELETION_TYPE = "DEL";
     private static final String INSERTION_TYPE = "INS";
@@ -69,13 +70,9 @@ public class MillsDevineCodec extends AbstractFeatureCodec {
     // the minimum number of features in the CG file line
     private static final int minimumFeatureCount = 10;
 
-    /**
-     * decode the location only
-     * @param line the input line to decode
-     * @return a HapMapFeature
-     */
-    public Feature decodeLoc(String line) {
-        return decode(line);
+
+    public MillsDevineCodec() {
+        super(VariantContext.class);
     }
 
     /**
@@ -83,7 +80,7 @@ public class MillsDevineCodec extends AbstractFeatureCodec {
      * @param line the input line to decode
      * @return a VariantContext
      */
-    public Feature decode(String line) {
+    public VariantContext decode(String line) {
         String[] array = line.split("\\t");
 
 	//        System.out.println(array.length);
@@ -186,10 +183,6 @@ public class MillsDevineCodec extends AbstractFeatureCodec {
             System.out.println(vc.toString());
 	}
 	*/  return vc;
-    }
-
-    public Class<VariantContext> getFeatureType() {
-        return VariantContext.class;
     }
 
     // There's no spec and no character to distinguish header lines...

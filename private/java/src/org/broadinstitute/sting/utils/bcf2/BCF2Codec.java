@@ -25,6 +25,9 @@
 package org.broadinstitute.sting.utils.bcf2;
 
 import org.broad.tribble.Feature;
+import org.broad.tribble.FeatureCodec;
+import org.broad.tribble.FeatureCodecHeader;
+import org.broad.tribble.readers.PositionalBufferedStream;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -38,15 +41,14 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.*;
 
-public class BCF2Codec implements GeneralizedFeatureCodec<VariantContext> {
-
+public class BCF2Codec implements FeatureCodec<VariantContext> {
     private VCFHeader header = null;
 
-    public Feature decodeLoc( InputStream inputStream ) {
+    public Feature decodeLoc( final PositionalBufferedStream inputStream ) {
         return decode(inputStream);  // TODO: a less expensive version of decodeLoc() that doesn't use VariantContext
     }
 
-    public VariantContext decode( InputStream inputStream ) {
+    public VariantContext decode( final PositionalBufferedStream inputStream ) {
         ByteBuffer record = loadNextRecord(inputStream);
         BCF2RecordIterator iterator = new BCF2RecordIterator(record);
         VariantContextBuilder builder = new VariantContextBuilder();
@@ -69,8 +71,8 @@ public class BCF2Codec implements GeneralizedFeatureCodec<VariantContext> {
         return VariantContext.class;
     }
 
-    public Object readHeader( InputStream inputStream ) {
-        return null; // TODO
+    public FeatureCodecHeader readHeader( final PositionalBufferedStream inputStream ) {
+        return FeatureCodecHeader.EMPTY_HEADER;
     }
 
     private ByteBuffer loadNextRecord( InputStream inputStream ) {
@@ -228,5 +230,10 @@ public class BCF2Codec implements GeneralizedFeatureCodec<VariantContext> {
 
         ByteBuffer recordSizeBuffer = loadIntoByteBuffer(in, 5);
         return (Integer)BCF2ParsingTable.parseNextValue(recordSizeBuffer, EnumSet.of(BCF2Type.INT32)).getValue();
+    }
+
+    @Override
+    public boolean canDecode(final String path) {
+        return false;
     }
 }

@@ -24,10 +24,13 @@
 
 package org.broadinstitute.sting.gatk.walkers.performance;
 
+import org.broad.tribble.AbstractFeatureReader;
+import org.broad.tribble.FeatureReader;
 import org.broad.tribble.Tribble;
 import org.broad.tribble.index.Index;
 import org.broad.tribble.index.IndexFactory;
 import org.broad.tribble.readers.AsciiLineReader;
+import org.broad.tribble.readers.PositionalBufferedStream;
 import org.broad.tribble.util.ParsingUtils;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Input;
@@ -169,12 +172,12 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             final File gvcfFile = new File(vcfFile.getName() + ".gcf");
             final GCFWriter gcfWriter = new GCFWriter(gvcfFile, getMasterSequenceDictionary(), false, false);
             int counter = 0;
-            final VCFCodec codec = new VCFCodec();
-            final AsciiLineReader lineReader = new AsciiLineReader(new FileInputStream(vcfFile));
-            VCFHeader header = (VCFHeader)codec.readHeader(lineReader);
+            FeatureReader<VariantContext> reader = AbstractFeatureReader.getFeatureReader(vcfFile.getAbsolutePath(), new VCFCodec(), false);
+            VCFHeader header = (VCFHeader)reader.getHeader();
             gcfWriter.writeHeader(header);
 
             final List<VariantContext> vcs = new ArrayList<VariantContext>();
+            Iterator<VariantContext> it = reader.iterator();
             if ( performanceTest ) {
                 logger.info("Beginning performance testing");
                 SimpleTimer vcfTimer = new SimpleTimer();
@@ -182,11 +185,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
 
                 vcfTimer.start();
                 while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
-                    String line = lineReader.readLine();
-                    if ( line == null )
-                        break;
-
-                    VariantContext vc = (VariantContext)codec.decode(line);
+                    VariantContext vc = it.next();
                     vc.getNSamples(); // force parsing
                     vcs.add(vc);
                 }
@@ -205,11 +204,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             } else {
                 logger.info("Beginning size testing");
                 while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
-                    String line = lineReader.readLine();
-                    if ( line == null )
-                        break;
-
-                    VariantContext vc = (VariantContext)codec.decode(line);
+                    VariantContext vc = it.next();
                     gcfWriter.add(vc);
                 }
                 gcfWriter.close();
@@ -275,7 +270,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
                 int counter = 0;
                 VCFCodec codec = new VCFCodec();
                 String[] parts = new String[100000];
-                AsciiLineReader lineReader = new AsciiLineReader(s);
+                AsciiLineReader lineReader = new AsciiLineReader(new PositionalBufferedStream(s));
 
                 if ( mode == ReadMode.DECODE_LOC || mode == ReadMode.DECODE )
                     codec.readHeader(lineReader);
@@ -305,19 +300,15 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     private final double writeFile(File f) {
 
         try {
-            FileInputStream s = new FileInputStream(f);
-            AsciiLineReader lineReader = new AsciiLineReader(s);
+            FeatureReader<VariantContext> reader = AbstractFeatureReader.getFeatureReader(f.getAbsolutePath(), new VCFCodec(), false);
+            VCFHeader header = (VCFHeader)reader.getHeader();
+            Iterator<VariantContext> it = reader.iterator();
 
-            VCFCodec codec = new VCFCodec();
-            VCFHeader header = (VCFHeader)codec.readHeader(lineReader);
             ArrayList<VariantContext> VCs = new ArrayList<VariantContext>(10000);
 
             int counter = 0;
             while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
-                String line = lineReader.readLine();
-                if ( line == null )
-                    break;
-                VCs.add((VariantContext) codec.decode(line));
+                VCs.add(it.next());
             }
 
             // now we start the timer

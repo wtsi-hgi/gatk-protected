@@ -28,6 +28,7 @@ import com.google.caliper.Param;
 import com.google.caliper.SimpleBenchmark;
 import com.google.caliper.runner.CaliperMain;
 import org.broad.tribble.readers.AsciiLineReader;
+import org.broad.tribble.readers.PositionalBufferedStream;
 
 import java.io.*;
 
@@ -57,7 +58,7 @@ public class ReadlineBenchmark extends SimpleBenchmark {
         // read it into a String so that we don't try to benchmark IO issues
         try {
             FileInputStream s = new FileInputStream(new File(OmniGenotypesFile));
-            AsciiLineReader lineReader = new AsciiLineReader(s);
+            AsciiLineReader lineReader = new AsciiLineReader(new PositionalBufferedStream(s));
             int counter = 0;
             StringBuffer sb = new StringBuffer();
             while (counter++ < MAX_LINES ) {
@@ -84,11 +85,7 @@ public class ReadlineBenchmark extends SimpleBenchmark {
             InputStream is = new ByteArrayInputStream(INPUT_STRING.getBytes());
             AsciiLineReader lineReader;
 
-            if ( algorithm == LineReaderAlgorithm.DEFAULT_ASCII_READER )
-                lineReader = new AsciiLineReader(is, bufferSize);
-            else // if ( algorithm == LineReaderAlgorithm.ASCII_READER_WITH_ADAPTIVE_BUFFER_SIZE )
-                // TODO -- not implemented yet, so just use the default reader for now
-                lineReader = new AsciiLineReader(is, bufferSize);
+            lineReader = new AsciiLineReader(new PositionalBufferedStream(is));
 
             int counter = 0;
             while (counter++ < linesToRead ) {
