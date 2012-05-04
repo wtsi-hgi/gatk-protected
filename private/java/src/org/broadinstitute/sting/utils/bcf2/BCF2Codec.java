@@ -276,6 +276,9 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         if ( filters.isMissing() ) {
             builder.unfiltered();
         }
+        else if ( filters.getType().isAtomic() ) {
+            builder.filters((String)filters.getValue());
+        }
         else {
             List<BCF2Value> filterList = unpackVector(filters);
             Set<String> filterSet = new LinkedHashSet<String>(filterList.size());
