@@ -25,6 +25,7 @@
 package org.broadinstitute.sting.gatk.walkers.performance;
 
 import org.broad.tribble.AbstractFeatureReader;
+import org.broad.tribble.CloseableTribbleIterator;
 import org.broad.tribble.FeatureReader;
 import org.broad.tribble.Tribble;
 import org.broad.tribble.index.Index;
@@ -44,6 +45,8 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.tracks.RMDTrackBuilder;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
+import org.broadinstitute.sting.utils.bcf2.BCF2Codec;
+import org.broadinstitute.sting.utils.bcf2.BCF2Writer;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.gcf.GCF;
@@ -96,7 +99,8 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         JUST_GATK,
         /** Just test the VCF writing */
         JUST_OUTPUT,
-        JUST_GVCF
+        JUST_GVCF,
+        JUST_BCF2
     }
 
     SimpleTimer timer = new SimpleTimer("myTimer");
@@ -131,6 +135,11 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
 
         if ( profileType == ProfileType.JUST_GVCF ) {
             testGVCF();
+            System.exit(0);
+        }
+
+        if ( profileType == ProfileType.JUST_BCF2 ) {
+            testBCF2();
             System.exit(0);
         }
 
@@ -250,6 +259,78 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         }
 
         inputStream.close();
+    }
+
+    private void testBCF2() {
+        try {
+            final File vcfFile = getRodFile();
+            final File bcf2File = new File(vcfFile.getName() + ".bcf2");
+            final BCF2Writer bcf2Writer = new BCF2Writer(bcf2File);
+            int counter = 0;
+            FeatureReader<VariantContext> reader = AbstractFeatureReader.getFeatureReader(vcfFile.getAbsolutePath(), new VCFCodec(), false);
+            VCFHeader header = (VCFHeader)reader.getHeader();
+            bcf2Writer.writeHeader(header);
+
+            final List<VariantContext> vcs = new ArrayList<VariantContext>();
+            Iterator<VariantContext> it = reader.iterator();
+            if ( performanceTest ) {
+                logger.info("Beginning performance testing");
+                SimpleTimer vcfTimer = new SimpleTimer();
+                SimpleTimer bcf2WriterTimer = new SimpleTimer();
+
+                vcfTimer.start();
+                while (it.hasNext() && (counter++ < MAX_RECORDS || MAX_RECORDS == -1)) {
+                    VariantContext vc = it.next();
+                    vc.getNSamples(); // force parsing
+                    vcs.add(vc);
+                }
+                vcfTimer.stop();
+
+                bcf2WriterTimer.start();
+                for ( VariantContext vc : vcs ) {
+                    // write BCF2 records
+                    bcf2Writer.add(vc);
+                }
+                bcf2Writer.close();
+                bcf2WriterTimer.stop();
+
+                logger.info("Read  " + counter + " VCF records in " + vcfTimer.getElapsedTime());
+                logger.info("Wrote " + counter + " BCF2 records in " + bcf2WriterTimer.getElapsedTime());
+            } else {
+                logger.info("Beginning size testing");
+                while (it.hasNext() && (counter++ < MAX_RECORDS || MAX_RECORDS == -1)) {
+                    VariantContext vc = it.next();
+                    bcf2Writer.add(vc);
+                }
+                bcf2Writer.close();
+            }
+
+            if ( performanceTest ) {
+                final SimpleTimer bcf2ReaderTimer = new SimpleTimer().start();
+                readBCF2(bcf2File);
+                logger.info("Read BCF2 in " + bcf2ReaderTimer.getElapsedTime());
+            }
+        } catch ( Exception e ) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void readBCF2(File source) throws IOException {
+        logger.info("Reading BCF2 from " + source);
+
+        BCF2Codec codec = new BCF2Codec();
+        AbstractFeatureReader<VariantContext> featureReader = AbstractFeatureReader.getFeatureReader(source.getAbsolutePath(), codec, false);
+
+        int counter = 0;
+        featureReader.getHeader();
+
+        CloseableTribbleIterator<VariantContext> itor = featureReader.iterator();
+
+        while (itor.hasNext() && (counter++ < MAX_RECORDS || MAX_RECORDS == -1)) {
+            itor.next();
+        }
+        // Not so Closeable...
+        //itor.close();
     }
 
     private enum ReadMode { BY_BYTE, BY_LINE, BY_PARTS, DECODE_LOC, DECODE };
