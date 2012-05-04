@@ -64,7 +64,7 @@ public class VCFToBCF2Walker extends RodWalker<Integer, Integer> {
             throw new UserException("Failed to read VCF header");
         }
 
-        writer = new BCF2Writer(bcf, vcfHeader);
+        writer = new BCF2Writer(bcf, vcfHeader, getToolkit().getReferenceDataSource().getReference().getSequenceDictionary());
         writer.writeHeader();
     }
 

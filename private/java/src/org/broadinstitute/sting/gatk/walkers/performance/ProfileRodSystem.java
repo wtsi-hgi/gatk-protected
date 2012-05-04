@@ -268,7 +268,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             int counter = 0;
             FeatureReader<VariantContext> reader = AbstractFeatureReader.getFeatureReader(vcfFile.getAbsolutePath(), new VCFCodec(), false);
             VCFHeader header = (VCFHeader)reader.getHeader();
-            final BCF2Writer bcf2Writer = new BCF2Writer(bcf2File, header);
+            final BCF2Writer bcf2Writer = new BCF2Writer(bcf2File, header, getToolkit().getReferenceDataSource().getReference().getSequenceDictionary());
             bcf2Writer.writeHeader();
 
             final List<VariantContext> vcs = new ArrayList<VariantContext>();

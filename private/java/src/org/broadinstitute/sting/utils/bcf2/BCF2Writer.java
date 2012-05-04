@@ -25,6 +25,7 @@
 package org.broadinstitute.sting.utils.bcf2;
 
 import net.sf.samtools.SAMSequenceDictionary;
+import net.sf.samtools.SAMSequenceRecord;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -51,29 +52,17 @@ public class BCF2Writer {
                                                                             // needs to be little-endian to be in spec
 
     private VCFHeader header;
-    private Map<String, Integer> contigNames = new HashMap<String, Integer>();
+    private SAMSequenceDictionary sequenceDictionary;
     private Map<String, Integer> stringDictionary = new HashMap<String, Integer>();
 
-    public BCF2Writer( File destination, VCFHeader header ) {
-        this(openBCF2File(destination), header);
+    public BCF2Writer( File destination, VCFHeader header, SAMSequenceDictionary sequenceDictionary ) {
+        this(openBCF2File(destination), header, sequenceDictionary);
     }
 
-    public BCF2Writer( DataOutputStream out, VCFHeader header ) {
+    public BCF2Writer( DataOutputStream out, VCFHeader header, SAMSequenceDictionary sequenceDictionary ) {
         this.bcf2File = out;
         this.header = header;
-
-        loadContigNames();
-    }
-
-    private void loadContigNames() {
-        for ( VCFHeaderLine headerLine : header.getMetaData() ) {
-            if ( headerLine.getKey().equals(VCFConstants.CONTIG_HEADER_START.substring(2)) &&
-                 headerLine instanceof VCFSimpleHeaderLine ) {
-
-                int contigIndex = contigNames.size();
-                contigNames.put(((VCFSimpleHeaderLine)headerLine).getID(), contigIndex);
-            }
-        }
+        this.sequenceDictionary = sequenceDictionary;
     }
 
     public void writeHeader() {
@@ -81,10 +70,17 @@ public class BCF2Writer {
             writeHeaderLine(VCFHeader.METADATA_INDICATOR, BCF2Constants.VERSION_LINE);
 
             for ( VCFHeaderLine line : header.getMetaData() ) {
-                if ( VCFHeaderVersion.isFormatString(line.getKey()) ) // Skip the version line that the VCFHeader class inserts
+                if ( VCFHeaderVersion.isFormatString(line.getKey()) ||     // Skip the version line that the VCFHeader class inserts
+                     line.getKey().equals(VCFHeader.CONTIG_KEY)) {         // And any existing contig definitions (we'll add our own)
                     continue;
+                }
 
                 writeHeaderLine(VCFHeader.METADATA_INDICATOR, line.toString());
+            }
+
+            for ( SAMSequenceRecord contigEntry : sequenceDictionary.getSequences() ) {
+                VCFSimpleHeaderLine contigHeaderLine = new VCFSimpleHeaderLine(VCFHeader.CONTIG_KEY, contigEntry.getSequenceName(), "");
+                writeHeaderLine(VCFHeader.METADATA_INDICATOR, contigHeaderLine.toString());
             }
 
             writeHeaderLine(VCFHeader.HEADER_INDICATOR, constructHeaderFieldLayoutLine(header));
@@ -164,11 +160,11 @@ public class BCF2Writer {
     }
 
     private void buildChrom( VariantContext vc ) throws IOException {
-        Integer contigIndex = contigNames.get(vc.getChr());
+        Integer contigIndex = sequenceDictionary.getSequenceIndex(vc.getChr());
 
-        if ( contigIndex == null ) {   // TODO: UserException?
-            throw new ReviewedStingException(String.format("Contig %s not found in sequence dictionary from header",
-                                                           vc.getChr()));
+        if ( contigIndex == -1 ) {
+            throw new UserException(String.format("Contig %s not found in sequence dictionary from reference",
+                                                   vc.getChr()));
         }
 
         writeOptimallySizedInteger(contigIndex);

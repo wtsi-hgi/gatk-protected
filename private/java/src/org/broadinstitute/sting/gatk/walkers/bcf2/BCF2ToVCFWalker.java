@@ -61,6 +61,7 @@ public class BCF2ToVCFWalker extends RodWalker<Integer, Integer> {
             throw new UserException("Failed to read BCF2 header");
         }
 
+        // TODO: prevent VCF writer from adding duplicate contig declarations in the header
         vcfWriter.writeHeader(bcfHeader);
     }
 
