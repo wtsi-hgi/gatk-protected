@@ -63,8 +63,6 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         decodeInfo(iterator, builder);
         //decodeGenotypes(iterator, builder);
 
-        calculateStop(builder);
-
         return builder.make();
     }
 
@@ -217,7 +215,8 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
             throw new UserException.MalformedBCF2("Record missing the required POS field");
         }
 
-        builder.start((Long) pos.getValue());
+        builder.start((Long)pos.getValue());
+        builder.stop((Long)pos.getValue());
     }
 
     private void decodeID( BCF2RecordIterator iterator, VariantContextBuilder builder ) {
@@ -310,10 +309,6 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     }
 
     private void decodeGenotypes( BCF2RecordIterator iterator, VariantContextBuilder builder ) {
-        // TODO
-    }
-
-    private void calculateStop( VariantContextBuilder builder ) {
         // TODO
     }
 
