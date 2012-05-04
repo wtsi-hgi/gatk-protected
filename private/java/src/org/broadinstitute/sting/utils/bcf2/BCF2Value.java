@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.utils.bcf2;
 
+// TODO: refactor this class away -- this was a bad idea
 public class BCF2Value {
     private BCF2Type type;
     private Object value;

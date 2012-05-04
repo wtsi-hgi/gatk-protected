@@ -30,21 +30,21 @@ import java.util.ArrayList;
 public enum BCF2Type {
     INT8 (BCF2Constants.INT8_TYPE_ID, true) {
         public BCF2Value decode( ByteBuffer data, int numItems ) {
-            byte value = data.get();
+            long value = data.get();
             return new BCF2Value(this, value, value == BCF2Constants.INT8_MISSING_VALUE);
         }
     },
 
     INT16 (BCF2Constants.INT16_TYPE_ID, true) {
         public BCF2Value decode( ByteBuffer data, int numItems ) {
-            short value = data.getShort();
+            long value = data.getShort();
             return new BCF2Value(this, value, value == BCF2Constants.INT16_MISSING_VALUE);
         }
     },
 
     INT32 (BCF2Constants.INT32_TYPE_ID, true) {
         public BCF2Value decode( ByteBuffer data, int numItems ) {
-            int value = data.getInt();
+            long value = data.getInt();
             return new BCF2Value(this, value, value == BCF2Constants.INT32_MISSING_VALUE);
         }
     },

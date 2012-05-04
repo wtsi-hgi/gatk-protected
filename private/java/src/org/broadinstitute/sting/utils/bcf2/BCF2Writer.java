@@ -24,33 +24,59 @@
 
 package org.broadinstitute.sting.utils.bcf2;
 
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderVersion;
+import net.sf.samtools.SAMSequenceDictionary;
+import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.sam.ReadUtils;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class BCF2Writer {
 
-    private DataOutputStream bcf2OutputStream;  // TODO: needs to be little-endian
-                                                // Note: do not flush until completely done writing, to avoid
-                                                // issues with eventual BGZF support
-    private boolean headerWritten;
+    public static final int WRITE_BUFFER_INITIAL_SIZE = 16384;
 
-    public BCF2Writer( File destination ) {
-        this(openBCF2File(destination));
+    private DataOutputStream bcf2File;      // Note: do not flush until completely done writing, to avoid
+                                            // issues with eventual BGZF support
+
+    private ByteArrayOutputStream recordBuffer = new ByteArrayOutputStream(WRITE_BUFFER_INITIAL_SIZE);
+    private DataOutputStream record = new DataOutputStream(recordBuffer);   // TODO: DataOutputStream hardcodes big-endian encoding --
+                                                                            // needs to be little-endian to be in spec
+
+    private VCFHeader header;
+    private Map<String, Integer> contigNames = new HashMap<String, Integer>();
+    private Map<String, Integer> stringDictionary = new HashMap<String, Integer>();
+
+    public BCF2Writer( File destination, VCFHeader header ) {
+        this(openBCF2File(destination), header);
     }
 
-    public BCF2Writer( DataOutputStream out ) {
-        bcf2OutputStream = out;
-        headerWritten = false;
+    public BCF2Writer( DataOutputStream out, VCFHeader header ) {
+        this.bcf2File = out;
+        this.header = header;
+
+        loadContigNames();
     }
 
-    public void writeHeader( VCFHeader header ) {
+    private void loadContigNames() {
+        for ( VCFHeaderLine headerLine : header.getMetaData() ) {
+            if ( headerLine.getKey().equals(VCFConstants.CONTIG_HEADER_START.substring(2)) &&
+                 headerLine instanceof VCFSimpleHeaderLine ) {
+
+                int contigIndex = contigNames.size();
+                contigNames.put(((VCFSimpleHeaderLine)headerLine).getID(), contigIndex);
+            }
+        }
+    }
+
+    public void writeHeader() {
         try {
             writeHeaderLine(VCFHeader.METADATA_INDICATOR, BCF2Constants.VERSION_LINE);
 
@@ -66,23 +92,21 @@ public class BCF2Writer {
         catch ( IOException e ) {
             throw new UserException.CouldNotCreateOutputFile("Error writing BCF2 header", e);
         }
-
-        headerWritten = true;
     }
 
     public void add( VariantContext vc ) {
-        if ( ! headerWritten ) {
-            throw new ReviewedStingException("Cannot write BCF2 records before the BCF2 header has been written");
-        }
         try {
-            writeChrom(vc);
-            writePos(vc);
-            writeID(vc);
-            writeAlleles(vc);
-            writeQual(vc);
-            writeFilter(vc);
-            writeInfo(vc);
-            writeGenotypes(vc);
+            buildChrom(vc);
+            buildPos(vc);
+            buildID(vc);
+            buildAlleles(vc);
+            buildQual(vc);
+            buildFilter(vc);
+            buildInfo(vc);
+            //buildGenotypes(vc);
+
+            writeRecordToOutputFile();
+            recordBuffer.reset();     // reuse buffer for next record
         }
         catch ( IOException e ) {
             throw new UserException("Error writing record to BCF2 file: " + vc.toString());
@@ -91,8 +115,8 @@ public class BCF2Writer {
 
     public void close() {
         try {
-            bcf2OutputStream.flush();
-            bcf2OutputStream.close();
+            bcf2File.flush();
+            bcf2File.close();
         }
         catch ( IOException e ) {
             throw new UserException("Failed to close BCF2 file");
@@ -109,9 +133,9 @@ public class BCF2Writer {
     }
 
     private void writeHeaderLine( String prefix, String line ) throws IOException {
-        bcf2OutputStream.writeChars(prefix);
-        bcf2OutputStream.writeChars(line);
-        bcf2OutputStream.writeChars("\n");
+        bcf2File.write(prefix.getBytes(BCF2Constants.BCF2_TEXT_CHARSET));
+        bcf2File.write(line.getBytes(BCF2Constants.BCF2_TEXT_CHARSET));
+        bcf2File.write("\n".getBytes(BCF2Constants.BCF2_TEXT_CHARSET));
     }
 
     private String constructHeaderFieldLayoutLine( VCFHeader header ) {
@@ -134,35 +158,84 @@ public class BCF2Writer {
         return fieldLayoutLine.toString();
     }
 
-    private void writeChrom( VariantContext vc ) throws IOException {
-
+    private void writeRecordToOutputFile() throws IOException {
+        bcf2File.writeInt(recordBuffer.size());
+        bcf2File.write(recordBuffer.toByteArray());
     }
 
-    private void writePos( VariantContext vc ) throws IOException {
+    private void buildChrom( VariantContext vc ) throws IOException {
+        Integer contigIndex = contigNames.get(vc.getChr());
 
+        if ( contigIndex == null ) {   // TODO: UserException?
+            throw new ReviewedStingException(String.format("Contig %s not found in sequence dictionary from header",
+                                                           vc.getChr()));
+        }
+
+        writeOptimallySizedInteger(contigIndex);
     }
 
-    private void writeID( VariantContext vc ) throws IOException {
-
+    private void buildPos( VariantContext vc ) throws IOException {
+        writeOptimallySizedInteger(vc.getStart());
     }
 
-    private void writeAlleles( VariantContext vc ) throws IOException {
-
+    private void buildID( VariantContext vc ) throws IOException {
+        writeLiteralString(vc.getID());
     }
 
-    private void writeQual( VariantContext vc ) throws IOException {
+    private void buildAlleles( VariantContext vc ) throws IOException {
+        writeString(vc.getReference().getDisplayString());
 
+        List<Allele> altAlleles = vc.getAlternateAlleles();
+
+        if ( altAlleles.size() == 0 ) {
+            writeString("");
+        }
+        else if ( altAlleles.size() == 1 ) {
+            writeString(altAlleles.get(0).getDisplayString());
+        }
+        else {
+            List<String> altAlleleStrings = new ArrayList<String>();
+            for ( Allele altAllele : vc.getAlternateAlleles() ) {
+                altAlleleStrings.add(altAllele.getDisplayString());
+            }
+            writeStringVector(altAlleleStrings);
+        }
     }
 
-    private void writeFilter( VariantContext vc ) throws IOException {
-
+    private void buildQual( VariantContext vc ) throws IOException {
+        if ( ! vc.hasLog10PError() ) {
+            writeMissingFloat();
+        }
+        else {
+            writeFloat((float)vc.getPhredScaledQual());
+        }
     }
 
-    private void writeInfo( VariantContext vc ) throws IOException {
+    private void buildFilter( VariantContext vc ) throws IOException {
+        List<String> filters = new ArrayList<String>(vc.getFilters());
 
+        if ( filters.size() == 0 ) {
+            writeString("");
+        }
+        else if ( filters.size() == 1 ) {
+            writeString(filters.get(0));
+        }
+        else {
+            writeStringVector(filters);
+        }
     }
 
-    private void writeGenotypes( VariantContext vc ) throws IOException {
+    private void buildInfo( VariantContext vc ) throws IOException {
+        int numInfoFields = vc.getAttributes().size();
+        writeOptimallySizedInteger(numInfoFields);
+
+        for ( Map.Entry<String, Object> infoFieldEntry : vc.getAttributes().entrySet() ) {
+            writeString(infoFieldEntry.getKey());
+            writeString(infoFieldEntry.getValue().toString()); // TODO: get the actual types from the header
+        }
+    }
+
+    private void buildGenotypes( VariantContext vc ) throws IOException {
 
     }
 
@@ -172,6 +245,93 @@ public class BCF2Writer {
         int typeDescriptor = (type.isAtomic() ? 0 : 0x80) |
                              (type.isAtomic() || size > 7 ? 0 : ((byte)size & 0xFF) << 4) |
                              type.getTypeID();
-        bcf2OutputStream.write(typeDescriptor);
+
+        record.writeByte(typeDescriptor);
+        if ( size > 7 ) {
+            writeOptimallySizedInteger(size);
+        }
+    }
+
+    private void writeOptimallySizedInteger( long value ) throws IOException {
+        if ( value <= Byte.MAX_VALUE ) {
+            writeTypeDescriptor(BCF2Type.INT8, 0);
+            record.writeByte((int)value);
+        }
+        else if ( value <= Short.MAX_VALUE ) {
+            writeTypeDescriptor(BCF2Type.INT16, 0);
+            record.writeShort((int)value);
+        }
+        else if ( value <= Integer.MAX_VALUE ) {
+            writeTypeDescriptor(BCF2Type.INT32, 0);
+            record.writeInt((int) value);
+        }
+        else {
+            writeTypeDescriptor(BCF2Type.INT64, 0);
+            record.writeLong(value);
+        }
+    }
+
+    private void writeString( String value ) throws IOException {
+        if ( stringDictionary.containsKey(value) ) {
+            writeOptimallySizedDictionaryString(stringDictionary.get(value));
+        }
+        else {
+            writeLiteralString(value);
+        }
+    }
+
+    private void writeLiteralString( String value ) throws IOException {
+        writeTypeDescriptor(BCF2Type.STRING_LITERAL, 0);
+        record.write(value.getBytes(BCF2Constants.BCF2_TEXT_CHARSET));
+        record.writeByte(0);
+    }
+
+    private void writeOptimallySizedDictionaryString( int dictionaryOffset ) throws IOException {
+        if ( dictionaryOffset <= Byte.MAX_VALUE ) {
+            writeTypeDescriptor(BCF2Type.STRING_REF8, 0);
+            record.writeByte(dictionaryOffset);
+        }
+        else if ( dictionaryOffset <= Short.MAX_VALUE ) {
+            writeTypeDescriptor(BCF2Type.STRING_REF16, 0);
+            record.writeShort(dictionaryOffset);
+        }
+        else {
+            writeTypeDescriptor(BCF2Type.STRING_REF32, 0);
+            record.writeInt(dictionaryOffset);
+        }
+    }
+
+    private void writeDouble( double value ) throws IOException {
+        writeTypeDescriptor(BCF2Type.DOUBLE, 0);
+        record.writeDouble(value);
+    }
+
+    private void writeMissingDouble() throws IOException {
+        writeTypeDescriptor(BCF2Type.DOUBLE, 0);
+        ByteBuffer buf = ByteBuffer.allocate(8);
+        buf.order(BCF2Constants.BCF2_BYTE_ORDER);
+        record.write(buf.putLong(BCF2Constants.DOUBLE_MISSING_VALUE).array());
+    }
+
+    private void writeFloat( float value ) throws IOException {
+        writeTypeDescriptor(BCF2Type.FLOAT, 0);
+        record.writeFloat(value);
+    }
+
+    private void writeMissingFloat() throws IOException {
+        writeTypeDescriptor(BCF2Type.FLOAT, 0);
+        ByteBuffer buf = ByteBuffer.allocate(4);
+        buf.order(BCF2Constants.BCF2_BYTE_ORDER);
+        record.write(buf.putInt(BCF2Constants.FLOAT_MISSING_VALUE).array());
+    }
+
+    // TODO: need a generalized vector writing method
+    private void writeStringVector( List<String> values ) throws IOException {
+        writeTypeDescriptor(BCF2Type.VECTOR_STRING_LITERAL, values.size());
+
+        for ( String value : values ) {
+            record.write(value.getBytes(BCF2Constants.BCF2_TEXT_CHARSET));
+            record.writeByte(0);
+        }
     }
 }
