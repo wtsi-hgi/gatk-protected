@@ -41,24 +41,22 @@ public class BCF2Constants {
                                                                            // I'm going off spec for ease of implementation
     public static final Charset BCF2_TEXT_CHARSET = Charset.forName("US-ASCII");  // TODO: enforce this!
 
-    public static final int INT8_TYPE_ID =             0x01;
-    public static final int INT16_TYPE_ID =            0x02;
-    public static final int INT32_TYPE_ID =            0x03;
-    public static final int INT64_TYPE_ID =            0x04;
-    public static final int FLOAT_TYPE_ID =            0x05;
-    public static final int DOUBLE_TYPE_ID =           0x06;
-    public static final int CHAR_TYPE_ID =             0x07;
-    public static final int FLAG_TYPE_ID =             0x08;
-    public static final int STRING_LITERAL_TYPE_ID =   0x09;
-    public static final int STRING_REF8_TYPE_ID =      0x0A;
-    public static final int STRING_REF16_TYPE_ID =     0x0B;
-    public static final int STRING_REF32_TYPE_ID =     0x0C;
-    public static final int COMPACT_GENOTYPE_TYPE_ID = 0x0D;
-    public static final int MIXED_VECTOR_TYPE_ID =     0x0E;
+    public static final byte INT8_TYPE_ID =             0x01;
+    public static final byte INT16_TYPE_ID =            0x02;
+    public static final byte INT32_TYPE_ID =            0x03;
+    public static final byte INT64_TYPE_ID =            0x04;
+    public static final byte FLOAT_TYPE_ID =            0x05;
+    public static final byte DOUBLE_TYPE_ID =           0x06;
+    public static final byte CHAR_TYPE_ID =             0x07;
+    public static final byte FLAG_TYPE_ID =             0x08;
+    public static final byte STRING_LITERAL_TYPE_ID =   0x09;
+    public static final byte STRING_REF8_TYPE_ID =      0x0A;
+    public static final byte STRING_REF16_TYPE_ID =     0x0B;
+    public static final byte STRING_REF32_TYPE_ID =     0x0C;
+    public static final byte COMPACT_GENOTYPE_TYPE_ID = 0x0D;
 
-    public static final int TYPE_DESCRIPTOR_ATOMICITY_FIELD_MASK =    0x80;
-    public static final int TYPE_DESCRIPTOR_NUM_ELEMENTS_FIELD_MASK = 0x40 | 0x20 | 0x10;
-    public static final int TYPE_DESCRIPTOR_TYPE_ID_MASK =            0x08 | 0x04 | 0x02 | 0x01;
+    public static final int TYPE_DESCRIPTOR_NUM_ELEMENTS_FIELD_MASK = 0xF0;
+    public static final int TYPE_DESCRIPTOR_TYPE_MASK =               0x0F;
 
     public static final int INT8_MISSING_VALUE =   0x80;
     public static final int INT16_MISSING_VALUE =  0x8000;
@@ -83,30 +81,4 @@ public class BCF2Constants {
 
     public static final byte GENOTYPE_HIGH_ORDER_BIT_VALUE =    0x01;
     public static final byte GENOTYPE_MISSING_VALUE_INDICATOR = 0x07;
-
-    public static final EnumSet<BCF2Type> ATOMIC_INTEGRAL_TYPES = EnumSet.of(BCF2Type.INT8,
-                                                                             BCF2Type.INT16,
-                                                                             BCF2Type.INT32,
-                                                                             BCF2Type.INT64);
-
-    public static final EnumSet<BCF2Type> ATOMIC_STRING_TYPES = EnumSet.of(BCF2Type.STRING_LITERAL,
-                                                                           BCF2Type.STRING_REF8,
-                                                                           BCF2Type.STRING_REF16,
-                                                                           BCF2Type.STRING_REF32);
-
-    public static final EnumSet<BCF2Type> VECTOR_STRING_TYPES = EnumSet.of(BCF2Type.VECTOR_STRING_LITERAL,
-                                                                           BCF2Type.VECTOR_STRING_REF8,
-                                                                           BCF2Type.VECTOR_STRING_REF16,
-                                                                           BCF2Type.VECTOR_STRING_REF32);
-
-    public static final EnumSet<BCF2Type> ALL_STRING_TYPES = EnumSet.of(BCF2Type.STRING_LITERAL,
-                                                                        BCF2Type.STRING_REF8,
-                                                                        BCF2Type.STRING_REF16,
-                                                                        BCF2Type.STRING_REF32,
-                                                                        BCF2Type.VECTOR_STRING_LITERAL,
-                                                                        BCF2Type.VECTOR_STRING_REF8,
-                                                                        BCF2Type.VECTOR_STRING_REF16,
-                                                                        BCF2Type.VECTOR_STRING_REF32);
-
-    public static final EnumSet<BCF2Type> ALL_TYPES = EnumSet.allOf(BCF2Type.class);
 }

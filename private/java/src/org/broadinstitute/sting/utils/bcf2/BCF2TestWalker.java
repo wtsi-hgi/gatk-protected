@@ -31,6 +31,8 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
@@ -50,35 +52,30 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
      * can be empty (i.e., no variants are contained in the file).
      */
     @Input(fullName="variant", shortName = "V", doc="Input VCF file", required=true)
-    public List<RodBinding<VariantContext>> variants;
+    public RodBinding<VariantContext> variants;
 
     @Output(doc="File to which results should be written",required=true)
     protected File bcfFile;
 
     private final List<VariantContext> vcs = new ArrayList<VariantContext>();
-    protected OutputStream mapOut;
-    protected SimpleBCFEncoder encoder = new SimpleBCFEncoder();
+    protected BCFEncoder encoder = new BCFEncoder();
+    protected BCF2Writer writer;
 
     @Override
     public void initialize() {
-        try {
-            mapOut = new FileOutputStream(bcfFile);
-        } catch ( FileNotFoundException e ) {
-            throw new UserException.CouldNotCreateOutputFile(bcfFile, "bad user!");
-        }
+        final Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), Collections.singletonList(variants));
+        final VCFHeader header = vcfRods.values().iterator().next();
+        writer = new BCF2Writer(bcfFile, header, getToolkit().getMasterSequenceDictionary());
+        writer.writeHeader();
     }
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if ( tracker == null ) // RodWalkers can make funky map calls
             return 0;
 
-        try {
-            for ( VariantContext vc : tracker.getValues(variants, context.getLocation())) {
-                encoder.encode(vc, mapOut);
-                vcs.add(vc);
-            }
-        } catch ( IOException e ) {
-            throw new UserException.CouldNotCreateOutputFile(bcfFile, "bad user!");
+        for ( VariantContext vc : tracker.getValues(variants, context.getLocation())) {
+            writer.add(vc);
+            vcs.add(vc);
         }
 
         return 1;
@@ -92,20 +89,20 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
 
     public void onTraversalDone(Integer sum) {
         try {
-            mapOut.close();
+            writer.close();
 
             // read in the BCF records
-            SimpleBCFDecoder codec = new SimpleBCFDecoder();
+            BCF2Codec codec = new BCF2Codec();
             PositionalBufferedStream pbs = new PositionalBufferedStream(new FileInputStream(bcfFile));
             codec.readHeader(pbs);
 
             Iterator<VariantContext> it = vcs.iterator();
             while ( ! pbs.isDone() ) {
-                Feature loc = codec.decodeLoc(pbs);
+                VariantContext bcf = codec.decode(pbs);
                 VariantContext expected = it.next();
 
-                System.out.printf("bcf = %s %d%n", loc.getChr(), loc.getStart());
-                System.out.printf("vcf = %s %d%n", expected.getChr(), expected.getStart());
+                System.out.printf("vcf = %s %d %s%n", expected.getChr(), expected.getStart(), expected);
+                System.out.printf("bcf = %s %d %s%n", bcf.getChr(), bcf.getStart(), bcf.toString());
                 System.out.printf("%n");
             }
 
