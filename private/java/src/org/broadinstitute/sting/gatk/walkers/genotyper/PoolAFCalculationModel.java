@@ -549,15 +549,25 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
             alleleFreqs.add(freq);
             
         }
+
         // per-pool logging of AC and AF
         attrs.put(MAXIMUM_LIKELIHOOD_AC_KEY, alleleCounts.size() == 1 ? alleleCounts.get(0) : alleleCounts);
         attrs.put(MAXIMUM_LIKELIHOOD_AF_KEY, alleleFreqs.size() == 1 ? alleleFreqs.get(0) : alleleFreqs);
         
         if (newLikelihoods.length > MAX_LENGTH_FOR_POOL_PL_LOGGING)
             attrs.remove(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY);
+        ArrayList<Allele> myAlleles = new ArrayList<Allele>();
+
+        // add list of called ML genotypes to alleles list
+        // TODO - too unwieldy?
+        int idx = 0;
+        for (int mlind = 0; mlind < mlAlleleCount.length; mlind++) {
+            for (int k=0; k < mlAlleleCount[mlind]; k++)
+                myAlleles.add(idx++,allelesToUse.get(mlind));
+        }
 
         final double qual = numNewAltAlleles == 0 ? Genotype.NO_LOG10_PERROR : GenotypeLikelihoods.getQualFromLikelihoods(PLindex, newLikelihoods);
-        return new Genotype(originalGT.getSampleName(), null, qual, null, attrs, false);
+        return new Genotype(originalGT.getSampleName(), myAlleles, qual, null, attrs, false);
     }
 
 }
