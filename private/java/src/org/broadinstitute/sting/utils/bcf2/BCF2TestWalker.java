@@ -58,6 +58,9 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
     @Argument(doc="keep variants", required=false)
     public boolean keepVariants = false;
 
+    @Argument(doc="quiet", required=false)
+    public boolean quiet = false;
+
     @Output(doc="File to which results should be written",required=true)
     protected File bcfFile;
 
@@ -106,10 +109,13 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
                 VariantContext bcf = new VariantContextBuilder(bcfRaw).source("variant").make();
                 if ( keepVariants ) {
                     VariantContext expected = it.next();
-                    System.out.printf("vcf = %s %d %s%n", expected.getChr(), expected.getStart(), expected);
+                    if ( ! quiet )
+                        System.out.printf("vcf = %s %d %s%n", expected.getChr(), expected.getStart(), expected);
                 }
-                System.out.printf("bcf = %s %d %s%n", bcf.getChr(), bcf.getStart(), bcf.toString());
-                System.out.printf("--------------------------------------------------%n");
+                if ( ! quiet ) {
+                    System.out.printf("bcf = %s %d %s%n", bcf.getChr(), bcf.getStart(), bcf.toString());
+                    System.out.printf("--------------------------------------------------%n");
+                }
             }
 
         } catch ( IOException e ) {

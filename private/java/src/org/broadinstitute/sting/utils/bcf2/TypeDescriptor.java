@@ -50,12 +50,12 @@ public class TypeDescriptor {
 
     public final static byte encodeTypeDescriptor(final int nElements, final BCFType type ) {
         int encodeSize = Math.min(nElements, OVERFLOW_ELEMENT_MARKER);
-        byte typeByte = (byte)(encodeSize << 4 | (type.getID() & 0x0F));
+        byte typeByte = (byte)((0x0F & encodeSize) << 4 | (type.getID() & 0x0F));
         return typeByte;
     }
 
     public final static int decodeSize(final byte typeDescriptor) {
-        return typeDescriptor >> 4;
+        return (0xF0 & typeDescriptor) >> 4;
     }
 
     public final static int decodeTypeID(final byte typeDescriptor) {

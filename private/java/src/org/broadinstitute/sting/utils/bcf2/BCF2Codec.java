@@ -198,15 +198,14 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     private void decodeChrom( final VariantContextBuilder builder ) {
         int contigOffset = (Integer)decodeRequiredTypedValue("CHROM");
         final String contig = lookupContigName(contigOffset);
-        logger.info("contig " + contig);
         builder.chr(contig);
     }
 
     private void decodePos( final VariantContextBuilder builder ) {
         final int pos = (Integer)decodeRequiredTypedValue("POS");
+        final int stop = (Integer)decodeRequiredTypedValue("STOP");
         builder.start((long)pos);
-        builder.stop((long)pos);
-        logger.info("pos " + pos);
+        builder.stop((long)stop);
     }
 
     private void decodeID( final VariantContextBuilder builder ) {
@@ -220,20 +219,32 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         }
     }
 
+    public static ArrayList<Allele> clipAllelesIfNecessary(int position, String ref, ArrayList<Allele> unclippedAlleles) {
+        if ( AbstractVCFCodec.isSingleNucleotideEvent(unclippedAlleles) ) {
+            ArrayList<Allele> clippedAlleles = new ArrayList<Allele>(unclippedAlleles.size());
+            AbstractVCFCodec.clipAlleles(position, ref, unclippedAlleles, clippedAlleles, -1);
+            return clippedAlleles;
+        } else
+            return unclippedAlleles;
+    }
+
     private ArrayList<Allele> decodeAlleles( final VariantContextBuilder builder ) {
         final String ref = (String)decodeTypedValue();
+        builder.referenceBaseForIndel(ref.getBytes()[0]);
         final Object altObject = decodeTypedValue(); // alt can be either atomic or vectors
 
         // TODO -- probably need inline decoder for efficiency here (no sense in going bytes -> string -> vector -> bytes
-        final ArrayList<Allele> alleles = new ArrayList<Allele>(2);
+        ArrayList<Allele> alleles = new ArrayList<Allele>(2);
         alleles.add(Allele.create(ref, true));
 
         for ( final String alt : asStrings(altObject)) {
             alleles.add(Allele.create(alt));
         }
 
-        // TODO: call into VCF parser to validate alleles like VCFCodec does
+        alleles = clipAllelesIfNecessary((int)builder.getStart(), ref, alleles);
         builder.alleles(alleles);
+
+        // TODO: call into VCF parser to validate alleles like VCFCodec does
         return alleles;
     }
 

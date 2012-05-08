@@ -30,10 +30,7 @@ import org.broad.tribble.util.ParsingUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.io.DataOutputStream;
 import java.io.File;
@@ -168,6 +165,7 @@ public class BCF2Writer {
 
     private void buildPos( VariantContext vc ) throws IOException {
         encoder.encodeInt(vc.getStart());
+        encoder.encodeInt(vc.getEnd());
     }
 
     private void buildID( VariantContext vc ) throws IOException {
@@ -175,7 +173,7 @@ public class BCF2Writer {
     }
 
     private void buildAlleles( VariantContext vc ) throws IOException {
-        encoder.encodeSingleton(vc.getReference().getDisplayString(), BCFType.STRING_LITERAL);
+        encoder.encodeSingleton(vc.getAlleleWithRefPadding(vc.getReference()), BCFType.STRING_LITERAL);
 
         List<Allele> altAlleles = vc.getAlternateAlleles();
 
@@ -184,7 +182,7 @@ public class BCF2Writer {
         } else {
             List<String> strings = new ArrayList<String>(altAlleles.size());
             for ( final Allele alt : altAlleles )
-                strings.add(alt.getDisplayString());
+                strings.add(vc.getAlleleWithRefPadding(alt));
             encoder.encodeVector(strings, BCFType.STRING_LITERAL);
         }
     }
@@ -282,13 +280,6 @@ public class BCF2Writer {
     private final Collection<Object> convertToType(final Collection<Object> values, final BCFType type) {
         return values;
     }
-//        if ( values == null ) return Collections.emptyList();
-//        final List<Object> converted = new ArrayList<Object>(values.size());
-//        for ( final Object val : values ) {
-//            converted.add(type.convertIfNecessary(val));
-//        }
-//        return converted;
-//    }
 
     private final BCFType getBCF2TypeFromHeader(final String field) {
         // TODO -- should take VC to determine best encoding
