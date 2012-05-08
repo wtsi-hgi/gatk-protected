@@ -123,8 +123,8 @@ public class PoolAFCalculationModelUnitTest extends BaseTest {
         new GetGLsTest("P2a", 1,samplePloidy, createGenotype("A4_1", A4_1,samplePloidy), createGenotype("C4_1", C4_1,samplePloidy), createGenotype("A4_1", A4_1,samplePloidy));
         new GetGLsTest("P2b", 1, samplePloidy,createGenotype("B4_1", B4_1,samplePloidy), createGenotype("B4_1", B4_1,samplePloidy), createGenotype("A4_1", A4_1,samplePloidy));
         new GetGLsTest("P4", 1, samplePloidy,createGenotype("A4_1", A4_1,samplePloidy), createGenotype("C4_1", C4_1,samplePloidy), createGenotype("C4_1", C4_1,samplePloidy));
-        new GetGLsTest("P6", 1, samplePloidy,createGenotype("A4_1", A4_1,samplePloidy), createGenotype("F4_1", C4_1,samplePloidy), createGenotype("C4_1", C4_1,samplePloidy));
-        new GetGLsTest("P8", 1, samplePloidy,createGenotype("A4_1", A4_1,samplePloidy), createGenotype("F4_1", C4_1,samplePloidy), createGenotype("F4_1", C4_1,samplePloidy));
+        new GetGLsTest("P6", 1, samplePloidy,createGenotype("A4_1", A4_1,samplePloidy), createGenotype("F4_1", F4_1,samplePloidy), createGenotype("C4_1", C4_1,samplePloidy));
+        new GetGLsTest("P8", 1, samplePloidy,createGenotype("A4_1", A4_1,samplePloidy), createGenotype("F4_1", F4_1,samplePloidy), createGenotype("F4_1", F4_1,samplePloidy));
 
         // multi-allelic pool case
         new GetGLsTest("B1C3", 2, samplePloidy,createGenotype("A4_400", A4_400,samplePloidy), createGenotype("A4_400", A4_400,samplePloidy), createGenotype("F4_013", F4_013,samplePloidy));
@@ -150,7 +150,7 @@ public class PoolAFCalculationModelUnitTest extends BaseTest {
             int expectedAlleleCount = Integer.valueOf(cfg.name.substring(nameIndex, nameIndex+1));
             int calculatedAlleleCount = result.getAlleleCountsOfMAP()[allele];
 
-            System.out.format("Expected:%d Calc:%d\n",expectedAlleleCount, calculatedAlleleCount);
+//            System.out.format( "%s Expected:%d Calc:%d\n",cfg.toString(),expectedAlleleCount, calculatedAlleleCount);
             Assert.assertEquals(calculatedAlleleCount, expectedAlleleCount);
         }
     }

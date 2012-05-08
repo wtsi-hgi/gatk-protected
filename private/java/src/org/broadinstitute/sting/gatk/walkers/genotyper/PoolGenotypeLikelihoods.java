@@ -184,6 +184,10 @@ public abstract class PoolGenotypeLikelihoods {
         public int[] getCurrentVector() {
             return currentState;
         }
+        
+        public int[] getCurrentAltVector() {
+            return Arrays.copyOfRange(currentState,1,currentState.length);
+        }
       /*  public int getCurrentSum() {
             return currentSum;
         }
