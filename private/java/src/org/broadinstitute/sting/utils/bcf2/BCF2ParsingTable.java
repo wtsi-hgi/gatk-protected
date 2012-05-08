@@ -75,7 +75,7 @@ public class BCF2ParsingTable {
 
         for ( int typeDescriptor = 0; typeDescriptor < 256; typeDescriptor++ ) {
             int typeID = typeDescriptor & BCF2Constants.TYPE_DESCRIPTOR_TYPE_ID_MASK;
-            boolean isAtomic = (typeDescriptor & BCF2Constants.TYPE_DESCRIPTOR_ATOMICITY_FIELD_MASK) != 0;
+            boolean isAtomic = (typeDescriptor & BCF2Constants.TYPE_DESCRIPTOR_ATOMICITY_FIELD_MASK) == 0;
 
             BCF2Type correspondingType = isAtomic ? atomicTypeIDMap.get(typeID) : nonAtomicTypeIDMap.get(typeID);
 

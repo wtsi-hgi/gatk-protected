@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.utils.bcf2;
 
+import org.broad.tribble.readers.PositionalBufferedStream;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
@@ -35,17 +36,21 @@ import java.io.InputStream;
 public class BCF2Reader {
     // TODO -- add BGZF support
 
-    private InputStream bcf2InputStream;
+    // TODO -- David this class won't be necessary with the rev'd tribble.  We will need to
+    //      -- write a reader in tribble that can handle this type but for the moment let's
+    //      -- just run with the standard decoder.
+
+    private PositionalBufferedStream bcf2InputStream;
     private BCF2Codec bcf2Codec = new BCF2Codec();
     private Object header;
 
     public BCF2Reader( File bcf2File ) {
-        openBCF2File(bcf2File);
+        this(openBCF2File(bcf2File));
         readHeader();
     }
 
     public BCF2Reader( InputStream in ) {
-        this.bcf2InputStream = in;
+        this.bcf2InputStream = new PositionalBufferedStream(in);
         readHeader();
     }
 
@@ -55,9 +60,9 @@ public class BCF2Reader {
         return bcf2Codec.decode(bcf2InputStream);
     }
 
-    private void openBCF2File( File bcf2File ) {
+    private static InputStream openBCF2File( File bcf2File ) {
         try {
-            bcf2InputStream = new FileInputStream(bcf2File);
+            return new FileInputStream(bcf2File);
         }
         catch ( IOException e ) {
             throw new UserException.CouldNotReadInputFile(String.format("Failed to open BCF2 file %s for reading",

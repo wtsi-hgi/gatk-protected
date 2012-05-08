@@ -21,4 +21,8 @@ public class ContaminatedSampleFilter implements SamRecordFilter {
     public boolean filterOut(SAMRecord read) {
         return contaminatedSamples.contains(read.getReadGroup().getSample());
     }
+
+    public boolean filterOut(final SAMRecord first, final SAMRecord second) {
+        throw new UnsupportedOperationException("Paired filter not implemented: " + this.getClass());
+    }
 }
