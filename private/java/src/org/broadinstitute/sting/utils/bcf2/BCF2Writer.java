@@ -26,20 +26,24 @@ package org.broadinstitute.sting.utils.bcf2;
 
 import net.sf.samtools.SAMSequenceDictionary;
 import net.sf.samtools.SAMSequenceRecord;
+import org.broad.tribble.util.ParsingUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
-import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.*;
 
 public class BCF2Writer {
     private DataOutputStream bcf2File;      // Note: do not flush until completely done writing, to avoid
-                                            // issues with eventual BGZF support
+    // issues with eventual BGZF support
     private VCFHeader header;
     private SAMSequenceDictionary sequenceDictionary;
     private Map<String, Integer> stringDictionary = new HashMap<String, Integer>();
@@ -62,7 +66,7 @@ public class BCF2Writer {
 
             for ( VCFHeaderLine line : header.getMetaData() ) {
                 if ( VCFHeaderVersion.isFormatString(line.getKey()) ||     // Skip the version line that the VCFHeader class inserts
-                     line.getKey().equals(VCFHeader.CONTIG_KEY)) {         // And any existing contig definitions (we'll add our own)
+                        line.getKey().equals(VCFHeader.CONTIG_KEY)) {         // And any existing contig definitions (we'll add our own)
                     continue;
                 }
 
@@ -81,7 +85,9 @@ public class BCF2Writer {
         }
     }
 
-    public void add( VariantContext vc ) {
+    public void add( final VariantContext initialVC ) {
+        final VariantContext vc = initialVC.fullyDecode(header);
+
         try {
             buildChrom(vc);
             buildPos(vc);
@@ -90,7 +96,7 @@ public class BCF2Writer {
             buildQual(vc);
             buildFilter(vc);
             buildInfo(vc);
-            //buildGenotypes(vc);
+            buildSamplesData(vc);
 
             writeRecordToOutputFile();
         }
@@ -154,7 +160,7 @@ public class BCF2Writer {
 
         if ( contigIndex == -1 ) {
             throw new UserException(String.format("Contig %s not found in sequence dictionary from reference",
-                                                   vc.getChr()));
+                    vc.getChr()));
         }
 
         encoder.encodeInt(contigIndex);
@@ -185,10 +191,9 @@ public class BCF2Writer {
 
     private void buildQual( VariantContext vc ) throws IOException {
         if ( ! vc.hasLog10PError() ) {
-            encoder.encodeMissing(BCFType.DOUBLE);
-        }
-        else {
-            encoder.encodeSingleton(vc.getPhredScaledQual(), BCFType.DOUBLE);
+            encoder.encodeMissing(BCFType.FLOAT);
+        } else {
+            encoder.encodeSingleton((float)vc.getPhredScaledQual(), BCFType.FLOAT);
         }
     }
 
@@ -211,7 +216,130 @@ public class BCF2Writer {
         }
     }
 
-    private void buildGenotypes( VariantContext vc ) throws IOException {
+    private void buildSamplesData(final VariantContext vc) throws IOException {
+        // write size
+        List<String> genotypeFields = StandardVCFWriter.calcVCFGenotypeKeys(vc);
+        encoder.encodeInt(genotypeFields.size());
+        for ( final String field : genotypeFields ) {
+            if ( field.equals(VCFConstants.GENOTYPE_KEY) ) {
+                addGenotypes(vc);
+            } else if ( field.equals(VCFConstants.GENOTYPE_QUALITY_KEY) ) {
+                addGQ(vc);
+            } else if ( field.equals(VCFConstants.GENOTYPE_FILTER_KEY) ) {
+                addGenotypeFilters(vc);
+            } else {
+                addGenericGenotypeField(vc, field);
+            }
+        }
+    }
 
+    private final int getNGenotypeFieldValues(final String field, final VariantContext vc) {
+        final VCFCompoundHeaderLine metaData = VariantContext.getMetaDataForField(header, field);
+        int nFields = metaData.getCount(vc.getAlternateAlleles().size());
+        if ( nFields == -1 ) { // unbounded, need to look at values
+            return computeMaxSizeOfGenotypeFieldFromValues(field, vc);
+        } else {
+            return nFields;
+        }
+    }
+
+    private final int computeMaxSizeOfGenotypeFieldFromValues(final String field, final VariantContext vc) {
+        int size = 1;
+        final GenotypesContext gc = vc.getGenotypes();
+
+        for ( final Genotype g : gc ) {
+            final Object o = g.getAttribute(field);
+            if ( o == null ) continue;
+            if ( o instanceof List ) {
+                // only do compute if first value is of type list
+                final List values = (List)g.getAttribute(field);
+                if ( values != null )
+                    size = Math.max(size, values.size());
+            } else {
+                return 1;
+            }
+        }
+
+        return size;
+    }
+
+    private final void addGenericGenotypeField(final VariantContext vc, final String field) throws IOException {
+        final int numInFormatField = getNGenotypeFieldValues(field, vc);
+        final BCFType type = getBCF2TypeFromHeader(field);
+
+        encoder.startGenotypeField(field, numInFormatField, type);
+        for ( final Genotype g : vc.getGenotypes() ) {
+            if ( ! g.hasAttribute(field) ) {
+                encoder.encodeMissingValues(numInFormatField, type);
+            } else {
+                final Object val = g.getAttribute(field);
+                final Collection<Object> vals = numInFormatField == 1 ? Collections.singleton(val) : (Collection)val;
+                encoder.encodeValues(convertToType(vals, type), type);
+            }
+        }
+    }
+
+    private final Collection<Object> convertToType(final Collection<Object> values, final BCFType type) {
+        return values;
+    }
+//        if ( values == null ) return Collections.emptyList();
+//        final List<Object> converted = new ArrayList<Object>(values.size());
+//        for ( final Object val : values ) {
+//            converted.add(type.convertIfNecessary(val));
+//        }
+//        return converted;
+//    }
+
+    private final BCFType getBCF2TypeFromHeader(final String field) {
+        // TODO -- should take VC to determine best encoding
+        final VCFCompoundHeaderLine metaData = VariantContext.getMetaDataForField(header, field);
+        switch ( metaData.getType() ) {
+            case Character: return BCFType.STRING_LITERAL;
+            case Flag: return BCFType.FLAG;
+            case String: return BCFType.STRING_LITERAL;
+            case Integer: return BCFType.INT32;
+            case Float: return BCFType.FLOAT;
+            default: throw new ReviewedStingException("Unexpected type for field" + field);
+        }
+    }
+
+    private final void addGenotypeFilters(final VariantContext vc) throws IOException {
+        encoder.startGenotypeField(VCFConstants.GENOTYPE_FILTER_KEY, 1, BCFType.STRING_LITERAL);
+        for ( final Genotype g : vc.getGenotypes() ) {
+            if ( g.filtersWereApplied() && g.isFiltered() ) {
+                encoder.encodeValue(ParsingUtils.join(";", ParsingUtils.sortList(g.getFilters())), BCFType.STRING_LITERAL);
+            } else {
+                encoder.encodeMissingValues(1, BCFType.STRING_LITERAL); // todo fixme
+            }
+        }
+    }
+
+    private final void addGQ(final VariantContext vc) throws IOException {
+        encoder.startGenotypeField(VCFConstants.GENOTYPE_QUALITY_KEY, 1, BCFType.INT8);
+        for ( final Genotype g : vc.getGenotypes() ) {
+            if ( g.hasLog10PError() ) {
+                final int GQ = (int)Math.round(Math.min(g.getPhredScaledQual(), VCFConstants.MAX_GENOTYPE_QUAL));
+                if ( GQ > VCFConstants.MAX_GENOTYPE_QUAL ) throw new ReviewedStingException("Unexpectedly large GQ " + GQ + " at " + vc);
+                encoder.encodeValue(GQ, BCFType.INT8);
+            } else {
+                encoder.encodeMissingValues(1, BCFType.INT8);
+            }
+        }
+    }
+
+    private final void addGenotypes(final VariantContext vc) throws IOException {
+        final Map<Allele, String> alleleMap = StandardVCFWriter.buildAlleleMap(vc);
+
+        final int requiredPloidy = 2;
+        encoder.startGenotypeField(VCFConstants.GENOTYPE_KEY, requiredPloidy, BCFType.COMPACT_GENOTYPE);
+        for ( final Genotype g : vc.getGenotypes() ) {
+            if ( g.getPloidy() != requiredPloidy ) throw new ReviewedStingException("Cannot currently handle non-diploid calls!");
+            final List<Byte> encoding = new ArrayList<Byte>(requiredPloidy);
+            for ( final Allele a : g.getAlleles() ) {
+                final int offset = a.isNoCall() ? 0 : (Byte.valueOf(alleleMap.get(a)) + 2);
+                encoding.add((byte)(offset << 1 | (g.isPhased() ? 0x01 : 0x00)));
+            }
+            encoder.encodeValues(encoding, BCFType.COMPACT_GENOTYPE);
+        }
     }
 }

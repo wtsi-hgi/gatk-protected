@@ -24,6 +24,7 @@
 
 package org.broadinstitute.sting.utils.bcf2;
 
+import org.apache.log4j.Logger;
 import org.broad.tribble.Feature;
 import org.broad.tribble.FeatureCodec;
 import org.broad.tribble.FeatureCodecHeader;
@@ -33,6 +34,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
@@ -43,6 +45,7 @@ import java.io.InputStream;
 import java.util.*;
 
 public class BCF2Codec implements FeatureCodec<VariantContext> {
+    final protected static Logger logger = Logger.getLogger(FeatureCodec.class);
     private VCFHeader header = null;
     private final ArrayList<String> contigNames = new ArrayList<String>();
     private final ArrayList<String> dictionary = new ArrayList<String>();
@@ -59,11 +62,11 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         decodeChrom(builder);
         decodePos(builder);
         decodeID(builder);
-        decodeAlleles(builder);
+        final ArrayList<Allele> alleles = decodeAlleles(builder);
         decodeQual(builder);
         decodeFilter(builder);
         decodeInfo(builder);
-        //decodeGenotypes(iterator, builder);
+        decodeGenotypes(alleles, builder);
 
         return builder.make();
     }
@@ -195,6 +198,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     private void decodeChrom( final VariantContextBuilder builder ) {
         int contigOffset = (Integer)decodeRequiredTypedValue("CHROM");
         final String contig = lookupContigName(contigOffset);
+        logger.info("contig " + contig);
         builder.chr(contig);
     }
 
@@ -202,6 +206,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         final int pos = (Integer)decodeRequiredTypedValue("POS");
         builder.start((long)pos);
         builder.stop((long)pos);
+        logger.info("pos " + pos);
     }
 
     private void decodeID( final VariantContextBuilder builder ) {
@@ -215,12 +220,12 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         }
     }
 
-    private void decodeAlleles( final VariantContextBuilder builder ) {
+    private ArrayList<Allele> decodeAlleles( final VariantContextBuilder builder ) {
         final String ref = (String)decodeTypedValue();
         final Object altObject = decodeTypedValue(); // alt can be either atomic or vectors
 
         // TODO -- probably need inline decoder for efficiency here (no sense in going bytes -> string -> vector -> bytes
-        final List<Allele> alleles = new ArrayList<Allele>(2);
+        final ArrayList<Allele> alleles = new ArrayList<Allele>(2);
         alleles.add(Allele.create(ref, true));
 
         for ( final String alt : asStrings(altObject)) {
@@ -229,13 +234,14 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
 
         // TODO: call into VCF parser to validate alleles like VCFCodec does
         builder.alleles(alleles);
+        return alleles;
     }
 
     private void decodeQual( final VariantContextBuilder builder ) {
         final Object qual = decodeTypedValue();
 
         if ( qual != null ) {
-            builder.log10PError((Double)qual); // todo -- needs to know actual type unfortunately
+            builder.log10PError((Double)qual / -10.0);
         }
     }
 
@@ -264,8 +270,73 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         builder.attributes(infoFieldEntries);
     }
 
-    private void decodeGenotypes( final VariantContextBuilder builder ) {
-        // TODO
+    private void decodeGenotypes( ArrayList<Allele> siteAlleles, final VariantContextBuilder builder ) {
+        final List<String> samples = new ArrayList<String>(header.getGenotypeSamples());
+        final int nSamples = samples.size();
+        final int nFields = (Integer)decodeTypedValue();
+        final Map<String, List<Object>> fieldValues = decodeGenotypeFieldValues(nFields, nSamples);
+
+        final List<Genotype> genotypes = new ArrayList<Genotype>(nSamples);
+        for ( int i = 0; i < nSamples; i++ ) {
+            final String sampleName = samples.get(i);
+            List<Allele> alleles = null;
+            boolean isPhased = false;
+            double log10PError = VariantContext.NO_LOG10_PERROR;
+            Set<String> filters = null;
+            Map<String, Object> attributes = null;
+            double[] log10Likelihoods = null;
+
+            for ( final Map.Entry<String, List<Object>> entry : fieldValues.entrySet() ) {
+                final String field = entry.getKey();
+                final List<Object> values = entry.getValue();
+                if ( field.equals(VCFConstants.GENOTYPE_KEY) ) {
+                    alleles = decodeGenotypeAlleles(siteAlleles, (List<Integer>)values.get(i));
+                } else if ( field.equals(VCFConstants.GENOTYPE_QUALITY_KEY) ) {
+                    final int value = (Integer)values.get(i);
+                    if ( value != BCF2Constants.INT8_MISSING_VALUE )
+                        log10PError = (value) / -10.0;
+                } else if ( field.equals(VCFConstants.GENOTYPE_FILTER_KEY) ) {
+                    filters = new HashSet<String>((List<String>)values.get(i));
+                } else { // add to attributes
+                    if ( attributes == null ) attributes = new HashMap<String, Object>(nFields);
+                    attributes.put(field, values.get(i));
+                }
+            }
+
+            if ( alleles == null ) throw new ReviewedStingException("BUG: no alleles found");
+
+            final Genotype g = new Genotype(sampleName, alleles, log10PError, filters, attributes, isPhased, log10Likelihoods);
+            genotypes.add(g);
+        }
+
+        builder.genotypes(genotypes);
+    }
+
+    private final List<Allele> decodeGenotypeAlleles(final ArrayList<Allele> siteAlleles, final List<Integer> encoded) {
+        final List<Allele> gt = new ArrayList<Allele>(encoded.size());
+        for ( final int encode : encoded ) {
+            final int offset = encode >> 1;
+            if ( offset == 0 )
+                gt.add(Allele.NO_CALL);
+                else if ( offset > 1 ) // skip absent
+                gt.add( siteAlleles.get(offset - 2));
+        }
+        return gt;
+    }
+
+    private final Map<String, List<Object>> decodeGenotypeFieldValues(final int nFields, final int nSamples) {
+        Map<String, List<Object>> map = new LinkedHashMap<String, List<Object>>(nFields);
+
+        for ( int i = 0; i < nFields; i++ ) {
+            final String field = (String)decodeTypedValue();
+            final byte typeDescriptor = readTypeDescriptor();
+            final List<Object> values = new ArrayList<Object>(nSamples);
+            for ( int j = 0; j < nSamples; j++ )
+                values.add(decodeTypedValue(typeDescriptor));
+            map.put(field, values);
+        }
+
+        return map;
     }
 
     private final Object decodeRequiredTypedValue(final String field) {
@@ -278,8 +349,12 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     }
 
     private final Object decodeTypedValue() {
-        byte typeDescriptor = readByte(stream);
+        final byte typeDescriptor = readTypeDescriptor();
         return decodeTypedValue(typeDescriptor);
+    }
+
+    private final byte readTypeDescriptor() {
+        return readByte(stream);
     }
 
     private final Object decodeTypedValue(final byte typeDescriptor) {
@@ -303,16 +378,16 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
             case INT8:   return decodeInt(type.getSizeInBytes());
             case INT16:  return decodeInt(type.getSizeInBytes());
             case INT32:  return decodeInt(type.getSizeInBytes());
-            case INT64:  return (long)decodeInt(type.getSizeInBytes());
+            //case INT64:  return (long)decodeInt(type.getSizeInBytes());
             case FLOAT:  return decodeDouble(type.getSizeInBytes());
-            case DOUBLE: return decodeDouble(type.getSizeInBytes());
-            case CHAR: throw new ReviewedStingException("Char encoding not supported");
+            //case DOUBLE: return decodeDouble(type.getSizeInBytes());
+            //case CHAR: throw new ReviewedStingException("Char encoding not supported");
             case FLAG: throw new ReviewedStingException("Flag encoding not supported");
             case STRING_LITERAL: return decodeLiteralString();
             case STRING_REF8:
-            case STRING_REF16:
-            case STRING_REF32: return getDictionaryString((int)decodeInt(type.getSizeInBytes()));
-            //case COMPACT_GENOTYPE: return decodeInt(type); // todo -- must decode further in outer loop
+            case STRING_REF16: return getDictionaryString(decodeInt(type.getSizeInBytes()));
+            //case STRING_REF32:
+            case COMPACT_GENOTYPE: return decodeInt(type.getSizeInBytes()); // todo -- must decode further in outer loop
             case RESERVED_14:
             case RESERVED_15: throw new ReviewedStingException("Type reserved " + type);
             default: throw new ReviewedStingException("Impossible state");
@@ -333,7 +408,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         return dictionary.get(offset);
     }
 
-    private String lookupContigName( long contigOffset ) {
+    private String lookupContigName( final int contigOffset ) {
         if ( contigOffset < contigNames.size() ) {
             return contigNames.get((int)contigOffset);
         }
@@ -356,10 +431,9 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     private final double decodeDouble(final int sizeInBytes) {
         // TODO -- handle missing
         if ( sizeInBytes == 4 )
-            return (double)(float)(decodeInt(sizeInBytes) & 0xFFFFFFFF);
+            return Float.intBitsToFloat(decodeInt(sizeInBytes));
         else
-            // TODO -- fixme
-            return (double)(decodeInt(sizeInBytes));
+            throw new ReviewedStingException("decodeDouble only implemented for Float");
     }
 
 

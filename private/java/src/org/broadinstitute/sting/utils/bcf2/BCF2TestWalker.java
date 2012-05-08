@@ -35,6 +35,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.io.*;
 import java.util.*;
@@ -54,11 +55,13 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
     @Input(fullName="variant", shortName = "V", doc="Input VCF file", required=true)
     public RodBinding<VariantContext> variants;
 
+    @Argument(doc="keep variants", required=false)
+    public boolean keepVariants = false;
+
     @Output(doc="File to which results should be written",required=true)
     protected File bcfFile;
 
     private final List<VariantContext> vcs = new ArrayList<VariantContext>();
-    protected BCFEncoder encoder = new BCFEncoder();
     protected BCF2Writer writer;
 
     @Override
@@ -75,7 +78,7 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
 
         for ( VariantContext vc : tracker.getValues(variants, context.getLocation())) {
             writer.add(vc);
-            vcs.add(vc);
+            if ( keepVariants ) vcs.add(vc);
         }
 
         return 1;
@@ -90,6 +93,7 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
     public void onTraversalDone(Integer sum) {
         try {
             writer.close();
+            logger.info("Closed writer");
 
             // read in the BCF records
             BCF2Codec codec = new BCF2Codec();
@@ -98,12 +102,14 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
 
             Iterator<VariantContext> it = vcs.iterator();
             while ( ! pbs.isDone() ) {
-                VariantContext bcf = codec.decode(pbs);
-                VariantContext expected = it.next();
-
-                System.out.printf("vcf = %s %d %s%n", expected.getChr(), expected.getStart(), expected);
+                VariantContext bcfRaw = codec.decode(pbs);
+                VariantContext bcf = new VariantContextBuilder(bcfRaw).source("variant").make();
+                if ( keepVariants ) {
+                    VariantContext expected = it.next();
+                    System.out.printf("vcf = %s %d %s%n", expected.getChr(), expected.getStart(), expected);
+                }
                 System.out.printf("bcf = %s %d %s%n", bcf.getChr(), bcf.getStart(), bcf.toString());
-                System.out.printf("%n");
+                System.out.printf("--------------------------------------------------%n");
             }
 
         } catch ( IOException e ) {
