@@ -38,10 +38,7 @@ import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
-import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.*;
 
 public class BCF2Codec implements FeatureCodec<VariantContext> {
@@ -59,11 +56,9 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         prepareByteStream(inputStream);
         final VariantContextBuilder builder = new VariantContextBuilder();
 
-        decodeChrom(builder);
-        decodePos(builder);
+        decodeImplicitBlock(builder);
         decodeID(builder);
         final ArrayList<Allele> alleles = decodeAlleles(builder);
-        decodeQual(builder);
         decodeFilter(builder);
         decodeInfo(builder);
         decodeGenotypes(alleles, builder);
@@ -195,17 +190,33 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         this.stream = new ByteArrayInputStream(record);
     }
 
-    private void decodeChrom( final VariantContextBuilder builder ) {
-        int contigOffset = (Integer)decodeRequiredTypedValue("CHROM");
+    // --------------------------------------------------------------------------------
+    //
+    // implicit block
+    //
+    // The first four records of BCF are inline untype encoded data of:
+    //
+    // 4 byte integer chrom offset
+    // 4 byte integer start
+    // 4 byte integer ref length
+    // 4 byte float qual
+    //
+    // --------------------------------------------------------------------------------
+
+    private final void decodeImplicitBlock(final VariantContextBuilder builder) {
+        final int contigOffset = decodeInt(BCFType.INT32.getSizeInBytes());
         final String contig = lookupContigName(contigOffset);
         builder.chr(contig);
-    }
 
-    private void decodePos( final VariantContextBuilder builder ) {
-        final int pos = (Integer)decodeRequiredTypedValue("POS");
-        final int stop = (Integer)decodeRequiredTypedValue("STOP");
+        final int pos = decodeInt(BCFType.INT32.getSizeInBytes());
+        final int refLength = decodeInt(BCFType.INT32.getSizeInBytes());
         builder.start((long)pos);
-        builder.stop((long)stop);
+        builder.stop((long)(pos + refLength - 1)); // minus one because of our open intervals
+
+        final float qual = (float)decodeDouble(BCFType.FLOAT.getSizeInBytes());
+        if ( qual != BCF2Constants.FLOAT_MISSING_VALUE ) {
+            builder.log10PError(qual / -10.0);
+        }
     }
 
     private void decodeID( final VariantContextBuilder builder ) {
@@ -246,14 +257,6 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
 
         // TODO: call into VCF parser to validate alleles like VCFCodec does
         return alleles;
-    }
-
-    private void decodeQual( final VariantContextBuilder builder ) {
-        final Object qual = decodeTypedValue();
-
-        if ( qual != null ) {
-            builder.log10PError((Double)qual / -10.0);
-        }
     }
 
     private void decodeFilter( final VariantContextBuilder builder ) {
@@ -383,29 +386,23 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         }
     }
 
-    private final Object decodeValue(BCFType type) {
+    private final Object decodeValue(final BCFType type) {
         switch (type) {
-            case RESERVED_0: throw new ReviewedStingException("Type is 0");
-            case INT8:   return decodeInt(type.getSizeInBytes());
-            case INT16:  return decodeInt(type.getSizeInBytes());
-            case INT32:  return decodeInt(type.getSizeInBytes());
-            //case INT64:  return (long)decodeInt(type.getSizeInBytes());
-            case FLOAT:  return decodeDouble(type.getSizeInBytes());
-            //case DOUBLE: return decodeDouble(type.getSizeInBytes());
-            //case CHAR: throw new ReviewedStingException("Char encoding not supported");
-            case FLAG: throw new ReviewedStingException("Flag encoding not supported");
-            case STRING_LITERAL: return decodeLiteralString();
+            case INT8:
+            case INT16:
+            case INT32:             return decodeInt(type.getSizeInBytes());
+            case FLOAT:             return decodeDouble(type.getSizeInBytes());
+            case FLAG:              throw new ReviewedStingException("Flag encoding not supported");
+            case STRING_LITERAL:    return decodeLiteralString();
             case STRING_REF8:
-            case STRING_REF16: return getDictionaryString(decodeInt(type.getSizeInBytes()));
-            //case STRING_REF32:
-            case COMPACT_GENOTYPE: return decodeInt(type.getSizeInBytes()); // todo -- must decode further in outer loop
-            case RESERVED_14:
-            case RESERVED_15: throw new ReviewedStingException("Type reserved " + type);
-            default: throw new ReviewedStingException("Impossible state");
+            case STRING_REF16:      return getDictionaryString(decodeInt(type.getSizeInBytes()));
+            case COMPACT_GENOTYPE:  return decodeInt(type.getSizeInBytes()); // todo -- must decode further in outer loop
+            default:                throw new ReviewedStingException("BCF2 codec doesn't know how to decode type " + type );
         }
     }
 
     private final String decodeLiteralString() {
+        // TODO -- fast path for missing value
         StringBuilder builder = new StringBuilder();
         while ( true ) {
             byte b = readByte(stream);
@@ -421,11 +418,10 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
 
     private String lookupContigName( final int contigOffset ) {
         if ( contigOffset < contigNames.size() ) {
-            return contigNames.get((int)contigOffset);
+            return contigNames.get(contigOffset);
         }
         else {
-            throw new UserException.MalformedBCF2(String.format("No contig at index %d present in the sequence dictionary from the BCF2 header (%s)",
-                    (int)contigOffset, contigNames));
+            throw new UserException.MalformedBCF2(String.format("No contig at index %d present in the sequence dictionary from the BCF2 header (%s)", contigOffset, contigNames));
         }
     }
 
@@ -451,13 +447,15 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     @Override
     public boolean canDecode( final String path ) {
         try {
-            AsciiLineReader reader = new AsciiLineReader(new PositionalBufferedStream(new FileInputStream(path)));
+            FileInputStream fis = new FileInputStream(path);
+            AsciiLineReader reader = new AsciiLineReader(new PositionalBufferedStream(fis));
             String firstLine = reader.readLine();
-            if ( BCF2Constants.VERSION_LINE.equals(firstLine) ) {
+            if ( firstLine != null && firstLine.endsWith(BCF2Constants.VERSION_LINE) ) {
                 return true;
             }
-        }
-        catch ( IOException e ) {
+        } catch ( FileNotFoundException e ) {
+            return false;
+        } catch ( IOException e ) {
             return false;
         }
 

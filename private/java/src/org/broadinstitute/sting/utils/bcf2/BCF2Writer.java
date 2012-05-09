@@ -86,11 +86,9 @@ public class BCF2Writer {
         final VariantContext vc = initialVC.fullyDecode(header);
 
         try {
-            buildChrom(vc);
-            buildPos(vc);
+            buildImplicitBlock(vc);
             buildID(vc);
             buildAlleles(vc);
-            buildQual(vc);
             buildFilter(vc);
             buildInfo(vc);
             buildSamplesData(vc);
@@ -152,20 +150,29 @@ public class BCF2Writer {
         bcf2File.write(encoder.getRecordBytes());
     }
 
-    private void buildChrom( VariantContext vc ) throws IOException {
-        Integer contigIndex = sequenceDictionary.getSequenceIndex(vc.getChr());
+    // --------------------------------------------------------------------------------
+    //
+    // implicit block
+    //
+    // The first four records of BCF are inline untype encoded data of:
+    //
+    // 4 byte integer chrom offset
+    // 4 byte integer start
+    // 4 byte integer ref length
+    // 4 byte float qual
+    //
+    // --------------------------------------------------------------------------------
+    private void buildImplicitBlock( VariantContext vc ) throws IOException {
+        final int contigIndex = sequenceDictionary.getSequenceIndex(vc.getChr());
+        if ( contigIndex == -1 )
+            throw new UserException(String.format("Contig %s not found in sequence dictionary from reference", vc.getChr()));
+        final float qual = vc.hasLog10PError() ? (float)vc.getPhredScaledQual() : BCF2Constants.FLOAT_MISSING_VALUE;
 
-        if ( contigIndex == -1 ) {
-            throw new UserException(String.format("Contig %s not found in sequence dictionary from reference",
-                    vc.getChr()));
-        }
-
-        encoder.encodeInt(contigIndex);
-    }
-
-    private void buildPos( VariantContext vc ) throws IOException {
-        encoder.encodeInt(vc.getStart());
-        encoder.encodeInt(vc.getEnd());
+        // note use of encodeValue to not insert the typing byte
+        encoder.encodeValue(contigIndex, BCFType.INT32);
+        encoder.encodeValue(vc.getStart(), BCFType.INT32);
+        encoder.encodeValue(vc.getEnd() - vc.getStart() + 1, BCFType.INT32);
+        encoder.encodeValue(qual, BCFType.FLOAT);
     }
 
     private void buildID( VariantContext vc ) throws IOException {
@@ -184,14 +191,6 @@ public class BCF2Writer {
             for ( final Allele alt : altAlleles )
                 strings.add(vc.getAlleleWithRefPadding(alt));
             encoder.encodeVector(strings, BCFType.STRING_LITERAL);
-        }
-    }
-
-    private void buildQual( VariantContext vc ) throws IOException {
-        if ( ! vc.hasLog10PError() ) {
-            encoder.encodeMissing(BCFType.FLOAT);
-        } else {
-            encoder.encodeSingleton((float)vc.getPhredScaledQual(), BCFType.FLOAT);
         }
     }
 
