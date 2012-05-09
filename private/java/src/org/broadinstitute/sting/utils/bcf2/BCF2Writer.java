@@ -32,54 +32,35 @@ import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 
-public class BCF2Writer {
-    private DataOutputStream bcf2File;      // Note: do not flush until completely done writing, to avoid
-    // issues with eventual BGZF support
+public class BCF2Writer extends IndexingVCFWriter {
+    private final static boolean doNotWriteGenotypes = false;
+    private OutputStream outputStream;      // Note: do not flush until completely done writing, to avoid issues with eventual BGZF support
     private VCFHeader header;
-    private SAMSequenceDictionary sequenceDictionary;
+    private Map<String, Integer> contigDictionary = new HashMap<String, Integer>();
     private Map<String, Integer> stringDictionary = new HashMap<String, Integer>();
     private final BCFEncoder encoder;
 
-    public BCF2Writer( File destination, VCFHeader header, SAMSequenceDictionary sequenceDictionary ) {
-        this(openBCF2File(destination), header, sequenceDictionary);
-    }
-
-    public BCF2Writer( DataOutputStream out, VCFHeader header, SAMSequenceDictionary sequenceDictionary ) {
-        this.bcf2File = out;
-        this.header = header;
-        this.sequenceDictionary = sequenceDictionary;
+    public BCF2Writer(final String name, final File location, final OutputStream output, final SAMSequenceDictionary refDict, final boolean enableOnTheFlyIndexing) {
+        super(name, location, output, refDict, enableOnTheFlyIndexing);
+        this.outputStream = output;
         encoder = new BCFEncoder();
     }
 
-    public void writeHeader() {
-        try {
-            writeHeaderLine(VCFHeader.METADATA_INDICATOR, BCF2Constants.VERSION_LINE);
+    @Override
+    public void writeHeader(final VCFHeader header) {
+        this.header = header;
 
-            for ( VCFHeaderLine line : header.getMetaData() ) {
-                if ( VCFHeaderVersion.isFormatString(line.getKey()) ||     // Skip the version line that the VCFHeader class inserts
-                        line.getKey().equals(VCFHeader.CONTIG_KEY)) {         // And any existing contig definitions (we'll add our own)
-                    continue;
-                }
+        // create the config offsets map
+        for ( final VCFContigHeaderLine contig : header.getContigLines())
+            contigDictionary.put(contig.getID(), contig.getContigIndex());
 
-                writeHeaderLine(VCFHeader.METADATA_INDICATOR, line.toString());
-            }
+        // TODO set up string dictionary
 
-            for ( SAMSequenceRecord contigEntry : sequenceDictionary.getSequences() ) {
-                VCFSimpleHeaderLine contigHeaderLine = new VCFSimpleHeaderLine(VCFHeader.CONTIG_KEY, contigEntry.getSequenceName(), "");
-                writeHeaderLine(VCFHeader.METADATA_INDICATOR, contigHeaderLine.toString());
-            }
-
-            writeHeaderLine(VCFHeader.HEADER_INDICATOR, constructHeaderFieldLayoutLine(header));
-        }
-        catch ( IOException e ) {
-            throw new UserException.CouldNotCreateOutputFile("Error writing BCF2 header", e);
-        }
+        Writer writer = new OutputStreamWriter(outputStream);
+        StandardVCFWriter.writeHeader(header, writer, doNotWriteGenotypes, BCF2Constants.VERSION_LINE, "BCF2 stream");
     }
 
     public void add( final VariantContext initialVC ) {
@@ -96,58 +77,23 @@ public class BCF2Writer {
             writeRecordToOutputFile();
         }
         catch ( IOException e ) {
-            throw new UserException("Error writing record to BCF2 file: " + vc.toString());
+            throw new UserException("Error writing record to BCF2 file: " + vc.toString(), e);
         }
     }
 
     public void close() {
         try {
-            bcf2File.flush();
-            bcf2File.close();
+            outputStream.flush();
+            outputStream.close();
         }
         catch ( IOException e ) {
             throw new UserException("Failed to close BCF2 file");
         }
     }
 
-    private static DataOutputStream openBCF2File( File bcf2File ) {
-        try {
-            return new DataOutputStream(new FileOutputStream(bcf2File));
-        }
-        catch ( IOException e ) {
-            throw new UserException.CouldNotCreateOutputFile(bcf2File, "Failed to open BCF2 file for writing", e);
-        }
-    }
-
-    private void writeHeaderLine( String prefix, String line ) throws IOException {
-        bcf2File.write(prefix.getBytes(BCF2Constants.BCF2_TEXT_CHARSET));
-        bcf2File.write(line.getBytes(BCF2Constants.BCF2_TEXT_CHARSET));
-        bcf2File.write("\n".getBytes(BCF2Constants.BCF2_TEXT_CHARSET));
-    }
-
-    private String constructHeaderFieldLayoutLine( VCFHeader header ) {
-        StringBuilder fieldLayoutLine = new StringBuilder();
-
-        for ( VCFHeader.HEADER_FIELDS field : header.getHeaderFields() ) {
-            fieldLayoutLine.append(field.toString());
-            fieldLayoutLine.append(VCFConstants.FIELD_SEPARATOR);
-        }
-
-        if ( header.hasGenotypingData() ) {
-            fieldLayoutLine.append("FORMAT");
-
-            for ( String sample : header.getGenotypeSamples() ) {
-                fieldLayoutLine.append(VCFConstants.FIELD_SEPARATOR);
-                fieldLayoutLine.append(sample);
-            }
-        }
-
-        return fieldLayoutLine.toString();
-    }
-
     private void writeRecordToOutputFile() throws IOException {
-        bcf2File.writeInt(encoder.getRecordSizeInBytes());
-        bcf2File.write(encoder.getRecordBytes());
+        BCFEncoder.encodePrimitive(encoder.getRecordSizeInBytes(), BCFType.INT32, outputStream);
+        outputStream.write(encoder.getRecordBytes());
     }
 
     // --------------------------------------------------------------------------------
@@ -163,7 +109,7 @@ public class BCF2Writer {
     //
     // --------------------------------------------------------------------------------
     private void buildImplicitBlock( VariantContext vc ) throws IOException {
-        final int contigIndex = sequenceDictionary.getSequenceIndex(vc.getChr());
+        final int contigIndex = contigDictionary.get(vc.getChr());
         if ( contigIndex == -1 )
             throw new UserException(String.format("Contig %s not found in sequence dictionary from reference", vc.getChr()));
         final float qual = vc.hasLog10PError() ? (float)vc.getPhredScaledQual() : BCF2Constants.FLOAT_MISSING_VALUE;

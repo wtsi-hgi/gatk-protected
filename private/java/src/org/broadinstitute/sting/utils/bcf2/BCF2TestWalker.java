@@ -25,6 +25,8 @@
 package org.broadinstitute.sting.utils.bcf2;
 
 import org.broad.tribble.Feature;
+import org.broad.tribble.FeatureCodec;
+import org.broad.tribble.FeatureCodecHeader;
 import org.broad.tribble.readers.PositionalBufferedStream;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -70,9 +72,13 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
     @Override
     public void initialize() {
         final Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), Collections.singletonList(variants));
-        final VCFHeader header = vcfRods.values().iterator().next();
-        writer = new BCF2Writer(bcfFile, header, getToolkit().getMasterSequenceDictionary());
-        writer.writeHeader();
+        final VCFHeader header = VCFUtils.withUpdatedContigs(vcfRods.values().iterator().next(), getToolkit());
+        try {
+            writer = new BCF2Writer("out", bcfFile, new FileOutputStream(bcfFile), getToolkit().getMasterSequenceDictionary(), false);
+            writer.writeHeader(header);
+        } catch ( FileNotFoundException e ) {
+            throw new UserException.CouldNotCreateOutputFile(bcfFile, e);
+        }
     }
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
@@ -101,8 +107,11 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
             // read in the BCF records
             BCF2Codec codec = new BCF2Codec();
             PositionalBufferedStream pbs = new PositionalBufferedStream(new FileInputStream(bcfFile));
-            codec.readHeader(pbs);
+            FeatureCodecHeader header = codec.readHeader(pbs);
+            pbs.close();
 
+            pbs = new PositionalBufferedStream(new FileInputStream(bcfFile));
+            pbs.skip(header.getHeaderEnd());
             Iterator<VariantContext> it = vcs.iterator();
             while ( ! pbs.isDone() ) {
                 VariantContext bcfRaw = codec.decode(pbs);

@@ -51,10 +51,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.io.*;
 import java.util.*;
 
 /**
@@ -174,9 +171,10 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             final File bcf2File = new File(vcfFile.getName() + ".bcf2");
             int counter = 0;
             FeatureReader<VariantContext> reader = AbstractFeatureReader.getFeatureReader(vcfFile.getAbsolutePath(), new VCFCodec(), false);
-            VCFHeader header = (VCFHeader)reader.getHeader();
-            final BCF2Writer bcf2Writer = new BCF2Writer(bcf2File, header, getToolkit().getReferenceDataSource().getReference().getSequenceDictionary());
-            bcf2Writer.writeHeader();
+            FileOutputStream outputStream = new FileOutputStream(bcf2File);
+            final BCF2Writer bcf2Writer = new BCF2Writer("foo", bcf2File, outputStream, getToolkit().getReferenceDataSource().getReference().getSequenceDictionary(), false);
+            VCFHeader header = VCFUtils.withUpdatedContigs((VCFHeader)reader.getHeader(), getToolkit());
+            bcf2Writer.writeHeader(header);
 
             final List<VariantContext> vcs = new ArrayList<VariantContext>();
             Iterator<VariantContext> it = reader.iterator();

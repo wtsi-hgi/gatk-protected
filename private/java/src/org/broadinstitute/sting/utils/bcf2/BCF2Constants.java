@@ -24,14 +24,13 @@
 
 package org.broadinstitute.sting.utils.bcf2;
 
-import java.nio.ByteOrder;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+
 import java.nio.charset.Charset;
-import java.util.EnumSet;
 
 public class BCF2Constants {
-
     public static final String VERSION_LINE_FORMAT = "fileformat=BCF2v%d.%d";
-    public static final String VERSION_LINE = String.format(VERSION_LINE_FORMAT, 0, 1);
+    public static final String VERSION_LINE = String.format(VCFHeader.METADATA_INDICATOR + VERSION_LINE_FORMAT, 0, 1);
     public static final String DICTIONARY_LINE_FORMAT = "dictionary=%s";
     public static final String DICTIONARY_LINE_ENTRY_SEPARATOR = ",";
 

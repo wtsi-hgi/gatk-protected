@@ -28,6 +28,7 @@ import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -106,7 +107,7 @@ public class BCFEncoder {
             case STRING_REF8:
             case STRING_REF16: encodePrimitive(stringDictionary.get(value), type); break;
             //case STRING_REF32:
-            case COMPACT_GENOTYPE: encodeCompactGenotype((Byte)value); break;
+            case COMPACT_GENOTYPE: encodeCompactGenotype((Byte) value); break;
             case RESERVED_14:
             case RESERVED_15: throw new ReviewedStingException("Type reserved " + type);
             default: throw new ReviewedStingException("Impossible state");
@@ -141,10 +142,14 @@ public class BCFEncoder {
     }
 
     public final void encodePrimitive(final int value, final BCFType type) throws IOException {
+        encodePrimitive(value, type, encodeStream);
+    }
+
+    public final static void encodePrimitive(final int value, final BCFType type, final OutputStream encodeStream) throws IOException {
         for ( int i = type.getSizeInBytes() - 1; i >= 0; i-- ) {
             final int shift = i * 8;
             int mask = 0xFF << shift;
-            byte byteValue = (byte)((mask & value) >> shift);
+            int byteValue = (mask & value) >> shift;
             encodeStream.write(byteValue);
         }
     }
