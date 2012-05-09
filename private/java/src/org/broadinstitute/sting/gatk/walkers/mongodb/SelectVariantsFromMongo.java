@@ -364,12 +364,16 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
     private Set<String> IDsToKeep = null;
 
-    private final static boolean mongoOn = true;
-
     /**
      * Set up the VCF writer, the sample expressions and regexs, and the JEXL matcher
      */
     public void initialize() {
+
+        // set up query indices
+
+        MongoDB.getAttributesCollection().ensureIndex(new BasicDBObject("contig", 1).append("start", 1));
+        MongoDB.getSamplesCollection().ensureIndex(new BasicDBObject("contig", 1).append("start", 1).append("sample", 1));
+
         // Get list of samples to include in the output
         List<String> rodNames = Arrays.asList(variantCollection.variants.getName());
 
@@ -487,7 +491,12 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         if ( tracker == null )
             return 0;
 
-        Collection<VariantContext> vcs = mongoOn ? getMongoVariants(ref, context.getLocation()) : tracker.getValues(variantCollection.variants, context.getLocation());
+        Collection<VariantContext> vcs = new ArrayList<VariantContext>();
+        for (String sample : samples) {
+            vcs.addAll(getMongoVariantsBySample(ref, context.getLocation(), sample));
+        }
+
+        vcs = combineMongoVariants(vcs);
 
         if ( vcs == null || vcs.size() == 0) {
             return 0;
@@ -567,19 +576,22 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         return 1;
     }
 
-    private Collection<VariantContext> getMongoVariants(ReferenceContext ref, GenomeLoc location) {
+    private Collection<VariantContext> getMongoVariantsBySample(ReferenceContext ref, GenomeLoc location, String sample) {
         String contig = location.getContig();
         long start = location.getStart();
 
         ArrayList<VariantContext> vcs = new ArrayList<VariantContext>();
 
-        BasicDBObject query = new BasicDBObject();
-        query.put("contig", contig);
-        query.put("start", start);
+        BasicDBObject attributesQuery = new BasicDBObject();
+        attributesQuery.put("contig", contig);
+        attributesQuery.put("start", start);
         // can't know stop location for deletions from reference
 
-        DBCursor attributesCursor = MongoDB.getAttributesCollection().find(query);
-        DBCursor samplesCursor = MongoDB.getSamplesCollection().find(query);
+        BasicDBObject sampleQuery = new BasicDBObject(attributesQuery);
+        sampleQuery.put("sample", sample);
+
+        DBCursor attributesCursor = MongoDB.getAttributesCollection().find(attributesQuery);
+        DBCursor samplesCursor = MongoDB.getSamplesCollection().find(sampleQuery);
 
         Map<Pair<String,List<Allele>>,VariantContextBuilder> attributesFromDB = new HashMap<Pair<String,List<Allele>>,VariantContextBuilder>();
 
@@ -658,8 +670,6 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             Pair<String, List<Allele>> sourceRodAllelePair = new Pair<String, List<Allele>>(sourceROD, alleles);
             VariantContextBuilder builder = attributesFromDB.get(sourceRodAllelePair);
 
-            String sample = (String)oneResult.get("sample");
-
             BasicDBObject genotypeInDb = (BasicDBObject)oneResult.get("genotype");
             Double genotypeError = (Double)genotypeInDb.get("error");
 
@@ -686,7 +696,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             vcs.add(builder.make());
         }
 
-        return combineMongoVariants(vcs);
+        return vcs;
     }
 
     // Copied from CombineVariants
@@ -856,10 +866,8 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
     }
 
     public void onTraversalDone(Integer result) {
-        if (mongoOn) {
-            MongoDB.close();
-        }
-        
+        MongoDB.close();
+
         logger.info(result + " records processed.");
 
         if (SELECT_RANDOM_NUMBER) {

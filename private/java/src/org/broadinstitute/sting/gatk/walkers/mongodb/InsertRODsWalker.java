@@ -51,22 +51,8 @@ public class InsertRODsWalker extends RodWalker<Integer, Integer> {
         int lastSep = RODFileName.lastIndexOf(File.separator);
         RODFileName = RODFileName.substring(lastSep + 1);
 
-        // set up indices
-
-        mongoAttributes.ensureIndex("location");
-        mongoAttributes.ensureIndex("sourceROD");
-        mongoAttributes.ensureIndex("contig");
-        mongoAttributes.ensureIndex("start");
-        mongoAttributes.ensureIndex("stop");
-
-        mongoSamples.ensureIndex("location");
-        mongoSamples.ensureIndex("sample");
-        mongoSamples.ensureIndex("sourceROD");
-        mongoSamples.ensureIndex("contig");
-        mongoSamples.ensureIndex("start");
-        mongoSamples.ensureIndex("stop");
-
         // set up primary keys
+
         mongoAttributes.ensureIndex(new BasicDBObject("location", 1).append("sourceROD", 1).append("alleles", 1), new BasicDBObject("unique", 1));
         mongoSamples.ensureIndex(new BasicDBObject("location", 1).append("sourceROD", 1).append("alleles", 1).append("sample", 1), new BasicDBObject("unique", 1));
     }
