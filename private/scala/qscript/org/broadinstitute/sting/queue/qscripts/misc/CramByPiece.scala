@@ -30,7 +30,6 @@ import org.broadinstitute.sting.queue.function.QFunction
 import org.broadinstitute.sting.queue.engine.JobRunInfo
 import org.broadinstitute.sting.gatk.report.GATKReport
 import java.io.{PrintStream, FileOutputStream}
-import org.broadinstitute.sting.commandline.Argument._
 
 class CramByPiece extends QScript {
   qscript =>
@@ -48,21 +47,23 @@ class CramByPiece extends QScript {
   val originalStart: Int = 10000000
 
   @Argument(shortName = "stop", doc = "start", required = false)
-  val fullStop: Int = 11000000
+  val fullStop: Int = 20000000
 
   @Argument(shortName = "maxPoints", doc = "start", required = false)
   val maxPoints: Int = 100
 
-  class Datum(val BAM: File, val CRAM: File, val start: Int, val step: Int) {
+  class Datum(val BAM: File, val CRAM: File, val BAMCount: File, val start: Int, val step: Int) {
     def originalSize:java.lang.Long = BAM.length()
     def cramSize:java.lang.Long = CRAM.length()
     def compressionRatio:java.lang.Double = CRAM.length().toDouble / BAM.length()
+    def bamRecords = scala.io.Source.fromFile(BAMCount).mkString.trim
   }
 
   var data: List[Datum] = List()
 
   def script() {
     for ( BAM <- BAMs ) {
+      //for ( step <- List(1000000)) {
       for ( step <- List(1000000, 100000, 10000, 1000, 100)) {
         var start = originalStart
         val potentialPoints = (fullStop - start) / step
@@ -70,23 +71,25 @@ class CramByPiece extends QScript {
         while ( start < fullStop ) {
           val stop = start + step
           val partialBAM = swapExt(new File("data"), BAM, ".bam", ".start_%d.step_%d.bam".format(start, step))
+          val partialBAMCount = swapExt(new File("data"), partialBAM, ".bam", ".count")
           val CRAM = swapExt(new File("data"), partialBAM, ".bam", ".cram")
           val myIntervals = "%s:%d-%d".format("20", start, stop)
           add(new PrintRegion(BAM, partialBAM, myIntervals))
           add(new CRAM(partialBAM, CRAM))
+          add(new CountRecords(partialBAM, partialBAMCount))
           //System.out.printf("%d %d %d%n".format(start, stop, stride))
           start += step * stride
-          data :+= new Datum(partialBAM, CRAM, start, step)
+          data :+= new Datum(partialBAM, CRAM, partialBAMCount, start, step)
         }
       }
     }
   }
 
   override def onExecutionDone(jobs: Map[QFunction, JobRunInfo], success: Boolean) {
-    val report = GATKReport.newSimpleReport("CompressionSizes", "start", "step", "original.bam.size", "cram.size", "compression.ratio", "original.bam", "cram");
+    val report = GATKReport.newSimpleReport("CompressionSizes", "start", "step", "original.bam.size", "cram.size", "bam.records", "compression.ratio", "original.bam", "cram");
     for ( d: Datum <- data ) {
       //System.out.printf("%s %s %d %d%n".format(d.BAM, d.CRAM, d.start, d.step))
-      report.addRow(new Integer(d.start), new Integer(d.step), d.originalSize, d.cramSize, d.compressionRatio, d.BAM, d.CRAM)
+      report.addRow(new Integer(d.start), new Integer(d.step), d.originalSize, d.cramSize, d.bamRecords, d.compressionRatio, d.BAM, d.CRAM)
     }
     report.print(new PrintStream(new FileOutputStream(new File("sizes.gatkreport.txt"))))
   }
@@ -100,5 +103,9 @@ class CramByPiece extends QScript {
 
   class CRAM(@Input var BAM: File, @Output var CRAM: File) extends CommandLineFunction {
     def commandLine = "java -Xmx1g -jar %s cram --input-bam-file %s --reference-fasta-file %s --output-cram-file %s --capture-all-quality-scores --include-unmapped-reads".format(cramtools, BAM, referenceFile, CRAM)
+  }
+
+  class CountRecords(@Input var BAM: File, @Output var linesFile: File) extends CommandLineFunction {
+    def commandLine = "samtools view %s | wc -l > %s".format(BAM, linesFile)
   }
 }

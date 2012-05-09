@@ -105,74 +105,27 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         for ( final VCFContigHeaderLine contig : header.getContigLines())
             contigNames.add(contig.getID());
 
+        // create the string dictionary
+        parseDictionary(header);
+
         // position right before next line (would be right before first real record byte at end of header)
         return new FeatureCodecHeader(header, inputStream.getPosition());
     }
 
-//    private VCFHeader createHeader( List<String> headerStrings, VCFHeaderVersion version ) {
-//        // Adapted from the AbstractVCFCodec class
-//
-////        Set<VCFHeaderLine> metaData = new TreeSet<VCFHeaderLine>();
-////        Set<String> sampleNames = new LinkedHashSet<String>();
-////
-////        for ( String str : headerStrings ) {
-////            if ( ! str.startsWith(VCFHeader.METADATA_INDICATOR) ) {
-////                String[] strings = str.substring(1).split(VCFConstants.FIELD_SEPARATOR);
-////                if ( strings.length < VCFHeader.HEADER_FIELDS.values().length )
-////                    throw new UserException.MalformedBCF2("there are not enough columns present in the header line: " + str);
-////
-////                int arrayIndex = 0;
-////                for ( VCFHeader.HEADER_FIELDS field : VCFHeader.HEADER_FIELDS.values() ) {
-////                    try {
-////                        if ( field != VCFHeader.HEADER_FIELDS.valueOf(strings[arrayIndex]) )
-////                            throw new UserException.MalformedBCF2("we were expecting column name '" + field + "' but we saw '" + strings[arrayIndex] + "'");
-////                    } catch ( IllegalArgumentException e ) {
-////                        throw new UserException.MalformedBCF2("unknown column name '" + strings[arrayIndex] + "'; it does not match a legal column header name.");
-////                    }
-////                    arrayIndex++;
-////                }
-////
-////                boolean sawFormatTag = false;
-////                if ( arrayIndex < strings.length ) {
-////                    if ( !strings[arrayIndex].equals("FORMAT") )
-////                        throw new UserException.MalformedBCF2("we were expecting column name 'FORMAT' but we saw '" + strings[arrayIndex] + "'");
-////                    sawFormatTag = true;
-////                    arrayIndex++;
-////                }
-////
-////                while ( arrayIndex < strings.length )
-////                    sampleNames.add(strings[arrayIndex++]);
-////
-////                if ( sawFormatTag && sampleNames.size() == 0 )
-////                    throw new UserException.MalformedBCF2("The FORMAT field was provided but there is no genotype/sample data");
-////
-////            } else {
-////                if ( str.startsWith(VCFConstants.INFO_HEADER_START) ) {
-////                    final VCFInfoHeaderLine info = new VCFInfoHeaderLine(str.substring(7),version);
-////                    metaData.add(info);
-////                } else if ( str.startsWith(VCFConstants.FILTER_HEADER_START) ) {
-////                    final VCFFilterHeaderLine filter = new VCFFilterHeaderLine(str.substring(9), version);
-////                    metaData.add(filter);
-////                } else if ( str.startsWith(VCFConstants.FORMAT_HEADER_START) ) {
-////                    final VCFFormatHeaderLine format = new VCFFormatHeaderLine(str.substring(9), version);
-////                    metaData.add(format);
-////                } else if ( str.startsWith(VCFConstants.CONTIG_HEADER_START) ) {
-////                    final VCFSimpleHeaderLine contig = new VCFSimpleHeaderLine(str.substring(9), version, VCFConstants.CONTIG_HEADER_START.substring(2), null);
-////                    contigNames.add(contig.getID());
-////                    metaData.add(contig);
-////                } else if ( str.startsWith(VCFConstants.ALT_HEADER_START) ) {
-////                    final VCFSimpleHeaderLine alt = new VCFSimpleHeaderLine(str.substring(6), version, VCFConstants.ALT_HEADER_START.substring(2), Arrays.asList("ID", "Description"));
-////                    metaData.add(alt);
-////                } else {
-////                    int equals = str.indexOf("=");
-////                    if ( equals != -1 )
-////                        metaData.add(new VCFHeaderLine(str.substring(2, equals), str.substring(equals+1)));
-////                }
-////            }
-////        }
-//        header = AbstractVCFCodec.parseHeader(headerStrings, version);
-//        return header;
-//    }
+    private final void parseDictionary(final VCFHeader header) {
+        for ( final VCFHeaderLine line : header.getMetaData() ) {
+            if ( line.getKey().equals(BCF2Constants.DICTIONARY_LINE_TAG) ) {
+                for ( final String string : line.getValue().split(BCF2Constants.DICTIONARY_LINE_ENTRY_SEPARATOR) )
+                    dictionary.add(string);
+                break;
+            }
+        }
+
+        // if we got here we never found a dictionary, or there are no elements in the dictionary
+        if ( dictionary.size() == 0 )
+            throw new UserException.MalformedBCF2("Dictionary header element was absent or empty");
+    }
+
 
     private final void prepareByteStream(final InputStream inputStream) {
         this.stream = inputStream;

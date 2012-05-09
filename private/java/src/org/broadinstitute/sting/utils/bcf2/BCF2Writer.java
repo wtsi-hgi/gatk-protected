@@ -25,12 +25,15 @@
 package org.broadinstitute.sting.utils.bcf2;
 
 import net.sf.samtools.SAMSequenceDictionary;
-import net.sf.samtools.SAMSequenceRecord;
 import org.broad.tribble.util.ParsingUtils;
+import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.*;
 import java.util.*;
@@ -40,13 +43,12 @@ public class BCF2Writer extends IndexingVCFWriter {
     private OutputStream outputStream;      // Note: do not flush until completely done writing, to avoid issues with eventual BGZF support
     private VCFHeader header;
     private Map<String, Integer> contigDictionary = new HashMap<String, Integer>();
-    private Map<String, Integer> stringDictionary = new HashMap<String, Integer>();
-    private final BCFEncoder encoder;
+    private Map<String, Integer> stringDictionary = new LinkedHashMap<String, Integer>();
+    private BCFEncoder encoder; // initialized after the header arrives
 
     public BCF2Writer(final String name, final File location, final OutputStream output, final SAMSequenceDictionary refDict, final boolean enableOnTheFlyIndexing) {
         super(name, location, output, refDict, enableOnTheFlyIndexing);
         this.outputStream = output;
-        encoder = new BCFEncoder();
     }
 
     @Override
@@ -57,10 +59,25 @@ public class BCF2Writer extends IndexingVCFWriter {
         for ( final VCFContigHeaderLine contig : header.getContigLines())
             contigDictionary.put(contig.getID(), contig.getContigIndex());
 
-        // TODO set up string dictionary
+        // set up the strings dictionary
+        int offset = 0;
+        stringDictionary.put(VCFConstants.PASSES_FILTERS_v4, offset++); // special case the special PASS field
+        for ( VCFHeaderLine line : header.getMetaData() ) {
+            if ( line instanceof VCFIDHeaderLine ) {
+                VCFIDHeaderLine idLine = (VCFIDHeaderLine)line;
+                stringDictionary.put(idLine.getID(), offset++);
+            }
+        }
 
-        Writer writer = new OutputStreamWriter(outputStream);
-        StandardVCFWriter.writeHeader(header, writer, doNotWriteGenotypes, BCF2Constants.VERSION_LINE, "BCF2 stream");
+        // add the dictionary ##dictionary=x,y,z line to the header
+        final String dictionaryLineValue = Utils.join(BCF2Constants.DICTIONARY_LINE_ENTRY_SEPARATOR, stringDictionary.keySet());
+        header.addMetaDataLine(new VCFHeaderLine(BCF2Constants.DICTIONARY_LINE_TAG, dictionaryLineValue));
+
+        // write out the header
+        StandardVCFWriter.writeHeader(header, new OutputStreamWriter(outputStream), doNotWriteGenotypes, BCF2Constants.VERSION_LINE, "BCF2 stream");
+
+        // with the string dictionary in hand we can create the encoder
+        encoder = new BCFEncoder(stringDictionary);
     }
 
     public void add( final VariantContext initialVC ) {
@@ -142,7 +159,7 @@ public class BCF2Writer extends IndexingVCFWriter {
 
     private void buildFilter( VariantContext vc ) throws IOException {
         if ( vc.isFiltered() ) {
-            encoder.encodeVector(vc.getFilters(), BCFType.STRING_LITERAL); // TODO -- need to determine best type
+            encoder.encodeStringsByRef(vc.getFilters());
         } else {
             encoder.encodeMissing(BCFType.STRING_LITERAL);
         }
@@ -153,8 +170,8 @@ public class BCF2Writer extends IndexingVCFWriter {
         encoder.encodeInt(numInfoFields);
 
         for ( Map.Entry<String, Object> infoFieldEntry : vc.getAttributes().entrySet() ) {
-            encoder.encodeSingleton(infoFieldEntry.getKey(), BCFType.STRING_LITERAL);
-            // TODO -- determine type from header instead of using string
+            encoder.encodeStringByRef(infoFieldEntry.getKey());
+            // TODO -- use real type
             encoder.encodeSingleton(infoFieldEntry.getValue().toString(), BCFType.STRING_LITERAL);
         }
     }

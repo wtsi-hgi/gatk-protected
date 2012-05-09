@@ -31,7 +31,7 @@ import java.nio.charset.Charset;
 public class BCF2Constants {
     public static final String VERSION_LINE_FORMAT = "fileformat=BCF2v%d.%d";
     public static final String VERSION_LINE = String.format(VCFHeader.METADATA_INDICATOR + VERSION_LINE_FORMAT, 0, 1);
-    public static final String DICTIONARY_LINE_FORMAT = "dictionary=%s";
+    public static final String DICTIONARY_LINE_TAG = "dictionary";
     public static final String DICTIONARY_LINE_ENTRY_SEPARATOR = ",";
 
     public static final Charset BCF2_TEXT_CHARSET = Charset.forName("US-ASCII");  // TODO: enforce this!

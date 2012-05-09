@@ -42,14 +42,11 @@ import java.util.Map;
 public class BCFEncoder {
     public static final int WRITE_BUFFER_INITIAL_SIZE = 16384;
     private ByteArrayOutputStream encodeStream = new ByteArrayOutputStream(WRITE_BUFFER_INITIAL_SIZE);
-    //private DataOutputStream record = new DataOutputStream(recordBuffer);   // TODO: DataOutputStream hardcodes big-endian encoding --
-    // needs to be little-endian to be in spec
 
     private final Map<String, Integer> stringDictionary;
 
-    public BCFEncoder() {
-        // todo -- real constructor
-        stringDictionary = Collections.emptyMap();
+    public BCFEncoder(final Map<String, Integer> stringDictionary) {
+        this.stringDictionary = stringDictionary;
     }
 
     public int getRecordSizeInBytes() {
@@ -81,6 +78,25 @@ public class BCFEncoder {
         encodeVector(Collections.singleton(v), type);
     }
 
+    public final void encodeStringByRef(final String string) throws IOException {
+        encodeStringsByRef(Collections.singleton(string));
+    }
+
+    public final void encodeStringsByRef(final Collection<String> strings) throws IOException {
+        BCFType type = BCFType.STRING_REF8; // start with the smallest size
+
+        // iterate over strings until we find one that needs 16 bits, and break
+        for ( final String string : strings ) {
+            final int offset = stringDictionary.get(string);
+            type = determizeBestTypeBySize(offset, TypeDescriptor.DICTIONARY_TYPES_BY_SIZE);
+            if ( type == BCFType.STRING_REF16 )
+                break;
+        }
+
+        // we've checked the types for all strings, so write them out
+        encodeVector(strings, type);
+    }
+
     public final <T extends Object> void encodeVector(final Collection<T> v, final BCFType type) throws IOException {
         encodeType(v.size(), type);
         encodeValues(v, type);
@@ -94,32 +110,16 @@ public class BCFEncoder {
 
     public final <T extends Object> void encodeValue(final T value, final BCFType type) throws IOException {
         switch (type) {
-            case RESERVED_0: throw new ReviewedStingException("Type is 0");
             case INT8:
             case INT16:
-            case INT32:  encodePrimitive((Integer)value, type); break;
-            //case INT64:
-            case FLOAT:  encodePrimitive(Float.floatToIntBits((Float)value), type); break;
-            //case DOUBLE: encodePrimitive((long)(double)(Double)value, type); break;
-            case FLAG: throw new ReviewedStingException("Flag encoding not supported");
-            //case CHAR: // char is just an array of string
-            case STRING_LITERAL: encodeLiteralString((String)value); break;
+            case INT32:             encodePrimitive((Integer)value, type); break;
+            case FLOAT:             encodePrimitive(Float.floatToIntBits((Float)value), type); break;
+            case FLAG:              throw new ReviewedStingException("Flag encoding not supported");
+            case STRING_LITERAL:    encodeLiteralString((String)value); break;
             case STRING_REF8:
-            case STRING_REF16: encodePrimitive(stringDictionary.get(value), type); break;
-            //case STRING_REF32:
-            case COMPACT_GENOTYPE: encodeCompactGenotype((Byte) value); break;
-            case RESERVED_14:
-            case RESERVED_15: throw new ReviewedStingException("Type reserved " + type);
-            default: throw new ReviewedStingException("Impossible state");
-        }
-    }
-
-    public final BCFType determineStringType(final String value) {
-        if ( stringDictionary.containsKey(value) ) {
-            final int offset = stringDictionary.get(value);
-            return determizeBestTypeBySize(offset, TypeDescriptor.DICTIONARY_TYPES_BY_SIZE);
-        } else {
-            return BCFType.STRING_LITERAL;
+            case STRING_REF16:      encodePrimitive(stringDictionary.get(value), type); break;
+            case COMPACT_GENOTYPE:  encodeCompactGenotype((Byte) value); break;
+            default:                throw new ReviewedStingException("Illegal type encountered " + type);
         }
     }
 
@@ -166,7 +166,7 @@ public class BCFEncoder {
     }
 
     public final void startGenotypeField(final String key, final int size, final BCFType valueType) throws IOException {
-        encodeSingleton(key, BCFType.STRING_LITERAL);
+        encodeStringByRef(key);
         encodeType(size, valueType);
     }
 }
