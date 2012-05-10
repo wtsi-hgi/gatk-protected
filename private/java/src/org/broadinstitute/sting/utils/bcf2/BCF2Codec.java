@@ -38,7 +38,9 @@ import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
-import java.io.*;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.*;
 
 public class BCF2Codec implements FeatureCodec<VariantContext> {
@@ -46,7 +48,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     private VCFHeader header = null;
     private final ArrayList<String> contigNames = new ArrayList<String>();
     private final ArrayList<String> dictionary = new ArrayList<String>();
-    InputStream stream;
+    BCF2Decoder decoder;
 
     // ----------------------------------------------------------------------
     //
@@ -55,11 +57,14 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     // ----------------------------------------------------------------------
 
     public Feature decodeLoc( final PositionalBufferedStream inputStream ) {
-        return decode(inputStream);  // TODO: a less expensive version of decodeLoc() that doesn't use VariantContext
+        return decode(inputStream);
+        // TODO: a less expensive version of decodeLoc() that doesn't use VariantContext
+        // TODO: very easy -- just decodeImplicitBlock, and then skip to end of end of sites block
+        // TODO: and then skip genotypes block
     }
 
     public VariantContext decode( final PositionalBufferedStream inputStream ) {
-        prepareByteStream(inputStream);
+        decoder.readNextBlock(inputStream);
         final VariantContextBuilder builder = new VariantContextBuilder();
 
         decodeImplicitBlock(builder);
@@ -67,6 +72,8 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         final ArrayList<Allele> alleles = decodeAlleles(builder);
         decodeFilter(builder);
         decodeInfo(builder);
+
+        // TODO: call readNextBlock here to get genotypes data
         decodeGenotypes(alleles, builder);
 
         return builder.make();
@@ -113,6 +120,9 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
 
         // create the string dictionary
         parseDictionary(header);
+
+        // prepare the decoder
+        decoder = new BCF2Decoder(dictionary);
 
         // position right before next line (would be right before first real record byte at end of header)
         return new FeatureCodecHeader(header, inputStream.getPosition());
@@ -164,23 +174,23 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     // --------------------------------------------------------------------------------
 
     private final void decodeImplicitBlock(final VariantContextBuilder builder) {
-        final int contigOffset = decodeInt(BCFType.INT32.getSizeInBytes());
+        final int contigOffset = decoder.decodeInt(BCFType.INT32.getSizeInBytes());
         final String contig = lookupContigName(contigOffset);
         builder.chr(contig);
 
-        final int pos = decodeInt(BCFType.INT32.getSizeInBytes());
-        final int refLength = decodeInt(BCFType.INT32.getSizeInBytes());
+        final int pos = decoder.decodeInt(BCFType.INT32.getSizeInBytes());
+        final int refLength = decoder.decodeInt(BCFType.INT32.getSizeInBytes());
         builder.start((long)pos);
         builder.stop((long)(pos + refLength - 1)); // minus one because of our open intervals
 
-        final int qualAsInt = decodeRawFloat();
-        if ( ! rawFloatIsMissing(qualAsInt) ) {
-            builder.log10PError(rawFloatToFloat(qualAsInt) / -10.0);
+        final int qualAsInt = decoder.decodeRawFloat();
+        if ( ! decoder.rawFloatIsMissing(qualAsInt) ) {
+            builder.log10PError(decoder.rawFloatToFloat(qualAsInt) / -10.0);
         }
     }
 
     private void decodeID( final VariantContextBuilder builder ) {
-        final String id = (String)decodeTypedValue();
+        final String id = (String)decoder.decodeTypedValue();
 
         if ( id == null ) {
             builder.noID();
@@ -200,9 +210,9 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     }
 
     private ArrayList<Allele> decodeAlleles( final VariantContextBuilder builder ) {
-        final String ref = (String)decodeTypedValue();
+        final String ref = (String)decoder.decodeTypedValue();
         builder.referenceBaseForIndel(ref.getBytes()[0]);
-        final Object altObject = decodeTypedValue(); // alt can be either atomic or vectors
+        final Object altObject = decoder.decodeTypedValue(); // alt can be either atomic or vectors
 
         // TODO -- probably need inline decoder for efficiency here (no sense in going bytes -> string -> vector -> bytes
         ArrayList<Allele> alleles = new ArrayList<Allele>(2);
@@ -218,7 +228,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     }
 
     private void decodeFilter( final VariantContextBuilder builder ) {
-        final Object filters = decodeTypedValue();
+        final Object filters = decoder.decodeTypedValue();
 
         if ( filters == null ) {
             builder.unfiltered();
@@ -229,12 +239,12 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     }
 
     private void decodeInfo( final VariantContextBuilder builder ) {
-        final int numInfoFields = (Integer)decodeRequiredTypedValue("Number of info fields");
+        final int numInfoFields = (Integer)decoder.decodeRequiredTypedValue("Number of info fields");
         final Map<String, Object> infoFieldEntries = new HashMap<String, Object>(numInfoFields);
 
         for ( int i = 0; i < numInfoFields; i++ ) {
-            final String key = (String)decodeTypedValue();
-            final Object value = decodeTypedValue();
+            final String key = (String)decoder.decodeTypedValue();
+            final Object value = decoder.decodeTypedValue();
             infoFieldEntries.put(key, value);
         }
 
@@ -244,7 +254,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     private void decodeGenotypes( ArrayList<Allele> siteAlleles, final VariantContextBuilder builder ) {
         final List<String> samples = new ArrayList<String>(header.getGenotypeSamples());
         final int nSamples = samples.size();
-        final int nFields = (Integer)decodeTypedValue();
+        final int nFields = (Integer)decoder.decodeTypedValue();
         final Map<String, List<Object>> fieldValues = decodeGenotypeFieldValues(nFields, nSamples);
 
         final List<Genotype> genotypes = new ArrayList<Genotype>(nSamples);
@@ -299,78 +309,15 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         Map<String, List<Object>> map = new LinkedHashMap<String, List<Object>>(nFields);
 
         for ( int i = 0; i < nFields; i++ ) {
-            final String field = (String)decodeTypedValue();
-            final byte typeDescriptor = readTypeDescriptor();
+            final String field = (String)decoder.decodeTypedValue();
+            final byte typeDescriptor = decoder.readTypeDescriptor();
             final List<Object> values = new ArrayList<Object>(nSamples);
             for ( int j = 0; j < nSamples; j++ )
-                values.add(decodeTypedValue(typeDescriptor));
+                values.add(decoder.decodeTypedValue(typeDescriptor));
             map.put(field, values);
         }
 
         return map;
-    }
-
-    private final Object decodeRequiredTypedValue(final String field) {
-        final Object result = decodeTypedValue();
-        if ( result == null ) {
-            throw new UserException.MalformedBCF2("The value for the required field " + field + " is missing");
-        } else {
-            return result;
-        }
-    }
-
-    private final Object decodeTypedValue() {
-        final byte typeDescriptor = readTypeDescriptor();
-        return decodeTypedValue(typeDescriptor);
-    }
-
-    private final byte readTypeDescriptor() {
-        return readByte(stream);
-    }
-
-    private final Object decodeTypedValue(final byte typeDescriptor) {
-        final int size = TypeDescriptor.sizeIsOverflow(typeDescriptor) ? (Integer)decodeTypedValue() : TypeDescriptor.decodeSize(typeDescriptor);
-        final BCFType type = TypeDescriptor.decodeType(typeDescriptor);
-
-        if ( size == 0 ) { return null; }
-        else if ( size == 1 ) return decodeValue(type);
-        else {
-            ArrayList<Object> ints = new ArrayList<Object>(size);
-            for ( int i = 0; i < size; i++ ) {
-                ints.add(decodeValue(type));
-            }
-            return ints;
-        }
-    }
-
-    private final Object decodeValue(final BCFType type) {
-        switch (type) {
-            case INT8:
-            case INT16:
-            case INT32:             return decodeInt(type.getSizeInBytes());
-            case FLOAT:             return decodeFloatAsDouble();
-            case FLAG:              throw new ReviewedStingException("Flag encoding not supported");
-            case STRING_LITERAL:    return decodeLiteralString();
-            case STRING_REF8:
-            case STRING_REF16:      return getDictionaryString(decodeInt(type.getSizeInBytes()));
-            case COMPACT_GENOTYPE:  return decodeInt(type.getSizeInBytes()); // todo -- must decode further in outer loop
-            default:                throw new ReviewedStingException("BCF2 codec doesn't know how to decode type " + type );
-        }
-    }
-
-    private final String decodeLiteralString() {
-        // TODO -- fast path for missing value
-        StringBuilder builder = new StringBuilder();
-        while ( true ) {
-            byte b = readByte(stream);
-            if ( b == 0x00 ) break;
-            builder.append((char)b);
-        }
-        return builder.toString();
-    }
-
-    private final String getDictionaryString(int offset) {
-        return dictionary.get(offset);
     }
 
     private String lookupContigName( final int contigOffset ) {
@@ -382,38 +329,6 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         }
     }
 
-    // ----------------------------------------------------------------------
-    //
-    // Raw primative data types (ints and floats)
-    //
-    // ----------------------------------------------------------------------
-
-    private final int decodeInt(int bytesForEachInt) {
-        int value = 0;
-        for ( int i = bytesForEachInt - 1; i >= 0; i-- ) {
-            final int b = readByte(stream) & 0xFF;
-            final int shift = i * 8;
-            value |= b << shift;
-        }
-        return value;
-    }
-
-    private final boolean rawFloatIsMissing(final int rawFloat) {
-        return rawFloat == BCF2Constants.FLOAT_MISSING_VALUE;
-    }
-
-    private final int decodeRawFloat() {
-        return decodeInt(BCFType.FLOAT.getSizeInBytes());
-    }
-
-    private final float rawFloatToFloat(final int rawFloat) {
-        return Float.intBitsToFloat(rawFloat);
-    }
-
-    private final Double decodeFloatAsDouble() {
-        final int i = decodeRawFloat();
-        return rawFloatIsMissing(i) ? null : (double)rawFloatToFloat(i);
-    }
 
     // ----------------------------------------------------------------------
     //
@@ -432,35 +347,6 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
             return (List<T>)o;
         } else {
             return (Set<T>)Collections.singleton(o);
-        }
-    }
-
-
-    private final void prepareByteStream(final InputStream inputStream) {
-        this.stream = inputStream;
-        final int sizeInBytes = decodeInt(4);
-        final byte[] record = new byte[sizeInBytes];
-        try {
-            final int bytesRead = stream.read(record);
-            if ( bytesRead < sizeInBytes ) {
-                throw new UserException.MalformedBCF2(String.format("Failed to read next complete record: %s",
-                        bytesRead == -1 ?
-                                "premature end of input stream" :
-                                String.format("expected %d bytes but read only %d", sizeInBytes, bytesRead)));
-            }
-        }
-        catch ( IOException e ) {
-            throw new UserException.CouldNotReadInputFile("I/O error while reading BCF2 file", e);
-        }
-
-        this.stream = new ByteArrayInputStream(record);
-    }
-
-    private final static byte readByte(final InputStream stream) {
-        try {
-            return (byte)(stream.read() & 0xFF);
-        } catch ( IOException e ) {
-            throw new ReviewedStingException("readByte failure", e);
         }
     }
 }
