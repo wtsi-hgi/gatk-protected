@@ -119,7 +119,7 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
             Iterator<VariantContext> it = vcs.iterator();
             while ( ! pbs.isDone() ) {
                 VariantContext bcfRaw = codec.decode(pbs);
-                VariantContext bcf = new VariantContextBuilder(bcfRaw).source("variant").make();
+                    VariantContext bcf = new VariantContextBuilder(bcfRaw).source("variant").make();
                 if ( keepVariants ) {
                     VariantContext expected = it.next();
                     if ( ! quiet )

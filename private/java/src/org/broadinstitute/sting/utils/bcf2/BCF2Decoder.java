@@ -48,21 +48,11 @@ public class BCF2Decoder {
     }
 
     /**
-     * Convenience constructor.  Builds a decoder and initialize it to start
-     * reading the next record from stream
-     *
-     * @param stream
-     */
-    public BCF2Decoder(final ArrayList<String> dictionary, final InputStream stream) {
-        this(dictionary, readRecordBytes(stream));
-    }
-
-    /**
-     * Create a new decoder ready to read BCF2 data from the byte[] recordBytes
+     * Create a new decoder ready to read BCF2 data from the byte[] recordBytes, for testing purposes
      *
      * @param recordBytes
      */
-    public BCF2Decoder(final ArrayList<String> dictionary, final byte[] recordBytes) {
+    protected BCF2Decoder(final ArrayList<String> dictionary, final byte[] recordBytes) {
         this(dictionary);
         setRecordBytes(recordBytes);
     }
@@ -73,8 +63,8 @@ public class BCF2Decoder {
      * @param stream
      * @return
      */
-    public void readNextBlock(final InputStream stream) {
-        setRecordBytes(readRecordBytes(stream));
+    public void readNextBlock(final int blockSizeInBytes, final InputStream stream) {
+        setRecordBytes(readRecordBytes(blockSizeInBytes, stream));
     }
 
     /**
@@ -83,11 +73,10 @@ public class BCF2Decoder {
      * @param stream
      * @return
      */
-    public void skipNextBlock(final InputStream stream) {
-        final int sizeInBytes = readBlockSize(stream);
+    public void skipNextBlock(final int blockSizeInBytes, final InputStream stream) {
         try {
-            final int bytesRead = (int)stream.skip(sizeInBytes);
-            validateReadBytes(bytesRead, sizeInBytes);
+            final int bytesRead = (int)stream.skip(blockSizeInBytes);
+            validateReadBytes(bytesRead, blockSizeInBytes);
         } catch ( IOException e ) {
             throw new UserException.CouldNotReadInputFile("I/O error while reading BCF2 file", e);
         }
@@ -122,14 +111,14 @@ public class BCF2Decoder {
         this.recordStream = new ByteArrayInputStream(recordBytes);
     }
 
-    public final Object decodeRequiredTypedValue(final String field) {
-        final Object result = decodeTypedValue();
-        if ( result == null ) {
-            throw new UserException.MalformedBCF2("The value for the required field " + field + " is missing");
-        } else {
-            return result;
-        }
-    }
+//    public final Object decodeRequiredTypedValue(final String field) {
+//        final Object result = decodeTypedValue();
+//        if ( result == null ) {
+//            throw new UserException.MalformedBCF2("The value for the required field " + field + " is missing");
+//        } else {
+//            return result;
+//        }
+//    }
 
     public final Object decodeTypedValue() {
         final byte typeDescriptor = readTypeDescriptor();
@@ -224,7 +213,7 @@ public class BCF2Decoder {
      * @param inputStream
      * @return
      */
-    private final static int readBlockSize(final InputStream inputStream) {
+    public final int readBlockSize(final InputStream inputStream) {
         return readInt(4, inputStream);
     }
 
@@ -233,12 +222,11 @@ public class BCF2Decoder {
      * @param inputStream
      * @return
      */
-    private final static byte[] readRecordBytes(final InputStream inputStream) {
-        final int sizeInBytes = readBlockSize(inputStream);
-        final byte[] record = new byte[sizeInBytes];
+    private final static byte[] readRecordBytes(final int blockSizeInBytes, final InputStream inputStream) {
+        final byte[] record = new byte[blockSizeInBytes];
         try {
             final int bytesRead = inputStream.read(record);
-            validateReadBytes(bytesRead, sizeInBytes);
+            validateReadBytes(bytesRead, blockSizeInBytes);
         } catch ( IOException e ) {
             throw new UserException.CouldNotReadInputFile("I/O error while reading BCF2 file", e);
         }

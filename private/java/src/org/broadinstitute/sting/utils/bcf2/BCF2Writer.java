@@ -92,15 +92,11 @@ public class BCF2Writer extends IndexingVCFWriter {
         super.add(vc); // allow on the fly indexing
 
         try {
-            buildImplicitBlock(vc);
-            buildID(vc);
-            buildAlleles(vc);
-            buildFilter(vc);
-            buildInfo(vc);
-            writeBlock();
+            final byte[] infoBlock = buildSitesData(vc);
+            final byte[] genotypesBlock = buildSamplesData(vc);
 
-            buildSamplesData(vc);
-            writeBlock();
+            // write the two blocks to disk
+            writeBlock(infoBlock, genotypesBlock);
         }
         catch ( IOException e ) {
             throw new UserException("Error writing record to BCF2 file: " + vc.toString(), e);
@@ -131,20 +127,41 @@ public class BCF2Writer extends IndexingVCFWriter {
     // 4 byte float qual
     //
     // --------------------------------------------------------------------------------
-    private void buildImplicitBlock( VariantContext vc ) throws IOException {
+    private byte[] buildSitesData( VariantContext vc ) throws IOException {
         final int contigIndex = contigDictionary.get(vc.getChr());
         if ( contigIndex == -1 )
             throw new UserException(String.format("Contig %s not found in sequence dictionary from reference", vc.getChr()));
 
         // note use of encodeValue to not insert the typing byte
         encoder.encodeValue(contigIndex, BCFType.INT32);
+
+        // pos
         encoder.encodeValue(vc.getStart(), BCFType.INT32);
+
+        // ref length
         encoder.encodeValue(vc.getEnd() - vc.getStart() + 1, BCFType.INT32);
 
+        // qual
         if ( vc.hasLog10PError() )
             encoder.encodeFloat((float)vc.getPhredScaledQual(), BCFType.FLOAT);
         else
             encoder.encodeMissingValue(BCFType.FLOAT);
+
+        // info fields
+        final int nAlleles = vc.getNAlleles();
+        final int nInfo = vc.getAttributes().size();
+        final int nGenotypeFormatFields = StandardVCFWriter.calcVCFGenotypeKeys(vc).size();
+        final int nSamples = vc.getNSamples();
+
+        encoder.encodePrimitive((nAlleles << 16) | (nInfo & 0x00FF), BCFType.INT32);
+        encoder.encodePrimitive((nGenotypeFormatFields << 24) | (nSamples & 0x0FFF), BCFType.INT32);
+
+        buildID(vc);
+        buildAlleles(vc);
+        buildFilter(vc);
+        buildInfo(vc);
+
+        return encoder.getRecordBytes();
     }
 
     private void buildID( VariantContext vc ) throws IOException {
@@ -152,17 +169,9 @@ public class BCF2Writer extends IndexingVCFWriter {
     }
 
     private void buildAlleles( VariantContext vc ) throws IOException {
-        encoder.encodeSingleton(vc.getAlleleWithRefPadding(vc.getReference()), BCFType.STRING_LITERAL);
-
-        List<Allele> altAlleles = vc.getAlternateAlleles();
-
-        if ( altAlleles.size() == 0 ) {
-            encoder.encodeMissing(BCFType.STRING_LITERAL);
-        } else {
-            List<String> strings = new ArrayList<String>(altAlleles.size());
-            for ( final Allele alt : altAlleles )
-                strings.add(vc.getAlleleWithRefPadding(alt));
-            encoder.encodeVector(strings, BCFType.STRING_LITERAL);
+        for ( final Allele allele : vc.getAlleles() ) {
+            final String s = vc.getAlleleWithRefPadding(allele);
+            encoder.encodeValue(s, BCFType.STRING_LITERAL);
         }
     }
 
@@ -170,14 +179,11 @@ public class BCF2Writer extends IndexingVCFWriter {
         if ( vc.isFiltered() ) {
             encoder.encodeStringsByRef(vc.getFilters());
         } else {
-            encoder.encodeMissing(BCFType.STRING_LITERAL);
+            encoder.encodeMissing(BCFType.INT32);
         }
     }
 
     private void buildInfo( VariantContext vc ) throws IOException {
-        int numInfoFields = vc.getAttributes().size();
-        encoder.encodeInt(numInfoFields);
-
         for ( Map.Entry<String, Object> infoFieldEntry : vc.getAttributes().entrySet() ) {
             encoder.encodeStringByRef(infoFieldEntry.getKey());
             // TODO -- use real type
@@ -185,10 +191,9 @@ public class BCF2Writer extends IndexingVCFWriter {
         }
     }
 
-    private void buildSamplesData(final VariantContext vc) throws IOException {
+    private byte[] buildSamplesData(final VariantContext vc) throws IOException {
         // write size
         List<String> genotypeFields = StandardVCFWriter.calcVCFGenotypeKeys(vc);
-        encoder.encodeInt(genotypeFields.size());
         for ( final String field : genotypeFields ) {
             if ( field.equals(VCFConstants.GENOTYPE_KEY) ) {
                 addGenotypes(vc);
@@ -200,6 +205,8 @@ public class BCF2Writer extends IndexingVCFWriter {
                 addGenericGenotypeField(vc, field);
             }
         }
+
+        return encoder.getRecordBytes();
     }
 
     private final int getNGenotypeFieldValues(final String field, final VariantContext vc) {
@@ -312,8 +319,10 @@ public class BCF2Writer extends IndexingVCFWriter {
      *
      * @throws IOException
      */
-    private void writeBlock() throws IOException {
-        BCFEncoder.encodePrimitive(encoder.getRecordSizeInBytes(), BCFType.INT32, outputStream);
-        outputStream.write(encoder.getRecordBytes());
+    private void writeBlock(final byte[] infoBlock, final byte[] genotypesBlock) throws IOException {
+        BCFEncoder.encodePrimitive(infoBlock.length, BCFType.INT32, outputStream);
+        BCFEncoder.encodePrimitive(genotypesBlock.length, BCFType.INT32, outputStream);
+        outputStream.write(infoBlock);
+        outputStream.write(genotypesBlock);
     }
 }

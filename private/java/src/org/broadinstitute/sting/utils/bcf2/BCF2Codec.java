@@ -57,37 +57,39 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     //
     // ----------------------------------------------------------------------
 
+    @Override
     public Feature decodeLoc( final PositionalBufferedStream inputStream ) {
         return decode(inputStream);
         // TODO: a less expensive version of decodeLoc() that doesn't use VariantContext
-        // TODO: very easy -- just decodeImplicitBlock, and then skip to end of end of sites block
+        // TODO: very easy -- just decodeSitesBlock, and then skip to end of end of sites block
         // TODO: and then skip genotypes block
     }
 
+    @Override
     public VariantContext decode( final PositionalBufferedStream inputStream ) {
         final VariantContextBuilder builder = new VariantContextBuilder();
 
-        decoder.readNextBlock(inputStream);
-        decodeImplicitBlock(builder);
-        decodeID(builder);
-        final ArrayList<Allele> alleles = decodeAlleles(builder);
-        decodeFilter(builder);
-        decodeInfo(builder);
+        final int sitesBlockSize = decoder.readBlockSize(inputStream);
+        final int genotypeBlockSize = decoder.readBlockSize(inputStream);
+        decoder.readNextBlock(sitesBlockSize, inputStream);
+        final SitesInfoForDecoding info = decodeSitesBlock(builder);
 
         if ( isSkippingGenotypes() ) {
-            decoder.skipNextBlock(inputStream);
+            decoder.skipNextBlock(genotypeBlockSize, inputStream);
         } else {
-            decoder.readNextBlock(inputStream);
-            decodeGenotypes(alleles, builder);
+            decoder.readNextBlock(genotypeBlockSize, inputStream);
+            decodeGenotypes(info, builder);
         }
 
         return builder.make();
     }
 
+    @Override
     public Class<VariantContext> getFeatureType() {
         return VariantContext.class;
     }
 
+    @Override
     public FeatureCodecHeader readHeader( final PositionalBufferedStream inputStream ) {
         AsciiLineReader headerReader = new AsciiLineReader(inputStream);
         String headerLine;
@@ -186,7 +188,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     //
     // --------------------------------------------------------------------------------
 
-    private final void decodeImplicitBlock(final VariantContextBuilder builder) {
+    private final SitesInfoForDecoding decodeSitesBlock(final VariantContextBuilder builder) {
         final int contigOffset = decoder.decodeInt(BCFType.INT32.getSizeInBytes());
         final String contig = lookupContigName(contigOffset);
         builder.chr(contig);
@@ -199,6 +201,34 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         final int qualAsInt = decoder.decodeRawFloat();
         if ( ! decoder.rawFloatIsMissing(qualAsInt) ) {
             builder.log10PError(decoder.rawFloatToFloat(qualAsInt) / -10.0);
+        }
+
+        final int nAlleleInfo = decoder.decodeInt(BCFType.INT32.getSizeInBytes());
+        final int nFormatSamples = decoder.decodeInt(BCFType.INT32.getSizeInBytes());
+        final int nAlleles = nAlleleInfo >> 16;
+        final int nInfo = nAlleleInfo & 0x00FF;
+        final int nFormatFields = nFormatSamples >>  24;
+        final int nSamples = nFormatSamples & 0x0FFF;
+
+        decodeID(builder);
+        final ArrayList<Allele> alleles = decodeAlleles(builder, pos, nAlleles);
+        decodeFilter(builder);
+        decodeInfo(builder, nInfo);
+
+        return new SitesInfoForDecoding(pos, nFormatFields, nSamples, alleles);
+    }
+
+    private final static class SitesInfoForDecoding {
+        final int pos;
+        final int nFormatFields;
+        final int nSamples;
+        final ArrayList<Allele> alleles;
+
+        private SitesInfoForDecoding(final int pos, final int nFormatFields, final int nSamples, final ArrayList<Allele> alleles) {
+            this.pos = pos;
+            this.nFormatFields = nFormatFields;
+            this.nSamples = nSamples;
+            this.alleles = alleles;
         }
     }
 
@@ -222,21 +252,27 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
             return unclippedAlleles;
     }
 
-    private ArrayList<Allele> decodeAlleles( final VariantContextBuilder builder ) {
-        final String ref = (String)decoder.decodeTypedValue();
-        builder.referenceBaseForIndel(ref.getBytes()[0]);
-        final Object altObject = decoder.decodeTypedValue(); // alt can be either atomic or vectors
-
+    private ArrayList<Allele> decodeAlleles( final VariantContextBuilder builder, final int pos, final int nAlleles ) {
         // TODO -- probably need inline decoder for efficiency here (no sense in going bytes -> string -> vector -> bytes
-        ArrayList<Allele> alleles = new ArrayList<Allele>(2);
-        alleles.add(Allele.create(ref, true));
+        ArrayList<Allele> alleles = new ArrayList<Allele>(nAlleles);
+        String ref = null;
 
-        for ( final String alt : asStrings(altObject)) {
-            alleles.add(Allele.create(alt));
+        for ( int i = 0; i < nAlleles; i++ ) {
+            final String allele = (String)decoder.decodeValue(BCFType.STRING_LITERAL);
+
+            if ( i == 0 ) {
+                ref = allele;
+                alleles.add(Allele.create(allele, true));
+            } else {
+                alleles.add(Allele.create(allele, false));
+            }
         }
 
-        alleles = clipAllelesIfNecessary((int)builder.getStart(), ref, alleles);
+        alleles = clipAllelesIfNecessary(pos, ref, alleles);
         builder.alleles(alleles);
+
+        builder.referenceBaseForIndel(ref.getBytes()[0]);
+
         return alleles;
     }
 
@@ -251,8 +287,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         }
     }
 
-    private void decodeInfo( final VariantContextBuilder builder ) {
-        final int numInfoFields = (Integer)decoder.decodeRequiredTypedValue("Number of info fields");
+    private void decodeInfo( final VariantContextBuilder builder, final int numInfoFields ) {
         final Map<String, Object> infoFieldEntries = new HashMap<String, Object>(numInfoFields);
 
         for ( int i = 0; i < numInfoFields; i++ ) {
@@ -264,11 +299,16 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         builder.attributes(infoFieldEntries);
     }
 
-    private void decodeGenotypes( ArrayList<Allele> siteAlleles, final VariantContextBuilder builder ) {
+    private void decodeGenotypes( final SitesInfoForDecoding siteInfo, final VariantContextBuilder builder ) {
         final List<String> samples = new ArrayList<String>(header.getGenotypeSamples());
-        final int nSamples = samples.size();
-        final int nFields = (Integer)decoder.decodeTypedValue();
+        final int nSamples = siteInfo.nSamples;
+        final int nFields = siteInfo.nFormatFields;
         final Map<String, List<Object>> fieldValues = decodeGenotypeFieldValues(nFields, nSamples);
+
+        if ( samples.size() != nSamples )
+            throw new UserException.MalformedBCF2("GATK currently doesn't support reading BCF2 files with " +
+                    "different numbers of samples per record.  Saw " + samples.size() +
+                    " samples in header but have a record with " + nSamples + " samples");
 
         final List<Genotype> genotypes = new ArrayList<Genotype>(nSamples);
         for ( int i = 0; i < nSamples; i++ ) {
@@ -284,7 +324,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
                 final String field = entry.getKey();
                 final List<Object> values = entry.getValue();
                 if ( field.equals(VCFConstants.GENOTYPE_KEY) ) {
-                    alleles = decodeGenotypeAlleles(siteAlleles, (List<Integer>)values.get(i));
+                    alleles = decodeGenotypeAlleles(siteInfo.alleles, (List<Integer>)values.get(i));
                 } else if ( field.equals(VCFConstants.GENOTYPE_QUALITY_KEY) ) {
                     final Integer value = (Integer)values.get(i);
                     if ( value != BCFType.INT8.getMissingJavaValue() )
