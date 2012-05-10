@@ -20,8 +20,8 @@ import java.util.*;
 
 public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
-    private static final int KMER_OVERLAP = 10; // the additional size of a valid chunk of sequence, used to string together k-mers
-    private static final int NUM_BEST_PATHS_PER_KMER_GRAPH = 8;
+    private static final int KMER_OVERLAP = 6; // the additional size of a valid chunk of sequence, used to string together k-mers
+    private static final int NUM_BEST_PATHS_PER_KMER_GRAPH = 11;
     private static final byte MIN_QUALITY = (byte) 18;
 
     // Smith-Waterman parameters originally copied from IndelRealigner
@@ -67,7 +67,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         graphs.clear();
 
         // create the graph
-        for( int kmer = 7; kmer <= 85; kmer += 6 ) {
+        for( int kmer = 31; kmer <= 105; kmer += 6 ) {
             final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
             if( createGraphFromSequences( graph, reads, kmer, refHaplotype ) ) {
                 graphs.add(graph);
