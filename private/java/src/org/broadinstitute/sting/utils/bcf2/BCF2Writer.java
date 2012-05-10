@@ -48,8 +48,14 @@ public class BCF2Writer extends IndexingVCFWriter {
 
     public BCF2Writer(final String name, final File location, final OutputStream output, final SAMSequenceDictionary refDict, final boolean enableOnTheFlyIndexing) {
         super(name, location, output, refDict, enableOnTheFlyIndexing);
-        this.outputStream = output;
+        this.outputStream = getOutputStream();
     }
+
+    // --------------------------------------------------------------------------------
+    //
+    // Interface functions
+    //
+    // --------------------------------------------------------------------------------
 
     @Override
     public void writeHeader(final VCFHeader header) {
@@ -80,8 +86,10 @@ public class BCF2Writer extends IndexingVCFWriter {
         encoder = new BCFEncoder(stringDictionary);
     }
 
+    @Override
     public void add( final VariantContext initialVC ) {
         final VariantContext vc = initialVC.fullyDecode(header);
+        super.add(vc); // allow on the fly indexing
 
         try {
             buildImplicitBlock(vc);
@@ -99,6 +107,7 @@ public class BCF2Writer extends IndexingVCFWriter {
         }
     }
 
+    @Override
     public void close() {
         try {
             outputStream.flush();
@@ -107,11 +116,7 @@ public class BCF2Writer extends IndexingVCFWriter {
         catch ( IOException e ) {
             throw new UserException("Failed to close BCF2 file");
         }
-    }
-
-    private void writeBlock() throws IOException {
-        BCFEncoder.encodePrimitive(encoder.getRecordSizeInBytes(), BCFType.INT32, outputStream);
-        outputStream.write(encoder.getRecordBytes());
+        super.close();
     }
 
     // --------------------------------------------------------------------------------
@@ -298,5 +303,17 @@ public class BCF2Writer extends IndexingVCFWriter {
             }
             encoder.encodeValues(encoding, BCFType.COMPACT_GENOTYPE);
         }
+    }
+
+    /**
+     * Write the data in the encoder to the outputstream as a length encoded
+     * block of data.  After this call the encoder stream will be ready to
+     * start a new data block
+     *
+     * @throws IOException
+     */
+    private void writeBlock() throws IOException {
+        BCFEncoder.encodePrimitive(encoder.getRecordSizeInBytes(), BCFType.INT32, outputStream);
+        outputStream.write(encoder.getRecordBytes());
     }
 }

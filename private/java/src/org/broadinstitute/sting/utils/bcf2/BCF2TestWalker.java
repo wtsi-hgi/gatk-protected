@@ -63,6 +63,9 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
     @Argument(doc="quiet", required=false)
     public boolean quiet = false;
 
+    @Argument(doc="dontIndexOnTheFly", required=false)
+    public boolean dontIndexOnTheFly = false;
+
     @Output(doc="File to which results should be written",required=true)
     protected File bcfFile;
 
@@ -74,7 +77,8 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
         final Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), Collections.singletonList(variants));
         final VCFHeader header = VCFUtils.withUpdatedContigs(vcfRods.values().iterator().next(), getToolkit());
         try {
-            writer = new BCF2Writer("out", bcfFile, new FileOutputStream(bcfFile), getToolkit().getMasterSequenceDictionary(), false);
+            writer = new BCF2Writer("out", bcfFile, new FileOutputStream(bcfFile),
+                    getToolkit().getMasterSequenceDictionary(), ! dontIndexOnTheFly );
             writer.writeHeader(header);
         } catch ( FileNotFoundException e ) {
             throw new UserException.CouldNotCreateOutputFile(bcfFile, e);
