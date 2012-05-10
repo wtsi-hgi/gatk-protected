@@ -89,9 +89,10 @@ public class BCF2Writer extends IndexingVCFWriter {
             buildAlleles(vc);
             buildFilter(vc);
             buildInfo(vc);
-            buildSamplesData(vc);
+            writeBlock();
 
-            writeRecordToOutputFile();
+            buildSamplesData(vc);
+            writeBlock();
         }
         catch ( IOException e ) {
             throw new UserException("Error writing record to BCF2 file: " + vc.toString(), e);
@@ -108,7 +109,7 @@ public class BCF2Writer extends IndexingVCFWriter {
         }
     }
 
-    private void writeRecordToOutputFile() throws IOException {
+    private void writeBlock() throws IOException {
         BCFEncoder.encodePrimitive(encoder.getRecordSizeInBytes(), BCFType.INT32, outputStream);
         outputStream.write(encoder.getRecordBytes());
     }

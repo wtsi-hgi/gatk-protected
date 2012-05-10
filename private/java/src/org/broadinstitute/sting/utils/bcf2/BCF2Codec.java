@@ -49,6 +49,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     private final ArrayList<String> contigNames = new ArrayList<String>();
     private final ArrayList<String> dictionary = new ArrayList<String>();
     BCF2Decoder decoder;
+    private boolean skipGenotypes = false;
 
     // ----------------------------------------------------------------------
     //
@@ -64,17 +65,21 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     }
 
     public VariantContext decode( final PositionalBufferedStream inputStream ) {
-        decoder.readNextBlock(inputStream);
         final VariantContextBuilder builder = new VariantContextBuilder();
 
+        decoder.readNextBlock(inputStream);
         decodeImplicitBlock(builder);
         decodeID(builder);
         final ArrayList<Allele> alleles = decodeAlleles(builder);
         decodeFilter(builder);
         decodeInfo(builder);
 
-        // TODO: call readNextBlock here to get genotypes data
-        decodeGenotypes(alleles, builder);
+        if ( isSkippingGenotypes() ) {
+            decoder.skipNextBlock(inputStream);
+        } else {
+            decoder.readNextBlock(inputStream);
+            decodeGenotypes(alleles, builder);
+        }
 
         return builder.make();
     }
@@ -158,6 +163,14 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         // if we got here we never found a dictionary, or there are no elements in the dictionary
         if ( dictionary.size() == 0 )
             throw new UserException.MalformedBCF2("Dictionary header element was absent or empty");
+    }
+
+    public boolean isSkippingGenotypes() {
+        return skipGenotypes;
+    }
+
+    public void setSkipGenotypes(final boolean skipGenotypes) {
+        this.skipGenotypes = skipGenotypes;
     }
 
     // --------------------------------------------------------------------------------
@@ -328,7 +341,6 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
             throw new UserException.MalformedBCF2(String.format("No contig at index %d present in the sequence dictionary from the BCF2 header (%s)", contigOffset, contigNames));
         }
     }
-
 
     // ----------------------------------------------------------------------
     //
