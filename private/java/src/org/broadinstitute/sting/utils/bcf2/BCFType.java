@@ -65,32 +65,34 @@ public enum BCFType {
     CHAR_NOT_USED, // (1),
     FLAG(1),
     STRING_LITERAL,
-    STRING_REF8(1, null, -127, 128), // todo -- confirm range
-    STRING_REF16(2, null, Short.MIN_VALUE, Short.MAX_VALUE),
+    STRING_REF8(1, 0, -127, 128), // todo -- confirm range
+    STRING_REF16(2, 0, Short.MIN_VALUE, Short.MAX_VALUE),
     STRING_REF32_NOT_USED, // (4, Integer.MIN_VALUE, Integer.MAX_VALUE),
     COMPACT_GENOTYPE(1),
     RESERVED_14,
     RESERVED_15;
 
-    private final Object missingValue;
+    private final Object missingJavaValue;
+    private final int missingBytes;
     private final int sizeInBytes;
     private final long minValue, maxValue;
 
     BCFType() {
-        this(-1, null, 0, 0);
+        this(-1);
     }
 
     BCFType(final int sizeInBytes) {
-        this(sizeInBytes, null, 0, 0);
+        this(sizeInBytes, 0, 0, 0);
     }
 
-    BCFType(final int sizeInBytes, final Object missingValue) {
-        this(sizeInBytes, missingValue, 0, 0);
+    BCFType(final int sizeInBytes, final int missingBytes) {
+        this(sizeInBytes, missingBytes, 0, 0);
     }
 
-    BCFType(final int sizeInBytes, final Object missingValue, final long minValue, final long maxValue) {
+    BCFType(final int sizeInBytes, final int missingBytes, final long minValue, final long maxValue) {
         this.sizeInBytes = sizeInBytes;
-        this.missingValue = missingValue;
+        this.missingJavaValue = null;
+        this.missingBytes = missingBytes;
         this.minValue = minValue;
         this.maxValue = maxValue;
     }
@@ -100,27 +102,6 @@ public enum BCFType {
     }
     public int getID() { return ordinal(); }
     public final boolean withinRange(final long v) { return v >= minValue && v <= maxValue; }
-    public Object getMissingValue() { return missingValue; }
-
-    public Object convertIfNecessary(final Object maybeString) {
-        if ( maybeString instanceof String ) {
-            final String string = (String)maybeString;
-            if ( string.equals(VCFConstants.MISSING_VALUE_v4) )
-                return getMissingValue();
-            else {
-                switch ( this ) {
-                    case INT8:
-                    case INT16:
-                    case INT32:  return Integer.valueOf(string);
-                    case FLOAT:  return Float.valueOf(string);
-                    case FLAG:   return Boolean.valueOf(string);
-                    case STRING_LITERAL:
-                    case STRING_REF8:
-                    case STRING_REF16: return maybeString;
-                    default: throw new ReviewedStingException("Cannot convert value to type" + this);
-                }
-            }
-        } else
-            return maybeString;
-    }
+    public Object getMissingJavaValue() { return missingJavaValue; }
+    public int getMissingBytes() { return missingBytes; }
 }

@@ -70,7 +70,7 @@ public class BCFEncoder {
 
     public final void encodeMissingValues(final int size, final BCFType type) throws IOException {
         for ( int i = 0; i < size; i++ )
-            encodeValue(type.getMissingValue(), type);
+            encodeValue(type.getMissingJavaValue(), type);
     }
 
     // todo -- should be specialized for each object type for efficiency
@@ -109,18 +109,26 @@ public class BCFEncoder {
     }
 
     public final <T extends Object> void encodeValue(final T value, final BCFType type) throws IOException {
-        switch (type) {
-            case INT8:
-            case INT16:
-            case INT32:             encodePrimitive((Integer)value, type); break;
-            case FLOAT:             encodePrimitive(Float.floatToIntBits((Float)value), type); break;
-            case FLAG:              throw new ReviewedStingException("Flag encoding not supported");
-            case STRING_LITERAL:    encodeLiteralString((String)value); break;
-            case STRING_REF8:
-            case STRING_REF16:      encodePrimitive(stringDictionary.get(value), type); break;
-            case COMPACT_GENOTYPE:  encodeCompactGenotype((Byte) value); break;
-            default:                throw new ReviewedStingException("Illegal type encountered " + type);
+        if ( value == type.getMissingJavaValue() )
+            encodeMissingValue(type);
+        else {
+            switch (type) {
+                case INT8:
+                case INT16:
+                case INT32:             encodePrimitive((Integer)value, type); break;
+                case FLOAT:             encodeFloat((Float)value, type); break;
+                case FLAG:              throw new ReviewedStingException("Flag encoding not supported");
+                case STRING_LITERAL:    encodeLiteralString((String)value); break;
+                case STRING_REF8:
+                case STRING_REF16:      encodePrimitive(stringDictionary.get(value), type); break;
+                case COMPACT_GENOTYPE:  encodeCompactGenotype((Byte) value); break;
+                default:                throw new ReviewedStingException("Illegal type encountered " + type);
+            }
         }
+    }
+
+    protected final void encodeMissingValue(final BCFType type) throws IOException {
+        encodePrimitive(type.getMissingBytes(), type);
     }
 
     public final BCFType determineIntegerType(final int value) {
@@ -139,6 +147,10 @@ public class BCFEncoder {
         }
         // TODO -- throw error
         return null;
+    }
+
+    public final void encodeFloat(final float value, final BCFType type) throws IOException {
+        encodePrimitive(Float.floatToIntBits(value), type);
     }
 
     public final void encodePrimitive(final int value, final BCFType type) throws IOException {

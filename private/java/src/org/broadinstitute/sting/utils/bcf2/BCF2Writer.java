@@ -129,13 +129,16 @@ public class BCF2Writer extends IndexingVCFWriter {
         final int contigIndex = contigDictionary.get(vc.getChr());
         if ( contigIndex == -1 )
             throw new UserException(String.format("Contig %s not found in sequence dictionary from reference", vc.getChr()));
-        final float qual = vc.hasLog10PError() ? (float)vc.getPhredScaledQual() : BCF2Constants.FLOAT_MISSING_VALUE;
 
         // note use of encodeValue to not insert the typing byte
         encoder.encodeValue(contigIndex, BCFType.INT32);
         encoder.encodeValue(vc.getStart(), BCFType.INT32);
         encoder.encodeValue(vc.getEnd() - vc.getStart() + 1, BCFType.INT32);
-        encoder.encodeValue(qual, BCFType.FLOAT);
+
+        if ( vc.hasLog10PError() )
+            encoder.encodeFloat((float)vc.getPhredScaledQual(), BCFType.FLOAT);
+        else
+            encoder.encodeMissingValue(BCFType.FLOAT);
     }
 
     private void buildID( VariantContext vc ) throws IOException {

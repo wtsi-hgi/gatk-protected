@@ -48,6 +48,12 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     private final ArrayList<String> dictionary = new ArrayList<String>();
     InputStream stream;
 
+    // ----------------------------------------------------------------------
+    //
+    // Feature codec interface functions
+    //
+    // ----------------------------------------------------------------------
+
     public Feature decodeLoc( final PositionalBufferedStream inputStream ) {
         return decode(inputStream);  // TODO: a less expensive version of decodeLoc() that doesn't use VariantContext
     }
@@ -112,6 +118,24 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         return new FeatureCodecHeader(header, inputStream.getPosition());
     }
 
+    @Override
+    public boolean canDecode( final String path ) {
+        try {
+            FileInputStream fis = new FileInputStream(path);
+            AsciiLineReader reader = new AsciiLineReader(new PositionalBufferedStream(fis));
+            String firstLine = reader.readLine();
+            if ( firstLine != null && firstLine.equals(BCF2Constants.VERSION_LINE) ) {
+                return true;
+            }
+        } catch ( FileNotFoundException e ) {
+            return false;
+        } catch ( IOException e ) {
+            return false;
+        }
+
+        return false;
+    }
+
     private final void parseDictionary(final VCFHeader header) {
         for ( final VCFHeaderLine line : header.getMetaData() ) {
             if ( line.getKey().equals(BCF2Constants.DICTIONARY_LINE_TAG) ) {
@@ -124,27 +148,6 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         // if we got here we never found a dictionary, or there are no elements in the dictionary
         if ( dictionary.size() == 0 )
             throw new UserException.MalformedBCF2("Dictionary header element was absent or empty");
-    }
-
-
-    private final void prepareByteStream(final InputStream inputStream) {
-        this.stream = inputStream;
-        final int sizeInBytes = decodeInt(4);
-        final byte[] record = new byte[sizeInBytes];
-        try {
-            final int bytesRead = stream.read(record);
-            if ( bytesRead < sizeInBytes ) {
-                throw new UserException.MalformedBCF2(String.format("Failed to read next complete record: %s",
-                        bytesRead == -1 ?
-                                "premature end of input stream" :
-                                String.format("expected %d bytes but read only %d", sizeInBytes, bytesRead)));
-            }
-        }
-        catch ( IOException e ) {
-            throw new UserException.CouldNotReadInputFile("I/O error while reading BCF2 file", e);
-        }
-
-        this.stream = new ByteArrayInputStream(record);
     }
 
     // --------------------------------------------------------------------------------
@@ -170,9 +173,9 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         builder.start((long)pos);
         builder.stop((long)(pos + refLength - 1)); // minus one because of our open intervals
 
-        final float qual = (float)decodeDouble(BCFType.FLOAT.getSizeInBytes());
-        if ( qual != BCF2Constants.FLOAT_MISSING_VALUE ) {
-            builder.log10PError(qual / -10.0);
+        final int qualAsInt = decodeRawFloat();
+        if ( ! rawFloatIsMissing(qualAsInt) ) {
+            builder.log10PError(rawFloatToFloat(qualAsInt) / -10.0);
         }
     }
 
@@ -260,9 +263,9 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
                 if ( field.equals(VCFConstants.GENOTYPE_KEY) ) {
                     alleles = decodeGenotypeAlleles(siteAlleles, (List<Integer>)values.get(i));
                 } else if ( field.equals(VCFConstants.GENOTYPE_QUALITY_KEY) ) {
-                    final int value = (Integer)values.get(i);
-                    if ( value != BCF2Constants.INT8_MISSING_VALUE )
-                        log10PError = (value) / -10.0;
+                    final Integer value = (Integer)values.get(i);
+                    if ( value != BCFType.INT8.getMissingJavaValue() )
+                        log10PError = value / -10.0;
                 } else if ( field.equals(VCFConstants.GENOTYPE_FILTER_KEY) ) {
                     filters = new HashSet<String>((List<String>)values.get(i));
                 } else { // add to attributes
@@ -345,7 +348,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
             case INT8:
             case INT16:
             case INT32:             return decodeInt(type.getSizeInBytes());
-            case FLOAT:             return decodeDouble(type.getSizeInBytes());
+            case FLOAT:             return decodeFloatAsDouble();
             case FLAG:              throw new ReviewedStingException("Flag encoding not supported");
             case STRING_LITERAL:    return decodeLiteralString();
             case STRING_REF8:
@@ -379,6 +382,12 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         }
     }
 
+    // ----------------------------------------------------------------------
+    //
+    // Raw primative data types (ints and floats)
+    //
+    // ----------------------------------------------------------------------
+
     private final int decodeInt(int bytesForEachInt) {
         int value = 0;
         for ( int i = bytesForEachInt - 1; i >= 0; i-- ) {
@@ -389,32 +398,28 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         return value;
     }
 
-    private final double decodeDouble(final int sizeInBytes) {
-        // TODO -- handle missing
-        if ( sizeInBytes == 4 )
-            return Float.intBitsToFloat(decodeInt(sizeInBytes));
-        else
-            throw new ReviewedStingException("decodeDouble only implemented for Float");
+    private final boolean rawFloatIsMissing(final int rawFloat) {
+        return rawFloat == BCF2Constants.FLOAT_MISSING_VALUE;
     }
 
-
-    @Override
-    public boolean canDecode( final String path ) {
-        try {
-            FileInputStream fis = new FileInputStream(path);
-            AsciiLineReader reader = new AsciiLineReader(new PositionalBufferedStream(fis));
-            String firstLine = reader.readLine();
-            if ( firstLine != null && firstLine.equals(BCF2Constants.VERSION_LINE) ) {
-                return true;
-            }
-        } catch ( FileNotFoundException e ) {
-            return false;
-        } catch ( IOException e ) {
-            return false;
-        }
-
-        return false;
+    private final int decodeRawFloat() {
+        return decodeInt(BCFType.FLOAT.getSizeInBytes());
     }
+
+    private final float rawFloatToFloat(final int rawFloat) {
+        return Float.intBitsToFloat(rawFloat);
+    }
+
+    private final Double decodeFloatAsDouble() {
+        final int i = decodeRawFloat();
+        return rawFloatIsMissing(i) ? null : (double)rawFloatToFloat(i);
+    }
+
+    // ----------------------------------------------------------------------
+    //
+    // Utility functions
+    //
+    // ----------------------------------------------------------------------
 
     private final Collection<String> asStrings(final Object o) {
         return asCollection(String.class, o);
@@ -428,6 +433,27 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         } else {
             return (Set<T>)Collections.singleton(o);
         }
+    }
+
+
+    private final void prepareByteStream(final InputStream inputStream) {
+        this.stream = inputStream;
+        final int sizeInBytes = decodeInt(4);
+        final byte[] record = new byte[sizeInBytes];
+        try {
+            final int bytesRead = stream.read(record);
+            if ( bytesRead < sizeInBytes ) {
+                throw new UserException.MalformedBCF2(String.format("Failed to read next complete record: %s",
+                        bytesRead == -1 ?
+                                "premature end of input stream" :
+                                String.format("expected %d bytes but read only %d", sizeInBytes, bytesRead)));
+            }
+        }
+        catch ( IOException e ) {
+            throw new UserException.CouldNotReadInputFile("I/O error while reading BCF2 file", e);
+        }
+
+        this.stream = new ByteArrayInputStream(record);
     }
 
     private final static byte readByte(final InputStream stream) {

@@ -40,5 +40,5 @@ public class BCF2Constants {
     public static final int INT16_MISSING_VALUE =  0x8000;
     public static final int INT32_MISSING_VALUE =  0x80000000;
 
-    public static final Float FLOAT_MISSING_VALUE = Float.intBitsToFloat(0x7F800001);
+    public static final int FLOAT_MISSING_VALUE = 0x7F800001;
 }
