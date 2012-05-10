@@ -44,7 +44,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
     final UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
     final Logger logger = Logger.getLogger(Walker.class);
-    private static final boolean VERBOSE = false;
+    private static final boolean VERBOSE = true;
 
     @Test
     public void testStoringLikelihoodElements() {
@@ -222,12 +222,14 @@ public class PoolGenotypeLikelihoodsUnitTest {
         PoolGenotypeLikelihoods.SumIterator iterator = new PoolGenotypeLikelihoods.SumIterator(seed, restrictSumTo);
 
         while(iterator.hasNext()) {
-            if (VERBOSE)
-                System.out.format("\n%d:",iterator.getLinearIndex());
             int[] a =  iterator.getCurrentVector();
-            for (int i=0; i < seed.length; i++)
-                System.out.format("%d ",a[i]);
-
+            int idx = PoolGenotypeLikelihoods.getLinearIndex(a, a.length, restrictSumTo);
+            if (VERBOSE)   {
+                System.out.format("%d:",iterator.getLinearIndex());
+                for (int i=0; i < seed.length; i++)
+                    System.out.format("%d ",a[i]);
+                System.out.format(" LI:%d\n", idx);
+            }
             iterator.next();
         }
 

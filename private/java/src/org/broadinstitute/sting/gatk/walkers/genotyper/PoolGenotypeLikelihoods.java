@@ -25,6 +25,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
+import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
@@ -139,6 +140,21 @@ public abstract class PoolGenotypeLikelihoods {
             return initialState;
         }
         
+        public void setInitialStateVector(final int[] stateVector) {
+            if (restrictSumTo > 0) {
+                // check that desired vector is valid
+                if (MathUtils.sum(stateVector) != restrictSumTo)
+                    throw new ReviewedStingException("BUG: initial state vector nor compatible with sum iterator");
+
+                final int numAlleles = currentState.length;
+                final int ploidy = restrictSumTo;
+
+                linearIndex = PoolGenotypeLikelihoods.getLinearIndex(stateVector, numAlleles, ploidy);
+            }
+            else
+                throw new ReviewedStingException("BUG: Not supported");
+
+        }
         public void next() {
             int initialDim = (restrictSumTo > 0)?1:0;
             hasNext = next(finalState, initialDim);
@@ -334,23 +350,25 @@ public abstract class PoolGenotypeLikelihoods {
         return  newPLs;
     }
 
-    public static int getLinearIndex(int[] vectorIdx, int numAlleles, int numChromosomes) {
+    public static int getLinearIndex(int[] vectorIdx, int numAlleles, int ploidy) {
 
-        // brain-dead implementation.
-        // BIG to-do, ideally, should compute closed form formula for this
-        final SumIterator iterator = new SumIterator(numAlleles,numChromosomes);
+        if (ploidy <= 0)
+            return 0;
 
- 
-        while (iterator.hasNext()) {
-            int[] vec = iterator.getCurrentVector();
-            if (Arrays.equals(vec,vectorIdx))
-                return iterator.getLinearIndex();
-            iterator.next();
+        int linearIdx = 0;
+        int cumSum = ploidy;
+        for (int k=numAlleles-1;k>=1; k--) {
+            int idx = vectorIdx[k];
+            // how many blocks are before current position
+            if (idx == 0)
+                continue;
+            for (int p=0; p < idx; p++)
+                linearIdx += getNumLikelihoodElements( k, cumSum-p);
             
+            cumSum -= idx;
         }
 
-
-        return -1;
+        return linearIdx;
         
     }
 
@@ -445,4 +463,43 @@ public abstract class PoolGenotypeLikelihoods {
             System.out.format("%d ",d);
         System.out.println();
     }
+
+    /**
+     * Abstract methods, must be implemented in subclasses
+     *
+     * @param ACcount       Count to compute
+     * @param errorModel    Site-specific error model object
+     * @param numAlleles    Number of alleles in pool GL
+     * @param ploidy        Pool ploidy
+     * @param alleleList    List of alleles
+     * @param numObservations Number of observations for each allele
+     * @return Likelihood of given allele count
+     */
+    public abstract double getLikelihoodOfConformation(AlleleFrequencyCalculationModel.ExactACcounts ACcount, ErrorModel errorModel, int numAlleles, int ploidy,
+                                                     List<Allele> alleleList, List<Integer> numObservations);
+
+
+    public void computeLikelihoods(ErrorModel errorModel, int numAlleles, int ploidy,
+        List<Allele> alleleList, List<Integer> numObservations) {
+        final int minQ = errorModel.getMinSignificantQualityScore();
+        final int maxQ = errorModel.getMaxSignificantQualityScore();
+        int plIdx = 0;
+        SumIterator iterator = new SumIterator(numAlleles, ploidy);
+        while (iterator.hasNext()) {
+            AlleleFrequencyCalculationModel.ExactACcounts ACcount = new AlleleFrequencyCalculationModel.ExactACcounts(iterator.getCurrentVector());
+            // for observed base X, add Q(jX,k) to likelihood vector for all k in error model
+            //likelihood(jA,jC,jG,jT) = logsum(logPr (errorModel[k],nA*Q(jA,k) +  nC*Q(jC,k) + nG*Q(jG,k) + nT*Q(jT,k))
+            double[] acVec = new double[maxQ - minQ + 1];
+            double p1 = getLikelihoodOfConformation(ACcount, errorModel, numAlleles, ploidy,
+                    alleleList, numObservations);
+
+            setLogPLs(plIdx++, p1);
+            iterator.next();
+        }
+        // normalize PL's
+        renormalize();
+
+
+    }
 }
+
