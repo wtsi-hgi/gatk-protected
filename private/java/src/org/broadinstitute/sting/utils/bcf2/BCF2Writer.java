@@ -135,20 +135,20 @@ public class BCF2Writer extends IndexingVCFWriter {
         if ( contigIndex == -1 )
             throw new UserException(String.format("Contig %s not found in sequence dictionary from reference", vc.getChr()));
 
-        // note use of encodeValue to not insert the typing byte
-        encoder.encodeValue(contigIndex, BCFType.INT32);
+        // note use of encodeRawValue to not insert the typing byte
+        encoder.encodeRawValue(contigIndex, BCFType.INT32);
 
         // pos
-        encoder.encodeValue(vc.getStart(), BCFType.INT32);
+        encoder.encodeRawValue(vc.getStart(), BCFType.INT32);
 
         // ref length
-        encoder.encodeValue(vc.getEnd() - vc.getStart() + 1, BCFType.INT32);
+        encoder.encodeRawValue(vc.getEnd() - vc.getStart() + 1, BCFType.INT32);
 
         // qual
         if ( vc.hasLog10PError() )
-            encoder.encodeFloat((float)vc.getPhredScaledQual(), BCFType.FLOAT);
+            encoder.encodeRawFloat((float) vc.getPhredScaledQual(), BCFType.FLOAT);
         else
-            encoder.encodeMissingValue(BCFType.FLOAT);
+            encoder.encodeRawMissingValue(BCFType.FLOAT);
 
         // info fields
         final int nAlleles = vc.getNAlleles();
@@ -156,8 +156,8 @@ public class BCF2Writer extends IndexingVCFWriter {
         final int nGenotypeFormatFields = StandardVCFWriter.calcVCFGenotypeKeys(vc).size();
         final int nSamples = vc.getNSamples();
 
-        encoder.encodePrimitive((nAlleles << 16) | (nInfo & 0x00FF), BCFType.INT32);
-        encoder.encodePrimitive((nGenotypeFormatFields << 24) | (nSamples & 0x0FFF), BCFType.INT32);
+        encoder.encodeRawInt((nAlleles << 16) | (nInfo & 0x00FF), BCFType.INT32);
+        encoder.encodeRawInt((nGenotypeFormatFields << 24) | (nSamples & 0x0FFF), BCFType.INT32);
 
         buildID(vc);
         buildAlleles(vc);
@@ -182,7 +182,7 @@ public class BCF2Writer extends IndexingVCFWriter {
         if ( vc.isFiltered() ) {
             encodeStringsByRef(vc.getFilters());
         } else {
-            encoder.encodeMissing(BCFType.INT32);
+            encoder.encodeTypedMissing(BCFType.INT32);
         }
     }
 
@@ -198,11 +198,11 @@ public class BCF2Writer extends IndexingVCFWriter {
                 encodeStringByRef(key);
 
                 if ( value instanceof List ) // NOTE: ONLY WORKS WITH LISTS
-                    encoder.encodeValues((List) value, type);
+                    encoder.encodeTypedVector((List) value, type);
                 else if ( value instanceof String )
                     encoder.encodeString((String)value);
                 else
-                    encoder.encodeSingleton(value, type);
+                    encoder.encodeTypedSingleton(value, type);
             }
         }
     }
@@ -262,11 +262,11 @@ public class BCF2Writer extends IndexingVCFWriter {
         startGenotypeField(field, numInFormatField, type);
         for ( final Genotype g : vc.getGenotypes() ) {
             if ( ! g.hasAttribute(field) ) {
-                encoder.encodeMissingValues(numInFormatField, type);
+                encoder.encodeRawMissingValues(numInFormatField, type);
             } else {
                 final Object val = g.getAttribute(field);
                 final Collection<Object> vals = numInFormatField == 1 ? Collections.singleton(val) : (Collection)val;
-                encoder.encodeValues(vals, type);
+                encoder.encodeRawValues(vals, type);
             }
         }
     }
@@ -286,13 +286,15 @@ public class BCF2Writer extends IndexingVCFWriter {
     }
 
     private final void addGenotypeFilters(final VariantContext vc) throws IOException {
+        logger.warn("Skipping genotype filter field");
+        // TODO -- FIXME -- string is wrong here -- need to compute string size...
         startGenotypeField(VCFConstants.GENOTYPE_FILTER_KEY, 1, BCFType.CHAR);
         for ( final Genotype g : vc.getGenotypes() ) {
-            if ( g.filtersWereApplied() && g.isFiltered() ) {
-                encoder.encodeString(ParsingUtils.join(";", ParsingUtils.sortList(g.getFilters())));
-            } else {
-                encoder.encodeMissingValues(1, BCFType.CHAR); // todo fixme
-            }
+//            if ( g.filtersWereApplied() && g.isFiltered() ) {
+//                encoder.encodeString(ParsingUtils.join(";", ParsingUtils.sortList(g.getFilters())));
+//            } else {
+                encoder.encodeRawMissingValues(1, BCFType.CHAR); // todo fixme
+//            }
         }
     }
 
@@ -302,9 +304,9 @@ public class BCF2Writer extends IndexingVCFWriter {
             if ( g.hasLog10PError() ) {
                 final int GQ = (int)Math.round(Math.min(g.getPhredScaledQual(), VCFConstants.MAX_GENOTYPE_QUAL));
                 if ( GQ > VCFConstants.MAX_GENOTYPE_QUAL ) throw new ReviewedStingException("Unexpectedly large GQ " + GQ + " at " + vc);
-                encoder.encodeValue(GQ, BCFType.INT8);
+                encoder.encodeRawValue(GQ, BCFType.INT8);
             } else {
-                encoder.encodeMissingValues(1, BCFType.INT8);
+                encoder.encodeRawMissingValues(1, BCFType.INT8);
             }
         }
     }
@@ -321,7 +323,7 @@ public class BCF2Writer extends IndexingVCFWriter {
                 final int offset = a.isNoCall() ? 0 : (Byte.valueOf(alleleMap.get(a)) + 2);
                 encoding.add(offset << 1 | (g.isPhased() ? 0x01 : 0x00));
             }
-            encoder.encodeValues(encoding, BCFType.INT8);
+            encoder.encodeRawValues(encoding, BCFType.INT8);
         }
     }
 
@@ -361,7 +363,7 @@ public class BCF2Writer extends IndexingVCFWriter {
         }
 
         // we've checked the types for all strings, so write them out
-        encoder.encodeVector(offsets, maxType);
+        encoder.encodeTypedVector(offsets, maxType);
         return maxType;
     }
 

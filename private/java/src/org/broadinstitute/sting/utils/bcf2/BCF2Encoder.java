@@ -38,8 +38,15 @@ import java.util.*;
  * @since 5/12
  */
 public class BCF2Encoder {
+    // TODO -- increase default size?
     public static final int WRITE_BUFFER_INITIAL_SIZE = 16384;
     private ByteArrayOutputStream encodeStream = new ByteArrayOutputStream(WRITE_BUFFER_INITIAL_SIZE);
+
+    // --------------------------------------------------------------------------------
+    //
+    // Functions to return the data being encoded here
+    //
+    // --------------------------------------------------------------------------------
 
     public int getRecordSizeInBytes() {
         return encodeStream.size();
@@ -50,6 +57,12 @@ public class BCF2Encoder {
         encodeStream.reset();
         return bytes;
     }
+
+    // --------------------------------------------------------------------------------
+    //
+    // Super-high level interface
+    //
+    // --------------------------------------------------------------------------------
 
     /**
      * Totally generic encoder that examines o, determines the best way to encode it, and encodes it
@@ -62,43 +75,29 @@ public class BCF2Encoder {
         if ( o instanceof String ) {
             return encodeString((String)o);
         } else if ( o instanceof List ) {
-            final BCFType type = determinePrimitiveType(((List)o).get(0));
-            encodeVector((List)o, type);
+            final BCFType type = determinePrimitiveType(((List) o).get(0));
+            encodeTypedVector((List) o, type);
             return type;
         } else {
             final BCFType type = determinePrimitiveType(o);
-            encodeSingleton(o, type);
+            encodeTypedSingleton(o, type);
             return type;
         }
     }
 
-    public final BCFType determinePrimitiveType(final Object v) {
-        if ( v instanceof Integer )
-            return determineIntegerType((Integer)v);
-        else if ( v instanceof Float )
-            return BCFType.FLOAT;
-        else
-            throw new ReviewedStingException("No native encoding for Object of type " + v.getClass().getSimpleName());
-    }
+    // --------------------------------------------------------------------------------
+    //
+    // Writing typed values (have type byte)
+    //
+    // --------------------------------------------------------------------------------
 
-    public final BCFType encodeInt(final int value) throws IOException {
-        final BCFType type = determineIntegerType(value);
-        encodeSingleton(value, type);
-        return type;
-    }
-
-    public final void encodeMissing(final BCFType type) throws IOException {
-        encodeVector(Collections.emptyList(), type);
-    }
-
-    public final void encodeMissingValues(final int size, final BCFType type) throws IOException {
-        for ( int i = 0; i < size; i++ )
-            encodeValue(type.getMissingJavaValue(), type);
+    public final void encodeTypedMissing(final BCFType type) throws IOException {
+        encodeTypedVector(Collections.emptyList(), type);
     }
 
     // todo -- should be specialized for each object type for efficiency
-    public final void encodeSingleton(final Object v, final BCFType type) throws IOException {
-        encodeVector(Collections.singleton(v), type);
+    public final void encodeTypedSingleton(final Object v, final BCFType type) throws IOException {
+        encodeTypedVector(Collections.singleton(v), type);
     }
 
     public final BCFType encodeString(final String v) throws IOException {
@@ -106,47 +105,91 @@ public class BCF2Encoder {
         final byte[] bytes = v.getBytes();
         final List<Byte> l = new ArrayList<Byte>(bytes.length);
         for ( int i = 0; i < bytes.length; i++) l.add(bytes[i]);
-        encodeVector(l, BCFType.CHAR);
+        encodeTypedVector(l, BCFType.CHAR);
         return BCFType.CHAR;
     }
 
-    public final <T extends Object> void encodeVector(final Collection<T> v, final BCFType type) throws IOException {
+    public final <T extends Object> void encodeTypedVector(final Collection<T> v, final BCFType type) throws IOException {
         encodeType(v.size(), type);
-        encodeValues(v, type);
+        encodeRawValues(v, type);
     }
 
-    public final <T extends Object> void encodeValues(final Collection<T> v, final BCFType type) throws IOException {
+    public final BCFType encodeTypedIntOfBestSize(final int value) throws IOException {
+        final BCFType type = determineIntegerType(value);
+        encodeTypedSingleton(value, type);
+        return type;
+    }
+
+    // --------------------------------------------------------------------------------
+    //
+    // Writing raw values (don't have a type byte)
+    //
+    // --------------------------------------------------------------------------------
+
+    public final <T extends Object> void encodeRawValues(final Collection<T> v, final BCFType type) throws IOException {
         for ( final T v1 : v ) {
-            encodeValue(v1, type);
+            encodeRawValue(v1, type);
         }
     }
 
-    public final <T extends Object> void encodeValue(final T value, final BCFType type) throws IOException {
+    public final <T extends Object> void encodeRawValue(final T value, final BCFType type) throws IOException {
         if ( value == type.getMissingJavaValue() )
-            encodeMissingValue(type);
+            encodeRawMissingValue(type);
         else {
             switch (type) {
                 case INT8:
                 case INT16:
                 case INT32: encodePrimitive((Integer)value, type); break;
-                case FLOAT: encodeFloat((Float)value, type); break;
-                case CHAR:  encodeChar((Byte) value); break;
+                case FLOAT: encodeRawFloat((Float) value, type); break;
+                case CHAR:  encodeRawChar((Byte) value); break;
                 default:    throw new ReviewedStingException("Illegal type encountered " + type);
             }
         }
     }
 
-    public final void encodeMissingValue(final BCFType type) throws IOException {
+    public final void encodeRawMissingValue(final BCFType type) throws IOException {
         encodePrimitive(type.getMissingBytes(), type);
     }
 
-    public final BCFType determineIntegerType(final int value) {
-        return determizeBestTypeBySize(value, TypeDescriptor.INTEGER_TYPES_BY_SIZE);
+    public final void encodeRawMissingValues(final int size, final BCFType type) throws IOException {
+        for ( int i = 0; i < size; i++ )
+            encodeRawMissingValue(type);
     }
 
-    public final void encodeChar(final byte c) throws IOException {
+    // --------------------------------------------------------------------------------
+    //
+    // low-level encoders
+    //
+    // --------------------------------------------------------------------------------
+
+    public final void encodeRawChar(final byte c) throws IOException {
         encodeStream.write(c);
     }
+
+    public final void encodeRawFloat(final float value, final BCFType type) throws IOException {
+        encodePrimitive(Float.floatToIntBits(value), type);
+    }
+
+    public final void encodeType(final int size, final BCFType type) throws IOException {
+        final byte typeByte = TypeDescriptor.encodeTypeDescriptor(size, type);
+        encodeStream.write(typeByte);
+        if ( TypeDescriptor.willOverflow(size) )
+            encodeTypedIntOfBestSize(size);
+    }
+
+    public final void encodeRawInt(final int value, final BCFType type) throws IOException {
+        encodePrimitive(value, type, encodeStream);
+    }
+
+    public final void encodePrimitive(final int value, final BCFType type) throws IOException {
+        encodePrimitive(value, type, encodeStream);
+    }
+
+    // --------------------------------------------------------------------------------
+    //
+    // utility functions
+    //
+    // --------------------------------------------------------------------------------
 
     public final BCFType determizeBestTypeBySize(final int value, final BCFType[] potentialTypesInSizeOrder) {
         for ( final BCFType potentialType : potentialTypesInSizeOrder ) {
@@ -157,12 +200,17 @@ public class BCF2Encoder {
         return null;
     }
 
-    public final void encodeFloat(final float value, final BCFType type) throws IOException {
-        encodePrimitive(Float.floatToIntBits(value), type);
+    public final BCFType determineIntegerType(final int value) {
+        return determizeBestTypeBySize(value, TypeDescriptor.INTEGER_TYPES_BY_SIZE);
     }
 
-    public final void encodePrimitive(final int value, final BCFType type) throws IOException {
-        encodePrimitive(value, type, encodeStream);
+    private final BCFType determinePrimitiveType(final Object v) {
+        if ( v instanceof Integer )
+            return determineIntegerType((Integer)v);
+        else if ( v instanceof Float )
+            return BCFType.FLOAT;
+        else
+            throw new ReviewedStingException("No native encoding for Object of type " + v.getClass().getSimpleName());
     }
 
     public final static void encodePrimitive(final int value, final BCFType type, final OutputStream encodeStream) throws IOException {
@@ -172,12 +220,5 @@ public class BCF2Encoder {
             int byteValue = (mask & value) >> shift;
             encodeStream.write(byteValue);
         }
-    }
-
-    public final void encodeType(final int size, final BCFType type) throws IOException {
-        final byte typeByte = TypeDescriptor.encodeTypeDescriptor(size, type);
-        encodeStream.write(typeByte);
-        if ( TypeDescriptor.willOverflow(size) )
-            encodeInt(size);
     }
 }

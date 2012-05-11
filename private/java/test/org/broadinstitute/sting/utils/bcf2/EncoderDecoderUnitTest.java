@@ -30,7 +30,6 @@ package org.broadinstitute.sting.utils.bcf2;
 
 
 import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.testng.Assert;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.DataProvider;
@@ -267,7 +266,7 @@ public class EncoderDecoderUnitTest extends BaseTest {
 
         for ( final BCF2TypedValue tv : toEncode ) {
             if ( tv.isMissing() )
-                encoder.encodeMissing(tv.type);
+                encoder.encodeTypedMissing(tv.type);
             else {
                 final BCFType encodedType = encoder.encode(tv.value);
                 if ( tv.type != null ) // only if we have an expectation
