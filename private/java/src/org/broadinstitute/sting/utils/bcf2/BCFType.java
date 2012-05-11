@@ -32,9 +32,9 @@ package org.broadinstitute.sting.utils.bcf2;
  */
 public enum BCFType {
     RESERVED_0,
-    INT8(1, BCF2Constants.INT8_MISSING_VALUE, -127, 128), // todo -- confirm range
-    INT16(2, BCF2Constants.INT16_MISSING_VALUE, Short.MIN_VALUE, Short.MAX_VALUE),
-    INT32(4, BCF2Constants.INT32_MISSING_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE),
+    INT8(1, BCF2Constants.INT8_MISSING_VALUE, -127, 127), // todo -- confirm range
+    INT16(2, BCF2Constants.INT16_MISSING_VALUE, -32767, 32767),
+    INT32(4, BCF2Constants.INT32_MISSING_VALUE, -2147483647, 2147483647),
     RESERVED_4,
     FLOAT(4, BCF2Constants.FLOAT_MISSING_VALUE),
     RESERVED_6,

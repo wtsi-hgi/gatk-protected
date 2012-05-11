@@ -53,6 +53,12 @@ public class BCF2Decoder {
         setRecordBytes(recordBytes);
     }
 
+    // ----------------------------------------------------------------------
+    //
+    // Routines to load, set, skip blocks of underlying data we are decoding
+    //
+    // ----------------------------------------------------------------------
+
     /**
      * Reads the next record from input stream and prepare this decoder to decode values from it
      *
@@ -97,6 +103,10 @@ public class BCF2Decoder {
         return recordBytes.length;
     }
 
+    public boolean blockIsFullyDecoded() {
+        return recordStream.available() == 0;
+    }
+
     /**
      * Use the recordBytes[] to read BCF2 records from now on
      *
@@ -107,22 +117,15 @@ public class BCF2Decoder {
         this.recordStream = new ByteArrayInputStream(recordBytes);
     }
 
-//    public final Object decodeRequiredTypedValue(final String field) {
-//        final Object result = decodeTypedValue();
-//        if ( result == null ) {
-//            throw new UserException.MalformedBCF2("The value for the required field " + field + " is missing");
-//        } else {
-//            return result;
-//        }
-//    }
+    // ----------------------------------------------------------------------
+    //
+    // High-level decoder
+    //
+    // ----------------------------------------------------------------------
 
     public final Object decodeTypedValue() {
         final byte typeDescriptor = readTypeDescriptor();
         return decodeTypedValue(typeDescriptor);
-    }
-
-    public final byte readTypeDescriptor() {
-        return readByte(recordStream);
     }
 
     public final Object decodeTypedValue(final byte typeDescriptor) {
@@ -134,28 +137,35 @@ public class BCF2Decoder {
         } else if ( type == BCFType.CHAR) { // special case string decoding for efficiency
             return decodeLiteralString(size);
         } else if ( size == 1 ) {
-            return decodeValue(type);
+            return decodeSingleValue(type);
         } else {
             final ArrayList<Object> ints = new ArrayList<Object>(size);
             for ( int i = 0; i < size; i++ ) {
-                ints.add(decodeValue(type));
+                ints.add(decodeSingleValue(type));
             }
             return ints;
         }
     }
 
-    public final Object decodeValue(final BCFType type) {
+    private final Object decodeSingleValue(final BCFType type) {
+        // TODO -- decodeTypedValue should integrate this routine
         switch (type) {
             case INT8:
             case INT16:
             case INT32: return decodeInt(type.getSizeInBytes());
             case FLOAT: return decodeFloatAsDouble();
-            case CHAR:  return readByte(recordStream);
+            case CHAR:  return readByte(recordStream); // TODO -- I cannot imagine why we'd get here, as string needs to be special cased
             default:    throw new ReviewedStingException("BCF2 codec doesn't know how to decode type " + type );
         }
     }
 
-    public final String decodeLiteralString(final int size) {
+    // ----------------------------------------------------------------------
+    //
+    // Decode raw primitive data types (ints, floats, and strings)
+    //
+    // ----------------------------------------------------------------------
+
+    private final String decodeLiteralString(final int size) {
         // TODO -- assumes size > 0
         final byte[] bytes = new byte[size]; // TODO -- in principle should just grab bytes from underlying array
         try {
@@ -165,12 +175,6 @@ public class BCF2Decoder {
             throw new ReviewedStingException("readByte failure", e);
         }
     }
-
-    // ----------------------------------------------------------------------
-    //
-    // Raw primative data types (ints and floats)
-    //
-    // ----------------------------------------------------------------------
 
     public final int decodeInt(int bytesForEachInt) {
         return readInt(bytesForEachInt, recordStream);
@@ -235,6 +239,10 @@ public class BCF2Decoder {
         }
     }
 
+    public final byte readTypeDescriptor() {
+        return readByte(recordStream);
+    }
+
     private final static byte readByte(final InputStream stream) {
         try {
             return (byte)(stream.read() & 0xFF);
@@ -244,12 +252,20 @@ public class BCF2Decoder {
     }
 
     private final static int readInt(int bytesForEachInt, final InputStream stream) {
-        int value = 0;
-        for ( int i = bytesForEachInt - 1; i >= 0; i-- ) {
-            final int b = readByte(stream) & 0xFF;
-            final int shift = i * 8;
-            value |= b << shift;
+        switch ( bytesForEachInt ) {
+            case 1: {
+                return (byte)(readByte(stream) & 0xFF);
+            } case 2: {
+                final int b1 = readByte(stream) & 0xFF;
+                final int b2 = readByte(stream) & 0xFF;
+                return (short)(b1 << 8 | b2);
+            } case 4: {
+                final int b1 = readByte(stream) & 0xFF;
+                final int b2 = readByte(stream) & 0xFF;
+                final int b3 = readByte(stream) & 0xFF;
+                final int b4 = readByte(stream) & 0xFF;
+                return b1 << 24 | b2 << 16 | b3 << 8 | b4;
+            } default: throw new ReviewedStingException("Unexpected size during decoding");
         }
-        return value;
     }
 }

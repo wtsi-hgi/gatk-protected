@@ -44,7 +44,7 @@ import java.io.IOException;
 import java.util.*;
 
 public class BCF2Codec implements FeatureCodec<VariantContext> {
-    final protected static Logger logger = Logger.getLogger(FeatureCodec.class);
+    final protected static Logger logger = Logger.getLogger(BCF2Codec.class);
     private VCFHeader header = null;
     private final ArrayList<String> contigNames = new ArrayList<String>();
     private final ArrayList<String> dictionary = new ArrayList<String>();
