@@ -371,7 +371,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
         // set up query indices
 
-        MongoDB.getAttributesCollection().ensureIndex(new BasicDBObject("contig", 1).append("start", 1));
+        MongoDB.getSitesCollection().ensureIndex(new BasicDBObject("contig", 1).append("start", 1));
         MongoDB.getSamplesCollection().ensureIndex(new BasicDBObject("contig", 1).append("start", 1).append("sample", 1));
 
         // Get list of samples to include in the output
@@ -590,7 +590,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         BasicDBObject sampleQuery = new BasicDBObject(attributesQuery);
         sampleQuery.put("sample", sample);
 
-        DBCursor attributesCursor = MongoDB.getAttributesCollection().find(attributesQuery);
+        DBCursor attributesCursor = MongoDB.getSitesCollection().find(attributesQuery);
         DBCursor samplesCursor = MongoDB.getSamplesCollection().find(sampleQuery);
 
         Map<Pair<String,List<Allele>>,VariantContextBuilder> attributesFromDB = new HashMap<Pair<String,List<Allele>>,VariantContextBuilder>();
