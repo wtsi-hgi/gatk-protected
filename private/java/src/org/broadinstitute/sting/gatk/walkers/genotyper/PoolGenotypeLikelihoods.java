@@ -25,7 +25,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
-import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
@@ -37,6 +36,7 @@ import java.util.*;
 
 public abstract class PoolGenotypeLikelihoods {
     protected final int numChromosomes;
+    private final static double MAX_LOG10_ERROR_TO_STOP_EARLY = 6; // we want the calculation to be accurate to 1 / 10^6
 
     protected static final boolean VERBOSE = false;
 
@@ -53,8 +53,12 @@ public abstract class PoolGenotypeLikelihoods {
     protected final int nAlleles;
     protected final List<Allele> alleles;
 
+    private static final double MIN_LIKELIHOOD = Double.NEGATIVE_INFINITY;
+            
     private static final int MAX_NUM_ALLELES_TO_CACHE = 20;
     private static final int MAX_NUM_SAMPLES_PER_POOL = 1000;
+
+    private static final boolean FAST_GL_COMPUTATION = true;
     // constructor with given logPL elements
     public PoolGenotypeLikelihoods(final List<Allele> alleles, final double[] logLikelihoods, final int ploidy,
                                    final HashMap<String, ErrorModel> perLaneErrorModels, final boolean ignoreLaneInformation) {
@@ -75,7 +79,7 @@ public abstract class PoolGenotypeLikelihoods {
 
         if (logLikelihoods == null){
             log10Likelihoods = new double[likelihoodDim]; 
-            Arrays.fill(log10Likelihoods,Double.NEGATIVE_INFINITY);
+            Arrays.fill(log10Likelihoods, MIN_LIKELIHOOD);
         } else {
             if (logLikelihoods.length != likelihoodDim)
                 throw new ReviewedStingException("BUG: inconsistent parameters when creating PoolGenotypeLikelihoods object");
@@ -266,9 +270,7 @@ public abstract class PoolGenotypeLikelihoods {
             iterator.next();
         }
         if (VERBOSE) {
-            System.out.print("MLAC: ");
-            outputVectorAsString(mlInd);
-            System.out.println();
+            System.out.println("MLAC: " + Arrays.toString(mlInd));
         }
         return new Pair<int[], Double>(mlInd,maxVal);
     }
@@ -307,8 +309,7 @@ public abstract class PoolGenotypeLikelihoods {
 
 
         if (VERBOSE) {
-            System.out.print("permutationKey:");
-            outputVectorAsString(permutationKey);    
+            System.out.println("permutationKey:"+Arrays.toString(permutationKey));
         }
 
         final SumIterator iterator = new SumIterator(originalAlleles.size(),numChromosomes);
@@ -338,10 +339,8 @@ public abstract class PoolGenotypeLikelihoods {
                 int outputIdx = PoolGenotypeLikelihoods.getLinearIndex(newCount, allelesToSubset.size(), numChromosomes);
                 newPLs[outputIdx] = pl;
                 if (VERBOSE) {
-                    System.out.print("Old Key:");
-                    outputVectorAsString(pVec);
-                    System.out.print("New Key:");
-                    outputVectorAsString(newCount);
+                    System.out.println("Old Key:"+Arrays.toString(pVec));
+                    System.out.println("New Key:"+Arrays.toString(newCount));
                 }
             }
             iterator.next();
@@ -457,49 +456,138 @@ public abstract class PoolGenotypeLikelihoods {
     }
 
 
-    // small helper routines to dump primitive array to screen
-    public static void outputVectorAsString(int[] array) {
-        for (int d:array) 
-            System.out.format("%d ",d);
-        System.out.println();
+    public void computeLikelihoods(ErrorModel errorModel,
+        List<Allele> alleleList, List<Integer> numObservations) {
+
+        if (FAST_GL_COMPUTATION) {
+            //  queue up elements to be computed. Assumptions:
+            // GLs distributions are unimodal
+            // GLs are continuous
+            // Hence, once an AC conformation is computed, we queue up its immediate topological neighbors.
+            // If neighbors fall below maximum - threshold, we don't queue up THEIR own neighbors
+            // and we repeat until queue is empty
+            // queue of AC conformations to process
+            final LinkedList<AlleleFrequencyCalculationModel.ExactACset> ACqueue = new LinkedList<AlleleFrequencyCalculationModel.ExactACset>();
+            // mapping of ExactACset indexes to the objects
+            final HashMap<AlleleFrequencyCalculationModel.ExactACcounts, AlleleFrequencyCalculationModel.ExactACset> indexesToACset = new HashMap<AlleleFrequencyCalculationModel.ExactACcounts, AlleleFrequencyCalculationModel.ExactACset>(likelihoodDim);
+            // add AC=0 to the queue
+            int[] zeroCounts = new int[nAlleles];
+            zeroCounts[0] = numChromosomes;
+
+            AlleleFrequencyCalculationModel.ExactACset zeroSet =
+                    new AlleleFrequencyCalculationModel.ExactACset(1, new AlleleFrequencyCalculationModel.ExactACcounts(zeroCounts));
+
+            ACqueue.add(zeroSet);
+            indexesToACset.put(zeroSet.ACcounts, zeroSet);
+
+            // keep processing while we have AC conformations that need to be calculated
+            double maxLog10L = Double.NEGATIVE_INFINITY;
+            while ( !ACqueue.isEmpty() ) {
+                // compute log10Likelihoods
+                final AlleleFrequencyCalculationModel.ExactACset ACset = ACqueue.remove();
+                final double log10LofKs = calculateACConformationAndUpdateQueue(ACset, errorModel, alleleList, numObservations, maxLog10L, ACqueue, indexesToACset);
+
+                // adjust max likelihood seen if needed
+                maxLog10L = Math.max(maxLog10L, log10LofKs);
+                // clean up memory
+                indexesToACset.remove(ACset.ACcounts);
+                if ( VERBOSE )
+                    System.out.printf(" *** removing used set=%s%n", ACset.ACcounts);
+
+             }
+
+
+        }   else {
+            int plIdx = 0;
+            SumIterator iterator = new SumIterator(nAlleles, numChromosomes);
+            while (iterator.hasNext()) {
+                AlleleFrequencyCalculationModel.ExactACset ACset =
+                       new AlleleFrequencyCalculationModel.ExactACset(1, new AlleleFrequencyCalculationModel.ExactACcounts(iterator.getCurrentVector()));
+                // for observed base X, add Q(jX,k) to likelihood vector for all k in error model
+                //likelihood(jA,jC,jG,jT) = logsum(logPr (errorModel[k],nA*Q(jA,k) +  nC*Q(jC,k) + nG*Q(jG,k) + nT*Q(jT,k))
+                getLikelihoodOfConformation(ACset, errorModel, alleleList, numObservations);
+
+                setLogPLs(plIdx++, ACset.log10Likelihoods[0]);
+                iterator.next();
+            }
+            // normalize PL's
+            renormalize();
+        }
+
+    }
+
+    private double calculateACConformationAndUpdateQueue(final ExactAFCalculationModel.ExactACset set,
+                                                         final ErrorModel errorModel,
+                                                         final List<Allele> alleleList,
+                                                         final List<Integer> numObservations,
+                                                         final double  maxLog10L,
+                                                         final LinkedList<AlleleFrequencyCalculationModel.ExactACset> ACqueue,
+                                                         final HashMap<AlleleFrequencyCalculationModel.ExactACcounts, AlleleFrequencyCalculationModel.ExactACset> indexesToACset) {
+        // compute likelihood of set
+        getLikelihoodOfConformation(set, errorModel, alleleList, numObservations);
+        final double log10LofK = set.log10Likelihoods[0];
+        
+        // log result in PL vector
+        int idx = getLinearIndex(set.ACcounts.getCounts(), nAlleles, numChromosomes);
+        setLogPLs(idx, log10LofK);
+
+        // can we abort early because the log10Likelihoods are so small?
+        if ( log10LofK < maxLog10L - MAX_LOG10_ERROR_TO_STOP_EARLY ) {
+            if ( VERBOSE )
+                System.out.printf(" *** breaking early set=%s log10L=%.2f maxLog10L=%.2f%n", set.ACcounts, log10LofK, maxLog10L);
+            return log10LofK;
+        }
+
+        // iterate over higher frequencies if possible
+        // by convention, ACcounts contained in set have full vector of possible pool ac counts including ref count.
+        final int ACwiggle = numChromosomes - set.getACsum() + set.ACcounts.counts[0];
+        if ( ACwiggle == 0 ) // all alternate alleles already sum to 2N so we cannot possibly go to higher frequencies
+            return log10LofK;
+
+
+        // add conformations for other cases
+        for ( int allele = 1; allele < nAlleles; allele++ ) {
+            final int[] ACcountsClone = set.ACcounts.getCounts().clone();
+            ACcountsClone[allele]++;
+            // is this a valid conformation?
+            int altSum = (int)MathUtils.sum(ACcountsClone) - ACcountsClone[0];
+            ACcountsClone[0] = numChromosomes - altSum;
+            if (ACcountsClone[0] < 0)
+                continue;
+
+
+            updateACset(ACcountsClone, ACqueue, indexesToACset);
+        }
+        return log10LofK;
+
     }
 
     /**
      * Abstract methods, must be implemented in subclasses
      *
-     * @param ACcount       Count to compute
+     * @param ACset       Count to compute
      * @param errorModel    Site-specific error model object
-     * @param numAlleles    Number of alleles in pool GL
-     * @param ploidy        Pool ploidy
      * @param alleleList    List of alleles
      * @param numObservations Number of observations for each allele
-     * @return Likelihood of given allele count
      */
-    public abstract double getLikelihoodOfConformation(AlleleFrequencyCalculationModel.ExactACcounts ACcount, ErrorModel errorModel, int numAlleles, int ploidy,
+    public abstract void getLikelihoodOfConformation(AlleleFrequencyCalculationModel.ExactACset ACset, ErrorModel errorModel,
                                                      List<Allele> alleleList, List<Integer> numObservations);
 
 
-    public void computeLikelihoods(ErrorModel errorModel, int numAlleles, int ploidy,
-        List<Allele> alleleList, List<Integer> numObservations) {
-        final int minQ = errorModel.getMinSignificantQualityScore();
-        final int maxQ = errorModel.getMaxSignificantQualityScore();
-        int plIdx = 0;
-        SumIterator iterator = new SumIterator(numAlleles, ploidy);
-        while (iterator.hasNext()) {
-            AlleleFrequencyCalculationModel.ExactACcounts ACcount = new AlleleFrequencyCalculationModel.ExactACcounts(iterator.getCurrentVector());
-            // for observed base X, add Q(jX,k) to likelihood vector for all k in error model
-            //likelihood(jA,jC,jG,jT) = logsum(logPr (errorModel[k],nA*Q(jA,k) +  nC*Q(jC,k) + nG*Q(jG,k) + nT*Q(jT,k))
-            double[] acVec = new double[maxQ - minQ + 1];
-            double p1 = getLikelihoodOfConformation(ACcount, errorModel, numAlleles, ploidy,
-                    alleleList, numObservations);
+    private static void updateACset(final int[] newSetCounts,
+                                    final LinkedList<AlleleFrequencyCalculationModel.ExactACset> ACqueue,
+                                    final HashMap<AlleleFrequencyCalculationModel.ExactACcounts, AlleleFrequencyCalculationModel.ExactACset> indexesToACset) {
 
-            setLogPLs(plIdx++, p1);
-            iterator.next();
+        final AlleleFrequencyCalculationModel.ExactACcounts index = new AlleleFrequencyCalculationModel.ExactACcounts(newSetCounts);
+        if ( !indexesToACset.containsKey(index) ) {
+            AlleleFrequencyCalculationModel.ExactACset newSet = new AlleleFrequencyCalculationModel.ExactACset(1, index);
+            indexesToACset.put(index, newSet);
+            ACqueue.add(newSet);     
+            if (VERBOSE)
+                System.out.println(" *** Adding set to queue:" + index.toString());
         }
-        // normalize PL's
-        renormalize();
-
 
     }
+
 }
 

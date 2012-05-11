@@ -181,45 +181,43 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
         if (VERBOSE)
             System.out.format("numSeenBases: %d %d %d %d\n",numSeenBases.get(0),numSeenBases.get(1),numSeenBases.get(2),numSeenBases.get(3));
 
-        computeLikelihoods(errorModel,  nAlleles, numChromosomes, myAlleles, numSeenBases);
+        computeLikelihoods(errorModel, myAlleles, numSeenBases);
         return n;
     }
 
     /**
      * Compute likelihood of current conformation
      *
-     * @param ACcount       Count to compute
+     * @param ACset       Count to compute
      * @param errorModel    Site-specific error model object
-     * @param numAlleles    Number of alleles in pool GL
-     * @param ploidy        Pool ploidy
      * @param alleleList    List of alleles
      * @param numObservations Number of observations for each allele in alleleList
-     * @return Likelihood of given allele count
-     */
-    public double getLikelihoodOfConformation(AlleleFrequencyCalculationModel.ExactACcounts ACcount, ErrorModel errorModel, int numAlleles, int ploidy,
+      */
+    public void getLikelihoodOfConformation(AlleleFrequencyCalculationModel.ExactACset ACset, ErrorModel errorModel,
                                                        List<Allele> alleleList, List<Integer> numObservations) {
         final int minQ = errorModel.getMinSignificantQualityScore();
         final int maxQ = errorModel.getMaxSignificantQualityScore();
-        double[] acVec = new double[maxQ - minQ + 1];
+        final double[] acVec = new double[maxQ - minQ + 1];
 
         final int nA = numObservations.get(0);
         final int nC = numObservations.get(1);
         final int nG = numObservations.get(2);
         final int nT = numObservations.get(3);
-        
-        int[] currentCnt = Arrays.copyOf(ACcount.counts, BaseUtils.BASES.length);
-        int jA = currentCnt[alleleIndices[0]];
-        int jC = currentCnt[alleleIndices[1]];
-        int jG = currentCnt[alleleIndices[2]];
-        int jT = currentCnt[alleleIndices[3]];
+
+        final int[] currentCnt = Arrays.copyOf(ACset.ACcounts.counts, BaseUtils.BASES.length);
+        final int jA = currentCnt[alleleIndices[0]];
+        final int jC = currentCnt[alleleIndices[1]];
+        final int jG = currentCnt[alleleIndices[2]];
+        final int jT = currentCnt[alleleIndices[3]];
+
         for (int k=minQ; k<=maxQ; k++)
             acVec[k-minQ] = nA*logMismatchProbabilityArray[jA][k] +
                     nC*logMismatchProbabilityArray[jC][k] +
                     nG*logMismatchProbabilityArray[jG][k] +
                     nT*logMismatchProbabilityArray[jT][k];
 
-        return MathUtils.logDotProduct(errorModel.getErrorModelVector().getProbabilityVector(minQ,maxQ), acVec);
-
+        final double p1 = MathUtils.logDotProduct(errorModel.getErrorModelVector().getProbabilityVector(minQ,maxQ), acVec);
+        ACset.log10Likelihoods[0] = p1;
     }
 
     /**
