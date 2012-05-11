@@ -34,18 +34,13 @@ public class TypeDescriptor {
     public static final int MAX_INLINE_ELEMENTS = 14;
 
     public final static BCFType[] INTEGER_TYPES_BY_SIZE = new BCFType[3];
-    public final static BCFType[] DICTIONARY_TYPES_BY_SIZE = new BCFType[2];
+    public final static BCFType[] DICTIONARY_TYPES_BY_SIZE = INTEGER_TYPES_BY_SIZE;
     private final static BCFType[] lookup = BCFType.values();
 
     static {
         INTEGER_TYPES_BY_SIZE[0] = BCFType.INT8;
         INTEGER_TYPES_BY_SIZE[1] = BCFType.INT16;
         INTEGER_TYPES_BY_SIZE[2] = BCFType.INT32;
-        //INTEGER_TYPES_BY_SIZE[3] = BCFType.INT64;
-
-        DICTIONARY_TYPES_BY_SIZE[0] = BCFType.STRING_REF8;
-        DICTIONARY_TYPES_BY_SIZE[1] = BCFType.STRING_REF16;
-        //DICTIONARY_TYPES_BY_SIZE[2] = BCFType.STRING_REF32;
     }
 
     public final static byte encodeTypeDescriptor(final int nElements, final BCFType type ) {

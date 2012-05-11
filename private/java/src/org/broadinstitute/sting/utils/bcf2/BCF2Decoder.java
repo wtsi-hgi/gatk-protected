@@ -26,7 +26,6 @@ package org.broadinstitute.sting.utils.bcf2;
 
 import org.apache.log4j.Logger;
 import org.broad.tribble.FeatureCodec;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 
@@ -37,14 +36,12 @@ import java.util.ArrayList;
 
 public class BCF2Decoder {
     final protected static Logger logger = Logger.getLogger(FeatureCodec.class);
-    private final ArrayList<String> dictionary;
 
     byte[] recordBytes;
     ByteArrayInputStream recordStream;
 
-    public BCF2Decoder(final ArrayList<String> dictionary) {
-        if ( dictionary == null ) throw new ReviewedStingException("Dictionary cannot be null");
-        this.dictionary = dictionary;
+    public BCF2Decoder() {
+        // nothing to do
     }
 
     /**
@@ -52,8 +49,7 @@ public class BCF2Decoder {
      *
      * @param recordBytes
      */
-    protected BCF2Decoder(final ArrayList<String> dictionary, final byte[] recordBytes) {
-        this(dictionary);
+    protected BCF2Decoder(final byte[] recordBytes) {
         setRecordBytes(recordBytes);
     }
 
@@ -133,10 +129,14 @@ public class BCF2Decoder {
         final int size = TypeDescriptor.sizeIsOverflow(typeDescriptor) ? (Integer)decodeTypedValue() : TypeDescriptor.decodeSize(typeDescriptor);
         final BCFType type = TypeDescriptor.decodeType(typeDescriptor);
 
-        if ( size == 0 ) { return null; }
-        else if ( size == 1 ) return decodeValue(type);
-        else {
-            ArrayList<Object> ints = new ArrayList<Object>(size);
+        if ( size == 0 ) {
+            return null;
+        } else if ( type == BCFType.CHAR) { // special case string decoding for efficiency
+            return decodeLiteralString(size);
+        } else if ( size == 1 ) {
+            return decodeValue(type);
+        } else {
+            final ArrayList<Object> ints = new ArrayList<Object>(size);
             for ( int i = 0; i < size; i++ ) {
                 ints.add(decodeValue(type));
             }
@@ -148,30 +148,22 @@ public class BCF2Decoder {
         switch (type) {
             case INT8:
             case INT16:
-            case INT32:             return decodeInt(type.getSizeInBytes());
-            case FLOAT:             return decodeFloatAsDouble();
-            case FLAG:              throw new ReviewedStingException("Flag encoding not supported");
-            case STRING_LITERAL:    return decodeLiteralString();
-            case STRING_REF8:
-            case STRING_REF16:      return getDictionaryString(decodeInt(type.getSizeInBytes()));
-            case COMPACT_GENOTYPE:  return decodeInt(type.getSizeInBytes()); // todo -- must decode further in outer loop
-            default:                throw new ReviewedStingException("BCF2 codec doesn't know how to decode type " + type );
+            case INT32: return decodeInt(type.getSizeInBytes());
+            case FLOAT: return decodeFloatAsDouble();
+            case CHAR:  return readByte(recordStream);
+            default:    throw new ReviewedStingException("BCF2 codec doesn't know how to decode type " + type );
         }
     }
 
-    public final String decodeLiteralString() {
-        // TODO -- fast path for missing value
-        StringBuilder builder = new StringBuilder();
-        while ( true ) {
-            byte b = readByte(recordStream);
-            if ( b == 0x00 ) break;
-            builder.append((char)b);
+    public final String decodeLiteralString(final int size) {
+        // TODO -- assumes size > 0
+        final byte[] bytes = new byte[size]; // TODO -- in principle should just grab bytes from underlying array
+        try {
+            recordStream.read(bytes);
+            return new String(bytes);
+        } catch ( IOException e ) {
+            throw new ReviewedStingException("readByte failure", e);
         }
-        return builder.toString();
-    }
-
-    private final String getDictionaryString(int offset) {
-        return dictionary.get(offset);
     }
 
     // ----------------------------------------------------------------------

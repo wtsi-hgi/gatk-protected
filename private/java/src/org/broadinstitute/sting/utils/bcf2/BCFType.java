@@ -24,53 +24,21 @@
 
 package org.broadinstitute.sting.utils.bcf2;
 
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-
 /**
-* [Short one sentence description of this walker]
-* <p/>
-* <p>
-* [Functionality of this walker]
-* </p>
-* <p/>
-* <h2>Input</h2>
-* <p>
-* [Input description]
-* </p>
-* <p/>
-* <h2>Output</h2>
-* <p>
-* [Output description]
-* </p>
-* <p/>
-* <h2>Examples</h2>
-* <pre>
-*    java
-*      -jar GenomeAnalysisTK.jar
-*      -T $WalkerName
-*  </pre>
-*
-* @author Your Name
-* @since Date created
-*/
+ * BCF2 types and information
+ *
+ * @author depristo
+ * @since 05/12
+ */
 public enum BCFType {
     RESERVED_0,
     INT8(1, BCF2Constants.INT8_MISSING_VALUE, -127, 128), // todo -- confirm range
     INT16(2, BCF2Constants.INT16_MISSING_VALUE, Short.MIN_VALUE, Short.MAX_VALUE),
     INT32(4, BCF2Constants.INT32_MISSING_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE),
-    INT64_NOT_USED, // (8, Long.MIN_VALUE, Long.MAX_VALUE),
+    RESERVED_4,
     FLOAT(4, BCF2Constants.FLOAT_MISSING_VALUE),
-    DOUBLE_NOT_USED, // (8),
-    CHAR_NOT_USED, // (1),
-    FLAG(1),
-    STRING_LITERAL,
-    STRING_REF8(1, 0, -127, 128), // todo -- confirm range
-    STRING_REF16(2, 0, Short.MIN_VALUE, Short.MAX_VALUE),
-    STRING_REF32_NOT_USED, // (4, Integer.MIN_VALUE, Integer.MAX_VALUE),
-    COMPACT_GENOTYPE(1),
-    RESERVED_14,
-    RESERVED_15;
+    RESERVED_6,
+    CHAR;
 
     private final Object missingJavaValue;
     private final int missingBytes;
@@ -78,11 +46,7 @@ public enum BCFType {
     private final long minValue, maxValue;
 
     BCFType() {
-        this(-1);
-    }
-
-    BCFType(final int sizeInBytes) {
-        this(sizeInBytes, 0, 0, 0);
+        this(-1, 0, 0, 0);
     }
 
     BCFType(final int sizeInBytes, final int missingBytes) {

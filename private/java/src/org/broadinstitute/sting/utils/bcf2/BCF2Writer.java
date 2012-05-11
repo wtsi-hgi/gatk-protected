@@ -35,7 +35,10 @@ import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.util.*;
 
 public class BCF2Writer extends IndexingVCFWriter {
@@ -165,13 +168,13 @@ public class BCF2Writer extends IndexingVCFWriter {
     }
 
     private void buildID( VariantContext vc ) throws IOException {
-        encoder.encodeSingleton(vc.getID(), BCFType.STRING_LITERAL);
+        encoder.encodeString(vc.getID());
     }
 
     private void buildAlleles( VariantContext vc ) throws IOException {
         for ( final Allele allele : vc.getAlleles() ) {
             final String s = vc.getAlleleWithRefPadding(allele);
-            encoder.encodeValue(s, BCFType.STRING_LITERAL);
+            encoder.encodeString(s);
         }
     }
 
@@ -187,7 +190,7 @@ public class BCF2Writer extends IndexingVCFWriter {
         for ( Map.Entry<String, Object> infoFieldEntry : vc.getAttributes().entrySet() ) {
             encoder.encodeStringByRef(infoFieldEntry.getKey());
             // TODO -- use real type
-            encoder.encodeSingleton(infoFieldEntry.getValue().toString(), BCFType.STRING_LITERAL);
+            encoder.encodeString(infoFieldEntry.getValue().toString());
         }
     }
 
@@ -263,9 +266,9 @@ public class BCF2Writer extends IndexingVCFWriter {
         // TODO -- should take VC to determine best encoding
         final VCFCompoundHeaderLine metaData = VariantContext.getMetaDataForField(header, field);
         switch ( metaData.getType() ) {
-            case Character: return BCFType.STRING_LITERAL;
-            case Flag: return BCFType.FLAG;
-            case String: return BCFType.STRING_LITERAL;
+            case Character: return BCFType.CHAR;
+            //case Flag: return BCFType.FLAG;  // TODO -- HOW TO ENCODE FLAG?
+            case String: return BCFType.CHAR;
             case Integer: return BCFType.INT32;
             case Float: return BCFType.FLOAT;
             default: throw new ReviewedStingException("Unexpected type for field" + field);
@@ -273,12 +276,12 @@ public class BCF2Writer extends IndexingVCFWriter {
     }
 
     private final void addGenotypeFilters(final VariantContext vc) throws IOException {
-        encoder.startGenotypeField(VCFConstants.GENOTYPE_FILTER_KEY, 1, BCFType.STRING_LITERAL);
+        encoder.startGenotypeField(VCFConstants.GENOTYPE_FILTER_KEY, 1, BCFType.CHAR);
         for ( final Genotype g : vc.getGenotypes() ) {
             if ( g.filtersWereApplied() && g.isFiltered() ) {
-                encoder.encodeValue(ParsingUtils.join(";", ParsingUtils.sortList(g.getFilters())), BCFType.STRING_LITERAL);
+                encoder.encodeString(ParsingUtils.join(";", ParsingUtils.sortList(g.getFilters())));
             } else {
-                encoder.encodeMissingValues(1, BCFType.STRING_LITERAL); // todo fixme
+                encoder.encodeMissingValues(1, BCFType.CHAR); // todo fixme
             }
         }
     }
@@ -300,15 +303,15 @@ public class BCF2Writer extends IndexingVCFWriter {
         final Map<Allele, String> alleleMap = StandardVCFWriter.buildAlleleMap(vc);
 
         final int requiredPloidy = 2;
-        encoder.startGenotypeField(VCFConstants.GENOTYPE_KEY, requiredPloidy, BCFType.COMPACT_GENOTYPE);
+        encoder.startGenotypeField(VCFConstants.GENOTYPE_KEY, requiredPloidy, BCFType.INT8);
         for ( final Genotype g : vc.getGenotypes() ) {
             if ( g.getPloidy() != requiredPloidy ) throw new ReviewedStingException("Cannot currently handle non-diploid calls!");
-            final List<Byte> encoding = new ArrayList<Byte>(requiredPloidy);
+            final List<Integer> encoding = new ArrayList<Integer>(requiredPloidy);
             for ( final Allele a : g.getAlleles() ) {
                 final int offset = a.isNoCall() ? 0 : (Byte.valueOf(alleleMap.get(a)) + 2);
-                encoding.add((byte)(offset << 1 | (g.isPhased() ? 0x01 : 0x00)));
+                encoding.add(offset << 1 | (g.isPhased() ? 0x01 : 0x00));
             }
-            encoder.encodeValues(encoding, BCFType.COMPACT_GENOTYPE);
+            encoder.encodeValues(encoding, BCFType.INT8);
         }
     }
 

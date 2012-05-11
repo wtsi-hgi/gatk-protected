@@ -48,7 +48,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     private VCFHeader header = null;
     private final ArrayList<String> contigNames = new ArrayList<String>();
     private final ArrayList<String> dictionary = new ArrayList<String>();
-    BCF2Decoder decoder;
+    private final BCF2Decoder decoder = new BCF2Decoder();
     private boolean skipGenotypes = false;
 
     // ----------------------------------------------------------------------
@@ -127,9 +127,6 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
 
         // create the string dictionary
         parseDictionary(header);
-
-        // prepare the decoder
-        decoder = new BCF2Decoder(dictionary);
 
         // position right before next line (would be right before first real record byte at end of header)
         return new FeatureCodecHeader(header, inputStream.getPosition());
@@ -258,7 +255,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         String ref = null;
 
         for ( int i = 0; i < nAlleles; i++ ) {
-            final String allele = (String)decoder.decodeValue(BCFType.STRING_LITERAL);
+            final String allele = (String)decoder.decodeTypedValue();
 
             if ( i == 0 ) {
                 ref = allele;
@@ -291,7 +288,7 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         final Map<String, Object> infoFieldEntries = new HashMap<String, Object>(numInfoFields);
 
         for ( int i = 0; i < numInfoFields; i++ ) {
-            final String key = (String)decoder.decodeTypedValue();
+            final String key = getDictionaryString();
             final Object value = decoder.decodeTypedValue();
             infoFieldEntries.put(key, value);
         }
@@ -359,10 +356,10 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
     }
 
     private final Map<String, List<Object>> decodeGenotypeFieldValues(final int nFields, final int nSamples) {
-        Map<String, List<Object>> map = new LinkedHashMap<String, List<Object>>(nFields);
+        final Map<String, List<Object>> map = new LinkedHashMap<String, List<Object>>(nFields);
 
         for ( int i = 0; i < nFields; i++ ) {
-            final String field = (String)decoder.decodeTypedValue();
+            final String field = getDictionaryString();
             final byte typeDescriptor = decoder.readTypeDescriptor();
             final List<Object> values = new ArrayList<Object>(nSamples);
             for ( int j = 0; j < nSamples; j++ )
@@ -373,7 +370,13 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         return map;
     }
 
-    private String lookupContigName( final int contigOffset ) {
+    private final String getDictionaryString() {
+        final int offset = (Integer)decoder.decodeTypedValue();
+        final String field = dictionary.get(offset);
+        return field;
+    }
+
+    private final String lookupContigName( final int contigOffset ) {
         if ( contigOffset < contigNames.size() ) {
             return contigNames.get(contigOffset);
         }
