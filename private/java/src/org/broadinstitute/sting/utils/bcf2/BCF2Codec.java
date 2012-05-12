@@ -348,12 +348,16 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
 
     private final List<Allele> decodeGenotypeAlleles(final ArrayList<Allele> siteAlleles, final List<Integer> encoded) {
         final List<Allele> gt = new ArrayList<Allele>(encoded.size());
-        for ( final int encode : encoded ) {
-            final int offset = encode >> 1;
-            if ( offset == 0 )
-                gt.add(Allele.NO_CALL);
-                else if ( offset > 1 ) // skip absent
-                gt.add( siteAlleles.get(offset - 2));
+        for ( final Integer encode : encoded ) {
+            if ( encode == null ) // absent, as are all following by definition
+                return gt;
+            else {
+                final int offset = encode >> 1;
+                if ( offset == 0 )
+                    gt.add(Allele.NO_CALL);
+                else
+                    gt.add(siteAlleles.get(offset - 1));
+            }
         }
         return gt;
     }

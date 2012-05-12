@@ -322,16 +322,20 @@ public class BCF2Writer extends IndexingVCFWriter {
     }
 
     private final void addGenotypes(final VariantContext vc) throws IOException {
-        final Map<Allele, String> alleleMap = StandardVCFWriter.buildAlleleMap(vc);
+        if ( vc.getNAlleles() > 127 )
+            throw new ReviewedStingException("Current BCF2 encoder cannot handle sites " +
+                    "with > 127 alleles, but you have " + vc.getNAlleles() + " at "
+                    + vc.getChr() + ":" + vc.getStart());
 
-        final int requiredPloidy = 2;
+        final Map<Allele, String> alleleMap = StandardVCFWriter.buildAlleleMap(vc);
+        final int requiredPloidy = 2; // TODO -- handle ploidy, will need padding / depadding
         startGenotypeField(VCFConstants.GENOTYPE_KEY, requiredPloidy, BCFType.INT8);
         for ( final Genotype g : vc.getGenotypes() ) {
             if ( g.getPloidy() != requiredPloidy ) throw new ReviewedStingException("Cannot currently handle non-diploid calls!");
             final List<Integer> encoding = new ArrayList<Integer>(requiredPloidy);
             for ( final Allele a : g.getAlleles() ) {
-                final int offset = a.isNoCall() ? 0 : (Byte.valueOf(alleleMap.get(a)) + 2);
-                encoding.add(offset << 1 | (g.isPhased() ? 0x01 : 0x00));
+                final int offset = a.isNoCall() ? -1 : Integer.valueOf(alleleMap.get(a));
+                encoding.add(((offset+1) << 1) | (g.isPhased() ? 0x01 : 0x00));
             }
             encoder.encodeRawValues(encoding, BCFType.INT8);
         }
