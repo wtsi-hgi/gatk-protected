@@ -40,6 +40,7 @@ import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.AnnotatorCompa
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 

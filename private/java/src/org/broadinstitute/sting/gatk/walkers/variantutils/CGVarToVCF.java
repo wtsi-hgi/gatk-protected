@@ -35,7 +35,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
+import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;

@@ -46,8 +46,10 @@ import org.broadinstitute.sting.gatk.refdata.tracks.RMDTrackBuilder;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
 import org.broadinstitute.sting.utils.codecs.bcf2.BCF2Codec;
-import org.broadinstitute.sting.utils.codecs.bcf2.BCF2Writer;
+import org.broadinstitute.sting.utils.codecs.bcf2.writer.BCF2Writer;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.codecs.vcf.writer.StandardVCFWriter;
+import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 

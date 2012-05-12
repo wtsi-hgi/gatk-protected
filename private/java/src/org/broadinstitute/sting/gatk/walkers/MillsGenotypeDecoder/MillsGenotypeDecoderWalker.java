@@ -9,6 +9,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.*;

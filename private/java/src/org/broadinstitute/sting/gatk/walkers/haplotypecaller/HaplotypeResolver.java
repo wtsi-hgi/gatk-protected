@@ -33,6 +33,8 @@ import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.SWPairwiseAlignment;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.codecs.vcf.writer.SortingVCFWriter;
+import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.*;
 

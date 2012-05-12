@@ -7,11 +7,9 @@ import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.samples.Sample;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
-import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
