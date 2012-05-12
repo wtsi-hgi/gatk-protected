@@ -36,9 +36,9 @@ public class BCF2Constants {
 
     public static final Charset BCF2_TEXT_CHARSET = Charset.forName("US-ASCII");  // TODO: enforce this!
 
-    public static final int INT8_MISSING_VALUE =   0x80;
-    public static final int INT16_MISSING_VALUE =  0x8000;
-    public static final int INT32_MISSING_VALUE =  0x80000000;
-
+    // Note that these values are prefixed by FFFFFF for convenience
+    public static final int INT8_MISSING_VALUE  = 0xFFFFFF80;
+    public static final int INT16_MISSING_VALUE = 0xFFFF8000;
+    public static final int INT32_MISSING_VALUE = 0x80000000;
     public static final int FLOAT_MISSING_VALUE = 0x7F800001;
 }

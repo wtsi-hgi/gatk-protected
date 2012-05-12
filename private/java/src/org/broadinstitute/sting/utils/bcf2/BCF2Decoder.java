@@ -129,12 +129,14 @@ public class BCF2Decoder {
     }
 
     public final Object decodeTypedValue(final byte typeDescriptor) {
-        final int size = TypeDescriptor.sizeIsOverflow(typeDescriptor) ? (Integer)decodeTypedValue() : TypeDescriptor.decodeSize(typeDescriptor);
+        final int size = TypeDescriptor.sizeIsOverflow(typeDescriptor) ? decodeVectorSize() : TypeDescriptor.decodeSize(typeDescriptor);
         final BCFType type = TypeDescriptor.decodeType(typeDescriptor);
+
+        assert size >= 0;
 
         if ( size == 0 ) {
             return null;
-        } else if ( type == BCFType.CHAR) { // special case string decoding for efficiency
+        } else if ( type == BCFType.CHAR ) { // special case string decoding for efficiency
             return decodeLiteralString(size);
         } else if ( size == 1 ) {
             return decodeSingleValue(type);
@@ -147,15 +149,21 @@ public class BCF2Decoder {
         }
     }
 
-    private final Object decodeSingleValue(final BCFType type) {
+    public final Object decodeSingleValue(final BCFType type) {
         // TODO -- decodeTypedValue should integrate this routine
-        switch (type) {
-            case INT8:
-            case INT16:
-            case INT32: return decodeInt(type.getSizeInBytes());
-            case FLOAT: return decodeFloatAsDouble();
-            case CHAR:  return readByte(recordStream); // TODO -- I cannot imagine why we'd get here, as string needs to be special cased
-            default:    throw new ReviewedStingException("BCF2 codec doesn't know how to decode type " + type );
+        final int value = readInt(type.getSizeInBytes(), recordStream);
+
+        if ( value == type.getMissingBytes() )
+            return null;
+        else {
+            switch (type) {
+                case INT8:
+                case INT16:
+                case INT32: return value;
+                case FLOAT: return (double)rawFloatToFloat(value);
+                case CHAR:  return value & 0xFF; // TODO -- I cannot imagine why we'd get here, as string needs to be special cased
+                default:    throw new ReviewedStingException("BCF2 codec doesn't know how to decode type " + type );
+            }
         }
     }
 
@@ -176,25 +184,23 @@ public class BCF2Decoder {
         }
     }
 
+    private final int decodeVectorSize() {
+        final byte typeDescriptor = readTypeDescriptor();
+        final int size = TypeDescriptor.decodeSize(typeDescriptor);
+        final BCFType type = TypeDescriptor.decodeType(typeDescriptor);
+
+        assert size == 1;
+        assert type == BCFType.INT8 || type == BCFType.INT16 || type == BCFType.INT32;
+
+        return decodeInt(type.getSizeInBytes());
+    }
+
     public final int decodeInt(int bytesForEachInt) {
         return readInt(bytesForEachInt, recordStream);
     }
 
-    public final boolean rawFloatIsMissing(final int rawFloat) {
-        return rawFloat == BCF2Constants.FLOAT_MISSING_VALUE;
-    }
-
-    public final int decodeRawFloat() {
-        return decodeInt(BCFType.FLOAT.getSizeInBytes());
-    }
-
     public final float rawFloatToFloat(final int rawFloat) {
         return Float.intBitsToFloat(rawFloat);
-    }
-
-    public final Double decodeFloatAsDouble() {
-        final int i = decodeRawFloat();
-        return rawFloatIsMissing(i) ? null : (double)rawFloatToFloat(i);
     }
 
     // ----------------------------------------------------------------------
@@ -254,17 +260,17 @@ public class BCF2Decoder {
     private final static int readInt(int bytesForEachInt, final InputStream stream) {
         switch ( bytesForEachInt ) {
             case 1: {
-                return (byte)(readByte(stream) & 0xFF);
+                return (byte)(readByte(stream));
             } case 2: {
                 final int b1 = readByte(stream) & 0xFF;
                 final int b2 = readByte(stream) & 0xFF;
-                return (short)(b1 << 8 | b2);
+                return (short)((b1 << 8) | b2);
             } case 4: {
                 final int b1 = readByte(stream) & 0xFF;
                 final int b2 = readByte(stream) & 0xFF;
                 final int b3 = readByte(stream) & 0xFF;
                 final int b4 = readByte(stream) & 0xFF;
-                return b1 << 24 | b2 << 16 | b3 << 8 | b4;
+                return (int)(b1 << 24 | b2 << 16 | b3 << 8 | b4);
             } default: throw new ReviewedStingException("Unexpected size during decoding");
         }
     }

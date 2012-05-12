@@ -191,17 +191,27 @@ public class BCF2Encoder {
     //
     // --------------------------------------------------------------------------------
 
-    public final BCFType determizeBestTypeBySize(final int value, final BCFType[] potentialTypesInSizeOrder) {
-        for ( final BCFType potentialType : potentialTypesInSizeOrder ) {
-            if ( potentialType.withinRange(value) )
-                return potentialType;
+    public final BCFType determineIntegerType(final List<Integer> values) {
+        BCFType maxType = BCFType.INT8;
+        for ( final int value : values ) {
+            final BCFType type1 = determineIntegerType(value);
+            switch ( type1 ) {
+                case INT8: break;
+                case INT16: maxType = BCFType.INT16; break;
+                case INT32: return BCFType.INT32; // fast path for largest possible value
+                default: throw new ReviewedStingException("Unexpected integer type " + type1 );
+            }
         }
-        // TODO -- throw error
-        return null;
+        return maxType;
     }
 
     public final BCFType determineIntegerType(final int value) {
-        return determizeBestTypeBySize(value, TypeDescriptor.INTEGER_TYPES_BY_SIZE);
+        for ( final BCFType potentialType : TypeDescriptor.INTEGER_TYPES_BY_SIZE ) {
+            if ( potentialType.withinRange(value) )
+                return potentialType;
+        }
+
+        throw new ReviewedStingException("Integer cannot be encoded in allowable range of even INT32: " + value);
     }
 
     private final BCFType determinePrimitiveType(final Object v) {

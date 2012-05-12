@@ -195,9 +195,9 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
         builder.start((long)pos);
         builder.stop((long)(pos + refLength - 1)); // minus one because of our open intervals
 
-        final int qualAsInt = decoder.decodeRawFloat();
-        if ( ! decoder.rawFloatIsMissing(qualAsInt) ) {
-            builder.log10PError(decoder.rawFloatToFloat(qualAsInt) / -10.0);
+        final Object qual = decoder.decodeSingleValue(BCFType.FLOAT);
+        if ( qual != null ) {
+            builder.log10PError(((Double)qual) / -10.0);
         }
 
         final int nAlleleInfo = decoder.decodeInt(BCFType.INT32.getSizeInBytes());
@@ -289,7 +289,9 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
 
         for ( int i = 0; i < numInfoFields; i++ ) {
             final String key = getDictionaryString();
-            final Object value = decoder.decodeTypedValue();
+            Object value = decoder.decodeTypedValue();
+            final VCFCompoundHeaderLine metaData = VariantContext.getMetaDataForField(header, key);
+            if ( metaData.getType() == VCFHeaderLineType.Flag ) value = true; // special case for flags
             infoFieldEntries.put(key, value);
         }
 
@@ -327,7 +329,8 @@ public class BCF2Codec implements FeatureCodec<VariantContext> {
                     if ( value != BCFType.INT8.getMissingJavaValue() )
                         log10PError = value / -10.0;
                 } else if ( field.equals(VCFConstants.GENOTYPE_FILTER_KEY) ) {
-                    filters = new HashSet<String>((List<String>)values.get(i));
+                    throw new ReviewedStingException("Genotype filters not implemented in GATK BCF2");
+                    //filters = new HashSet<String>(values.get(i));
                 } else { // add to attributes
                     if ( attributes == null ) attributes = new HashMap<String, Object>(nFields);
                     attributes.put(field, values.get(i));

@@ -45,10 +45,17 @@ import java.util.*;
 public class EncoderDecoderUnitTest extends BaseTest {
     private final float FLOAT_TOLERANCE = (float)1e-8;
     final List<BCF2TypedValue> primitives = new ArrayList<BCF2TypedValue>();
+    final List<BCF2TypedValue> basicTypes = new ArrayList<BCF2TypedValue>();
     final List<BCF2TypedValue> forCombinations = new ArrayList<BCF2TypedValue>();
 
     @BeforeSuite
     public void before() {
+        basicTypes.add(new BCF2TypedValue(1, BCFType.INT8));
+        basicTypes.add(new BCF2TypedValue(1000, BCFType.INT16));
+        basicTypes.add(new BCF2TypedValue(1000000, BCFType.INT32));
+        basicTypes.add(new BCF2TypedValue(1.2345e6, BCFType.FLOAT));
+        basicTypes.add(new BCF2TypedValue(new Byte((byte)'A'), BCFType.CHAR));
+
         // small ints
         primitives.add(new BCF2TypedValue(0, BCFType.INT8));
         primitives.add(new BCF2TypedValue(10, BCFType.INT8));
@@ -172,6 +179,14 @@ public class EncoderDecoderUnitTest extends BaseTest {
         return tests.toArray(new Object[][]{});
     }
 
+    @DataProvider(name = "BCF2EncodingTestProviderBasicTypes")
+    public Object[][] BCF2EncodingTestProviderBasicTypes() {
+        List<Object[]> tests = new ArrayList<Object[]>();
+        for ( BCF2TypedValue tv : basicTypes )
+            tests.add(new Object[]{Arrays.asList(tv)});
+        return tests.toArray(new Object[][]{});
+    }
+
     @DataProvider(name = "BCF2EncodingTestProviderSequences")
     public Object[][] BCF2EncodingTestProviderSequences() {
         List<Object[]> tests = new ArrayList<Object[]>();
@@ -182,38 +197,69 @@ public class EncoderDecoderUnitTest extends BaseTest {
         return tests.toArray(new Object[][]{});
     }
 
-//        return new Iterator<Object[]>() {
-//            int counter = 0;
-//            final int primSize = primitives.size();
-//            final int primSize3 = primSize * primSize * primSize;
-//
-//            @Override public boolean hasNext() { return counter < primSize3; }
-//            @Override public void remove() { throw new ReviewedStingException("Remove not implemented"); }
-//
-//            @Override
-//            public Object[] next() {
-//                final int offset1 = counter % primSize;
-//                final int offset2 = (counter / primSize) % primSize;
-//                final int offset3 = counter / primSize;
-//                logger.info(String.format("%5d %5d %5d", offset1, offset2, offset3));
-//                counter++;
-//                return new Object[]{Arrays.asList(primitives.get(offset1), primitives.get(offset2), primitives.get(offset3))};
-//            }
-//        };
-
     @Test(dataProvider = "BCF2EncodingTestProviderSingletons")
     public void testBCF2EncodingSingletons(final List<BCF2TypedValue> toEncode) throws IOException {
         final byte[] record = encodeRecord(toEncode);
         decodeRecord(toEncode, record);
     }
 
-    @Test(dataProvider = "BCF2EncodingTestProviderSequences")
+    @Test(dataProvider = "BCF2EncodingTestProviderBasicTypes")
+    public void testBCF2EncodingVectors(final List<BCF2TypedValue> toEncode) throws IOException {
+        for ( final BCF2TypedValue tv : toEncode ) {
+            for ( final int length : Arrays.asList(2, 5, 10, 15, 20, 25) ) {
+                BCF2Encoder encoder = new BCF2Encoder();
+                List<Object> expected = Collections.nCopies(length, tv.value);
+                encoder.encodeTypedVector(expected, tv.type);
+
+                BCF2Decoder decoder = new BCF2Decoder(encoder.getRecordBytes());
+                final Object decoded = decoder.decodeTypedValue();
+
+                if ( tv.type == BCFType.CHAR ) {
+                    Assert.assertTrue(decoded instanceof String);
+                    final String decodedString = (String)decoded;
+                    Assert.assertTrue(decodedString.length() == length);
+                } else {
+                    Assert.assertTrue(decoded instanceof List);
+                    final List<Object> decodedList = (List<Object>)decoded;
+                    Assert.assertEquals(decodedList.size(), expected.size());
+                    for ( Object decodedValue : decodedList )
+                        myAssertEquals(tv, decodedValue);
+                }
+            }
+        }
+    }
+
+    @Test(dataProvider = "BCF2EncodingTestProviderBasicTypes")
+    public void testBCF2EncodingVectorsWithMissing(final List<BCF2TypedValue> toEncode) throws IOException {
+        for ( final BCF2TypedValue tv : toEncode ) {
+            if ( tv.type != BCFType.CHAR ) {
+                for ( final int length : Arrays.asList(2, 5, 10, 15, 20, 25) ) {
+                    final byte td = TypeDescriptor.encodeTypeDescriptor(1, tv.type);
+
+                    final BCF2Encoder encoder = new BCF2Encoder();
+                    for ( int i = 0; i < length; i++ ) {
+                        encoder.encodeRawValue(i % 2 == 0 ? null : tv.value, tv.type);
+                    }
+
+                    final BCF2Decoder decoder = new BCF2Decoder(encoder.getRecordBytes());
+
+                    for ( int i = 0; i < length; i++ ) {
+                        final Object decoded = decoder.decodeTypedValue(td);
+                        myAssertEquals(i % 2 == 0 ? new BCF2TypedValue(null, tv.type) : tv, decoded);
+                    }
+                }
+            }
+        }
+    }
+
+
+    @Test(dataProvider = "BCF2EncodingTestProviderSequences", dependsOnMethods = "testBCF2EncodingSingletons")
     public void testBCF2EncodingTestProviderSequences(final List<BCF2TypedValue> toEncode) throws IOException {
         final byte[] record = encodeRecord(toEncode);
         decodeRecord(toEncode, record);
     }
 
-    @Test(dataProvider = "BCF2EncodingTestProviderSequences")
+    @Test(dataProvider = "BCF2EncodingTestProviderSequences", dependsOnMethods = "testBCF2EncodingTestProviderSequences")
     public void testReadAndSkipWithMultipleBlocks(final List<BCF2TypedValue> block) throws IOException {
         testReadAndSkipWithMultipleBlocks(block, forCombinations);
         testReadAndSkipWithMultipleBlocks(forCombinations, block);
@@ -274,7 +320,7 @@ public class EncoderDecoderUnitTest extends BaseTest {
             }
         }
 
-// check output
+        // check output
         final byte[] record = encoder.getRecordBytes();
         Assert.assertNotNull(record);
         Assert.assertTrue(record.length > 0);
@@ -290,23 +336,27 @@ public class EncoderDecoderUnitTest extends BaseTest {
             Assert.assertFalse(decoder.blockIsFullyDecoded());
             final Object decoded = decoder.decodeTypedValue();
 
-            if ( tv.value == null ) { // special needs for instanceof double
-                Assert.assertEquals(decoded, tv.value);
-            } else if ( tv.type == BCFType.FLOAT ) { // need tolerance for floats, and they aren't null
-                Assert.assertTrue(decoded instanceof Double);
-
-                final float valueFloat = (float)(Float)tv.value;
-                final float decodedFloat = (float)(double)(Double)decoded;
-
-                if ( Float.isNaN(valueFloat) ) // NaN == NaN => false unfortunately
-                    Assert.assertTrue(Float.isNaN(decodedFloat));
-                else {
-                    Assert.assertEquals(decodedFloat, valueFloat, FLOAT_TOLERANCE);
-                }
-            } else
-                Assert.assertEquals(decoded, tv.value);
+            myAssertEquals(tv, decoded);
         }
 
         Assert.assertTrue(decoder.blockIsFullyDecoded());
+    }
+
+    private final void myAssertEquals(final BCF2TypedValue tv, final Object decoded) {
+        if ( tv.value == null ) { // special needs for instanceof double
+            Assert.assertEquals(decoded, tv.value);
+        } else if ( tv.type == BCFType.FLOAT ) { // need tolerance for floats, and they aren't null
+            Assert.assertTrue(decoded instanceof Double);
+
+            final float valueFloat = (float)(Float)tv.value;
+            final float decodedFloat = (float)(double)(Double)decoded;
+
+            if ( Float.isNaN(valueFloat) ) // NaN == NaN => false unfortunately
+                Assert.assertTrue(Float.isNaN(decodedFloat));
+            else {
+                Assert.assertEquals(decodedFloat, valueFloat, FLOAT_TOLERANCE);
+            }
+        } else
+            Assert.assertEquals(decoded, tv.value);
     }
 }

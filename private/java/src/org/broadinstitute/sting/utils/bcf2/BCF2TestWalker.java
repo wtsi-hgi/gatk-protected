@@ -118,13 +118,13 @@ public class BCF2TestWalker extends RodWalker<Integer, Integer> {
             pbs.skip(header.getHeaderEnd());
             Iterator<VariantContext> it = vcs.iterator();
             while ( ! pbs.isDone() ) {
-                VariantContext bcfRaw = codec.decode(pbs);
-                    VariantContext bcf = new VariantContextBuilder(bcfRaw).source("variant").make();
                 if ( keepVariants ) {
                     VariantContext expected = it.next();
                     if ( ! quiet )
                         System.out.printf("vcf = %s %d %s%n", expected.getChr(), expected.getStart(), expected);
                 }
+                VariantContext bcfRaw = codec.decode(pbs);
+                VariantContext bcf = new VariantContextBuilder(bcfRaw).source("variant").make();
                 if ( ! quiet ) {
                     System.out.printf("bcf = %s %d %s%n", bcf.getChr(), bcf.getStart(), bcf.toString());
                     System.out.printf("--------------------------------------------------%n");

@@ -189,21 +189,19 @@ public class BCF2Writer extends IndexingVCFWriter {
     private void buildInfo( VariantContext vc ) throws IOException {
         for ( Map.Entry<String, Object> infoFieldEntry : vc.getAttributes().entrySet() ) {
             final String key = infoFieldEntry.getKey();
-            final BCFType type = getBCF2TypeFromHeader(key);
+            Object value = infoFieldEntry.getValue();
 
-            if ( type == null ) {
-                logger.warn("Skipping un-encodable field " + key);
-            } else {
-                final Object value = infoFieldEntry.getValue();
-                encodeStringByRef(key);
+            final VCFToBCFType typeEquiv = getBCF2TypeFromHeader(key, value);
+            // handle the special FLAG case -- super annoying
+            if ( typeEquiv.vcfType == VCFHeaderLineType.Flag ) value = 1;
 
-                if ( value instanceof List ) // NOTE: ONLY WORKS WITH LISTS
-                    encoder.encodeTypedVector((List) value, type);
-                else if ( value instanceof String )
-                    encoder.encodeString((String)value);
-                else
-                    encoder.encodeTypedSingleton(value, type);
-            }
+            encodeStringByRef(key);
+            if ( value instanceof List ) // NOTE: ONLY WORKS WITH LISTS
+                encoder.encodeTypedVector((List) value, typeEquiv.bcfType);
+            else if ( value instanceof String )
+                encoder.encodeString((String)value);
+            else
+                encoder.encodeTypedSingleton(value, typeEquiv.bcfType);
         }
     }
 
@@ -257,45 +255,57 @@ public class BCF2Writer extends IndexingVCFWriter {
 
     private final void addGenericGenotypeField(final VariantContext vc, final String field) throws IOException {
         final int numInFormatField = getNGenotypeFieldValues(field, vc);
-        final BCFType type = getBCF2TypeFromHeader(field);
+        final VCFToBCFType type = getBCF2TypeFromHeader(field, null);
 
-        startGenotypeField(field, numInFormatField, type);
+        startGenotypeField(field, numInFormatField, type.bcfType);
         for ( final Genotype g : vc.getGenotypes() ) {
             if ( ! g.hasAttribute(field) ) {
-                encoder.encodeRawMissingValues(numInFormatField, type);
+                encoder.encodeRawMissingValues(numInFormatField, type.bcfType);
             } else {
                 final Object val = g.getAttribute(field);
                 final Collection<Object> vals = numInFormatField == 1 ? Collections.singleton(val) : (Collection)val;
-                encoder.encodeRawValues(vals, type);
+                encoder.encodeRawValues(vals, type.bcfType);
             }
         }
     }
 
-    private final BCFType getBCF2TypeFromHeader(final String field) {
-        // TODO -- should take VC to determine best encoding
+    private final class VCFToBCFType {
+        VCFHeaderLineType vcfType;
+        BCFType bcfType;
+
+        private VCFToBCFType(final VCFHeaderLineType vcfType, final BCFType bcfType) {
+            this.vcfType = vcfType;
+            this.bcfType = bcfType;
+        }
+    }
+
+    // TODO -- we really need explicit converters as first class objects
+    private final VCFToBCFType getBCF2TypeFromHeader(final String field, final Object maybeIntValue) {
+        // TODO -- need to generalize so we can enable vectors of compressed genotype ints
         final VCFCompoundHeaderLine metaData = VariantContext.getMetaDataForField(header, field);
 
+        // TODO -- no sense in allocating these over and over
         switch ( metaData.getType() ) {
-            case Character: return BCFType.CHAR;
-            case Flag:      return null;  // TODO -- HOW TO ENCODE FLAG?
-            case String:    return BCFType.CHAR;
-            case Integer:   return BCFType.INT32;
-            case Float:     return BCFType.FLOAT;
+            case Character: return new VCFToBCFType(metaData.getType(), BCFType.CHAR);
+            case Flag:      return new VCFToBCFType(metaData.getType(), BCFType.INT8);
+            case String:    return new VCFToBCFType(metaData.getType(), BCFType.CHAR);
+            case Integer:   return new VCFToBCFType(metaData.getType(), maybeIntValue != null ? encoder.determineIntegerType((Integer)maybeIntValue) : BCFType.INT32);
+            case Float:     return new VCFToBCFType(metaData.getType(), BCFType.FLOAT);
             default:        throw new ReviewedStingException("Unexpected type for field " + field);
         }
     }
 
     private final void addGenotypeFilters(final VariantContext vc) throws IOException {
         logger.warn("Skipping genotype filter field");
-        // TODO -- FIXME -- string is wrong here -- need to compute string size...
-        startGenotypeField(VCFConstants.GENOTYPE_FILTER_KEY, 1, BCFType.CHAR);
-        for ( final Genotype g : vc.getGenotypes() ) {
+//        // TODO -- FIXME -- string is wrong here -- need to compute string size...
+//        startGenotypeField(VCFConstants.GENOTYPE_FILTER_KEY, 1, BCFType.CHAR);
+//        for ( final Genotype g : vc.getGenotypes() ) {
 //            if ( g.filtersWereApplied() && g.isFiltered() ) {
 //                encoder.encodeString(ParsingUtils.join(";", ParsingUtils.sortList(g.getFilters())));
 //            } else {
-                encoder.encodeRawMissingValues(1, BCFType.CHAR); // todo fixme
+//                encoder.encodeRawMissingValues(1, BCFType.CHAR); // todo fixme
 //            }
-        }
+//        }
     }
 
     private final void addGQ(final VariantContext vc) throws IOException {
@@ -353,7 +363,7 @@ public class BCF2Writer extends IndexingVCFWriter {
         for ( final String string : strings ) {
             final int offset = stringDictionary.get(string);
             offsets.add(offset);
-            final BCFType type1 = encoder.determizeBestTypeBySize(offset, TypeDescriptor.DICTIONARY_TYPES_BY_SIZE);
+            final BCFType type1 = encoder.determineIntegerType(offset);
             switch ( type1 ) {
                 case INT8:  break;
                 case INT16: if ( maxType == BCFType.INT8 ) maxType = BCFType.INT16; break;
