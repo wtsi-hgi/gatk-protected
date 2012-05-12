@@ -22,11 +22,10 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.bcf2;
+package org.broadinstitute.sting.utils.codecs.bcf2;
 
 import net.sf.samtools.SAMSequenceDictionary;
 import org.apache.log4j.Logger;
-import org.broad.tribble.util.ParsingUtils;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;

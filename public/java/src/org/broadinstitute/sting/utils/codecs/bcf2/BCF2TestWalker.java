@@ -22,10 +22,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.bcf2;
+package org.broadinstitute.sting.utils.codecs.bcf2;
 
-import org.broad.tribble.Feature;
-import org.broad.tribble.FeatureCodec;
 import org.broad.tribble.FeatureCodecHeader;
 import org.broad.tribble.readers.PositionalBufferedStream;
 import org.broadinstitute.sting.commandline.*;

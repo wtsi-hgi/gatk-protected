@@ -22,7 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.bcf2;
+package org.broadinstitute.sting.utils.codecs.bcf2;
 
 import org.apache.log4j.Logger;
 import org.broad.tribble.Feature;

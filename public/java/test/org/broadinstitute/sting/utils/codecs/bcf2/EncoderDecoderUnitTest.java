@@ -23,7 +23,7 @@
  */
 
 // our package
-package org.broadinstitute.sting.utils.bcf2;
+package org.broadinstitute.sting.utils.codecs.bcf2;
 
 
 // the imports for unit testing.
