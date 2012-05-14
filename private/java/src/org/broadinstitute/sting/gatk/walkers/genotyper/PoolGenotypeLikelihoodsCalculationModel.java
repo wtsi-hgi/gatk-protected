@@ -49,10 +49,12 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
                                               Map<String,AlignmentContext> contexts) {
         // Get reference base from VCF or Reference
         AlignmentContext context = contexts.get(UAC.referenceSampleName);
-
-        VariantContext referenceSampleVC = tracker.getFirstValue(UAC.referenceSampleRod, context.getLocation());
-
         ArrayList<Allele> trueReferenceAlleles = new ArrayList<Allele>();
+
+        VariantContext referenceSampleVC = null;
+
+        if (tracker != null)
+            referenceSampleVC = tracker.getFirstValue(UAC.referenceSampleRod, context.getLocation());
 
         // Site is not a variant, take from the reference
         if (referenceSampleVC == null) {

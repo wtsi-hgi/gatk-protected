@@ -79,7 +79,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
             GLs = subsetAlleles(vc, alleles, false, ploidy);
         }
 
-        combineSinglePools(GLs, alleles.size(), 2*UAC.nSamplesPerPool, log10AlleleFrequencyPriors, result);
+        combineSinglePools(GLs, alleles.size(), ploidy, log10AlleleFrequencyPriors, result);
 
         return alleles;
     }
