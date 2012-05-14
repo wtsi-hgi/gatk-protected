@@ -52,7 +52,7 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.writer.BCF2Writer;
+import org.broadinstitute.sting.utils.variantcontext.writer.Options;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriterFactory;
 
@@ -177,7 +177,8 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             int counter = 0;
             FeatureReader<VariantContext> reader = AbstractFeatureReader.getFeatureReader(vcfFile.getAbsolutePath(), new VCFCodec(), false);
             FileOutputStream outputStream = new FileOutputStream(bcf2File);
-            final BCF2Writer bcf2Writer = new BCF2Writer(bcf2File, outputStream, getToolkit().getReferenceDataSource().getReference().getSequenceDictionary(), false, false);
+            EnumSet<Options> options = EnumSet.of(Options.FORCE_BCF, Options.INDEX_ON_THE_FLY);
+            final VariantContextWriter bcf2Writer = VariantContextWriterFactory.create(bcf2File, outputStream, getToolkit().getReferenceDataSource().getReference().getSequenceDictionary(), options);
             VCFHeader header = VCFUtils.withUpdatedContigs((VCFHeader)reader.getHeader(), getToolkit());
             bcf2Writer.writeHeader(header);
 
