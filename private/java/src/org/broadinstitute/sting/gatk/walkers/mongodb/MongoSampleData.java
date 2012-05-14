@@ -3,8 +3,7 @@ package org.broadinstitute.sting.gatk.walkers.mongodb;
 import com.mongodb.*;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created with IntelliJ IDEA.
@@ -23,6 +22,10 @@ public class MongoSampleData {
     private final String sourceROD;
 
     private final Genotype genotype;
+
+    protected Genotype getGenotype() {
+        return genotype;
+    }
 
     protected static void ensurePrimaryKey() {
         MongoDB.getSamplesCollection().ensureIndex(new BasicDBObject("sample", 1).append("block", 1), new BasicDBObject("unique", 1));
@@ -106,10 +109,71 @@ public class MongoSampleData {
 
             genotypesDoc.put("error", sample.genotype.getLog10PError());
             siteDoc.put("genotype", genotypesDoc);
+
             sitesList.add(siteDoc);
         }
 
         blockDoc.put("sites", sitesList);
         collection.insert(blockDoc);
+    }
+
+    protected static List<MongoSampleData> retrieveFromMongo(MongoBlockKey block_id, String sample) {
+        List<MongoSampleData> returnList = new ArrayList<MongoSampleData>();
+
+        BasicDBObject query = new BasicDBObject();
+        query.put("sample", sample);
+        query.put("block", block_id.key);
+
+        DBCursor cursor = MongoDB.getSamplesCollection().find(query);
+        while(cursor.hasNext()) {
+            DBObject blockResult = cursor.next();
+
+            for (BasicDBObject siteDoc : (List<BasicDBObject>)blockResult.get("sites")) {
+                String pContig = (String)siteDoc.get("contig");
+                Integer pStart = (Integer)siteDoc.get("start");
+                Integer pStop = (Integer)siteDoc.get("stop");
+
+                ArrayList<Allele> pAlleles = new ArrayList<Allele>();
+                BasicDBObject allelesInDb = (BasicDBObject)siteDoc.get("alleles");
+                for (Object alleleInDb : allelesInDb.values()) {
+                    String rawAllele = (String)alleleInDb;
+                    boolean isRef = rawAllele.contains("*");
+                    String allele = rawAllele.replace("*", "");
+                    pAlleles.add(Allele.create(allele, isRef));
+                }
+
+                String pSourceROD = (String)siteDoc.get("sourceROD");
+
+                BasicDBObject genotypeDoc = (BasicDBObject)siteDoc.get("genotype");
+
+                ArrayList<Allele> genotypeAlleles = new ArrayList<Allele>();
+                BasicDBObject genotypeAllelesInDb = (BasicDBObject)genotypeDoc.get("alleles");
+                for (Object alleleInDb : genotypeAllelesInDb.values()) {
+                    String rawAllele = (String)alleleInDb;
+                    boolean isRef = rawAllele.contains("*");
+                    String allele = rawAllele.replace("*", "");
+                    genotypeAlleles.add(Allele.create(allele, isRef));
+                }
+                Double genotypeError = (Double)genotypeDoc.get("error");
+
+                Map<String, Object> genotypeAttributes = new HashMap<String, Object>();
+                BasicDBObject genotypeAttrsInDb = (BasicDBObject)genotypeDoc.get("attributes");
+                for (String key : genotypeAttrsInDb.keySet()) {
+                    Object value = genotypeAttrsInDb.get(key);
+                    genotypeAttributes.put(key, value);
+                }
+
+                Genotype pGenotype = Genotype.modifyAttributes(new Genotype(sample, genotypeAlleles, genotypeError),
+                        genotypeAttributes);
+
+                returnList.add(new MongoSampleData(pContig, pStart, pStop, pAlleles, pSourceROD, pGenotype));
+            }
+        }
+
+        return returnList;
+    }
+
+    protected boolean matches(String pContig, Integer pStart) {
+        return this.contig.equals(pContig) && this.start.equals(pStart);
     }
 }

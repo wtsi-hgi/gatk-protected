@@ -2,6 +2,7 @@ package org.broadinstitute.sting.gatk.walkers.mongodb;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 /**
@@ -17,6 +18,10 @@ final public class MongoBlockKey {
 
     public MongoBlockKey(VariantContext vc) {
         key = vc.getChr();
+    }
+
+    public MongoBlockKey(GenomeLoc gl) {
+        key = gl.getContig();
     }
 
     @Override

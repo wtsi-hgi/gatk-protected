@@ -4,10 +4,9 @@ import com.mongodb.*;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**                   
  * Created with IntelliJ IDEA.
@@ -139,4 +138,80 @@ public class MongoSiteData {
         blockDoc.put("sites", sitesList);
         collection.insert(blockDoc);
     }
+
+    protected static List<MongoSiteData> retrieveFromMongo(MongoBlockKey block_id) {
+        List<MongoSiteData> returnList = new ArrayList<MongoSiteData>();
+
+        BasicDBObject query = new BasicDBObject();
+        query.put("block", block_id.key);
+
+        DBCursor cursor = MongoDB.getSitesCollection().find(query);
+        while(cursor.hasNext()) {
+            DBObject blockResult = cursor.next();
+
+            for (BasicDBObject siteDoc : (List<BasicDBObject>)blockResult.get("sites")) {
+                String pContig = (String)siteDoc.get("contig");
+                Integer pStart = (Integer)siteDoc.get("start");
+                Integer pStop = (Integer)siteDoc.get("stop");
+
+                ArrayList<Allele> pAlleles = new ArrayList<Allele>();
+                BasicDBObject allelesInDb = (BasicDBObject)siteDoc.get("alleles");
+                for (Object alleleInDb : allelesInDb.values()) {
+                    String rawAllele = (String)alleleInDb;
+                    boolean isRef = rawAllele.contains("*");
+                    String allele = rawAllele.replace("*", "");
+                    pAlleles.add(Allele.create(allele, isRef));
+                }
+
+                String pSourceROD = (String)siteDoc.get("sourceROD");
+                String pId = (String)siteDoc.get("id");
+                Double pError = (Double)siteDoc.get("error");
+                String pSource = (String)siteDoc.get("source");
+                VariantContext.Type pType = VariantContext.Type.valueOf((String)siteDoc.get("type"));
+
+                Set<String> pFilters = new HashSet<String>();
+                BasicDBList filtersInDb = (BasicDBList)siteDoc.get("filters");
+                if (filtersInDb != null) {
+                    for (Object filterInDb : filtersInDb) {
+                        pFilters.add((String)filterInDb);
+                    }
+                }
+
+                Map<String, Object> pAttributes = new HashMap<String, Object>();
+                BasicDBObject attrsInDb = (BasicDBObject)siteDoc.get("attributes");
+                for (String key : attrsInDb.keySet()) {
+                    Object value = attrsInDb.get(key);
+                    pAttributes.put(key, value);
+                }
+
+                returnList.add(new MongoSiteData(pContig, pStart, pStop, pAlleles, pSourceROD, pId, pError, pSource, pType, pFilters, pAttributes));
+            }
+        }
+
+        return returnList;
+    }
+
+    protected VariantContextBuilder builder(ReferenceContext ref) {
+        VariantContextBuilder builder = new VariantContextBuilder(source, contig, start, stop, alleles);
+
+        builder.id(id);
+        builder.log10PError(error);
+        builder.attributes(attributes);
+        builder.filters(filters);
+
+        long index = start - ref.getWindow().getStart() - 1;
+        if ( index >= 0 ) {
+            // we were given enough reference context to create the VariantContext
+            builder.referenceBaseForIndel(ref.getBases()[(int)index]);        // TODO: needed?
+        }
+
+        builder.referenceBaseForIndel(ref.getBases()[0]);                   // TODO: correct?
+
+        return builder;
+    }
+
+    protected boolean matches(String pContig, Integer pStart) {
+        return this.contig.equals(pContig) && this.start.equals(pStart);
+    }
 }
+
