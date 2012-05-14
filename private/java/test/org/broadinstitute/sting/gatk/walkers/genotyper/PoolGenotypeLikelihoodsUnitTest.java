@@ -48,7 +48,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
     final Logger logger = Logger.getLogger(Walker.class);
     private static final boolean VERBOSE = false;
     private static final boolean SIMULATE_NOISY_PILEUP = false;
-    private static final int NUM_SIMULATED_OBS = 10000;
+    private static final int NUM_SIMULATED_OBS = 10;
 
     @Test
     public void testStoringLikelihoodElements() {
@@ -338,14 +338,15 @@ public class PoolGenotypeLikelihoodsUnitTest {
         }
 
         PrintStream out = null;
-        try {
-            out = new PrintStream(new File("/humgen/gsa-scr1/delangel/GATK/Sting_unstable_mac/GLUnitTest.table"));
-//                            out = new PrintStream(new File("/Users/delangel/GATK/Sting_unstable/GLUnitTest.table"));
+        if (SIMULATE_NOISY_PILEUP) {
+            try {
+                out = new PrintStream(new File("/humgen/gsa-scr1/delangel/GATK/Sting_unstable_mac/GLUnitTest.table"));
+    //                            out = new PrintStream(new File("/Users/delangel/GATK/Sting_unstable/GLUnitTest.table"));
+            }
+            catch (Exception e) {}
+            // write header
+            out.format("Depth\tPoolPloidy\tACTrue\tACEst\tREF\tALTTrue\tALTEst\n");
         }
-        catch (Exception e) {}
-        // write header
-        out.format("Depth\tPoolPloidy\tACTrue\tACEst\tREF\tALTTrue\tALTEst\n");
-
         final int[] depthVector = {1000,10000};
         //final double[] alleleFrequencyVector = {0.01,0.1,0.5,1.0};
         final int[] spVector = {10,100};
