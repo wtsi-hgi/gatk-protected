@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 
 import java.util.LinkedList;
 
@@ -72,18 +73,27 @@ public class HeaderElement {
      * Adds a new base to the HeaderElement updating all counts accordingly
      *
      * @param base           the base to add
-     * @param qual           the base quality
-     * @param mappingQuality the mapping quality of the read this base belongs to
+     * @param baseQual           the base quality
+     * @param baseMappingQuality the mapping quality of the read this base belongs to
      */
-    public void addBase(byte base, byte qual, int mappingQuality, int minBaseQual, int minMappingQual) {
-        if (qual >= minBaseQual && mappingQuality >= minMappingQual)
-            consensusBaseCounts.incr(base, qual); // If the base passes filters, it is included in the consensus base counts
+    public void addBase(byte base, byte baseQual, int baseMappingQuality, int minBaseQual, int minMappingQual) {
+        if (basePassesFilters(baseQual, minBaseQual, baseMappingQuality, minMappingQual))
+            consensusBaseCounts.incr(base, baseQual);                                                                   // If the base passes filters, it is included in the consensus base counts
         else
-            filteredBaseCounts.incr(base, qual);  // If the base fails filters, it is included with the filtered data base counts
+            filteredBaseCounts.incr(base, baseQual);                                                                    // If the base fails filters, it is included with the filtered data base counts
 
-        this.mappingQuality.add(mappingQuality);  // Filtered or not, the RMS mapping quality includes all bases in this site
+        this.mappingQuality.add(baseMappingQuality);                                                                    // Filtered or not, the RMS mapping quality includes all bases in this site
     }
 
+    public void removeBase(byte base, byte baseQual, int baseMappingQuality, int minBaseQual, int minMappingQual) {
+        if (basePassesFilters(baseQual, minBaseQual, baseMappingQuality, minMappingQual))
+            consensusBaseCounts.decr(base, baseQual);                                                                   // If the base passes filters, it is included in the consensus base counts
+        else
+            filteredBaseCounts.decr(base, baseQual);                                                                    // If the base fails filters, it is included with the filtered data base counts
+
+        this.mappingQuality.remove((Integer) baseMappingQuality);                                                       // Filtered or not, the RMS mapping quality includes all bases in this site
+
+    }
     /**
      * Adds an insertions to the right of the HeaderElement and updates all counts accordingly. All insertions
      * should be added to the right of the element.
@@ -164,4 +174,16 @@ public class HeaderElement {
         return mostCommonProportion != 0.0 && mostCommonProportion < (1 - minVariantProportion);
     }
 
+    private boolean basePassesFilters(byte baseQual, int minBaseQual, int baseMappingQuality, int minMappingQual) {
+        return baseQual >= minBaseQual && baseMappingQuality >= minMappingQual;
+    }
+
+    /**
+     * removes an insertion from this element (if you removed a read that had an insertion)
+     */
+    public void removeInsertionToTheRight() {
+        this.insertionsToTheRight--;
+        if (insertionsToTheRight < 0)
+            throw new ReviewedStingException("Removed too many insertions, header is now negative!");
+    }
 }

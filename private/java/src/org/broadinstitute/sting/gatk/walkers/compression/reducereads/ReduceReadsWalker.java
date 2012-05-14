@@ -25,6 +25,9 @@
 
 package org.broadinstitute.sting.gatk.walkers.compression.reducereads;
 
+import net.sf.samtools.Cigar;
+import net.sf.samtools.CigarElement;
+import net.sf.samtools.CigarOperator;
 import net.sf.samtools.util.SequenceUtil;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Hidden;
@@ -105,7 +108,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      * towards variable regions.
      */
     @Argument(fullName = "minimum_base_quality_to_consider", shortName = "minqual", doc = "", required = false)
-    protected int minBaseQual = 20;
+    protected byte minBaseQual = 20;
 
     /**
      * Reads have notoriously low quality bases on the tails (left and right). Consecutive bases with quality
@@ -136,11 +139,12 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     protected boolean DONT_CLIP_LOW_QUAL_TAILS = false;
 
     /**
-     * Do not hard clip away soft clipped bases. By default, ReduceReads will hard clip away any soft clipped
-     * base left by the aligner.
+     * Do not use high quality soft-clipped bases. By default, ReduceReads will hard clip away any low quality soft clipped
+     * base left by the aligner and use the high quality soft clipped bases in it's traversal algorithm to identify variant
+     * regions. The minimum quality for soft clipped bases is the same as the minimum base quality to consider (minqual)
      */
-    @Argument(fullName = "dont_hardclip_softclipped_bases", shortName = "noclip_soft", doc = "", required = false)
-    protected boolean DONT_CLIP_SOFTCLIPPED_BASES = false;
+    @Argument(fullName = "dont_use_softclipped_bases", shortName = "no_soft", doc = "", required = false)
+    protected boolean DONT_USE_SOFTCLIPPED_BASES = false;
 
     /**
      * Do not compress read names. By default, ReduceReads will compress read names to numbers and guarantee 
@@ -245,28 +249,36 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         if (debugLevel == 1)
             System.out.printf("\nOriginal: %s %s %d %d\n", read, read.getCigar(), read.getAlignmentStart(), read.getAlignmentEnd());
 
-        // we right the actual alignment starts to their respectiv alignment shift tags in the temporary
+        // we write the actual alignment starts to their respectiv alignment shift tags in the temporary
         // attribute hash so we can determine later if we need to write down the alignment shift to the reduced BAM file
         read.setTemporaryAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_START_SHIFT, read.getAlignmentStart());
         read.setTemporaryAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_END_SHIFT, read.getAlignmentEnd());
         
         if (!DONT_SIMPLIFY_READS)
-            read.simplify();                                                    // Clear all unnecessary attributes
+            read.simplify();                                                                                            // Clear all unnecessary attributes
         if (!DONT_CLIP_ADAPTOR_SEQUENCES)
-            read = ReadClipper.hardClipAdaptorSequence(read);                   // Strip away adaptor sequences, if any.
+            read = ReadClipper.hardClipAdaptorSequence(read);                                                           // Strip away adaptor sequences, if any.
         if (!DONT_CLIP_LOW_QUAL_TAILS)
-            read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);       // Clip low quality tails
-        if (!DONT_CLIP_SOFTCLIPPED_BASES)
-            read = ReadClipper.hardClipSoftClippedBases(read);                  // Hard clip everything that is soft clipped
-        if (!isWholeGenome()) 
-            mappedReads = hardClipReadToInterval(read);                         // Hard clip the remainder of the read to the desired interval
+            read = ReadClipper.hardClipLowQualEnds(read, minTailQuality);                                               // Clip low quality tails
+        if (!isWholeGenome())
+            mappedReads = hardClipReadToInterval(read);                                                                 // Hard clip the remainder of the read to the desired interval
         else {
             mappedReads = new LinkedList<GATKSAMRecord>();
             if (!read.isEmpty())
                 mappedReads.add(read);
         }
-        
-        if (debugLevel == 1) 
+
+        if (!mappedReads.isEmpty() && !DONT_USE_SOFTCLIPPED_BASES) {
+            LinkedList<GATKSAMRecord> tempList = new LinkedList<GATKSAMRecord>();
+            for (GATKSAMRecord mRead : mappedReads) {
+                GATKSAMRecord clippedRead = ReadClipper.revertSoftClippedBases(mRead, minBaseQual);
+                if (!clippedRead.isEmpty())
+                    tempList.add(clippedRead);
+            }
+            mappedReads = tempList;
+        }
+
+        if (debugLevel == 1)
             for (GATKSAMRecord mappedRead : mappedReads)
                 System.out.printf("MAPPED: %s %d %d\n", mappedRead.getCigar(), mappedRead.getAlignmentStart(), mappedRead.getAlignmentEnd());
 
@@ -505,9 +517,80 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         if (debugLevel == 1)
             System.out.println("BAM: " + read.getCigar() + " " + read.getAlignmentStart() + " " + read.getAlignmentEnd());
 
-        GATKSAMRecord compressedRead = DONT_COMPRESS_READ_NAMES ? read : compressReadName(read);
-        out.addAlignment(compressedRead);
+        if (!DONT_USE_SOFTCLIPPED_BASES)
+            reSoftClipBases(read);
+
+        if (!DONT_COMPRESS_READ_NAMES)
+            compressReadName(read);
+
+        out.addAlignment(read);
     }
+
+    private void reSoftClipBases(GATKSAMRecord read) {
+        Integer left = (Integer) read.getTemporaryAttribute("SL");
+        Integer right = (Integer) read.getTemporaryAttribute("SR");
+        if (left != null || right != null) {
+            Cigar newCigar = new Cigar();
+            for (CigarElement element : read.getCigar().getCigarElements()) {
+                newCigar.add(new CigarElement(element.getLength(), element.getOperator()));
+            }
+
+            if (left != null) {
+                newCigar = updateFirstSoftClipCigarElement(left, newCigar);
+                read.setAlignmentStart(read.getAlignmentStart() + left);
+            }
+
+            if (right != null) {
+                Cigar invertedCigar = invertCigar(newCigar);
+                newCigar = invertCigar(updateFirstSoftClipCigarElement(right, invertedCigar));
+            }
+            read.setCigar(newCigar);
+        }
+    }
+
+    /**
+     * Facility routine to revert the first element of a Cigar string (skipping hard clips) into a soft-clip.
+     * To be used on both ends if provided a flipped Cigar
+     *
+     * @param softClipSize  the length of the soft clipped element to add
+     * @param originalCigar the original Cigar string
+     * @return a new Cigar object with the soft clips added
+     */
+    private Cigar updateFirstSoftClipCigarElement (int softClipSize, Cigar originalCigar) {
+        Cigar result = new Cigar();
+        CigarElement leftElement = new CigarElement(softClipSize, CigarOperator.S);
+        boolean updated = false;
+        for (CigarElement element : originalCigar.getCigarElements()) {
+            if (!updated && element.getOperator() == CigarOperator.M) {
+                result.add(leftElement);
+                int newLength = element.getLength() - softClipSize;
+                if (newLength > 0)
+                    result.add(new CigarElement(newLength, CigarOperator.M));
+                updated = true;
+            }
+            else
+                result.add(element);
+        }
+        return result;
+    }
+
+    /**
+     * Given a cigar string, returns the inverted cigar string.
+     *
+     * @param cigar the original cigar
+     * @return the inverted cigar
+     */
+    private Cigar invertCigar(Cigar cigar) {
+        Stack<CigarElement> stack = new Stack<CigarElement>();
+        for (CigarElement e : cigar.getCigarElements())
+            stack.push(e);
+        Cigar inverted = new Cigar();
+        while (!stack.empty()) {
+            inverted.add(stack.pop());
+        }
+        return inverted;
+    }
+
 
     /**
      * Quality control procedure that checks if the consensus reads contains too many
@@ -533,17 +616,8 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      * this read name before.
      *
      * @param read any read
-     * @return a new read, with a compressed version of the read name
      */
-    private GATKSAMRecord compressReadName(GATKSAMRecord read) {
-        GATKSAMRecord compressedRead;
-
-        try {
-            compressedRead = (GATKSAMRecord) read.clone();
-        } catch (CloneNotSupportedException e) {
-            throw new ReviewedStingException("Where did the clone go?");
-        }
-
+    private void compressReadName(GATKSAMRecord read) {
         String name = read.getReadName();
         String compressedName = read.isReducedRead() ? "C" : "";
         if (readNameHash.containsKey(name))
@@ -554,17 +628,16 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
             nextReadNumber++;
         }
 
-        compressedRead.setReadName(compressedName);
-        return compressedRead;
+        read.setReadName(compressedName);
     }
 
     /**
      * Returns true if the read is the original read that went through map().
-     * <p/>
+     *
      * This is important to know so we can decide what reads to pull from the stash. Only reads that came before the original read should be pulled.
      *
-     * @param list
-     * @param read
+     * @param list the list
+     * @param read the read
      * @return Returns true if the read is the original read that went through map().
      */
     private boolean isOriginalRead(LinkedList<GATKSAMRecord> list, GATKSAMRecord read) {
@@ -574,7 +647,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
     /**
      * Checks whether or not the intervalList is empty, meaning we're running in WGS mode.
      *
-     * @return
+     * @return whether or not we're running in WGS mode.
      */
     private boolean isWholeGenome() {
         return intervalList.isEmpty();

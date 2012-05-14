@@ -5,7 +5,6 @@ import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -24,10 +23,9 @@ import java.util.*;
 public class SlidingWindow {
 
     // Sliding Window data
-    protected LinkedList<GATKSAMRecord> readsInWindow;
-    protected LinkedList<HeaderElement> windowHeader;
-    protected int contextSize;                                      // the largest context size (between mismatches and indels)
-    protected int startLocation;
+    final private LinkedList<GATKSAMRecord> readsInWindow;
+    final private LinkedList<HeaderElement> windowHeader;
+    protected int contextSize;                                                                                          // the largest context size (between mismatches and indels)
     protected int stopLocation;
     protected String contig;
     protected int contigIndex;
@@ -47,13 +45,12 @@ public class SlidingWindow {
 
 
     // Additional parameters
-    protected double MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT;    // proportion has to be greater than this value to trigger variant region due to mismatches
-    protected double MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;  // proportion has to be greater than this value to trigger variant region due to deletions
-    protected int MIN_BASE_QUAL_TO_COUNT;                           // qual has to be greater than or equal to this value
+    protected double MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT;                                                        // proportion has to be greater than this value to trigger variant region due to mismatches
+    protected double MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT;                                                      // proportion has to be greater than this value to trigger variant region due to deletions
+    protected int MIN_BASE_QUAL_TO_COUNT;                                                                               // qual has to be greater than or equal to this value
     protected int MIN_MAPPING_QUALITY;
 
     protected ReduceReadsWalker.DownsampleStrategy downsampleStrategy;
-
 
     /**
      * The types of synthetic reads to use in the finalizeAndAdd method
@@ -76,9 +73,12 @@ public class SlidingWindow {
         return contigIndex;
     }
 
+    public int getStartLocation() {
+        return windowHeader.isEmpty() ? -1 : windowHeader.peek().getLocation();
+    }
+
 
     public SlidingWindow(String contig, int contigIndex, int contextSize, SAMFileHeader header, GATKSAMReadGroupRecord readGroupAttribute, int windowNumber, final double minAltProportionToTriggerVariant, final double minIndelProportionToTriggerVariant, int minBaseQual, int minMappingQuality, int downsampleCoverage, final ReduceReadsWalker.DownsampleStrategy downsampleStrategy) {
-        this.startLocation = -1;
         this.stopLocation = -1;
         this.contextSize = contextSize;
         this.downsampleCoverage = downsampleCoverage;
@@ -120,64 +120,89 @@ public class SlidingWindow {
      * @return a list of reads that have been finished by sliding the window.
      */
     public List<GATKSAMRecord> addRead(GATKSAMRecord read) {
-        // If this is the first read in the window, update startLocation
-        if (startLocation < 0)
-            startLocation = read.getAlignmentStart();
-
-        List<GATKSAMRecord> finalizedReads = slideIfPossible(read.getUnclippedStart());
-
-        // update the window header counts
-        updateHeaderCounts(read);
-
-        // add read to sliding reads
-        readsInWindow.add(read);
-
-        return finalizedReads;
+        updateHeaderCounts(read, false);                                                                                // update the window header counts
+        readsInWindow.add(read);                                                                                        // add read to sliding reads
+        return slideWindow(read.getUnclippedStart());
     }
 
     /**
+     * returns the next complete or incomplete variant region between 'from' (inclusive) and 'to' (exclusive)
+     *
+     * @param from         beginning window header index of the search window (inclusive)
+     * @param to           end window header index of the search window (exclusive)
+     * @param variantSite  boolean array with true marking variant regions
+     * @return null if nothing is variant, start/stop if there is a complete variant region, start/-1 if there is an incomplete variant region.
+     */
+    private Pair<Integer, Integer> getNextVariantRegion(int from, int to, boolean[] variantSite) {
+        boolean foundStart = false;
+        int variantRegionStartIndex = 0;
+        for (int i=from; i<to; i++) {
+            if (variantSite[i] && !foundStart) {
+                variantRegionStartIndex = i;
+                foundStart = true;
+            }
+            else if(!variantSite[i] && foundStart) {
+                return(new Pair<Integer, Integer>(variantRegionStartIndex, i-1));
+            }
+        }
+        return (foundStart) ? new Pair<Integer, Integer>(variantRegionStartIndex, -1) : null;
+    }
+
+    /**
+     * Creates a list with all the complete and incomplete variant regions within 'from' (inclusive) and 'to' (exclusive)
+     *
+     * @param from         beginning window header index of the search window (inclusive)
+     * @param to           end window header index of the search window (exclusive)
+     * @param variantSite  boolean array with true marking variant regions
+     * @return a list with start/stops of variant regions following getNextVariantRegion description
+     */
+    private List<Pair<Integer, Integer>> getAllVariantRegions(int from, int to, boolean[] variantSite) {
+        List<Pair<Integer,Integer>> regions = new LinkedList<Pair<Integer, Integer>>();
+        int index = from;
+        while(index < to) {
+            Pair<Integer,Integer> result = getNextVariantRegion(index, to, variantSite);
+            if (result == null)
+                break;
+
+            regions.add(result);
+            if (result.getSecond() < 0)
+                break;
+            index = result.getSecond() + 1;
+        }
+        return regions;
+    }
+
+
+    /**
      * Determines if the window can be slid given the new incoming read.
-     * 
+     *
      * We check from the start of the window to the (unclipped) start of the new incoming read if there
      * is any variant.
-     * 
-     * If there are no variant sites, we slide the left side of the window to the unclipped start of the
-     * new incoming read minus the context size (we can only guarantee that the reads before this point
-     * will not be in any variant region ever)
-     * 
      * If there are variant sites, we check if it's time to close the variant region.
      *
      * @param incomingReadUnclippedStart the incoming read's start position. Must be the unclipped start!
      * @return all reads that have fallen to the left of the sliding window after the slide
      */
-    protected List<GATKSAMRecord> slideIfPossible(int incomingReadUnclippedStart) {
-
+    protected List<GATKSAMRecord> slideWindow(int incomingReadUnclippedStart) {
         List<GATKSAMRecord> finalizedReads = new LinkedList<GATKSAMRecord>();
 
-        // No point doing any calculation if the read's unclipped start is behind
-        // the start of the window
-        if (incomingReadUnclippedStart - contextSize > startLocation) {
-            int positionShift = incomingReadUnclippedStart - startLocation;
-            boolean[] variantSite = markSites(startLocation + positionShift);
+        if (incomingReadUnclippedStart - contextSize > getStartLocation()) {
+            int readStartHeaderIndex = incomingReadUnclippedStart - getStartLocation();
+            boolean[] variantSite = markSites(getStartLocation() + readStartHeaderIndex);
+            int breakpoint = Math.max(readStartHeaderIndex - contextSize - 1, 0);                                       // this is the limit of what we can close/send to consensus (non-inclusive)
 
-            // this is the limit of what we can close/send to consensus (non-inclusive)
-            int breakpoint = Math.max(positionShift - contextSize, 0);
-            int start = 0;
-            int i = 0;
+            List<Pair<Integer,Integer>> regions = getAllVariantRegions(0, breakpoint, variantSite);
+            finalizedReads = closeVariantRegions(regions, false);
 
-            while (i < breakpoint) {
-                while (i < breakpoint && !variantSite[i]) i++;
-                finalizedReads.addAll(addToSyntheticReads(start, i));
-
-                start = i;
-                while (i < breakpoint && variantSite[i]) i++;
-                if (i < breakpoint || (i - 1 > 0 && variantSite[i - 1] && !variantSite[i])) {
-                    finalizedReads.addAll(closeVariantRegion(start, i - 1));
-                    start = i;
+            List<GATKSAMRecord> readsToRemove = new LinkedList<GATKSAMRecord>();
+            for (GATKSAMRecord read : readsInWindow) {                                                                  // todo -- unnecessarily going through all reads in the window !! Optimize this (But remember reads are not sorted by alignment end!)
+                if (read.getAlignmentEnd() < getStartLocation()) {
+                    readsToRemove.add(read);
                 }
             }
-
-            slide(start);
+            for (GATKSAMRecord read : readsToRemove) {
+                readsInWindow.remove(read);
+            }
         }
 
         return finalizedReads;
@@ -192,15 +217,15 @@ public class SlidingWindow {
      */
     protected boolean[] markSites(int stop) {
 
-        boolean[] markedSites = new boolean[stop - startLocation + contextSize + 1];
+        boolean[] markedSites = new boolean[stop - getStartLocation() + contextSize + 1];
 
         Iterator<HeaderElement> headerElementIterator = windowHeader.iterator();
-        for (int i = startLocation; i < stop; i++) {
+        for (int i = getStartLocation(); i < stop; i++) {
             if (headerElementIterator.hasNext()) {
                 HeaderElement headerElement = headerElementIterator.next();
 
                 if (headerElement.isVariantFromDeletions(MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT) || headerElement.isVariantFromInsertions(MIN_INDEL_BASE_PROPORTION_TO_TRIGGER_VARIANT) || headerElement.isVariantFromMismatches(MIN_ALT_BASE_PROPORTION_TO_TRIGGER_VARIANT))
-                    markVariantRegion(markedSites, i - startLocation);
+                    markVariantRegion(markedSites, i - getStartLocation());
 
             } else
                 break;
@@ -300,7 +325,8 @@ public class SlidingWindow {
                 if (read != null) list.add(read);
                 read = finalizeFilteredDataConsensus();
         }
-        if (read != null) list.add(read);
+        if (read != null)
+            list.add(read);
 
         return list;
     }
@@ -437,32 +463,55 @@ public class SlidingWindow {
     /**
      * Finalizes a variant region, any adjacent synthetic reads.
      *
-     * @param start the first position in the variant region (inclusive)
-     * @param stop  the last position of the variant region (inclusive)
+     * @param start the first window header index in the variant region (inclusive)
+     * @param stop  the last window header index of the variant region (inclusive)
      * @return all reads contained in the variant region plus any adjacent synthetic reads
      */
     @Requires("start <= stop")
     protected List<GATKSAMRecord> closeVariantRegion(int start, int stop) {
-        List<GATKSAMRecord> syntheticReads = new LinkedList<GATKSAMRecord>();
         List<GATKSAMRecord> allReads = new LinkedList<GATKSAMRecord>();
 
-        syntheticReads.addAll(finalizeAndAdd(ConsensusType.BOTH));  // Finalize consensus if there is one to finalize before the Variant Region
-
-        int refStart = windowHeader.get(start).getLocation();            // Clipping operations are reference based, not read based
+        int refStart = windowHeader.get(start).getLocation();                                                           // All operations are reference based, not read based
         int refStop = windowHeader.get(stop).getLocation();
 
-        for (GATKSAMRecord read : readsInWindow) {
-            GATKSAMRecord trimmedRead = ReadClipper.hardClipToRegion(read, refStart, refStop);
-            if (trimmedRead.getReadLength() > 0) {
-                allReads.add(trimmedRead);
+        for (GATKSAMRecord read : readsInWindow) {                                                                      // Keep all reads that overlap the variant region
+            if (read.getAlignmentStart() <= refStop && read.getAlignmentEnd() >= refStart) {
+                allReads.add(read);
+                updateHeaderCounts(read, true);                                                                         // Remove this read from the window header entirely
             }
         }
 
         List<GATKSAMRecord> result = (downsampleCoverage > 0) ? downsampleVariantRegion(allReads, refStart, refStop) : allReads;
-        result.addAll(syntheticReads);
-        return result;                                              // finalized reads will be downsampled if necessary
+        result.addAll(addToSyntheticReads(0, start));
+        result.addAll(finalizeAndAdd(ConsensusType.BOTH));
+
+        for (GATKSAMRecord read : result) {
+            readsInWindow.remove(read);                                                                                 // todo -- not optimal, but needs to be done so the next region doesn't try to remove the same reads from the header counts.
+        }
+
+        return result;                                                                                                  // finalized reads will be downsampled if necessary
     }
 
+
+    private List<GATKSAMRecord> closeVariantRegions(List<Pair<Integer, Integer>> regions, boolean forceClose) {
+        List<GATKSAMRecord> allReads = new LinkedList<GATKSAMRecord>();
+        if (!regions.isEmpty()) {
+            int lastStop = -1;
+            for (Pair<Integer, Integer> region : regions) {
+                int start = region.getFirst();
+                int stop = region.getSecond();
+                if (stop < 0 && forceClose)
+                    stop = windowHeader.size() - 1;
+                if (stop >= 0) {
+                    allReads.addAll(closeVariantRegion(start, stop));
+                    lastStop = stop;
+                }
+            }
+            for (int i = 0; i <= lastStop; i++)                                                                         // clean up the window header elements up until the end of the variant region.
+                windowHeader.remove();                                                                                  // todo -- can't believe java doesn't allow me to just do windowHeader = windowHeader.get(stop). Should be more efficient here!
+        }
+        return allReads;
+    }
 
     /**
      * Downsamples a variant region to the downsample coverage of the sliding window.
@@ -478,13 +527,13 @@ public class SlidingWindow {
         LinkedList<GATKSAMRecord> readList = new LinkedList<GATKSAMRecord>();
 
         Pair<HashMap<Integer, HashSet<GATKSAMRecord>>, HashMap<GATKSAMRecord, Boolean[]>> mappings = ReadUtils.getBothReadToLociMappings(allReads, refStart, refStop);
-        int [] coverageDistribution = ReadUtils.getCoverageDistributionOfReads(allReads, refStart, refStop); // the full coverage distribution array for the variant region with all the reads
+        int [] coverageDistribution = ReadUtils.getCoverageDistributionOfReads(allReads, refStart, refStop);            // the full coverage distribution array for the variant region with all the reads
         switch (downsampleStrategy) {
             case Normal:
-                readList.addAll(downsampleVariantRegionNormally(mappings, refStart, coverageDistribution));   // todo -- maybe return the set to avoid going through the list every time?
+                readList.addAll(downsampleVariantRegionNormally(mappings, refStart, coverageDistribution));             // todo -- maybe return the set to avoid going through the list every time?
                 break;
             case Adaptive:
-                readList.addAll(downsampleVariantRegionAdaptively(mappings, refStart, coverageDistribution));   // todo -- maybe return the set to avoid going through the list every time?
+                readList.addAll(downsampleVariantRegionAdaptively(mappings, refStart, coverageDistribution));           // todo -- maybe return the set to avoid going through the list every time?
                 break;
             default:
                 throw new UserException.BadArgumentValue("dm" + downsampleStrategy.toString(), "Invalid value for downsample strategy");
@@ -507,11 +556,11 @@ public class SlidingWindow {
      * @return all reads that pass the downsampling filtering process
      */
     protected Set<GATKSAMRecord> downsampleVariantRegionNormally(final Pair<HashMap<Integer, HashSet<GATKSAMRecord>>, HashMap<GATKSAMRecord, Boolean[]>> mappings, int refStart, int [] coverageDistribution ) {
-        int [] downsampledCoverageDistribution = new int [coverageDistribution.length];              // the downsampled distribution array with only the selected reads
+        int [] downsampledCoverageDistribution = new int [coverageDistribution.length];                                 // the downsampled distribution array with only the selected reads
         HashSet<GATKSAMRecord> downsampledReads = new HashSet<GATKSAMRecord>();
 
-        int middle = downsampledCoverageDistribution.length / 2;                                     // start covering with randomly selected reads from the middle of the window
-        for (int i=middle; i < downsampledCoverageDistribution.length; i++) {                        // cover the entire window forward and backward
+        int middle = downsampledCoverageDistribution.length / 2;                                                        // start covering with randomly selected reads from the middle of the window
+        for (int i=middle; i < downsampledCoverageDistribution.length; i++) {                                           // cover the entire window forward and backward
             downsampleLocus(mappings, i, refStart, downsampleCoverage, downsampledCoverageDistribution, downsampledReads);
             if (middle - i >= 0)
                 downsampleLocus(mappings, middle - i, refStart, downsampleCoverage, downsampledCoverageDistribution, downsampledReads);
@@ -523,11 +572,11 @@ public class SlidingWindow {
         int [] downsampledCoverageDistribution = new int [coverageDistribution.length];
         HashSet<GATKSAMRecord> downsampledReads = new HashSet<GATKSAMRecord>();
         
-        int minCoverage = MathUtils.arrayMin(coverageDistribution);    // find the base with the least coverage in the region
-        int transform = Math.max(minCoverage-downsampleCoverage, 0);   // define our transformation to be subtraction that takes the minimum coverage point and brings it to the downsampleCoverage level
+        int minCoverage = MathUtils.arrayMin(coverageDistribution);                                                     // find the base with the least coverage in the region
+        int transform = Math.max(minCoverage-downsampleCoverage, 0);                                                    // define our transformation to be subtraction that takes the minimum coverage point and brings it to the downsampleCoverage level
 
         for (int i=0; i < coverageDistribution.length; i++) {
-            int goalCoverage = coverageDistribution[i] - transform;    // find our goal coverage for this locus and downsample it
+            int goalCoverage = coverageDistribution[i] - transform;                                                     // find our goal coverage for this locus and downsample it
             downsampleLocus(mappings, i, refStart, goalCoverage, downsampledCoverageDistribution, downsampledReads);
         }
         return downsampledReads;
@@ -546,37 +595,22 @@ public class SlidingWindow {
      * @param downsampledReads                the list of reads selected by the downsampler so far -- will be updated in this function
      */
     protected void downsampleLocus(final Pair<HashMap<Integer, HashSet<GATKSAMRecord>>, HashMap<GATKSAMRecord, Boolean[]>> mappings, final int locusIndex, final int refStart, int coverageGoal, int[] downsampledCoverageDistribution, HashSet<GATKSAMRecord> downsampledReads) {
-        HashMap<Integer, HashSet<GATKSAMRecord>> locusToReadMap = mappings.getFirst();                            // a map from every locus in the window to the reads that cover it
-        HashMap<GATKSAMRecord, Boolean[]> readToLocusMap = mappings.getSecond();                                  // a map from every read in the window to the loci it covers
-        HashSet readsOnThisLocus = locusToReadMap.get(refStart+locusIndex);                                       // Get the reads that are represented in this loci
-        readsOnThisLocus.removeAll(downsampledReads);                                                             // Remove all reads that have already been chosen by previous loci
-        int numberOfReadsToAdd = coverageGoal - downsampledCoverageDistribution[locusIndex];                      // we need to add this many reads to achieve the minimum downsampleCoverage
-        if (numberOfReadsToAdd > 0) {                                                                             // no need to add reads if we're already covered or over covered.
-            GATKSAMRecord [] readArray = convertArray(readsOnThisLocus.toArray());                                // convert to array so we can get a random subset
-            GATKSAMRecord [] selectedReads = convertArray(MathUtils.randomSubset(readArray, numberOfReadsToAdd)); // get a random subset of the reads with the exact (or less if not available) number of reads we need to hit the downsample coverage
-            downsampledReads.addAll(Arrays.asList(selectedReads));                                                // add the selected reads to the final set of reads
+        HashMap<Integer, HashSet<GATKSAMRecord>> locusToReadMap = mappings.getFirst();                                  // a map from every locus in the window to the reads that cover it
+        HashMap<GATKSAMRecord, Boolean[]> readToLocusMap = mappings.getSecond();                                        // a map from every read in the window to the loci it covers
+        HashSet readsOnThisLocus = locusToReadMap.get(refStart + locusIndex);                                           // Get the reads that are represented in this loci
+        readsOnThisLocus.removeAll(downsampledReads);                                                                   // Remove all reads that have already been chosen by previous loci
+        int numberOfReadsToAdd = coverageGoal - downsampledCoverageDistribution[locusIndex];                            // we need to add this many reads to achieve the minimum downsampleCoverage
+        if (numberOfReadsToAdd > 0) {                                                                                   // no need to add reads if we're already covered or over covered.
+            GATKSAMRecord [] readArray = convertArray(readsOnThisLocus.toArray());                                      // convert to array so we can get a random subset
+            GATKSAMRecord [] selectedReads = convertArray(MathUtils.randomSubset(readArray, numberOfReadsToAdd));       // get a random subset of the reads with the exact (or less if not available) number of reads we need to hit the downsample coverage
+            downsampledReads.addAll(Arrays.asList(selectedReads));                                                      // add the selected reads to the final set of reads
 
-            for (GATKSAMRecord selectedRead : selectedReads) {                                                    // update the coverage distribution with the newly added reads
-                Boolean [] lociAffected = readToLocusMap.get(selectedRead);                                       // get the boolean array to know which loci the read affected
+            for (GATKSAMRecord selectedRead : selectedReads) {                                                          // update the coverage distribution with the newly added reads
+                Boolean [] lociAffected = readToLocusMap.get(selectedRead);                                             // get the boolean array to know which loci the read affected
 
                 for (int j=0; j<downsampledCoverageDistribution.length; j++)
-                    downsampledCoverageDistribution[j] += lociAffected[j] ? 1 : 0;                                // if it affects, increase coverage by one (no reduced reads in this pileup)
+                    downsampledCoverageDistribution[j] += lociAffected[j] ? 1 : 0;                                      // if it affects, increase coverage by one (no reduced reads in this pileup)
             }
-        }
-    }
-
-
-    /**
-     * Slides the window to the new position
-     *
-     * @param shift the new starting location of the window
-     */
-    protected void slide(int shift) {
-        if (shift > 0) {
-            // drop base baseCounts out of the window
-            for (int i = 0; i < shift; i++)
-                windowHeader.remove();
-            startLocation += shift;
         }
     }
 
@@ -593,27 +627,13 @@ public class SlidingWindow {
 
         if (!windowHeader.isEmpty()) {
             boolean[] variantSite = markSites(stopLocation + 1);
+            List<Pair<Integer,Integer>> regions = getAllVariantRegions(0, windowHeader.size(), variantSite);
+            finalizedReads = closeVariantRegions(regions, true);
 
-            // close everything (+1 to include the last site) -- consensus or variant region
-            int sitesToClose = stopLocation - startLocation + 1;
-            int start = 0;
-            int i = 0;
-
-            while (i < sitesToClose) {
-                while (i < sitesToClose && !variantSite[i]) i++;
-                finalizedReads.addAll(addToSyntheticReads(start, i));
-                start = i;
-
-                // close all variant regions regardless of having enough for context size
-                // on the last one
-                while (i < sitesToClose && variantSite[i]) i++;
-                if (start <= i - 1)
-                    finalizedReads.addAll(closeVariantRegion(start, i - 1));
-                start = i;
+            if (!windowHeader.isEmpty()) {
+                finalizedReads.addAll(addToSyntheticReads(0, windowHeader.size() - 1));
+                finalizedReads.addAll(finalizeAndAdd(ConsensusType.BOTH));                                              // if it ended in running consensus, finish it up
             }
-
-            // if it ended in running consensus, finish it up
-            finalizedReads.addAll(finalizeAndAdd(ConsensusType.BOTH));
 
         }
         return finalizedReads;
@@ -662,41 +682,40 @@ public class SlidingWindow {
      *
      * @param read the incoming read to be added to the sliding window
      */
-    @Requires("read.getAlignmentStart() >= startLocation")
-    protected void updateHeaderCounts(GATKSAMRecord read) {
+    protected void updateHeaderCounts(GATKSAMRecord read, boolean removeRead) {
         byte[] bases = read.getReadBases();
         byte[] quals = read.getBaseQualities();
         Cigar cigar = read.getCigar();
 
         int readBaseIndex = 0;
-        int locationIndex = read.getAlignmentStart() - startLocation;
+        int startLocation = getStartLocation();
+        int locationIndex = startLocation < 0 ? 0 : read.getAlignmentStart() - startLocation;
 
-        // Do we need to add extra elements before the start of the header?
-        // -- this may happen if the previous read was clipped and this alignment starts before the beginning of the window
-        if (locationIndex < 0) {
-            for (int i = 1; i <= -locationIndex; i++)
-                windowHeader.addFirst(new HeaderElement(startLocation - i));
+        if (removeRead && locationIndex < 0)
+            throw new ReviewedStingException("read is behind the Sliding Window. read: " + read + " cigar: " + read.getCigarString() + " window: " + startLocation + "," + stopLocation);
 
-            // update start location accordingly
-            startLocation = read.getAlignmentStart();
-            locationIndex = 0;
-        }
+        if (!removeRead) {                                                                                              // we only need to create new header elements if we are adding the read, not when we're removing it
+            if (locationIndex < 0) {                                                                                    // Do we need to add extra elements before the start of the header? -- this may happen if the previous read was clipped and this alignment starts before the beginning of the window
+                for (int i = 1; i <= -locationIndex; i++)
+                    windowHeader.addFirst(new HeaderElement(startLocation - i));
 
-        // Do we need to add extra elements to the header?
-        if (stopLocation < read.getAlignmentEnd()) {
-            int elementsToAdd = (stopLocation < 0) ? read.getAlignmentEnd() - read.getAlignmentStart() + 1 : read.getAlignmentEnd() - stopLocation;
-            while (elementsToAdd-- > 0)
-                windowHeader.addLast(new HeaderElement(read.getAlignmentEnd() - elementsToAdd));
+                startLocation = read.getAlignmentStart();                                                               // update start location accordingly
+                locationIndex = 0;
+            }
 
-            // update stopLocation accordingly
-            stopLocation = read.getAlignmentEnd();
-        }
+            if (stopLocation < read.getAlignmentEnd()) {                                                                // Do we need to add extra elements to the header?
+                int elementsToAdd = (stopLocation < 0) ? read.getAlignmentEnd() - read.getAlignmentStart() + 1 : read.getAlignmentEnd() - stopLocation;
+                while (elementsToAdd-- > 0)
+                    windowHeader.addLast(new HeaderElement(read.getAlignmentEnd() - elementsToAdd));
 
-        // Special case for leading insertions before the beginning of the sliding read
-        if (ReadUtils.readStartsWithInsertion(read).getFirst() && read.getAlignmentStart() == startLocation) {
-            windowHeader.addFirst(new HeaderElement(startLocation - 1));          // create a new first element to the window header with no bases added
-            startLocation--;                                                      // moving the start of the window back one position to the dummy head
-            locationIndex = 1;                                                    // This allows the first element (I) to look at locationIndex - 1 in the subsequent switch and do the right thing.
+                stopLocation = read.getAlignmentEnd();                                                                  // update stopLocation accordingly
+            }
+
+            // Special case for leading insertions before the beginning of the sliding read
+            if (ReadUtils.readStartsWithInsertion(read).getFirst() && (read.getAlignmentStart() == startLocation || startLocation < 0)) {
+                windowHeader.addFirst(new HeaderElement(read.getAlignmentStart() - 1));                                 // create a new first element to the window header with no bases added
+                locationIndex = 1;                                                                                      // This allows the first element (I) to look at locationIndex - 1 in the subsequent switch and do the right thing.
+            }
         }
 
         Iterator<HeaderElement> headerElementIterator = windowHeader.listIterator(locationIndex);
@@ -704,17 +723,26 @@ public class SlidingWindow {
         for (CigarElement cigarElement : cigar.getCigarElements()) {
             switch (cigarElement.getOperator()) {
                 case H:
-                case S:                                                           // nothing to add to the window
+                case S:                                                                                                 // nothing to add to the window
                     break;
-                case I:                                                           // insertions are added to the base to the left (previous element)
-                    windowHeader.get(locationIndex - 1).addInsertionToTheRight();
+                case I:                                                                                                 // insertions are added to the base to the left (previous element)
+                    headerElement = windowHeader.get(locationIndex - 1);
+                    if (removeRead) {
+                        headerElement.removeInsertionToTheRight();
+                    }
+                    else
+                        headerElement.addInsertionToTheRight();
                     readBaseIndex += cigarElement.getLength();
-                    break;                                                        // just ignore the insertions at the beginning of the read
+                    break;                                                                                              // just ignore the insertions at the beginning of the read
                 case D:
-                    int nDeletionsToAdd = cigarElement.getLength();
-                    while (nDeletionsToAdd-- > 0) {                               // deletions are added to the baseCounts with the read mapping quality as it's quality score
+                    int nDeletions = cigarElement.getLength();
+                    while (nDeletions-- > 0) {                                                                          // deletions are added to the baseCounts with the read mapping quality as it's quality score
                         headerElement = headerElementIterator.next();
-                        headerElement.addBase((byte) 'D', (byte) read.getMappingQuality(), read.getMappingQuality(), MIN_BASE_QUAL_TO_COUNT, MIN_MAPPING_QUALITY);
+                        if (removeRead)
+                            headerElement.removeBase((byte) 'D', (byte) read.getMappingQuality(), read.getMappingQuality(), MIN_BASE_QUAL_TO_COUNT, MIN_MAPPING_QUALITY);
+                        else
+                            headerElement.addBase((byte) 'D', (byte) read.getMappingQuality(), read.getMappingQuality(), MIN_BASE_QUAL_TO_COUNT, MIN_MAPPING_QUALITY);
+
                         locationIndex++;
                     }
                     break;
@@ -725,29 +753,17 @@ public class SlidingWindow {
                     int nBasesToAdd = cigarElement.getLength();
                     while (nBasesToAdd-- > 0) {
                         headerElement = headerElementIterator.next();
-                        headerElement.addBase(bases[readBaseIndex], quals[readBaseIndex], read.getMappingQuality(), MIN_BASE_QUAL_TO_COUNT, MIN_MAPPING_QUALITY);
+                        if (removeRead)
+                            headerElement.removeBase(bases[readBaseIndex], quals[readBaseIndex], read.getMappingQuality(), MIN_BASE_QUAL_TO_COUNT, MIN_MAPPING_QUALITY);
+                        else
+                            headerElement.addBase(bases[readBaseIndex], quals[readBaseIndex], read.getMappingQuality(), MIN_BASE_QUAL_TO_COUNT, MIN_MAPPING_QUALITY);
+
                         readBaseIndex++;
                         locationIndex++;
                     }
                     break;
             }
         }
-    }
-
-    /**
-     * Hard clips the beginning of the read if necessary. This function is used over and over
-     * as the sliding window slides forward.
-     *
-     * @param read        the read to be clipped
-     * @param refNewStart the new beginning of the sliding window
-     * @return the original read if refNewStart < read.getAlignmentStart, null if refNewStart > read.getAlignmentEd, or the clipped read
-     */
-    protected GATKSAMRecord clipStart(GATKSAMRecord read, int refNewStart) {
-        if (refNewStart > read.getAlignmentEnd())
-            return null;
-        if (refNewStart <= read.getAlignmentStart())
-            return read;
-        return ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, refNewStart - 1);
     }
 
     /**
@@ -763,6 +779,5 @@ public class SlidingWindow {
             result[i] = (GATKSAMRecord) array[i];
         return result;
     }
-
 }
 

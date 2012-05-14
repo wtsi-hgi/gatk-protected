@@ -21,44 +21,34 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
 
     @Test(enabled = true)
     public void testDefaultCompression() {
-        RRTest("testDefaultCompression ", L, "7ac198ed61c1c10b2e74c920fa52c72d");
+        RRTest("testDefaultCompression ", L, "5ff8f96c5976d7913775f6e412c706fe");
     }
 
     @Test(enabled = true)
     public void testMultipleIntervals() {
         String intervals = "-L 20:10,100,000-10,100,500 -L 20:10,200,000-10,200,500 -L 20:10,300,000-10,300,500 -L 20:10,400,000-10,500,000 -L 20:10,500,050-10,500,060 -L 20:10,600,000-10,600,015 -L 20:10,700,000-10,700,110";
-        RRTest("testMultipleIntervals ", intervals, "ff7795cc8abcf55c52abc972c3856002");
+        RRTest("testMultipleIntervals ", intervals, "fe060b12d981d57245cb7ec35dbe7d49");
     }
 
     @Test(enabled = true)
     public void testHighCompression() {
-        RRTest("testHighCompression ", " -cs 10 -minvar 0.3 -mindel 0.3 " + L, "fcbf86d6da1b61071bdd9525334d22b2");
+        RRTest("testHighCompression ", " -cs 10 -minvar 0.3 -mindel 0.3 " + L, "d0b9830a9527b8c69b8737b8c45ef15d");
     }
 
     @Test(enabled = true)
     public void testLowCompression() {
-        RRTest("testLowCompression ", " -cs 30 -minvar 0.01 -mindel 0.01 -minmap 5 -minqual 5 " + L, "4d83be866c7b5555c221fae9fab41d60");
+        RRTest("testLowCompression ", " -cs 30 -minvar 0.01 -mindel 0.01 -minmap 5 -minqual 5 " + L, "641ec7e2885460946518af21147cfb61");
     }
 
     @Test(enabled = true)
     public void testIndelCompression() {
-        RRTest("testIndelCompression ", " -cs 50 -L 20:10,100,500-10,100,600 ", "80ea5b88e3aeba8e5ecac406ddb7bb4d");
+        RRTest("testIndelCompression ", " -cs 50 -L 20:10,100,500-10,100,600 ", "2ecc9f6db7f07be71718462b164cf4f2");
     }
 
-    @Test(enabled = true)
-    public void testNormalDownsampling() {
-        RRTest("testNormalDownsampling ", " -ds 25 -dm Normal " + L, "ae3206c9cd66a22616f6c64d5823e1e1");
-    }
-
-    @Test(enabled = true)
-    public void testAdaptiveDownsampling() {
-        RRTest("testAdaptiveDownsampling ", " -ds 25 -dm Adaptive " + L, "d32a124f329b01168c1c46b8603fa461");
-    }
-    
     @Test(enabled = true)
     public void testFilteredDeletionCompression() {
         String base = String.format("-T ReduceReads -npt -R %s -I %s ", REF, DELETION_BAM) + " -o %s ";
-        executeTest("testFilteredDeletionCompression", new WalkerTestSpec(base, Arrays.asList("122e4e60c4412a31d0aeb3cce879e841")));
+        executeTest("testFilteredDeletionCompression", new WalkerTestSpec(base, Arrays.asList("891bd6dcda66611f343e8ff25f34aaeb")));
     }
 
     /**
@@ -72,7 +62,7 @@ public class ReduceReadsIntegrationTest extends WalkerTest {
     @Test(enabled = true)
     public void testAddingReadAfterTailingTheStash() {
         String base = String.format("-T ReduceReads %s -npt -R %s -I %s", STASH_L, REF, STASH_BAM) + " -o %s ";
-        executeTest("testAddingReadAfterTailingTheStash", new WalkerTestSpec(base, Arrays.asList("affc07cd66d8c527401e2a50fa4b6e09")));
+        executeTest("testAddingReadAfterTailingTheStash", new WalkerTestSpec(base, Arrays.asList("022931f032a4122cfe41e58e74d0aede")));
     }
 }
 
