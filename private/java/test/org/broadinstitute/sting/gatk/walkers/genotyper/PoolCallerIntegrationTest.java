@@ -36,7 +36,7 @@ public class PoolCallerIntegrationTest extends WalkerTest {
     @Test
     public void testMT_SNP_GGA_sp10() {
 
-        PC_MT_Test(CEUTRIO_BAM, String.format(" -maxAlleles 1 -sp 10 -gt_mode GENOTYPE_GIVEN_ALLELES -alleles %s",NA12891_CALLS), "MT_SNP_GGA_sp10", "6d68ff595d8b3f2b76f70d1bf2152156");
+        PC_MT_Test(CEUTRIO_BAM, String.format(" -maxAlleles 1 -sp 10 -gt_mode GENOTYPE_GIVEN_ALLELES -alleles %s",NA12891_CALLS), "MT_SNP_GGA_sp10", "190550f2fc68928cb0868f9c95b00c39");
     }
 
 }

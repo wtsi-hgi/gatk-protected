@@ -126,6 +126,8 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
     // determines the alleles to use
     protected List<Allele> determineAlternateAlleles(final List<PoolGenotypeData> sampleDataList) {
 
+        if (sampleDataList.isEmpty())
+            return Collections.emptyList();
 
         final int REFERENCE_IDX = 0;
         final List<Allele> allAlleles = sampleDataList.get(0).GL.getAlleles();
