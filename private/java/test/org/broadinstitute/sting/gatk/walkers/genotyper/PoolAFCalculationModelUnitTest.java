@@ -34,7 +34,7 @@ public class PoolAFCalculationModelUnitTest extends BaseTest {
     @BeforeSuite
     public void before() {
         // legacy diploid cases
-        AA1 = new double[]{0.0, -20.0, -20.0};
+        AA1 = new double[]{-5.0, -20.0, -20.0};
         AB1 = new double[]{-20.0, 0.0, -20.0};
         BB1 = new double[]{-20.0, -20.0, 0.0};
 
@@ -50,7 +50,7 @@ public class PoolAFCalculationModelUnitTest extends BaseTest {
         // NAlleles = 2, ploidy=4
         // ordering is [4 0] [3 1] [2 2 ] [1 3] [0 4]
 
-        A4_1 = new double[]{0.0, -20.0, -20.0, -20.0, -20.0};
+        A4_1 = new double[]{-3.0, -20.0, -20.0, -20.0, -20.0};
         B4_1 = new double[]{-20.0, 0.0, -20.0, -20.0, -20.0};
         C4_1 = new double[]{-20.0, -20.0, 0.0, -20.0, -20.0};
         D4_1 = new double[]{-20.0, -20.0, 0.0,   0.0, -20.0};
@@ -144,7 +144,7 @@ public class PoolAFCalculationModelUnitTest extends BaseTest {
         final int len = PoolGenotypeLikelihoods.getNumLikelihoodElements(1+cfg.numAltAlleles,cfg.ploidy*cfg.GLs.size());
         double[] priors = new double[len];  // flat priors
 
-        PoolAFCalculationModel.combineSinglePools(cfg.GLs, cfg.numAltAlleles, cfg.ploidy/2, priors, result);
+        PoolAFCalculationModel.combineSinglePools(cfg.GLs, 1+cfg.numAltAlleles, cfg.ploidy, priors, result);
         int nameIndex = 1;
         for ( int allele = 0; allele < cfg.numAltAlleles; allele++, nameIndex+=2 ) {
             int expectedAlleleCount = Integer.valueOf(cfg.name.substring(nameIndex, nameIndex+1));

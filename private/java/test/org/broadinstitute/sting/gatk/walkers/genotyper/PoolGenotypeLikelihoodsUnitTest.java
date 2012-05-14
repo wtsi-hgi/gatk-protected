@@ -37,6 +37,8 @@ import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.io.PrintStream;
 import java.util.*;
 
 
@@ -44,7 +46,9 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
     final UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
     final Logger logger = Logger.getLogger(Walker.class);
-    private static final boolean VERBOSE = true;
+    private static final boolean VERBOSE = false;
+    private static final boolean SIMULATE_NOISY_PILEUP = false;
+    private static final int NUM_SIMULATED_OBS = 10000;
 
     @Test
     public void testStoringLikelihoodElements() {
@@ -261,8 +265,8 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
         for (int matches: matchArray) {
             for (int mismatches: mismatchArray) {
-                // get artificial alignment context for ref sample
-                Map<String,AlignmentContext> refContext = refPileupTestProvider.getAlignmentContextFromAlleles(0, new String(new byte[]{altByte}), new int[]{matches, mismatches});
+                // get artificial alignment context for ref sample - no noise
+                Map<String,AlignmentContext> refContext = refPileupTestProvider.getAlignmentContextFromAlleles(0, new String(new byte[]{altByte}), new int[]{matches, mismatches}, false, 30);
                 final ReadBackedPileup refPileup = refContext.get(refSampleName).getBasePileup();
                 final ErrorModel emodel = new ErrorModel(minQ,maxQ, (byte)20, refPileup, trueAlleles, 0.0);
                 final double[] errorVec = emodel.getErrorModelVector().getProbabilityVector();
@@ -282,6 +286,10 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
         // dummy error model - Q=infinity FAPP so that there's no source of uncertainty
         final double[] emv = new double[SAMUtils.MAX_PHRED_SCORE+1];
+        
+        // error rate for noisy tests
+        final int PHRED_SITE_ERROR_RATE = 20;
+
         Arrays.fill(emv, Double.NEGATIVE_INFINITY);
         emv[SAMUtils.MAX_PHRED_SCORE] = 0;
 
@@ -291,7 +299,13 @@ public class PoolGenotypeLikelihoodsUnitTest {
         // true pool AC = x.
 
         final ArtificialReadPileupTestProvider readPileupTestProvider = new ArtificialReadPileupTestProvider(numSamples,"sample", (byte)SAMUtils.MAX_PHRED_SCORE);
-        final ErrorModel emodel = new ErrorModel(emv);
+        final ErrorModel noiselessErrorModel = new ErrorModel(emv);
+
+        final double[] emverr = new double[SAMUtils.MAX_PHRED_SCORE+1];
+        Arrays.fill(emverr, Double.NEGATIVE_INFINITY);
+        emverr[PHRED_SITE_ERROR_RATE] = 0;
+        final ErrorModel Q30ErrorModel = new ErrorModel(emverr);
+
 
         final int eventLength = 0; // test snp only
         final byte refByte = readPileupTestProvider.getRefByte();
@@ -304,12 +318,17 @@ public class PoolGenotypeLikelihoodsUnitTest {
         final Set<String> laneIDs = new TreeSet<String>();
         laneIDs.add(PoolGenotypeLikelihoodsCalculationModel.DUMMY_LANE);
 
-        final HashMap<String, ErrorModel> perLaneErrorModels = new HashMap<String, ErrorModel>();
+        final HashMap<String, ErrorModel> noiselessErrorModels = new HashMap<String, ErrorModel>();
 
         // build per-lane error model for all lanes present in ref sample
         for (String laneID : laneIDs)
-            perLaneErrorModels.put(laneID, emodel);
+            noiselessErrorModels.put(laneID, noiselessErrorModel);
 
+        final HashMap<String, ErrorModel> noisyErrorModels = new HashMap<String, ErrorModel>();
+
+        // build per-lane error model for all lanes present in ref sample
+        for (String laneID : laneIDs)
+            noisyErrorModels.put(laneID, Q30ErrorModel);
 
         for (byte b: BaseUtils.BASES) {
             if (refByte == b)
@@ -318,15 +337,23 @@ public class PoolGenotypeLikelihoodsUnitTest {
                 allAlleles.add(Allele.create(b, false));
         }
 
+        PrintStream out = null;
+        try {
+            out = new PrintStream(new File("/humgen/gsa-scr1/delangel/GATK/Sting_unstable_mac/GLUnitTest.table"));
+//                            out = new PrintStream(new File("/Users/delangel/GATK/Sting_unstable/GLUnitTest.table"));
+        }
+        catch (Exception e) {}
+        // write header
+        out.format("Depth\tPoolPloidy\tACTrue\tACEst\tREF\tALTTrue\tALTEst\n");
 
-        final int[] depthVector = {100,1000,10000};
+        final int[] depthVector = {1000,10000};
         //final double[] alleleFrequencyVector = {0.01,0.1,0.5,1.0};
-        final int[] spVector = {1,2,4,8,12};
+        final int[] spVector = {10,100};
         //final int[] spVector = {1};
         for (int depth : depthVector) {
             for (int nSamplesPerPool : spVector) {
                 final int ploidy = 2*nSamplesPerPool;
-                for (int ac =0; ac <=ploidy; ac++) {
+                for (int ac =2; ac <=ploidy; ac++) {
 
                     // simulate pileup with given AC and depth
                     int altDepth = (int)Math.round( (double)ac/(double)ploidy * (double)depth);
@@ -336,11 +363,11 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
                     // get now likelihoods for this
 
-                    final PoolSNPGenotypeLikelihoods GL = new PoolSNPGenotypeLikelihoods(allAlleles, null, nSamplesPerPool*2, perLaneErrorModels, true);
+                    final PoolSNPGenotypeLikelihoods GL = new PoolSNPGenotypeLikelihoods(allAlleles, null, nSamplesPerPool*2, noiselessErrorModels, true);
                     final int nGoodBases = GL.add(alignmentContextMap.get("sample0000").getBasePileup(), true, false, UAC.MIN_BASE_QUALTY_SCORE);
                     if (VERBOSE) {
                         System.out.format("Depth:%d, AC:%d, altDepth:%d, samplesPerPool:%d\nGLs:", depth,ac,altDepth, nSamplesPerPool);
-                        System.out.println(GL.toString());
+                       System.out.println(GL.toString());
                     }
                     Assert.assertEquals(nGoodBases, depth);
                     Pair<int[],Double> mlPair = GL.getMostLikelyACCount();
@@ -353,11 +380,41 @@ public class PoolGenotypeLikelihoodsUnitTest {
                         Assert.assertEquals(mlPair.first[refIdx],ploidy-ac);
                     }
 
+
+                    // simulate now pileup with base error rate
+                    if (SIMULATE_NOISY_PILEUP) {
+                        System.out.format("Depth:%d, AC:%d, altDepth:%d, samplesPerPool:%d\n", depth,ac,altDepth, nSamplesPerPool);
+
+                         for (int k=0; k < NUM_SIMULATED_OBS; k++) {
+                            final Map<String,AlignmentContext> noisyAlignmentContextMap =
+                                    readPileupTestProvider.getAlignmentContextFromAlleles(eventLength, new String(new byte[]{altByte}), numReadsPerAllele,
+                                            true, PHRED_SITE_ERROR_RATE);
+
+                            // get now likelihoods for this
+
+                            final PoolSNPGenotypeLikelihoods noisyGL = new PoolSNPGenotypeLikelihoods(allAlleles, null, nSamplesPerPool*2, noisyErrorModels, true);
+                            noisyGL.add(noisyAlignmentContextMap.get("sample0000").getBasePileup(), true, false, UAC.MIN_BASE_QUALTY_SCORE);
+                            mlPair = noisyGL.getMostLikelyACCount();
+
+                            // Most likely element has to be conformation REF = nSamples-AC,ALT = AC
+                            int acEst;
+                            if (ac == 0) {
+                                acEst =  mlPair.first[refIdx];
+                            } else {
+                                acEst = mlPair.first[altIdx];
+                            }
+                            byte altEst = BaseUtils.baseIndexToSimpleBase(MathUtils.maxElementIndex(mlPair.first));
+                            out.format("%d\t%d\t%d\t%d\t%c\t%c\t%c\n",depth, ploidy, ac, acEst, refByte, altByte, altEst);
+
+                        }
+                     }
                 }
             }
 
 
         }
+        if (SIMULATE_NOISY_PILEUP)
+            out.close();
 
 
     }

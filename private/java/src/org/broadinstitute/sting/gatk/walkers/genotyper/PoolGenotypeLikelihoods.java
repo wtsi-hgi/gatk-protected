@@ -442,14 +442,17 @@ public abstract class PoolGenotypeLikelihoods {
         s.append("\nGLs:\n");
         SumIterator iterator = new SumIterator(nAlleles,numChromosomes);
         while (iterator.hasNext()) {
-            s.append("Count [");
-            StringBuilder b = new StringBuilder(iterator.getCurrentVector().length*2);
-            for (int it:iterator.getCurrentVector()) {
-                b.append(it);
-                b.append(",");
+            if (!Double.isInfinite(getLikelihoods()[iterator.getLinearIndex()])) {
+
+                s.append("Count [");
+                StringBuilder b = new StringBuilder(iterator.getCurrentVector().length*2);
+                for (int it:iterator.getCurrentVector()) {
+                    b.append(it);
+                    b.append(",");
+                }
+                s.append(b.toString());
+                s.append(String.format("] GL=%4.3f\n",this.getLikelihoods()[iterator.getLinearIndex()]) );
             }
-            s.append(b.toString());
-            s.append(String.format("] GL=%4.3f\n",this.getLikelihoods()[iterator.getLinearIndex()]) );
             iterator.next();
         }
         return s.toString();
@@ -471,7 +474,7 @@ public abstract class PoolGenotypeLikelihoods {
             // mapping of ExactACset indexes to the objects
             final HashMap<AlleleFrequencyCalculationModel.ExactACcounts, AlleleFrequencyCalculationModel.ExactACset> indexesToACset = new HashMap<AlleleFrequencyCalculationModel.ExactACcounts, AlleleFrequencyCalculationModel.ExactACset>(likelihoodDim);
             // add AC=0 to the queue
-            int[] zeroCounts = new int[nAlleles];
+            final int[] zeroCounts = new int[nAlleles];
             zeroCounts[0] = numChromosomes;
 
             AlleleFrequencyCalculationModel.ExactACset zeroSet =
@@ -574,7 +577,7 @@ public abstract class PoolGenotypeLikelihoods {
                                                      List<Allele> alleleList, List<Integer> numObservations);
 
 
-    private static void updateACset(final int[] newSetCounts,
+    public static void updateACset(final int[] newSetCounts,
                                     final LinkedList<AlleleFrequencyCalculationModel.ExactACset> ACqueue,
                                     final HashMap<AlleleFrequencyCalculationModel.ExactACcounts, AlleleFrequencyCalculationModel.ExactACset> indexesToACset) {
 
