@@ -25,18 +25,29 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
-import org.broadinstitute.sting.commandline.*;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
+import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.*;
+import org.broadinstitute.sting.gatk.walkers.Reference;
+import org.broadinstitute.sting.gatk.walkers.RodWalker;
+import org.broadinstitute.sting.gatk.walkers.Window;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.SWPairwiseAlignment;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.SortingVCFWriter;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLineType;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFInfoHeaderLine;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriterFactory;
 
 import java.util.*;
 
@@ -89,8 +100,8 @@ public class HaplotypeResolver extends RodWalker<Integer, Integer> {
     public List<RodBinding<VariantContext>> variants;
 
     @Output(doc="File to which variants should be written", required=true)
-    protected VCFWriter baseWriter = null;
-    private SortingVCFWriter writer;
+    protected VariantContextWriter baseWriter = null;
+    private VariantContextWriter writer;
 
     /**
      * Set to 'null' if you don't want the set field emitted.
@@ -143,7 +154,7 @@ public class HaplotypeResolver extends RodWalker<Integer, Integer> {
             headerLines.add(new VCFInfoHeaderLine(STATUS_KEY, 1, VCFHeaderLineType.String, "Extent to which records match"));
         final VCFHeader vcfHeader = new VCFHeader(headerLines, Collections.<String>emptySet());
         baseWriter.writeHeader(vcfHeader);
-        writer = new SortingVCFWriter(baseWriter, ACTIVE_WINDOW);
+        writer = VariantContextWriterFactory.sortOnTheFly(baseWriter, ACTIVE_WINDOW);
     }
 
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {

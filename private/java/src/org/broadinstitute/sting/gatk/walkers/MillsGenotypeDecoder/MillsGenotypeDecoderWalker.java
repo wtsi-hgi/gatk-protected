@@ -9,7 +9,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.*;
@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
  */
 public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
     @Output(doc="File to which variants should be written",required=true)
-    protected VCFWriter vcfWriter = null;
+    protected VariantContextWriter vcfWriter = null;
 
     @Input(fullName="sites", shortName = "sites", doc="sites", required=false)
     public RodBinding<VariantContext> sites;

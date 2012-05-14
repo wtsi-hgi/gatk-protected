@@ -44,7 +44,7 @@ import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
@@ -64,7 +64,7 @@ import java.util.*;
 @Reference(window=@Window(start=-20,stop=20))
 public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
     @Argument(fullName = "vcf", shortName = "vcf", doc="Variants underlying the reads",required=true)
-    protected VCFWriter variantsWriter;
+    protected VariantContextWriter variantsWriter;
 
     @Argument(fullName = "sites", shortName = "sites", doc="Variants sites",required=true)
     protected PrintWriter sitesWriter;

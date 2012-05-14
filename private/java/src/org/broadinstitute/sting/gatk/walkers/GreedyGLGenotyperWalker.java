@@ -10,7 +10,7 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -19,7 +19,7 @@ import java.util.*;
 public class GreedyGLGenotyperWalker extends RodWalker<Integer, Integer>  implements TreeReducible<Integer> {
 
     @Output(doc="File to which variants should be written",required=true)
-    protected VCFWriter vcfWriter = null;
+    protected VariantContextWriter vcfWriter = null;
 
      @Input(fullName="variant", shortName = "V", doc="Input VCF file", required=true)
     public List<RodBinding<VariantContext>> variants;

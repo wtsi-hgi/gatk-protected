@@ -48,7 +48,7 @@ import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
@@ -98,7 +98,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
      * A raw, unfiltered, highly specific callset in VCF format.
      */
     @Output(doc="File to which variants should be written", required = true)
-    protected VCFWriter vcfWriter = null;
+    protected VariantContextWriter vcfWriter = null;
 
     @Output(fullName="graphOutput", shortName="graph", doc="File to which debug assembly graph information should be written", required = false)
     protected PrintStream graphWriter = null;

@@ -18,9 +18,9 @@ import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
 import org.broadinstitute.sting.utils.codecs.table.TableFeature;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.SortingVCFWriter;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -29,6 +29,8 @@ import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriterFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -50,9 +52,9 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
      * A raw, unfiltered, highly specific callset in VCF format.
      */
     @Output(doc="File to which variants should be written", required = true)
-    protected VCFWriter vcfWriterBase = null;
+    protected VariantContextWriter vcfWriterBase = null;
 
-    protected SortingVCFWriter vcfWriter;
+    protected VariantContextWriter vcfWriter;
 
     @Input(shortName="r",fullName="refSeq",required=true,doc="The RefSeq Gene definition track")
     public RodBinding<RefSeqFeature> refSeqRodBinding;
@@ -195,7 +197,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
         Set<String> sampleStr = SampleUtils.getSAMFileSamples(getToolkit());
         ilglcm.setSamples(sampleStr);
 
-        vcfWriter = new SortingVCFWriter(vcfWriterBase,1500000);
+        vcfWriter = VariantContextWriterFactory.sortOnTheFly(vcfWriterBase,1500000);
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), sampleStr));
 
         try {

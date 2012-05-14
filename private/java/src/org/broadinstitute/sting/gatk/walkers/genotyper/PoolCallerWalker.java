@@ -40,7 +40,7 @@ import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.AnnotatorCompa
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
@@ -138,7 +138,7 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
      * A raw, unfiltered, highly specific callset in VCF format.
      */
     @Output(doc="File to which variants should be written",required=true)
-    protected VCFWriter writer = null;
+    protected VariantContextWriter writer = null;
 
     @Argument(fullName = "debug_file", shortName = "debug_file", doc = "File to print all of the annotated and detailed debugging output", required = false)
     protected PrintStream verboseWriter = null;

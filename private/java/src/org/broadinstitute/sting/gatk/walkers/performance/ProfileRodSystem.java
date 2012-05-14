@@ -46,12 +46,15 @@ import org.broadinstitute.sting.gatk.refdata.tracks.RMDTrackBuilder;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
 import org.broadinstitute.sting.utils.codecs.bcf2.BCF2Codec;
-import org.broadinstitute.sting.utils.codecs.bcf2.writer.BCF2Writer;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.StandardVCFWriter;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.writer.BCF2Writer;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriterFactory;
 
 import java.io.*;
 import java.util.*;
@@ -174,7 +177,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             int counter = 0;
             FeatureReader<VariantContext> reader = AbstractFeatureReader.getFeatureReader(vcfFile.getAbsolutePath(), new VCFCodec(), false);
             FileOutputStream outputStream = new FileOutputStream(bcf2File);
-            final BCF2Writer bcf2Writer = new BCF2Writer("foo", bcf2File, outputStream, getToolkit().getReferenceDataSource().getReference().getSequenceDictionary(), false);
+            final BCF2Writer bcf2Writer = new BCF2Writer(bcf2File, outputStream, getToolkit().getReferenceDataSource().getReference().getSequenceDictionary(), false, false);
             VCFHeader header = VCFUtils.withUpdatedContigs((VCFHeader)reader.getHeader(), getToolkit());
             bcf2Writer.writeHeader(header);
 
@@ -302,7 +305,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             // now we start the timer
             timer.start();
 
-            VCFWriter writer = new StandardVCFWriter(new File(f.getAbsolutePath() + ".test"), getMasterSequenceDictionary());
+            VariantContextWriter writer = VariantContextWriterFactory.create(new File(f.getAbsolutePath() + ".test"), getMasterSequenceDictionary());
             writer.writeHeader(header);
             for ( VariantContext vc : VCs )
                 writer.add(vc);

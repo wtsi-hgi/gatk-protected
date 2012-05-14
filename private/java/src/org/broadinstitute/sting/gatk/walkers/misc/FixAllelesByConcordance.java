@@ -13,7 +13,7 @@ import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -34,7 +34,7 @@ public class FixAllelesByConcordance extends RodWalker<Integer,Integer> {
     public RodBinding<VariantContext> seq = null;
 
     @Output
-    public VCFWriter out;
+    public VariantContextWriter out;
 
     Set<String> samples;
 

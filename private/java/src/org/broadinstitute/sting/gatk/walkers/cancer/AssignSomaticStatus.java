@@ -36,7 +36,7 @@ import org.broadinstitute.sting.gatk.walkers.TreeReducible;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.codecs.vcf.writer.VCFWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -61,7 +61,7 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
     public boolean minimalVCF = false;
 
     @Output
-    protected VCFWriter vcfWriter = null;
+    protected VariantContextWriter vcfWriter = null;
 
     private final String SOMATIC_LOD_TAG_NAME = "SOMATIC_LOD";
     private final String SOMATIC_AC_TAG_NAME = "SOMATIC_AC";
