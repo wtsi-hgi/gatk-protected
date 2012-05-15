@@ -8,7 +8,7 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.util.*;
 
-/**                   
+/**
  * Created with IntelliJ IDEA.
  * User: thibault
  * Date: 5/11/12
@@ -30,6 +30,22 @@ public class MongoSiteData {
     private final VariantContext.Type type;
     private final Set<String> filters;
     private final Map<String, Object> attributes;
+
+    protected String getContig() {
+        return contig;
+    }
+
+    protected Integer getStart() {
+        return start;
+    }
+
+    protected List<Allele> getAlleles() {
+        return alleles;
+    }
+
+    protected String getSourceROD() {
+        return sourceROD;
+    }
 
     protected static void ensurePrimaryKey() {
         MongoDB.getSitesCollection().ensureIndex(new BasicDBObject("block", 1), new BasicDBObject("unique", 1));
@@ -139,8 +155,8 @@ public class MongoSiteData {
         collection.insert(blockDoc);
     }
 
-    protected static List<MongoSiteData> retrieveFromMongo(MongoBlockKey block_id) {
-        List<MongoSiteData> returnList = new ArrayList<MongoSiteData>();
+    protected static Map<Integer, List<MongoSiteData>> retrieveFromMongo(MongoBlockKey block_id) {
+        Map<Integer, List<MongoSiteData>> returnMap = new HashMap<Integer, List<MongoSiteData>>();
 
         BasicDBObject query = new BasicDBObject();
         query.put("block", block_id.getKey());
@@ -184,11 +200,14 @@ public class MongoSiteData {
                     pAttributes.put(key, value);
                 }
 
-                returnList.add(new MongoSiteData(pContig, pStart, pStop, pAlleles, pSourceROD, pId, pError, pSource, pType, pFilters, pAttributes));
+                if (!returnMap.containsKey(pStart)) {
+                    returnMap.put(pStart, new ArrayList<MongoSiteData>());
+                }
+                returnMap.get(pStart).add(new MongoSiteData(pContig, pStart, pStop, pAlleles, pSourceROD, pId, pError, pSource, pType, pFilters, pAttributes));
             }
         }
 
-        return returnList;
+        return returnMap;
     }
 
     protected VariantContextBuilder builder(ReferenceContext ref) {
@@ -208,10 +227,6 @@ public class MongoSiteData {
         builder.referenceBaseForIndel(ref.getBases()[0]);                   // TODO: correct?
 
         return builder;
-    }
-
-    protected boolean matches(String pContig, Integer pStart) {
-        return this.contig.equals(pContig) && this.start.equals(pStart);
     }
 }
 

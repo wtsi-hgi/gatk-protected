@@ -18,7 +18,7 @@ public class MongoSampleData {
     private final Integer start;
     private final Integer stop;
 
-    private final List<Allele> alleles;
+    private final List<Allele> siteAlleles;
     private final String sourceROD;
 
     private final Genotype genotype;
@@ -36,7 +36,7 @@ public class MongoSampleData {
         start = vc.getStart();
         stop = vc.getEnd();
 
-        alleles = vc.getAlleles();
+        siteAlleles = vc.getAlleles();
         sourceROD = pSourceROD;
 
         genotype = pGenotype;
@@ -48,15 +48,15 @@ public class MongoSampleData {
      * @param contig
      * @param start
      * @param stop
-     * @param alleles
+     * @param siteAlleles
      * @param sourceROD
      * @param genotype
      */
-    private MongoSampleData(String contig, Integer start, Integer stop, List<Allele> alleles, String sourceROD, Genotype genotype) {
+    private MongoSampleData(String contig, Integer start, Integer stop, List<Allele> siteAlleles, String sourceROD, Genotype genotype) {
         this.contig = contig;
         this.start = start;
         this.stop = stop;
-        this.alleles = alleles;
+        this.siteAlleles = siteAlleles;
         this.sourceROD = sourceROD;
         this.genotype = genotype;
     }
@@ -77,7 +77,7 @@ public class MongoSampleData {
 
             Integer alleleIndex = 0;
             BasicDBObject allelesDoc = new BasicDBObject();
-            for (Allele allele : sample.alleles)
+            for (Allele allele : sample.siteAlleles)
             {
                 String index = alleleIndex.toString();
                 allelesDoc.put(index, allele.toString());
@@ -117,8 +117,8 @@ public class MongoSampleData {
         collection.insert(blockDoc);
     }
 
-    protected static List<MongoSampleData> retrieveFromMongo(MongoBlockKey block_id, String sample) {
-        List<MongoSampleData> returnList = new ArrayList<MongoSampleData>();
+    protected static Map<Integer, List<MongoSampleData>> retrieveFromMongo(MongoBlockKey block_id, String sample) {
+        Map<Integer, List<MongoSampleData>> returnMap = new HashMap<Integer, List<MongoSampleData>>();
 
         BasicDBObject query = new BasicDBObject();
         query.put("sample", sample);
@@ -166,14 +166,20 @@ public class MongoSampleData {
                 Genotype pGenotype = Genotype.modifyAttributes(new Genotype(sample, genotypeAlleles, genotypeError),
                         genotypeAttributes);
 
-                returnList.add(new MongoSampleData(pContig, pStart, pStop, pAlleles, pSourceROD, pGenotype));
+                if (!returnMap.containsKey(pStart)) {
+                    returnMap.put(pStart, new ArrayList<MongoSampleData>());
+                }
+                returnMap.get(pStart).add(new MongoSampleData(pContig, pStart, pStop, pAlleles, pSourceROD, pGenotype));
             }
         }
 
-        return returnList;
+        return returnMap;
     }
 
-    protected boolean matches(String pContig, Integer pStart) {
-        return this.contig.equals(pContig) && this.start.equals(pStart);
+    protected boolean matches(MongoSiteData site) {
+        return contig.equals(site.getContig())
+                && start.equals(site.getStart())
+                && siteAlleles.equals(site.getAlleles())
+                && sourceROD.equals(site.getSourceROD());
     }
 }
