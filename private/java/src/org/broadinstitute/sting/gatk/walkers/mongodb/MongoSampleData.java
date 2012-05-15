@@ -65,7 +65,7 @@ public class MongoSampleData {
         DBCollection collection = MongoDB.getSamplesCollection();
 
         BasicDBObject blockDoc = new BasicDBObject();
-        blockDoc.put("block", block_id.key);
+        blockDoc.put("block", block_id.getKey());
         blockDoc.put("sample", sampleName);
 
         BasicDBList sitesList = new BasicDBList();
@@ -122,7 +122,7 @@ public class MongoSampleData {
 
         BasicDBObject query = new BasicDBObject();
         query.put("sample", sample);
-        query.put("block", block_id.key);
+        query.put("block", block_id.getKey());
 
         DBCursor cursor = MongoDB.getSamplesCollection().find(query);
         while(cursor.hasNext()) {

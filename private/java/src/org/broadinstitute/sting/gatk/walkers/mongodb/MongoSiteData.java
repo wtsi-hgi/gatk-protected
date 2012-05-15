@@ -88,7 +88,7 @@ public class MongoSiteData {
         DBCollection collection = MongoDB.getSitesCollection();
 
         BasicDBObject blockDoc = new BasicDBObject();
-        blockDoc.put("block", block_id.key);
+        blockDoc.put("block", block_id.getKey());
 
         BasicDBList sitesList = new BasicDBList();
         for (MongoSiteData site: sites) {
@@ -143,7 +143,7 @@ public class MongoSiteData {
         List<MongoSiteData> returnList = new ArrayList<MongoSiteData>();
 
         BasicDBObject query = new BasicDBObject();
-        query.put("block", block_id.key);
+        query.put("block", block_id.getKey());
 
         DBCursor cursor = MongoDB.getSitesCollection().find(query);
         while(cursor.hasNext()) {

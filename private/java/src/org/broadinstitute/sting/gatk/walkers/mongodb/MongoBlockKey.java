@@ -11,17 +11,29 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContext;
  * Date: 5/11/12
  * Time: 1:34 PM
  *
- * First simple implementation: use contigs as blocks, so this is just a String
+ * Block names are contig|location_modulus
+ * e.g. 1:14354654 -> 1|14, Y:12345 -> Y|0
  */
 final public class MongoBlockKey {
-    public final String key;
+    private final String key;
+
+    public String getKey() {
+        return key;
+    }
+
+    // maximum number of bases in a block
+    private final int BLOCK_SIZE = 1000000;
 
     public MongoBlockKey(VariantContext vc) {
-        key = vc.getChr();
+        key = generateKey(vc.getChr(), vc.getStart());
     }
 
     public MongoBlockKey(GenomeLoc gl) {
-        key = gl.getContig();
+        key = generateKey(gl.getContig(), gl.getStart());
+    }
+
+    private String generateKey(String contig, int start) {
+        return contig + "|" + (start / BLOCK_SIZE);
     }
 
     @Override
