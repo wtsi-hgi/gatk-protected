@@ -1,6 +1,7 @@
 library(gplots)
 library(gsalib)
 library(ggplot2)
+library(reshape)
 
 # for testing only
 #source("~/Desktop/broadLocal/GATK/unstable/public/R/src/org/broadinstitute/sting/utils/R/gsalib/R/gsa.variantqc.utils.R")
