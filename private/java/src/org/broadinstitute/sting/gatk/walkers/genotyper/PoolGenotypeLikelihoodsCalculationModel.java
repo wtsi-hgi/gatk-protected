@@ -53,7 +53,7 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
 
         VariantContext referenceSampleVC = null;
 
-        if (tracker != null)
+        if (tracker != null && context != null)
             referenceSampleVC = tracker.getFirstValue(UAC.referenceSampleRod, context.getLocation());
 
         // Site is not a variant, take from the reference

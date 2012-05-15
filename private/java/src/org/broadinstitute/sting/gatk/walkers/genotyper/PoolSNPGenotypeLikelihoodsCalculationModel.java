@@ -76,7 +76,7 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
         AlignmentContext refContext = contexts.get(UAC.referenceSampleName);
 
         ReadBackedPileup refPileup = null;
-        if (refContext.hasBasePileup()) {
+        if (refContext != null && refContext.hasBasePileup()) {
             refPileup = refContext.getBasePileup();
 
             Set<String> laneIDs = new TreeSet<String>();
