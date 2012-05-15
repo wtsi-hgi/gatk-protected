@@ -13,6 +13,8 @@ import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.PartitionBy;
+import org.broadinstitute.sting.gatk.walkers.PartitionType;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -32,6 +34,7 @@ import java.util.Map;
  * TODO: In the current implementation, a new sample at a location not currently referenced in the site table
  * will NOT insert the location into the sites table (collection in MongoDB-speak)
  */
+@PartitionBy(PartitionType.NONE)
 public class InsertRODsWalker extends RodWalker<Integer, Integer> {
     @Input(fullName="input", shortName = "input", doc="The input ROD which should be inserted into the DB.", required=true)
     public RodBinding<Feature> input;
