@@ -1,33 +1,9 @@
 package org.broadinstitute.sting.gatk.walkers.newassociation;
 
-import cern.jet.math.Arithmetic;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
-import org.broadinstitute.sting.commandline.ArgumentCollection;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.samples.Sample;
 import org.broadinstitute.sting.gatk.filters.*;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.walkers.genotyper.ExactAFCalculationModel;
-import org.broadinstitute.sting.gatk.walkers.newassociation.features.old.BinaryFeatureAggregator;
-import org.broadinstitute.sting.gatk.walkers.newassociation.features.old.ReadFeatureAggregator;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.classloader.PluginManager;
-import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.text.XReadLines;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
-import org.broadinstitute.sting.utils.MathUtils;
-
-import java.io.FileNotFoundException;
-import java.io.PrintStream;
-import java.util.*;
 
 /**
  * Read feature association walker -- associates read features between dichotomized, or multi-group cohorts

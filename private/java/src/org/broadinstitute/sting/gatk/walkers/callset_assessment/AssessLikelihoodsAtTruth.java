@@ -40,7 +40,6 @@ import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
-import java.util.Map;
 
 /**
  * Assesses GLs at truth sites.
