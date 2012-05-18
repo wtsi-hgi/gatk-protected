@@ -28,7 +28,7 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
@@ -100,9 +100,9 @@ public class QualityScoreDistribution extends ReadWalker<HashMap<Byte, Long>, Ha
     public void onTraversalDone(HashMap<Byte, Long> result) {
         super.onTraversalDone(result);
 
-        GATKReportTable table = new GATKReportTable("QualityScoreDistribution", "Distribution of all quality scores found in the input BAM(s)");
-        table.addPrimaryKey("Qual", true);
-        table.addColumn("Count", true);
+        GATKReportTableV2 table = new GATKReportTableV2("QualityScoreDistribution", "Distribution of all quality scores found in the input BAM(s)", 2);
+        table.addColumn("Qual");
+        table.addColumn("Count");
 
         for (Map.Entry<Byte, Long> entry : result.entrySet())
             table.set(entry.getKey(), "Count", entry.getValue());

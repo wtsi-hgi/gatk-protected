@@ -29,7 +29,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
 import org.broadinstitute.sting.gatk.walkers.By;
 import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
@@ -80,14 +80,14 @@ public class TargetCoverageEfficiency extends LocusWalker<Long, ArrayList<Long>>
     @Output
     PrintStream out;
 
-    GATKReportTable reportTable;
+    GATKReportTableV2 reportTable;
 
     public void initialize () {
-        reportTable = new GATKReportTable("TargetCoverageEfficiency", "A table with the values per interval for: target coverage, average interval coverage and the ratio between the two.", true);
-        reportTable.addPrimaryKey("Interval", true);
-        reportTable.addColumn("Target", 0, true);
-        reportTable.addColumn("Average", 0, true);
-        reportTable.addColumn("Ratio", 0, true);
+        reportTable = new GATKReportTableV2("TargetCoverageEfficiency", "A table with the values per interval for: target coverage, average interval coverage and the ratio between the two.", 4, true);
+        reportTable.addColumn("Interval");
+        reportTable.addColumn("Target");
+        reportTable.addColumn("Average");
+        reportTable.addColumn("Ratio");
     }
 
     public boolean isReduceByInterval () {
@@ -121,9 +121,11 @@ public class TargetCoverageEfficiency extends LocusWalker<Long, ArrayList<Long>>
             double averageCoverage = MathUtils.average(distribution);
             double ratio = (averageCoverage == 0) ? 0 : targetCoverage / averageCoverage;
 
-            reportTable.set(interval.toString(), "Target", targetCoverage);
-            reportTable.set(interval.toString(), "Average", averageCoverage);
-            reportTable.set(interval.toString(), "Ratio", ratio);
+            final String intervalString = interval.toString();
+            reportTable.addRowID(intervalString, true);
+            reportTable.set(intervalString, "Target", targetCoverage);
+            reportTable.set(intervalString, "Average", averageCoverage);
+            reportTable.set(intervalString, "Ratio", ratio);
         }
         
         GATKReport report = new GATKReport(reportTable);

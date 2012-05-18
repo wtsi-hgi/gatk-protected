@@ -45,7 +45,7 @@ import org.broadinstitute.sting.commandline.CommandLineProgram;
 import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
 import org.broadinstitute.sting.utils.R.RUtils;
 import org.broadinstitute.sting.utils.classloader.JVMUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -111,8 +111,8 @@ public class AggregateMetrics extends CommandLineProgram {
                 String projectName = FilenameUtils.removeExtension(tsvFilename.getName());
 
                 GATKReport report = new GATKReport(evalFilename);
-                GATKReportTable cvTable = report.getTable("CountVariants");
-                GATKReportTable titvTable = report.getTable("TiTvVariantEvaluator");
+                GATKReportTableV2 cvTable = report.getTable("CountVariants");
+                GATKReportTableV2 titvTable = report.getTable("TiTvVariantEvaluator");
 
                 for (PicardSample picardSample : PicardAggregationUtils.parseSamples(tsvFilename, false)) {
                     String squidProject = picardSample.getProject();
@@ -135,14 +135,14 @@ public class AggregateMetrics extends CommandLineProgram {
 
                             Object[] key = new Object[]{"dbsnp", "eval", functionalClass, novelty, squidSample};
 
-                            Object cvKey = cvTable.findPrimaryKeyByData(key);
-                            if (cvKey == null) {
+                            int cvKey = cvTable.findRowByData(key);
+                            if (cvKey == -1) {
                                 logger.warn(String.format("  Could not find CountVariants key %s in %s", Arrays.asList(key), evalFilename));
                                 continue;
                             }
 
-                            Object titvKey = titvTable.findPrimaryKeyByData(key);
-                            if (titvKey == null) {
+                            int titvKey = titvTable.findRowByData(key);
+                            if (titvKey == -1) {
                                 logger.warn(String.format("  Could not find TiTvVariantEvaluator key %s in %s", Arrays.asList(key), evalFilename));
                                 continue;
                             }

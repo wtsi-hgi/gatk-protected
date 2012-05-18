@@ -8,7 +8,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -91,13 +91,13 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
         trios = getFamilySpecsFromCommandLineInput(familySpecs);
 
         report = new GATKReport();
-        report.addTable("SwitchMetrics", "Specifies metrics regarding the switches");
-        GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
-        switchMetrics.addPrimaryKey("sample");
-        switchMetrics.addColumn("markersSeen", 0);
-        switchMetrics.addColumn("numSwitches", 0);
-        switchMetrics.addColumn("switchErrorRate", 0);
-        switchMetrics.addColumn("switchState", false, false);
+        report.addTable("SwitchMetrics", "Specifies metrics regarding the switches", 5);
+        GATKReportTableV2 switchMetrics = report.getTable("SwitchMetrics");
+        switchMetrics.addColumn("sample");
+        switchMetrics.addColumn("markersSeen");
+        switchMetrics.addColumn("numSwitches");
+        switchMetrics.addColumn("switchErrorRate");
+        switchMetrics.addColumn("switchState");
     }
 
     private boolean isSwitched(Genotype a, Genotype b) {
@@ -117,7 +117,7 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
                     Genotype truthG = truth.getGenotype(child);
 
                     if (!eval.isFiltered() && evalG.isHet() && evalG.isPhased() && !truth.isFiltered() && truthG.isHet() && truthG.isPhased()) {
-                        GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
+                        GATKReportTableV2 switchMetrics = report.getTable("SwitchMetrics");
 
                         switchMetrics.increment(child, "markersSeen");
                         if ((Integer) switchMetrics.get(child, "markersSeen") == 1) {
@@ -148,9 +148,10 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
 
     @Override
     public void onTraversalDone(Integer sum) {
-        GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
+        GATKReportTableV2 switchMetrics = report.getTable("SwitchMetrics");
 
-        switchMetrics.divideColumns("switchErrorRate", "numSwitches", "markersSeen");
+        // TODO -- not implemented in the new GATK reports; fix this
+        // switchMetrics.divideColumns("switchErrorRate", "numSwitches", "markersSeen");
 
         report.print(out);
     }

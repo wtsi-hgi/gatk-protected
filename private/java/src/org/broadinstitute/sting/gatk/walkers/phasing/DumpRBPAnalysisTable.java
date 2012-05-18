@@ -32,7 +32,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -75,80 +75,79 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
         tableName = "RBPResults." + SAMPLE;
 
         report = new GATKReport();
-        report.addTable(tableName, "RBP results for " + SAMPLE);
+        report.addTable(tableName, "RBP results for " + SAMPLE, 61);
 
-        GATKReportTable rbpTable = report.getTable(tableName);
-        rbpTable.addPrimaryKey("pk", false);
-        rbpTable.addColumn("sample", SAMPLE);
-        rbpTable.addColumn("chr", "unknown");
-        rbpTable.addColumn("start", 0);
-        rbpTable.addColumn("id", "unknown");
-        rbpTable.addColumn("ref", "unknown");
-        rbpTable.addColumn("alt", "unknown");
+        GATKReportTableV2 rbpTable = report.getTable(tableName);
+        rbpTable.addColumn("sample");
+        rbpTable.addColumn("chr");
+        rbpTable.addColumn("start");
+        rbpTable.addColumn("id");
+        rbpTable.addColumn("ref");
+        rbpTable.addColumn("alt");
 
-        rbpTable.addColumn("truth.GT", "unknown");
-        rbpTable.addColumn("truth.AC", 0.0);
-        rbpTable.addColumn("truth.AN", 0.0);
-        rbpTable.addColumn("truth.AF", 0.0);
-        rbpTable.addColumn("truth.GQ", 0.0);
-        rbpTable.addColumn("truth.DP", 0.0);
-        rbpTable.addColumn("truth.TP", 0.0);
+        rbpTable.addColumn("truth.GT");
+        rbpTable.addColumn("truth.AC");
+        rbpTable.addColumn("truth.AN");
+        rbpTable.addColumn("truth.AF");
+        rbpTable.addColumn("truth.GQ");
+        rbpTable.addColumn("truth.DP");
+        rbpTable.addColumn("truth.TP");
 
-        rbpTable.addColumn("rbp00.GT", "unknown");
-        rbpTable.addColumn("rbp00.AC", 0.0);
-        rbpTable.addColumn("rbp00.AN", 0.0);
-        rbpTable.addColumn("rbp00.AF", 0.0);
-        rbpTable.addColumn("rbp00.GQ", 0.0);
-        rbpTable.addColumn("rbp00.DP", 0.0);
-        rbpTable.addColumn("rbp00.PQ", 0.0);
+        rbpTable.addColumn("rbp00.GT");
+        rbpTable.addColumn("rbp00.AC");
+        rbpTable.addColumn("rbp00.AN");
+        rbpTable.addColumn("rbp00.AF");
+        rbpTable.addColumn("rbp00.GQ");
+        rbpTable.addColumn("rbp00.DP");
+        rbpTable.addColumn("rbp00.PQ");
 
-        rbpTable.addColumn("rbp01.GT", "unknown");
-        rbpTable.addColumn("rbp01.AC", 0.0);
-        rbpTable.addColumn("rbp01.AN", 0.0);
-        rbpTable.addColumn("rbp01.AF", 0.0);
-        rbpTable.addColumn("rbp01.GQ", 0.0);
-        rbpTable.addColumn("rbp01.DP", 0.0);
-        rbpTable.addColumn("rbp01.PQ", 0.0);
+        rbpTable.addColumn("rbp01.GT");
+        rbpTable.addColumn("rbp01.AC");
+        rbpTable.addColumn("rbp01.AN");
+        rbpTable.addColumn("rbp01.AF");
+        rbpTable.addColumn("rbp01.GQ");
+        rbpTable.addColumn("rbp01.DP");
+        rbpTable.addColumn("rbp01.PQ");
 
-        rbpTable.addColumn("rbp10.GT", "unknown");
-        rbpTable.addColumn("rbp10.AC", 0.0);
-        rbpTable.addColumn("rbp10.AN", 0.0);
-        rbpTable.addColumn("rbp10.AF", 0.0);
-        rbpTable.addColumn("rbp10.GQ", 0.0);
-        rbpTable.addColumn("rbp10.DP", 0.0);
-        rbpTable.addColumn("rbp10.PQ", 0.0);
+        rbpTable.addColumn("rbp10.GT");
+        rbpTable.addColumn("rbp10.AC");
+        rbpTable.addColumn("rbp10.AN");
+        rbpTable.addColumn("rbp10.AF");
+        rbpTable.addColumn("rbp10.GQ");
+        rbpTable.addColumn("rbp10.DP");
+        rbpTable.addColumn("rbp10.PQ");
 
-        rbpTable.addColumn("rbp11.GT", "unknown");
-        rbpTable.addColumn("rbp11.AC", 0.0);
-        rbpTable.addColumn("rbp11.AN", 0.0);
-        rbpTable.addColumn("rbp11.AF", 0.0);
-        rbpTable.addColumn("rbp11.GQ", 0.0);
-        rbpTable.addColumn("rbp11.DP", 0.0);
-        rbpTable.addColumn("rbp11.PQ", 0.0);
+        rbpTable.addColumn("rbp11.GT");
+        rbpTable.addColumn("rbp11.AC");
+        rbpTable.addColumn("rbp11.AN");
+        rbpTable.addColumn("rbp11.AF");
+        rbpTable.addColumn("rbp11.GQ");
+        rbpTable.addColumn("rbp11.DP");
+        rbpTable.addColumn("rbp11.PQ");
 
-        rbpTable.addColumn("beagle00.GT", "unknown");
-        rbpTable.addColumn("beagle00.AF", 0.0);
-        rbpTable.addColumn("beagle00.GA", 0.0);
-        rbpTable.addColumn("beagle00.AR2", 0.0);
-        rbpTable.addColumn("beagle00.DR2", 0.0);
+        rbpTable.addColumn("beagle00.GT");
+        rbpTable.addColumn("beagle00.AF");
+        rbpTable.addColumn("beagle00.GA");
+        rbpTable.addColumn("beagle00.AR2");
+        rbpTable.addColumn("beagle00.DR2");
 
-        rbpTable.addColumn("beagle01.GT", "unknown");
-        rbpTable.addColumn("beagle01.AF", 0.0);
-        rbpTable.addColumn("beagle01.GA", 0.0);
-        rbpTable.addColumn("beagle01.AR2", 0.0);
-        rbpTable.addColumn("beagle01.DR2", 0.0);
+        rbpTable.addColumn("beagle01.GT");
+        rbpTable.addColumn("beagle01.AF");
+        rbpTable.addColumn("beagle01.GA");
+        rbpTable.addColumn("beagle01.AR2");
+        rbpTable.addColumn("beagle01.DR2");
 
-        rbpTable.addColumn("beagle10.GT", "unknown");
-        rbpTable.addColumn("beagle10.AF", 0.0);
-        rbpTable.addColumn("beagle10.GA", 0.0);
-        rbpTable.addColumn("beagle10.AR2", 0.0);
-        rbpTable.addColumn("beagle10.DR2", 0.0);
+        rbpTable.addColumn("beagle10.GT");
+        rbpTable.addColumn("beagle10.AF");
+        rbpTable.addColumn("beagle10.GA");
+        rbpTable.addColumn("beagle10.AR2");
+        rbpTable.addColumn("beagle10.DR2");
 
-        rbpTable.addColumn("beagle11.GT", "unknown");
-        rbpTable.addColumn("beagle11.AF", 0.0);
-        rbpTable.addColumn("beagle11.GA", 0.0);
-        rbpTable.addColumn("beagle11.AR2", 0.0);
-        rbpTable.addColumn("beagle11.DR2", 0.0);
+        rbpTable.addColumn("beagle11.GT");
+        rbpTable.addColumn("beagle11.AF");
+        rbpTable.addColumn("beagle11.GA");
+        rbpTable.addColumn("beagle11.AR2");
+        rbpTable.addColumn("beagle11.DR2");
     }
 
     @Override
@@ -191,7 +190,7 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
             Genotype beagle11G = beagle11 == null ? null : beagle11.getGenotype(SAMPLE);
 
             if (!(truthG.isHomRef() && rbp00G.isHomRef() && rbp01G.isHomRef() && rbp10G.isHomRef() && rbp11G.isHomRef() && beagle00G.isHomRef() && beagle01G.isHomRef() && beagle10G.isHomRef() && beagle11G.isHomRef())) {
-                GATKReportTable rbpTable = report.getTable(tableName);
+                GATKReportTableV2 rbpTable = report.getTable(tableName);
                 GenomeLoc pk = ref.getLocus();
                 rbpTable.set(pk, "chr", ref.getLocus().getContig());
                 rbpTable.set(pk, "start", ref.getLocus().getStart());

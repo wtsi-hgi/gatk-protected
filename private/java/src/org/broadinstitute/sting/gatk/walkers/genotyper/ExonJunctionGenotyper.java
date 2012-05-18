@@ -11,9 +11,7 @@ import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportColumn;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.report.*;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.*;
@@ -272,18 +270,19 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
         } else {
             xrl.close();
             GATKReport report = new GATKReport(readGroupInsertHistogramFile);
-            GATKReportTable reportTable = report.getTable("InsertSizeDistributionByReadGroup");
+            GATKReportTableV2 reportTable = report.getTable("InsertSizeDistributionByReadGroup");
             // rows are insert sizes, columns are read groups
-            for (GATKReportColumn reportColumn : reportTable.getColumns() ) {
+            for (GATKReportColumnV2 reportColumn : reportTable.getColumnInfo() ) {
                 // annoyingly, the column has no knowledge of its own rows
                 int sum = 0;
                 for ( int row = 0; row < reportTable.getNumRows(); row++ ) {
                     sum += Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
                 }
                 byte[] rgHist = new byte[MAX_INSERT_SIZE];
-                for ( int row = 0; row < rgHist.length; row++) {
+                for ( int row = 0; row < reportTable.getNumRows(); row++ ) {
+                    final int insertSize = Integer.parseInt( (String) reportTable.get(row,0));
                     int val = 1;
-                    if ( reportTable.containsKey(row) ) {
+                    if ( insertSize < rgHist.length ) {
                         val = Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
                     }
                     rgHist[row] = QualityUtils.probToQual( 1.0-( ( (double) val )/sum ), Math.pow(10,-25.4) );

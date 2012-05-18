@@ -6,7 +6,7 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.gatk.walkers.newassociation.features.ReadFeature;
 import org.broadinstitute.sting.utils.classloader.PluginManager;
@@ -33,14 +33,15 @@ public class ReadFeatureDistribution extends ReadWalker<Integer, Integer> {
         Set<Class<? extends ReadFeature>> aggregatorSet = getFeatureAggregators(collection.inputFeatures);
         featuresToExtract = new HashSet<ReadFeature>();
         try {
+            List<SAMReadGroupRecord> readGroups = this.getToolkit().getSAMFileHeader().getReadGroups();
             for ( Class<? extends ReadFeature> featureClass : aggregatorSet ) {
                 ReadFeature readFeature = featureClass.getConstructor(RFAArgumentCollection.class).newInstance(collection);
-                report.addTable(readFeature.getName(),readFeature.getDescription());
-                GATKReportTable table = report.getTable(readFeature.getName());
-                table.addPrimaryKey(readFeature.getKey());
+                report.addTable(readFeature.getName(),readFeature.getDescription(), 1 + readGroups.size());
+                GATKReportTableV2 table = report.getTable(readFeature.getName());
+                table.addColumn(readFeature.getKey());
 
-                for (SAMReadGroupRecord rg : this.getToolkit().getSAMFileHeader().getReadGroups()) {
-                    table.addColumn(rg.getId(), 0);
+                for (SAMReadGroupRecord rg : readGroups) {
+                    table.addColumn(rg.getId());
                 }
 
                 featuresToExtract.add(featureClass.getConstructor(RFAArgumentCollection.class).newInstance(collection));
@@ -58,10 +59,15 @@ public class ReadFeatureDistribution extends ReadWalker<Integer, Integer> {
     public Integer map(ReferenceContext referenceContext, GATKSAMRecord samRecord, ReadMetaDataTracker readMetaDataTracker) {
         for ( ReadFeature feature : featuresToExtract ) {
             if ( feature.isDefinedFor(samRecord) ) {
-                GATKReportTable table = report.getTable(feature.getName());
+                GATKReportTableV2 table = report.getTable(feature.getName());
                 Object value = feature.getFeature(samRecord);
                 String rgid = samRecord.getReadGroup().getReadGroupId();
-                table.increment(value,rgid);
+                table.set(value, feature.getKey(), value);
+                final Object currentVal = table.get(value,rgid);
+                if (  currentVal == null )
+                    table.set(value,rgid,1);
+                else
+                    table.set(value,rgid,(Integer)currentVal+1);
             }
         }
 

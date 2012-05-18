@@ -32,7 +32,7 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.recalibration.QualQuantizer;
@@ -97,7 +97,7 @@ public class QuantizeQualsWalker extends ReadWalker<SAMRecord, SAMFileWriter> {
      */
     public void initialize() {
         GATKReport qualHist = new GATKReport(qualHistogramFile);
-        GATKReportTable table = qualHist.getTable("QualityScoreDistribution");
+        GATKReportTableV2 table = qualHist.getTable("QualityScoreDistribution");
 
         List<Long> nObservationsPerQual = new ArrayList<Long>(MAX_QUAL_TO_INCLUDE+1);
         for ( int q = 0; q <= MAX_QUAL_TO_INCLUDE; q++) {

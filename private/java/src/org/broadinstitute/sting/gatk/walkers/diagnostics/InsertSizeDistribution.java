@@ -5,11 +5,12 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
+import java.util.HashSet;
 
 /**
  * This tool computes the insert size distributions (from the ISIZE field of the GATKSAMRecord) for each sample and read group in a BAM
@@ -48,20 +49,29 @@ public class InsertSizeDistribution extends ReadWalker<Integer, Integer> {
     private GATKReport report;
 
     public void initialize() {
-        report = new GATKReport();
-        report.addTable("InsertSizeDistributionBySample", "Table of insert size distributions");
-        report.addTable("InsertSizeDistributionByReadGroup", "Table of insert size distributions");
-
-        final GATKReportTable sampleTable = report.getTable("InsertSizeDistributionBySample");
-        final GATKReportTable rgTable = report.getTable("InsertSizeDistributionByReadGroup");
-
-        sampleTable.addPrimaryKey("insertSize");
-        rgTable.addPrimaryKey("insertSize");
+        HashSet<String> samplesSeen = new HashSet<String>();
+        HashSet<String> rgsSeen = new HashSet<String>();
 
         for (SAMReadGroupRecord rg : this.getToolkit().getSAMFileHeader().getReadGroups()) {
-            sampleTable.addColumn(rg.getSample(), 0);
-            rgTable.addColumn(rg.getReadGroupId(), 0);
+            samplesSeen.add(rg.getSample());
+            rgsSeen.add(rg.getReadGroupId());
         }
+
+        report = new GATKReport();
+        report.addTable("InsertSizeDistributionBySample", "Table of insert size distributions", 1 + samplesSeen.size());
+        report.addTable("InsertSizeDistributionByReadGroup", "Table of insert size distributions", 1 + rgsSeen.size());
+
+        final GATKReportTableV2 sampleTable = report.getTable("InsertSizeDistributionBySample");
+        final GATKReportTableV2 rgTable = report.getTable("InsertSizeDistributionByReadGroup");
+
+        sampleTable.addColumn("insertSize");
+        rgTable.addColumn("insertSize");
+
+        for ( String sample : samplesSeen )
+            sampleTable.addColumn(sample);
+
+        for ( String rg : rgsSeen )
+            rgTable.addColumn(rg);
     }
 
     public boolean filter(ReferenceContext ref, GATKSAMRecord read) {
@@ -70,8 +80,8 @@ public class InsertSizeDistribution extends ReadWalker<Integer, Integer> {
 
     @Override
     public Integer map(ReferenceContext referenceContext, GATKSAMRecord samRecord, ReadMetaDataTracker readMetaDataTracker) {
-        final GATKReportTable sampleTable = report.getTable("InsertSizeDistributionBySample");
-        final GATKReportTable rgTable = report.getTable("InsertSizeDistributionByReadGroup");
+        final GATKReportTableV2 sampleTable = report.getTable("InsertSizeDistributionBySample");
+        final GATKReportTableV2 rgTable = report.getTable("InsertSizeDistributionByReadGroup");
 
         final int insert = Math.abs(samRecord.getInferredInsertSize());
         final String rg = samRecord.getReadGroup().getReadGroupId();
