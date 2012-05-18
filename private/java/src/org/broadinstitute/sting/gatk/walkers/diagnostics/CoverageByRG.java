@@ -35,7 +35,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportGatherer;
-import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.PartitionBy;
 import org.broadinstitute.sting.gatk.walkers.PartitionType;
@@ -100,7 +100,7 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
     protected DbsnpArgumentCollection dbsnp = new DbsnpArgumentCollection();
 
 
-    GATKReportTableV2 reportTable;
+    GATKReportTable reportTable;
 
     HashMap<String, String> rgGroups = new HashMap<String, String>();
     List<HashSet<String>> readGroupIds = new LinkedList<HashSet<String>>();
@@ -150,7 +150,7 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
             }
         }
 
-        reportTable = new GATKReportTableV2("CoverageByRG", "A table with the coverage per interval for each read group", 4 + rgGroups.size(), true);        //Sets up our report table columns (by Read Groups + GCcontent)
+        reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", 4 + rgGroups.size(), true);        //Sets up our report table columns (by Read Groups + GCcontent)
         reportTable.addColumn(columnInterval);
         reportTable.addColumn(columnGC);
         reportTable.addColumn(columnIntervalSize);

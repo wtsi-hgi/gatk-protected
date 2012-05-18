@@ -8,7 +8,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -92,7 +92,7 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
 
         report = new GATKReport();
         report.addTable("SwitchMetrics", "Specifies metrics regarding the switches", 5);
-        GATKReportTableV2 switchMetrics = report.getTable("SwitchMetrics");
+        GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
         switchMetrics.addColumn("sample");
         switchMetrics.addColumn("markersSeen");
         switchMetrics.addColumn("numSwitches");
@@ -117,7 +117,7 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
                     Genotype truthG = truth.getGenotype(child);
 
                     if (!eval.isFiltered() && evalG.isHet() && evalG.isPhased() && !truth.isFiltered() && truthG.isHet() && truthG.isPhased()) {
-                        GATKReportTableV2 switchMetrics = report.getTable("SwitchMetrics");
+                        GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
 
                         switchMetrics.increment(child, "markersSeen");
                         if ((Integer) switchMetrics.get(child, "markersSeen") == 1) {
@@ -148,7 +148,7 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
 
     @Override
     public void onTraversalDone(Integer sum) {
-        GATKReportTableV2 switchMetrics = report.getTable("SwitchMetrics");
+        GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
 
         // TODO -- not implemented in the new GATK reports; fix this
         // switchMetrics.divideColumns("switchErrorRate", "numSwitches", "markersSeen");

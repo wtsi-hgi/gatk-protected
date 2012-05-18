@@ -29,7 +29,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.By;
 import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
@@ -80,10 +80,10 @@ public class TargetCoverageEfficiency extends LocusWalker<Long, ArrayList<Long>>
     @Output
     PrintStream out;
 
-    GATKReportTableV2 reportTable;
+    GATKReportTable reportTable;
 
     public void initialize () {
-        reportTable = new GATKReportTableV2("TargetCoverageEfficiency", "A table with the values per interval for: target coverage, average interval coverage and the ratio between the two.", 4, true);
+        reportTable = new GATKReportTable("TargetCoverageEfficiency", "A table with the values per interval for: target coverage, average interval coverage and the ratio between the two.", 4, true);
         reportTable.addColumn("Interval");
         reportTable.addColumn("Target");
         reportTable.addColumn("Average");

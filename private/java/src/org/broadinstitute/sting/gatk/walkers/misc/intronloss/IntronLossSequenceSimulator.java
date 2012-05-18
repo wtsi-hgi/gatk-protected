@@ -38,9 +38,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportColumn;
-import org.broadinstitute.sting.gatk.report.GATKReportColumnV2;
-import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
-import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
 import org.broadinstitute.sting.gatk.walkers.RefWalker;
 import org.broadinstitute.sting.utils.BaseUtils;
@@ -127,9 +125,9 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
                 } else {
                     xrl.close();
                     GATKReport report = new GATKReport(readGroupInsertHistogram);
-                    GATKReportTableV2 reportTable = report.getTable("InsertSizeDistributionByReadGroup");
+                    GATKReportTable reportTable = report.getTable("InsertSizeDistributionByReadGroup");
                     // rows are insert sizes, columns are read groups
-                    for (GATKReportColumnV2 reportColumn : reportTable.getColumnInfo() ) {
+                    for (GATKReportColumn reportColumn : reportTable.getColumnInfo() ) {
                         // annoyingly, the column has no knowledge of its own rows
                         int sum = 0;
                         for ( int row = 0; row < reportTable.getNumRows(); row++ ) {

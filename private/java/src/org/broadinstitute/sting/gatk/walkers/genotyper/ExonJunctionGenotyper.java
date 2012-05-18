@@ -270,9 +270,9 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
         } else {
             xrl.close();
             GATKReport report = new GATKReport(readGroupInsertHistogramFile);
-            GATKReportTableV2 reportTable = report.getTable("InsertSizeDistributionByReadGroup");
+            GATKReportTable reportTable = report.getTable("InsertSizeDistributionByReadGroup");
             // rows are insert sizes, columns are read groups
-            for (GATKReportColumnV2 reportColumn : reportTable.getColumnInfo() ) {
+            for (GATKReportColumn reportColumn : reportTable.getColumnInfo() ) {
                 // annoyingly, the column has no knowledge of its own rows
                 int sum = 0;
                 for ( int row = 0; row < reportTable.getNumRows(); row++ ) {

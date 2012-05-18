@@ -32,7 +32,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportTableV2;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -77,7 +77,7 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
         report = new GATKReport();
         report.addTable(tableName, "RBP results for " + SAMPLE, 61);
 
-        GATKReportTableV2 rbpTable = report.getTable(tableName);
+        GATKReportTable rbpTable = report.getTable(tableName);
         rbpTable.addColumn("sample");
         rbpTable.addColumn("chr");
         rbpTable.addColumn("start");
@@ -190,7 +190,7 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
             Genotype beagle11G = beagle11 == null ? null : beagle11.getGenotype(SAMPLE);
 
             if (!(truthG.isHomRef() && rbp00G.isHomRef() && rbp01G.isHomRef() && rbp10G.isHomRef() && rbp11G.isHomRef() && beagle00G.isHomRef() && beagle01G.isHomRef() && beagle10G.isHomRef() && beagle11G.isHomRef())) {
-                GATKReportTableV2 rbpTable = report.getTable(tableName);
+                GATKReportTable rbpTable = report.getTable(tableName);
                 GenomeLoc pk = ref.getLocus();
                 rbpTable.set(pk, "chr", ref.getLocus().getContig());
                 rbpTable.set(pk, "start", ref.getLocus().getStart());
