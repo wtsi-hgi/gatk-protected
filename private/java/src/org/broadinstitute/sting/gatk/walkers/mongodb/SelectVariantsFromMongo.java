@@ -365,8 +365,8 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
     private MongoBlockKey activeBlockKey = null;
 
-    private List<MongoSiteData> activeBlockSiteData = new ArrayList<MongoSiteData>();
-    private Map<String,List<MongoSampleData>> activeBlockSampleMap = new HashMap<String,List<MongoSampleData>>();
+    private Map<Integer, List<MongoSiteData>> activeBlockSiteData = new HashMap<Integer, List<MongoSiteData>>();
+    private Map<String, Map<Integer, List<MongoSampleData>>> activeBlockSampleMap = new HashMap<String, Map<Integer, List<MongoSampleData>>>();
 
     /**
      * Set up the VCF writer, the sample expressions and regexs, and the JEXL matcher
@@ -498,7 +498,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         if (!block_id.equals(activeBlockKey)) {
             activeBlockKey = block_id;
             activeBlockSiteData = MongoSiteData.retrieveFromMongo(activeBlockKey);
-            activeBlockSampleMap = new HashMap<String, List<MongoSampleData>>();
+            activeBlockSampleMap = new HashMap<String, Map<Integer, List<MongoSampleData>>>();
             for (String sample : samples) {
                 activeBlockSampleMap.put(sample, MongoSampleData.retrieveFromMongo(activeBlockKey, sample));
             }
@@ -508,11 +508,11 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             vcs.addAll(getMongoVariantsBySample(ref, context.getLocation(), sample));
         }
 
-        vcs = combineMongoVariants(vcs);
-
         if ( vcs == null || vcs.size() == 0) {
             return 0;
         }
+
+        vcs = combineMongoVariants(vcs);
 
         for (VariantContext vc : vcs) {
             if ( IDsToKeep != null && ! IDsToKeep.contains(vc.getID()) )
@@ -589,35 +589,25 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
     }
 
     private Collection<VariantContext> getMongoVariantsBySample(ReferenceContext ref, GenomeLoc location, String sample) {
-        String contig = location.getContig();
         Integer start = location.getStart();
 
         ArrayList<VariantContext> vcs = new ArrayList<VariantContext>();
 
-        MongoSiteData siteData = null;
-        MongoSampleData sampleData = null;
+        if (!activeBlockSiteData.containsKey(start)
+                || !activeBlockSampleMap.containsKey(sample)
+                || !activeBlockSampleMap.get(sample).containsKey(start)) {
+            return vcs;
+        }
 
-        for (MongoSiteData oneSite : activeBlockSiteData) {
-            if (oneSite.matches(contig, start)) {
-                siteData = oneSite;
-                break;
+        for (MongoSiteData oneSite : activeBlockSiteData.get(start)) {
+            for (MongoSampleData oneSample : activeBlockSampleMap.get(sample).get(start)) {
+                if (oneSample.matches(oneSite)) {
+                    VariantContextBuilder builder = oneSite.builder(ref);
+                    builder.genotypes(oneSample.getGenotype());
+                    vcs.add(builder.make());
+                }
             }
         }
-
-        for (MongoSampleData oneSample : activeBlockSampleMap.get(sample)) {
-            if (oneSample.matches(contig, start)) {
-                sampleData = oneSample;
-                break;
-            }
-        }
-
-        if (siteData == null || sampleData == null) {
-            throw new StingException("Cannot retrieve data from DB at location " + contig + ":" + start);
-        }
-
-        VariantContextBuilder builder = siteData.builder(ref);
-        builder.genotypes(sampleData.getGenotype());
-        vcs.add(builder.make());
 
         return vcs;
     }
