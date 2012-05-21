@@ -283,8 +283,8 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
         result.add(new VCFFormatHeaderLine(VCFConstants.GENOTYPE_QUALITY_KEY, 1, VCFHeaderLineType.Float, "Genotype Quality"));
         result.add(new VCFFormatHeaderLine(VCFConstants.DEPTH_KEY, 1, VCFHeaderLineType.Integer, "Approximate read depth (reads with MQ=255 or with bad mates are filtered)"));
         result.add(new VCFFormatHeaderLine(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, VCFHeaderLineCount.G, VCFHeaderLineType.Integer, "Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification"));
-        result.add(new VCFFormatHeaderLine(PoolAFCalculationModel.MAXIMUM_LIKELIHOOD_AC_KEY, VCFHeaderLineCount.G, VCFHeaderLineType.Integer, "Maximum likelihood estimate of alterate ACs for each pooled samples"));
-        result.add(new VCFFormatHeaderLine(PoolAFCalculationModel.MAXIMUM_LIKELIHOOD_AF_KEY, VCFHeaderLineCount.G, VCFHeaderLineType.String, "Maximum likelihood estimate of alterate AFs for each pooled samples"));
+        result.add(new VCFFormatHeaderLine(PoolAFCalculationModel.MAXIMUM_LIKELIHOOD_AC_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Maximum likelihood estimate of alterate ACs for each pooled sample"));
+        result.add(new VCFFormatHeaderLine(PoolAFCalculationModel.MAXIMUM_LIKELIHOOD_AF_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "Maximum likelihood estimate of alterate AFs for each pooled sample"));
 
         return result;
     }
