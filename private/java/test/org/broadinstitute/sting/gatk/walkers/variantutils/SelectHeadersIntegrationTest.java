@@ -31,7 +31,7 @@ import java.util.Arrays;
 
 public class SelectHeadersIntegrationTest extends WalkerTest {
     public static String baseTestString(String args) {
-        return "-T SelectHeaders -R " + hg19Reference + " -L 1 -o %s -NO_HEADER" + args;
+        return "-T SelectHeaders -R " + hg19Reference + " -L 1 -o %s --no_cmdline_in_header" + args;
     }
 
     @Test

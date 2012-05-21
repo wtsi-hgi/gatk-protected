@@ -22,7 +22,7 @@ public class PoolCallerIntegrationTest extends WalkerTest {
 
     private void PC_MT_Test(String bam, String args, String name, String md5) {
         final String base = String.format("-T PoolCaller -R %s -I %s -L %s -reference %s -refsample %s -glm POOLSNP -ignoreLane -pnrm POOL",
-                REF, bam, INTERVALS, REFSAMPLE_CALLS, REFSAMPLE_NAME) + " -NO_HEADER -o %s";
+                REF, bam, INTERVALS, REFSAMPLE_CALLS, REFSAMPLE_NAME) + " --no_cmdline_in_header -o %s";
         final WalkerTestSpec spec = new WalkerTestSpec(base + " " + args, Arrays.asList(md5));
         executeTest("testPoolCaller:"+name+" args=" + args, spec);
     }
