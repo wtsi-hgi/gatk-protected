@@ -18,18 +18,18 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
     @Test
     public void testSimpleVCFPileup() {
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " --eval:VCF3 " + validationDataLocation + "MultiSample.vcf", 1,
+                baseTestString1KG() + " --eval:VCF3 " + testDir + "MultiSample.vcf", 1,
                 Arrays.asList("ad5c01ab5c65877913e885fdb854275c"));
         executeTest("testSimpleVCFPileup", spec);
     }
 
     @Test
     public void testEmptyVCF() {
-        File vcf = new File(validationDataLocation + "justHeader.vcf.idx");
+        File vcf = new File(testDir + "justHeader.vcf.idx");
         if (vcf.exists()) vcf.delete();
 
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " --eval:VCF3 " + validationDataLocation + "justHeader.vcf", 1,
+                baseTestString1KG() + " --eval:VCF3 " + testDir + "justHeader.vcf", 1,
                 Arrays.asList("4b884df0f7166a4c2104c311d78fabcd"));
         executeTest("testEmptyVCF", spec);
     }
@@ -38,7 +38,7 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
     @Test
     public void testComplexVCFPileup() {
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " --eval:VCF3 " + validationDataLocation + "MultiSample.vcf" +
+                baseTestString1KG() + " --eval:VCF3 " + testDir + "MultiSample.vcf" +
                 " --eval:VCF " + validationDataLocation + "NA12878.chr1_10mb_11mb.slx.indels.vcf4"
                 , 1,
                 Arrays.asList("3cabed3262b4474a6316117a13b57edf"));
@@ -48,7 +48,7 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
     @Test
     public void testLargeComplexVCFPileup() {
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " --eval:VCF3 " + validationDataLocation + "MultiSample.vcf" +
+                baseTestString1KG() + " --eval:VCF3 " + testDir + "MultiSample.vcf" +
                 " --eval:VCF3 " + validationDataLocation + "CEU_hapmap_nogt_23.vcf" +
                 " --eval:VCF3 " + validationDataLocation + "CEU_hapmap_nogt_23.vcf" +
                 " -L 1 -L 2 -L 20"
