@@ -39,7 +39,7 @@ class MultipleMongoDBTester extends QScript {
       selectVariants.reference_sequence = referenceFile
       selectVariants.variant = vcfFile
       selectVariants.sf :+= samplesFile
-      selectVariants.memoryLimit = 2
+      selectVariants.memoryLimit = 16
 
       selectVariants.out = swapExt(qscript.samplesFile, "samples", "%d_client%d.vcf".format(numClients, i))
 
