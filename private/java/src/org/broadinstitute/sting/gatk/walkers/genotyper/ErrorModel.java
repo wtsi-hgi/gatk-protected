@@ -51,8 +51,17 @@ public class ErrorModel  {
         double[] model = new double[maxQualityScore+1];
         Arrays.fill(model,Double.NEGATIVE_INFINITY);
 
-        if (refSamplePileup == null /*|| referenceSample.getPileup().isEmpty()*/ ) {
-            double p = MathUtils.phredScaleToLog10Probability((byte)(maxQualityScore-minQualityScore));
+        double p = MathUtils.phredScaleToLog10Probability((byte)(maxQualityScore-minQualityScore));
+        boolean hasCalledAlleles = false;
+
+        for (Allele allele : refSampleTrueAlleles) {
+            if (allele.isCalled()) {
+                hasCalledAlleles = true;
+                break;
+            }
+        }
+
+        if (refSamplePileup == null || !hasCalledAlleles ) {
             for (byte q=minQualityScore; q<=maxQualityScore; q++) {
                 // maximum uncertainty if there's no ref data at site
                 model[q] = p;
