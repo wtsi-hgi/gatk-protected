@@ -173,7 +173,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
     private void testBCF2() {
         try {
             final File vcfFile = getRodFile();
-            final File bcf2File = new File(vcfFile.getName() + ".bcf2");
+            final File bcf2File = new File(vcfFile.getName() + ".bcf");
             int counter = 0;
             FeatureReader<VariantContext> reader = AbstractFeatureReader.getFeatureReader(vcfFile.getAbsolutePath(), new VCFCodec(), false);
             FileOutputStream outputStream = new FileOutputStream(bcf2File);
