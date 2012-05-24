@@ -9,6 +9,7 @@ import org.broadinstitute.sting.utils.text.XReadLines
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.gatk.walkers.genotyper.{ExactAFCalculationModel, GenotypeLikelihoodsCalculationModel, UnifiedGenotyperEngine}
+import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 
 class BatchedCallUnionMerger extends QScript {
   batchMerge =>
