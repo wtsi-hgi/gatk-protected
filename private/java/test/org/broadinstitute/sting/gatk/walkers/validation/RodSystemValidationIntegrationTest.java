@@ -19,7 +19,7 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
     public void testSimpleVCFPileup() {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString1KG() + " --eval:VCF3 " + testDir + "MultiSample.vcf", 1,
-                Arrays.asList("ad5c01ab5c65877913e885fdb854275c"));
+                Arrays.asList("4541e694cc735fb822b018bb9de25369"));
         executeTest("testSimpleVCFPileup", spec);
     }
 
@@ -30,7 +30,7 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
 
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString1KG() + " --eval:VCF3 " + testDir + "justHeader.vcf", 1,
-                Arrays.asList("4b884df0f7166a4c2104c311d78fabcd"));
+                Arrays.asList("1660f76ae84e6e39ec1dfea96622cf5a"));
         executeTest("testEmptyVCF", spec);
     }
 
@@ -41,7 +41,7 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
                 baseTestString1KG() + " --eval:VCF3 " + testDir + "MultiSample.vcf" +
                 " --eval:VCF " + validationDataLocation + "NA12878.chr1_10mb_11mb.slx.indels.vcf4"
                 , 1,
-                Arrays.asList("3cabed3262b4474a6316117a13b57edf"));
+                Arrays.asList("777f4da740b1acece6966475f3b0c63a"));
         executeTest("testComplexVCFPileup", spec);
     }
 
@@ -53,7 +53,7 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
                 " --eval:VCF3 " + validationDataLocation + "CEU_hapmap_nogt_23.vcf" +
                 " -L 1 -L 2 -L 20"
                 , 1,
-                Arrays.asList("78c4d651d6c0a04b64ccee1dd9d036b9"));
+                Arrays.asList("427f378b312dad056ac88369887b7d98"));
         executeTest("testLargeComplexVCFPileup", spec);
     }
 
