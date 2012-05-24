@@ -17,7 +17,7 @@ import java.net.UnknownHostException;
 final public class MongoDB {
     private final static String DB_HOST = "couchdb.broadinstitute.org";
     private final static Integer DB_PORT = 43054;
-    private final static String DB_NAME = "nexus";
+    private final static String DB_NAME = "navel";
     private final static String SITES_COLLECTION = "sites";
     private final static String SAMPLES_COLLECTION = "samples";
 
