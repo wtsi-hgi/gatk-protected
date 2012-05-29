@@ -82,7 +82,7 @@ class HybridSelectionPipelineTest {
   }
 
   private def writeBamList(fileName: String, bams: List[String]) = {
-    val bamList = BaseTest.createNetworkTempFile(fileName)
+    val bamList = BaseTest.tryCreateNetworkTempFile(fileName)
     FileUtils.writeLines(bamList, bams)
     bamList
   }
