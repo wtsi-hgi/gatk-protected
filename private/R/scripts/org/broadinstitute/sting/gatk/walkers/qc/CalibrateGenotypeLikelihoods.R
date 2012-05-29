@@ -39,14 +39,18 @@ genotypeCounts <- function(x) {
   return(t)
 }
 
-digestTable <- function(inputDataFile) {
+digestTable <- function(inputDataFile, doCompAll) {
   d = read.table(inputDataFile, header=T)
   byRG = subset(d, rg != "ALL")
   allOnly = subset(d, rg == "ALL")
   eByCompRG = addEmpiricalPofG(ddply(byRG, .(rg, pGGivenDType, pGGivenD), genotypeCounts))
   eByCompRG$rg = factor(eByCompRG$rg)
-  eByCompAll = addEmpiricalPofG(ddply(allOnly, .(rg, pGGivenDType, pGGivenD), genotypeCounts))
-  eByCompAll$rg = factor(eByCompAll$rg)
+  if ( doCompAll == 1 ) {
+    eByCompAll = addEmpiricalPofG(ddply(allOnly, .(rg, pGGivenDType, pGGivenD), genotypeCounts))
+    eByCompAll$rg = factor(eByCompAll$rg)
+  } else {
+    eByCompAll <- eByCompRG
+  }
   
   return(list(d=d, eByCompRG = eByCompRG, eByCompAll = eByCompAll))
 }
@@ -59,9 +63,11 @@ args <- commandArgs(TRUE)
 inputDataFile = args[1]
 onCmdLine = ! is.na(inputDataFile)
 if ( onCmdLine ) {
-  digested <- digestTable(inputDataFile)
+  doCompAll <- as.numeric(args[2])
+  digested <- digestTable(inputDataFile, doCompAll)
 } else {
-  digested <- digestTable("/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/QuantizedQuals/levels.64.qq.reduced.cgl")
+  doCompAll <- 1
+  digested <- digestTable("/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/QuantizedQuals/levels.64.qq.reduced.cgl", doCompAll)
 }
 if ( onCmdLine ) pdf(paste(inputDataFile, ".pdf", sep=""))
 
@@ -99,7 +105,9 @@ plotMe <- function(eByComp, includeByReadGroup, title) {
 }
   
 plotMe(digested$eByCompRG, F, "GLs within read groups")
-plotMe(digested$eByCompAll, F, "GLs across read groups")
+if ( doCompAll == 1 ) {
+    plotMe(digested$eByCompAll, F, "GLs across read groups")
+}
 
 if ( onCmdLine ) dev.off()
   
