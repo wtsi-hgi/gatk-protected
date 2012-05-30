@@ -39,6 +39,11 @@ genotypeCounts <- function(x) {
   return(t)
 }
 
+rmseFunction <- function(data) {
+  rmse = sqrt(sum((data$pGGivenD-data$EmpiricalPofGQ)^2*data$Sum)/sum(data$Sum))
+  c(eqn=paste("RMSE=",round(rmse,digits=3),sep=""), Sum=mean(data$Sum))
+}
+
 digestTable <- function(inputDataFile, doCompAll) {
   d = read.table(inputDataFile, header=T)
   byRG = subset(d, rg != "ALL")
@@ -74,31 +79,38 @@ if ( onCmdLine ) pdf(paste(inputDataFile, ".pdf", sep=""))
 plotMe <- function(eByComp, includeByReadGroup, title) {
   for ( xmax in c(30, 99) ) { # loop over just meaningful subset and all 
     ymax = xmax
-    goodEByComp = subset(eByComp, Sum > 10 & EmpiricalPofGQ < Inf)
-    
+    if(xmax > 70) {
+      labelPlacement = xmax-10
+    } else {
+      labelPlacement = xmax-5
+    }
+    goodEByComp = subset(eByComp, Sum > 10 & EmpiricalPofGQ < Inf & pGGivenD <= xmax)
+    rmseLabel <- ddply(goodEByComp, .(pGGivenDType), rmseFunction)
+    rmseLabel$Sum = as.numeric(max(rmseLabel$Sum))
+
     #First graph, overall likelihoods 
     tryCatch(
-      print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=pGGivenDType, geom=c("jitter"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_smooth(se=T, aes(weight=Sum)) + geom_abline(slope=1, linetype=2), title=title),
+      print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=pGGivenDType, geom=c("jitter"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax), xlab="Reported Genotype Quality", ylab="Empirical Genotype Quality") + geom_smooth(se=T, aes(weight=Sum)) + geom_abline(slope=1, linetype=2) + geom_text(data=rmseLabel, aes(x=0, y=labelPlacement, label=eqn, hjust=0, vjust=0), fontface="bold"), title=title),
       error = function(e) {
-        print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=pGGivenDType, geom=c("jitter"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2), title=title)
+        print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=pGGivenDType, geom=c("jitter"), group=pGGivenDType, xlim=c(0,xmax), ylim=c(0,ymax), xlab="Reported Genotype Quality", ylab="Empirical Genotype Quality") + geom_abline(slope=1, linetype=2) + geom_text(data=rmseLabel, aes(x=0, y=labelPlacement, label=eqn, hjust=0, vjust=0), fontface="bold"), title=title)
         }
     )  
     
     if ( includeByReadGroup ) {
       #Second graph, likelihoods by read group  
       tryCatch(
-        print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2) + geom_smooth(se=F, aes(weight=Sum)), title=title),
+        print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax), xlab="Reported Genotype Quality", ylab="Empirical Genotype Quality") + geom_abline(slope=1, linetype=2) + geom_smooth(se=F, aes(weight=Sum)), title=title),
         error = function(e) {
-          print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax)) + geom_abline(slope=1, linetype=2), title=title)    
+          print(qplot(pGGivenD, EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(0,ymax), xlab="Reported Genotype Quality", ylab="Empirical Genotype Quality") + geom_abline(slope=1, linetype=2), title=title)
         }
       )
     }
     
     #Third graph, likelihoods difference from empirical    
     tryCatch(
-      print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(-ymax/2,ymax/2)) + geom_abline(slope=0, linetype=2) + geom_smooth(se=F, method=lm, formula = y ~ ns(x,1), aes(weight=Sum)), title=title),
+      print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(-ymax/2,ymax/2), xlab="Reported Genotype Quality", ylab="Genotype Quality Accuracy (reported - empirical)") + geom_abline(slope=0, linetype=2) + geom_smooth(se=F, method=lm, formula = y ~ ns(x,1), aes(weight=Sum)), title=title),
       error = function(e) {
-        print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(-ymax/2,ymax/2)) + geom_abline(slope=0, linetype=2), title=title)
+        print(qplot(pGGivenD, pGGivenD - EmpiricalPofGQ, data=goodEByComp, facets = pGGivenDType ~ ., size=log10(Sum), color=rg, geom=c("jitter"), group=rg, xlim=c(0,xmax), ylim=c(-ymax/2,ymax/2), xlab="Reported Genotype Quality", ylab="Genotype Quality Accuracy (reported - empirical)") + geom_abline(slope=0, linetype=2), title=title)
       }
     )
   }
