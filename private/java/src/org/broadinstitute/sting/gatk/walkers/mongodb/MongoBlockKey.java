@@ -12,7 +12,7 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContext;
  * Time: 1:34 PM
  *
  * Block names are contig|location_modulus
- * e.g. 1:14354654 -> 1|14, Y:12345 -> Y|0
+ * e.g. 1:14354654 -> 1|143, Y:12345 -> Y|0
  */
 final public class MongoBlockKey {
     private final String key;
@@ -22,7 +22,7 @@ final public class MongoBlockKey {
     }
 
     // maximum number of bases in a block
-    private final int BLOCK_SIZE = 1000000;
+    private final int BLOCK_SIZE = 100000;
 
     public MongoBlockKey(VariantContext vc) {
         key = generateKey(vc.getChr(), vc.getStart());
