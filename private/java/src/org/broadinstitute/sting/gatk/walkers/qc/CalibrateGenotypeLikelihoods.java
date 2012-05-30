@@ -285,7 +285,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             return Data.EMPTY_DATA;
 
         // Grabs a usable VariantContext from the Alleles ROD
-        final VariantContext vcComp = getVCComp(tracker,ref,context);
+        final VariantContext vcComp = getVCComp(tracker, ref, context);
         if( vcComp == null )
             return Data.EMPTY_DATA;
 
@@ -336,8 +336,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     @Override
     public void onTraversalDone( final Data data ) {
         // print the header
-        List<String> pGNames = Arrays.asList("QofAAGivenD", "QofABGivenD", "QofBBGivenD");
-        List<String> fields = Arrays.asList("sample", "rg", "loc", "ref", "alt", "siteType", "pls", "comp", "pGGivenDType", "pGGivenD", "pDGivenG");
+        final List<String> pGNames = Arrays.asList("QofAAGivenD", "QofABGivenD", "QofBBGivenD");
+        final List<String> fields = Arrays.asList("sample", "rg", "loc", "ref", "alt", "siteType", "pls", "comp", "pGGivenDType", "pGGivenD", "pDGivenG");
         moltenDataset.println(Utils.join("\t", fields));
 
         // determine the priors by counting all of the events we've seen in comp
@@ -384,8 +384,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
     private Data calculateGenotypeDataFromAlignments( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context, final VariantContext vcComp ) {
         final Data data = new Data();
-        Map <String,AlignmentContext> contextBySample = AlignmentContextUtils.splitContextBySampleName(context);
-        for (Map.Entry<String,AlignmentContext> sAC : contextBySample.entrySet()) {
+        final Map <String,AlignmentContext> contextBySample = AlignmentContextUtils.splitContextBySampleName(context);
+        for ( final Map.Entry<String,AlignmentContext> sAC : contextBySample.entrySet())  {
             String sample = sAC.getKey();
             AlignmentContext sampleAC = sAC.getValue();
             Genotype compGT = getGenotype(tracker, ref, sample, snpEngine != null ? snpEngine : indelEngine);
@@ -395,7 +395,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             // now split by read group
             Map<SAMReadGroupRecord,AlignmentContext> byRG = AlignmentContextUtils.splitContextByReadGroup(sampleAC, getToolkit().getSAMFileHeader().getReadGroups());
             byRG.put(new SAMReadGroupRecord("ALL"), context);     // uncomment to include a synthetic RG for all RG for the sample
-            for ( Map.Entry<SAMReadGroupRecord, AlignmentContext> rgAC : byRG.entrySet() ) {
+            for ( final Map.Entry<SAMReadGroupRecord, AlignmentContext> rgAC : byRG.entrySet() ) {
                 VariantCallContext call;
                 if ( (vcComp.isIndel() || vcComp.isMixed()) && doIndels ) {
                     //throw new UserException.BadInput("CalibrateGenotypeLikelihoods does not currently support indel GL calibration.  This capability needs to be tested and verified to be working with the new genotyping code for indels in UG");
