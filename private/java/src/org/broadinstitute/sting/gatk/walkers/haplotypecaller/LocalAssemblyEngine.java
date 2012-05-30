@@ -1,7 +1,8 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import org.broadinstitute.sting.utils.Haplotype;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.util.ArrayList;
 
@@ -19,5 +20,5 @@ public abstract class LocalAssemblyEngine {
     protected LocalAssemblyEngine() {
     }
 
-    public abstract ArrayList<Haplotype> runLocalAssembly(ArrayList<GATKSAMRecord> reads, Haplotype refHaplotype, byte[] fullReferenceWithPadding, int PRUNE_FACTOR);
+    public abstract ArrayList<Haplotype> runLocalAssembly(ActiveRegion activeRegion, Haplotype refHaplotype, byte[] fullReferenceWithPadding, int PRUNE_FACTOR, ArrayList<VariantContext> activeAllelesToGenotype);
 }

@@ -185,7 +185,7 @@ public class GenotypingEngine {
 
     @Requires({"refLoc.containsP(activeRegionWindow)", "haplotypes.size() > 0"})
     public List<Pair<VariantContext, HashMap<Allele,ArrayList<Haplotype>>>> assignGenotypeLikelihoodsAndCallIndependentEvents( final UnifiedGenotyperEngine UG_engine, final ArrayList<Haplotype> haplotypes, final byte[] ref, final GenomeLoc refLoc,
-                                                                                                               final GenomeLoc activeRegionWindow, final GenomeLocParser genomeLocParser ) {
+                                                                                                               final GenomeLoc activeRegionWindow, final GenomeLocParser genomeLocParser, final ArrayList<VariantContext> activeAllelesToGenotype ) {
 
         final ArrayList<Pair<VariantContext, HashMap<Allele,ArrayList<Haplotype>>>> returnCalls = new ArrayList<Pair<VariantContext, HashMap<Allele,ArrayList<Haplotype>>>>();
 
@@ -214,13 +214,15 @@ public class GenotypingEngine {
         for( final int loc : startPosKeySet ) {
             if( loc >= activeRegionWindow.getStart() && loc <= activeRegionWindow.getStop() ) {
                 final ArrayList<VariantContext> eventsAtThisLoc = new ArrayList<VariantContext>();
-                for( final Haplotype h : haplotypes ) {
+                for( final Haplotype h : ( activeAllelesToGenotype.isEmpty() ? haplotypes : haplotypes.subList(1, activeAllelesToGenotype.size()+1) ) ) { // BUGBUG: assumes comp alleles are biallelic
                     final HashMap<Integer,VariantContext> eventMap = h.getEventMap();
                     final VariantContext vc = eventMap.get(loc);
                     if( vc != null && !containsVCWithMatchingAlleles(eventsAtThisLoc, vc) ) {
                         eventsAtThisLoc.add(vc);
                     }
                 }
+
+                if( eventsAtThisLoc.isEmpty() ) { continue; }
 
                 // Create the allele mapping object which maps the original haplotype alleles to the alleles present in just this event
                 final ArrayList<ArrayList<Haplotype>> alleleMapper = createAlleleMapper( loc, eventsAtThisLoc, haplotypes );

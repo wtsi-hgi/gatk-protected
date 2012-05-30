@@ -2,11 +2,15 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import com.google.java.contract.Ensures;
 import org.apache.commons.lang.ArrayUtils;
+import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.SWPairwiseAlignment;
+import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import java.io.PrintStream;
@@ -42,11 +46,11 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         GRAPH_WRITER = graphWriter;
     }
 
-    public ArrayList<Haplotype> runLocalAssembly( final ArrayList<GATKSAMRecord> reads, final Haplotype refHaplotype, final byte[] fullReferenceWithPadding, final int PRUNE_FACTOR ) {
+    public ArrayList<Haplotype> runLocalAssembly( final ActiveRegion activeRegion, final Haplotype refHaplotype, final byte[] fullReferenceWithPadding, final int PRUNE_FACTOR, final ArrayList<VariantContext> activeAllelesToGenotype ) {
         this.PRUNE_FACTOR = PRUNE_FACTOR;
 
         // create the graphs
-        createDeBruijnGraphs( reads, refHaplotype );
+        createDeBruijnGraphs( activeRegion.getReads(), refHaplotype );
 
         // clean up the graphs by pruning and merging
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
@@ -60,7 +64,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         }
 
         // find the best paths in the graphs
-        return findBestPaths( refHaplotype, fullReferenceWithPadding );
+        return findBestPaths( refHaplotype, fullReferenceWithPadding, activeAllelesToGenotype, activeRegion.getLocation() );
     }
 
     private void createDeBruijnGraphs( final ArrayList<GATKSAMRecord> reads, final Haplotype refHaplotype ) {
@@ -246,7 +250,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     }
 
     @Ensures({"result.contains(refHaplotype)"})
-    private ArrayList<Haplotype> findBestPaths( final Haplotype refHaplotype, final byte[] fullReferenceWithPadding ) {
+    private ArrayList<Haplotype> findBestPaths( final Haplotype refHaplotype, final byte[] fullReferenceWithPadding, final ArrayList<VariantContext> activeAllelesToGenotype, final GenomeLoc activeRegionWindow ) {
         final ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         // add the reference haplotype separately from all the others
@@ -254,13 +258,29 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         refHaplotype.setAlignmentStartHapwrtRef( swConsensus.getAlignmentStart2wrt1() );
         refHaplotype.setCigar( swConsensus.getCigar() );
         returnHaplotypes.add( refHaplotype );
+
         final int activeRegionStart = refHaplotype.getAlignmentStartHapwrtRef();
         final int activeRegionStop = refHaplotype.getAlignmentStartHapwrtRef() + refHaplotype.getCigar().getReferenceLength();
+
+        for( final VariantContext compVC : activeAllelesToGenotype ) {
+            if( compVC.isBiallelic() ) {
+                for( final Allele compAltAllele : compVC.getAlternateAlleles() ) { // BUGBUG: only supports biallelic GGA tracks for now
+                    addHaplotype( refHaplotype.insertAllele(compVC.getReference(), compAltAllele, activeRegionStart + compVC.getStart() - activeRegionWindow.getStart()), fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop );
+                }
+            }
+        }
 
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
             for ( final KBestPaths.Path path : KBestPaths.getKBestPaths(graph, NUM_BEST_PATHS_PER_KMER_GRAPH) ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
                 addHaplotype( h, fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop );
+                for( final VariantContext compVC : activeAllelesToGenotype ) {
+                    if( compVC.isBiallelic() ) {
+                        for( final Allele compAltAllele : compVC.getAlternateAlleles() ) { // BUGBUG: only supports biallelic GGA tracks for now
+                            addHaplotype( h.insertAllele(compVC.getReference(), compAltAllele, activeRegionStart + compVC.getStart() - activeRegionWindow.getStart()), fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop );
+                        }
+                    }
+                }
             }
         }
 
