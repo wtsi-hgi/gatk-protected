@@ -114,7 +114,6 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
             }
         }
         return alleles;
-
     }
 
     /**

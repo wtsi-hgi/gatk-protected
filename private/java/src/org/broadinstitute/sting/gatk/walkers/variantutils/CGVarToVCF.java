@@ -86,7 +86,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
 
     private void writeHet(VariantContext vc) {
         List<Allele> alleles = new ArrayList<Allele>(vc.getAlleles());
-        Genotype g = new Genotype(sampleName, alleles);
+        Genotype g = GenotypeBuilder.create(sampleName, alleles);
         write(vc, g);
     }
 
@@ -94,7 +94,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
         List<Allele> alleles = new ArrayList<Allele>(2);
         alleles.add(vc.getAlternateAllele(0));
         alleles.add(vc.getAlternateAllele(0));
-        Genotype g = new Genotype(sampleName, alleles);
+        Genotype g = GenotypeBuilder.create(sampleName, alleles);
         write(vc, g);
     }
 

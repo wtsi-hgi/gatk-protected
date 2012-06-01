@@ -27,8 +27,6 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
@@ -618,7 +616,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         for ( int k = 0; k < oldGTs.size(); k++ ) {
             final Genotype g = oldGTs.get(sampleIndices.get(k));
             if ( !g.hasLikelihoods() ) {
-                newGTs.add(new Genotype(g.getSampleName(), NO_CALL_ALLELES, Genotype.NO_LOG10_PERROR, null, null, false));
+                newGTs.add(GenotypeBuilder.create(g.getSampleName(), NO_CALL_ALLELES));
                 continue;
             }
 
@@ -636,20 +634,22 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
             // if there is no mass on the (new) likelihoods, then just no-call the sample
             if ( MathUtils.sum(newLikelihoods) > VariantContextUtils.SUM_GL_THRESH_NOCALL ) {
-                newGTs.add(new Genotype(g.getSampleName(), NO_CALL_ALLELES, Genotype.NO_LOG10_PERROR, null, null, false));
+                newGTs.add(GenotypeBuilder.create(g.getSampleName(), NO_CALL_ALLELES));
             }
             else {
-                Map<String, Object> attrs = new HashMap<String, Object>(g.getAttributes());
+                final GenotypeBuilder gb = new GenotypeBuilder(g);
+
                 if ( numNewAltAlleles == 0 )
-                    attrs.remove(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY);
+                    gb.noPL();
                 else
-                    attrs.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(newLikelihoods));
+                    gb.PL(newLikelihoods);
 
                 // if we weren't asked to assign a genotype, then just no-call the sample
                 if ( !assignGenotypes || MathUtils.sum(newLikelihoods) > VariantContextUtils.SUM_GL_THRESH_NOCALL )
-                    newGTs.add(new Genotype(g.getSampleName(), NO_CALL_ALLELES, Genotype.NO_LOG10_PERROR, null, attrs, false));
+                    gb.alleles(NO_CALL_ALLELES);
                 else
-                    newGTs.add(assignGenotype(g, newLikelihoods, allelesToUse, ploidy, attrs));
+                    assignGenotype(gb, newLikelihoods, allelesToUse, ploidy);
+                newGTs.add(gb.make());
             }
         }
 
@@ -660,7 +660,6 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
     /**
      * Assign genotypes (GTs) to the samples in the Variant Context greedily based on the PLs
      *
-     * @param originalGT           the original genotype
      * @param newLikelihoods       the PL array
      * @param allelesToUse         the list of alleles to choose from (corresponding to the PLs)
      * @param numChromosomes        Number of chromosomes per pool
@@ -668,8 +667,10 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
      *
      * @return genotype
      */
-    private static Genotype assignGenotype(final Genotype originalGT, final double[] newLikelihoods, final List<Allele> allelesToUse,
-                                           final int numChromosomes, final Map<String, Object> attrs) {
+    private static void assignGenotype(final GenotypeBuilder gb,
+                                       final double[] newLikelihoods,
+                                       final List<Allele> allelesToUse,
+                                       final int numChromosomes) {
         final int numNewAltAlleles = allelesToUse.size() - 1;
 
 
@@ -690,11 +691,13 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         }
 
         // per-pool logging of AC and AF
-        attrs.put(MAXIMUM_LIKELIHOOD_AC_KEY, alleleCounts.size() == 1 ? alleleCounts.get(0) : alleleCounts);
-        attrs.put(MAXIMUM_LIKELIHOOD_AF_KEY, alleleFreqs.size() == 1 ? alleleFreqs.get(0) : alleleFreqs);
+        gb.attribute(MAXIMUM_LIKELIHOOD_AC_KEY, alleleCounts.size() == 1 ? alleleCounts.get(0) : alleleCounts);
+        gb.attribute(MAXIMUM_LIKELIHOOD_AF_KEY, alleleFreqs.size() == 1 ? alleleFreqs.get(0) : alleleFreqs);
 
+        // remove PLs if necessary
         if (newLikelihoods.length > MAX_LENGTH_FOR_POOL_PL_LOGGING)
-            attrs.remove(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY);
+            gb.noPL();
+
         ArrayList<Allele> myAlleles = new ArrayList<Allele>();
 
         // add list of called ML genotypes to alleles list
@@ -704,9 +707,10 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
             for (int k=0; k < mlAlleleCount[mlind]; k++)
                 myAlleles.add(idx++,allelesToUse.get(mlind));
         }
+        gb.alleles(myAlleles);
 
-        final double qual = numNewAltAlleles == 0 ? Genotype.NO_LOG10_PERROR : GenotypeLikelihoods.getQualFromLikelihoods(PLindex, newLikelihoods);
-        return new Genotype(originalGT.getSampleName(), myAlleles, qual, null, attrs, false);
+        if ( numNewAltAlleles > 0 )
+            gb.GQ(GenotypeLikelihoods.getGQLog10FromLikelihoods(PLindex, newLikelihoods));
     }
 
 }

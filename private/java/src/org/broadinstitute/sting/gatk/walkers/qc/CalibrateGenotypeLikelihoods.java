@@ -49,6 +49,7 @@ import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.io.Resource;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
+import org.broadinstitute.sting.utils.variantcontext.GenotypeType;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
@@ -167,7 +168,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         final GenotypeLikelihoods pl;
         final String ref, alt;
         final VariantContext.Type siteType;
-        final Genotype.Type genotypeType;
+        final GenotypeType genotypeType;
 
         @Override
         public int compareTo(Datum o) {
@@ -176,7 +177,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             return bySample != 0 ? bySample : byRG;
         }
 
-        public Datum(final GenomeLoc loc, String ref, String alt, String sample, String rgID, GenotypeLikelihoods pl, VariantContext.Type siteType, Genotype.Type genotypeType) {
+        public Datum(final GenomeLoc loc, String ref, String alt, String sample, String rgID, GenotypeLikelihoods pl, VariantContext.Type siteType, GenotypeType genotypeType) {
             this.loc = loc;
             this.ref = ref;
             this.alt = alt;
@@ -344,7 +345,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         final double[] counts = new double[]{1, 1, 1};
         for ( final Datum d : data.values ) { counts[d.genotypeType.ordinal()-1]++; }
         double sum = MathUtils.sum(counts);
-        logger.info(String.format("Types %s %s %s", Genotype.Type.values()[1], Genotype.Type.values()[2], Genotype.Type.values()[3]));
+        logger.info(String.format("Types %s %s %s", GenotypeType.values()[1], GenotypeType.values()[2], GenotypeType.values()[3]));
         logger.info(String.format("Counts %.0f %.0f %.0f %.0f", counts[0], counts[1], counts[2], sum));
         double[] log10priors = new double[]{Math.log10(counts[0] / sum), Math.log10(counts[1] / sum), Math.log10(counts[2] / sum)};
         logger.info(String.format("Priors %.2f %.2f %.2f", log10priors[0], log10priors[1], log10priors[2]));

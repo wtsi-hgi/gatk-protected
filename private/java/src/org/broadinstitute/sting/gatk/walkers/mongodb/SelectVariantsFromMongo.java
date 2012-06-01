@@ -815,9 +815,9 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
         final VariantContext sub;
         if ( excludeNonVariants )
-            sub = vc.subContextFromSamples(samples); // strip out the alternate alleles that aren't being used
+            sub = vc.subContextFromSamples(samples, true); // strip out the alternate alleles that aren't being used
         else
-            sub = vc.subContextFromSamples(samples, vc.getAlleles());
+            sub = vc.subContextFromSamples(samples, false);
         VariantContextBuilder builder = new VariantContextBuilder(sub);
 
         GenotypesContext newGC = sub.getGenotypes();
@@ -835,7 +835,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
                     ArrayList<Allele> alleles = new ArrayList<Allele>(2);
                     alleles.add(Allele.create((byte)'.'));
                     alleles.add(Allele.create((byte)'.'));
-                    genotypes.add(new Genotype(genotype.getSampleName(),alleles, Genotype.NO_LOG10_PERROR,genotype.getFilters(),new HashMap<String, Object>(),false));
+                    genotypes.add(GenotypeBuilder.create(genotype.getSampleName(),alleles));
                 }
                 else{
                     genotypes.add(genotype);
@@ -867,7 +867,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         for (String sample : originalVC.getSampleNames()) {
             Genotype g = originalVC.getGenotype(sample);
 
-            if ( g.isNotFiltered() ) {
+            if ( ! g.isFiltered() ) {
 
                 String dp = (String) g.getAttribute("DP");
                 if (dp != null && ! dp.equals(VCFConstants.MISSING_DEPTH_v3) && ! dp.equals(VCFConstants.MISSING_VALUE_v4) ) {

@@ -4,10 +4,7 @@ import org.broad.tribble.*;
 import org.broad.tribble.exception.CodecLineParsingException;
 import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
 
@@ -169,7 +166,7 @@ public class SoapSNPCodec extends AsciiFeatureCodec<VariantContext> implements N
 
         Collection<Allele> alleles = new HashSet<Allele>(genotypeAlleles);
         alleles.add(refAllele);
-        Genotype genotype = new Genotype("unknown", genotypeAlleles); // todo -- probably should include genotype quality
+        Genotype genotype = GenotypeBuilder.create("unknown", genotypeAlleles); // todo -- probably should include genotype quality
 
         return new AlleleAndGenotype( alleles, genotype );
     }

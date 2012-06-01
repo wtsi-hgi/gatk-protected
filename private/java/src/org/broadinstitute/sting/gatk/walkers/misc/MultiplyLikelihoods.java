@@ -122,11 +122,7 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
         GenotypesContext genotypes = context.getGenotypes(samples);
         ArrayList<Genotype> newG = new ArrayList<Genotype>(genotypes.size());
         for ( Genotype g : genotypes ) {
-            Map<String,Object> justLik = new HashMap<String,Object>();
-            if ( g.hasLikelihoods() ) {
-                justLik.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,g.getLikelihoods());
-            }
-            Genotype gPrime = new Genotype(g.getSampleName(),NO_CALL,Genotype.NO_LOG10_PERROR,new HashSet<String>(0),justLik,false);
+            Genotype gPrime = new GenotypeBuilder(g.getSampleName(),NO_CALL).PL(g.getLikelihoods().getAsPLs()).make();
             newG.add(gPrime);
         }
         return GenotypesContext.create(newG);
@@ -149,11 +145,13 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
         }
 
         // todo -- recalculate GQ if we want it
-        return new Genotype(g1.getSampleName(),NO_CALL, Genotype.NO_LOG10_PERROR ,new HashSet<String>(),new HashMap<String,Object>(),g1.isPhased(),l3);
+        return new GenotypeBuilder(g1.getSampleName(),NO_CALL).phased(g1.isPhased()).PL(l3).make();
     }
 
     private Genotype purge(Genotype g) {
-        return new Genotype(g.getSampleName(),NO_CALL,Genotype.NO_LOG10_PERROR,new HashSet<String>(),new HashMap<String,Object>(),g.isPhased(),g.hasLikelihoods() ? g.getLikelihoods().getAsVector() : null);
+        GenotypeBuilder b = new GenotypeBuilder(g.getSampleName(),NO_CALL).phased(g.isPhased());
+        if ( g.hasLikelihoods() ) b.PL(g.getLikelihoods().getAsVector());
+        return b.make();
     }
 
     protected double[] getLikelihoods(Genotype g) {
