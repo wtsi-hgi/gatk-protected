@@ -710,7 +710,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         gb.alleles(myAlleles);
 
         if ( numNewAltAlleles > 0 )
-            gb.GQ(GenotypeLikelihoods.getGQLog10FromLikelihoods(PLindex, newLikelihoods));
+            gb.log10PError(GenotypeLikelihoods.getGQLog10FromLikelihoods(PLindex, newLikelihoods));
     }
 
 }

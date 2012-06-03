@@ -60,7 +60,6 @@ class BCFvsVCFPerformance extends QScript {
     this.reference_sequence = referenceFile
     this.memoryLimit = 2
     if ( myIntervals != null ) {
-      logger.info("Setting intervals")
       this.intervalsString = Seq(myIntervals)
     }
   }

@@ -165,7 +165,7 @@ public class MongoSampleData {
                 }
 
                 Genotype pGenotype = new GenotypeBuilder(sample, genotypeAlleles)
-                        .GQ(genotypeError).attributes(genotypeAttributes).make();
+                        .log10PError(genotypeError).attributes(genotypeAttributes).make();
 
                 if (!returnMap.containsKey(pStart)) {
                     returnMap.put(pStart, new ArrayList<MongoSampleData>());
