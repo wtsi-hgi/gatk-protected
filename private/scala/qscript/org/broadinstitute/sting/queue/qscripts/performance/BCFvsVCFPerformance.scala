@@ -33,7 +33,7 @@ class BCFvsVCFPerformance extends QScript {
   val BUNDLE_DIR: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current")
 
   @Argument(shortName = "dataDir", doc = "Directory to hold temporary VCF/BCF files", required = false)
-  val DATA_DIR: File = new File("./")
+  val DATA_DIR: File = new File("./results")
 
   @Argument(shortName = "testVCF", doc = "VCF files for testing", required = false)
   val TEST_VCFs: List[File] = List(new File("/home/unix/depristo/dev/localData/ESP.chr20.vcf"))
@@ -65,7 +65,38 @@ class BCFvsVCFPerformance extends QScript {
   }
 
   def script = {
+    // performance of converting VCFs and BCFs amoung each other
     for ( rawVCF <- TEST_VCFs ) {
+      val testVCF = rawVCFToTestVCF(rawVCF, true)
+      val testBCF = vcfToBCF(testVCF)
+
+      for (iteration <- 1 until iterations + 1) {
+        for ( inputType <- List("vcf", "bcf")) {
+          for ( forceGenotypesDecode <- List(true, false)) {
+            for ( fastGenotypes <- List(true, false)) {
+              for ( outputType <- List("vcf", "bcf")) {
+                val input = if ( inputType == "vcf" ) testVCF else testBCF
+                val sv = new SelectVariants() with UNIVERSAL_GATK_ARGS
+                sv.V = input
+                sv.analysisName = "fileTypeConversion"
+                val outExt = ".it_%d.decode_%b.fastGT_%b.%s".format(iteration, forceGenotypesDecode, fastGenotypes, outputType)
+                sv.out = swapExt(DATA_DIR, testVCF, "." + inputType, outExt)
+                sv.useFastGenotypes = fastGenotypes
+                sv.forceGenotypesDecode = forceGenotypesDecode
+                sv.configureJobReport(Map(
+                  "iteration" -> iteration,
+                  "forceGenotypesDecode" -> forceGenotypesDecode,
+                  "fastGenotypes" -> fastGenotypes,
+                  "outputType" -> outputType,
+                  "inputType" -> inputType))
+                add(sv)
+              }
+            }
+          }
+        }
+      }
+
+      // generic tests of VCF vs. BCF inputs
       for ( includeGenotypes <- List(true, false)) {
         // create the corresponding BCF
         val testVCF = rawVCFToTestVCF(rawVCF, includeGenotypes)
