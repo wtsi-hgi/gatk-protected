@@ -112,6 +112,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Argument(fullName="mnpLookAhead", shortName="mnpLookAhead", doc = "The number of bases to combine together to form MNPs out of nearby consecutive SNPs on the same haplotype", required = false)
     protected int MNP_LOOK_AHEAD = 0;
 
+    @Argument(fullName="minPruning", shortName="minPruning", doc = "The minimum allowed pruning factor in assembly graph. Paths with <= X supporting kmers are pruned from the graph", required = false)
+    protected int MIN_PRUNE_FACTOR = 0;
+
     @Argument(fullName="genotypeFullActiveRegion", shortName="genotypeFullActiveRegion", doc = "If specified, alternate alleles are considered to be the full active region for the purposes of genotyping", required = false)
     protected boolean GENOTYPE_FULL_ACTIVE_REGION = false;
 
@@ -226,10 +229,12 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         if( UG_engine.getUAC().GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
             for( final VariantContext vc : tracker.getValues(UG_engine.getUAC().alleles, ref.getLocus()) ) {
                 if( !allelesToGenotype.contains(vc) ) {
-                    allelesToGenotype.add(vc);
+                    allelesToGenotype.add(vc); // save for later for processing during the ActiveRegion's map call. Should be folded into a ReadMetaDataTracker object
                 }
             }
-            return ( tracker.getValues(UG_engine.getUAC().alleles, ref.getLocus()).size() > 0 ? 1.0 : 0.0 );
+            if( tracker.getValues(UG_engine.getUAC().alleles, ref.getLocus()).size() > 0 ) {
+                return 1.0;
+            }
         }
 
         if( USE_ALLELES_TRIGGER ) {
@@ -277,8 +282,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
 
         final ArrayList<Allele> alleles = new ArrayList<Allele>();
-        alleles.add( Allele.create("A", true) ); // fake ref Allele
-        alleles.add( Allele.create("G", false) ); // fake alt Allele
+        alleles.add( Allele.create("N", true) );
+        alleles.add( Allele.create("<FAKE_ALT>", false) );
         final VariantCallContext vcOut = UG_engine_simple_genotyper.calculateGenotypes(new VariantContextBuilder("HCisActive!", context.getContig(), context.getLocation().getStart(), context.getLocation().getStop(), alleles).genotypes(genotypes).make(), GenotypeLikelihoodsCalculationModel.Model.INDEL);
         return ( vcOut == null ? 0.0 : QualityUtils.qualToProb( vcOut.getPhredScaledQual() ) );
     }
@@ -311,7 +316,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader)); // Create the reference haplotype which is the bases from the reference that make up the active region
         referenceHaplotype.setIsReference(true);
         final byte[] fullReferenceWithPadding = activeRegion.getFullReference(referenceReader, REFERENCE_PADDING);
-        int PRUNE_FACTOR = determinePruneFactorFromCoverage( activeRegion );
+        int PRUNE_FACTOR = Math.max(MIN_PRUNE_FACTOR, determinePruneFactorFromCoverage( activeRegion ));
         final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion, referenceHaplotype, fullReferenceWithPadding, PRUNE_FACTOR, activeAllelesToGenotype );
         if( haplotypes.size() == 1 ) { return 1; } // only the reference haplotype remains so nothing else to do!
 

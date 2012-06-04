@@ -6,6 +6,7 @@ import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.SWPairwiseAlignment;
 import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
@@ -257,15 +258,19 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( fullReferenceWithPadding, refHaplotype.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
         refHaplotype.setAlignmentStartHapwrtRef( swConsensus.getAlignmentStart2wrt1() );
         refHaplotype.setCigar( swConsensus.getCigar() );
-        returnHaplotypes.add( refHaplotype );
+        if( !returnHaplotypes.add( refHaplotype ) ) {
+            throw new ReviewedStingException("Unable to add reference haplotype during assembly: " + refHaplotype);
+        }
 
         final int activeRegionStart = refHaplotype.getAlignmentStartHapwrtRef();
         final int activeRegionStop = refHaplotype.getAlignmentStartHapwrtRef() + refHaplotype.getCigar().getReferenceLength();
 
         for( final VariantContext compVC : activeAllelesToGenotype ) {
-            if( compVC.isBiallelic() ) {
-                for( final Allele compAltAllele : compVC.getAlternateAlleles() ) { // BUGBUG: only supports biallelic GGA tracks for now
-                    addHaplotype( refHaplotype.insertAllele(compVC.getReference(), compAltAllele, activeRegionStart + compVC.getStart() - activeRegionWindow.getStart()), fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop );
+            for( final Allele compAltAllele : compVC.getAlternateAlleles() ) {
+                final Haplotype insertedRefHaplotype = refHaplotype.insertAllele(compVC.getReference(), compAltAllele, activeRegionStart + compVC.getStart() - activeRegionWindow.getStart());
+                if( !addHaplotype( insertedRefHaplotype, fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop ) ) {
+                    return returnHaplotypes;
+                    //throw new ReviewedStingException("Unable to add reference+allele haplotype during GGA-enabled assembly: " + insertedRefHaplotype);
                 }
             }
         }
@@ -273,10 +278,9 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         for( final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph : graphs ) {
             for ( final KBestPaths.Path path : KBestPaths.getKBestPaths(graph, NUM_BEST_PATHS_PER_KMER_GRAPH) ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
-                addHaplotype( h, fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop );
-                for( final VariantContext compVC : activeAllelesToGenotype ) {
-                    if( compVC.isBiallelic() ) {
-                        for( final Allele compAltAllele : compVC.getAlternateAlleles() ) { // BUGBUG: only supports biallelic GGA tracks for now
+                if( addHaplotype( h, fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop ) ) {
+                    for( final VariantContext compVC : activeAllelesToGenotype ) {
+                        for( final Allele compAltAllele : compVC.getAlternateAlleles() ) {
                             addHaplotype( h.insertAllele(compVC.getReference(), compAltAllele, activeRegionStart + compVC.getStart() - activeRegionWindow.getStart()), fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop );
                         }
                     }
@@ -299,13 +303,13 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         return returnHaplotypes;
     }
 
-    private void addHaplotype( final Haplotype haplotype, final byte[] ref, final ArrayList<Haplotype> haplotypeList, final int activeRegionStart, final int activeRegionStop ) {
+    private boolean addHaplotype( final Haplotype haplotype, final byte[] ref, final ArrayList<Haplotype> haplotypeList, final int activeRegionStart, final int activeRegionStop ) {
         final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, haplotype.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
         haplotype.setAlignmentStartHapwrtRef(swConsensus.getAlignmentStart2wrt1());
         haplotype.setCigar(swConsensus.getCigar());
 
         if( swConsensus.getCigar().toString().contains("S") || swConsensus.getCigar().getReferenceLength() < 20 ) { // protect against SW failures
-            return;
+            return false;
         }
 
         final int hapStart = ReadUtils.getReadCoordinateForReferenceCoordinate( haplotype.getAlignmentStartHapwrtRef(), haplotype.getCigar(), activeRegionStart, ReadUtils.ClippingTail.LEFT_TAIL, true );
@@ -313,7 +317,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         byte[] newHaplotypeBases;
         // extend partial haplotypes to contain the full active region sequence
         if( hapStart == ReadUtils.CLIPPING_GOAL_NOT_REACHED && hapStop == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) {
-            return; // piece of haplotype isn't anchored within the active region so don't build a haplotype out of it
+            return false; // piece of haplotype isn't anchored within the active region so don't build a haplotype out of it
         } else if( hapStart == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) {
             newHaplotypeBases = ArrayUtils.addAll( ArrayUtils.subarray(ref, activeRegionStart, swConsensus.getAlignmentStart2wrt1()), ArrayUtils.subarray(haplotype.getBases(), 0, hapStop) );
         } else if( hapStop == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) {
@@ -329,11 +333,13 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         h.setCigar( AlignmentUtils.leftAlignIndel(swConsensus2.getCigar(), ref, h.getBases(), swConsensus2.getAlignmentStart2wrt1(), 0) );
 
         if( swConsensus2.getCigar().toString().contains("S") || swConsensus2.getCigar().getReferenceLength() != activeRegionStop - activeRegionStart ) { // protect against SW failures
-            return;
+            return false;
         }
 
         if( !haplotypeList.contains(h) ) {
             haplotypeList.add(h);
+            return true;
         }
+        return false;
     }
 }

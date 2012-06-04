@@ -56,7 +56,7 @@ public class GenotypingEngine {
     // This function is the streamlined approach, currently not being used
     @Requires({"refLoc.containsP(activeRegionWindow)", "haplotypes.size() > 0"})
     public List<Pair<VariantContext, HashMap<Allele,ArrayList<Haplotype>>>> assignGenotypeLikelihoodsAndCallHaplotypeEvents( final UnifiedGenotyperEngine UG_engine, final ArrayList<Haplotype> haplotypes, final byte[] ref, final GenomeLoc refLoc,
-                                                                                                               final GenomeLoc activeRegionWindow, final GenomeLocParser genomeLocParser ) {
+                                                                                                                             final GenomeLoc activeRegionWindow, final GenomeLocParser genomeLocParser ) {
         // Prepare the list of haplotype indices to genotype
         final ArrayList<Allele> allelesToGenotype = new ArrayList<Allele>();
 
@@ -185,7 +185,7 @@ public class GenotypingEngine {
 
     @Requires({"refLoc.containsP(activeRegionWindow)", "haplotypes.size() > 0"})
     public List<Pair<VariantContext, HashMap<Allele,ArrayList<Haplotype>>>> assignGenotypeLikelihoodsAndCallIndependentEvents( final UnifiedGenotyperEngine UG_engine, final ArrayList<Haplotype> haplotypes, final byte[] ref, final GenomeLoc refLoc,
-                                                                                                               final GenomeLoc activeRegionWindow, final GenomeLocParser genomeLocParser, final ArrayList<VariantContext> activeAllelesToGenotype ) {
+                                                                                                                               final GenomeLoc activeRegionWindow, final GenomeLocParser genomeLocParser, final ArrayList<VariantContext> activeAllelesToGenotype ) {
 
         final ArrayList<Pair<VariantContext, HashMap<Allele,ArrayList<Haplotype>>>> returnCalls = new ArrayList<Pair<VariantContext, HashMap<Allele,ArrayList<Haplotype>>>>();
 
@@ -196,11 +196,16 @@ public class GenotypingEngine {
         for( final Haplotype h : haplotypes ) {
             // Walk along the alignment and turn any difference from the reference into an event
             h.setEventMap( generateVCsFromAlignment( h.getAlignmentStartHapwrtRef(), h.getCigar(), ref, h.getBases(), refLoc, "HC" + count++, MNP_LOOK_AHEAD ) );
-            startPosKeySet.addAll(h.getEventMap().keySet());
+            if( activeAllelesToGenotype.isEmpty() ) { startPosKeySet.addAll(h.getEventMap().keySet()); }
             if( DEBUG ) {
                 System.out.println( h.toString() );
                 System.out.println( "> Cigar = " + h.getCigar() );
                 System.out.println( ">> Events = " + h.getEventMap().values());
+            }
+        }
+        if( !activeAllelesToGenotype.isEmpty() ) { // we are in GGA mode!
+            for( final VariantContext compVC : activeAllelesToGenotype ) {
+                startPosKeySet.add( compVC.getStart() );
             }
         }
 
@@ -214,15 +219,32 @@ public class GenotypingEngine {
         for( final int loc : startPosKeySet ) {
             if( loc >= activeRegionWindow.getStart() && loc <= activeRegionWindow.getStop() ) {
                 final ArrayList<VariantContext> eventsAtThisLoc = new ArrayList<VariantContext>();
-                for( final Haplotype h : ( activeAllelesToGenotype.isEmpty() ? haplotypes : haplotypes.subList(1, activeAllelesToGenotype.size()+1) ) ) { // BUGBUG: assumes comp alleles are biallelic
-                    final HashMap<Integer,VariantContext> eventMap = h.getEventMap();
-                    final VariantContext vc = eventMap.get(loc);
-                    if( vc != null && !containsVCWithMatchingAlleles(eventsAtThisLoc, vc) ) {
-                        eventsAtThisLoc.add(vc);
+                if( activeAllelesToGenotype.isEmpty() ) {
+                    for( final Haplotype h : haplotypes ) {
+                        final HashMap<Integer,VariantContext> eventMap = h.getEventMap();
+                        final VariantContext vc = eventMap.get(loc);
+                        if( vc != null && !containsVCWithMatchingAlleles(eventsAtThisLoc, vc) ) {
+                            eventsAtThisLoc.add(vc);
+                        }
+                    }
+                } else { // we are in GGA mode!
+                    for( final VariantContext compVC : activeAllelesToGenotype ) {
+                        if( compVC.getStart() == loc ) {
+                            priorityList.clear();
+                            int alleleCount = 0;
+                            for( final Allele compAltAllele : compVC.getAlternateAlleles() ) {
+                                HashSet<Allele> alleleSet = new HashSet<Allele>(2);
+                                alleleSet.add(compVC.getReference());
+                                alleleSet.add(compAltAllele);
+                                priorityList.add("Allele" + alleleCount);
+                                eventsAtThisLoc.add(new VariantContextBuilder(compVC.subContextFromSamples(compVC.getSampleNames(), alleleSet)).source("Allele"+alleleCount).make());
+                                alleleCount++;
+                            }
+                        }
                     }
                 }
 
-                if( eventsAtThisLoc.isEmpty() ) { continue; }
+                //if( eventsAtThisLoc.isEmpty() ) { continue; }
 
                 // Create the allele mapping object which maps the original haplotype alleles to the alleles present in just this event
                 final ArrayList<ArrayList<Haplotype>> alleleMapper = createAlleleMapper( loc, eventsAtThisLoc, haplotypes );
