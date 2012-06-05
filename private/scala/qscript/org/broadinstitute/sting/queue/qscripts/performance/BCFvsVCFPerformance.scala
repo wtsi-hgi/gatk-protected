@@ -72,10 +72,19 @@ class BCFvsVCFPerformance extends QScript {
 
       for (iteration <- 1 until iterations + 1) {
         for ( inputType <- List("vcf", "bcf")) {
+          // test conversion from genotypes files to sites file
+          val input = if ( inputType == "vcf" ) testVCF else testBCF
+          val sv = new SelectVariants() with UNIVERSAL_GATK_ARGS
+          sv.V = input
+          sv.analysisName = "genotypesToSites"
+          sv.out = swapExt(DATA_DIR, testVCF, ".sites." + inputType, outExt)
+          sv.configureJobReport(Map( "iteration" -> iteration, "inputType" -> inputType))
+          add(sv)
+
+          // test conversion from XCF -> XCF
           for ( forceGenotypesDecode <- List(true, false)) {
             for ( fastGenotypes <- List(true, false)) {
               for ( outputType <- List("vcf", "bcf")) {
-                val input = if ( inputType == "vcf" ) testVCF else testBCF
                 val sv = new SelectVariants() with UNIVERSAL_GATK_ARGS
                 sv.V = input
                 sv.analysisName = "fileTypeConversion"
@@ -95,6 +104,8 @@ class BCFvsVCFPerformance extends QScript {
           }
         }
       }
+
+
 
       // generic tests of VCF vs. BCF inputs
       for ( includeGenotypes <- List(true, false)) {
