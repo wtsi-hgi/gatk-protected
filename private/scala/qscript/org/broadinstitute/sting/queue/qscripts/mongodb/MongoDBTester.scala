@@ -26,7 +26,7 @@ class MongoDBTester extends QScript {
   @Input(doc="VCF file for locations.", shortName="V")
   var vcfFile: File = _
 
-  @Input(doc="Samples file.", shortName="sf")
+  @Input(doc="Samples file.", shortName="sf", required=false)
   var samplesFile: File = _
 
   @Input(doc="Number of clients.", shortName="c")
@@ -37,11 +37,17 @@ class MongoDBTester extends QScript {
 
     selectVariants.reference_sequence = referenceFile
     selectVariants.variant = vcfFile
-    selectVariants.sf :+= samplesFile
-    selectVariants.memoryLimit = 4
-    selectVariants.scatterCount = numClients
 
-    selectVariants.out = swapExt(qscript.samplesFile, "samples", "%d.vcf".format(numClients))
+    if (samplesFile != null ) {
+      selectVariants.sf :+= samplesFile
+      selectVariants.out = swapExt(qscript.samplesFile, "samples", "%d.vcf".format(numClients))
+    }
+    else {
+      selectVariants.no_samples = true
+      selectVariants.out = "no_samples.vcf"
+    }
+
+    selectVariants.memoryLimit = 4
 
     add(selectVariants)
   }

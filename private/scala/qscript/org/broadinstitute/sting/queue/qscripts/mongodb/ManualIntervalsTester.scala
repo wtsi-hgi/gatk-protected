@@ -45,7 +45,7 @@ class ManualIntervalsTester extends QScript {
         selectVariants.out = swapExt(qscript.samplesFile, "samples", "%d.vcf".format(numClients))
       }
       else {
-        selectVariants.sites_only = true
+        selectVariants.no_samples = true
         selectVariants.out = "no_samples.vcf"
       }
 
