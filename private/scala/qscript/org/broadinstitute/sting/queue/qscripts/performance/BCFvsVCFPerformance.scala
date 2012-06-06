@@ -65,6 +65,9 @@ class BCFvsVCFPerformance extends QScript {
   }
 
   def script = {
+    if ( ! DATA_DIR.exists() )
+      DATA_DIR.mkdirs()
+
     // performance of converting VCFs and BCFs amoung each other
     for ( rawVCF <- TEST_VCFs ) {
       val testVCF = rawVCFToTestVCF(rawVCF, true)
@@ -77,7 +80,8 @@ class BCFvsVCFPerformance extends QScript {
           val sv = new SelectVariants() with UNIVERSAL_GATK_ARGS
           sv.V = input
           sv.analysisName = "genotypesToSites"
-          sv.out = swapExt(DATA_DIR, testVCF, ".sites." + inputType, outExt)
+          sv.sites_only = true
+          sv.out = swapExt(DATA_DIR, testVCF, inputType, ".sites.it_" + iteration + "." + inputType)
           sv.configureJobReport(Map( "iteration" -> iteration, "inputType" -> inputType))
           add(sv)
 
