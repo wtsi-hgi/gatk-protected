@@ -38,7 +38,7 @@ class MongoDBTester extends QScript {
     selectVariants.reference_sequence = referenceFile
     selectVariants.variant = vcfFile
     selectVariants.sf :+= samplesFile
-    selectVariants.memoryLimit = 16
+    selectVariants.memoryLimit = 4
     selectVariants.scatterCount = numClients
 
     selectVariants.out = swapExt(qscript.samplesFile, "samples", "%d.vcf".format(numClients))
