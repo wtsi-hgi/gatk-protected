@@ -94,7 +94,7 @@ class BCFvsVCFPerformance extends QScript {
                 sv.analysisName = "fileTypeConversion"
                 val outExt = ".it_%d.decode_%b.fastGT_%b.%s".format(iteration, forceGenotypesDecode, fastGenotypes, outputType)
                 sv.out = swapExt(DATA_DIR, testVCF, "." + inputType, outExt)
-                sv.useFastGenotypes = fastGenotypes
+                sv.useSlowGenotypes = ! fastGenotypes
                 sv.forceGenotypesDecode = forceGenotypesDecode
                 sv.configureJobReport(Map(
                   "iteration" -> iteration,
