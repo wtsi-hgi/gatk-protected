@@ -663,7 +663,6 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
      * @param newLikelihoods       the PL array
      * @param allelesToUse         the list of alleles to choose from (corresponding to the PLs)
      * @param numChromosomes        Number of chromosomes per pool
-     * @param attrs                the annotations to use when creating the genotype
      *
      * @return genotype
      */
@@ -679,13 +678,13 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         final int PLindex = numNewAltAlleles == 0 ? 0 : MathUtils.maxElementIndex(newLikelihoods);
 
         final int[] mlAlleleCount = PoolGenotypeLikelihoods.getAlleleCountFromPLIndex(allelesToUse.size(), numChromosomes, PLindex);
-        final ArrayList<String> alleleFreqs = new ArrayList<String>();
+        final ArrayList<Double> alleleFreqs = new ArrayList<Double>();
         final ArrayList<Integer> alleleCounts = new ArrayList<Integer>();
 
 
         for (int k=1; k < mlAlleleCount.length; k++) {
             alleleCounts.add(mlAlleleCount[k]);
-            final String freq = String.format(VariantContextUtils.makePrecisionFormatStringFromDenominatorValue((double)numChromosomes), ((double)mlAlleleCount[k] / (double)numChromosomes));
+            final double freq = (double)mlAlleleCount[k] / (double)numChromosomes;
             alleleFreqs.add(freq);
 
         }

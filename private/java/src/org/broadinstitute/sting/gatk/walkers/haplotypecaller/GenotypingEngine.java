@@ -235,7 +235,7 @@ public class GenotypingEngine {
                                 alleleSet.add(compVC.getReference());
                                 alleleSet.add(compAltAllele);
                                 priorityList.add("Allele" + alleleCount);
-                                eventsAtThisLoc.add(new VariantContextBuilder(compVC.subContextFromSamples(compVC.getSampleNames(), alleleSet)).source("Allele"+alleleCount).make());
+                                eventsAtThisLoc.add(new VariantContextBuilder(compVC).alleles(alleleSet).source("Allele"+alleleCount).make());
                                 alleleCount++;
                             }
                         }
