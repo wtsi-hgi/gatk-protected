@@ -231,18 +231,9 @@ public class LikelihoodCalculationEngine {
             }
             if( maxElement == Double.NEGATIVE_INFINITY ) { break; }
 
-            //if( bestElement == Double.NEGATIVE_INFINITY ) {
-            //    bestElement = maxElement;
-            //} else if ( maxElement - bestElement < bestElement / ((double) bestHaplotypesIndexList.size()) ) {
-            //    break;
-            //}
-
             if( !bestHaplotypesIndexList.contains(hap1) ) { bestHaplotypesIndexList.add(hap1); }
             if( !bestHaplotypesIndexList.contains(hap2) ) { bestHaplotypesIndexList.add(hap2); }
 
-            //for( int kkk = 0; kkk < sampleCount; kkk++ ) {
-            //    haplotypeLikelihoodMatrix[kkk][hap1][hap2] = Double.NEGATIVE_INFINITY;
-            //}
             for( int iii = 0; iii < numHaplotypes; iii++ ) {
                 for( int jjj = 0; jjj <= iii; jjj++ ) {
                     haplotypeLikelihoodMatrix[chosenSample][iii][jjj] = Double.NEGATIVE_INFINITY;
@@ -266,13 +257,14 @@ public class LikelihoodCalculationEngine {
             final Map<Allele, List<GATKSAMRecord>> alleleReadMap = new HashMap<Allele, List<GATKSAMRecord>>();
             final ArrayList<GATKSAMRecord> readsForThisSample = perSampleReadList.get(sample);
             for( int iii = 0; iii < readsForThisSample.size(); iii++ ) {
-                final GATKSAMRecord read = readsForThisSample.get(iii);
+                final GATKSAMRecord read = readsForThisSample.get(iii); // BUGBUG: assumes read order in this list and haplotype likelihood list are the same!
+                // only count the read if it overlaps the event, otherwise it is not added to the output read list at all
                 if( callLoc.overlapsP(parser.createGenomeLoc(read)) ) {
                     final double likelihoods[] = new double[call.getFirst().getAlleles().size()];
                     int count = 0;
-                    for( final Allele a : call.getFirst().getAlleles() ) {
+                    for( final Allele a : call.getFirst().getAlleles() ) { // find the allele with the highest haplotype likelihood
                         double maxLikelihood = Double.NEGATIVE_INFINITY;
-                        for( final Haplotype h : call.getSecond().get(a) ) { // use the max likelihood from all the haplotypes which mapped to this allele
+                        for( final Haplotype h : call.getSecond().get(a) ) { // use the max likelihood from all the haplotypes which mapped to this allele (achieved via the haplotype mapper object)
                             final double likelihood = h.getReadLikelihoods(sample)[iii];
                             if( likelihood > maxLikelihood ) {
                                 maxLikelihood = likelihood;
@@ -290,6 +282,7 @@ public class LikelihoodCalculationEngine {
                             break;
                         }
                     }
+                    // uninformative reads get the no call Allele
                     if( isInformativeRead ) {
                         allele = call.getFirst().getAlleles().get(bestAllele);
                     }
@@ -301,13 +294,14 @@ public class LikelihoodCalculationEngine {
                     readList.add(read);
                 }
             }
-            // add the filtered reads to the NO_CALL list
+            // add all filtered reads to the NO_CALL list because they weren't given any likelihoods
             List<GATKSAMRecord> readList = alleleReadMap.get(Allele.NO_CALL);
             if( readList == null ) {
                 readList = new ArrayList<GATKSAMRecord>();
                 alleleReadMap.put(Allele.NO_CALL, readList);
             }
             for( final GATKSAMRecord read : perSampleFilteredReadList.get(sample) ) {
+                // only count the read if it overlaps the event, otherwise it is not added to the output read list at all
                 if( callLoc.overlapsP(parser.createGenomeLoc(read)) ) {
                     readList.add(read);
                 }
