@@ -725,8 +725,13 @@ public class SlidingWindow {
                 case H:
                 case S:                                                                                                 // nothing to add to the window
                     break;
-                case I:                                                                                                 // insertions are added to the base to the left (previous element)
-                    headerElement = windowHeader.get(locationIndex - 1);
+                case I:
+
+                    if (removeRead && locationIndex == 0) {                                                             // special case, if we are removing a read that starts in insertion and we don't have the previous header element anymore, don't worry about it.
+                        break;
+                    }
+
+                    headerElement = windowHeader.get(locationIndex - 1);                                                // insertions are added to the base to the left (previous element)
                     if (removeRead) {
                         headerElement.removeInsertionToTheRight();
                     }
