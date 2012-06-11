@@ -10,6 +10,7 @@ import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -46,18 +47,18 @@ public class SyntheticRead {
      * Full initialization of the running consensus if you have all the information and are ready to
      * start adding to the running consensus.
      *
-     * @param header GATKSAMRecord file header
+     * @param header          GATKSAMRecord file header
      * @param readGroupRecord Read Group for the GATKSAMRecord
-     * @param contig the read's contig name
-     * @param contigIndex the read's contig index
-     * @param readName the read's name
-     * @param refStart the alignment start (reference based)
-     * @param readTag
+     * @param contig          the read's contig name
+     * @param contigIndex     the read's contig index
+     * @param readName        the read's name
+     * @param refStart        the alignment start (reference based)
+     * @param readTag         the reduce reads tag for the synthetic read
      */
     public SyntheticRead(SAMFileHeader header, GATKSAMReadGroupRecord readGroupRecord, String contig, int contigIndex, String readName, Integer refStart, String readTag) {
-        bases = new LinkedList<BaseIndex>();
-        counts = new LinkedList<Byte>();
-        quals = new LinkedList<Byte>();
+        bases = new ArrayList<BaseIndex>(10000);
+        counts = new ArrayList<Byte>(10000);
+        quals = new ArrayList<Byte>(10000);
         mappingQuality = 0.0;
 
         this.readTag = readTag;
@@ -87,8 +88,8 @@ public class SyntheticRead {
      * Easy access to keep adding to a running consensus that has already been
      * initialized with the correct read name and refStart
      *
-     * @param base
-     * @param count
+     * @param base   the base to add
+     * @param count  number of reads with this base
      */
     @Requires("count < Byte.MAX_VALUE")
     public void add(BaseIndex base, byte count, byte qual, double mappingQuality) {
@@ -96,6 +97,19 @@ public class SyntheticRead {
         bases.add(base);
         quals.add(qual);
         this.mappingQuality += mappingQuality;
+    }
+
+    public BaseIndex getBase(int readCoordinate) {
+        return bases.get(readCoordinate);
+    }
+
+    public Integer getRefStart() {
+        return refStart;
+    }
+
+    public void decrementBase(int readCoordinate) {
+        byte minusOne = (byte) Math.max(Byte.MIN_VALUE, counts.get(readCoordinate) - 1);
+        counts.set(readCoordinate, minusOne);
     }
 
     /**
@@ -218,8 +232,8 @@ public class SyntheticRead {
     /**
      * Shared functionality for all conversion utilities
      *
-     * @param bases
-     * @param variable
+     * @param bases    the read bases
+     * @param variable the list to convert
      * @return a converted variable given the bases and skipping deletions
      */
 
@@ -239,7 +253,7 @@ public class SyntheticRead {
     /**
      * Shared functionality for all conversion utilities
      *
-     * @param bases
+     * @param bases  the read bases
      * @return the length of the read with no deletions
      */
     private static int getReadLengthWithNoDeletions(List<BaseIndex> bases) {

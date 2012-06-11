@@ -15,7 +15,6 @@ public class SingleSampleCompressor implements Compressor {
     protected static final Logger logger = Logger.getLogger(SingleSampleCompressor.class);
 
     protected final int contextSize;
-    protected final int contextSizeIndels;
     protected final int downsampleCoverage;
     protected int minMappingQuality;
     protected int slidingWindowCounter;
@@ -31,7 +30,6 @@ public class SingleSampleCompressor implements Compressor {
 
     public SingleSampleCompressor(final String sampleName,
                                   final int contextSize,
-                                  final int contextSizeIndels,
                                   final int downsampleCoverage,
                                   final int minMappingQuality,
                                   final double minAltProportionToTriggerVariant,
@@ -40,7 +38,6 @@ public class SingleSampleCompressor implements Compressor {
                                   final ReduceReadsWalker.DownsampleStrategy downsampleStrategy) {
         this.sampleName = sampleName;
         this.contextSize = contextSize;
-        this.contextSizeIndels = contextSizeIndels;
         this.downsampleCoverage = downsampleCoverage;
         this.minMappingQuality = minMappingQuality;
         this.slidingWindowCounter = 0;
@@ -69,16 +66,12 @@ public class SingleSampleCompressor implements Compressor {
         }
 
         if ( slidingWindow == null) {                                                  // this is the first read
-            instantiateSlidingWindow(read);
+            slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, read.getHeader(), read.getReadGroup(), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, minMappingQuality, downsampleCoverage, downsampleStrategy);
             slidingWindowCounter++;
         }
 
         result.addAll(slidingWindow.addRead(read));
         return result;
-    }
-
-    protected void instantiateSlidingWindow(GATKSAMRecord read) {
-        slidingWindow = new SlidingWindow(read.getReferenceName(), read.getReferenceIndex(), contextSize, contextSizeIndels, read.getHeader(), read.getReadGroup(), slidingWindowCounter, minAltProportionToTriggerVariant, minIndelProportionToTriggerVariant, minBaseQual, minMappingQuality, downsampleCoverage, downsampleStrategy);
     }
 
     @Override

@@ -40,9 +40,7 @@ import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MendelianViolation;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
-import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.*;
@@ -231,6 +229,9 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
     @Input(fullName="exclude_sample_file", shortName="xl_sf", doc="File containing a list of samples (one per line) to exclude. Can be specified multiple times", required=false)
     public Set<File> XLsampleFiles = new HashSet<File>(0);
 
+    @Argument(fullName="no_samples", shortName="no_s", doc="Indicates that no samples should be selected.  Without setting this option, selecting no samples will specify ALL samples", required=false)
+    protected boolean SITES_ONLY = false;
+
     /**
      * Note that these expressions are evaluated *after* the specified samples are extracted and the INFO field annotations are updated.
      */
@@ -396,7 +397,13 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         samples.removeAll(XLsamplesFromFile);
         samples.removeAll(XLsampleNames);
 
-        if ( samples.size() == 0 && !NO_SAMPLES_SPECIFIED )
+        // finally check to see if we want no samples at all
+        if (SITES_ONLY) {
+            samples.clear();
+            NO_SAMPLES_SPECIFIED = true;
+        }
+
+        if ( samples.size() == 0 && !NO_SAMPLES_SPECIFIED)
             throw new UserException("All samples requested to be included were also requested to be excluded.");
 
         for ( String sample : samples )
@@ -503,9 +510,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             }
         }
 
-        for (String sample : samples) {
-            vcs.addAll(getMongoVariantsBySample(ref, context.getLocation(), sample));
-        }
+        vcs.addAll(getMongoVariants(ref, context.getLocation(), samples));
 
         if ( vcs == null || vcs.size() == 0) {
             return 0;
@@ -587,23 +592,27 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         return 1;
     }
 
-    private Collection<VariantContext> getMongoVariantsBySample(ReferenceContext ref, GenomeLoc location, String sample) {
+    private Collection<VariantContext> getMongoVariants(ReferenceContext ref, GenomeLoc location, Set<String> samples) {
         Integer start = location.getStart();
 
         ArrayList<VariantContext> vcs = new ArrayList<VariantContext>();
 
-        if (!activeBlockSiteData.containsKey(start)
-                || !activeBlockSampleMap.containsKey(sample)
-                || !activeBlockSampleMap.get(sample).containsKey(start)) {
+        if (!activeBlockSiteData.containsKey(start)) {
             return vcs;
         }
 
         for (MongoSiteData oneSite : activeBlockSiteData.get(start)) {
-            for (MongoSampleData oneSample : activeBlockSampleMap.get(sample).get(start)) {
-                if (oneSample.matches(oneSite)) {
-                    VariantContextBuilder builder = oneSite.builder(ref);
-                    builder.genotypes(oneSample.getGenotype());
-                    vcs.add(builder.make());
+            VariantContextBuilder builder = oneSite.builder(ref);
+            vcs.add(builder.make());
+
+            for (String sample: samples) {
+                if (activeBlockSampleMap.containsKey(sample) && activeBlockSampleMap.get(sample).containsKey(start)) {
+                    for (MongoSampleData oneSample : activeBlockSampleMap.get(sample).get(start)) {
+                        if (oneSample.matches(oneSite)) {
+                            builder.genotypes(oneSample.getGenotype());
+                            vcs.add(builder.make());
+                        }
+                    }
                 }
             }
         }
