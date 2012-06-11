@@ -507,7 +507,7 @@ public class SlidingWindow {
                     lastStop = stop;
                 }
             }
-            for (int i = 0; i <= lastStop; i++)                                                                         // clean up the window header elements up until the end of the variant region.
+            for (int i = 0; i < lastStop; i++)                                                                          // clean up the window header elements up until the end of the variant region. (we keep the last element in case the following element had a read that started with insertion)
                 windowHeader.remove();                                                                                  // todo -- can't believe java doesn't allow me to just do windowHeader = windowHeader.get(stop). Should be more efficient here!
         }
         return allReads;
@@ -726,17 +726,18 @@ public class SlidingWindow {
                 case S:                                                                                                 // nothing to add to the window
                     break;
                 case I:
-
                     if (removeRead && locationIndex == 0) {                                                             // special case, if we are removing a read that starts in insertion and we don't have the previous header element anymore, don't worry about it.
                         break;
                     }
 
                     headerElement = windowHeader.get(locationIndex - 1);                                                // insertions are added to the base to the left (previous element)
+
                     if (removeRead) {
                         headerElement.removeInsertionToTheRight();
                     }
-                    else
+                    else {
                         headerElement.addInsertionToTheRight();
+                    }
                     readBaseIndex += cigarElement.getLength();
                     break;                                                                                              // just ignore the insertions at the beginning of the read
                 case D:
