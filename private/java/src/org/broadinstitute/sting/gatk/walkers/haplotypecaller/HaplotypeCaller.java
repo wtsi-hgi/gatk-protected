@@ -91,7 +91,7 @@ import java.util.*;
  */
 
 @PartitionBy(PartitionType.LOCUS)
-@ActiveRegionExtension(extension=50, maxRegion=350)
+@ActiveRegionExtension(extension=50, maxRegion=300)
 public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     /**
@@ -481,7 +481,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         final double meanCoveragePerSample = (double) activeRegion.getReads().size() / ((double) activeRegion.getExtendedLoc().size() / meanReadLength) / (double) samplesList.size();
         int PRUNE_FACTOR = 0;
         if( meanCoveragePerSample > 8.5 ) {
-            PRUNE_FACTOR = (int) Math.floor( Math.sqrt( meanCoveragePerSample - 3.0 ) );
+            PRUNE_FACTOR = (int) Math.floor( Math.sqrt( meanCoveragePerSample - 5.0 ) );
         } else if( meanCoveragePerSample > 3.0 ) {
             PRUNE_FACTOR = 1;
         }

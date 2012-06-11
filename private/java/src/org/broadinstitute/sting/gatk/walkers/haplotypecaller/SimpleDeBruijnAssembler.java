@@ -342,7 +342,8 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         if( !haplotypeList.contains(h) ) {
             haplotypeList.add(h);
             return true;
+        } else {
+            return false;
         }
-        return false;
     }
 }

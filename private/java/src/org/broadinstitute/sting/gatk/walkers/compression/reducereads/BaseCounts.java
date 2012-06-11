@@ -8,7 +8,7 @@ import java.util.Map;
 
 /**
  * An object to keep track of the number of occurences of each base and it's quality.
- * <p/>
+ *
  * User: depristo
  * Date: 4/8/11
  * Time: 2:55 PM
@@ -19,7 +19,7 @@ final public class BaseCounts {
     public final static byte MAX_BASE_WITH_NO_COUNTS = MAX_BASE_INDEX_WITH_NO_COUNTS.getByte();
 
     private final Map<BaseIndex, Integer> counts;   // keeps track of the base counts
-    private final Map<BaseIndex, Long> sumQuals;    // keeps track of teh quals of each base
+    private final Map<BaseIndex, Long> sumQuals;    // keeps track of the quals of each base
 
     public BaseCounts() {
         counts = new EnumMap<BaseIndex, Integer>(BaseIndex.class);
@@ -66,6 +66,24 @@ final public class BaseCounts {
             sumQuals.put(i, sumQuals.get(i) + qual);
         }
     }
+
+    @Ensures("totalCount() == old(totalCount()) || totalCount() == old(totalCount()) - 1")
+    public void decr(byte base) {
+        BaseIndex i = BaseIndex.byteToBase(base);
+        if (i != null) // no Ns
+            counts.put(i, counts.get(i) - 1);
+    }
+
+    @Ensures("totalCount() == old(totalCount()) || totalCount() == old(totalCount()) - 1")
+    public void decr(byte base, byte qual) {
+        BaseIndex i = BaseIndex.byteToBase(base);
+        if (i != null) { // no Ns
+            counts.put(i, counts.get(i) - 1);
+            sumQuals.put(i, sumQuals.get(i) - qual);
+        }
+    }
+
+
 
     @Ensures("result >= 0")
     public int getCount(byte base) {
