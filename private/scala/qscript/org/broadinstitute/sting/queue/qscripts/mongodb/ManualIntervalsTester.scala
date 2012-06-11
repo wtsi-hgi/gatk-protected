@@ -40,21 +40,30 @@ class ManualIntervalsTester extends QScript {
       selectVariants.reference_sequence = referenceFile
       selectVariants.variant = vcfFile
 
+      val intersection = true
+
       if (samplesFile != null ) {
         selectVariants.sf :+= samplesFile
-        selectVariants.out = swapExt(qscript.samplesFile, "samples", "%d.vcf".format(numClients))
+        if (intersection) {
+          selectVariants.out = swapExt(qscript.samplesFile, "samples", "%d_of_%d_inter.vcf".format(i, numClients))
+        }
+        else {
+          selectVariants.out = swapExt(qscript.samplesFile, "samples", "%d_of_%d.vcf".format(i, numClients))
+        }
       }
       else {
         selectVariants.no_samples = true
-        selectVariants.out = "no_samples.vcf"
+        selectVariants.out = "no_samples_%d_of_%d.vcf".format(i, numClients)
       }
 
       selectVariants.memoryLimit = 4
 
-      //selectVariants.intervals :+= "../chr20_%d.interval_list".format(i)
       selectVariants.intervals :+= "/home/unix/thibault/scratch/intervals/LYPLAL1_%d_of_%d.interval_list".format(i, numClients)
-      selectVariants.intervals :+= "/home/unix/thibault/scratch/intervals/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list"
-      selectVariants.isr = IntervalSetRule.INTERSECTION
+
+      if (intersection) {
+        selectVariants.intervals :+= "/home/unix/thibault/scratch/intervals/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list"
+        selectVariants.isr = IntervalSetRule.INTERSECTION
+      }
 
       add(selectVariants)
     }
