@@ -294,9 +294,9 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
             BQSRKeyManager keyManager = entry.getKey();
             Map<Long, RecalDatum> table = entry.getValue();
 
-            List<Long> mismatchesKeys = keyManager.longsFromAllKeys(readCovariates.getMismatchesKeySet(offset), EventType.BASE_SUBSTITUTION);
-            List<Long> insertionsKeys = keyManager.longsFromAllKeys(readCovariates.getInsertionsKeySet(offset), EventType.BASE_INSERTION);
-            List<Long> deletionsKeys  = keyManager.longsFromAllKeys(readCovariates.getDeletionsKeySet(offset), EventType.BASE_DELETION);
+            Long[] mismatchesKeys = keyManager.longsFromAllKeys(readCovariates.getMismatchesKeySet(offset), EventType.BASE_SUBSTITUTION);
+            Long[] insertionsKeys = keyManager.longsFromAllKeys(readCovariates.getInsertionsKeySet(offset), EventType.BASE_INSERTION);
+            Long[] deletionsKeys  = keyManager.longsFromAllKeys(readCovariates.getDeletionsKeySet(offset), EventType.BASE_DELETION);
             
             for (Long key : mismatchesKeys)
                 updateCovariateWithKeySet(table, key, mismatchesDatum);                              // the three arrays WON'T always have the same length
