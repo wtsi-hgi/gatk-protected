@@ -111,7 +111,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
     
     private LinkedHashMap<BQSRKeyManager, Map<Long, RecalDatum>> keysAndTablesMap;                                      // a map mapping each recalibration table to its corresponding key manager
     
-    private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();                                        // list to hold the all the covariate objects that were requested (required + standard + experimental)
+    private Covariate[] requestedCovariates;                                                                            // list to hold the all the covariate objects that were requested (required + standard + experimental)
 
     private static final String SKIP_RECORD_ATTRIBUTE = "SKIP";                                                         // used to label reads that should be skipped.
     private static final String SEEN_ATTRIBUTE = "SEEN";                                                                // used to label reads as processed.
@@ -144,8 +144,13 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
         Pair<ArrayList<Covariate>, ArrayList<Covariate>> covariates = RecalDataManager.initializeCovariates(RAC);       // initialize the required and optional covariates
         ArrayList<Covariate> requiredCovariates = covariates.getFirst();
         ArrayList<Covariate> optionalCovariates = covariates.getSecond();
-        requestedCovariates.addAll(requiredCovariates);                                                                 // add all required covariates to the list of requested covariates
-        requestedCovariates.addAll(optionalCovariates);                                                                 // add all optional covariates to the list of requested covariates
+
+        requestedCovariates = new Covariate[requiredCovariates.size() + optionalCovariates.size()];
+        int covariateIndex = 0;
+        for (final Covariate covariate : requiredCovariates)
+            requestedCovariates[covariateIndex++] = covariate;
+        for (final Covariate covariate : optionalCovariates)
+            requestedCovariates[covariateIndex++] = covariate;
 
         logger.info("The covariates being used here: ");
         for (Covariate cov : requestedCovariates) {                                                                     // list all the covariates being used
