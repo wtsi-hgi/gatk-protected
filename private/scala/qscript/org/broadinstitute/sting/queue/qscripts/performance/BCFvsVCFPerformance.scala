@@ -36,7 +36,8 @@ class BCFvsVCFPerformance extends QScript {
   val DATA_DIR: File = new File("./results")
 
   @Argument(shortName = "testVCF", doc = "VCF files for testing", required = false)
-  val TEST_VCFs: List[File] = List(new File("/home/unix/depristo/dev/localData/ESP.chr20.vcf"))
+  val TEST_VCFs: List[File] = List(new File("/humgen/gsa-pipeline/oneoffs/macarthur_14k_chr1/macarthur_14k_chr1.unannotated.vcf"))
+  //val TEST_VCFs: List[File] = List(new File("/home/unix/depristo/dev/localData/ESP.chr20.vcf"))
 
   @Argument(shortName = "iterations", doc = "Number of iterations we should execute", required = false)
   val iterations: Int = 1
@@ -92,7 +93,7 @@ class BCFvsVCFPerformance extends QScript {
                 val sv = new SelectVariants() with UNIVERSAL_GATK_ARGS
                 sv.V = input
                 sv.analysisName = "fileTypeConversion"
-                val outExt = ".it_%d.decode_%b.fastGT_%b.%s".format(iteration, forceGenotypesDecode, fastGenotypes, outputType)
+                val outExt = ".input_%s.it_%d.decode_%b.fastGT_%b.%s".format(inputType, iteration, forceGenotypesDecode, fastGenotypes, outputType)
                 sv.out = swapExt(DATA_DIR, testVCF, "." + inputType, outExt)
                 sv.useSlowGenotypes = ! fastGenotypes
                 sv.forceGenotypesDecode = forceGenotypesDecode
