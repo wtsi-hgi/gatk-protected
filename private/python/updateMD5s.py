@@ -33,7 +33,7 @@ def main():
                         help="If provided, don't actually update anything")         
 
     (OPTIONS, args) = parser.parse_args()
-    if len(args) != 2:
+    if len(args) < 2:
         parser.error("Requires a md5mismatch db and at least one path to find files to update")
         
     print 'Reading md5 mismatches from', args[0], '...' 
@@ -49,32 +49,27 @@ def main():
             
     print '\nEnumerating files we will update...'
     for mismatch in md5DB:
-        if mismatch.source == None and not OPTIONS.allowMissingMismatches:
+        if mismatch.getSources() == [] and not OPTIONS.allowMissingMismatches:
             raise Exception("Didn't find a source file to update for mismatch %s" % str(mismatch))
-        print '    Mismatch %s will update file %s' % (mismatch.oldMD5, mismatch.source)
+        print '    Mismatch %s will update file(s) %s' % (mismatch.oldMD5, mismatch.getSources())
 
     print '\nUpdating files...'
-    data = sorted(md5DB, key=Mismatch.getSource)
-    for fileToUpdate, md5s in itertools.groupby(md5DB, Mismatch.getSource):
-        print '    Updating file', fileToUpdate
-        md5s = list(md5s)
-        for md5 in md5s: print '        with %s => %s' % (md5.oldMD5, md5.newMD5)
-        updateFile(md5s, fileToUpdate)
+    for mismatch in md5DB:
+        print '    Updating file(s) for', mismatch
+        updateMismatch(mismatch)
 
 class Mismatch:
     def __init__(self, oldMD5, newMD5, name):
         self.oldMD5 = oldMD5
         self.newMD5 = newMD5
         self.name = name
-        self.source = None
+        self.sources = list()
         
-    def setSource(self, file):
-        if self.source != None:
-            raise Exception("Multiple source files to update for test %s.  Found in %s and %s" % (str(self), self.source, file))
-        self.source = file
+    def addSource(self, file):
+        self.sources.append(file)
 
-    def getSource(self):
-        return self.source
+    def getSources(self):
+        return self.sources
         
     def __str__(self):
         return "[Mismatch md5=%s name=%s]" % (self.oldMD5, self.name) 
@@ -93,7 +88,7 @@ def findMismatchSources(db, file):
     found = False
     for mismatch in db:
         if txt.find(mismatch.oldMD5) != -1:
-            mismatch.setSource(file)
+            mismatch.addSource(file)
             print '    MD5 update found: expected=%s => new=%s in file %s' % ( mismatch.oldMD5, mismatch.newMD5, file )
             found = True
     return False
@@ -110,21 +105,19 @@ def findFilesInDirectories(directoriesOrFiles):
                     filesToConsiderUpdating.append(os.path.join(root, name))
     return filesToConsiderUpdating
 
-def updateFile(db, file):
-    if len(db) == 0:
-        raise Exception("BUG: DB has no mismatches!")
-
-    fd = open(file)
-    txt = fd.read()
-    for mismatch in db:
+def updateMismatch(mismatch):
+    for file in mismatch.getSources():
+        print '        => Updating file', file
+        fd = open(file)
+        txt = fd.read()
         txt = txt.replace(mismatch.oldMD5, mismatch.newMD5)
-    fd.close()
-    print '        => Updated text'
-    if not OPTIONS.dry:
-        fd = open(file, "w")
-        fd.write(txt)
         fd.close()
-        print '      => Updated file on disk'
+        print '        => Updated text'
+        if not OPTIONS.dry:
+            fd = open(file, "w")
+            fd.write(txt)
+            fd.close()
+            print '      => Updated file on disk'
 
 if __name__ == "__main__":
     main()
