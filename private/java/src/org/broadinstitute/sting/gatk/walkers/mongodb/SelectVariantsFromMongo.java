@@ -869,7 +869,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
             if ( ! g.isFiltered() ) {
 
-                String dp = (String) g.getAttribute("DP");
+                String dp = (String) g.getExtendedAttribute("DP");
                 if (dp != null && ! dp.equals(VCFConstants.MISSING_DEPTH_v3) && ! dp.equals(VCFConstants.MISSING_VALUE_v4) ) {
                     depth += Integer.valueOf(dp);
                 }
