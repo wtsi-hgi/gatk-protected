@@ -40,11 +40,11 @@ import java.util.NoSuchElementException;
 public class DownsamplingReadsIterator implements StingSAMIterator {
 
     private StingSAMIterator nestedSAMIterator;
-    private ReadsDownsampler downsampler;
+    private ReadsDownsampler<SAMRecord> downsampler;
     private Collection<SAMRecord> downsampledReadsCache;
     private Iterator<SAMRecord> downsampledReadsCacheIterator;
 
-    public DownsamplingReadsIterator( StingSAMIterator iter, ReadsDownsampler downsampler ) {
+    public DownsamplingReadsIterator( StingSAMIterator iter, ReadsDownsampler<SAMRecord> downsampler ) {
         nestedSAMIterator = iter;
         this.downsampler = downsampler;
         fillDownsampledReadsCache();

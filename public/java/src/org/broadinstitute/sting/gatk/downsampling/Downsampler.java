@@ -25,6 +25,7 @@
 package org.broadinstitute.sting.gatk.downsampling;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * The basic downsampler API, with no reads-specific operations
@@ -43,7 +44,7 @@ public interface Downsampler<T> {
     /*
      * Submit a collection of items to the downsampler for consideration.
      */
-    public void submit( Collection<? extends T> items );
+    public void submit( Collection<T> items );
 
     /*
      * Are there items that have survived the downsampling process waiting to be retrieved?
@@ -53,7 +54,7 @@ public interface Downsampler<T> {
     /*
      * Return (and remove) all items that have survived downsampling and are waiting to be retrieved.
      */
-    public Collection<T> consumeDownsampledItems();
+    public List<T> consumeDownsampledItems();
 
     /*
      * Are there items stored in this downsampler that it doesn't yet know whether they will

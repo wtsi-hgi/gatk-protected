@@ -22,7 +22,7 @@ public class DownsamplingReadsIteratorUnitTest {
         reads.addAll(createStackOfIdenticalReads(3000, header, "foo", 0, 1, 100));
         reads.addAll(createStackOfIdenticalReads(3000, header, "foo", 0, 50, 100));
 
-        StingSAMIterator iter = new DownsamplingReadsIterator(StingSAMIteratorAdapter.adapt(reads.iterator()), new PositionalDownsampler(1000));
+        StingSAMIterator iter = new DownsamplingReadsIterator(StingSAMIteratorAdapter.adapt(reads.iterator()), new PositionalDownsampler<SAMRecord>(1000));
 
         Assert.assertTrue(iter.hasNext());
         SAMRecord previous = iter.next();
@@ -47,7 +47,7 @@ public class DownsamplingReadsIteratorUnitTest {
         reads.addAll(createStackOfIdenticalReads(300, header, "foo", 0, 1, 100));
         reads.addAll(createStackOfIdenticalReads(300, header, "foo", 0, 50, 100));
 
-        StingSAMIterator iter = new DownsamplingReadsIterator(StingSAMIteratorAdapter.adapt(reads.iterator()), new PositionalDownsampler(1000));
+        StingSAMIterator iter = new DownsamplingReadsIterator(StingSAMIteratorAdapter.adapt(reads.iterator()), new PositionalDownsampler<SAMRecord>(1000));
 
         Assert.assertTrue(iter.hasNext());
         SAMRecord previous = iter.next();

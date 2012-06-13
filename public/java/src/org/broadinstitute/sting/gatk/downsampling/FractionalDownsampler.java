@@ -30,58 +30,48 @@ import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 /**
- * Reservoir Downsampler: Selects n reads out of a stream whose size is not known in advance, with
- * every read in the stream having an equal chance of being selected for inclusion.
- *
- * An implementation of "Algorithm R" from the paper "Random Sampling with a Reservoir" (Jeffrey Scott Vitter, 1985)
+ * Fractional Downsampler: selects a specified fraction of the reads for inclusion
  *
  * @author David Roazen
  */
-public class ReservoirDownsampler implements ReadsDownsampler {
+public class FractionalDownsampler<T extends SAMRecord> implements ReadsDownsampler<T> {
 
-    private ArrayList<SAMRecord> reservoir;
+    private ArrayList<T> selectedReads;
 
-    private int targetSampleSize;
+    private int cutoffForInclusion;
 
-    private int totalReadsSeen;
+    private static final int RANDOM_POOL_SIZE = 10000;
 
-    public ReservoirDownsampler ( int targetSampleSize ) {
-        if ( targetSampleSize <= 0 ) {
-            throw new ReviewedStingException("Cannot do reservoir downsampling with a sample size <= 0");
+    public FractionalDownsampler( double fraction ) {
+        if ( fraction < 0.0 || fraction > 1.0 ) {
+            throw new ReviewedStingException("Fraction of reads to include must be between 0.0 and 1.0, inclusive");
         }
 
-        this.targetSampleSize = targetSampleSize;
+        cutoffForInclusion = (int)(fraction * RANDOM_POOL_SIZE);
         clear();
     }
 
-    public void submit ( SAMRecord newRead ) {
-        totalReadsSeen++;
-
-        if ( totalReadsSeen <= targetSampleSize ) {
-            reservoir.add(newRead);
-        }
-        else {
-            int randomSlot = GenomeAnalysisEngine.getRandomGenerator().nextInt(totalReadsSeen);
-            if ( randomSlot < targetSampleSize ) {
-                reservoir.set(randomSlot, newRead);
-            }
+    public void submit( T newRead ) {
+        if ( GenomeAnalysisEngine.getRandomGenerator().nextInt(10000) < cutoffForInclusion ) {
+            selectedReads.add(newRead);
         }
     }
 
-    public void submit ( Collection<? extends SAMRecord> newReads ) {
-        for ( SAMRecord read : newReads ) {
+    public void submit( Collection<T> newReads ) {
+        for ( T read : newReads ) {
             submit(read);
         }
     }
 
     public boolean hasDownsampledItems() {
-        return reservoir.size() > 0;
+        return selectedReads.size() > 0;
     }
 
-    public Collection<SAMRecord> consumeDownsampledItems() {
-        Collection<SAMRecord> downsampledItems = reservoir;
+    public List<T> consumeDownsampledItems() {
+        List<T> downsampledItems = selectedReads;
         clear();
         return downsampledItems;
     }
@@ -95,8 +85,7 @@ public class ReservoirDownsampler implements ReadsDownsampler {
     }
 
     public void clear() {
-        reservoir = new ArrayList<SAMRecord>(targetSampleSize);
-        totalReadsSeen = 0;
+        selectedReads = new ArrayList<T>();
     }
 
     public boolean requiresCoordinateSortOrder() {
