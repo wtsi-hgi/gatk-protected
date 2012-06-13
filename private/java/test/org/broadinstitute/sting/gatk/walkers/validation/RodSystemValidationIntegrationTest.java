@@ -29,7 +29,7 @@ public class RodSystemValidationIntegrationTest extends WalkerTest {
         if (vcf.exists()) vcf.delete();
 
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString1KG() + " --eval " + testDir + "justHeader.vcf", 1,
+                baseTestString1KG() + " --eval:VCF3 " + testDir + "justHeader.vcf", 1,
                 Arrays.asList("1660f76ae84e6e39ec1dfea96622cf5a"));
         executeTest("testEmptyVCF", spec);
     }
