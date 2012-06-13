@@ -32,6 +32,10 @@ def main():
                         action='store_true', default=False,
                         help="If provided, don't actually update anything")         
 
+    parser.add_option("-t", "--integrationtest", dest="onlyUpdateTheseTests",
+                        action='append', default=[], type="string", 
+                        help="If provided, only files with names matching one of these will be updated")         
+
     (OPTIONS, args) = parser.parse_args()
     if len(args) < 2:
         parser.error("Requires a md5mismatch db and at least one path to find files to update")
@@ -105,19 +109,31 @@ def findFilesInDirectories(directoriesOrFiles):
                     filesToConsiderUpdating.append(os.path.join(root, name))
     return filesToConsiderUpdating
 
+def excludeFile(file):
+    if OPTIONS.onlyUpdateTheseTests == []:
+        return False
+    else:
+        for keeper in OPTIONS.onlyUpdateTheseTests:
+            if file.find(keeper) != -1:
+                return False
+        return True
+
 def updateMismatch(mismatch):
     for file in mismatch.getSources():
-        print '        => Updating file', file
-        fd = open(file)
-        txt = fd.read()
-        txt = txt.replace(mismatch.oldMD5, mismatch.newMD5)
-        fd.close()
-        print '        => Updated text'
-        if not OPTIONS.dry:
-            fd = open(file, "w")
-            fd.write(txt)
+        if excludeFile(file):
+            print "        => !!!! Skipping file because it doesn't match inclusion criteria"
+        else:
+            print '        => Updating file', file
+            fd = open(file)
+            txt = fd.read()
+            txt = txt.replace(mismatch.oldMD5, mismatch.newMD5)
             fd.close()
-            print '      => Updated file on disk'
+            print '        => Updated text'
+            if not OPTIONS.dry:
+                fd = open(file, "w")
+                fd.write(txt)
+                fd.close()
+                print '      => Updated file on disk'
 
 if __name__ == "__main__":
     main()
