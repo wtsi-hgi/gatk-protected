@@ -32,8 +32,7 @@ import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
+import org.broadinstitute.sting.utils.variantcontext.*;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -72,7 +71,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
         for (int k=0; k < gls.length; k++)
             gls[k]= (double)k;
 
-        PoolGenotypeLikelihoods gl = new PoolSNPGenotypeLikelihoods(alleles, gls,ploidy, null, true);
+        PoolGenotypeLikelihoods gl = new PoolSNPGenotypeLikelihoods(alleles, gls,ploidy, null, false,true);
         double[] glnew = gl.getLikelihoods();
 
         Assert.assertEquals(gls, glnew);
@@ -260,6 +259,8 @@ public class PoolGenotypeLikelihoodsUnitTest {
         final List<Allele> trueAlleles = new ArrayList<Allele>();
         trueAlleles.add(Allele.create(refByte, true));
 
+        final VariantContext refVC = new VariantContextBuilder("test","chr1",5, 5,
+                trueAlleles).genotypes(new Genotype(refSampleName, trueAlleles,0)).make();
         final int[] matchArray = {95, 995, 9995, 10000};
         final int[] mismatchArray = {1,5,10,20};
 
@@ -268,12 +269,12 @@ public class PoolGenotypeLikelihoodsUnitTest {
                 // get artificial alignment context for ref sample - no noise
                 Map<String,AlignmentContext> refContext = refPileupTestProvider.getAlignmentContextFromAlleles(0, new String(new byte[]{altByte}), new int[]{matches, mismatches}, false, 30);
                 final ReadBackedPileup refPileup = refContext.get(refSampleName).getBasePileup();
-                final ErrorModel emodel = new ErrorModel(minQ,maxQ, (byte)20, refPileup, trueAlleles, 0.0);
+                final ErrorModel emodel = new ErrorModel(minQ,maxQ, (byte)20, refPileup, refVC, 0.0);
                 final double[] errorVec = emodel.getErrorModelVector().getProbabilityVector();
 
                 final double mlEst = -10.0*Math.log10((double)mismatches/(double)(matches+mismatches));
                 final int peakIdx = (int)Math.round(mlEst);
-                if (VERBOSE) System.out.format("Matches:%d Mismatches:%d peakIdx:%d\n",matches, mismatches, peakIdx);
+                if (VERBOSE) System.out.format("Matches:%d Mismatches:%d maxV:%d peakIdx:%d\n",matches, mismatches, MathUtils.maxElementIndex(errorVec),peakIdx);
                 Assert.assertEquals(MathUtils.maxElementIndex(errorVec),peakIdx);
 
             }
@@ -281,6 +282,80 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
 
     }
+
+    @Test
+    public void testIndelErrorModel() {
+        final ArtificialReadPileupTestProvider refPileupTestProvider = new ArtificialReadPileupTestProvider(1,"ref");
+        final byte minQ = 5;
+        final byte maxQ = 40;
+        final byte refByte = refPileupTestProvider.getRefByte();
+        final String altBases = "TCA";
+        final String refSampleName = refPileupTestProvider.getSampleNames().get(0);
+        final List<Allele> trueAlleles = new ArrayList<Allele>();
+        trueAlleles.add(Allele.create(Allele.NULL_ALLELE_STRING, true));
+        trueAlleles.add(Allele.create("TC", false));
+
+        final String fw = new String(refPileupTestProvider.getReferenceContext().getForwardBases());
+        final VariantContext refInsertionVC = new VariantContextBuilder("test","chr1",refPileupTestProvider.getReferenceContext().getLocus().getStart(),
+                refPileupTestProvider.getReferenceContext().getLocus().getStart(), trueAlleles).
+                genotypes(new Genotype(refSampleName, trueAlleles, 0)).referenceBaseForIndel(refByte).make();
+
+
+        final int[] matchArray = {95, 995, 9995, 10000};
+        final int[] mismatchArray = {1,5,10,20};
+
+        for (int matches: matchArray) {
+            for (int mismatches: mismatchArray) {
+                // get artificial alignment context for ref sample - no noise
+                // CASE 1: Test HET insertion
+                // Ref sample has TC insertion but pileup will have TCA inserted instead to test mismatches
+                Map<String,AlignmentContext> refContext = refPileupTestProvider.getAlignmentContextFromAlleles(altBases.length(), altBases, new int[]{matches, mismatches}, false, 30);
+                final ReadBackedPileup refPileup = refContext.get(refSampleName).getBasePileup();
+                final ErrorModel emodel = new ErrorModel(minQ,maxQ, (byte)20, refPileup, refInsertionVC, 0.0);
+                final double[] errorVec = emodel.getErrorModelVector().getProbabilityVector();
+
+                final double mlEst = -10.0*Math.log10((double)mismatches/(double)(matches+mismatches));
+                final int peakIdx = (int)Math.round(mlEst);
+                if (VERBOSE) System.out.format("Matches:%d Mismatches:%d peakIdx:%d\n",matches, mismatches, peakIdx);
+                Assert.assertEquals(MathUtils.maxElementIndex(errorVec),peakIdx);
+
+                // CASE 2: Test HET deletion
+
+            }
+        }
+
+        // create deletion VC
+        final int delLength = 4;
+        final List<Allele> delAlleles = new ArrayList<Allele>();
+        delAlleles.add(Allele.create(fw.substring(1,delLength+1), true));
+        delAlleles.add(Allele.create(Allele.NULL_ALLELE_STRING, false));
+
+        final VariantContext refDeletionVC =  new VariantContextBuilder("test","chr1",refPileupTestProvider.getReferenceContext().getLocus().getStart(),
+                refPileupTestProvider.getReferenceContext().getLocus().getStart()+delLength, delAlleles).
+                genotypes(new Genotype(refSampleName, delAlleles, 0)).referenceBaseForIndel(refByte).make();
+
+        for (int matches: matchArray) {
+            for (int mismatches: mismatchArray) {
+                // get artificial alignment context for ref sample - no noise
+                // CASE 1: Test HET deletion
+                // Ref sample has 4bp deletion but pileup will have 3 bp deletion instead to test mismatches
+                Map<String,AlignmentContext> refContext = refPileupTestProvider.getAlignmentContextFromAlleles(-delLength+1, altBases, new int[]{matches, mismatches}, false, 30);
+                final ReadBackedPileup refPileup = refContext.get(refSampleName).getBasePileup();
+                final ErrorModel emodel = new ErrorModel(minQ,maxQ, (byte)20, refPileup, refDeletionVC, 0.0);
+                final double[] errorVec = emodel.getErrorModelVector().getProbabilityVector();
+
+                final double mlEst = -10.0*Math.log10((double)mismatches/(double)(matches+mismatches));
+                final int peakIdx = (int)Math.round(mlEst);
+                if (VERBOSE) System.out.format("Matches:%d Mismatches:%d peakIdx:%d\n",matches, mismatches, peakIdx);
+                Assert.assertEquals(MathUtils.maxElementIndex(errorVec),peakIdx);
+
+                // CASE 2: Test HET deletion
+
+            }
+        }
+
+    }
+
     @Test
     public void testAddPileupToPoolGL() {
 
@@ -364,7 +439,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
                     // get now likelihoods for this
 
-                    final PoolSNPGenotypeLikelihoods GL = new PoolSNPGenotypeLikelihoods(allAlleles, null, nSamplesPerPool*2, noiselessErrorModels, true);
+                    final PoolSNPGenotypeLikelihoods GL = new PoolSNPGenotypeLikelihoods(allAlleles, null, nSamplesPerPool*2, noiselessErrorModels, false, true);
                     final int nGoodBases = GL.add(alignmentContextMap.get("sample0000").getBasePileup(), true, false, UAC.MIN_BASE_QUALTY_SCORE);
                     if (VERBOSE) {
                         System.out.format("Depth:%d, AC:%d, altDepth:%d, samplesPerPool:%d\nGLs:", depth,ac,altDepth, nSamplesPerPool);
@@ -393,7 +468,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
                             // get now likelihoods for this
 
-                            final PoolSNPGenotypeLikelihoods noisyGL = new PoolSNPGenotypeLikelihoods(allAlleles, null, nSamplesPerPool*2, noisyErrorModels, true);
+                            final PoolSNPGenotypeLikelihoods noisyGL = new PoolSNPGenotypeLikelihoods(allAlleles, null, nSamplesPerPool*2, noisyErrorModels, false,true);
                             noisyGL.add(noisyAlignmentContextMap.get("sample0000").getBasePileup(), true, false, UAC.MIN_BASE_QUALTY_SCORE);
                             mlPair = noisyGL.getMostLikelyACCount();
 

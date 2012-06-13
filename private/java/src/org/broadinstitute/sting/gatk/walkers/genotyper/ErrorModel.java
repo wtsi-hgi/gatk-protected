@@ -3,8 +3,10 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -37,11 +39,11 @@ public class ErrorModel  {
      * @param maxQualityScore            Maximum site quality score to evaluate
      * @param phredScaledPrior           Prior for site quality
      * @param refSamplePileup            Reference sample pileup
-     * @param refSampleTrueAlleles       True alleles in reference sample pileup
+     * @param refSampleVC                VC with True alleles in reference sample pileup
      * @param minPower                   Minimum power
      */
     public ErrorModel (byte minQualityScore, byte maxQualityScore, byte phredScaledPrior,
-                       ReadBackedPileup refSamplePileup, Collection<Allele> refSampleTrueAlleles, double minPower) {
+                       ReadBackedPileup refSamplePileup, VariantContext refSampleVC, double minPower) {
         this.maxQualityScore = maxQualityScore;
         this.minQualityScore = minQualityScore;
         this.phredScaledPrior = phredScaledPrior;
@@ -51,17 +53,20 @@ public class ErrorModel  {
         double[] model = new double[maxQualityScore+1];
         Arrays.fill(model,Double.NEGATIVE_INFINITY);
 
-        double p = MathUtils.phredScaleToLog10Probability((byte)(maxQualityScore-minQualityScore));
         boolean hasCalledAlleles = false;
+        if (refSampleVC != null) {
 
-        for (Allele allele : refSampleTrueAlleles) {
-            if (allele.isCalled()) {
-                hasCalledAlleles = true;
-                break;
+            for (Allele allele : refSampleVC.getAlleles()) {
+                if (allele.isCalled()) {
+                    hasCalledAlleles = true;
+                    break;
+                }
             }
-        }
 
-        if (refSamplePileup == null || !hasCalledAlleles ) {
+
+        }
+        if (refSamplePileup == null || refSampleVC == null  || !hasCalledAlleles) {
+            double p = MathUtils.phredScaleToLog10Probability((byte)(maxQualityScore-minQualityScore));
             for (byte q=minQualityScore; q<=maxQualityScore; q++) {
                 // maximum uncertainty if there's no ref data at site
                 model[q] = p;
@@ -69,17 +74,23 @@ public class ErrorModel  {
             this.refDepth = 0;
         }
         else {
-            byte [] data = refSamplePileup.getBases();
             hasData = true;
-            int coverage = data.length;
             int matches = 0;
-            for (Allele allele : refSampleTrueAlleles) {
-                byte base = allele.getBases()[0];
-                // todo: tmp, need to generalize for indels
-                matches += MathUtils.countOccurrences(base, data);
-            }
-            int mismatches = coverage - matches;
+            int coverage = refSamplePileup.getNumberOfElements();
 
+            Allele refAllele = refSampleVC.getReference();
+
+            for (PileupElement refPileupElement : refSamplePileup) {
+                boolean isMatch = false;
+                for (Allele allele : refSampleVC.getAlleles())
+                    isMatch |= pileupElementMatches(refPileupElement, allele, refAllele);
+
+                matches += (isMatch?1:0);
+          //      System.out.format("MATCH:%b\n",isMatch);
+            }
+
+            int mismatches = coverage - matches;
+            //System.out.format("Cov:%d match:%d mismatch:%d\n",coverage, matches, mismatches);
             for (byte q=minQualityScore; q<=maxQualityScore; q++) {
                 model[q] = log10PoissonProbabilitySiteGivenQual(q,coverage,  mismatches);
             }
@@ -104,6 +115,39 @@ public class ErrorModel  {
 
     }
 
+    public static boolean pileupElementMatches(PileupElement pileupElement, Allele allele, Allele refAllele) {
+ /*       System.out.format("PE: base:%s isNextToDel:%b isNextToIns:%b eventBases:%s eventLength:%d Allele:%s RefAllele:%s\n",
+                pileupElement.getBase(), pileupElement.isBeforeDeletionStart(),
+                pileupElement.isBeforeInsertion(),pileupElement.getEventBases(),pileupElement.getEventLength(), allele.toString(), refAllele.toString());
+   */
+
+        // if test allele is ref, any base mismatch, or any insertion/deletion at start of pileup count as mismatch
+        if (allele.isReference()) {
+            // for a ref allele, any base mismatch or new indel is a mismatch.
+            if(allele.getBases().length>0 && allele.getBases().length == refAllele.getBases().length ) // SNP/MNP case
+                return (/*!pileupElement.isBeforeInsertion() && !pileupElement.isBeforeDeletionStart() &&*/ pileupElement.getBase() == allele.getBases()[0]);
+            else
+                // either null allele to compare, or ref/alt lengths are different (indel by definition).
+                // if we have an indel that we are comparing against a REF allele, any indel presence (of any length/content) is a mismatch
+                return (!pileupElement.isBeforeInsertion() && !pileupElement.isBeforeDeletionStart());
+        }
+
+        if (refAllele.getBases().length == allele.getBases().length)
+            // alleles have the same length (eg snp or mnp)
+            return pileupElement.getBase() == allele.getBases()[0];
+
+        // for non-ref alleles,
+        byte[] alleleBases = allele.getBases();
+        int eventLength = alleleBases.length - refAllele.getBases().length;
+        if (eventLength < 0 && pileupElement.isBeforeDeletionStart() && pileupElement.getEventLength() == -eventLength)
+            return true;
+
+        if (eventLength > 0 && pileupElement.isBeforeInsertion() &&
+                Arrays.equals(pileupElement.getEventBases().getBytes(),alleleBases))
+            return true;
+
+        return false;
+    }
 
 
     /**

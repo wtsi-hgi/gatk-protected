@@ -34,10 +34,10 @@ public class PoolCallerUnifiedArgumentCollection extends UnifiedArgumentCollecti
     public boolean IGNORE_LANE_INFO = false;
 
 
-    @Input(fullName="reference_sample", shortName = "reference", doc="VCF file with the truth callset for the reference sample", required=true)
+    @Input(fullName="reference_sample", shortName = "reference", doc="VCF file with the truth callset for the reference sample", required=false)
     RodBinding<VariantContext> referenceSampleRod;
 
-    @Argument(shortName="refsample", fullName="reference_sample_name", doc="Reference sample name.", required=true)
+    @Argument(shortName="refsample", fullName="reference_sample_name", doc="Reference sample name.", required=false)
     String referenceSampleName;
 
     @Argument(shortName="sp", fullName="samples_per_pool", doc="Number of samples in each pool (must be the same for all pools).", required=true)

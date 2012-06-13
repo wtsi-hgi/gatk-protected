@@ -25,10 +25,12 @@
 
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
+import net.sf.samtools.SAMUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
 
@@ -39,11 +41,13 @@ public abstract class PoolGenotypeLikelihoods {
     private final static double MAX_LOG10_ERROR_TO_STOP_EARLY = 6; // we want the calculation to be accurate to 1 / 10^6
 
     protected static final boolean VERBOSE = false;
+    protected static final double qualVec[] = new double[SAMUtils.MAX_PHRED_SCORE+1];
 
     //
     // The fundamental data arrays associated with a Genotype Likelhoods object
     //
     protected double[] log10Likelihoods;
+    protected double[][] logMismatchProbabilityArray;
 
     protected final int nSamplesPerPool;
     protected final HashMap<String, ErrorModel> perLaneErrorModels;
@@ -85,8 +89,9 @@ public abstract class PoolGenotypeLikelihoods {
                 throw new ReviewedStingException("BUG: inconsistent parameters when creating PoolGenotypeLikelihoods object");
 
             log10Likelihoods = logLikelihoods; //.clone(); // is clone needed?
-        }           
-    }
+        }
+        fillCache();
+   }
 
 
     /**
@@ -460,7 +465,7 @@ public abstract class PoolGenotypeLikelihoods {
 
 
     public void computeLikelihoods(ErrorModel errorModel,
-        List<Allele> alleleList, List<Integer> numObservations) {
+        List<Allele> alleleList, List<Integer> numObservations, ReadBackedPileup pileup) {
 
         if (FAST_GL_COMPUTATION) {
             //  queue up elements to be computed. Assumptions:
@@ -488,7 +493,7 @@ public abstract class PoolGenotypeLikelihoods {
             while ( !ACqueue.isEmpty() ) {
                 // compute log10Likelihoods
                 final AlleleFrequencyCalculationModel.ExactACset ACset = ACqueue.remove();
-                final double log10LofKs = calculateACConformationAndUpdateQueue(ACset, errorModel, alleleList, numObservations, maxLog10L, ACqueue, indexesToACset);
+                final double log10LofKs = calculateACConformationAndUpdateQueue(ACset, errorModel, alleleList, numObservations, maxLog10L, ACqueue, indexesToACset, pileup);
 
                 // adjust max likelihood seen if needed
                 maxLog10L = Math.max(maxLog10L, log10LofKs);
@@ -508,7 +513,7 @@ public abstract class PoolGenotypeLikelihoods {
                        new AlleleFrequencyCalculationModel.ExactACset(1, new AlleleFrequencyCalculationModel.ExactACcounts(iterator.getCurrentVector()));
                 // for observed base X, add Q(jX,k) to likelihood vector for all k in error model
                 //likelihood(jA,jC,jG,jT) = logsum(logPr (errorModel[k],nA*Q(jA,k) +  nC*Q(jC,k) + nG*Q(jG,k) + nT*Q(jT,k))
-                getLikelihoodOfConformation(ACset, errorModel, alleleList, numObservations);
+                getLikelihoodOfConformation(ACset, errorModel, alleleList, numObservations, pileup);
 
                 setLogPLs(plIdx++, ACset.log10Likelihoods[0]);
                 iterator.next();
@@ -525,9 +530,11 @@ public abstract class PoolGenotypeLikelihoods {
                                                          final List<Integer> numObservations,
                                                          final double  maxLog10L,
                                                          final LinkedList<AlleleFrequencyCalculationModel.ExactACset> ACqueue,
-                                                         final HashMap<AlleleFrequencyCalculationModel.ExactACcounts, AlleleFrequencyCalculationModel.ExactACset> indexesToACset) {
+                                                         final HashMap<AlleleFrequencyCalculationModel.ExactACcounts,
+                                                         AlleleFrequencyCalculationModel.ExactACset> indexesToACset,
+                                                         final ReadBackedPileup pileup) {
         // compute likelihood of set
-        getLikelihoodOfConformation(set, errorModel, alleleList, numObservations);
+        getLikelihoodOfConformation(set, errorModel, alleleList, numObservations, pileup);
         final double log10LofK = set.log10Likelihoods[0];
         
         // log result in PL vector
@@ -572,11 +579,18 @@ public abstract class PoolGenotypeLikelihoods {
      * @param errorModel    Site-specific error model object
      * @param alleleList    List of alleles
      * @param numObservations Number of observations for each allele
+     * @param pileup        Read backed pileup in case it's necessary
      */
-    public abstract void getLikelihoodOfConformation(AlleleFrequencyCalculationModel.ExactACset ACset, ErrorModel errorModel,
-                                                     List<Allele> alleleList, List<Integer> numObservations);
+    public abstract void getLikelihoodOfConformation(final AlleleFrequencyCalculationModel.ExactACset ACset,
+                                                     final ErrorModel errorModel,
+                                                     final List<Allele> alleleList,
+                                                     final List<Integer> numObservations,
+                                                     final ReadBackedPileup pileup);
 
 
+    public abstract int add(ReadBackedPileup pileup, UnifiedArgumentCollection UAC);
+
+    // Static methods
     public static void updateACset(final int[] newSetCounts,
                                     final LinkedList<AlleleFrequencyCalculationModel.ExactACset> ACqueue,
                                     final HashMap<AlleleFrequencyCalculationModel.ExactACcounts, AlleleFrequencyCalculationModel.ExactACset> indexesToACset) {
@@ -590,6 +604,36 @@ public abstract class PoolGenotypeLikelihoods {
                 System.out.println(" *** Adding set to queue:" + index.toString());
         }
 
+    }
+    // -----------------------------------------------------------------------------------------------------------------
+    //
+    //
+    // helper routines
+    //
+    //
+    // -----------------------------------------------------------------------------------------------------------------
+
+
+    //
+    // Constant static data
+    //
+
+    static {
+        // cache 10^(-k/10)
+        for (int j=0; j <= SAMUtils.MAX_PHRED_SCORE; j++)
+            qualVec[j] = Math.pow(10.0,-(double)j/10.0);
+    }
+
+    private void fillCache() {
+        // cache Q(j,k) = log10(j/2N*(1-ek) + (2N-j)/2N*ek) for j = 0:2N
+
+        logMismatchProbabilityArray = new double[1+numChromosomes][1+SAMUtils.MAX_PHRED_SCORE];
+        for (int i=0; i <= numChromosomes; i++) {
+            for (int j=0; j <= SAMUtils.MAX_PHRED_SCORE; j++) {
+                double phi = (double)i/numChromosomes;
+                logMismatchProbabilityArray[i][j] = Math.log10(phi * (1.0-qualVec[j]) + qualVec[j]/3.0 * (1.0-phi));
+            }
+        }
     }
 
 }
