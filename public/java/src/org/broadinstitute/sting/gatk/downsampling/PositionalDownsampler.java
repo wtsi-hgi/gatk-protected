@@ -35,11 +35,11 @@ import java.util.*;
  *
  * @author David Roazen
  */
-public class PositionalDownsampler implements ReadsDownsampler {
+public class PositionalDownsampler<T extends SAMRecord> implements ReadsDownsampler<T> {
 
     private int targetCoverage;
 
-    private ReservoirDownsampler reservoir;
+    private ReservoirDownsampler<T> reservoir;
 
     private int currentContigIndex;
 
@@ -47,14 +47,14 @@ public class PositionalDownsampler implements ReadsDownsampler {
 
     private LinkedList<PositionalReadGrouping> pendingReads;
 
-    private ArrayList<SAMRecord> finalizedReads;
+    private ArrayList<T> finalizedReads;
 
     public PositionalDownsampler ( int targetCoverage ) {
         this.targetCoverage = targetCoverage;
         clear();
     }
 
-    public void submit ( SAMRecord newRead ) {
+    public void submit ( T newRead ) {
         if ( readIsPastCurrentPosition(newRead) ) {
             updateAndDownsamplePendingReads();
         }
@@ -63,8 +63,8 @@ public class PositionalDownsampler implements ReadsDownsampler {
         updateCurrentPosition(newRead);
     }
 
-    public void submit ( Collection<? extends SAMRecord> newReads ) {
-        for ( SAMRecord read : newReads ) {
+    public void submit ( Collection<T> newReads ) {
+        for ( T read : newReads ) {
             submit(read);
         }
     }
@@ -73,9 +73,9 @@ public class PositionalDownsampler implements ReadsDownsampler {
         return finalizedReads.size() > 0;
     }
 
-    public Collection<SAMRecord> consumeDownsampledItems() {
-        Collection<SAMRecord> toReturn = finalizedReads;
-        finalizedReads = new ArrayList<SAMRecord>();
+    public List<T> consumeDownsampledItems() {
+        List<T> toReturn = finalizedReads;
+        finalizedReads = new ArrayList<T>();
         return toReturn;
     }
 
@@ -95,28 +95,28 @@ public class PositionalDownsampler implements ReadsDownsampler {
     }
 
     public void clear() {
-        reservoir = new ReservoirDownsampler(targetCoverage);
+        reservoir = new ReservoirDownsampler<T>(targetCoverage);
         pendingReads = new LinkedList<PositionalReadGrouping>();
-        finalizedReads = new ArrayList<SAMRecord>();
+        finalizedReads = new ArrayList<T>();
     }
 
     public boolean requiresCoordinateSortOrder() {
         return true;
     }
 
-    private void updateCurrentPosition ( SAMRecord read ) {
+    private void updateCurrentPosition ( T read ) {
         currentContigIndex = read.getReferenceIndex();
         currentAlignmentStart = read.getAlignmentStart();
     }
 
-    private boolean readIsPastCurrentPosition ( SAMRecord read ) {
+    private boolean readIsPastCurrentPosition ( T read ) {
         return read.getReferenceIndex() != currentContigIndex || read.getAlignmentStart() > currentAlignmentStart;
     }
 
     private void updateAndDownsamplePendingReads() {
         finalizeOutOfScopeReads();
 
-        Collection<SAMRecord> oldLocusReads = reservoir.consumeDownsampledItems();
+        List<T> oldLocusReads = reservoir.consumeDownsampledItems();
         pendingReads.add(new PositionalReadGrouping(oldLocusReads, currentContigIndex, currentAlignmentStart));
 
         downsampleOverlappingGroups();
@@ -182,16 +182,16 @@ public class PositionalDownsampler implements ReadsDownsampler {
         }
     }
 
-    private static class PositionalReadGrouping {
-        private List<SAMRecord> activeReads;
-        private List<SAMRecord> finalizedReads;
+    private class PositionalReadGrouping {
+        private List<T> activeReads;
+        private List<T> finalizedReads;
 
         private int contig;
         private int alignmentStart;
 
-        public PositionalReadGrouping( Collection<SAMRecord> reads, int contig, int alignmentStart ) {
-            activeReads = new LinkedList<SAMRecord>(reads);
-            finalizedReads = new ArrayList<SAMRecord>();
+        public PositionalReadGrouping( Collection<T> reads, int contig, int alignmentStart ) {
+            activeReads = new LinkedList<T>(reads);
+            finalizedReads = new ArrayList<T>();
             this.contig = contig;
             this.alignmentStart = alignmentStart;
         }
@@ -204,7 +204,7 @@ public class PositionalDownsampler implements ReadsDownsampler {
             return activeReads.size() == 0;
         }
 
-        public List<SAMRecord> getFinalizedReads() {
+        public List<T> getFinalizedReads() {
             return finalizedReads;
         }
 
@@ -214,10 +214,10 @@ public class PositionalDownsampler implements ReadsDownsampler {
                 return;
             }
 
-            Iterator<SAMRecord> iter = activeReads.iterator();
+            Iterator<T> iter = activeReads.iterator();
 
             while ( iter.hasNext() ) {
-                SAMRecord read = iter.next();
+                T read = iter.next();
                 if ( read.getAlignmentEnd() < position ) {
                     iter.remove();
                     finalizedReads.add(read);
@@ -242,10 +242,10 @@ public class PositionalDownsampler implements ReadsDownsampler {
             }
 
             int currentIndex = 0;
-            Iterator<SAMRecord> iter = activeReads.iterator();
+            Iterator<T> iter = activeReads.iterator();
 
             while ( iter.hasNext() ) {
-                SAMRecord read = iter.next();
+                T read = iter.next();
 
                 if ( ! itemsToKeep.get(currentIndex) ) {
                     iter.remove();

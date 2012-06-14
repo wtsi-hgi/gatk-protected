@@ -31,7 +31,7 @@ import net.sf.samtools.SAMRecord;
  *
  * @author David Roazen
  */
-public interface ReadsDownsampler extends Downsampler<SAMRecord> {
+public interface ReadsDownsampler<T extends SAMRecord> extends Downsampler<T> {
 
     /*
      * Does this downsampler require that reads be fed to it in coordinate order?
