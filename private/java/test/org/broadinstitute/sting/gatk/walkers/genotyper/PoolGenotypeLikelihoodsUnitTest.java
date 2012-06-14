@@ -260,7 +260,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
         trueAlleles.add(Allele.create(refByte, true));
 
         final VariantContext refVC = new VariantContextBuilder("test","chr1",5, 5,
-                trueAlleles).genotypes(new Genotype(refSampleName, trueAlleles,0)).make();
+                trueAlleles).genotypes(GenotypeBuilder.create(refSampleName, trueAlleles)).make();
         final int[] matchArray = {95, 995, 9995, 10000};
         final int[] mismatchArray = {1,5,10,20};
 
@@ -298,7 +298,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
         final String fw = new String(refPileupTestProvider.getReferenceContext().getForwardBases());
         final VariantContext refInsertionVC = new VariantContextBuilder("test","chr1",refPileupTestProvider.getReferenceContext().getLocus().getStart(),
                 refPileupTestProvider.getReferenceContext().getLocus().getStart(), trueAlleles).
-                genotypes(new Genotype(refSampleName, trueAlleles, 0)).referenceBaseForIndel(refByte).make();
+                genotypes(GenotypeBuilder.create(refSampleName, trueAlleles)).referenceBaseForIndel(refByte).make();
 
 
         final int[] matchArray = {95, 995, 9995, 10000};
@@ -332,7 +332,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
         final VariantContext refDeletionVC =  new VariantContextBuilder("test","chr1",refPileupTestProvider.getReferenceContext().getLocus().getStart(),
                 refPileupTestProvider.getReferenceContext().getLocus().getStart()+delLength, delAlleles).
-                genotypes(new Genotype(refSampleName, delAlleles, 0)).referenceBaseForIndel(refByte).make();
+                genotypes(GenotypeBuilder.create(refSampleName, delAlleles)).referenceBaseForIndel(refByte).make();
 
         for (int matches: matchArray) {
             for (int mismatches: mismatchArray) {
