@@ -518,9 +518,9 @@ public abstract class PoolGenotypeLikelihoods {
                 setLogPLs(plIdx++, ACset.log10Likelihoods[0]);
                 iterator.next();
             }
-            // normalize PL's
-            renormalize();
         }
+        // normalize PL's
+        renormalize();
 
     }
 

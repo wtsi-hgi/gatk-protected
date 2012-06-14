@@ -33,6 +33,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.indels.PairHMMIndelErrorModel;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.variantcontext.*;
@@ -42,21 +43,23 @@ import java.util.*;
 public class PoolIndelGenotypeLikelihoodsCalculationModel extends PoolGenotypeLikelihoodsCalculationModel {
 
     private PairHMMIndelErrorModel pairModel;
-
+    private boolean allelesArePadded = false;
+ /*
     private static ThreadLocal<HashMap<PileupElement, LinkedHashMap<Allele, Double>>> indelLikelihoodMap =
             new ThreadLocal<HashMap<PileupElement, LinkedHashMap<Allele, Double>>>() {
                 protected synchronized HashMap<PileupElement, LinkedHashMap<Allele, Double>> initialValue() {
                     return new HashMap<PileupElement, LinkedHashMap<Allele, Double>>();
                 }
             };
+   */
 
     private LinkedHashMap<Allele, Haplotype> haplotypeMap;
 
-
+     /*
     static {
         indelLikelihoodMap.set(new HashMap<PileupElement, LinkedHashMap<Allele, Double>>());
     }
-
+       */
 
     protected PoolIndelGenotypeLikelihoodsCalculationModel(final UnifiedArgumentCollection UAC, final Logger logger) {
         super(UAC, logger);
@@ -64,13 +67,12 @@ public class PoolIndelGenotypeLikelihoodsCalculationModel extends PoolGenotypeLi
 
         pairModel = new PairHMMIndelErrorModel(UAC.INDEL_GAP_OPEN_PENALTY, UAC.INDEL_GAP_CONTINUATION_PENALTY,
                 UAC.OUTPUT_DEBUG_INDEL_INFO, !UAC.DONT_DO_BANDED_INDEL_COMPUTATION);
-
         haplotypeMap = new LinkedHashMap<Allele, Haplotype>();
     }
 
 
     public static HashMap<PileupElement, LinkedHashMap<Allele, Double>> getIndelLikelihoodMap() {
-        return indelLikelihoodMap.get();
+        return IndelGenotypeLikelihoodsCalculationModel.getIndelLikelihoodMap();
     }
 
 
@@ -93,9 +95,11 @@ public class PoolIndelGenotypeLikelihoodsCalculationModel extends PoolGenotypeLi
                                                   final List<Allele> allAllelesToUse){
 
 
-        List<Allele> alleles = IndelGenotypeLikelihoodsCalculationModel.getInitialAlleleList(tracker, ref, contexts, contextType, locParser, UAC,true);
+        final Pair<List<Allele>,Boolean> pair = IndelGenotypeLikelihoodsCalculationModel.getInitialAlleleList(tracker, ref, contexts, contextType, locParser, UAC,true);
+        final List<Allele> alleles = pair.first;
+        allelesArePadded = pair.second;
         if (contextType == AlignmentContextUtils.ReadOrientation.COMPLETE) {
-            indelLikelihoodMap.set(new HashMap<PileupElement, LinkedHashMap<Allele, Double>>());
+            IndelGenotypeLikelihoodsCalculationModel.getIndelLikelihoodMap().clear();
             haplotypeMap.clear();
         }
         IndelGenotypeLikelihoodsCalculationModel.getHaplotypeMapFromAlleles(alleles, ref, ref.getLocus(), haplotypeMap);
@@ -108,13 +112,19 @@ public class PoolIndelGenotypeLikelihoodsCalculationModel extends PoolGenotypeLi
                                                          final List<Allele> allAllelesToUse,
                                                          final ArrayList<PoolGenotypeData> GLs) {
 
-        
-        return GLs.get(0).alleles;
+        // find the alternate allele(s) that we should be using
+        final List<Allele> alleles = new ArrayList<Allele>();
+        if ( allAllelesToUse != null )
+            alleles.addAll(allAllelesToUse);
+        else if (!GLs.isEmpty())
+            alleles.addAll(GLs.get(0).alleles);
+        return alleles;
+
     }
 
     protected int getEndLocation(final RefMetaDataTracker tracker,
                                           final ReferenceContext ref,
                                           final List<Allele> allelesToUse) {
-        return IndelGenotypeLikelihoodsCalculationModel.computeEndLocation(allelesToUse, ref.getLocus());
+        return IndelGenotypeLikelihoodsCalculationModel.computeEndLocation(allelesToUse, ref.getLocus(), allelesArePadded);
     }
 }

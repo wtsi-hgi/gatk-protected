@@ -207,9 +207,14 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
             contexts = newContext;
         }
 
-        // get initial alleles to genotyper
-        final List<Allele> allAlleles = getInitialAllelesToUse(tracker, ref,contexts,contextType,locParser, allAllelesToUse);
-        if (allAlleles == null || allAlleles.isEmpty())
+        // get initial alleles to genotype
+        final List<Allele> allAlleles = new ArrayList<Allele>();
+        if (allAllelesToUse == null || allAllelesToUse.isEmpty())
+            allAlleles.addAll(getInitialAllelesToUse(tracker, ref,contexts,contextType,locParser, allAllelesToUse));
+        else
+            allAlleles.addAll(allAllelesToUse);
+
+        if (allAlleles.isEmpty())
             return null;
 
         final ArrayList<PoolGenotypeData> GLs = new ArrayList<PoolGenotypeData>(contexts.size());

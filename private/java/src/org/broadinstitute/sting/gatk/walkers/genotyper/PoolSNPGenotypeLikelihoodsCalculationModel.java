@@ -33,6 +33,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
@@ -116,6 +117,12 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
 
     }
 
+    /**
+     * @param tracker           dummy parameter here
+     * @param ref               Reference context
+     * @param alternateAllelesToUse alt allele list
+     * @return end location for vc to be created
+      */
     protected int getEndLocation(final RefMetaDataTracker tracker,
                                  final ReferenceContext ref,
                                  final List<Allele> alternateAllelesToUse) {
