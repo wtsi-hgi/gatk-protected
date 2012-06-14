@@ -356,7 +356,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
     /**
      * Hard clips away all parts of the read that doesn't agree with the intervals selected.
-     * <p/>
+     *
      * Note: If read overlaps more than one interval, it will be hard clipped to all
      * the intervals it overlaps with
      *
