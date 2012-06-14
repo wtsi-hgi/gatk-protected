@@ -16,7 +16,7 @@ public class BQSRIntegrationTest extends WalkerTest {
         String BAM = "public/testdata/exampleBAM.bam";
         String DBSNP = "public/testdata/exampleDBSNP.vcf";
         String base = String.format("-T BaseQualityScoreRecalibrator -R %s -I %s -knownSites %s", REF, BAM, DBSNP) + " -o %s ";
-        WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("045e214906fff2ef853c5028fe421935"));
+        WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("a0de2fb6f457a66513bda5fe15775c04"));
         executeTest("recalibrateTest", spec);
     }
 
