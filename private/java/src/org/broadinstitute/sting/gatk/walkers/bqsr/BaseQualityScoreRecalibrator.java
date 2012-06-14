@@ -336,11 +336,13 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      * @param datum the RecalDatum object with the observation/error information 
      */
     private void updateCovariateWithKeySet(final Map<Long, RecalDatum> recalTable, final long hashKey, final RecalDatum datum) {
-        RecalDatum previousDatum = recalTable.get(hashKey);                                                             // using the list of covariate values as a key, pick out the RecalDatum from the data HashMap
-        if (previousDatum == null)                                                                                      // key doesn't exist yet in the map so make a new bucket and add it
-            recalTable.put(hashKey, datum.copy());
-        else
-            previousDatum.combine(datum);                                                                               // add one to the number of observations and potentially one to the number of mismatches
+        if (hashKey >= 0) {
+            RecalDatum previousDatum = recalTable.get(hashKey);                                                         // using the list of covariate values as a key, pick out the RecalDatum from the data HashMap
+            if (previousDatum == null)                                                                                  // key doesn't exist yet in the map so make a new bucket and add it
+                recalTable.put(hashKey, datum.copy());
+            else
+                previousDatum.combine(datum);                                                                           // add one to the number of observations and potentially one to the number of mismatches
+        }
     }
 
     /**
