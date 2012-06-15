@@ -104,6 +104,10 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
         if ( useBAQedPileup )
             pileup = createBAQedPileup( pileup );
 
+        if (!hasReferenceSampleData) {
+            return add(pileup, ignoreBadBases, capBaseQualsAtMappingQual, minBaseQual, null);
+        }
+
         for (String laneID : perLaneErrorModels.keySet() ) {
             // get pileup for this lane
             ReadBackedPileup perLanePileup;
@@ -172,14 +176,12 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
      * @return                                  Number of bases added
      */
     private int add(ReadBackedPileup pileup, boolean ignoreBadBases, boolean capBaseQualsAtMappingQual, int minBaseQual, ErrorModel errorModel) {
-        int n=0;
-
-        // Number of [A C G T]'s in pileup, in that order
+         // Number of [A C G T]'s in pileup, in that order
         List<Integer> numSeenBases = new ArrayList<Integer>(BaseUtils.BASES.length);
         for (byte b: BaseUtils.BASES)
             numSeenBases.add(0);
 
-        if (errorModel != null) {
+        if (hasReferenceSampleData) {
             // count number of elements in pileup
             for (PileupElement elt : pileup) {
                 byte obsBase = elt.getBase();
@@ -195,14 +197,12 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
     
                 }
     
-                n++;
-    
             }
             if (VERBOSE)
                 System.out.format("numSeenBases: %d %d %d %d\n",numSeenBases.get(0),numSeenBases.get(1),numSeenBases.get(2),numSeenBases.get(3));
         }
         computeLikelihoods(errorModel, myAlleles, numSeenBases, pileup);
-        return n;
+        return pileup.getNumberOfElements();
     }
 
     /**
@@ -226,16 +226,17 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
 
         double p1 = 0.0;
         
-        if (errorModel == null /*|| !errorModel.hasData()*/) {
+        if (!hasReferenceSampleData) {
             // no error model: loop throught pileup to compute likalihoods just on base qualities
             for (PileupElement elt : pileup) {
                 byte obsBase = elt.getBase();
                 byte qual = qualToUse(elt, true, true, mbq);
                 if ( qual == 0 )
                     continue;
-                double acc[] = new double[BaseUtils.BASES.length];
-                for (int k=0; k < BaseUtils.BASES.length; k++ )                     
-                    acc[k] = log10PofObservingBaseGivenChromosome(BaseUtils.BASES[k],obsBase,qual) +ac[k]-numChromosomes;
+                double acc[] = new double[ACset.ACcounts.counts.length];
+                for (int k=0; k < acc.length; k++ )
+                    acc[k] = log10PofObservingBaseGivenChromosome(alleleList.get(k).getBases()[0],obsBase,qual) +MathUtils.log10Cache[ACset.ACcounts.counts[k]]
+                            - LOG10_PLOIDY;
                 p1 += MathUtils.log10sumLog10(acc);
             }
         }

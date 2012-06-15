@@ -53,6 +53,8 @@ public abstract class PoolGenotypeLikelihoods {
     protected final HashMap<String, ErrorModel> perLaneErrorModels;
     protected final int likelihoodDim;
     protected final boolean ignoreLaneInformation;
+    protected final double LOG10_PLOIDY;
+    protected boolean hasReferenceSampleData;
 
     protected final int nAlleles;
     protected final List<Allele> alleles;
@@ -72,6 +74,18 @@ public abstract class PoolGenotypeLikelihoods {
         nSamplesPerPool = numChromosomes/2;
         this.perLaneErrorModels = perLaneErrorModels;
         this.ignoreLaneInformation = ignoreLaneInformation;
+
+        // check if at least one lane has actual data
+        if (perLaneErrorModels == null || perLaneErrorModels.isEmpty())
+            hasReferenceSampleData = false;
+        else {
+            for (Map.Entry<String,ErrorModel> elt : perLaneErrorModels.entrySet()) {
+                if (elt.getValue().hasData()) {
+                    hasReferenceSampleData = true;
+                    break;
+                }
+            }
+        }
         // check sizes
         if (nAlleles > MAX_NUM_ALLELES_TO_CACHE)
             throw new UserException("No support for this number of alleles");
@@ -91,6 +105,7 @@ public abstract class PoolGenotypeLikelihoods {
             log10Likelihoods = logLikelihoods; //.clone(); // is clone needed?
         }
         fillCache();
+        LOG10_PLOIDY = Math.log10((double)numChromosomes);
    }
 
 
