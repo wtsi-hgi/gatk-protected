@@ -356,7 +356,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
 
     /**
      * Hard clips away all parts of the read that doesn't agree with the intervals selected.
-     * <p/>
+     *
      * Note: If read overlaps more than one interval, it will be hard clipped to all
      * the intervals it overlaps with
      *
@@ -503,13 +503,13 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
             int originalAlignmentStart =  (Integer) read.getTemporaryAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_START_SHIFT);
             int originalAlignmentEnd   =  (Integer) read.getTemporaryAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_END_SHIFT);
 
-            int startShift = originalAlignmentStart - read.getUnclippedStart();                     // we annotate the shifts for better compression
-            int endShift = read.getUnclippedEnd() - originalAlignmentEnd;                           // we annotate the shifts for better compression
+            int startShift = originalAlignmentStart - read.getUnclippedStart();                                         // we annotate the shifts for better compression
+            int endShift = read.getUnclippedEnd() - originalAlignmentEnd;                                               // we annotate the shifts for better compression
 
             if (startShift > 0)
-                read.setAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_START_SHIFT, startShift); // If the read had any soft clips before getting chopped (variant region) annotate it's original alignment (start)
+                read.setAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_START_SHIFT, startShift);               // If the read had any soft clips before getting chopped (variant region) annotate it's original alignment (start)
             if (endShift > 0)
-                read.setAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_END_SHIFT, endShift);     // If the read had any soft clips before getting chopped (variant region) annotate it's original alignment (end)
+                read.setAttribute(GATKSAMRecord.REDUCED_READ_ORIGINAL_ALIGNMENT_END_SHIFT, endShift);                   // If the read had any soft clips before getting chopped (variant region) annotate it's original alignment (end)
             
             totalReads++;
         }

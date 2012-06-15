@@ -44,16 +44,13 @@ import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
+import org.broadinstitute.sting.utils.variantcontext.*;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.text.TextFormattingUtils;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
 import java.io.PrintWriter;
 import java.util.*;
@@ -269,7 +266,7 @@ public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
             else if ( i < (nHet + nHomAlt) ) { genotype = het; }
             else { genotype = homRef; }
 
-            genotypes.add(new Genotype(sampleName(i), genotype));
+            genotypes.add(GenotypeBuilder.create(sampleName(i), genotype));
         }
 
         Map<String, Object> attributes = new LinkedHashMap<String, Object>();

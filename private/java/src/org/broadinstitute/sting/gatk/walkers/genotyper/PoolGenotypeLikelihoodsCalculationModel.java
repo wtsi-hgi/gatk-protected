@@ -81,7 +81,7 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
             return new VariantContextBuilder("pc",referenceSampleVC.getChr(), referenceSampleVC.getStart(), referenceSampleVC.getEnd(),
                     referenceSampleVC.getAlleles())
                     .referenceBaseForIndel(referenceSampleVC.getReferenceBaseForIndel())
-                    .genotypes(new Genotype(UAC.referenceSampleName, referenceAlleles, referenceGenotype.getLog10PError()))
+                    .genotypes(new GenotypeBuilder(UAC.referenceSampleName, referenceAlleles).GQ(referenceGenotype.getGQ()).make())
                     .make();
         }
     }
@@ -256,12 +256,10 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
                     allAlleles, alleles);
 
             // normalize in log space so that max element is zero.
-            final GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(MathUtils.normalizeFromLog10(myLikelihoods, false, true));
-
-            final HashMap<String, Object> attributes = new HashMap<String, Object>();
-            attributes.put(VCFConstants.DEPTH_KEY, sampleData.depth);
-            attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, likelihoods);
-            genotypes.add(new Genotype(sampleData.name, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
+            final GenotypeBuilder gb = new GenotypeBuilder(sampleData.name, noCall);
+            gb.DP(sampleData.depth);
+            gb.PL(MathUtils.normalizeFromLog10(myLikelihoods, false, true));
+            genotypes.add(gb.make());
         }
 
         return builder.genotypes(genotypes).make();

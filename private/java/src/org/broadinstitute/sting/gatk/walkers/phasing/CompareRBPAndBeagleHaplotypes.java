@@ -80,7 +80,7 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
             GenomeLoc start = null;
 
             for (VariantContext vc : rbpHaplotype) {
-                if (vc.getGenotype(sample).hasAttribute("PQ")) {
+                if (vc.getGenotype(sample).hasExtendedAttribute("PQ")) {
                     if (start == null) {
                         start = VariantContextUtils.getLocation(this.getToolkit().getGenomeLocParser(), vc);
 
@@ -138,7 +138,7 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
                     beagleHaplotype.clear();
                 }
 
-                if (!(rbpg.isHom() && beagleg.isHom() && rbpg.sameGenotype(beagleg)) && rbpg.hasAttribute("PQ") && rbpg.sameGenotype(beagleg)) {
+                if (!(rbpg.isHom() && beagleg.isHom() && rbpg.sameGenotype(beagleg)) && rbpg.hasExtendedAttribute("PQ") && rbpg.sameGenotype(beagleg)) {
                     rbpHaplotype.add(rbp);
                     beagleHaplotype.add(beagle);
                 }

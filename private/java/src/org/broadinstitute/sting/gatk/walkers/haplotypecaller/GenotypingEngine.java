@@ -76,10 +76,7 @@ public class GenotypingEngine {
                     genotypeLikelihoods[glIndex++] = haplotypeLikelihoodMatrix[iii][jjj]; // for example: AA,AB,BB,AC,BC,CC
                 }
             }
-            //if( DEBUG ) { System.out.println(sample + " --> " + Arrays.toString(genotypeLikelihoods)); }
-            final HashMap<String, Object> attributes = new HashMap<String, Object>();
-            attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
-            genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
+            genotypes.add(new GenotypeBuilder(sample, noCall).PL(genotypeLikelihoods).make());
         }
         final VariantCallContext call = UG_engine.calculateGenotypes(new VariantContextBuilder().loc(activeRegionWindow).alleles(allelesToGenotype).genotypes(genotypes).make(), UG_engine.getUAC().GLmodel);
         if( call == null ) { return Collections.emptyList(); } // exact model says that the call confidence is below the specified confidence threshold so nothing to do here
@@ -169,12 +166,13 @@ public class GenotypingEngine {
                             genotypeLikelihoods[glIndex++] = haplotypeLikelihoodMatrix[iii][jjj]; // for example: AA,AB,BB,AC,BC,CC
                         }
                     }
-                    final HashMap<String, Object> attributes = new HashMap<String, Object>();
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
 
                     // using the allele mapping object translate the haplotype allele into the event allele
-                    myGenotypes.add(new Genotype(sample, findEventAllelesInSample(mergedVC.getAlleles(), call.getAlleles(), call.getGenotype(sample).getAlleles(), alleleMapper, haplotypes),
-                            Genotype.NO_LOG10_PERROR, null, attributes, loc != startPosKeySet.first()));
+                    final Genotype g = new GenotypeBuilder(sample)
+                            .alleles(findEventAllelesInSample(mergedVC.getAlleles(), call.getAlleles(), call.getGenotype(sample).getAlleles(), alleleMapper, haplotypes))
+                            .phased(loc != startPosKeySet.first())
+                            .PL(genotypeLikelihoods).make();
+                    myGenotypes.add(g);
                 }
                 returnCalls.add( new Pair<VariantContext, HashMap<Allele,ArrayList<Haplotype>>>(
                                  new VariantContextBuilder(mergedVC).log10PError(call.getLog10PError()).genotypes(myGenotypes).make(), alleleHashMap) );
@@ -237,7 +235,7 @@ public class GenotypingEngine {
                                 alleleSet.add(compVC.getReference());
                                 alleleSet.add(compAltAllele);
                                 priorityList.add("Allele" + alleleCount);
-                                eventsAtThisLoc.add(new VariantContextBuilder(compVC.subContextFromSamples(compVC.getSampleNames(), alleleSet)).source("Allele"+alleleCount).make());
+                                eventsAtThisLoc.add(new VariantContextBuilder(compVC).alleles(alleleSet).source("Allele"+alleleCount).make());
                                 alleleCount++;
                             }
                         }
@@ -275,9 +273,8 @@ public class GenotypingEngine {
                             genotypeLikelihoods[glIndex++] = haplotypeLikelihoodMatrix[iii][jjj]; // for example: AA,AB,BB,AC,BC,CC
                         }
                     }
-                    final HashMap<String, Object> attributes = new HashMap<String, Object>();
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(genotypeLikelihoods));
-                    genotypes.add(new Genotype(sample, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
+                    final Genotype g = new GenotypeBuilder(sample).alleles(noCall).PL(genotypeLikelihoods).make();
+                    genotypes.add(g);
                 }
                 final VariantCallContext call = UG_engine.calculateGenotypes(new VariantContextBuilder(mergedVC).genotypes(genotypes).make(), UG_engine.getUAC().GLmodel);
 

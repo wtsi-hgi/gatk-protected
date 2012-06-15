@@ -385,7 +385,7 @@ class MafAdaptor implements VariantContextAdaptors.VCAdaptor {
             if ( a.isEmpty() || a.contains("N") || a.contains(".")) return; // bad allele found
             myAlleles.add(Allele.create(a,refAllele.equals(a)));
         }
-        dest.add(new Genotype(sampleId,myAlleles));
+        dest.add(GenotypeBuilder.create(sampleId,myAlleles));
     }
 
 }

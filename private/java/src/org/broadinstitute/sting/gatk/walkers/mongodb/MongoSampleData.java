@@ -99,7 +99,8 @@ public class MongoSampleData {
             genotypesDoc.put("alleles", genotypeAllelesDoc);
 
             BasicDBObject attributesList = new BasicDBObject();
-            for (Map.Entry<String, Object> attribute : sample.genotype.getAttributes().entrySet())
+            // TODO -- add code to handle GQ, AD, PL
+            for (Map.Entry<String, Object> attribute : sample.genotype.getExtendedAttributes().entrySet())
             {
                 String key = attribute.getKey();
                 Object value = attribute.getValue();
@@ -163,8 +164,8 @@ public class MongoSampleData {
                     genotypeAttributes.put(key, value);
                 }
 
-                Genotype pGenotype = Genotype.modifyAttributes(new Genotype(sample, genotypeAlleles, genotypeError),
-                        genotypeAttributes);
+                Genotype pGenotype = new GenotypeBuilder(sample, genotypeAlleles)
+                        .log10PError(genotypeError).attributes(genotypeAttributes).make();
 
                 if (!returnMap.containsKey(pStart)) {
                     returnMap.put(pStart, new ArrayList<MongoSampleData>());

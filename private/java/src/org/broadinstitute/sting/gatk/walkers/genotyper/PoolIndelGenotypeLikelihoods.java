@@ -25,8 +25,7 @@ public class PoolIndelGenotypeLikelihoods extends PoolGenotypeLikelihoods {
     final ReferenceContext refContext;
     final int eventLength;
     double[][] readHaplotypeLikelihoods;
-    final double LOG10_PLOIDY;
-    
+
     public PoolIndelGenotypeLikelihoods(final List<Allele> alleles, 
                                         final double[] logLikelihoods, 
                                         final int ploidy,
@@ -40,7 +39,6 @@ public class PoolIndelGenotypeLikelihoods extends PoolGenotypeLikelihoods {
         this.haplotypeMap = haplotypeMap;
         this.refContext = referenceContext;
         this.eventLength = IndelGenotypeLikelihoodsCalculationModel.getEventLength(alleles);
-        LOG10_PLOIDY = Math.log10((double)numChromosomes);
     }
 
     // -------------------------------------------------------------------------------------
@@ -63,7 +61,7 @@ public class PoolIndelGenotypeLikelihoods extends PoolGenotypeLikelihoods {
     public int add(ReadBackedPileup pileup, UnifiedArgumentCollection UAC) {
         int n = 0;
 
-        if (perLaneErrorModels == null) {
+        if (!hasReferenceSampleData) {
             // no error models
             return add(pileup, (ErrorModel)null);
         }
@@ -140,7 +138,7 @@ public class PoolIndelGenotypeLikelihoods extends PoolGenotypeLikelihoods {
         // Number of alleless in pileup, in that order
         List<Integer> numSeenBases = new ArrayList<Integer>(this.alleles.size());
 
-        if (errorModel == null || !errorModel.hasData()) {
+        if (!hasReferenceSampleData) {
             final int numHaplotypes = haplotypeMap.size();
 
             final int readCounts[] = new int[pileup.getNumberOfElements()];
@@ -193,7 +191,7 @@ public class PoolIndelGenotypeLikelihoods extends PoolGenotypeLikelihoods {
         final int[] currentCnt = Arrays.copyOf(ACset.ACcounts.counts, alleleList.size());
         double p1 = 0.0;
 
-        if (errorModel == null || !errorModel.hasData()) {
+        if (!hasReferenceSampleData) {
             // no error model: use pair HMM likelihoods
             for (int i=0; i < readHaplotypeLikelihoods.length; i++) {
                 double acc[] = new double[alleleList.size()];

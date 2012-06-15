@@ -112,7 +112,7 @@ public class CNVstatsWalker extends RodWalker<CNVstatistics, CNVstatistics> {
                     boolean hasNonDiploidGt = false;
                     for (final Genotype gt : vc.getGenotypes()) {
                         int copyNum = gt.getAttributeAsInt(CN_FIELD, -1);
-                        if (copyNum != -1 && gt.isNotFiltered()) {
+                        if (copyNum != -1 && ! gt.isFiltered()) {
                             cnc.incrementCopyNumber(copyNum);
 
                             if (copyNum == DIPLOID)

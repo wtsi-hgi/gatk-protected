@@ -92,7 +92,7 @@ public class FixGenotypesWalker extends RodWalker<Integer, Integer> {
                     ArrayList<Allele> a = new ArrayList<Allele>();
                     a.add(Allele.NO_CALL);
                     a.add(Allele.NO_CALL);
-                    newg = new Genotype(g.getSampleName(),a);
+                    newg = GenotypeBuilder.create(g.getSampleName(),a);
                 }
                 else
                     newg = g;
