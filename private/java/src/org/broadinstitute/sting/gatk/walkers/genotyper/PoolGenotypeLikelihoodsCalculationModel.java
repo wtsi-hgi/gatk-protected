@@ -279,7 +279,7 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
             refContext = contexts.get(UAC.referenceSampleName);
 
         ReadBackedPileup refPileup = null;
-        if (refContext != null && refContext.hasBasePileup()) {
+        if (refContext != null) {
             HashMap<String, ErrorModel> perLaneErrorModels = new HashMap<String, ErrorModel>();
             refPileup = refContext.getBasePileup();
 
