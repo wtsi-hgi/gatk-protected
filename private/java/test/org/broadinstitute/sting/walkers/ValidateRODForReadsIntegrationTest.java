@@ -10,7 +10,7 @@ import java.util.Arrays;
  */
 public class ValidateRODForReadsIntegrationTest extends WalkerTest {
 
-    private final String vcfFile = validationDataLocation + "rodForReadsVCFCheck.withRG.vcf";
+    private final String vcfFile = testDir + "rodForReadsVCFCheck.withRG.vcf";
 
      public static String baseTestString() {
             return "-T ValidateRODForReads -o %s -R " + testDir + "exampleFASTA.fasta" + " -I " + testDir + "exampleBAM.bam";
@@ -20,7 +20,7 @@ public class ValidateRODForReadsIntegrationTest extends WalkerTest {
     @Test
     public void testSimpleVCFPileup() {
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString() + " -V:vcf3 " + vcfFile, 1,
+                baseTestString() + " -V " + vcfFile, 1,
                 Arrays.asList("f7919e9dc156fb5d3ad0541666864ea5"));
         executeTest("testSimpleVCFPileup", spec);
     }

@@ -2,13 +2,18 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
 
@@ -44,33 +49,43 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
     }
 
 
-    protected Collection<Allele> getTrueAlleles(final RefMetaDataTracker tracker,
-                                              final ReferenceContext ref,
-                                              Map<String,AlignmentContext> contexts) {
+    /*
+       Get vc with alleles from reference sample. Can be null if there's no ref sample call or no ref sample coverage at this site.
+    */
+    protected VariantContext getTrueAlleles(final RefMetaDataTracker tracker,
+                                            final ReferenceContext ref,
+                                            Map<String,AlignmentContext> contexts) {
         // Get reference base from VCF or Reference
+        if (UAC.referenceSampleName == null)
+            return null;
+
         AlignmentContext context = contexts.get(UAC.referenceSampleName);
         ArrayList<Allele> trueReferenceAlleles = new ArrayList<Allele>();
 
-        VariantContext referenceSampleVC = null;
+        VariantContext referenceSampleVC;
 
         if (tracker != null && context != null)
             referenceSampleVC = tracker.getFirstValue(UAC.referenceSampleRod, context.getLocation());
+        else
+            return null;
 
-        // Site is not a variant, take from the reference
         if (referenceSampleVC == null) {
             trueReferenceAlleles.add(Allele.create(ref.getBase(),true));
+            return new VariantContextBuilder("pc",ref.getLocus().getContig(), ref.getLocus().getStart(), ref.getLocus().getStop(),trueReferenceAlleles).make();
+
         }
-        // Site has a VCF entry -- is variant
         else {
             Genotype referenceGenotype = referenceSampleVC.getGenotype(UAC.referenceSampleName);
             List<Allele> referenceAlleles = referenceGenotype.getAlleles();
-            for (Allele allele : referenceAlleles) {
-                if (!trueReferenceAlleles.contains(allele))
-                    trueReferenceAlleles.add(allele);
-            }
+
+            return new VariantContextBuilder("pc",referenceSampleVC.getChr(), referenceSampleVC.getStart(), referenceSampleVC.getEnd(),
+                    referenceSampleVC.getAlleles())
+                    .referenceBaseForIndel(referenceSampleVC.getReferenceBaseForIndel())
+                    .genotypes(new GenotypeBuilder(UAC.referenceSampleName, referenceAlleles).GQ(referenceGenotype.getGQ()).make())
+                    .make();
         }
-        return trueReferenceAlleles;
     }
+
 
     /**
      * GATK Engine creates readgroups of the form XXX.Y.Z
@@ -98,7 +113,7 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
      * @return just the lane id (the XXX.Y string)
      */
     public static String getLaneIDFromReadGroupString(String readGroupID) {
-       // System.out.println(readGroupID);
+        // System.out.println(readGroupID);
         String [] parsedID = readGroupID.split("\\.");
         if (parsedID.length > 1)
             return parsedID[0] + "." + parsedID[1];
@@ -113,13 +128,15 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
     protected static class PoolGenotypeData {
 
         public final String name;
-        public final PoolSNPGenotypeLikelihoods GL;
+        public final PoolGenotypeLikelihoods GL;
         public final int depth;
+        public final List<Allele> alleles;
 
-        public PoolGenotypeData(final String name, final PoolSNPGenotypeLikelihoods GL, final int depth) {
+        public PoolGenotypeData(final String name, final PoolGenotypeLikelihoods GL, final int depth, final List<Allele> alleles) {
             this.name = name;
             this.GL = GL;
             this.depth = depth;
+            this.alleles = alleles;
         }
     }
 
@@ -170,4 +187,151 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
         return allelesToUse;
     }
 
+
+    public VariantContext getLikelihoods(final RefMetaDataTracker tracker,
+                                         final ReferenceContext ref,
+                                         Map<String, AlignmentContext> contexts,
+                                         final AlignmentContextUtils.ReadOrientation contextType,
+                                         final List<Allele> allAllelesToUse,
+                                         final boolean useBAQedPileup,
+                                         final GenomeLocParser locParser) {
+
+        HashMap<String, ErrorModel> perLaneErrorModels = getPerLaneErrorModels(tracker, ref, contexts);
+        if (perLaneErrorModels == null && UAC.referenceSampleName != null)
+            return null;
+
+        if (UAC.TREAT_ALL_READS_AS_SINGLE_POOL) {
+            AlignmentContext mergedContext = AlignmentContextUtils.joinContexts(contexts.values());
+            Map<String,AlignmentContext> newContext = new HashMap<String,AlignmentContext>();
+            newContext.put(DUMMY_POOL,mergedContext);
+            contexts = newContext;
+        }
+
+        // get initial alleles to genotype
+        final List<Allele> allAlleles = new ArrayList<Allele>();
+        if (allAllelesToUse == null || allAllelesToUse.isEmpty())
+            allAlleles.addAll(getInitialAllelesToUse(tracker, ref,contexts,contextType,locParser, allAllelesToUse));
+        else
+            allAlleles.addAll(allAllelesToUse);
+
+        if (allAlleles.isEmpty())
+            return null;
+
+        final ArrayList<PoolGenotypeData> GLs = new ArrayList<PoolGenotypeData>(contexts.size());
+
+        for ( Map.Entry<String, AlignmentContext> sample : contexts.entrySet() ) {
+            // skip reference sample
+            if (UAC.referenceSampleName != null && sample.getKey().equals(UAC.referenceSampleName))
+                continue;
+
+            ReadBackedPileup pileup = AlignmentContextUtils.stratify(sample.getValue(), contextType).getBasePileup();
+
+            // create the GenotypeLikelihoods object
+            final PoolGenotypeLikelihoods GL = getPoolGenotypeLikelihoodObject(allAlleles, null, UAC.nSamplesPerPool*2, perLaneErrorModels, useBAQedPileup, ref, UAC.IGNORE_LANE_INFO);
+            // actually compute likelihoods
+            final int nGoodBases = GL.add(pileup, UAC);
+            if ( nGoodBases > 0 )
+                // create wrapper object for likelihoods and add to list
+                GLs.add(new PoolGenotypeData(sample.getKey(), GL, getFilteredDepth(pileup), allAlleles));
+        }
+
+        // find the alternate allele(s) that we should be using
+        final List<Allele> alleles = getFinalAllelesToUse(tracker, ref, allAllelesToUse, GLs);
+
+        // start making the VariantContext
+        final GenomeLoc loc = ref.getLocus();
+        final int endLoc = getEndLocation(tracker, ref, alleles);
+
+        final VariantContextBuilder builder = new VariantContextBuilder("UG_call", loc.getContig(), loc.getStart(), endLoc, alleles);
+        builder.alleles(alleles);
+
+        // create the genotypes; no-call everyone for now
+        final GenotypesContext genotypes = GenotypesContext.create();
+        final List<Allele> noCall = new ArrayList<Allele>();
+        noCall.add(Allele.NO_CALL);
+
+        for ( PoolGenotypeData sampleData : GLs ) {
+            // extract from multidimensional array
+            final double[] myLikelihoods = PoolGenotypeLikelihoods.subsetToAlleles(sampleData.GL.getLikelihoods(),sampleData.GL.numChromosomes,
+                    allAlleles, alleles);
+
+            // normalize in log space so that max element is zero.
+            final GenotypeBuilder gb = new GenotypeBuilder(sampleData.name, noCall);
+            gb.DP(sampleData.depth);
+            gb.PL(MathUtils.normalizeFromLog10(myLikelihoods, false, true));
+            genotypes.add(gb.make());
+        }
+
+        return builder.genotypes(genotypes).make();
+
+    }
+
+
+    protected HashMap<String, ErrorModel> getPerLaneErrorModels(final RefMetaDataTracker tracker,
+                                                                final ReferenceContext ref,
+                                                                Map<String, AlignmentContext> contexts) {
+        VariantContext refVC =  getTrueAlleles(tracker, ref, contexts);
+
+
+        // Build error model for site based on reference sample, and keep stratified for each lane.
+        AlignmentContext refContext = null;
+        if (UAC.referenceSampleName != null)
+            refContext = contexts.get(UAC.referenceSampleName);
+
+        ReadBackedPileup refPileup = null;
+        if (refContext != null) {
+            HashMap<String, ErrorModel> perLaneErrorModels = new HashMap<String, ErrorModel>();
+            refPileup = refContext.getBasePileup();
+
+            Set<String> laneIDs = new TreeSet<String>();
+            if (UAC.TREAT_ALL_READS_AS_SINGLE_POOL || UAC.IGNORE_LANE_INFO)
+                laneIDs.add(PoolGenotypeLikelihoodsCalculationModel.DUMMY_LANE);
+            else
+                laneIDs = parseLaneIDs(refPileup.getReadGroups());
+            // build per-lane error model for all lanes present in ref sample
+            for (String laneID : laneIDs) {
+                // get reference pileup for this lane
+                ReadBackedPileup refLanePileup = refPileup;
+                // subset for this lane
+                if (refPileup != null && !(UAC.TREAT_ALL_READS_AS_SINGLE_POOL || UAC.IGNORE_LANE_INFO))
+                    refLanePileup = refPileup.getPileupForLane(laneID);
+
+                //ReferenceSample referenceSample = new ReferenceSample(UAC.referenceSampleName, refLanePileup, trueReferenceAlleles);
+                perLaneErrorModels.put(laneID, new ErrorModel(UAC.minQualityScore, UAC.maxQualityScore, UAC.phredScaledPrior,  refLanePileup, refVC, UAC.minPower));
+            }
+            return perLaneErrorModels;
+
+        }
+        else
+            return null;
+
+    }
+
+    /*
+       Abstract methods - must be implemented in derived classes
+    */
+
+    protected abstract PoolGenotypeLikelihoods getPoolGenotypeLikelihoodObject(final List<Allele> alleles,
+                                                                               final double[] logLikelihoods,
+                                                                               final int ploidy,
+                                                                               final HashMap<String, ErrorModel> perLaneErrorModels,
+                                                                               final boolean useBQAedPileup,
+                                                                               final ReferenceContext ref,
+                                                                               final boolean ignoreLaneInformation);
+
+    protected abstract List<Allele> getInitialAllelesToUse(final RefMetaDataTracker tracker,
+                                                           final ReferenceContext ref,
+                                                           Map<String, AlignmentContext> contexts,
+                                                           final AlignmentContextUtils.ReadOrientation contextType,
+                                                           final GenomeLocParser locParser,
+                                                           final List<Allele> allAllelesToUse);
+
+    protected abstract List<Allele> getFinalAllelesToUse(final RefMetaDataTracker tracker,
+                                                         final ReferenceContext ref,
+                                                         final List<Allele> allAllelesToUse,
+                                                         final ArrayList<PoolGenotypeData> GLs);
+
+    protected abstract int getEndLocation(final RefMetaDataTracker tracker,
+                                          final ReferenceContext ref,
+                                          final List<Allele> alternateAllelesToUse);
 }

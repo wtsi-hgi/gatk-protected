@@ -130,19 +130,19 @@ public class FixAllelesByConcordance extends RodWalker<Integer,Integer> {
         vcb.alleles(newAlleles);
         ArrayList<Genotype> newGenotypes = new ArrayList<Genotype>(vc.getNSamples());
         for ( Genotype g : vc.getGenotypes() ) {
-            Genotype ng;
+            final GenotypeBuilder gb = new GenotypeBuilder(g);
 
             if ( g.isHomRef() ) {
-                ng = Genotype.modifyAlleles(g,HOM_VAR);
+                gb.alleles(HOM_VAR);
             } else if ( g.isHomVar() ) {
-                ng = Genotype.modifyAlleles(g,HOM_REF);
+                gb.alleles(HOM_REF);
             } else if ( g.isHet() ) {
-                ng = Genotype.modifyAlleles(g,HET);
+                gb.alleles(HET);
             } else {
-                ng = g;
+                ;
             }
 
-            newGenotypes.add(ng);
+            newGenotypes.add(gb.make());
         }
 
         vcb.genotypes(newGenotypes);
@@ -178,15 +178,17 @@ public class FixAllelesByConcordance extends RodWalker<Integer,Integer> {
         List<Allele> HOM_VAR = Arrays.asList(vc.getAlternateAllele(0),vc.getAlternateAllele(0));
         ArrayList<Genotype> newGenotypes = new ArrayList<Genotype>();
         for ( Genotype g : vc.getGenotypes() ) {
-            Genotype ng;
+            final GenotypeBuilder gb = new GenotypeBuilder(g);
+
             if ( g.isHomRef() ) {
-                ng = Genotype.modifyAlleles(g,HOM_VAR);
+                gb.alleles(HOM_VAR);
             } else if ( g.isHomVar() ) {
-                ng = Genotype.modifyAlleles(g,HOM_REF);
+                gb.alleles(HOM_REF);
             } else {
-                ng = g;
+                ;
             }
-            newGenotypes.add(ng);
+
+            newGenotypes.add(gb.make());
         }
         VariantContextBuilder vcb = new VariantContextBuilder(vc);
         vcb.genotypes(newGenotypes);

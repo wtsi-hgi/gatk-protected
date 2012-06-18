@@ -109,14 +109,15 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
     private QuantizationInfo quantizationInfo;                                                                          // an object that keeps track of the information necessary for quality score quantization 
     
-    private LinkedHashMap<BQSRKeyManager, Map<BitSet, RecalDatum>> keysAndTablesMap;                                    // a map mapping each recalibration table to its corresponding key manager
+    private LinkedHashMap<BQSRKeyManager, Map<Long, RecalDatum>> keysAndTablesMap;                                      // a map mapping each recalibration table to its corresponding key manager
     
-    private final ArrayList<Covariate> requestedCovariates = new ArrayList<Covariate>();                                        // list to hold the all the covariate objects that were requested (required + standard + experimental)
+    private Covariate[] requestedCovariates;                                                                            // list to hold the all the covariate objects that were requested (required + standard + experimental)
 
     private static final String SKIP_RECORD_ATTRIBUTE = "SKIP";                                                         // used to label reads that should be skipped.
     private static final String SEEN_ATTRIBUTE = "SEEN";                                                                // used to label reads as processed.
     private static final String COVARS_ATTRIBUTE = "COVARS";                                                            // used to store covariates array as a temporary attribute inside GATKSAMRecord.\
 
+    private final RecalDatum[] recalDatumArray = new RecalDatum[EventType.values().length];                             // optimization: don't reallocate an array each time
 
     private static final String NO_DBSNP_EXCEPTION = "This calculation is critically dependent on being able to skip over known variant sites. Please provide a VCF file containing known sites of genetic variation.";
 
@@ -144,8 +145,13 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
         Pair<ArrayList<Covariate>, ArrayList<Covariate>> covariates = RecalDataManager.initializeCovariates(RAC);       // initialize the required and optional covariates
         ArrayList<Covariate> requiredCovariates = covariates.getFirst();
         ArrayList<Covariate> optionalCovariates = covariates.getSecond();
-        requestedCovariates.addAll(requiredCovariates);                                                                 // add all required covariates to the list of requested covariates
-        requestedCovariates.addAll(optionalCovariates);                                                                 // add all optional covariates to the list of requested covariates
+
+        requestedCovariates = new Covariate[requiredCovariates.size() + optionalCovariates.size()];
+        int covariateIndex = 0;
+        for (final Covariate covariate : requiredCovariates)
+            requestedCovariates[covariateIndex++] = covariate;
+        for (final Covariate covariate : optionalCovariates)
+            requestedCovariates[covariateIndex++] = covariate;
 
         logger.info("The covariates being used here: ");
         for (Covariate cov : requestedCovariates) {                                                                     // list all the covariates being used
@@ -286,26 +292,28 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
         final int offset = pileupElement.getOffset();
         final ReadCovariates readCovariates = covariateKeySetFrom(pileupElement.getRead());
 
-        final RecalDatum mismatchesDatum = createDatumObject(pileupElement.getQual(), !BaseUtils.basesAreEqual(pileupElement.getBase(), refBase));
-        final RecalDatum insertionsDatum = createDatumObject(pileupElement.getBaseInsertionQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterInsertion() : pileupElement.isBeforeInsertion());
-        final RecalDatum deletionsDatum  = createDatumObject(pileupElement.getBaseDeletionQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterDeletedBase() : pileupElement.isBeforeDeletedBase());
+        recalDatumArray[EventType.BASE_SUBSTITUTION.index] = createDatumObject(pileupElement.getQual(), !BaseUtils.basesAreEqual(pileupElement.getBase(), refBase));
+        recalDatumArray[EventType.BASE_INSERTION.index] = createDatumObject(pileupElement.getBaseInsertionQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterInsertion() : pileupElement.isBeforeInsertion());
+        recalDatumArray[EventType.BASE_DELETION.index] = createDatumObject(pileupElement.getBaseDeletionQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterDeletedBase() : pileupElement.isBeforeDeletedBase());
 
-        for (Map.Entry<BQSRKeyManager, Map<BitSet, RecalDatum>> entry : keysAndTablesMap.entrySet()) {
-            BQSRKeyManager keyManager = entry.getKey();
-            Map<BitSet, RecalDatum> table = entry.getValue();
+        for (Map.Entry<BQSRKeyManager, Map<Long, RecalDatum>> entry : keysAndTablesMap.entrySet()) {
+            final BQSRKeyManager keyManager = entry.getKey();
+            final Map<Long, RecalDatum> table = entry.getValue();
+            final int numOptionalCovariates = keyManager.getNumOptionalCovariates();
 
-            List<BitSet> mismatchesKeys = keyManager.bitSetsFromAllKeys(readCovariates.getMismatchesKeySet(offset), EventType.BASE_SUBSTITUTION);
-            List<BitSet> insertionsKeys = keyManager.bitSetsFromAllKeys(readCovariates.getInsertionsKeySet(offset), EventType.BASE_INSERTION);
-            List<BitSet> deletionsKeys  = keyManager.bitSetsFromAllKeys(readCovariates.getDeletionsKeySet(offset), EventType.BASE_DELETION);
-            
-            for (BitSet key : mismatchesKeys)
-                updateCovariateWithKeySet(table, key, mismatchesDatum);                              // the three arrays WON'T always have the same length
-
-            for (BitSet key : insertionsKeys)
-                updateCovariateWithKeySet(table, key, insertionsDatum);                              // the three arrays WON'T always have the same length
-
-            for (BitSet key : deletionsKeys)
-                updateCovariateWithKeySet(table, key, deletionsDatum);                               // the three arrays WON'T always have the same length
+            for (final EventType eventType : EventType.values()) {
+                final RecalDatum datum = recalDatumArray[eventType.index];
+                final long[] keys = readCovariates.getKeySet(offset, eventType);
+                if (numOptionalCovariates == 0) {
+                    final long masterKey = keyManager.createMasterKey(keys, eventType, -1);
+                    updateCovariateWithKeySet(table, masterKey, datum);
+                } else {
+                    for (int i = 0; i < numOptionalCovariates; i++) {
+                        final long masterKey = keyManager.createMasterKey(keys, eventType, i);
+                        updateCovariateWithKeySet(table, masterKey, datum);
+                    }
+                }
+            }
         }
     }
 
@@ -327,12 +335,14 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      * @param hashKey key to the hash map in bitset representation aggregating all the covariate keys and the event type
      * @param datum the RecalDatum object with the observation/error information 
      */
-    private void updateCovariateWithKeySet(final Map<BitSet, RecalDatum> recalTable, final BitSet hashKey, final RecalDatum datum) {
-        RecalDatum previousDatum = recalTable.get(hashKey);                                                             // using the list of covariate values as a key, pick out the RecalDatum from the data HashMap
-        if (previousDatum == null)                                                                                      // key doesn't exist yet in the map so make a new bucket and add it
-            recalTable.put(hashKey, datum.copy());
-        else
-            previousDatum.combine(datum);                                                                               // add one to the number of observations and potentially one to the number of mismatches
+    private void updateCovariateWithKeySet(final Map<Long, RecalDatum> recalTable, final long hashKey, final RecalDatum datum) {
+        if (hashKey >= 0) {
+            RecalDatum previousDatum = recalTable.get(hashKey);                                                         // using the list of covariate values as a key, pick out the RecalDatum from the data HashMap
+            if (previousDatum == null)                                                                                  // key doesn't exist yet in the map so make a new bucket and add it
+                recalTable.put(hashKey, datum.copy());
+            else
+                previousDatum.combine(datum);                                                                           // add one to the number of observations and potentially one to the number of mismatches
+        }
     }
 
     /**
@@ -349,7 +359,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      * Calculates the empirical qualities in all recalibration tables
      */
     private void calculateEmpiricalQuals() {
-        for (Map<BitSet, RecalDatum> table : keysAndTablesMap.values()) {
+        for (Map<Long, RecalDatum> table : keysAndTablesMap.values()) {
             for (RecalDatum datum : table.values()) {
                 datum.calcCombinedEmpiricalQuality();
                 datum.calcEstimatedReportedQuality();

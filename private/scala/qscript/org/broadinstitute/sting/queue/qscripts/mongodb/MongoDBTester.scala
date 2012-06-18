@@ -48,6 +48,7 @@ class MongoDBTester extends QScript {
     }
 
     selectVariants.memoryLimit = 4
+    selectVariants.scatterCount = numClients
 
     add(selectVariants)
   }

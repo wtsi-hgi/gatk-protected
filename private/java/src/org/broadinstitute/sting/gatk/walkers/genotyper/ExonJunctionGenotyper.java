@@ -328,7 +328,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                 } else {
                     attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,VCFConstants.MISSING_VALUE_v4);
                 }
-                GLs.add(new Genotype(s, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
+                GLs.add(GenotypeBuilder.create(s, noCall, attributes));
             }
             Map<String,Object> attributes = new HashMap<String,Object>();
             attributes.put("SNS", likelihoods.getSupNoSupRatio());

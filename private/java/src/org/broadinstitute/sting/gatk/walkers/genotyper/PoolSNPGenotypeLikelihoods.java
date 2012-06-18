@@ -4,12 +4,18 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 import net.sf.samtools.SAMUtils;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.baq.BAQ;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
+import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 
 import java.util.*;
+
+import static java.lang.Math.log10;
+import static java.lang.Math.pow;
 
 
 /**
@@ -19,28 +25,31 @@ import java.util.*;
 */
 public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implements Cloneable*/ {
 
-    private double[][] logMismatchProbabilityArray;
-    static private final double qualVec[] = new double[SAMUtils.MAX_PHRED_SCORE+1];
     final List<Allele> myAlleles;
     final int[] alleleIndices;
+    final boolean useBAQedPileup;
+    final byte refByte;
+    int mbq;
+    //final double[] PofDGivenBase;
 
+    protected static final double[][][] qualLikelihoodCache;
     /**
      * Create a new GenotypeLikelhoods object with given priors and PCR error rate for each pool genotype
      * @param alleles           Alleles associated with this likelihood object
      * @param logLikelihoods     Likelihoods (can be null if no likelihoods known)
      * @param ploidy            Ploidy of sample (# of chromosomes)
      * @param perLaneErrorModels error model objects for each lane
+     * @param useBQAedPileup    Use BAQed pileup
      * @param ignoreLaneInformation  If true, lane info is ignored
      */
     public PoolSNPGenotypeLikelihoods(final List<Allele> alleles, final double[] logLikelihoods, final int ploidy,
-                                      final HashMap<String, ErrorModel> perLaneErrorModels, final boolean ignoreLaneInformation) {
+                                      final HashMap<String, ErrorModel> perLaneErrorModels, final boolean useBQAedPileup,final boolean ignoreLaneInformation) {
         super(alleles, logLikelihoods, ploidy, perLaneErrorModels, ignoreLaneInformation);
-        fillCache();
-
+        this.useBAQedPileup = useBQAedPileup;
 
         myAlleles = new ArrayList<Allele>(alleles);
 
-        byte refByte = alleles.get(0).getBases()[0];  // by construction, first allele in list is always ref!
+        refByte = alleles.get(0).getBases()[0];  // by construction, first allele in list is always ref!
 
         if (myAlleles.size() < BaseUtils.BASES.length) {
             // likelihood only defined for subset of possible alleles. Fill then with other alleles to have all possible ones,
@@ -73,6 +82,11 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
     //
     // -------------------------------------------------------------------------------------
 
+    public int add(ReadBackedPileup pileup, UnifiedArgumentCollection UAC) {
+        mbq = UAC.MIN_BASE_QUALTY_SCORE; // record for later use
+        return add(pileup, true, true, mbq);
+    }
+
     /**
      * Updates likelihoods and posteriors to reflect the additional observations contained within the
      * read-based pileup up by calling add(observedBase, qualityScore) for each base / qual in the
@@ -87,6 +101,12 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
     public int add(ReadBackedPileup pileup, boolean ignoreBadBases, boolean capBaseQualsAtMappingQual, int minBaseQual) {
         int n = 0;
 
+        if ( useBAQedPileup )
+            pileup = createBAQedPileup( pileup );
+
+        if (!hasReferenceSampleData) {
+            return add(pileup, ignoreBadBases, capBaseQualsAtMappingQual, minBaseQual, null);
+        }
 
         for (String laneID : perLaneErrorModels.keySet() ) {
             // get pileup for this lane
@@ -156,33 +176,33 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
      * @return                                  Number of bases added
      */
     private int add(ReadBackedPileup pileup, boolean ignoreBadBases, boolean capBaseQualsAtMappingQual, int minBaseQual, ErrorModel errorModel) {
-        int n=0;
-
-        // Number of [A C G T]'s in pileup, in that order
+         // Number of [A C G T]'s in pileup, in that order
         List<Integer> numSeenBases = new ArrayList<Integer>(BaseUtils.BASES.length);
         for (byte b: BaseUtils.BASES)
             numSeenBases.add(0);
 
-        // count number of elements in pileup
-        for (PileupElement elt : pileup) {
-            byte obsBase = elt.getBase();
-            byte qual = qualToUse(elt, ignoreBadBases, capBaseQualsAtMappingQual, minBaseQual);
-            if ( qual == 0 )
-                continue;
-            int idx = 0;
-            for (byte base:BaseUtils.BASES) {
-                int cnt = numSeenBases.get(idx); 
-                numSeenBases.set(idx++,cnt + (base == obsBase?1:0));
+        if (hasReferenceSampleData) {
+            // count number of elements in pileup
+            for (PileupElement elt : pileup) {
+                byte obsBase = elt.getBase();
+                byte qual = qualToUse(elt, ignoreBadBases, capBaseQualsAtMappingQual, minBaseQual);
+                if ( qual == 0 )
+                    continue;
+    
+                int idx = 0;
+    
+                for (byte base:BaseUtils.BASES) {
+                    int cnt = numSeenBases.get(idx); 
+                    numSeenBases.set(idx++,cnt + (base == obsBase?1:0));
+    
+                }
+    
             }
-
-            n++;
-
+            if (VERBOSE)
+                System.out.format("numSeenBases: %d %d %d %d\n",numSeenBases.get(0),numSeenBases.get(1),numSeenBases.get(2),numSeenBases.get(3));
         }
-        if (VERBOSE)
-            System.out.format("numSeenBases: %d %d %d %d\n",numSeenBases.get(0),numSeenBases.get(1),numSeenBases.get(2),numSeenBases.get(3));
-
-        computeLikelihoods(errorModel, myAlleles, numSeenBases);
-        return n;
+        computeLikelihoods(errorModel, myAlleles, numSeenBases, pileup);
+        return pileup.getNumberOfElements();
     }
 
     /**
@@ -193,32 +213,76 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
      * @param alleleList    List of alleles
      * @param numObservations Number of observations for each allele in alleleList
       */
-    public void getLikelihoodOfConformation(AlleleFrequencyCalculationModel.ExactACset ACset, ErrorModel errorModel,
-                                                       List<Allele> alleleList, List<Integer> numObservations) {
-        final int minQ = errorModel.getMinSignificantQualityScore();
-        final int maxQ = errorModel.getMaxSignificantQualityScore();
-        final double[] acVec = new double[maxQ - minQ + 1];
-
-        final int nA = numObservations.get(0);
-        final int nC = numObservations.get(1);
-        final int nG = numObservations.get(2);
-        final int nT = numObservations.get(3);
-
+    public void getLikelihoodOfConformation(final AlleleFrequencyCalculationModel.ExactACset ACset,
+                                            final ErrorModel errorModel,
+                                            final List<Allele> alleleList,
+                                            final List<Integer> numObservations,
+                                            final ReadBackedPileup pileup) {
         final int[] currentCnt = Arrays.copyOf(ACset.ACcounts.counts, BaseUtils.BASES.length);
-        final int jA = currentCnt[alleleIndices[0]];
-        final int jC = currentCnt[alleleIndices[1]];
-        final int jG = currentCnt[alleleIndices[2]];
-        final int jT = currentCnt[alleleIndices[3]];
+        final int[] ac = new int[BaseUtils.BASES.length];
+        
+        for (int k=0; k < BaseUtils.BASES.length; k++ )
+            ac[k] = currentCnt[alleleIndices[k]];
 
-        for (int k=minQ; k<=maxQ; k++)
-            acVec[k-minQ] = nA*logMismatchProbabilityArray[jA][k] +
-                    nC*logMismatchProbabilityArray[jC][k] +
-                    nG*logMismatchProbabilityArray[jG][k] +
-                    nT*logMismatchProbabilityArray[jT][k];
+        double p1 = 0.0;
+        
+        if (!hasReferenceSampleData) {
+            // no error model: loop throught pileup to compute likalihoods just on base qualities
+            for (PileupElement elt : pileup) {
+                byte obsBase = elt.getBase();
+                byte qual = qualToUse(elt, true, true, mbq);
+                if ( qual == 0 )
+                    continue;
+                double acc[] = new double[ACset.ACcounts.counts.length];
+                for (int k=0; k < acc.length; k++ )
+                    acc[k] = log10PofObservingBaseGivenChromosome(alleleList.get(k).getBases()[0],obsBase,qual) +MathUtils.log10Cache[ACset.ACcounts.counts[k]]
+                            - LOG10_PLOIDY;
+                p1 += MathUtils.log10sumLog10(acc);
+            }
+        }
+        else {
+            final int minQ = errorModel.getMinSignificantQualityScore();
+            final int maxQ = errorModel.getMaxSignificantQualityScore();
+            final double[] acVec = new double[maxQ - minQ + 1];
+    
+            final int nA = numObservations.get(0);
+            final int nC = numObservations.get(1);
+            final int nG = numObservations.get(2);
+            final int nT = numObservations.get(3);
+    
 
-        final double p1 = MathUtils.logDotProduct(errorModel.getErrorModelVector().getProbabilityVector(minQ,maxQ), acVec);
+            for (int k=minQ; k<=maxQ; k++)
+                acVec[k-minQ] = nA*logMismatchProbabilityArray[ac[0]][k] +
+                        nC*logMismatchProbabilityArray[ac[1]][k] +
+                        nG*logMismatchProbabilityArray[ac[2]][k] +
+                        nT*logMismatchProbabilityArray[ac[3]][k];
+    
+            p1 = MathUtils.logDotProduct(errorModel.getErrorModelVector().getProbabilityVector(minQ,maxQ), acVec);
+        }
         ACset.log10Likelihoods[0] = p1;
+        /*        System.out.println(Arrays.toString(ACset.ACcounts.getCounts())+" "+String.valueOf(p1));
+        System.out.println(Arrays.toString(errorModel.getErrorModelVector().getProbabilityVector(minQ,maxQ)));
+      */
     }
+
+    public ReadBackedPileup createBAQedPileup( final ReadBackedPileup pileup ) {
+        final List<PileupElement> BAQedElements = new ArrayList<PileupElement>();
+        for( final PileupElement PE : pileup ) {
+            final PileupElement newPE = new BAQedPileupElement( PE );
+            BAQedElements.add( newPE );
+        }
+        return new ReadBackedPileupImpl( pileup.getLocation(), BAQedElements );
+    }
+
+    public class BAQedPileupElement extends PileupElement {
+        public BAQedPileupElement( final PileupElement PE ) {
+            super(PE.getRead(), PE.getOffset(), PE.isDeletion(), PE.isBeforeDeletedBase(), PE.isAfterDeletedBase(), PE.isBeforeInsertion(), PE.isAfterInsertion(), PE.isNextToSoftClip());
+        }
+
+        @Override
+        public byte getQual( final int offset ) { return BAQ.calcBAQFromTag(getRead(), offset, true); }
+    }
+
 
     /**
      * Helper function that returns the phred-scaled base quality score we should use for calculating
@@ -247,34 +311,41 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
         return qual;
     }
 
-    // -----------------------------------------------------------------------------------------------------------------
-    //
-    //
-    // helper routines
-    //
-    //
-    // -----------------------------------------------------------------------------------------------------------------
-
-
-    //
-    // Constant static data
-    //
-
     static {
-        // cache 10^(-k/10)
-        for (int j=0; j <= SAMUtils.MAX_PHRED_SCORE; j++)
-            qualVec[j] = Math.pow(10.0,-(double)j/10.0);
-    }
-
-    private void fillCache() {
-        // cache Q(j,k) = log10(j/2N*(1-ek) + (2N-j)/2N*ek) for j = 0:2N
-
-        logMismatchProbabilityArray = new double[1+numChromosomes][1+SAMUtils.MAX_PHRED_SCORE];
-        for (int i=0; i <= numChromosomes; i++) {
-            for (int j=0; j <= SAMUtils.MAX_PHRED_SCORE; j++) {
-                double phi = (double)i/numChromosomes;
-                logMismatchProbabilityArray[i][j] = Math.log10(phi * (1.0-qualVec[j]) + qualVec[j]/3.0 * (1.0-phi));
-            }
+        qualLikelihoodCache = new double[BaseUtils.BASES.length][BaseUtils.BASES.length][1+SAMUtils.MAX_PHRED_SCORE];
+        for (byte j=0; j <= SAMUtils.MAX_PHRED_SCORE; j++) {
+            for (byte b1:BaseUtils.BASES) {
+                for (byte b2:BaseUtils.BASES) {
+                    qualLikelihoodCache[BaseUtils.simpleBaseToBaseIndex(b1)][BaseUtils.simpleBaseToBaseIndex(b2)][j] = log10PofObservingBaseGivenChromosome(b1,b2,j);   
+                }
+            }                
         }
+
     }
+
+    /**
+     *
+     * @param observedBase observed base
+     * @param chromBase    target base
+     * @param qual         base quality
+     * @return log10 likelihood
+     */
+    private static double log10PofObservingBaseGivenChromosome(byte observedBase, byte chromBase, byte qual) {
+        final double log10_3 = log10(3.0);
+        double logP;
+
+        if ( observedBase == chromBase ) {
+            // the base is consistent with the chromosome -- it's 1 - e
+            //logP = oneMinusData[qual];
+            double e = pow(10, (qual / -10.0));
+            logP = log10(1.0 - e);
+        } else {
+            // the base is inconsistent with the chromosome -- it's e * P(chromBase | observedBase is an error)
+            logP = qual / -10.0 + (-log10_3);
+        }
+
+        //System.out.printf("%c %c %d => %f%n", observedBase, chromBase, qual, logP);
+        return logP;
+    }
+    
 }

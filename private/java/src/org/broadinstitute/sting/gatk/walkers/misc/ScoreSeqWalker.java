@@ -14,6 +14,7 @@ import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.GenotypeType;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
@@ -136,8 +137,8 @@ public class ScoreSeqWalker extends RodWalker<Integer,Integer> {
 
         if ( softCall ) {
             for (Genotype g : vc.getGenotypes()) {
-                double gDosage = 2.0*Math.pow(10, -0.1 * g.getLikelihoods().getAsMap(false).get(Genotype.Type.HOM_VAR));
-                gDosage += Math.pow(10,-0.1*g.getLikelihoods().getAsMap(false).get(Genotype.Type.HET));
+                double gDosage = 2.0*Math.pow(10, -0.1 * g.getLikelihoods().getAsMap(false).get(GenotypeType.HOM_VAR));
+                gDosage += Math.pow(10,-0.1*g.getLikelihoods().getAsMap(false).get(GenotypeType.HET));
                 dosages.put(g.getSampleName(),dosages.get(g.getSampleName())+gDosage*modWeight);
             }
         } else {

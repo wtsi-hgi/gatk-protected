@@ -214,7 +214,8 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
 
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
-        samples.remove(UAC.referenceSampleName);
+        if (UAC.referenceSampleName != null )
+            samples.remove(UAC.referenceSampleName);
 
         Set<String> laneIDs = new TreeSet<String>();
 

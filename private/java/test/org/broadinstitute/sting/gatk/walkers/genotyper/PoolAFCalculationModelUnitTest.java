@@ -3,6 +3,7 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 import org.broadinstitute.sting.BaseTest;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.sting.utils.variantcontext.GenotypeBuilder;
 import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
 import org.testng.Assert;
 import org.testng.annotations.BeforeSuite;
@@ -88,7 +89,7 @@ public class PoolAFCalculationModelUnitTest extends BaseTest {
         for (int i=0; i < ploidy; i++)
             alleles[i] = Allele.NO_CALL;
         
-        return new Genotype(name, Arrays.asList(alleles), Genotype.NO_LOG10_PERROR, gls);
+        return new GenotypeBuilder(name, Arrays.asList(alleles)).PL(gls).make();
     }                              
 
     @DataProvider(name = "getGLs")

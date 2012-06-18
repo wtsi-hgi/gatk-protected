@@ -154,7 +154,7 @@ public class MillsGenotypeDecoderWalker  extends RodWalker<Integer, Integer> {
                     }
                     alleleList.add(a);
                     alleleList.add(b);
-                    Genotype gt = new Genotype(sample,alleleList,0.0);
+                    Genotype gt = GenotypeBuilder.create(sample,alleleList);
                     genotypes.add(gt);
                 }
 
