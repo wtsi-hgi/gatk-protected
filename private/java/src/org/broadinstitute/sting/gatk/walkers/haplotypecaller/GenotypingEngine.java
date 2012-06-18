@@ -295,7 +295,7 @@ public class GenotypingEngine {
         final ArrayList<ArrayList<Haplotype>> alleleMapper = new ArrayList<ArrayList<Haplotype>>();
         final ArrayList<Haplotype> refList = new ArrayList<Haplotype>();
         for( final Haplotype h : haplotypes ) {
-            if( h.getEventMap().get(loc) == null ) {
+            if( h.getEventMap().get(loc) == null ) { // no event at this location so this is a reference-supporting haplotype
                 refList.add(h);
             }
         }

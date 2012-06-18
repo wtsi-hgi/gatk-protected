@@ -91,7 +91,7 @@ import java.util.*;
  */
 
 @PartitionBy(PartitionType.LOCUS)
-@ActiveRegionExtension(extension=50, maxRegion=300)
+@ActiveRegionExtension(extension=90, maxRegion=250)
 public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     /**
@@ -162,10 +162,10 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private IndexedFastaSequenceFile referenceReader;
 
     // reference base padding size
-    private static final int REFERENCE_PADDING = 200;
+    private static final int REFERENCE_PADDING = 1250;
 
     // bases with quality less than or equal to this value are trimmed off the tails of the reads
-    private static final byte MIN_TAIL_QUALITY = 18;
+    private static final byte MIN_TAIL_QUALITY = 20;
 
     private ArrayList<String> samplesList = new ArrayList<String>();
     private final static double LOG_ONE_HALF = -Math.log10(2.0);

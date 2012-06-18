@@ -162,7 +162,7 @@ public class LikelihoodCalculationEngine {
                             // First term is approximated by Jacobian log with table lookup.
                             haplotypeLikelihood += MathUtils.approximateLog10SumLog10(readLikelihoods_iii[kkk], readLikelihoods_jjj[kkk]) + LOG_ONE_HALF;
                         }
-                        haplotypeLikelihoodMatrix[iii][jjj] = MathUtils.approximateLog10SumLog10(haplotypeLikelihoodMatrix[iii][jjj], haplotypeLikelihood);
+                        haplotypeLikelihoodMatrix[iii][jjj] = Math.max(haplotypeLikelihoodMatrix[iii][jjj], haplotypeLikelihood); // MathUtils.approximateLog10SumLog10(haplotypeLikelihoodMatrix[iii][jjj], haplotypeLikelihood); // BUGBUG: max or sum?
                     }
                 }       
             }
