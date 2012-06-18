@@ -273,8 +273,7 @@ public class GenotypingEngine {
                             genotypeLikelihoods[glIndex++] = haplotypeLikelihoodMatrix[iii][jjj]; // for example: AA,AB,BB,AC,BC,CC
                         }
                     }
-                    final Genotype g = new GenotypeBuilder(sample).alleles(noCall).PL(genotypeLikelihoods).make();
-                    genotypes.add(g);
+                    genotypes.add( new GenotypeBuilder(sample).alleles(noCall).PL(genotypeLikelihoods).make() );
                 }
                 final VariantCallContext call = UG_engine.calculateGenotypes(new VariantContextBuilder(mergedVC).genotypes(genotypes).make(), UG_engine.getUAC().GLmodel);
 

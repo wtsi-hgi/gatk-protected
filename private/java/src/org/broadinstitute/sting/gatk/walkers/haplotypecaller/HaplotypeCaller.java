@@ -275,9 +275,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
                     genotypeLikelihoods[BB] += QualityUtils.qualToErrorProbLog10(qual) + LOG_ONE_THIRD;
                 }
             }
-
-            final Genotype g = new GenotypeBuilder(sample).alleles(noCall).PL(genotypeLikelihoods).make();
-            genotypes.add(g);
+            genotypes.add( new GenotypeBuilder(sample).alleles(noCall).PL(genotypeLikelihoods).make() );
         }
 
         final ArrayList<Allele> alleles = new ArrayList<Allele>();
