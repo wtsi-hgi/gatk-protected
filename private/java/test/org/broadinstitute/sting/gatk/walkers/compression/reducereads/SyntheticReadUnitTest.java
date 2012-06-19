@@ -35,7 +35,7 @@ public void testBaseCounts() {
                 new TestRead(bases, quals, new Byte[] {1, 127, 51, 126},    new byte [] {1, 126, 50, 125})};
 
         for (TestRead testRead : testReads) {
-            SyntheticRead syntheticRead = new SyntheticRead(Arrays.asList(testRead.getBases()), Arrays.asList(testRead.getCounts()), Arrays.asList(testRead.getQuals()), artificialMappingQuality, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG, artificialSAMHeader, artificialGATKRG, artificialContig, artificialContigIndex, artificialReadName, artificialRefStart);
+            SyntheticRead syntheticRead = new SyntheticRead(Arrays.asList(testRead.getBases()), Arrays.asList(testRead.getCounts()), Arrays.asList(testRead.getQuals()), Arrays.asList(testRead.getInsQuals()), Arrays.asList(testRead.getDelQuals()), artificialMappingQuality, GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG, artificialSAMHeader, artificialGATKRG, artificialContig, artificialContigIndex, artificialReadName, artificialRefStart, false);
             Assert.assertEquals(syntheticRead.convertBaseCounts(), testRead.getExpectedCounts());
         }
 }
@@ -43,12 +43,16 @@ public void testBaseCounts() {
 private class TestRead {
     BaseIndex[] bases;
     Byte[] quals;
+    Byte[] insQuals;
+    Byte[] delQuals;
     Byte[] counts;
     byte [] expectedCounts;
 
     private TestRead(BaseIndex[] bases, Byte[] quals, Byte[] counts, byte[] expectedCounts) {
         this.bases = bases;
         this.quals = quals;
+        this.insQuals = quals;
+        this.delQuals = quals;
         this.counts = counts;
         this.expectedCounts = expectedCounts;
     }
@@ -59,6 +63,14 @@ private class TestRead {
 
     public Byte[] getQuals() {
         return quals;
+    }
+
+    public Byte[] getInsQuals() {
+        return insQuals;
+    }
+
+    public Byte[] getDelQuals() {
+        return delQuals;
     }
 
     public Byte[] getCounts() {

@@ -5,6 +5,7 @@ import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
 import net.sf.samtools.SAMFileHeader;
+import org.broadinstitute.sting.gatk.walkers.bqsr.EventType;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
@@ -32,7 +33,9 @@ public class SyntheticRead {
     private List<BaseIndex> bases;
     private List<Byte> counts;
     private List<Byte> quals;
-    private double mappingQuality;          // the average of the rms of the mapping qualities of all the reads that contributed to this consensus
+    private List<Byte> insertionQuals;
+    private List<Byte> deletionQuals;
+    private double mappingQuality;                                                                                      // the average of the rms of the mapping qualities of all the reads that contributed to this consensus
     private String readTag;
 
     // Information to produce a GATKSAMRecord
@@ -42,6 +45,7 @@ public class SyntheticRead {
     private int contigIndex;
     private String readName;
     private Integer refStart;
+    private boolean hasIndelQualities = false;
 
     /**
      * Full initialization of the running consensus if you have all the information and are ready to
@@ -55,10 +59,13 @@ public class SyntheticRead {
      * @param refStart        the alignment start (reference based)
      * @param readTag         the reduce reads tag for the synthetic read
      */
-    public SyntheticRead(SAMFileHeader header, GATKSAMReadGroupRecord readGroupRecord, String contig, int contigIndex, String readName, Integer refStart, String readTag) {
-        bases = new ArrayList<BaseIndex>(10000);
-        counts = new ArrayList<Byte>(10000);
-        quals = new ArrayList<Byte>(10000);
+    public SyntheticRead(SAMFileHeader header, GATKSAMReadGroupRecord readGroupRecord, String contig, int contigIndex, String readName, Integer refStart, String readTag, boolean hasIndelQualities) {
+        final int initialCapacity = 10000;
+        bases = new ArrayList<BaseIndex>(initialCapacity);
+        counts = new ArrayList<Byte>(initialCapacity);
+        quals = new ArrayList<Byte>(initialCapacity);
+        insertionQuals = new ArrayList<Byte>(initialCapacity);
+        deletionQuals = new ArrayList<Byte>(initialCapacity);
         mappingQuality = 0.0;
 
         this.readTag = readTag;
@@ -68,12 +75,15 @@ public class SyntheticRead {
         this.contigIndex = contigIndex;
         this.readName = readName;
         this.refStart = refStart;
+        this.hasIndelQualities = hasIndelQualities;
     }
 
-    public SyntheticRead(List<BaseIndex> bases, List<Byte> counts, List<Byte> quals, double mappingQuality, String readTag, SAMFileHeader header, GATKSAMReadGroupRecord readGroupRecord, String contig, int contigIndex, String readName, Integer refStart) {
+    public SyntheticRead(List<BaseIndex> bases, List<Byte> counts, List<Byte> quals, List<Byte> insertionQuals, List<Byte> deletionQuals, double mappingQuality, String readTag, SAMFileHeader header, GATKSAMReadGroupRecord readGroupRecord, String contig, int contigIndex, String readName, Integer refStart, boolean hasIndelQualities) {
         this.bases = bases;
         this.counts = counts;
         this.quals = quals;
+        this.insertionQuals = insertionQuals;
+        this.deletionQuals = deletionQuals;
         this.mappingQuality = mappingQuality;
         this.readTag = readTag;
         this.header = header;
@@ -82,6 +92,7 @@ public class SyntheticRead {
         this.contigIndex = contigIndex;
         this.readName = readName;
         this.refStart = refStart;
+        this.hasIndelQualities = hasIndelQualities;
     }
 
     /**
@@ -92,10 +103,12 @@ public class SyntheticRead {
      * @param count  number of reads with this base
      */
     @Requires("count < Byte.MAX_VALUE")
-    public void add(BaseIndex base, byte count, byte qual, double mappingQuality) {
+    public void add(BaseIndex base, byte count, byte qual, byte insQual, byte delQual, double mappingQuality) {
         counts.add(count);
         bases.add(base);
         quals.add(qual);
+        insertionQuals.add(insQual);
+        deletionQuals.add(delQual);
         this.mappingQuality += mappingQuality;
     }
 
@@ -103,16 +116,7 @@ public class SyntheticRead {
         return bases.get(readCoordinate);
     }
 
-    public Integer getRefStart() {
-        return refStart;
-    }
-
-    public void decrementBase(int readCoordinate) {
-        byte minusOne = (byte) Math.max(Byte.MIN_VALUE, counts.get(readCoordinate) - 1);
-        counts.set(readCoordinate, minusOne);
-    }
-
-    /**
+   /**
      * Creates a GATKSAMRecord of the synthetic read. Will return null if the read is invalid.
      *
      * Invalid reads are :
@@ -132,11 +136,17 @@ public class SyntheticRead {
         read.setCigar(buildCigar());                                        // the alignment start may change while building the cigar (leading deletions)
         read.setAlignmentStart(refStart);
         read.setReadName(readName);
-        read.setBaseQualities(convertBaseQualities());
+        read.setBaseQualities(convertBaseQualities(), EventType.BASE_SUBSTITUTION);
         read.setReadBases(convertReadBases());
         read.setMappingQuality((int) Math.ceil(mappingQuality / bases.size()));
         read.setReadGroup(readGroupRecord);
         read.setAttribute(readTag, convertBaseCounts());
+
+        if (hasIndelQualities) {
+            read.setBaseQualities(convertInsertionQualities(), EventType.BASE_INSERTION);
+            read.setBaseQualities(convertDeletionQualities(), EventType.BASE_DELETION);
+        }
+
         return read;
     }
 
@@ -156,9 +166,16 @@ public class SyntheticRead {
         return bases.size();
     }
 
-
     private byte [] convertBaseQualities() {
         return convertVariableGivenBases(bases, quals);
+    }
+
+    private byte [] convertInsertionQualities() {
+        return convertVariableGivenBases(bases, insertionQuals);
+    }
+
+    private byte [] convertDeletionQualities() {
+        return convertVariableGivenBases(bases, deletionQuals);
     }
 
     protected byte [] convertBaseCounts() {
