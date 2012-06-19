@@ -17,6 +17,12 @@ public class RandomForestRecalibrationEngine extends VariantRecalibratorEngine<R
         super(args);
     }
 
+    public RandomForestRecalibrationEngine clone() {
+        RandomForestRecalibrationEngine engine = new RandomForestRecalibrationEngine(super.VRAC);
+        engine.model = model;
+        return engine;
+    }
+
     public void evaluateData(List<VariantDatum> data, RandomForestBridge forest, boolean isContrastive) {
         for ( VariantDatum d : data ) {
             if ( forest.useFinal ) {
