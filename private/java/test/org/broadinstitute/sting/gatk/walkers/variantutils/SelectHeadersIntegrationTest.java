@@ -30,14 +30,14 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 
 public class SelectHeadersIntegrationTest extends WalkerTest {
+    private static String testfile = testDir + "NA12878.hg19.example1.vcf";
+
     public static String baseTestString(String args) {
         return "-T SelectHeaders -R " + hg19Reference + " -L 1 -o %s --no_cmdline_in_header" + args;
     }
 
     @Test
     public void testSelectHeaderName() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile),
                 1,
@@ -49,8 +49,6 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
 
     @Test
     public void testSelectHeaderExpression() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -he '(FILTER|INFO|FORMAT)' --variant " + testfile),
                 1,
@@ -62,8 +60,6 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
 
     @Test
     public void testExcludeHeaderName() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -xl_hn CombineVariants --variant " + testfile),
                 1,
@@ -75,8 +71,6 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
 
     @Test
     public void testIncludeReferenceName() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -irn --variant " + testfile),
                 1,
@@ -88,8 +82,6 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
 
     @Test
     public void testIncludeIntervals() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -iln --variant " + testfile),
                 1,
@@ -102,8 +94,6 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
 
     @Test
     public void testComplexSelection() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -he '(FILTER|INFO|FORMAT)' -irn -iln --variant " + testfile),
                 1,
@@ -114,19 +104,18 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
     }
 
     @Test
-    public void testParallelization() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
-        WalkerTestSpec spec;
-
-        spec = new WalkerTestSpec(
+    public void testParallelization2() {
+        WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile + " -nt 2"),
                 1,
                 Arrays.asList("de03c3c170398c5657ec5b9cbb56fc9b")
         );
         executeTest("testParallelization (2 threads)--" + testfile, spec);
+    }
 
-        spec = new WalkerTestSpec(
+    @Test
+    public void testParallelization4() {
+        WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile + " -nt 4"),
                 1,
                 Arrays.asList("de03c3c170398c5657ec5b9cbb56fc9b")

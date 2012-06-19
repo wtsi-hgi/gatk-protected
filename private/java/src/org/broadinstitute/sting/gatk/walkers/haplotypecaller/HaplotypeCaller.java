@@ -193,7 +193,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
 
         // initialize the output VCF header
-        vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
+        annotationEngine = new VariantAnnotatorEngine(getToolkit());
+        vcfWriter.writeHeader(new VCFHeader(annotationEngine.getVCFAnnotationDescriptions(), samples));
 
         try {
             // fasta reference reader to supplement the edges of the reference sequence
@@ -205,7 +206,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         assemblyEngine = new SimpleDeBruijnAssembler( DEBUG, graphWriter );
         likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, DEBUG, doBanded );
         genotypingEngine = new GenotypingEngine( DEBUG, MNP_LOOK_AHEAD, OUTPUT_FULL_HAPLOTYPE_SEQUENCE );
-        annotationEngine = new VariantAnnotatorEngine(getToolkit());
     }
 
     //---------------------------------------------------------------------------------------------------------------
