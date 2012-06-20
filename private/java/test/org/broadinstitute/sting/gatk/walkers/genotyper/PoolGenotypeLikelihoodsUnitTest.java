@@ -424,7 +424,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
             // write header
             out.format("Depth\tPoolPloidy\tACTrue\tACEst\tREF\tALTTrue\tALTEst\n");
         }
-        final int[] depthVector = {1000};
+        final int[] depthVector = {1000,10000};
         //final double[] alleleFrequencyVector = {0.01,0.1,0.5,1.0};
         final int[] spVector = {10,100};
         //final int[] spVector = {1};

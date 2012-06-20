@@ -112,6 +112,7 @@ public class ErrorModel  {
         this.maxQualityScore = (byte)(pvector.length-1);
         this.minQualityScore = 0;
         this.probabilityVector = new ProbabilityVector(pvector, compressRange);
+        this.hasData = true;
 
     }
 
