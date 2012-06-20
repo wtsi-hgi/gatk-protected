@@ -11,7 +11,7 @@ import java.util.List;
  * Time: 4:34 PM
  * To change this template use File | Settings | File Templates.
  */
-public abstract class VariantRecalibratorEngine<T extends RecalibrationModel> {
+public abstract class VariantRecalibratorEngine<T extends RecalibrationModel> implements Cloneable {
     // the unified argument collection
     final protected VariantRecalibratorArgumentCollection VRAC;
 
@@ -28,4 +28,6 @@ public abstract class VariantRecalibratorEngine<T extends RecalibrationModel> {
     public abstract void calculateWorstPerformingAnnotation(List<VariantDatum> data);
 
     public abstract void trainClassifier(VariantDataManager data, boolean isFinal);
+
+    public abstract VariantRecalibratorEngine<T> clone();
 }

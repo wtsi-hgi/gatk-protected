@@ -30,11 +30,16 @@ import org.apache.commons.lang.ArrayUtils;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibrator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.ExpandingArrayList;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 
 import java.io.File;
 import java.io.IOException;
@@ -60,8 +65,14 @@ public class VariantDataManager {
     protected final boolean[] finalTraining;
     protected final boolean[] initialTraining;
     protected int[] obsCounts;
+    private VariantDataManager snpSubManager = null;
+    private VariantDataManager indelSubManager = null;
 
-    public VariantDataManager( final List<String> initialKeys, final List<String> finalKeys, final VariantRecalibratorArgumentCollection VRAC ) {
+    public VariantDataManager( final List<String> initialKeys, final List<String> finalKeys, final VariantRecalibratorArgumentCollection VRAC) {
+        this(initialKeys,finalKeys,VRAC,true);
+    }
+
+    private VariantDataManager( final List<String> initialKeys, final List<String> finalKeys, final VariantRecalibratorArgumentCollection VRAC, boolean isParent ) {
         this.data = null;
         this.initialKeys = new ArrayList<String>( initialKeys );
         this.finalKeys = new ArrayList<String>(finalKeys);
@@ -87,10 +98,28 @@ public class VariantDataManager {
         meanVector = new double[this.allKeys.size()];
         varianceVector = new double[this.allKeys.size()];
         trainingSets = new ArrayList<TrainingSet>();
+        if ( VRAC.MODE == VariantRecalibratorArgumentCollection.Mode.BOTH && isParent ) {
+            snpSubManager = new VariantDataManager(initialKeys,finalKeys,VRAC,false);
+            indelSubManager = new VariantDataManager(initialKeys,finalKeys,VRAC,false);
+        }
     }
 
     public void setData( final ExpandingArrayList<VariantDatum> data ) {
-        this.data = data;
+        if ( snpSubManager == null )
+            this.data = data;
+        else {
+            ExpandingArrayList<VariantDatum> snps = new ExpandingArrayList<VariantDatum>();
+            ExpandingArrayList<VariantDatum> nonSnps = new ExpandingArrayList<VariantDatum>();
+            for ( VariantDatum d : data ) {
+                if ( d.isSNP )
+                    snps.add(d);
+                else
+                    nonSnps.add(d);
+            }
+            snpSubManager.setData(snps);
+            indelSubManager.setData(nonSnps);
+            this.data = data;
+        }
     }
 
     public ExpandingArrayList<VariantDatum> getData() {
@@ -244,7 +273,18 @@ public class VariantDataManager {
         return returnData;
     }
 
-    public void decodeAnnotations( final VariantDatum datum, final VariantContext vc, final boolean jitter ) {
+    public void decodeAnnotations(final VariantDatum datum, final VariantContext vc, final boolean jitter) {
+        if ( VRAC.MODE == VariantRecalibratorArgumentCollection.Mode.BOTH ) {
+            if ( datum.isSNP )
+                snpSubManager.reallyDecodeAnnotations(datum,vc,jitter);
+            else
+                indelSubManager.reallyDecodeAnnotations(datum,vc,jitter);
+        } else {
+            reallyDecodeAnnotations(datum,vc,jitter);
+        }
+    }
+
+    private void reallyDecodeAnnotations( final VariantDatum datum, final VariantContext vc, final boolean jitter ) {
         final double[] annotations = new double[allKeys.size()];
         final double[] rawAnnotations = new double[allKeys.size()];
         final boolean[] isNull = new boolean[allKeys.size()];
@@ -329,7 +369,7 @@ public class VariantDataManager {
                 datum.atNegativeTrainingSite = true;
                 trainingData.add( datum );
                 numAdded++;
-            }
+          }
         }
         logger.info( "Additionally training with worst " + String.format("%.3f", (float) bottomPercentage * 100.0f) + "% of passing data --> " + (trainingData.size() - numBadSitesAdded) + " variants with LOD <= " + String.format("%.4f", data.get(index).getLod()) + "." );
         return trainingData;
@@ -364,7 +404,13 @@ public class VariantDataManager {
         double value;
 
         try {
-            value = Double.parseDouble( (String)vc.getAttribute( annotationKey ) );
+
+            if ( annotationKey.equalsIgnoreCase("QUAL") ) {
+                value = vc.getPhredScaledQual();
+            } else {
+                value = Double.parseDouble( (String)vc.getAttribute( annotationKey ) );
+            }
+
             if( Double.isInfinite(value) ) { value = Double.NaN; }
             if( jitter && annotationKey.equalsIgnoreCase("HRUN") ) { // Integer valued annotations must be jittered a bit to work in this GMM
                 if ( specialSauce ) {
@@ -417,11 +463,36 @@ public class VariantDataManager {
                         (TRUST_ALL_POLYMORPHIC || !trainVC.hasGenotypes() || trainVC.isPolymorphicInSamples());
     }
 
-    public void writeOutRecalibrationTable( final PrintStream RECAL_FILE ) {
+    public void writeOutRecalibrationTable( final VariantContextWriter recalWriter ) {
+        // we need to sort in coordinate order in order to produce a valid VCF
+        Collections.sort( data, new Comparator<VariantDatum>() {
+            public int compare(VariantDatum vd1, VariantDatum vd2) {
+                return vd1.loc.compareTo(vd2.loc);
+            }} );
+
+        // create dummy alleles to be used
+        final List<Allele> alleles = new ArrayList<Allele>(2);
+        alleles.add(Allele.create("N", true));
+        alleles.add(Allele.create("<VQSR>", false));
+
+        // to be used for the important INFO tags
+        final HashMap<String, Object> attributes = new HashMap<String, Object>(3);
+
         for( final VariantDatum datum : data ) {
-            RECAL_FILE.println(String.format("%s,%d,%d,%.4f,%s",
-                    datum.contig, datum.start, datum.stop, datum.getLod(),
-                    (datum.worstAnnotation != -1 ? allKeys.get(datum.worstAnnotation) : "NULL")));
+            attributes.put(VCFConstants.END_KEY, datum.loc.getStop());
+            attributes.put(VariantRecalibrator.VQS_LOD_KEY, String.format("%.4f", datum.getLod()));
+            attributes.put(VariantRecalibrator.CULPRIT_KEY, (datum.worstAnnotation != -1 ? allKeys.get(datum.worstAnnotation) : "NULL"));
+
+            VariantContextBuilder builder = new VariantContextBuilder("VQSR", datum.loc.getContig(), datum.loc.getStart(), datum.loc.getStart(), alleles).attributes(attributes);
+            recalWriter.add(builder.make());
         }
+    }
+
+    public VariantDataManager getSNPManager() {
+        return snpSubManager;
+    }
+
+    public VariantDataManager getIndelManager() {
+        return indelSubManager;
     }
 }

@@ -38,11 +38,14 @@ import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.R.RScriptExecutor;
 import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.collections.ExpandingArrayList;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.io.Resource;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriterFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -137,7 +140,7 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
     // Outputs
     /////////////////////////////
     @Output(fullName="recal_file", shortName="recalFile", doc="The output recal file used by ApplyRecalibration", required=true)
-    private PrintStream RECAL_FILE;
+    private File RECAL_FILE;
     @Output(fullName="tranches_file", shortName="tranchesFile", doc="The output tranches file used by ApplyRecalibration", required=true)
     private File TRANCHES_FILE;
 
@@ -197,6 +200,7 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
     private final Set<String> ignoreInputFilterSet = new TreeSet<String>();
     private VariantRecalibratorEngine initialEngine;
     private VariantRecalibratorEngine finalEngine;
+    private VariantContextWriter recalWriter;
 
     //---------------------------------------------------------------------------------------------------------------
     //
@@ -237,6 +241,10 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
         if( !dataManager.checkHasTruthSet() ) {
             throw new UserException.CommandLineException( "No truth set found! Please provide sets of known polymorphic loci marked with the truth=true ROD binding tag. For example, -B:hapmap,VCF,known=false,training=true,truth=true,prior=12.0 hapmapFile.vcf" );
         }
+
+        final VCFHeader vcfHeader = new VCFHeader();
+        recalWriter = VariantContextWriterFactory.create(RECAL_FILE, getMasterSequenceDictionary());
+        recalWriter.writeHeader(vcfHeader);
     }
 
     //---------------------------------------------------------------------------------------------------------------
@@ -256,6 +264,7 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
             if( vc != null && ( vc.isNotFiltered() || ignoreInputFilterSet.containsAll(vc.getFilters()) ) ) {
                 if( checkRecalibrationMode( vc, VRAC.MODE ) ) {
                     final VariantDatum datum = new VariantDatum();
+                    datum.isSNP = vc.isSNP();
 
                     // Loop through the training data sets and if they overlap this loci then update the prior and training status appropriately
                     dataManager.parseTrainingSets( tracker, context.getLocation(), vc, datum, TRUST_ALL_POLYMORPHIC );
@@ -263,12 +272,9 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
 
                     // Populate the datum with lots of fields from the VariantContext, unfortunately the VC is too big so we just pull in only the things we absolutely need.
                     dataManager.decodeAnnotations( datum, vc, true ); //BUGBUG: when run with HierarchicalMicroScheduler this is non-deterministic because order of calls depends on load of machine
-                    datum.contig = vc.getChr();
-                    datum.start = vc.getStart();
-                    datum.stop = vc.getEnd();
+                    datum.loc = getToolkit().getGenomeLocParser().createGenomeLoc(vc);
                     datum.originalQual = vc.getPhredScaledQual();
-                    datum.isSNP = vc.isSNP() && vc.isBiallelic();
-                    datum.isTransition = datum.isSNP && VariantContextUtils.isTransition(vc);
+                    datum.isTransition = datum.isSNP && vc.isBiallelic() && VariantContextUtils.isTransition(vc);
                     //if( PERFORM_PROJECT_CONSENSUS ) { // BUGBUG: need to resurrect this functionality?
                     //    final double consensusPrior = QualityUtils.qualToProb( 1.0 + 5.0 * datum.consensusCount );
                     //    priorFactor = 1.0 - ((1.0 - priorFactor) * (1.0 - consensusPrior));
@@ -318,22 +324,58 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
     public void onTraversalDone( final ExpandingArrayList<VariantDatum> reduceSum ) {
         // what I want this to look like
         dataManager.setData( reduceSum );
-        dataManager.normalizeData(); // Each data point is now (x - mean) / standard deviation
 
         // get the initial classification of the variants
         // note: the postive/negative training loop is now within trainClassifier
         // this automatically evaluates the data todo -- change the name so this is clear
-        initialEngine.trainClassifier(dataManager,false);
-        logger.info(String.format("Taking worst %.2f percent of variants as a negative set for second round of learning",VRAC.PERCENT_BAD_VARIANTS_FOR_RF));
-        ExpandingArrayList<VariantDatum> worstClassified = dataManager.selectWorstVariantsNoThresholding(VRAC.PERCENT_BAD_VARIANTS_FOR_RF,VRAC.MIN_NUM_BAD_VARIANTS);
-        for ( VariantDatum d : worstClassified ) {
-            d.atNegativeTrainingSite = true;
-        }
-        dataManager.removeWorstPositiveTrainingSites(VRAC.IGNORE_WORST_PERCENT_GOOD);
-        dataManager.reclassifyBestPositiveSites(VRAC.ADDITIONAL_GOOD_FOR_TREE);
-        finalEngine.trainClassifier(dataManager, true);
 
-        initialEngine.calculateWorstPerformingAnnotation( dataManager.getData() );
+        if ( initialEngine instanceof GMMRecalibratorEngine && VRAC.MODE == VariantRecalibratorArgumentCollection.Mode.BOTH ) {
+            // do SNPs and indels separately
+            GMMRecalibratorEngine snpEngine = (GMMRecalibratorEngine) initialEngine.clone();
+            GMMRecalibratorEngine indelEngine = (GMMRecalibratorEngine) initialEngine.clone();
+            VariantDataManager snpManager = dataManager.getSNPManager();
+            snpManager.normalizeData();
+            VariantDataManager indelManager = dataManager.getIndelManager();
+            indelManager.normalizeData();
+            // train SNP sites
+            snpEngine.trainClassifier(snpManager,false);
+            logger.info(String.format("Taking worst %.2f percent of variants as a negative set for second round of learning",VRAC.PERCENT_BAD_VARIANTS_FOR_RF));
+            ExpandingArrayList<VariantDatum> worstSNPClassified = snpManager.selectWorstVariantsNoThresholding(VRAC.PERCENT_BAD_VARIANTS_FOR_RF,VRAC.MIN_NUM_BAD_VARIANTS);
+            for ( VariantDatum d : worstSNPClassified ) {
+                d.atNegativeTrainingSite = true;
+            }
+            snpManager.removeWorstPositiveTrainingSites(VRAC.IGNORE_WORST_PERCENT_GOOD);
+            snpManager.reclassifyBestPositiveSites(VRAC.ADDITIONAL_GOOD_FOR_TREE);
+            worstSNPClassified = null;
+            snpManager = null;
+            // train indel sites
+            indelEngine.trainClassifier(indelManager,false);
+            logger.info(String.format("Taking worst %.2f percent of variants as a negative set for second round of learning",VRAC.PERCENT_BAD_VARIANTS_FOR_RF));
+            ExpandingArrayList<VariantDatum> worstIndelClassified = indelManager.selectWorstVariantsNoThresholding(VRAC.PERCENT_BAD_VARIANTS_FOR_RF,VRAC.MIN_NUM_BAD_VARIANTS);
+            for ( VariantDatum d : worstIndelClassified ) {
+                d.atNegativeTrainingSite = true;
+            }
+            indelManager.removeWorstPositiveTrainingSites(VRAC.IGNORE_WORST_PERCENT_GOOD);
+            indelManager.reclassifyBestPositiveSites(VRAC.ADDITIONAL_GOOD_FOR_TREE);
+            worstIndelClassified = null;
+            indelManager = null;
+            // at this point all the datum in the general data manager has been given a lod score. Proceed with the random forest.
+            finalEngine.trainClassifier(dataManager,true);
+        } else {
+            dataManager.normalizeData(); // Each data point is now (x - mean) / standard deviation
+
+            initialEngine.trainClassifier(dataManager,false);
+            logger.info(String.format("Taking worst %.2f percent of variants as a negative set for second round of learning",VRAC.PERCENT_BAD_VARIANTS_FOR_RF));
+            ExpandingArrayList<VariantDatum> worstClassified = dataManager.selectWorstVariantsNoThresholding(VRAC.PERCENT_BAD_VARIANTS_FOR_RF,VRAC.MIN_NUM_BAD_VARIANTS);
+            for ( VariantDatum d : worstClassified ) {
+                d.atNegativeTrainingSite = true;
+            }
+            dataManager.removeWorstPositiveTrainingSites(VRAC.IGNORE_WORST_PERCENT_GOOD);
+            dataManager.reclassifyBestPositiveSites(VRAC.ADDITIONAL_GOOD_FOR_TREE);
+            finalEngine.trainClassifier(dataManager, true);
+
+            //initialEngine.calculateWorstPerformingAnnotation( dataManager.getData() );
+        }
 
         // Find the VQSLOD cutoff values which correspond to the various tranches of calls requested by the user
         final int nCallsAtTruth = TrancheManager.countCallsAtTruth( dataManager.getData(), Double.NEGATIVE_INFINITY );
@@ -350,8 +392,8 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
         }
 
         logger.info( "Writing out recalibration table..." );
-        dataManager.writeOutRecalibrationTable( RECAL_FILE );
-        if( RSCRIPT_FILE != null ) {
+        dataManager.writeOutRecalibrationTable( recalWriter );
+        if( RSCRIPT_FILE != null && VRAC.MODE != VariantRecalibratorArgumentCollection.Mode.BOTH ) {
             logger.info( "Writing out visualization Rscript file...");
             createVisualizationScript( dataManager.getRandomDataForPlotting( 6000 ), initialEngine.getModel(true), initialEngine.getModel(false), lodCutoff );
         }

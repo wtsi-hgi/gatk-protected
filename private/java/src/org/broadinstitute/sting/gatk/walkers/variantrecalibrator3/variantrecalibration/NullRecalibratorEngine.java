@@ -20,6 +20,13 @@ public class NullRecalibratorEngine extends VariantRecalibratorEngine<NullRecali
         super(args);
     }
 
+    public NullRecalibratorEngine clone() {
+        NullRecalibratorEngine engine = new NullRecalibratorEngine(super.VRAC);
+        engine.model = model;
+
+        return engine;
+    }
+
     public void evaluateData(List<VariantDatum> data, NullRecalibratorModel model, boolean isContrastive) {
         for ( VariantDatum d : data ) {
             if ( model.useFinal ) {

@@ -33,7 +33,7 @@ public class RandomForestBridge extends RecalibrationModel {
 
     public void initialize(List<VariantDatum> data, VariantRecalibratorArgumentCollection args) {
         intermediateFile = args.ROutputFile;
-        File fileForROutput = write(data,args.RInputFile, intermediateFile, args.RScriptFile, args.numTree);
+        File fileForROutput = write(data,args.RInputFile, intermediateFile, args.RScriptFile, args.numTree,args.pdf);
         RScriptExecutor executor = new RScriptExecutor();
         executor.setExceptOnError(true);
         executor.addScript(new File(args.RScriptFile));
@@ -57,7 +57,7 @@ public class RandomForestBridge extends RecalibrationModel {
     }
 
 
-    private File write(List<VariantDatum> data, String oFileStr, String rOutput, String scriptFileString, String num_tree) {
+    private File write(List<VariantDatum> data, String oFileStr, String rOutput, String scriptFileString, String num_tree, File pdf) {
         File oFile = new File(oFileStr);
         try {
             PrintStream out = new PrintStream(oFile);
@@ -68,11 +68,11 @@ public class RandomForestBridge extends RecalibrationModel {
             out.printf("%s%n", Utils.join("\t",header));
             for ( VariantDatum d : data ) {
                 StringBuilder bd = new StringBuilder();
-                bd.append(d.contig);
+                bd.append(d.loc.getContig());
                 bd.append("\t");
-                bd.append(d.start);
+                bd.append(d.loc.getStart());
                 bd.append("\t");
-                bd.append(d.isSNP ? "SNP" : "INDEL");
+                bd.append(d.isSNP ? "0" : "1");
                 bd.append("\t");
                 double[] annot = useFinal ? d.finalAnnotations : d.initialAnnotations;
                 for ( double dd : annot ) {
@@ -99,7 +99,9 @@ public class RandomForestBridge extends RecalibrationModel {
                     "require(\"randomForest\")\n" +
                     "library(foreach)\n" +
                     "library(doMC)\n" +
+                    "library(reshape)\n" +
                     "\n" +
+                    //"pdf(\"" + pdf.getAbsolutePath() + "\",8,10)\n" +
                     "inputFile = \""+oFileStr+"\"\n" +
                     "outputFile = \""+rOutput+"\"\n" +
                     "\n" +
@@ -223,7 +225,7 @@ public class RandomForestBridge extends RecalibrationModel {
                     "\n" +
                     "variantDataTable <- read.table(inputFile,header=TRUE)\n" +
                     "colNames <- colnames(variantDataTable)\n" +
-                    "trainAnnot <- colNames[3:(length(colNames)-4)] # (chr,pos,type,alleles,{ATTRIBUTES},training,known,status,vqslod)\n" +
+                    "trainAnnot <- colNames[2:(length(colNames)-4)] # (chr,pos,type,{ATTRIBUTES},training,known,status,vqslod)\n" +
                     "# get only the labeled points; drop the known rod attribute\n" +
                     "trainingData <- subset(variantDataTable,TRAINING!=\"U\")\n" +
                     "# remove the empty \"U\" level\n" +
@@ -259,90 +261,31 @@ public class RandomForestBridge extends RecalibrationModel {
                     "rocs <- rbind(treeRoc,vqsrRoc)\n" +
                     "plotRocs(rocs,\"Filtering\")\n" +
                     "write(classLod,file=outputFile,ncolumns=1)\n" +
-                    "dev.off()");
-            script.close();
-
-        } catch (FileNotFoundException e) {
-            throw new StingException("File not found",e);
-        }
-
-        return new File(rOutput);
-    }
-
-    private File writeOld(List<VariantDatum> data, String oFileStr, String rOutput, String scriptFileString, String num_tree) {
-        File oFile = new File(oFileStr);
-        try {
-            PrintStream out = new PrintStream(oFile);
-            List<String> header = new ArrayList<String>(annotations.size()+HEADER_END.length+HEADER_START.length);
-            header.addAll(Arrays.asList(HEADER_START));
-            header.addAll(annotations);
-            header.addAll(Arrays.asList(HEADER_END));
-            out.printf("%s%n", Utils.join("\t",header));
-            for ( VariantDatum d : data ) {
-                StringBuilder bd = new StringBuilder();
-                bd.append(d.contig);
-                bd.append("\t");
-                bd.append(d.start);
-                bd.append("\t");
-                bd.append(d.isSNP ? "SNP" : "INDEL");
-                bd.append("\t");
-                double[] annot = useFinal ? d.finalAnnotations : d.initialAnnotations;
-                for ( double dd : annot ) {
-                    bd.append(dd);
-                    bd.append("\t");
-                }
-                bd.append(d.atPositiveTrainingSite ? "T" : ( d.atNegativeTrainingSite ? "F" : "U" ) );
-                bd.append("\t");
-                bd.append(d.isKnown ? "K" : "N");
-                bd.append("\t");
-                bd.append( d.atTruthSite ? "T" : ( d.atMonomorphicSite ? "F" : "U"));
-                bd.append("\t");
-                bd.append(d.getLod());
-                out.printf("%s%n",bd.toString());
-            }
-        } catch (FileNotFoundException e) {
-            throw new StingException("File not found",e);
-        }
-
-        // write the script
-        try {
-            PrintStream script = new PrintStream(new File(scriptFileString));
-            script.printf("%s%n","require(\"ggplot2\")\n" +
-                          "require(\"randomForest\")");
-            script.printf("%s <- \"%s\"%n","inputFile",oFileStr);
-            script.printf("%s <- \"%s\"%n","outputFile",rOutput);
-            script.print("MAX_LOD = 6.04\n" +
+                    "# take a little bit of extra time to generate importance plots\n" +
                     "\n" +
-                    "variantDataTable <- read.table(inputFile,header=TRUE)\n" +
-                    "colNames <- colnames(variantDataTable)\n" +
-                    "trainAnnot <- colNames[3:(length(colNames)-2)] # (chr,pos,type,alleles,{ATTRIBUTES},training,known)\n" +
-                    "# get only the labeled points; drop the known rod attribute\n" +
-                    "trainingData <- subset(variantDataTable,TRAINING!=\"U\")\n" +
-                    "# remove the empty \"U\" level\n" +
-                    "response <- factor(trainingData[[\"TRAINING\"]])\n" +
-                    "# drop out training and known columns\n" +
-                    "trainingData <- na.roughfix(trainingData[,c(trainAnnot)])\n" +
-                    "# now grab all the data\n" +
-                    "classificationData <- na.roughfix(variantDataTable[,c(trainAnnot)])\n" +
-                    "# train a random forest on this training data\n" +
-                    "trainedRF <- randomForest(x = trainingData,\n" +
+                    "importancePlot <- function(rfs, title) {\n" +
+                    "    # Combined importance plot\n" +
+                    "    df = data.frame()\n" +
+                    "    df <- melt(rfs$importance)\n" +
+                    "    print(df)\n" +
+                    "    names(df) <- c(\"RF.variable\", \"Importance.measure\", \"value\")\n" +
+                    "    p <- ggplot(data=df, aes(y=reorder(RF.variable, value), x=value))\n" +
+                    "    p <- p + facet_grid(. ~ Importance.measure, scale=\"free\")\n" +
+                    "    p <- p + geom_point(size=3) #  + geom_linerange(aes(ymin=0, ymax=value), size=2)\n" +
+                    "    p <- p + xlab(\"Score\") + ylab(\"Random forest training variable\")\n" +
+                    "    print(p)\n" +
+                    "}\n" +
+                    "smallRF <- randomForest(x = trainingData,\n" +
                     "                          y = response,\n" +
                     "                          importance = TRUE,\n" +
                     "                          proximity = F,\n" +
-                    "                          ntree = "+num_tree+",\n" +
-                    "                          keep.forest = FALSE,\n" +
-                    "                          xtest = classificationData,\n" +
-                    "                          norm.votes = TRUE,\n" +
+                    "                          ntree = 120,\n" +
+                    "                          keep.forest = TRUE,\n" +
+                    "                          xtest = na.roughfix(variantDataTable[,c(trainAnnot)]),\n" +
+                    "                          norm.votes=TRUE,\n" +
                     "                          do.trace=100)\n" +
-                    "classProbs <- trainedRF$test$votes\n" +
-                    "d1 <- (classProbs[,c(\"T\")]>(1.0-10^(-MAX_LOD)))\n" +
-                    "d2 <- (classProbs[,c(\"T\")]<10^(-MAX_LOD)) \n" +
-                    "classProbs[d1,c(\"T\")] <- 1.0-10^(-MAX_LOD)\n" +
-                    "classProbs[d1,c(\"F\")] <- 10^(-MAX_LOD)\n" +
-                    "classProbs[d2,c(\"T\")] <- 10^(-MAX_LOD)\n" +
-                    "classProbs[d2,c(\"F\")] <- 1.0-10^(-MAX_LOD)\n" +
-                    "classLod <- log10(classProbs[,c(\"T\")]) - log10(classProbs[,c(\"F\")])\n" +
-                    "write(classLod,file=outputFile,ncolumns=1)");
+                    "importancePlot(smallRF,\"ImportancePlot\")\n" +
+                    "dev.off()");
             script.close();
 
         } catch (FileNotFoundException e) {
