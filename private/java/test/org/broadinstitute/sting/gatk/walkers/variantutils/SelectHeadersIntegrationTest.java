@@ -30,7 +30,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 
 public class SelectHeadersIntegrationTest extends WalkerTest {
-    private static String testfile = testDir + "NA12878.hg19.example1.vcf";
+    private static String testfile = privateTestDir + "NA12878.hg19.example1.vcf";
 
     public static String baseTestString(String args) {
         return "-T SelectHeaders -R " + hg19Reference + " -L 1 -o %s --no_cmdline_in_header" + args;
@@ -41,7 +41,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile),
                 1,
-                Arrays.asList("de03c3c170398c5657ec5b9cbb56fc9b")
+                Arrays.asList("8b921c155d03bb9ba4d671c17729fea8")
         );
 
         executeTest("testSelectHeaderName--" + testfile, spec);
@@ -52,7 +52,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -he '(FILTER|INFO|FORMAT)' --variant " + testfile),
                 1,
-                Arrays.asList("de03c3c170398c5657ec5b9cbb56fc9b")
+                Arrays.asList("8b921c155d03bb9ba4d671c17729fea8")
         );
 
         executeTest("testSelectHeaderExpression--" + testfile, spec);
@@ -63,7 +63,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -xl_hn CombineVariants --variant " + testfile),
                 1,
-                Arrays.asList("851f8a46f64930e644ffd364f134870f")
+                Arrays.asList("ee19a3859dce7a5cafe813c62f9f2efc")
         );
 
         executeTest("testExcludeHeaderName--" + testfile, spec);
@@ -74,7 +74,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -irn --variant " + testfile),
                 1,
-                Arrays.asList("91de3d2db9cac963073150192d8b289e")
+                Arrays.asList("c48896abe8898577e9ac52556f8778b9")
         );
 
         executeTest("testIncludeReferenceName--" + testfile, spec);
@@ -85,7 +85,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -iln --variant " + testfile),
                 1,
-                Arrays.asList("26c15aac907b6d62ef9edb85eeb89b9f")
+                Arrays.asList("624909676e654d33d953b0bac5b74bb6")
         );
 
         executeTest("testIncludeIntervals--" + testfile, spec);
@@ -97,7 +97,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -he '(FILTER|INFO|FORMAT)' -irn -iln --variant " + testfile),
                 1,
-                Arrays.asList("6e243821aa868c9a56f938419aa698f2")
+                Arrays.asList("ec94f04c294cf4779fb892a460f9412e")
         );
 
         executeTest("testComplexSelection--" + testfile, spec);
@@ -108,7 +108,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile + " -nt 2"),
                 1,
-                Arrays.asList("de03c3c170398c5657ec5b9cbb56fc9b")
+                Arrays.asList("8b921c155d03bb9ba4d671c17729fea8")
         );
         executeTest("testParallelization (2 threads)--" + testfile, spec);
     }
@@ -118,7 +118,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile + " -nt 4"),
                 1,
-                Arrays.asList("de03c3c170398c5657ec5b9cbb56fc9b")
+                Arrays.asList("8b921c155d03bb9ba4d671c17729fea8")
         );
 
         executeTest("testParallelization (4 threads)--" + testfile, spec);

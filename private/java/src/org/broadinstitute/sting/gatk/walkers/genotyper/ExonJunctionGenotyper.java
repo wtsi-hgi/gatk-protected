@@ -324,9 +324,9 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                 //logger.info(gl.getKey() + Arrays.deepToString(ArrayUtils.toObject(gl.getValue())));
                 HashMap<String, Object> attributes = new HashMap<String, Object>();
                 if ( rawLiks.containsKey(s) ) {
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(MathUtils.normalizeFromLog10(rawLiks.get(s), false, true)));
+                    attributes.put(VCFConstants.GENOTYPE_PL_KEY, GenotypeLikelihoods.fromLog10Likelihoods(MathUtils.normalizeFromLog10(rawLiks.get(s), false, true)));
                 } else {
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,VCFConstants.MISSING_VALUE_v4);
+                    attributes.put(VCFConstants.GENOTYPE_PL_KEY,VCFConstants.MISSING_VALUE_v4);
                 }
                 GLs.add(GenotypeBuilder.create(s, noCall, attributes));
             }

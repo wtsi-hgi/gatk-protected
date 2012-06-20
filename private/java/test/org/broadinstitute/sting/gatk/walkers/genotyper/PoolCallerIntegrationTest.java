@@ -30,13 +30,13 @@ public class PoolCallerIntegrationTest extends WalkerTest {
     @Test
     public void testMT_SNP_DISCOVERY_sp4() {
         // todo- force maxAlleles = 1 for now since multiallelic exact model not ready
-        PC_MT_Test(CEUTRIO_BAM, " -maxAlleles 1 -sp 4", "MT_SNP_DISCOVERY_sp4","004467a42be05d890c1815aca8a23ed8");
+        PC_MT_Test(CEUTRIO_BAM, " -maxAlleles 1 -sp 4", "MT_SNP_DISCOVERY_sp4","f9de69dc134ed0f3669e501cbfb409c2");
     }
 
     @Test
     public void testMT_SNP_GGA_sp10() {
 
-        PC_MT_Test(CEUTRIO_BAM, String.format(" -maxAlleles 1 -sp 10 -gt_mode GENOTYPE_GIVEN_ALLELES -alleles %s",NA12891_CALLS), "MT_SNP_GGA_sp10", "bac3421fc09a667e02a98472d09b4504");
+        PC_MT_Test(CEUTRIO_BAM, String.format(" -maxAlleles 1 -sp 10 -gt_mode GENOTYPE_GIVEN_ALLELES -alleles %s",NA12891_CALLS), "MT_SNP_GGA_sp10", "a864c9833892622ca5edf905b7917098");
     }
 
 }
