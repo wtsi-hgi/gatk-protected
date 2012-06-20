@@ -263,6 +263,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
                 trueAlleles).genotypes(GenotypeBuilder.create(refSampleName, trueAlleles)).make();
         final int[] matchArray = {95, 995, 9995, 10000};
         final int[] mismatchArray = {1,5,10,20};
+        if (VERBOSE) System.out.println("Running SNP error model test");
 
         for (int matches: matchArray) {
             for (int mismatches: mismatchArray) {
@@ -304,6 +305,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
         final int[] matchArray = {95, 995, 9995, 10000};
         final int[] mismatchArray = {1,5,10,20};
 
+        if (VERBOSE) System.out.println("Running indel error model test");
         for (int matches: matchArray) {
             for (int mismatches: mismatchArray) {
                 // get artificial alignment context for ref sample - no noise
@@ -422,7 +424,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
             // write header
             out.format("Depth\tPoolPloidy\tACTrue\tACEst\tREF\tALTTrue\tALTEst\n");
         }
-        final int[] depthVector = {1000,10000};
+        final int[] depthVector = {1000};
         //final double[] alleleFrequencyVector = {0.01,0.1,0.5,1.0};
         final int[] spVector = {10,100};
         //final int[] spVector = {1};
