@@ -243,6 +243,10 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
         // initialize the header
         Set<VCFHeaderLine> headerInfo = UnifiedGenotyper.getHeaderInfo(UAC, annotationEngine, dbsnp);
 
+        // add the pool values for each genotype
+        headerInfo.add(new VCFFormatHeaderLine(VCFConstants.MLE_ALLELE_COUNT_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Maximum likelihood expectation (MLE) for the allele counts (not necessarily the same as the AC), for each ALT allele, in the same order as listed, for this pool"));
+        headerInfo.add(new VCFFormatHeaderLine(VCFConstants.MLE_ALLELE_FREQUENCY_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "Maximum likelihood expectation (MLE) for the allele frequency (not necessarily the same as the AF), for each ALT allele, in the same order as listed, for this pool"));
+
         // invoke initialize() method on each of the annotation classes, allowing them to add their own header lines
         // and perform any necessary initialization/validation steps
         annotationEngine.invokeAnnotationInitializationMethods(headerInfo);

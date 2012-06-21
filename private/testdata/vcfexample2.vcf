@@ -5,7 +5,7 @@
 ##source=UnifiedGenotyper
 ##reference=human_b36_both.fasta
 ##INFO=<ID=AlleleBalance,Number=1,Type=Float,Description="Allele balance">
-##INFO=<ID=AF,Number=1,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed">
 ##INFO=<ID=AFrange,Number=2,Type=String,Description="Allele Frequency, for each ALT allele, in the same order as listed">
 ##INFO=<ID=DoC,Number=1,Type=Integer,Description="Filtered Depth">
 ##INFO=<ID=FisherStrand,Number=1,Type=Float,Description="Phred-scaled p-value using Fisher's exact test to detect strand bias">
