@@ -79,6 +79,71 @@ public class SimpleDeBruijnAssemblerUnitTest extends BaseTest {
     }
 
     @Test(enabled = true)
+    public void testPruneGraph() {
+        DefaultDirectedGraph<DeBruijnVertex,DeBruijnEdge> graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
+        DefaultDirectedGraph<DeBruijnVertex,DeBruijnEdge> expectedGraph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
+
+        DeBruijnVertex v = new DeBruijnVertex("ATGG".getBytes(), 0);
+        DeBruijnVertex v2 = new DeBruijnVertex("ATGGA".getBytes(), 0);
+        DeBruijnVertex v3 = new DeBruijnVertex("ATGGT".getBytes(), 0);
+        DeBruijnVertex v4 = new DeBruijnVertex("ATGGG".getBytes(), 0);
+        DeBruijnVertex v5 = new DeBruijnVertex("ATGGC".getBytes(), 0);
+        DeBruijnVertex v6 = new DeBruijnVertex("ATGGCCCCCC".getBytes(), 0);
+
+        graph.addVertex(v);
+        graph.addVertex(v2);
+        graph.addVertex(v3);
+        graph.addVertex(v4);
+        graph.addVertex(v5);
+        graph.addVertex(v6);
+        graph.addEdge(v, v2, new DeBruijnEdge(false, 1));
+        graph.addEdge(v2, v3, new DeBruijnEdge(false, 3));
+        graph.addEdge(v3, v4, new DeBruijnEdge(false, 5));
+        graph.addEdge(v4, v5, new DeBruijnEdge(false, 3));
+        graph.addEdge(v5, v6, new DeBruijnEdge(false, 2));
+
+        expectedGraph.addVertex(v2);
+        expectedGraph.addVertex(v3);
+        expectedGraph.addVertex(v4);
+        expectedGraph.addVertex(v5);
+        expectedGraph.addEdge(v2, v3, new DeBruijnEdge(false, 3));
+        expectedGraph.addEdge(v3, v4, new DeBruijnEdge(false, 5));
+        expectedGraph.addEdge(v4, v5, new DeBruijnEdge(false, 3));
+
+        SimpleDeBruijnAssembler.pruneGraph(graph, 2);
+
+        Assert.assertTrue(graphEquals(graph, expectedGraph));
+
+        graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
+        expectedGraph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
+
+        graph.addVertex(v);
+        graph.addVertex(v2);
+        graph.addVertex(v3);
+        graph.addVertex(v4);
+        graph.addVertex(v5);
+        graph.addVertex(v6);
+        graph.addEdge(v, v2, new DeBruijnEdge(true, 1));
+        graph.addEdge(v2, v3, new DeBruijnEdge(false, 3));
+        graph.addEdge(v3, v4, new DeBruijnEdge(false, 5));
+        graph.addEdge(v4, v5, new DeBruijnEdge(false, 3));
+
+        expectedGraph.addVertex(v);
+        expectedGraph.addVertex(v2);
+        expectedGraph.addVertex(v3);
+        expectedGraph.addVertex(v4);
+        expectedGraph.addVertex(v5);
+        expectedGraph.addEdge(v, v2, new DeBruijnEdge(true, 1));
+        expectedGraph.addEdge(v2, v3, new DeBruijnEdge(false, 3));
+        expectedGraph.addEdge(v3, v4, new DeBruijnEdge(false, 5));
+        expectedGraph.addEdge(v4, v5, new DeBruijnEdge(false, 3));
+
+        SimpleDeBruijnAssembler.pruneGraph(graph, 2);
+
+        Assert.assertTrue(graphEquals(graph, expectedGraph));
+    }
+
+    @Test(enabled = true)
     public void testEliminateNonRefPaths() {
         DefaultDirectedGraph<DeBruijnVertex,DeBruijnEdge> graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
         DefaultDirectedGraph<DeBruijnVertex,DeBruijnEdge> expectedGraph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);

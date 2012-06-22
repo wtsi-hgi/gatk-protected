@@ -91,7 +91,7 @@ import java.util.*;
  */
 
 @PartitionBy(PartitionType.LOCUS)
-@ActiveRegionExtension(extension=90, maxRegion=250)
+@ActiveRegionExtension(extension=75, maxRegion=275)
 public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     /**
@@ -188,8 +188,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC.clone(), logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
         UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_VARIANTS_ONLY; // low values used for isActive determination only, default/user-specified values used for actual calling
         UAC.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY; // low values used for isActive determination only, default/user-specified values used for actual calling
-        UAC.STANDARD_CONFIDENCE_FOR_CALLING = (USE_EXPANDED_TRIGGER_SET ? 0.3 : 4.0); // low values used for isActive determination only, default/user-specified values used for actual calling
-        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = (USE_EXPANDED_TRIGGER_SET ? 0.3 : 4.0); // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.STANDARD_CONFIDENCE_FOR_CALLING = (USE_EXPANDED_TRIGGER_SET ? 0.3 : Math.max( 4.0, UAC.STANDARD_CONFIDENCE_FOR_CALLING) ); // low values used for isActive determination only, default/user-specified values used for actual calling
+        UAC.STANDARD_CONFIDENCE_FOR_EMITTING = (USE_EXPANDED_TRIGGER_SET ? 0.3 : Math.max( 4.0, UAC.STANDARD_CONFIDENCE_FOR_EMITTING) ); // low values used for isActive determination only, default/user-specified values used for actual calling
         UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
 
         // initialize the output VCF header

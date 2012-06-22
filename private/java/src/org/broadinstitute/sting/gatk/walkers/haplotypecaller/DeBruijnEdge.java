@@ -24,6 +24,11 @@ public class DeBruijnEdge implements Comparable<DeBruijnEdge> {
         this.isRef = isRef;
     }
 
+    public DeBruijnEdge( final boolean isRef, final int multiplicity ) {
+        this.multiplicity = multiplicity;
+        this.isRef = isRef;
+    }
+
     public int getMultiplicity() {
         return multiplicity;
     }

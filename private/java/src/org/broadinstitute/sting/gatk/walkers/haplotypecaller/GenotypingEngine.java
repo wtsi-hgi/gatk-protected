@@ -32,7 +32,6 @@ import net.sf.samtools.CigarElement;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.sting.utils.*;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.*;
@@ -159,7 +158,7 @@ public class GenotypingEngine {
                 for( final String sample : haplotypes.get(0).getSampleKeySet() ) { // BUGBUG: assume all haplotypes saw the same samples
                     final int myNumHaplotypes = alleleMapper.size();
                     final double[] genotypeLikelihoods = new double[myNumHaplotypes * (myNumHaplotypes+1) / 2];
-                    final double[][] haplotypeLikelihoodMatrix = LikelihoodCalculationEngine.computeDiploidHaplotypeLikelihoods(haplotypes, sample, alleleMapper);
+                    final double[][] haplotypeLikelihoodMatrix = LikelihoodCalculationEngine.computeDiploidHaplotypeLikelihoods(sample, alleleMapper);
                     int glIndex = 0;
                     for( int iii = 0; iii < myNumHaplotypes; iii++ ) {
                         for( int jjj = 0; jjj <= iii; jjj++ ) {
@@ -266,7 +265,7 @@ public class GenotypingEngine {
                 for( final String sample : haplotypes.get(0).getSampleKeySet() ) { // BUGBUG: assume all haplotypes saw the same samples
                     final int numHaplotypes = alleleMapper.size();
                     final double[] genotypeLikelihoods = new double[numHaplotypes * (numHaplotypes+1) / 2];
-                    final double[][] haplotypeLikelihoodMatrix = LikelihoodCalculationEngine.computeDiploidHaplotypeLikelihoods(haplotypes, sample, alleleMapper);
+                    final double[][] haplotypeLikelihoodMatrix = LikelihoodCalculationEngine.computeDiploidHaplotypeLikelihoods(sample, alleleMapper);
                     int glIndex = 0;
                     for( int iii = 0; iii < numHaplotypes; iii++ ) {
                         for( int jjj = 0; jjj <= iii; jjj++ ) {
