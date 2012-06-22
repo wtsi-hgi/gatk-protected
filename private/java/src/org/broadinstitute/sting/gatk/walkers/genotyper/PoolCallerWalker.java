@@ -40,6 +40,7 @@ import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.AnnotatorCompa
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
@@ -211,6 +212,15 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
                 UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY &&
                 UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.POOLSNP )
             logger.warn("WARNING: note that the EMIT_ALL_SITES option is intended only for point mutations (SNPs) in DISCOVERY mode or generally when running in GENOTYPE_GIVEN_ALLELES mode; it will by no means produce a comprehensive set of indels in DISCOVERY mode");
+
+        // check for correct calculation models
+        if (UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.POOLSNP && UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.POOLINDEL
+                && UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.POOLBOTH)   {
+            throw new UserException("Incorrect genotype calculation model chosen. Only [POOLSNP|POOLINDEL|POOLBOTH] supported with this walker");
+        }
+        
+        if (UAC.AFmodel != AlleleFrequencyCalculationModel.Model.POOL)
+            throw new UserException("Incorrect AF Calculation model. Only POOL model supported by this walker");
 
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
