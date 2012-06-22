@@ -28,8 +28,8 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.AnnotatorCompatibleWalker;
-import org.broadinstitute.sting.gatk.walkers.genotyper.PoolAFCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.InfoFieldAnnotation;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLineCount;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLineType;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFInfoHeaderLine;
@@ -61,13 +61,13 @@ public class Heteroplasmy extends InfoFieldAnnotation {
         double heteroplasmySum = 0.0;
         
         for (Genotype g: genotypes) {
-            if (g.hasExtendedAttribute(PoolAFCalculationModel.MAXIMUM_LIKELIHOOD_AC_KEY)) {
-                String s = g.getAttributeAsString(PoolAFCalculationModel.MAXIMUM_LIKELIHOOD_AC_KEY,"");
+            if (g.hasExtendedAttribute(VCFConstants.MLE_ALLELE_COUNT_KEY)) {
+                String s = g.getAttributeAsString(VCFConstants.MLE_ALLELE_COUNT_KEY,"");
                 int numAlts = Integer.valueOf(s);
                 if (numAlts>0) numVariantSamples++;
 
                 // AF will be per-pool heteroplasmy
-                s = g.getAttributeAsString(PoolAFCalculationModel.MAXIMUM_LIKELIHOOD_AF_KEY,"");
+                s = g.getAttributeAsString(VCFConstants.MLE_ALLELE_FREQUENCY_KEY,"");
                 double af = Double.valueOf(s);
                 if (numAlts>0) heteroplasmySum += af;
          }

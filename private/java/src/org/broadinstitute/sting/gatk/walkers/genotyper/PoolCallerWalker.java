@@ -40,6 +40,7 @@ import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.AnnotatorCompa
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
@@ -212,6 +213,15 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
                 UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.POOLSNP )
             logger.warn("WARNING: note that the EMIT_ALL_SITES option is intended only for point mutations (SNPs) in DISCOVERY mode or generally when running in GENOTYPE_GIVEN_ALLELES mode; it will by no means produce a comprehensive set of indels in DISCOVERY mode");
 
+        // check for correct calculation models
+        if (UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.POOLSNP && UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.POOLINDEL
+                && UAC.GLmodel != GenotypeLikelihoodsCalculationModel.Model.POOLBOTH)   {
+            throw new UserException("Incorrect genotype calculation model chosen. Only [POOLSNP|POOLINDEL|POOLBOTH] supported with this walker");
+        }
+        
+        if (UAC.AFmodel != AlleleFrequencyCalculationModel.Model.POOL)
+            throw new UserException("Incorrect AF Calculation model. Only POOL model supported by this walker");
+
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         if (UAC.referenceSampleName != null )
@@ -241,7 +251,11 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
         UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, verboseWriter, annotationEngine, samples, VariantContextUtils.DEFAULT_PLOIDY * UAC.nSamplesPerPool);
 
         // initialize the header
-        Set<VCFHeaderLine> headerInfo = getHeaderInfo();
+        Set<VCFHeaderLine> headerInfo = UnifiedGenotyper.getHeaderInfo(UAC, annotationEngine, dbsnp);
+
+        // add the pool values for each genotype
+        headerInfo.add(new VCFFormatHeaderLine(VCFConstants.MLE_ALLELE_COUNT_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Maximum likelihood expectation (MLE) for the allele counts (not necessarily the same as the AC), for each ALT allele, in the same order as listed, for this pool"));
+        headerInfo.add(new VCFFormatHeaderLine(VCFConstants.MLE_ALLELE_FREQUENCY_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "Maximum likelihood expectation (MLE) for the allele frequency (not necessarily the same as the AF), for each ALT allele, in the same order as listed, for this pool"));
 
         // invoke initialize() method on each of the annotation classes, allowing them to add their own header lines
         // and perform any necessary initialization/validation steps
@@ -250,48 +264,6 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
         writer.writeHeader(new VCFHeader(headerInfo, samples));
     }
 
-    private Set<VCFHeaderLine> getHeaderInfo() {
-        Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
-
-        // all annotation fields from VariantAnnotatorEngine
-        headerInfo.addAll(annotationEngine.getVCFAnnotationDescriptions());
-
-        // annotation (INFO) fields from UnifiedGenotyper
-        if ( !UAC.NO_SLOD )
-            headerInfo.add(new VCFInfoHeaderLine(VCFConstants.STRAND_BIAS_KEY, 1, VCFHeaderLineType.Float, "Strand Bias"));
-        headerInfo.add(new VCFInfoHeaderLine(VCFConstants.DOWNSAMPLED_KEY, 0, VCFHeaderLineType.Flag, "Were any of the samples downsampled?"));
-        headerInfo.add(new VCFInfoHeaderLine(VCFConstants.MLE_ALLELE_COUNT_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Maximum likelihood expectation (MLE) for the allele counts (not necessarily the same as the AC), for each ALT allele, in the same order as listed"));
-        headerInfo.add(new VCFInfoHeaderLine(VCFConstants.MLE_ALLELE_FREQUENCY_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "Maximum likelihood expectation (MLE) for the allele frequency (not necessarily the same as the AF), for each ALT allele, in the same order as listed"));
-
-        // also, check to see whether comp rods were included
-        if ( dbsnp.dbsnp.isBound() )
-            headerInfo.add(new VCFInfoHeaderLine(VCFConstants.DBSNP_KEY, 0, VCFHeaderLineType.Flag, "dbSNP Membership"));
-
-        // FORMAT and INFO fields
-        headerInfo.addAll(getSupportedHeaderStrings());
-
-        // FILTER fields
-        if ( UAC.STANDARD_CONFIDENCE_FOR_EMITTING < UAC.STANDARD_CONFIDENCE_FOR_CALLING )
-            headerInfo.add(new VCFFilterHeaderLine(UnifiedGenotyperEngine.LOW_QUAL_FILTER_NAME, "Low quality"));
-
-        return headerInfo;
-    }
-
-    /**
-     * return a set of supported format lines; what we currently support for output in the genotype fields of a VCF
-     * @return a set of VCF format lines
-     */
-    private static Set<VCFFormatHeaderLine> getSupportedHeaderStrings() {
-        Set<VCFFormatHeaderLine> result = new HashSet<VCFFormatHeaderLine>();
-        result.add(new VCFFormatHeaderLine(VCFConstants.GENOTYPE_KEY, 1, VCFHeaderLineType.String, "Genotype"));
-        result.add(new VCFFormatHeaderLine(VCFConstants.GENOTYPE_QUALITY_KEY, 1, VCFHeaderLineType.Integer, "Genotype Quality"));
-        result.add(new VCFFormatHeaderLine(VCFConstants.DEPTH_KEY, 1, VCFHeaderLineType.Integer, "Approximate read depth (reads with MQ=255 or with bad mates are filtered)"));
-        result.add(new VCFFormatHeaderLine(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, VCFHeaderLineCount.G, VCFHeaderLineType.Integer, "Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification"));
-        result.add(new VCFFormatHeaderLine(PoolAFCalculationModel.MAXIMUM_LIKELIHOOD_AC_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Maximum likelihood estimate of alterate ACs for each pooled sample"));
-        result.add(new VCFFormatHeaderLine(PoolAFCalculationModel.MAXIMUM_LIKELIHOOD_AF_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "Maximum likelihood estimate of alterate AFs for each pooled sample"));
-
-        return result;
-    }
 
     /**
      * Compute at a given locus.

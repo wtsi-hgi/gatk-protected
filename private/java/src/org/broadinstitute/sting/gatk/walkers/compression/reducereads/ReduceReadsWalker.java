@@ -271,7 +271,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         if (!mappedReads.isEmpty() && !DONT_USE_SOFTCLIPPED_BASES) {
             LinkedList<GATKSAMRecord> tempList = new LinkedList<GATKSAMRecord>();
             for (GATKSAMRecord mRead : mappedReads) {
-                GATKSAMRecord clippedRead = ReadClipper.revertSoftClippedBases(mRead, minBaseQual);
+                GATKSAMRecord clippedRead = ReadClipper.hardClipLowQualitySoftClips(mRead, minBaseQual);
                 if (!clippedRead.isEmpty())
                     tempList.add(clippedRead);
             }
@@ -402,14 +402,14 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
                     break;
 
                 case NO_OVERLAP_CONTIG:            // read is in a different contig
-                    if (originalRead) {            // the original read can be in a bigger contig, but not on a smaller one.
+                    if (originalRead) {                                                                                 // the original read can be in a bigger contig, but not on a smaller one.
                         if (read.getReferenceIndex() < interval.getContigIndex())
                             throw new ReviewedStingException("read is behind interval list. (contig) " + read.getReadName() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() + " x " + interval.getLocation().toString());
                         else {
                             overlap = false;
                             doneClipping = false;
                         }
-                    }                              // tail read CANNOT be in a different contig.
+                    }                                                                                                   // tail read CANNOT be in a different contig.
                     else {
                         if (read.getReferenceIndex() < interval.getContigIndex()) {
                             overlap = false;
@@ -421,26 +421,26 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
                     break;
 
                 case NO_OVERLAP_LEFT:
-                    if (originalRead)              // if this is the first read this should never happen.
+                    if (originalRead)                                                                                   // if this is the first read this should never happen.
                         throw new ReviewedStingException("original read cannot be behind the first interval. (position) " + read.getReadName() + " -- " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd() + " x " + interval.getLocation().toString());
 
                     overlap = false;
                     doneClipping = true;
                     break;
 
-                case NO_OVERLAP_HARDCLIPPED_LEFT:  // read used to overlap but got hard clipped and doesn't overlap anymore
-                    overlap = originalRead;        // if this is the original read, we should not advance the interval list, the original overlap was here.
+                case NO_OVERLAP_HARDCLIPPED_LEFT:                                                                       // read used to overlap but got hard clipped and doesn't overlap anymore
+                    overlap = originalRead;                                                                             // if this is the original read, we should not advance the interval list, the original overlap was here.
                     doneClipping = true;
                     break;
 
-                case OVERLAP_LEFT:                 // clip the left tail of the read
+                case OVERLAP_LEFT:                                                                                      // clip the left tail of the read
                     clippedRead = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, interval.getStart() - 1);
 
                     overlap = true;
                     doneClipping = true;
                     break;
 
-                case OVERLAP_RIGHT:                // clip the right tail of the read and try to match it to the next interval
+                case OVERLAP_RIGHT:                                                                                     // clip the right tail of the read and try to match it to the next interval
                     clippedRead = ReadClipper.hardClipByReferenceCoordinatesRightTail(read, interval.getStop() + 1);
                     read = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, interval.getStop());
 
@@ -448,7 +448,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
                     doneClipping = false;
                     break;
 
-                case OVERLAP_LEFT_AND_RIGHT:       // clip both left and right ends of the read
+                case OVERLAP_LEFT_AND_RIGHT:                                                                            // clip both left and right ends of the read
                     clippedRead = ReadClipper.hardClipBothEndsByReferenceCoordinates(read, interval.getStart() - 1, interval.getStop() + 1);
                     read = ReadClipper.hardClipByReferenceCoordinatesLeftTail(read, interval.getStop());
 
@@ -456,7 +456,7 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
                     doneClipping = false;
                     break;
 
-                case OVERLAP_CONTAINED:            // don't do anything to the read
+                case OVERLAP_CONTAINED:                                                                                 // don't do anything to the read
                     clippedRead = read;
 
                     overlap = true;
@@ -494,8 +494,10 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
      * @param read any read
      */
     private void outputRead(GATKSAMRecord read) {
-        if (debugLevel == 2)
+        if (debugLevel == 2) {
             checkForHighMismatch(read);
+            checkCigar(read);
+        }
 
         if (read.isReducedRead())
             nCompressedReads++;
@@ -517,8 +519,8 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         if (debugLevel == 1)
             System.out.println("BAM: " + read.getCigar() + " " + read.getAlignmentStart() + " " + read.getAlignmentEnd());
 
-        if (!DONT_USE_SOFTCLIPPED_BASES)
-            reSoftClipBases(read);
+//        if (!DONT_USE_SOFTCLIPPED_BASES)
+//            reSoftClipBases(read);
 
         if (!DONT_COMPRESS_READ_NAMES)
             compressReadName(read);
@@ -606,8 +608,15 @@ public class ReduceReadsWalker extends ReadWalker<LinkedList<GATKSAMRecord>, Red
         final int nm = SequenceUtil.countMismatches(read, ref, start - 1);
         final int readLen = read.getReadLength();
         final double nmFraction = nm / (1.0 * readLen);
-        if (nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG) != null)
+        if (nmFraction > 0.4 && readLen > 20 && read.getAttribute(GATKSAMRecord.REDUCED_READ_CONSENSUS_TAG) != null && read.getReadName().startsWith("Consensus"))
             throw new ReviewedStingException("BUG: High mismatch fraction found in read " + read.getReadName() + " position: " + read.getReferenceName() + ":" + read.getAlignmentStart() + "-" + read.getAlignmentEnd());
+    }
+
+    private void checkCigar (GATKSAMRecord read) {
+        if (read.getCigar().isValid(null, -1) != null) {
+            throw new ReviewedStingException("BUG: cigar string is not valid: " + read.getCigarString());
+        }
+
     }
 
 

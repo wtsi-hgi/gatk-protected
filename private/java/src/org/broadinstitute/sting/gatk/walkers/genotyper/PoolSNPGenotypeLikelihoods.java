@@ -228,14 +228,14 @@ public class PoolSNPGenotypeLikelihoods extends PoolGenotypeLikelihoods/* implem
         
         if (!hasReferenceSampleData) {
             // no error model: loop throught pileup to compute likalihoods just on base qualities
-            for (PileupElement elt : pileup) {
-                byte obsBase = elt.getBase();
-                byte qual = qualToUse(elt, true, true, mbq);
+            for (final PileupElement elt : pileup) {
+                final byte obsBase = elt.getBase();
+                final byte qual = qualToUse(elt, true, true, mbq);
                 if ( qual == 0 )
                     continue;
-                double acc[] = new double[ACset.ACcounts.counts.length];
+                final double acc[] = new double[ACset.ACcounts.counts.length];
                 for (int k=0; k < acc.length; k++ )
-                    acc[k] = log10PofObservingBaseGivenChromosome(alleleList.get(k).getBases()[0],obsBase,qual) +MathUtils.log10Cache[ACset.ACcounts.counts[k]]
+                    acc[k] = qualLikelihoodCache[BaseUtils.simpleBaseToBaseIndex(alleleList.get(k).getBases()[0])][BaseUtils.simpleBaseToBaseIndex(obsBase)][qual] +MathUtils.log10Cache[ACset.ACcounts.counts[k]]
                             - LOG10_PLOIDY;
                 p1 += MathUtils.log10sumLog10(acc);
             }

@@ -27,6 +27,7 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
@@ -34,9 +35,6 @@ import java.io.PrintStream;
 import java.util.*;
 
 public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
-
-    public static final String MAXIMUM_LIKELIHOOD_AC_KEY = "MLAC";
-    public static final String MAXIMUM_LIKELIHOOD_AF_KEY= "MLAF";
     static final int MAX_LENGTH_FOR_POOL_PL_LOGGING = 10; // if PL vectors longer than this # of elements, don't log them
     final protected PoolCallerUnifiedArgumentCollection UAC;
 
@@ -690,8 +688,8 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         }
 
         // per-pool logging of AC and AF
-        gb.attribute(MAXIMUM_LIKELIHOOD_AC_KEY, alleleCounts.size() == 1 ? alleleCounts.get(0) : alleleCounts);
-        gb.attribute(MAXIMUM_LIKELIHOOD_AF_KEY, alleleFreqs.size() == 1 ? alleleFreqs.get(0) : alleleFreqs);
+        gb.attribute(VCFConstants.MLE_ALLELE_COUNT_KEY, alleleCounts.size() == 1 ? alleleCounts.get(0) : alleleCounts);
+        gb.attribute(VCFConstants.MLE_ALLELE_FREQUENCY_KEY, alleleFreqs.size() == 1 ? alleleFreqs.get(0) : alleleFreqs);
 
         // remove PLs if necessary
         if (newLikelihoods.length > MAX_LENGTH_FOR_POOL_PL_LOGGING)

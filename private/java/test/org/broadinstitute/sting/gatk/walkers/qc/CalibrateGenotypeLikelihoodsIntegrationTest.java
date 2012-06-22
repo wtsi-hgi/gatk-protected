@@ -49,8 +49,8 @@ public class CalibrateGenotypeLikelihoodsIntegrationTest extends WalkerTest {
     public void externalLikelihoodsTest() {
         WalkerTestSpec spec = new WalkerTestSpec(
                 "-T CalibrateGenotypeLikelihoods -R " + b37KGReference +
-                        " --externalLikelihoods:testRG " + validationDataLocation + "NA12878.hg19.example1.vcf" +
-                        " --externalLikelihoods:testRG2 " + validationDataLocation + "NA12878.hg19.example1.vcf" +
+                        " --externalLikelihoods:testRG " + privateTestDir + "NA12878.hg19.example1.vcf" +
+                        " --externalLikelihoods:testRG2 " + privateTestDir + "NA12878.hg19.example1.vcf" +
                         " -alleles " + b37_NA12878_OMNI +
                         " -L 20:10,000,000-15,000,000 -o %s",
                 1,

@@ -45,9 +45,7 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
+import org.broadinstitute.sting.utils.codecs.vcf.*;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -193,7 +191,17 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
 
         // initialize the output VCF header
-        vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), samples));
+        annotationEngine = new VariantAnnotatorEngine(getToolkit());
+
+        Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
+
+        // all annotation fields from VariantAnnotatorEngine
+        headerInfo.addAll(annotationEngine.getVCFAnnotationDescriptions());
+        headerInfo.add(new VCFInfoHeaderLine(VCFConstants.MLE_ALLELE_COUNT_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Maximum likelihood expectation (MLE) for the allele counts (not necessarily the same as the AC), for each ALT allele, in the same order as listed"));
+        headerInfo.add(new VCFInfoHeaderLine(VCFConstants.MLE_ALLELE_FREQUENCY_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "Maximum likelihood expectation (MLE) for the allele frequency (not necessarily the same as the AF), for each ALT allele, in the same order as listed"));
+        // TODO -- need to add all of the HC caller attributes here
+
+        vcfWriter.writeHeader(new VCFHeader(headerInfo, samples));
 
         try {
             // fasta reference reader to supplement the edges of the reference sequence
@@ -205,7 +213,6 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         assemblyEngine = new SimpleDeBruijnAssembler( DEBUG, graphWriter );
         likelihoodCalculationEngine = new LikelihoodCalculationEngine( (byte)gcpHMM, DEBUG, doBanded );
         genotypingEngine = new GenotypingEngine( DEBUG, MNP_LOOK_AHEAD, OUTPUT_FULL_HAPLOTYPE_SEQUENCE );
-        annotationEngine = new VariantAnnotatorEngine(getToolkit());
     }
 
     //---------------------------------------------------------------------------------------------------------------

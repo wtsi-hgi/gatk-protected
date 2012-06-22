@@ -27,6 +27,7 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import net.sf.samtools.SAMUtils;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -290,7 +291,7 @@ public abstract class PoolGenotypeLikelihoods {
             iterator.next();
         }
         if (VERBOSE) {
-            System.out.println("MLAC: " + Arrays.toString(mlInd));
+            System.out.println(VCFConstants.MLE_ALLELE_COUNT_KEY + ": " + Arrays.toString(mlInd));
         }
         return new Pair<int[], Double>(mlInd,maxVal);
     }
