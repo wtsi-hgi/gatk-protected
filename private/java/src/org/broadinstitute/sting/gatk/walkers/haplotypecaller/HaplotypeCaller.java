@@ -199,7 +199,15 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         headerInfo.addAll(annotationEngine.getVCFAnnotationDescriptions());
         headerInfo.add(new VCFInfoHeaderLine(VCFConstants.MLE_ALLELE_COUNT_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Maximum likelihood expectation (MLE) for the allele counts (not necessarily the same as the AC), for each ALT allele, in the same order as listed"));
         headerInfo.add(new VCFInfoHeaderLine(VCFConstants.MLE_ALLELE_FREQUENCY_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "Maximum likelihood expectation (MLE) for the allele frequency (not necessarily the same as the AF), for each ALT allele, in the same order as listed"));
-        // TODO -- need to add all of the HC caller attributes here
+        // header lines for the experimental HaplotypeCaller-specific annotations
+        headerInfo.add(new VCFInfoHeaderLine("NVH", 1, VCFHeaderLineType.Integer, "Number of variants found on the haplotype that contained this variant"));
+        headerInfo.add(new VCFInfoHeaderLine("NumHapEval", 1, VCFHeaderLineType.Integer, "Number of haplotypes that were chosen for evaluation in this active region"));
+        headerInfo.add(new VCFInfoHeaderLine("NumHapAssembly", 1, VCFHeaderLineType.Integer, "Number of haplotypes created during the assembly of this active region"));
+        headerInfo.add(new VCFInfoHeaderLine("ActiveRegionSize", 1, VCFHeaderLineType.Integer, "Number of base pairs that comprise this active region"));
+        headerInfo.add(new VCFInfoHeaderLine("EVENTLENGTH", 1, VCFHeaderLineType.Integer, "Max length of all the alternate alleles"));
+        headerInfo.add(new VCFInfoHeaderLine("TYPE", 1, VCFHeaderLineType.String, "Type of event: SNP or INDEL"));
+        headerInfo.add(new VCFInfoHeaderLine("extType", 1, VCFHeaderLineType.String, "Extended type of event: SNP, MNP, INDEL, or COMPLEX"));
+        headerInfo.add(new VCFInfoHeaderLine("QDE", 1, VCFHeaderLineType.Float, "QD value divided by the number of variants found on the haplotype that contained this variant"));
 
         vcfWriter.writeHeader(new VCFHeader(headerInfo, samples));
 
