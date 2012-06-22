@@ -13,35 +13,24 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
     //final String RECAL_FILE = validationDataLocation + "NA12878.kmer.8.subset.recal_data.bqsr";
 
     private void HCTest(String bam, String args, String md5) {
-        final String base = String.format("-T HaplotypeCaller -R %s -I %s -L %s", REF, bam, INTERVALS_FILE) + " --no_cmdline_in_header -o %s --allowMissingVCFHeaders";
+        final String base = String.format("-T HaplotypeCaller -R %s -I %s -L %s", REF, bam, INTERVALS_FILE) + " --no_cmdline_in_header -o %s";
         final WalkerTestSpec spec = new WalkerTestSpec(base + " " + args, Arrays.asList(md5));
-        spec.disableShadowBCF();
-        //
-        // TODO TODO TODO TODO TODO TODO TODO TODO
-        // TODO TODO TODO TODO TODO TODO TODO TODO
-        //
-        // TODO WHEN THE HC EMITS VALID VCF HEADERS ENABLE BCF AND REMOVE ALLOWMISSINGVCFHEADERS ARGUMENTS
-        //
-        // TODO TODO TODO TODO TODO TODO TODO TODO
-        // TODO TODO TODO TODO TODO TODO TODO TODO
-        // TODO TODO TODO TODO TODO TODO TODO TODO
-        //
         executeTest("testHaplotypeCaller: args=" + args, spec);
     }
 
     @Test
     public void testHaplotypeCallerMultiSample() {
-        HCTest(CEUTRIO_BAM, "", "4fd97e1680b8c0a4c30f3be9ab6cf8d2");
+        HCTest(CEUTRIO_BAM, "", "6bbdf899733cecfef13bc58d17b408ac");
     }
 
     @Test
     public void testHaplotypeCallerSingleSample() {
-        HCTest(NA12878_BAM, "", "396189c83e9a394a4d9ee24bbf980de5");
+        HCTest(NA12878_BAM, "", "d96966bbd12c200084b529d3a01f0ee0");
     }
 
     @Test
     public void testHaplotypeCallerMultiSampleGGA() {
-        HCTest(CEUTRIO_BAM, "-gt_mode GENOTYPE_GIVEN_ALLELES -alleles " + validationDataLocation + "combined.phase1.chr20.raw.indels.sites.vcf", "e6e958581428ec54e48693b581c5b8cd");
+        HCTest(CEUTRIO_BAM, "-gt_mode GENOTYPE_GIVEN_ALLELES -alleles " + validationDataLocation + "combined.phase1.chr20.raw.indels.sites.vcf", "2c65a710b6ab390e040a52fc44b51410");
     }
 }
 

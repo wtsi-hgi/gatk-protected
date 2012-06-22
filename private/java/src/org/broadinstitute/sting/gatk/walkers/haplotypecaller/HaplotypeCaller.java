@@ -197,8 +197,17 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
         // all annotation fields from VariantAnnotatorEngine
         headerInfo.addAll(annotationEngine.getVCFAnnotationDescriptions());
-        headerInfo.add(new VCFInfoHeaderLine(VCFConstants.MLE_ALLELE_COUNT_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Maximum likelihood expectation (MLE) for the allele counts (not necessarily the same as the AC), for each ALT allele, in the same order as listed"));
-        headerInfo.add(new VCFInfoHeaderLine(VCFConstants.MLE_ALLELE_FREQUENCY_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "Maximum likelihood expectation (MLE) for the allele frequency (not necessarily the same as the AF), for each ALT allele, in the same order as listed"));
+        // all callers need to add these standard annotation header lines
+        VCFStandardHeaderLines.addStandardInfoLines(headerInfo, true,
+                VCFConstants.DOWNSAMPLED_KEY,
+                VCFConstants.MLE_ALLELE_COUNT_KEY,
+                VCFConstants.MLE_ALLELE_FREQUENCY_KEY);
+        // all callers need to add these standard FORMAT field header lines
+        VCFStandardHeaderLines.addStandardFormatLines(headerInfo, true,
+                VCFConstants.GENOTYPE_KEY,
+                VCFConstants.GENOTYPE_QUALITY_KEY,
+                VCFConstants.DEPTH_KEY,
+                VCFConstants.GENOTYPE_PL_KEY);
         // header lines for the experimental HaplotypeCaller-specific annotations
         headerInfo.add(new VCFInfoHeaderLine("NVH", 1, VCFHeaderLineType.Integer, "Number of variants found on the haplotype that contained this variant"));
         headerInfo.add(new VCFInfoHeaderLine("NumHapEval", 1, VCFHeaderLineType.Integer, "Number of haplotypes that were chosen for evaluation in this active region"));
