@@ -292,6 +292,16 @@ public class GenotypingEngine {
         for( final Haplotype h : haplotypes ) {
             if( h.getEventMap().get(loc) == null ) { // no event at this location so this is a reference-supporting haplotype
                 refList.add(h);
+            } else {
+                boolean foundInEventList = false;
+                for( final VariantContext vcAtThisLoc : eventsAtThisLoc ) {
+                    if( h.getEventMap().get(loc).hasSameAllelesAs(vcAtThisLoc) ) {
+                        foundInEventList = true;
+                    }
+                }
+                if( !foundInEventList ) { // event at this location isn't one of the genotype-able options (during GGA) so this is a reference-supporting haplotype
+                    refList.add(h);
+                }
             }
         }
         alleleMapper.add(refList);
