@@ -41,7 +41,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile),
                 1,
-                Arrays.asList("d41d9a061827b04c92ce65affbde19a8")
+                Arrays.asList("bb5cbf5c82b3a8d2630ff9055361903d")
         );
 
         executeTest("testSelectHeaderName--" + testfile, spec);
@@ -52,7 +52,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -he '(FILTER|INFO|FORMAT)' --variant " + testfile),
                 1,
-                Arrays.asList("d41d9a061827b04c92ce65affbde19a8")
+                Arrays.asList("bb5cbf5c82b3a8d2630ff9055361903d")
         );
 
         executeTest("testSelectHeaderExpression--" + testfile, spec);
@@ -63,7 +63,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -xl_hn CombineVariants --variant " + testfile),
                 1,
-                Arrays.asList("788d0275a5b5f6c7f90ba60ac9474f47")
+                Arrays.asList("009d0ded389c895a3d9f47513fc0e842")
         );
 
         executeTest("testExcludeHeaderName--" + testfile, spec);
@@ -74,7 +74,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -irn --variant " + testfile),
                 1,
-                Arrays.asList("19e30571f34ac519e1faeb500c5511b9")
+                Arrays.asList("1f070a462362c1fc66f88d9438b53533")
         );
 
         executeTest("testIncludeReferenceName--" + testfile, spec);
@@ -85,7 +85,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -iln --variant " + testfile),
                 1,
-                Arrays.asList("5333eb70fc7fe7ba26be17a70234159f")
+                Arrays.asList("864168eb5c3c4ac27fe5b62b2f5cdb4a")
         );
 
         executeTest("testIncludeIntervals--" + testfile, spec);
@@ -97,7 +97,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -he '(FILTER|INFO|FORMAT)' -irn -iln --variant " + testfile),
                 1,
-                Arrays.asList("d1c9ea6fbac3b06b975b6db21264f3dc")
+                Arrays.asList("91158df3e27ec9dbd3b84fe3e8342a21")
         );
 
         executeTest("testComplexSelection--" + testfile, spec);
@@ -108,7 +108,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile + " -nt 2"),
                 1,
-                Arrays.asList("d41d9a061827b04c92ce65affbde19a8")
+                Arrays.asList("bb5cbf5c82b3a8d2630ff9055361903d")
         );
         executeTest("testParallelization (2 threads)--" + testfile, spec);
     }
@@ -118,7 +118,7 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile + " -nt 4"),
                 1,
-                Arrays.asList("d41d9a061827b04c92ce65affbde19a8")
+                Arrays.asList("bb5cbf5c82b3a8d2630ff9055361903d")
         );
 
         executeTest("testParallelization (4 threads)--" + testfile, spec);
