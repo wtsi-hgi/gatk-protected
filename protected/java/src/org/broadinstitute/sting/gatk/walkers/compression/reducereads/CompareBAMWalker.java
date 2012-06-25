@@ -12,7 +12,8 @@ import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Given two BAMs with different read groups, it compares them based on ReduceReads metrics.
