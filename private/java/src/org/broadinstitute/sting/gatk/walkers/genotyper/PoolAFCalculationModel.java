@@ -93,7 +93,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
 
         public CombinedPoolLikelihoods() {
-            // final int numElements = GenotypeLikelihoods.calculateNumLikelihoods();
+            // final int numElements = GenotypeLikelihoods.numLikelihoods();
             alleleCountSetList = new LinkedList<ExactACset>();
             conformationMap = new HashMap<ExactACcounts,ExactACset>();
             maxLikelihood = Double.NEGATIVE_INFINITY;
@@ -335,8 +335,8 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
                                                       final double[] log10AlleleFrequencyPriors,
                                                       final AlleleFrequencyCalculationResult result) {
 /*
-        final int dim1 = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, ploidy1);
-        final int dim2 = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, ploidy2);
+        final int dim1 = GenotypeLikelihoods.numLikelihoods(numAlleles, ploidy1);
+        final int dim2 = GenotypeLikelihoods.numLikelihoods(numAlleles, ploidy2);
 
         if (dim1 != originalPool.getLength() || dim2 != yy.length)
             throw new ReviewedStingException("BUG: Inconsistent vector length");
@@ -363,7 +363,7 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
         }
 
         // initialize output to -log10(choose(m1+m2,[k1 k2...])
-        final int outputDim = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, newPloidy);
+        final int outputDim = GenotypeLikelihoods.numLikelihoods(numAlleles, newPloidy);
         final PoolGenotypeLikelihoods.SumIterator outputIterator = new PoolGenotypeLikelihoods.SumIterator(numAlleles,newPloidy);
 
 

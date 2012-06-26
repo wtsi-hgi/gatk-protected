@@ -57,7 +57,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
         int ploidy = 20;
         int numAlleles = 4;
-        int res = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, ploidy);
+        int res = GenotypeLikelihoods.numLikelihoods(numAlleles, ploidy);
         //       System.out.format("Alt Alleles: %d, Ploidy: %d, #Likelihoods: %d\n", numAltAlleles, ploidy, res);
 
         List<Allele> alleles = new ArrayList<Allele>();
@@ -84,7 +84,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
         for (int ploidy = 2; ploidy < 10; ploidy++) {
             for (int nAlleles = 2; nAlleles < 10; nAlleles++)
                 Assert.assertEquals(PoolGenotypeLikelihoods.getNumLikelihoodElements(nAlleles,ploidy),
-                        GenotypeLikelihoods.calculateNumLikelihoods(nAlleles,ploidy));
+                        GenotypeLikelihoods.numLikelihoods(nAlleles, ploidy));
         }
 
     }
@@ -115,7 +115,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
         int ploidy = 2;
         int numAlleles = 4;
-        int res = GenotypeLikelihoods.calculateNumLikelihoods(numAlleles, ploidy);
+        int res = GenotypeLikelihoods.numLikelihoods(numAlleles, ploidy);
         //       System.out.format("Alt Alleles: %d, Ploidy: %d, #Likelihoods: %d\n", numAltAlleles, ploidy, res);
 
         List<Allele> originalAlleles = new ArrayList<Allele>();
