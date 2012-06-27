@@ -39,6 +39,9 @@ public class ByTranscriptEvaluatorWalker extends RodWalker<VariantContext,ByTran
     @Argument(doc="Ignore transcripts which are flagged as non-coding for a SNP",required=false,shortName="inc",fullName="ignoreNonCoding")
     boolean ignoreNonCoding = false;
 
+    @Argument(doc="Only use CCDS transcripts",required=false,shortName="ccds",fullName="ccdsOnly")
+    boolean ccdsOnly = false;
+
     @Argument(doc="Minimum allele frequency",required=false,shortName="minAAF",fullName="minAAF")
     double minAAF = 0.0;
 
@@ -60,8 +63,9 @@ public class ByTranscriptEvaluatorWalker extends RodWalker<VariantContext,ByTran
     private static final String CONSEQ_NAME_KEY = "Consequence";
     private static final String SIFT_KEY = "SIFT";
     private static final String POLYPHEN_KEY = "PolyPhen";
+    private static final String CCDS_KEY = "CCDS";
 
-    private final List<String> REQUESTED_FIELDS = Arrays.asList(new String[]{TRANSCRIPT_NAME_KEY,GENE_NAME_KEY,CONSEQ_NAME_KEY,SIFT_KEY,POLYPHEN_KEY});
+    private final List<String> REQUESTED_FIELDS = Arrays.asList(new String[]{TRANSCRIPT_NAME_KEY,GENE_NAME_KEY,CONSEQ_NAME_KEY,SIFT_KEY,POLYPHEN_KEY,CCDS_KEY});
 
     public void initialize() {
 
@@ -169,6 +173,13 @@ public class ByTranscriptEvaluatorWalker extends RodWalker<VariantContext,ByTran
                 if ( vtc.getGeneName().equals("") )
                     continue;
                 vtc.setTranscriptName(fields[fieldOffset.get(TRANSCRIPT_NAME_KEY)]);
+                String ccds = "";
+                if ( fieldOffset.get(CCDS_KEY) < fields.length)
+                    ccds = fields[fieldOffset.get(CCDS_KEY)];
+                if ( ccds.equals("") && ccdsOnly ) {
+                    logger.debug(ccds);
+                    continue;
+                }
 
                 // if specified, ignore genes that are flagged as not coding
                 Set<ConsequenceType> consequences = ConsequenceType.decode(fields[fieldOffset.get(CONSEQ_NAME_KEY)]);
