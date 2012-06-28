@@ -173,6 +173,8 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
     // the annotation engine
     private VariantAnnotatorEngine annotationEngine;
 
+    private Set<String> samples;
+
     // enable deletions in the pileup
     @Override
     public boolean includeReadsWithDeletionAtLoci() { return true; }
@@ -223,7 +225,7 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
             throw new UserException("Incorrect AF Calculation model. Only POOL model supported by this walker");
 
         // get all of the unique sample names
-        Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
+        samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         if (UAC.referenceSampleName != null )
             samples.remove(UAC.referenceSampleName);
 
@@ -274,7 +276,7 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
      * @return the VariantCallContext object
      */
     public List<VariantCallContext> map(RefMetaDataTracker tracker, ReferenceContext refContext, AlignmentContext rawContext) {
-        return UG_engine.calculateLikelihoodsAndGenotypes(tracker, refContext, rawContext);
+        return UG_engine.calculateLikelihoodsAndGenotypes(tracker, refContext, rawContext, samples);
     }
 
     public UGStatistics reduceInit() { return new UGStatistics(); }
