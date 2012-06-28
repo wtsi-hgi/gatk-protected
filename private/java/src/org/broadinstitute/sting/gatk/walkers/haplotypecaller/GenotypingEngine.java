@@ -197,7 +197,7 @@ public class GenotypingEngine {
             if( DEBUG ) {
                 System.out.println( h.toString() );
                 System.out.println( "> Cigar = " + h.getCigar() );
-                System.out.println( ">> Events = " + h.getEventMap().values());
+                System.out.println( ">> Events = " + h.getEventMap());
             }
         }
         if( !activeAllelesToGenotype.isEmpty() ) { // we are in GGA mode!

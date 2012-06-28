@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
+import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Haplotype;
 import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -20,5 +21,5 @@ public abstract class LocalAssemblyEngine {
     protected LocalAssemblyEngine() {
     }
 
-    public abstract ArrayList<Haplotype> runLocalAssembly(ActiveRegion activeRegion, Haplotype refHaplotype, byte[] fullReferenceWithPadding, int PRUNE_FACTOR, ArrayList<VariantContext> activeAllelesToGenotype);
+    public abstract ArrayList<Haplotype> runLocalAssembly(ActiveRegion activeRegion, Haplotype refHaplotype, byte[] fullReferenceWithPadding, GenomeLoc refLoc, int PRUNE_FACTOR, ArrayList<VariantContext> activeAllelesToGenotype);
 }

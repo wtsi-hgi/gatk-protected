@@ -110,7 +110,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     @Argument(fullName="mnpLookAhead", shortName="mnpLookAhead", doc = "The number of bases to combine together to form MNPs out of nearby consecutive SNPs on the same haplotype", required = false)
     protected int MNP_LOOK_AHEAD = 0;
 
-    @Argument(fullName="minPruning", shortName="minPruning", doc = "The minimum allowed pruning factor in assembly graph. Paths with <= X supporting kmers are pruned from the graph", required = false)
+    @Argument(fullName="minPruning", shortName="minPruning", doc = "The minimum allowed pruning factor in assembly graph. Paths with <= X supporting kmers are pruned from the graph", required = true)
     protected int MIN_PRUNE_FACTOR = 0;
 
     @Argument(fullName="genotypeFullActiveRegion", shortName="genotypeFullActiveRegion", doc = "If specified, alternate alleles are considered to be the full active region for the purposes of genotyping", required = false)
@@ -337,8 +337,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         final Haplotype referenceHaplotype = new Haplotype(activeRegion.getActiveRegionReference(referenceReader)); // Create the reference haplotype which is the bases from the reference that make up the active region
         referenceHaplotype.setIsReference(true);
         final byte[] fullReferenceWithPadding = activeRegion.getFullReference(referenceReader, REFERENCE_PADDING);
-        int PRUNE_FACTOR = Math.max(MIN_PRUNE_FACTOR, determinePruneFactorFromCoverage( activeRegion ));
-        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion, referenceHaplotype, fullReferenceWithPadding, PRUNE_FACTOR, activeAllelesToGenotype );
+        //int PRUNE_FACTOR = Math.max(MIN_PRUNE_FACTOR, determinePruneFactorFromCoverage( activeRegion ));
+        final ArrayList<Haplotype> haplotypes = assemblyEngine.runLocalAssembly( activeRegion, referenceHaplotype, fullReferenceWithPadding, getPaddedLoc(activeRegion), MIN_PRUNE_FACTOR, activeAllelesToGenotype );
         if( haplotypes.size() == 1 ) { return 1; } // only the reference haplotype remains so nothing else to do!
 
         activeRegion.hardClipToActiveRegion(); // only evaluate the parts of reads that are overlapping the active region
@@ -432,7 +432,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     //---------------------------------------------------------------------------------------------------------------
 
     private void finalizeActiveRegion( final ActiveRegion activeRegion ) {
-        if( DEBUG ) { System.out.println("\nAssembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:"); }
+        if( DEBUG ) { System.out.println("\nAssembling " + activeRegion.getExtendedLoc() + " with " + activeRegion.size() + " reads:"); }
         final ArrayList<GATKSAMRecord> finalizedReadList = new ArrayList<GATKSAMRecord>();
         final FragmentCollection<GATKSAMRecord> fragmentCollection = FragmentUtils.create( ReadUtils.sortReadsByCoordinate(activeRegion.getReads()) );
         activeRegion.clearReads();
@@ -492,7 +492,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
         return returnMap;
     }
-    
+
+    /*
     private int determinePruneFactorFromCoverage( final ActiveRegion activeRegion ) {
         final ArrayList<Integer> readLengthDistribution = new ArrayList<Integer>();
         for( final GATKSAMRecord read : activeRegion.getReads() ) {
@@ -510,4 +511,5 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         if( DEBUG ) { System.out.println(String.format("Mean coverage per sample = %.1f --> prune factor = %d", meanCoveragePerSample, PRUNE_FACTOR)); }
         return PRUNE_FACTOR;
     }
+    */
 }
