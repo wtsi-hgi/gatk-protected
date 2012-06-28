@@ -449,7 +449,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         for( final GATKSAMRecord myRead : finalizedReadList ) {
             final GATKSAMRecord postAdapterRead = ( myRead.getReadUnmappedFlag() ? myRead : ReadClipper.hardClipAdaptorSequence( myRead ) );
             if( postAdapterRead != null && !postAdapterRead.isEmpty() && postAdapterRead.getCigar().getReadLength() > 0 ) {
-                final GATKSAMRecord clippedRead = ReadClipper.hardClipLowQualEnds(postAdapterRead, MIN_TAIL_QUALITY );
+                final GATKSAMRecord clippedRead = ReadClipper.hardClipLowQualEnds( postAdapterRead, MIN_TAIL_QUALITY );
                 // protect against INTERVALS with abnormally high coverage
                 if( clippedRead.getReadLength() > 0 && activeRegion.size() < samplesList.size() * DOWNSAMPLE_PER_SAMPLE_PER_REGION ) {
                     activeRegion.add(clippedRead);
