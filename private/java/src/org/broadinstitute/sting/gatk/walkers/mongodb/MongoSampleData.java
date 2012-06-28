@@ -99,7 +99,21 @@ public class MongoSampleData {
             genotypesDoc.put("alleles", genotypeAllelesDoc);
 
             BasicDBObject attributesList = new BasicDBObject();
-            // TODO -- add code to handle GQ, AD, PL
+
+            // populate inline attributes
+            if (sample.genotype.hasPL()) {
+                attributesList.put("PL", sample.genotype.getPL());
+            }
+            if (sample.genotype.hasDP()) {
+                attributesList.put("DP", sample.genotype.getDP());
+            }
+            if (sample.genotype.hasAD()) {
+                attributesList.put("AD", sample.genotype.getAD());
+            }
+            if (sample.genotype.hasGQ()) {
+                attributesList.put("GQ", sample.genotype.getGQ());
+            }
+
             for (Map.Entry<String, Object> attribute : sample.genotype.getExtendedAttributes().entrySet())
             {
                 String key = attribute.getKey();
@@ -157,15 +171,47 @@ public class MongoSampleData {
                 }
                 Double genotypeError = (Double)genotypeDoc.get("error");
 
-                Map<String, Object> genotypeAttributes = new HashMap<String, Object>();
+                Map<String, Object> genotypeExtendedAttributes = new HashMap<String, Object>();
+
+                // defaults from GenotypeBuilder.  TODO: change to constants?
+                int GQ = -1;
+                int DP = -1;
+                int[] AD = null;
+                int[] PL = null;
+
                 BasicDBObject genotypeAttrsInDb = (BasicDBObject)genotypeDoc.get("attributes");
                 for (String key : genotypeAttrsInDb.keySet()) {
                     Object value = genotypeAttrsInDb.get(key);
-                    genotypeAttributes.put(key, value);
+
+                    if (key.equals("GQ")) {
+                        GQ = (Integer)value;
+                    }
+                    else if (key.equals("DP")) {
+                        DP = (Integer)value;
+                    }
+                    else if (key.equals("AD")) {
+                        BasicDBList ADInDb = (BasicDBList)value;
+                        AD = new int[ADInDb.size()];
+                        for (int counter = 0; counter < ADInDb.size(); counter++) {
+                            AD[counter] = (Integer)ADInDb.get(counter);
+                        }
+                    }
+                    else if (key.equals("PL")) {
+                        BasicDBList PLInDb = (BasicDBList)value;
+                        PL = new int[PLInDb.size()];
+                        for (int counter = 0; counter < PLInDb.size(); counter++) {
+                            PL[counter] = (Integer)PLInDb.get(counter);
+                        }
+                    }
+                    else {
+                        genotypeExtendedAttributes.put(key, value);
+                    }
                 }
 
                 Genotype pGenotype = new GenotypeBuilder(sample, genotypeAlleles)
-                        .log10PError(genotypeError).attributes(genotypeAttributes).make();
+                        .log10PError(genotypeError).GQ(GQ).DP(DP).AD(AD).PL(PL)
+                        .attributes(genotypeExtendedAttributes)
+                        .make();
 
                 if (!returnMap.containsKey(pStart)) {
                     returnMap.put(pStart, new ArrayList<MongoSampleData>());
