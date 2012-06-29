@@ -94,7 +94,7 @@ public abstract class PoolGenotypeLikelihoods {
         if (nSamplesPerPool > MAX_NUM_SAMPLES_PER_POOL)
             throw new UserException("No support for such large number of samples per pool");
 
-        likelihoodDim = GenotypeLikelihoods.calculateNumLikelihoods(nAlleles, numChromosomes);
+        likelihoodDim = GenotypeLikelihoods.numLikelihoods(nAlleles, numChromosomes);
 
         if (logLikelihoods == null){
             log10Likelihoods = new double[likelihoodDim]; 

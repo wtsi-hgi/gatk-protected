@@ -35,9 +35,11 @@ import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
+import org.broadinstitute.sting.utils.collections.NestedHashMap;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
+import org.broadinstitute.sting.utils.recalibration.RecalibrationTables;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 
@@ -109,7 +111,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
     private QuantizationInfo quantizationInfo;                                                                          // an object that keeps track of the information necessary for quality score quantization 
     
-    private LinkedHashMap<BQSRKeyManager, Map<Long, RecalDatum>> keysAndTablesMap;                                      // a map mapping each recalibration table to its corresponding key manager
+    private RecalibrationTables recalibrationTables;
     
     private Covariate[] requestedCovariates;                                                                            // list to hold the all the covariate objects that were requested (required + standard + experimental)
 
@@ -159,7 +161,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
             cov.initialize(RAC);                                                                                        // initialize any covariate member variables using the shared argument collection
         }
 
-        keysAndTablesMap = RecalDataManager.initializeTables(requiredCovariates, optionalCovariates);                   // initialize the recalibration tables and their relative key managers
+        recalibrationTables = new RecalibrationTables(new NestedHashMap(), new NestedHashMap(), new NestedHashMap());
     }
 
     private boolean readHasBeenSkipped(GATKSAMRecord read) {
@@ -259,14 +261,13 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
     }
 
     private void generatePlots() {
-
         File recalFile = getToolkit().getArguments().BQSR_RECAL_FILE;
         if (recalFile != null) {
             RecalibrationReport report = new RecalibrationReport(recalFile);
-            RecalDataManager.generateRecalibrationPlot(RAC.RECAL_FILE, report.getKeysAndTablesMap(), keysAndTablesMap, RAC.KEEP_INTERMEDIATE_FILES);
+            RecalDataManager.generateRecalibrationPlot(RAC.RECAL_FILE, report.getRecalibrationTables(), recalibrationTables, requestedCovariates, RAC.KEEP_INTERMEDIATE_FILES);
         }
         else
-            RecalDataManager.generateRecalibrationPlot(RAC.RECAL_FILE, keysAndTablesMap, RAC.KEEP_INTERMEDIATE_FILES);
+            RecalDataManager.generateRecalibrationPlot(RAC.RECAL_FILE, recalibrationTables, requestedCovariates, RAC.KEEP_INTERMEDIATE_FILES);
     }
 
 
@@ -276,7 +277,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      * generate a quantization map (recalibrated_qual -> quantized_qual)
      */
     private void quantizeQualityScores() {
-        quantizationInfo = new QuantizationInfo(keysAndTablesMap, RAC.QUANTIZING_LEVELS);
+        quantizationInfo = new QuantizationInfo(recalibrationTables, RAC.QUANTIZING_LEVELS);
     }
 
     /**
@@ -296,23 +297,33 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
         recalDatumArray[EventType.BASE_INSERTION.index] = createDatumObject(pileupElement.getBaseInsertionQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterInsertion() : pileupElement.isBeforeInsertion());
         recalDatumArray[EventType.BASE_DELETION.index] = createDatumObject(pileupElement.getBaseDeletionQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterDeletedBase() : pileupElement.isBeforeDeletedBase());
 
-        for (Map.Entry<BQSRKeyManager, Map<Long, RecalDatum>> entry : keysAndTablesMap.entrySet()) {
-            final BQSRKeyManager keyManager = entry.getKey();
-            final Map<Long, RecalDatum> table = entry.getValue();
-            final int numOptionalCovariates = keyManager.getNumOptionalCovariates();
+        for (final EventType eventType : EventType.values()) {
+            final RecalDatum datum = recalDatumArray[eventType.index];
+            final int[] keys = readCovariates.getKeySet(offset, eventType);
 
-            for (final EventType eventType : EventType.values()) {
-                final RecalDatum datum = recalDatumArray[eventType.index];
-                final long[] keys = readCovariates.getKeySet(offset, eventType);
-                if (numOptionalCovariates == 0) {
-                    final long masterKey = keyManager.createMasterKey(keys, eventType, -1);
-                    updateCovariateWithKeySet(table, masterKey, datum);
-                } else {
-                    for (int i = 0; i < numOptionalCovariates; i++) {
-                        final long masterKey = keyManager.createMasterKey(keys, eventType, i);
-                        updateCovariateWithKeySet(table, masterKey, datum);
-                    }
-                }
+            final NestedHashMap rgRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.READ_GROUP_TABLE);
+            final RecalDatum rgPreviousDatum = (RecalDatum)rgRecalTable.get(keys[0], eventType.index);
+            if (rgPreviousDatum == null)                                                                                // key doesn't exist yet in the map so make a new bucket and add it
+                rgRecalTable.put(datum.copy(), keys[0], eventType.index);
+            else
+                rgPreviousDatum.combine(datum);                                                                         // add one to the number of observations and potentially one to the number of mismatches
+
+            final NestedHashMap qualRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.QUALITY_SCORE_TABLE);
+            final RecalDatum qualPreviousDatum = (RecalDatum)qualRecalTable.get(keys[0], keys[1], eventType.index);
+            if (qualPreviousDatum == null)
+                qualRecalTable.put(datum.copy(), keys[0], keys[1], eventType.index);
+            else
+                qualPreviousDatum.combine(datum);
+
+            final NestedHashMap covRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.OPTIONAL_COVARIATE_TABLE);
+            for (int i = 2; i < requestedCovariates.length; i++) {
+                if (keys[i] < 0)
+                    continue;
+                final RecalDatum covPreviousDatum = (RecalDatum)covRecalTable.get(keys[0], keys[1], i-2, keys[i], eventType.index);
+                if (covPreviousDatum == null)
+                    covRecalTable.put(datum.copy(), keys[0], keys[1], i-2, keys[i], eventType.index);
+                else
+                    covPreviousDatum.combine(datum);
             }
         }
     }
@@ -329,23 +340,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
     }
 
     /**
-     * Generic functionality to add to the number of observations and mismatches given a covariate key set
-     *
-     * @param recalTable the recalibration table to use
-     * @param hashKey key to the hash map in bitset representation aggregating all the covariate keys and the event type
-     * @param datum the RecalDatum object with the observation/error information 
-     */
-    private void updateCovariateWithKeySet(final Map<Long, RecalDatum> recalTable, final long hashKey, final RecalDatum datum) {
-        if (hashKey >= 0) {
-            RecalDatum previousDatum = recalTable.get(hashKey);                                                         // using the list of covariate values as a key, pick out the RecalDatum from the data HashMap
-            if (previousDatum == null)                                                                                  // key doesn't exist yet in the map so make a new bucket and add it
-                recalTable.put(hashKey, datum.copy());
-            else
-                previousDatum.combine(datum);                                                                           // add one to the number of observations and potentially one to the number of mismatches
-        }
-    }
-
-    /**
      * Get the covariate key set from a read
      *
      * @param read the read
@@ -359,8 +353,10 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      * Calculates the empirical qualities in all recalibration tables
      */
     private void calculateEmpiricalQuals() {
-        for (Map<Long, RecalDatum> table : keysAndTablesMap.values()) {
-            for (RecalDatum datum : table.values()) {
+        for (final RecalibrationTables.TableType type : RecalibrationTables.TableType.values()) {
+            final NestedHashMap table = recalibrationTables.getTable(type);
+            for (final Object value : table.getAllValues()) {
+                final RecalDatum datum = (RecalDatum)value;
                 datum.calcCombinedEmpiricalQuality();
                 datum.calcEstimatedReportedQuality();
             }
@@ -375,7 +371,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
             throw new UserException.CouldNotCreateOutputFile(RAC.RECAL_FILE, "could not be created");
         }
 
-        RecalDataManager.outputRecalibrationReport(RAC, quantizationInfo, keysAndTablesMap, output);
+        RecalDataManager.outputRecalibrationReport(RAC, quantizationInfo, recalibrationTables, requestedCovariates, output);
     }
 }
 
