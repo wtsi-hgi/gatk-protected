@@ -245,6 +245,12 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
         final VariantContextBuilder builder = new VariantContextBuilder("UG_call", loc.getContig(), loc.getStart(), endLoc, alleles);
         builder.alleles(alleles);
 
+        final HashMap<String, Object> attributes = new HashMap<String, Object>();
+
+        if (UAC.referenceSampleName != null && perLaneErrorModels != null)
+            attributes.put(ErrorModel.REFSAMPLE_DEPTH_KEY, ErrorModel.getTotalReferenceDepth(perLaneErrorModels));
+
+        builder.attributes(attributes);
         // create the genotypes; no-call everyone for now
         final GenotypesContext genotypes = GenotypesContext.create();
         final List<Allele> noCall = new ArrayList<Allele>();
