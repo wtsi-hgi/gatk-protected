@@ -28,6 +28,9 @@ class MongoDBTester extends QScript {
   @Input(doc="Samples file.", shortName="sf", required=false)
   var samplesFile: File = _
 
+  @Input(doc="Intervals file.", shortName="L", required=false)
+  var intervalsFile: File = _
+
   @Input(doc="Number of clients.", shortName="c")
   var numClients: Int = _
 
@@ -48,6 +51,10 @@ class MongoDBTester extends QScript {
 
     selectVariants.memoryLimit = 4
     selectVariants.scatterCount = numClients
+
+    if (intervalsFile != null) {
+      selectVariants.intervals :+= intervalsFile
+    }
 
     add(selectVariants)
   }
