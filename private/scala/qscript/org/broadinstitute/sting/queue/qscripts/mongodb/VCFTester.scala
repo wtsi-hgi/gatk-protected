@@ -1,19 +1,15 @@
 /**
  * Created with IntelliJ IDEA.
  * User: thibault
- * Date: 5/3/12
- * Time: 4:23 PM
+ * Date: 6/28/12
+ * Time: 4:13 PM
  * To change this template use File | Settings | File Templates.
  */
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 
-/**
- * Tests MongoDB by running SelectVariantsFromMongo in parallel
- * This edition uses scatter/gather to split up the processing
- */
-class MongoDBTester extends QScript {
+class VCFTester extends QScript {
   // Create an alias 'qscript' to be able to access variables
   qscript =>
 
@@ -35,7 +31,7 @@ class MongoDBTester extends QScript {
   var numClients: Int = _
 
   def script() {
-    val selectVariants = new SelectVariantsFromMongo
+    val selectVariants = new SelectVariants
 
     selectVariants.reference_sequence = referenceFile
     selectVariants.variant = vcfFile
@@ -45,7 +41,6 @@ class MongoDBTester extends QScript {
       selectVariants.out = swapExt(qscript.samplesFile, "samples", "%d.vcf".format(numClients))
     }
     else {
-      selectVariants.no_samples = true
       selectVariants.out = "no_samples.vcf"
     }
 
@@ -59,3 +54,5 @@ class MongoDBTester extends QScript {
     add(selectVariants)
   }
 }
+
+
