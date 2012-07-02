@@ -259,7 +259,12 @@ public class PoolCallerWalker extends LocusWalker<List<VariantCallContext>, Pool
         headerInfo.add(new VCFFormatHeaderLine(VCFConstants.MLE_ALLELE_COUNT_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Maximum likelihood expectation (MLE) for the allele counts (not necessarily the same as the AC), for each ALT allele, in the same order as listed, for this pool"));
         headerInfo.add(new VCFFormatHeaderLine(VCFConstants.MLE_ALLELE_FREQUENCY_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "Maximum likelihood expectation (MLE) for the allele frequency (not necessarily the same as the AF), for each ALT allele, in the same order as listed, for this pool"));
 
-        // invoke initialize() method on each of the annotation classes, allowing them to add their own header lines
+        if (UAC.referenceSampleName != null) {
+            headerInfo.add(new VCFInfoHeaderLine(ErrorModel.REFSAMPLE_DEPTH_KEY, 1, VCFHeaderLineType.Integer, "Total reference sample depth"));
+  //          VCFStandardHeaderLines.addStandardInfoLines(headerInfo, true,
+    //                ErrorModel.REFSAMPLE_DEPTH_KEY);
+        }
+       // invoke initialize() method on each of the annotation classes, allowing them to add their own header lines
         // and perform any necessary initialization/validation steps
         annotationEngine.invokeAnnotationInitializationMethods(headerInfo);
 

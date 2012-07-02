@@ -10,6 +10,7 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 
 /**
  * Created by IntelliJ IDEA.
@@ -32,6 +33,7 @@ public class ErrorModel  {
     
     private static final double log10MinusE = Math.log10(Math.exp(1.0));
 
+    public static final String REFSAMPLE_DEPTH_KEY = "REFDEPTH";
     /**
      * Calculates the probability of the data (reference sample reads) given the phred scaled site quality score.
      * 
@@ -223,6 +225,15 @@ public class ErrorModel  {
         }
         return result + ")";
     }
+    
+    public static int getTotalReferenceDepth(HashMap<String, ErrorModel>  perLaneErrorModels) {
+        int n=0;
+        for (ErrorModel e : perLaneErrorModels.values()) {
+            n += e.getReferenceDepth();
+        }
+        return n;
+    }
+    
    /* 
 @Requires({"maxAlleleCount >= 0"})
 //todo -- memoize this function
