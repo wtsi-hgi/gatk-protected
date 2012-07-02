@@ -25,6 +25,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.bqsr;
 
+import net.sf.samtools.SAMFileHeader;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -35,7 +36,7 @@ import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
-import org.broadinstitute.sting.utils.collections.NestedHashMap;
+import org.broadinstitute.sting.utils.collections.IntegerIndexedNestedHashMap;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
@@ -161,7 +162,10 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
             cov.initialize(RAC);                                                                                        // initialize any covariate member variables using the shared argument collection
         }
 
-        recalibrationTables = new RecalibrationTables(new NestedHashMap(), new NestedHashMap(), new NestedHashMap());
+        int numReadGroups = 0;
+        for ( final SAMFileHeader header : getToolkit().getSAMFileHeaders() )
+            numReadGroups += header.getReadGroups().size();
+        recalibrationTables = new RecalibrationTables(requestedCovariates, numReadGroups);
     }
 
     private boolean readHasBeenSkipped(GATKSAMRecord read) {
@@ -301,27 +305,27 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
             final RecalDatum datum = recalDatumArray[eventType.index];
             final int[] keys = readCovariates.getKeySet(offset, eventType);
 
-            final NestedHashMap rgRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.READ_GROUP_TABLE);
-            final RecalDatum rgPreviousDatum = (RecalDatum)rgRecalTable.get(keys[0], eventType.index);
+            final IntegerIndexedNestedHashMap<RecalDatum> rgRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.READ_GROUP_TABLE);
+            final RecalDatum rgPreviousDatum = rgRecalTable.get(keys[0], eventType.index);
             if (rgPreviousDatum == null)                                                                                // key doesn't exist yet in the map so make a new bucket and add it
                 rgRecalTable.put(datum.copy(), keys[0], eventType.index);
             else
                 rgPreviousDatum.combine(datum);                                                                         // add one to the number of observations and potentially one to the number of mismatches
 
-            final NestedHashMap qualRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.QUALITY_SCORE_TABLE);
-            final RecalDatum qualPreviousDatum = (RecalDatum)qualRecalTable.get(keys[0], keys[1], eventType.index);
+            final IntegerIndexedNestedHashMap<RecalDatum> qualRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.QUALITY_SCORE_TABLE);
+            final RecalDatum qualPreviousDatum = qualRecalTable.get(keys[0], keys[1], eventType.index);
             if (qualPreviousDatum == null)
                 qualRecalTable.put(datum.copy(), keys[0], keys[1], eventType.index);
             else
                 qualPreviousDatum.combine(datum);
 
-            final NestedHashMap covRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.OPTIONAL_COVARIATE_TABLE);
             for (int i = 2; i < requestedCovariates.length; i++) {
                 if (keys[i] < 0)
                     continue;
-                final RecalDatum covPreviousDatum = (RecalDatum)covRecalTable.get(keys[0], keys[1], i-2, keys[i], eventType.index);
+                final IntegerIndexedNestedHashMap<RecalDatum> covRecalTable = recalibrationTables.getTable(i);
+                final RecalDatum covPreviousDatum = covRecalTable.get(keys[0], keys[1], keys[i], eventType.index);
                 if (covPreviousDatum == null)
-                    covRecalTable.put(datum.copy(), keys[0], keys[1], i-2, keys[i], eventType.index);
+                    covRecalTable.put(datum.copy(), keys[0], keys[1], keys[i], eventType.index);
                 else
                     covPreviousDatum.combine(datum);
             }
@@ -354,9 +358,9 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      */
     private void calculateEmpiricalQuals() {
         for (final RecalibrationTables.TableType type : RecalibrationTables.TableType.values()) {
-            final NestedHashMap table = recalibrationTables.getTable(type);
-            for (final Object value : table.getAllValues()) {
-                final RecalDatum datum = (RecalDatum)value;
+            final IntegerIndexedNestedHashMap<RecalDatum> table = recalibrationTables.getTable(type);
+            for (final RecalDatum value : table.getAllValues()) {
+                final RecalDatum datum = value;
                 datum.calcCombinedEmpiricalQuality();
                 datum.calcEstimatedReportedQuality();
             }
