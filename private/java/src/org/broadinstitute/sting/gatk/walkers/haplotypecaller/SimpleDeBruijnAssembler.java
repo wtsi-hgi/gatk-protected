@@ -26,7 +26,7 @@ import java.util.*;
 public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private static final int KMER_OVERLAP = 4; // the additional size of a valid chunk of sequence, used to string together k-mers
-    private static final int NUM_BEST_PATHS_PER_KMER_GRAPH = 12;
+    private static final int NUM_BEST_PATHS_PER_KMER_GRAPH = 11;
     private static final byte MIN_QUALITY = (byte) 17;
 
     // Smith-Waterman parameters originally copied from IndelRealigner
@@ -72,7 +72,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         graphs.clear();
 
         // create the graph
-        for( int kmer = 29; kmer <= 75; kmer += 6 ) {
+        for( int kmer = 31; kmer <= 75; kmer += 6 ) {
             final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
             if( createGraphFromSequences( graph, reads, kmer, refHaplotype, DEBUG ) ) {
                 graphs.add(graph);
@@ -313,8 +313,8 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private boolean addHaplotype( final Haplotype haplotype, final byte[] ref, final ArrayList<Haplotype> haplotypeList, final int activeRegionStart, final int activeRegionStop ) {
         final int sizeOfActiveRegion = activeRegionStop - activeRegionStart;
         final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, haplotype.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
-        haplotype.setAlignmentStartHapwrtRef(swConsensus.getAlignmentStart2wrt1());
-        haplotype.setCigar(swConsensus.getCigar());
+        haplotype.setAlignmentStartHapwrtRef( swConsensus.getAlignmentStart2wrt1() );
+        haplotype.setCigar( AlignmentUtils.leftAlignIndel(swConsensus.getCigar(), ref, haplotype.getBases(), swConsensus.getAlignmentStart2wrt1(), 0) );
 
         if( swConsensus.getCigar().toString().contains("S") || Math.max(swConsensus.getCigar().getReferenceLength(), swConsensus.getCigar().getReadLength()) < 0.7 * sizeOfActiveRegion ) { // protect against SW failures
             return false;
@@ -354,6 +354,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         if( swConsensus2.getCigar().toString().contains("S") || Math.max(swConsensus2.getCigar().getReferenceLength(), swConsensus2.getCigar().getReadLength()) < 0.7 * sizeOfActiveRegion ) { // protect against SW failures
             return false;
         }
+
 
         //if( swConsensus2.getCigar().toString().contains("S") || swConsensus2.getCigar().getReferenceLength() != activeRegionStop - activeRegionStart ) { // protect against SW failures
         //    return false;

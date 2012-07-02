@@ -160,7 +160,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private IndexedFastaSequenceFile referenceReader;
 
     // reference base padding size
-    private static final int REFERENCE_PADDING = 1250;
+    private static final int REFERENCE_PADDING = 750;
 
     // bases with quality less than or equal to this value are trimmed off the tails of the reads
     private static final byte MIN_TAIL_QUALITY = 20;
@@ -485,9 +485,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
             }
         }
         for( final GATKSAMRecord read : reads ) {
-            final String sample = read.getReadGroup().getSample();
-            ArrayList<GATKSAMRecord> readList = returnMap.get( sample );
-            readList.add(read);
+            returnMap.get(read.getReadGroup().getSample()).add(read);
         }
 
         return returnMap;

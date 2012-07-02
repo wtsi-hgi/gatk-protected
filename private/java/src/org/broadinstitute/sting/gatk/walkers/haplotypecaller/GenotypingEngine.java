@@ -29,6 +29,7 @@ import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
+import org.apache.commons.lang.ArrayUtils;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.sting.utils.*;
@@ -200,6 +201,9 @@ public class GenotypingEngine {
                 System.out.println( ">> Events = " + h.getEventMap());
             }
         }
+        if( activeAllelesToGenotype.isEmpty() && haplotypes.get(0).getSampleKeySet().size() >= 3 ) { // if not in GGA mode and have at least 3 samples try to create MNP and complex events by looking at LD structure
+            mergeConsecutiveEventsBasedOnLD( haplotypes, startPosKeySet, ref, refLoc );
+        }
         if( !activeAllelesToGenotype.isEmpty() ) { // we are in GGA mode!
             for( final VariantContext compVC : activeAllelesToGenotype ) {
                 startPosKeySet.add( compVC.getStart() );
@@ -282,6 +286,130 @@ public class GenotypingEngine {
             }
         }
         return returnCalls;
+    }
+
+    protected void mergeConsecutiveEventsBasedOnLD( final ArrayList<Haplotype> haplotypes, final TreeSet<Integer> startPosKeySet, final byte[] ref, final GenomeLoc refLoc ) {
+        final int MAX_SIZE_TO_COMBINE = 10;
+        final double MERGE_EVENTS_R2_THRESHOLD = 0.95;
+        if( startPosKeySet.size() <= 1 ) { return; }
+
+        boolean mapWasUpdated = true;
+        while( mapWasUpdated ) {
+            mapWasUpdated = false;
+
+            // loop over the set of start locations and consider pairs that start near each other
+            final Iterator<Integer> iter = startPosKeySet.iterator();
+            int thisStart = iter.next();
+            while( iter.hasNext() ) {
+                final int nextStart = iter.next();
+                if( nextStart - thisStart < MAX_SIZE_TO_COMBINE) {
+                    boolean isBiallelic = true;
+                    VariantContext thisVC = null;
+                    VariantContext nextVC = null;
+                    int x11 = 0;
+                    int x12 = 0;
+                    int x21 = 0;
+                    int x22 = 0;
+
+                    for( final Haplotype h : haplotypes ) {
+                        // only make complex substitutions out of consecutive biallelic sites
+                        final VariantContext thisHapVC = h.getEventMap().get(thisStart);
+                        if( thisHapVC != null ) { // something was found at this location on this haplotype
+                            if( thisVC == null ) {
+                                thisVC = thisHapVC;
+                            } else if( !thisHapVC.hasSameAllelesAs( thisVC ) ) {
+                                isBiallelic = false;
+                                break;
+                            }
+                        }
+                        final VariantContext nextHapVC = h.getEventMap().get(nextStart);
+                        if( nextHapVC != null ) { // something was found at the next location on this haplotype
+                            if( nextVC == null ) {
+                                nextVC = nextHapVC;
+                            } else if( !nextHapVC.hasSameAllelesAs( nextVC ) ) {
+                                isBiallelic = false;
+                                break;
+                            }
+                        }
+                        // count up the co-occurrences of the events for the R^2 calculation
+                        if( thisHapVC == null ) {
+                            if( nextHapVC == null ) { x11++; }
+                            else { x12++; }
+                        } else {
+                            if( nextHapVC == null ) { x21++; }
+                            else { x22++; }
+                        }
+                    }
+                    if( thisVC == null || nextVC == null ) {
+                        throw new ReviewedStingException("StartPos TreeSet has an entry for an event that is found on no haplotype. start pos = " + thisStart + ", next pos = " + nextStart);
+                    }
+                    if( isBiallelic ) {
+                        final double R2 = calculateR2LD( x11, x12, x21, x22 );
+                        if( DEBUG ) {
+                            System.out.println("Found consecutive biallelic events with R^2 = " + String.format("%.4f", R2));
+                            System.out.println("-- " + thisVC);
+                            System.out.println("-- " + nextVC);
+                        }
+                        if( R2 > MERGE_EVENTS_R2_THRESHOLD ) {
+
+                            byte[] refBases = thisVC.getReference().getBases();
+                            byte[] altBases = thisVC.getAlternateAllele(0).getBases();
+                            for( int locus = thisStart + refBases.length + 1; locus < nextStart; locus++ ) {
+                                final byte refByte = ref[ locus - refLoc.getStart() ];
+                                refBases = ArrayUtils.add(refBases, refByte);
+                                altBases = ArrayUtils.add(altBases, refByte);
+                            }
+                            refBases = ArrayUtils.addAll(refBases, nextVC.getReference().getBases());
+                            altBases = ArrayUtils.addAll(altBases, nextVC.getAlternateAllele(0).getBases());
+
+                            final ArrayList<Allele> mergedAlleles = new ArrayList<Allele>();
+                            mergedAlleles.add( Allele.create( refBases, true ) );
+                            mergedAlleles.add( Allele.create( altBases, false ) );
+                            final VariantContext mergedVC = ( refBases.length == altBases.length ?
+                                    new VariantContextBuilder("MNP", thisVC.getChr(), thisVC.getStart(), nextVC.getEnd(), mergedAlleles).make() :
+                                    new VariantContextBuilder("Complex", thisVC.getChr(), thisVC.getStart(), nextVC.getEnd(), mergedAlleles).referenceBaseForIndel(ref[thisStart-refLoc.getStart()]).make() );
+
+                            // remove the old event from the eventMap on every haplotype and the start pos key set, replace with merged event
+                            for( final Haplotype h : haplotypes ) {
+                                final HashMap<Integer, VariantContext> eventMap = h.getEventMap();
+                                if( eventMap.containsKey(thisStart) && eventMap.containsKey(nextStart) ) {
+                                    eventMap.remove(thisStart);
+                                    eventMap.remove(nextStart);
+                                    eventMap.put(mergedVC.getStart(), mergedVC);
+                                }
+                            }
+                            startPosKeySet.add(mergedVC.getStart());
+                            boolean containsStart = false;
+                            boolean containsNext = false;
+                            for( final Haplotype h : haplotypes ) {
+                                final HashMap<Integer, VariantContext> eventMap = h.getEventMap();
+                                if( eventMap.containsKey(thisStart) ) { containsStart = true; }
+                                if( eventMap.containsKey(nextStart) ) { containsNext = true; }
+                            }
+                            if(!containsStart) { startPosKeySet.remove(thisStart); }
+                            if(!containsNext) { startPosKeySet.remove(nextStart); }
+
+                            if( DEBUG ) { System.out.println("====> " + mergedVC); }
+                            mapWasUpdated = true;
+                            break; // break out of tree set iteration since it was just updated, start over from the beginning and keep merging events
+                        }
+                    }
+                }
+                thisStart = nextStart;
+            }
+        }
+    }
+
+    @Requires({"x11 >= 0", "x12 >= 0", "x21 >= 0", "x22 >= 0"})
+    @Ensures({"result >= 0.0", "result <= 1.0"})
+    protected static double calculateR2LD( final int x11, final int x12, final int x21, final int x22 ) {
+        final int total = x11 + x12 + x21 + x22;
+        final double pa1b1 = ((double) x11) / ((double) total);
+        final double pa1b2 = ((double) x12) / ((double) total);
+        final double pa2b1 = ((double) x21) / ((double) total);
+        final double pa1 = pa1b1 + pa1b2;
+        final double pb1 = pa1b1 + pa2b1;
+        return ((pa1b1 - pa1*pb1) * (pa1b1 - pa1*pb1)) / ( pa1 * (1.0 - pa1) * pb1 * (1.0 - pb1) );
     }
 
     @Requires({"haplotypes.size() >= eventsAtThisLoc.size() + 1"})
