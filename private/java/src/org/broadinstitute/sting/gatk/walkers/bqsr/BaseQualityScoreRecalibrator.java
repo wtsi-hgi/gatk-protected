@@ -308,10 +308,11 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
             final NestedIntegerArray<RecalDatum> rgRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.READ_GROUP_TABLE);
             final RecalDatum rgPreviousDatum = rgRecalTable.get(keys[0], eventType.index);
+            final RecalDatum rgThisDatum = createDatumObject(tempQualArray[eventType.index], tempErrorArray[eventType.index]);
             if (rgPreviousDatum == null)                                                                                // key doesn't exist yet in the map so make a new bucket and add it
-                rgRecalTable.put(createDatumObject(tempQualArray[eventType.index], tempErrorArray[eventType.index]), keys[0], eventType.index);
+                rgRecalTable.put(rgThisDatum, keys[0], eventType.index);
             else
-                rgPreviousDatum.increment(tempErrorArray[eventType.index]);                                             // add one to the number of observations and potentially one to the number of mismatches
+                rgPreviousDatum.combine(rgThisDatum);
 
             final NestedIntegerArray<RecalDatum> qualRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.QUALITY_SCORE_TABLE);
             final RecalDatum qualPreviousDatum = qualRecalTable.get(keys[0], keys[1], eventType.index);
