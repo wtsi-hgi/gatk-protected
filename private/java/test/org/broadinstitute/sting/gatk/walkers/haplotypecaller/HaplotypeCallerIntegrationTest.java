@@ -13,24 +13,24 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
     //final String RECAL_FILE = validationDataLocation + "NA12878.kmer.8.subset.recal_data.bqsr";
 
     private void HCTest(String bam, String args, String md5) {
-        final String base = String.format("-T HaplotypeCaller -R %s -I %s -L %s", REF, bam, INTERVALS_FILE) + " --no_cmdline_in_header -o %s -minPruning 1";
+        final String base = String.format("-T HaplotypeCaller -R %s -I %s -L %s", REF, bam, INTERVALS_FILE) + " --no_cmdline_in_header -o %s -minPruning 3";
         final WalkerTestSpec spec = new WalkerTestSpec(base + " " + args, Arrays.asList(md5));
         executeTest("testHaplotypeCaller: args=" + args, spec);
     }
 
     @Test
     public void testHaplotypeCallerMultiSample() {
-        HCTest(CEUTRIO_BAM, "", "c39eed10ba7854ec21078f88806815de");
+        HCTest(CEUTRIO_BAM, "", "848d70d1829b58c26a7511c0c0f96b01");
     }
 
     @Test
     public void testHaplotypeCallerSingleSample() {
-        HCTest(NA12878_BAM, "", "448e1601a486b5d4e4cbf682c7348d93");
+        HCTest(NA12878_BAM, "", "9d8faff901820cbc31c40500ce4551bb");
     }
 
     @Test
     public void testHaplotypeCallerMultiSampleGGA() {
-        HCTest(CEUTRIO_BAM, "-gt_mode GENOTYPE_GIVEN_ALLELES -alleles " + validationDataLocation + "combined.phase1.chr20.raw.indels.sites.vcf", "402555addf2d1b4f1c35b569d23226ee");
+        HCTest(CEUTRIO_BAM, "-gt_mode GENOTYPE_GIVEN_ALLELES -alleles " + validationDataLocation + "combined.phase1.chr20.raw.indels.sites.vcf", "7218bbf1ec9edb6cacc38b1d4e18fcab");
     }
 }
 
