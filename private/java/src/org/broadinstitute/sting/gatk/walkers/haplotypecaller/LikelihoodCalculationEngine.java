@@ -101,8 +101,8 @@ public class LikelihoodCalculationEngine {
             final byte[] readDelQuals = read.getBaseDeletionQualities();
             for( int kkk = 0; kkk < readQuals.length; kkk++ ) {
                 readQuals[kkk] = ( readQuals[kkk] > (byte) read.getMappingQuality() ? (byte) read.getMappingQuality() : readQuals[kkk] ); // cap base quality by mapping quality
-                readQuals[kkk] = ( readQuals[kkk] > readInsQuals[kkk] ? readInsQuals[kkk] : readQuals[kkk] ); // cap base quality by base insertion quality
-                readQuals[kkk] = ( readQuals[kkk] > readDelQuals[kkk] ? readDelQuals[kkk] : readQuals[kkk] ); // cap base quality by base deletion quality
+                //readQuals[kkk] = ( readQuals[kkk] > readInsQuals[kkk] ? readInsQuals[kkk] : readQuals[kkk] ); // cap base quality by base insertion quality, needs to be evaluated
+                //readQuals[kkk] = ( readQuals[kkk] > readDelQuals[kkk] ? readDelQuals[kkk] : readQuals[kkk] ); // cap base quality by base deletion quality, needs to be evaluated
                 readQuals[kkk] = ( readQuals[kkk] < (byte) 17 ? QualityUtils.MIN_USABLE_Q_SCORE : readQuals[kkk] );
             }
 

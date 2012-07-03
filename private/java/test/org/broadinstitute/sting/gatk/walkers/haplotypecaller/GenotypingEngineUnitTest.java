@@ -230,6 +230,20 @@ public class GenotypingEngineUnitTest extends BaseTest {
         }
         Assert.assertTrue(compareVCMaps(calculatedMap, expectedMap));
     }
+
+    /**
+     * Tests that we get the right values from the binomial distribution
+     */
+    @Test
+    public void testCalculateR2LD() {
+        logger.warn("Executing testCalculateR2LD");
+
+        Assert.assertEquals(GenotypingEngine.calculateR2LD(1,1,1,1), 0.0, 0.00001);
+        Assert.assertEquals(GenotypingEngine.calculateR2LD(100,100,100,100), 0.0, 0.00001);
+        Assert.assertEquals(GenotypingEngine.calculateR2LD(1,0,0,1), 1.0, 0.00001);
+        Assert.assertEquals(GenotypingEngine.calculateR2LD(100,0,0,100), 1.0, 0.00001);
+        Assert.assertEquals(GenotypingEngine.calculateR2LD(1,2,3,4), (0.1 - 0.12) * (0.1 - 0.12) / (0.3 * 0.7 * 0.4 * 0.6), 0.00001);
+    }
     
     /**
      * Private function to compare HashMap of VCs, it only checks the types and start locations of the VariantContext

@@ -26,8 +26,8 @@ import java.util.*;
 public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
     private static final int KMER_OVERLAP = 4; // the additional size of a valid chunk of sequence, used to string together k-mers
-    private static final int NUM_BEST_PATHS_PER_KMER_GRAPH = 10;
-    private static final byte MIN_QUALITY = (byte) 19;
+    private static final int NUM_BEST_PATHS_PER_KMER_GRAPH = 11;
+    private static final byte MIN_QUALITY = (byte) 17;
 
     // Smith-Waterman parameters originally copied from IndelRealigner
     private static final double SW_MATCH = 6.0;      // 1.0;
@@ -47,7 +47,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         GRAPH_WRITER = graphWriter;
     }
 
-    public ArrayList<Haplotype> runLocalAssembly( final ActiveRegion activeRegion, final Haplotype refHaplotype, final byte[] fullReferenceWithPadding, final int PRUNE_FACTOR, final ArrayList<VariantContext> activeAllelesToGenotype ) {
+    public ArrayList<Haplotype> runLocalAssembly( final ActiveRegion activeRegion, final Haplotype refHaplotype, final byte[] fullReferenceWithPadding, final GenomeLoc refLoc, final int PRUNE_FACTOR, final ArrayList<VariantContext> activeAllelesToGenotype ) {
         this.PRUNE_FACTOR = PRUNE_FACTOR;
 
         // create the graphs
@@ -65,14 +65,14 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         }
 
         // find the best paths in the graphs
-        return findBestPaths( refHaplotype, fullReferenceWithPadding, activeAllelesToGenotype, activeRegion.getExtendedLoc() );
+        return findBestPaths( refHaplotype, fullReferenceWithPadding, refLoc, activeAllelesToGenotype, activeRegion.getExtendedLoc() );
     }
 
     private void createDeBruijnGraphs( final ArrayList<GATKSAMRecord> reads, final Haplotype refHaplotype ) {
         graphs.clear();
 
         // create the graph
-        for( int kmer = 45; kmer <= 63; kmer += 4 ) {
+        for( int kmer = 31; kmer <= 75; kmer += 6 ) {
             final DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge> graph = new DefaultDirectedGraph<DeBruijnVertex, DeBruijnEdge>(DeBruijnEdge.class);
             if( createGraphFromSequences( graph, reads, kmer, refHaplotype, DEBUG ) ) {
                 graphs.add(graph);
@@ -252,7 +252,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     }
 
     @Ensures({"result.contains(refHaplotype)"})
-    private ArrayList<Haplotype> findBestPaths( final Haplotype refHaplotype, final byte[] fullReferenceWithPadding, final ArrayList<VariantContext> activeAllelesToGenotype, final GenomeLoc activeRegionWindow ) {
+    private ArrayList<Haplotype> findBestPaths( final Haplotype refHaplotype, final byte[] fullReferenceWithPadding, final GenomeLoc refLoc, final ArrayList<VariantContext> activeAllelesToGenotype, final GenomeLoc activeRegionWindow ) {
         final ArrayList<Haplotype> returnHaplotypes = new ArrayList<Haplotype>();
 
         // add the reference haplotype separately from all the others
@@ -266,7 +266,7 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         final int activeRegionStart = refHaplotype.getAlignmentStartHapwrtRef();
         final int activeRegionStop = refHaplotype.getAlignmentStartHapwrtRef() + refHaplotype.getCigar().getReferenceLength();
 
-        for( final VariantContext compVC : activeAllelesToGenotype ) {
+        for( final VariantContext compVC : activeAllelesToGenotype ) { // for GGA mode, add the desired allele into the haplotype
             for( final Allele compAltAllele : compVC.getAlternateAlleles() ) {
                 final Haplotype insertedRefHaplotype = refHaplotype.insertAllele(compVC.getReference(), compAltAllele, activeRegionStart + compVC.getStart() - activeRegionWindow.getStart());
                 if( !addHaplotype( insertedRefHaplotype, fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop ) ) {
@@ -280,9 +280,15 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
             for ( final KBestPaths.Path path : KBestPaths.getKBestPaths(graph, NUM_BEST_PATHS_PER_KMER_GRAPH) ) {
                 final Haplotype h = new Haplotype( path.getBases( graph ), path.getScore() );
                 if( addHaplotype( h, fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop ) ) {
-                    for( final VariantContext compVC : activeAllelesToGenotype ) {
-                        for( final Allele compAltAllele : compVC.getAlternateAlleles() ) {
-                            addHaplotype( h.insertAllele(compVC.getReference(), compAltAllele, activeRegionStart + compVC.getStart() - activeRegionWindow.getStart()), fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop );
+                    if( !activeAllelesToGenotype.isEmpty() ) { // for GGA mode, add the desired allele into the haplotype if it isn't already present
+                        final HashMap<Integer,VariantContext> eventMap = GenotypingEngine.generateVCsFromAlignment( h.getAlignmentStartHapwrtRef(), h.getCigar(), fullReferenceWithPadding, h.getBases(), refLoc, "HCassembly", 0 ); // BUGBUG: need to put this function in a shared place
+                        for( final VariantContext compVC : activeAllelesToGenotype ) { // for GGA mode, add the desired allele into the haplotype if it isn't already present
+                            final VariantContext vcOnHaplotype = eventMap.get(compVC.getStart());
+                            if( vcOnHaplotype == null || !vcOnHaplotype.hasSameAllelesAs(compVC) ) {
+                                for( final Allele compAltAllele : compVC.getAlternateAlleles() ) {
+                                    addHaplotype( h.insertAllele(compVC.getReference(), compAltAllele, activeRegionStart + compVC.getStart() - activeRegionWindow.getStart()), fullReferenceWithPadding, returnHaplotypes, activeRegionStart, activeRegionStop );
+                                }
+                            }
                         }
                     }
                 }
@@ -307,10 +313,10 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     private boolean addHaplotype( final Haplotype haplotype, final byte[] ref, final ArrayList<Haplotype> haplotypeList, final int activeRegionStart, final int activeRegionStop ) {
         final int sizeOfActiveRegion = activeRegionStop - activeRegionStart;
         final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, haplotype.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
-        haplotype.setAlignmentStartHapwrtRef(swConsensus.getAlignmentStart2wrt1());
-        haplotype.setCigar(swConsensus.getCigar());
+        haplotype.setAlignmentStartHapwrtRef( swConsensus.getAlignmentStart2wrt1() );
+        haplotype.setCigar( AlignmentUtils.leftAlignIndel(swConsensus.getCigar(), ref, haplotype.getBases(), swConsensus.getAlignmentStart2wrt1(), 0) );
 
-        if( swConsensus.getCigar().toString().contains("S") || Math.max(swConsensus.getCigar().getReferenceLength(), swConsensus.getCigar().getReadLength()) < 0.75 * sizeOfActiveRegion ) { // protect against SW failures
+        if( swConsensus.getCigar().toString().contains("S") || Math.max(swConsensus.getCigar().getReferenceLength(), swConsensus.getCigar().getReadLength()) < 0.7 * sizeOfActiveRegion ) { // protect against SW failures
             return false;
         }
 
@@ -345,9 +351,10 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         h.setAlignmentStartHapwrtRef( swConsensus2.getAlignmentStart2wrt1() );
         h.setCigar( AlignmentUtils.leftAlignIndel(swConsensus2.getCigar(), ref, h.getBases(), swConsensus2.getAlignmentStart2wrt1(), 0) );
 
-        if( swConsensus2.getCigar().toString().contains("S") || Math.max(swConsensus2.getCigar().getReferenceLength(), swConsensus2.getCigar().getReadLength()) < 0.75 * sizeOfActiveRegion ) { // protect against SW failures
+        if( swConsensus2.getCigar().toString().contains("S") || Math.max(swConsensus2.getCigar().getReferenceLength(), swConsensus2.getCigar().getReadLength()) < 0.7 * sizeOfActiveRegion ) { // protect against SW failures
             return false;
         }
+
 
         //if( swConsensus2.getCigar().toString().contains("S") || swConsensus2.getCigar().getReferenceLength() != activeRegionStop - activeRegionStart ) { // protect against SW failures
         //    return false;
