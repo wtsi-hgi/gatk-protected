@@ -305,31 +305,34 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
         for (final EventType eventType : EventType.values()) {
             final int[] keys = readCovariates.getKeySet(offset, eventType);
+            final int eventIndex = eventType.index;
+            final byte qual = tempQualArray[eventIndex];
+            final boolean isError = tempErrorArray[eventIndex];
 
             final NestedIntegerArray<RecalDatum> rgRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.READ_GROUP_TABLE);
-            final RecalDatum rgPreviousDatum = rgRecalTable.get(keys[0], eventType.index);
-            final RecalDatum rgThisDatum = createDatumObject(tempQualArray[eventType.index], tempErrorArray[eventType.index]);
+            final RecalDatum rgPreviousDatum = rgRecalTable.get(keys[0], eventIndex);
+            final RecalDatum rgThisDatum = createDatumObject(qual, isError);
             if (rgPreviousDatum == null)                                                                                // key doesn't exist yet in the map so make a new bucket and add it
-                rgRecalTable.put(rgThisDatum, keys[0], eventType.index);
+                rgRecalTable.put(rgThisDatum, keys[0], eventIndex);
             else
                 rgPreviousDatum.combine(rgThisDatum);
 
             final NestedIntegerArray<RecalDatum> qualRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.QUALITY_SCORE_TABLE);
-            final RecalDatum qualPreviousDatum = qualRecalTable.get(keys[0], keys[1], eventType.index);
+            final RecalDatum qualPreviousDatum = qualRecalTable.get(keys[0], keys[1], eventIndex);
             if (qualPreviousDatum == null)
-                qualRecalTable.put(createDatumObject(tempQualArray[eventType.index], tempErrorArray[eventType.index]), keys[0], keys[1], eventType.index);
+                qualRecalTable.put(createDatumObject(qual, isError), keys[0], keys[1], eventIndex);
             else
-                qualPreviousDatum.increment(tempErrorArray[eventType.index]);
+                qualPreviousDatum.increment(isError);
 
             for (int i = 2; i < requestedCovariates.length; i++) {
                 if (keys[i] < 0)
                     continue;
                 final NestedIntegerArray<RecalDatum> covRecalTable = recalibrationTables.getTable(i);
-                final RecalDatum covPreviousDatum = covRecalTable.get(keys[0], keys[1], keys[i], eventType.index);
+                final RecalDatum covPreviousDatum = covRecalTable.get(keys[0], keys[1], keys[i], eventIndex);
                 if (covPreviousDatum == null)
-                    covRecalTable.put(createDatumObject(tempQualArray[eventType.index], tempErrorArray[eventType.index]), keys[0], keys[1], keys[i], eventType.index);
+                    covRecalTable.put(createDatumObject(qual, isError), keys[0], keys[1], keys[i], eventIndex);
                 else
-                    covPreviousDatum.increment(tempErrorArray[eventType.index]);
+                    covPreviousDatum.increment(isError);
             }
         }
     }
