@@ -36,7 +36,7 @@ import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
-import org.broadinstitute.sting.utils.collections.IntegerIndexedNestedHashMap;
+import org.broadinstitute.sting.utils.collections.NestedIntegerArray;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
@@ -305,14 +305,14 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
             final RecalDatum datum = recalDatumArray[eventType.index];
             final int[] keys = readCovariates.getKeySet(offset, eventType);
 
-            final IntegerIndexedNestedHashMap<RecalDatum> rgRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.READ_GROUP_TABLE);
+            final NestedIntegerArray<RecalDatum> rgRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.READ_GROUP_TABLE);
             final RecalDatum rgPreviousDatum = rgRecalTable.get(keys[0], eventType.index);
             if (rgPreviousDatum == null)                                                                                // key doesn't exist yet in the map so make a new bucket and add it
                 rgRecalTable.put(datum.copy(), keys[0], eventType.index);
             else
                 rgPreviousDatum.combine(datum);                                                                         // add one to the number of observations and potentially one to the number of mismatches
 
-            final IntegerIndexedNestedHashMap<RecalDatum> qualRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.QUALITY_SCORE_TABLE);
+            final NestedIntegerArray<RecalDatum> qualRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.QUALITY_SCORE_TABLE);
             final RecalDatum qualPreviousDatum = qualRecalTable.get(keys[0], keys[1], eventType.index);
             if (qualPreviousDatum == null)
                 qualRecalTable.put(datum.copy(), keys[0], keys[1], eventType.index);
@@ -322,7 +322,7 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
             for (int i = 2; i < requestedCovariates.length; i++) {
                 if (keys[i] < 0)
                     continue;
-                final IntegerIndexedNestedHashMap<RecalDatum> covRecalTable = recalibrationTables.getTable(i);
+                final NestedIntegerArray<RecalDatum> covRecalTable = recalibrationTables.getTable(i);
                 final RecalDatum covPreviousDatum = covRecalTable.get(keys[0], keys[1], keys[i], eventType.index);
                 if (covPreviousDatum == null)
                     covRecalTable.put(datum.copy(), keys[0], keys[1], keys[i], eventType.index);
@@ -357,8 +357,8 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      * Calculates the empirical qualities in all recalibration tables
      */
     private void calculateEmpiricalQuals() {
-        for (final RecalibrationTables.TableType type : RecalibrationTables.TableType.values()) {
-            final IntegerIndexedNestedHashMap<RecalDatum> table = recalibrationTables.getTable(type);
+        for (int i = 0; i < recalibrationTables.numTables(); i++) {
+            final NestedIntegerArray<RecalDatum> table = recalibrationTables.getTable(i);
             for (final RecalDatum value : table.getAllValues()) {
                 final RecalDatum datum = value;
                 datum.calcCombinedEmpiricalQuality();
