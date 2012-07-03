@@ -120,7 +120,8 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
     private static final String SEEN_ATTRIBUTE = "SEEN";                                                                // used to label reads as processed.
     private static final String COVARS_ATTRIBUTE = "COVARS";                                                            // used to store covariates array as a temporary attribute inside GATKSAMRecord.\
 
-    private final RecalDatum[] recalDatumArray = new RecalDatum[EventType.values().length];                             // optimization: don't reallocate an array each time
+    private final byte[] tempQualArray = new byte[EventType.values().length];                                           // optimization: don't reallocate an array each time
+    private final boolean[] tempErrorArray = new boolean[EventType.values().length];                                    // optimization: don't reallocate an array each time
 
     private static final String NO_DBSNP_EXCEPTION = "This calculation is critically dependent on being able to skip over known variant sites. Please provide a VCF file containing known sites of genetic variation.";
 
@@ -250,8 +251,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
 
     @Override
     public void onTraversalDone(Long result) {
-        logger.info("Calculating empirical quality scores...");
-        calculateEmpiricalQuals();
         logger.info("Calculating quantized quality scores...");
         quantizeQualityScores();
         if (!RAC.NO_PLOTS) {
@@ -297,27 +296,29 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
         final int offset = pileupElement.getOffset();
         final ReadCovariates readCovariates = covariateKeySetFrom(pileupElement.getRead());
 
-        recalDatumArray[EventType.BASE_SUBSTITUTION.index] = createDatumObject(pileupElement.getQual(), !BaseUtils.basesAreEqual(pileupElement.getBase(), refBase));
-        recalDatumArray[EventType.BASE_INSERTION.index] = createDatumObject(pileupElement.getBaseInsertionQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterInsertion() : pileupElement.isBeforeInsertion());
-        recalDatumArray[EventType.BASE_DELETION.index] = createDatumObject(pileupElement.getBaseDeletionQual(), (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterDeletedBase() : pileupElement.isBeforeDeletedBase());
+        tempQualArray[EventType.BASE_SUBSTITUTION.index] = pileupElement.getQual();
+        tempErrorArray[EventType.BASE_SUBSTITUTION.index] = !BaseUtils.basesAreEqual(pileupElement.getBase(), refBase);
+        tempQualArray[EventType.BASE_INSERTION.index] = pileupElement.getBaseInsertionQual();
+        tempErrorArray[EventType.BASE_INSERTION.index] = (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterInsertion() : pileupElement.isBeforeInsertion();
+        tempQualArray[EventType.BASE_DELETION.index] = pileupElement.getBaseDeletionQual();
+        tempErrorArray[EventType.BASE_DELETION.index] = (pileupElement.getRead().getReadNegativeStrandFlag()) ? pileupElement.isAfterDeletedBase() : pileupElement.isBeforeDeletedBase();
 
         for (final EventType eventType : EventType.values()) {
-            final RecalDatum datum = recalDatumArray[eventType.index];
             final int[] keys = readCovariates.getKeySet(offset, eventType);
 
             final NestedIntegerArray<RecalDatum> rgRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.READ_GROUP_TABLE);
             final RecalDatum rgPreviousDatum = rgRecalTable.get(keys[0], eventType.index);
             if (rgPreviousDatum == null)                                                                                // key doesn't exist yet in the map so make a new bucket and add it
-                rgRecalTable.put(datum.copy(), keys[0], eventType.index);
+                rgRecalTable.put(createDatumObject(tempQualArray[eventType.index], tempErrorArray[eventType.index]), keys[0], eventType.index);
             else
-                rgPreviousDatum.combine(datum);                                                                         // add one to the number of observations and potentially one to the number of mismatches
+                rgPreviousDatum.increment(tempErrorArray[eventType.index]);                                             // add one to the number of observations and potentially one to the number of mismatches
 
             final NestedIntegerArray<RecalDatum> qualRecalTable = recalibrationTables.getTable(RecalibrationTables.TableType.QUALITY_SCORE_TABLE);
             final RecalDatum qualPreviousDatum = qualRecalTable.get(keys[0], keys[1], eventType.index);
             if (qualPreviousDatum == null)
-                qualRecalTable.put(datum.copy(), keys[0], keys[1], eventType.index);
+                qualRecalTable.put(createDatumObject(tempQualArray[eventType.index], tempErrorArray[eventType.index]), keys[0], keys[1], eventType.index);
             else
-                qualPreviousDatum.combine(datum);
+                qualPreviousDatum.increment(tempErrorArray[eventType.index]);
 
             for (int i = 2; i < requestedCovariates.length; i++) {
                 if (keys[i] < 0)
@@ -325,9 +326,9 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
                 final NestedIntegerArray<RecalDatum> covRecalTable = recalibrationTables.getTable(i);
                 final RecalDatum covPreviousDatum = covRecalTable.get(keys[0], keys[1], keys[i], eventType.index);
                 if (covPreviousDatum == null)
-                    covRecalTable.put(datum.copy(), keys[0], keys[1], keys[i], eventType.index);
+                    covRecalTable.put(createDatumObject(tempQualArray[eventType.index], tempErrorArray[eventType.index]), keys[0], keys[1], keys[i], eventType.index);
                 else
-                    covPreviousDatum.combine(datum);
+                    covPreviousDatum.increment(tempErrorArray[eventType.index]);
             }
         }
     }
@@ -339,8 +340,8 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      * @param isError       whether or not the observation is an error
      * @return a new RecalDatum object with the observation and the error
      */
-    private RecalDatum createDatumObject(byte reportedQual, boolean isError) {
-        return new RecalDatum(1, isError ? 1:0, reportedQual, 0.0);
+    private RecalDatum createDatumObject(final byte reportedQual, final boolean isError) {
+        return new RecalDatum(1, isError ? 1:0, reportedQual);
     }
 
     /**
@@ -351,20 +352,6 @@ public class BaseQualityScoreRecalibrator extends LocusWalker<Long, Long> implem
      */
     private ReadCovariates covariateKeySetFrom(GATKSAMRecord read) {
         return (ReadCovariates) read.getTemporaryAttribute(COVARS_ATTRIBUTE);
-    }
-
-    /**
-     * Calculates the empirical qualities in all recalibration tables
-     */
-    private void calculateEmpiricalQuals() {
-        for (int i = 0; i < recalibrationTables.numTables(); i++) {
-            final NestedIntegerArray<RecalDatum> table = recalibrationTables.getTable(i);
-            for (final RecalDatum value : table.getAllValues()) {
-                final RecalDatum datum = value;
-                datum.calcCombinedEmpiricalQuality();
-                datum.calcEstimatedReportedQuality();
-            }
-        }
     }
 
     private void generateReport() {
