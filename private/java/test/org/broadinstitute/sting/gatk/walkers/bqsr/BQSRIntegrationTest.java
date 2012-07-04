@@ -30,4 +30,6 @@ public class BQSRIntegrationTest extends WalkerTest {
         executeTest("onTheFlyRecalibrationTest", spec);
     }
 
+    // TODO -- add test for -NIQ argument
+
 }
