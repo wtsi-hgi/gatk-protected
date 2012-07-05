@@ -354,7 +354,7 @@ public class GenotypingEngine {
 
                             byte[] refBases = thisVC.getReference().getBases();
                             byte[] altBases = thisVC.getAlternateAllele(0).getBases();
-                            for( int locus = thisStart + refBases.length + 1; locus < nextStart; locus++ ) {
+                            for( int locus = thisStart + refBases.length; locus < nextStart; locus++ ) {
                                 final byte refByte = ref[ locus - refLoc.getStart() ];
                                 refBases = ArrayUtils.add(refBases, refByte);
                                 altBases = ArrayUtils.add(altBases, refByte);
