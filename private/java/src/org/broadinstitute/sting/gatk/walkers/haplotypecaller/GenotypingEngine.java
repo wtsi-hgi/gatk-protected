@@ -354,7 +354,9 @@ public class GenotypingEngine {
 
                             byte[] refBases = thisVC.getReference().getBases();
                             byte[] altBases = thisVC.getAlternateAllele(0).getBases();
-                            for( int locus = thisStart + refBases.length; locus < nextStart; locus++ ) {
+                            final int thisPadding = ( thisVC.getReference().isNull() || thisVC.getAlternateAllele(0).isNull() ? 1 : 0 );
+                            final int nextPadding = ( nextVC.getReference().isNull() || nextVC.getAlternateAllele(0).isNull() ? 1 : 0 );
+                            for( int locus = thisStart + refBases.length + thisPadding ; locus < nextStart + nextPadding; locus++ ) {
                                 final byte refByte = ref[ locus - refLoc.getStart() ];
                                 refBases = ArrayUtils.add(refBases, refByte);
                                 altBases = ArrayUtils.add(altBases, refByte);
