@@ -16,7 +16,7 @@ public class BQSRIntegrationTest extends WalkerTest {
         String BAM = "public/testdata/exampleBAM.bam";
         String DBSNP = "public/testdata/exampleDBSNP.vcf";
         String base = String.format("-T BaseQualityScoreRecalibrator -R %s -I %s -knownSites %s", REF, BAM, DBSNP) + " -o %s ";
-        WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("3b40303fb9e6067d96b86c4f2088a846"));
+        WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("98145dd44c913754f6406cc1c6631f5a"));
         executeTest("recalibrateTest", spec);
     }
 
@@ -29,5 +29,7 @@ public class BQSRIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("690c7ab414bd39de72a635aedc1fcd66"));
         executeTest("onTheFlyRecalibrationTest", spec);
     }
+
+    // TODO -- add test for -NIQ argument
 
 }
