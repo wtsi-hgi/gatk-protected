@@ -311,7 +311,7 @@ public class LikelihoodCalculationEngine {
         int hap1 = 0;
         int hap2 = 0;
         //double bestElement = Double.NEGATIVE_INFINITY;
-        final int maxChosenHaplotypes = Math.min( 7, sampleKeySet.size() * 2 + 1 );
+        final int maxChosenHaplotypes = Math.min( 8, sampleKeySet.size() * 2 + 1 );
         while( bestHaplotypesIndexList.size() < maxChosenHaplotypes ) {
             double maxElement = Double.NEGATIVE_INFINITY;
             for( int iii = 0; iii < numHaplotypes; iii++ ) {

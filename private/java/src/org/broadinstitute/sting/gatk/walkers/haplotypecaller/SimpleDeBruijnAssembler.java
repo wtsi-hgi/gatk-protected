@@ -25,15 +25,15 @@ import java.util.*;
 
 public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
-    private static final int KMER_OVERLAP = 4; // the additional size of a valid chunk of sequence, used to string together k-mers
+    private static final int KMER_OVERLAP = 5; // the additional size of a valid chunk of sequence, used to string together k-mers
     private static final int NUM_BEST_PATHS_PER_KMER_GRAPH = 11;
     private static final byte MIN_QUALITY = (byte) 17;
 
     // Smith-Waterman parameters originally copied from IndelRealigner
-    private static final double SW_MATCH = 6.0;      // 1.0;
+    private static final double SW_MATCH = 5.0;      // 1.0;
     private static final double SW_MISMATCH = -10.0;  //-1.0/3.0;
-    private static final double SW_GAP = -20.0;       //-1.0-1.0/3.0;
-    private static final double SW_GAP_EXTEND = -1.3; //-1.0/.0;
+    private static final double SW_GAP = -22.0;       //-1.0-1.0/3.0;
+    private static final double SW_GAP_EXTEND = -1.2; //-1.0/.0;
 
     private final boolean DEBUG;
     private final PrintStream GRAPH_WRITER;
@@ -311,12 +311,12 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
     }
 
     private boolean addHaplotype( final Haplotype haplotype, final byte[] ref, final ArrayList<Haplotype> haplotypeList, final int activeRegionStart, final int activeRegionStop ) {
-        final int sizeOfActiveRegion = activeRegionStop - activeRegionStart;
+        //final int sizeOfActiveRegion = activeRegionStop - activeRegionStart;
         final SWPairwiseAlignment swConsensus = new SWPairwiseAlignment( ref, haplotype.getBases(), SW_MATCH, SW_MISMATCH, SW_GAP, SW_GAP_EXTEND );
         haplotype.setAlignmentStartHapwrtRef( swConsensus.getAlignmentStart2wrt1() );
         haplotype.setCigar( AlignmentUtils.leftAlignIndel(swConsensus.getCigar(), ref, haplotype.getBases(), swConsensus.getAlignmentStart2wrt1(), 0) );
 
-        if( swConsensus.getCigar().toString().contains("S") || Math.max(swConsensus.getCigar().getReferenceLength(), swConsensus.getCigar().getReadLength()) < 0.7 * sizeOfActiveRegion ) { // protect against SW failures
+        if( swConsensus.getCigar().toString().contains("S") || swConsensus.getCigar().getReferenceLength() < 60 ) { // protect against SW failures
             return false;
         }
 
@@ -327,20 +327,26 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
         }
         byte[] newHaplotypeBases;
         // extend partial haplotypes to contain the full active region sequence
+        int leftBreakPoint = 0;
+        int rightBreakPoint = 0;
         if( hapStart == ReadUtils.CLIPPING_GOAL_NOT_REACHED && hapStop == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) {
-            //newHaplotypeBases = ArrayUtils.addAll( ArrayUtils.addAll( ArrayUtils.subarray(ref, activeRegionStart, swConsensus.getAlignmentStart2wrt1()),
-            //                                       haplotype.getBases()),
-            //                                       ArrayUtils.subarray(ref, swConsensus.getAlignmentStart2wrt1() + swConsensus.getCigar().getReferenceLength(), activeRegionStop) );
-            newHaplotypeBases = haplotype.getBases();
+            newHaplotypeBases = ArrayUtils.addAll( ArrayUtils.addAll( ArrayUtils.subarray(ref, activeRegionStart, swConsensus.getAlignmentStart2wrt1()),
+                                                   haplotype.getBases()),
+                                                   ArrayUtils.subarray(ref, swConsensus.getAlignmentStart2wrt1() + swConsensus.getCigar().getReferenceLength(), activeRegionStop) );
+            leftBreakPoint = swConsensus.getAlignmentStart2wrt1() - activeRegionStart;
+            rightBreakPoint = leftBreakPoint + haplotype.getBases().length;
+            //newHaplotypeBases = haplotype.getBases();
             //return false; // piece of haplotype isn't anchored within the active region so don't build a haplotype out of it
         } else if( hapStart == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) {
             //return false;
-            //newHaplotypeBases = ArrayUtils.addAll( ArrayUtils.subarray(ref, activeRegionStart, swConsensus.getAlignmentStart2wrt1()), ArrayUtils.subarray(haplotype.getBases(), 0, hapStop) );
-            newHaplotypeBases = ArrayUtils.subarray(haplotype.getBases(), 0, hapStop);
+            newHaplotypeBases = ArrayUtils.addAll( ArrayUtils.subarray(ref, activeRegionStart, swConsensus.getAlignmentStart2wrt1()), ArrayUtils.subarray(haplotype.getBases(), 0, hapStop) );
+            //newHaplotypeBases = ArrayUtils.subarray(haplotype.getBases(), 0, hapStop);
+            leftBreakPoint = swConsensus.getAlignmentStart2wrt1() - activeRegionStart;
         } else if( hapStop == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) {
             //return false;
-            //newHaplotypeBases = ArrayUtils.addAll( ArrayUtils.subarray(haplotype.getBases(), hapStart, haplotype.getBases().length), ArrayUtils.subarray(ref, swConsensus.getAlignmentStart2wrt1() + swConsensus.getCigar().getReferenceLength(), activeRegionStop) );
-            newHaplotypeBases = ArrayUtils.subarray(haplotype.getBases(), hapStart, haplotype.getBases().length);
+            newHaplotypeBases = ArrayUtils.addAll( ArrayUtils.subarray(haplotype.getBases(), hapStart, haplotype.getBases().length), ArrayUtils.subarray(ref, swConsensus.getAlignmentStart2wrt1() + swConsensus.getCigar().getReferenceLength(), activeRegionStop) );
+            //newHaplotypeBases = ArrayUtils.subarray(haplotype.getBases(), hapStart, haplotype.getBases().length);
+            rightBreakPoint = haplotype.getBases().length - hapStart;
         } else {
             newHaplotypeBases = ArrayUtils.subarray(haplotype.getBases(), hapStart, hapStop);
         }
@@ -350,15 +356,11 @@ public class SimpleDeBruijnAssembler extends LocalAssemblyEngine {
 
         h.setAlignmentStartHapwrtRef( swConsensus2.getAlignmentStart2wrt1() );
         h.setCigar( AlignmentUtils.leftAlignIndel(swConsensus2.getCigar(), ref, h.getBases(), swConsensus2.getAlignmentStart2wrt1(), 0) );
-
-        if( swConsensus2.getCigar().toString().contains("S") || Math.max(swConsensus2.getCigar().getReferenceLength(), swConsensus2.getCigar().getReadLength()) < 0.7 * sizeOfActiveRegion ) { // protect against SW failures
+        h.leftBreakPoint = leftBreakPoint;
+        h.rightBreakPoint = rightBreakPoint;
+        if( swConsensus2.getCigar().toString().contains("S") || swConsensus2.getCigar().getReferenceLength() != activeRegionStop - activeRegionStart ) { // protect against SW failures
             return false;
         }
-
-
-        //if( swConsensus2.getCigar().toString().contains("S") || swConsensus2.getCigar().getReferenceLength() != activeRegionStop - activeRegionStart ) { // protect against SW failures
-        //    return false;
-        //}
 
         if( !haplotypeList.contains(h) ) {
             haplotypeList.add(h);

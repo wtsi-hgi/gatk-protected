@@ -160,7 +160,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private IndexedFastaSequenceFile referenceReader;
 
     // reference base padding size
-    private static final int REFERENCE_PADDING = 750;
+    private static final int REFERENCE_PADDING = 1000;
 
     // bases with quality less than or equal to this value are trimmed off the tails of the reads
     private static final byte MIN_TAIL_QUALITY = 20;
@@ -169,6 +169,9 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
     private final static double LOG_ONE_HALF = -Math.log10(2.0);
     private final static double LOG_ONE_THIRD = -Math.log10(3.0);
     private final ArrayList<VariantContext> allelesToGenotype = new ArrayList<VariantContext>();
+
+    private final static Allele FAKE_REF_ALLELE = Allele.create("N", true); // used in isActive function to call into UG Engine. Should never appear anywhere in a VCF file
+    private final static Allele FAKE_ALT_ALLELE = Allele.create("<FAKE_ALT>", false); // used in isActive function to call into UG Engine. Should never appear anywhere in a VCF file
 
     //---------------------------------------------------------------------------------------------------------------
     //
@@ -303,8 +306,8 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         }
 
         final ArrayList<Allele> alleles = new ArrayList<Allele>();
-        alleles.add( Allele.create("N", true) );
-        alleles.add( Allele.create("<FAKE_ALT>", false) );
+        alleles.add( FAKE_REF_ALLELE );
+        alleles.add( FAKE_ALT_ALLELE );
         final VariantCallContext vcOut = UG_engine_simple_genotyper.calculateGenotypes(new VariantContextBuilder("HCisActive!", context.getContig(), context.getLocation().getStart(), context.getLocation().getStop(), alleles).genotypes(genotypes).make(), GenotypeLikelihoodsCalculationModel.Model.INDEL);
         return ( vcOut == null ? 0.0 : QualityUtils.qualToProb( vcOut.getPhredScaledQual() ) );
     }
