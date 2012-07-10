@@ -236,10 +236,10 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
         }
 
         if( !dataManager.checkHasTrainingSet() ) {
-            throw new UserException.CommandLineException( "No training set found! Please provide sets of known polymorphic loci marked with the training=true ROD binding tag. For example, -B:hapmap,VCF,known=false,training=true,truth=true,prior=12.0 hapmapFile.vcf" );
+            throw new UserException.CommandLineException( "No training set found! Please provide sets of known polymorphic loci marked with the training=true ROD binding tag. For example, -resource:hapmap,VCF,known=false,training=true,truth=true,prior=12.0 hapmapFile.vcf" );
         }
         if( !dataManager.checkHasTruthSet() ) {
-            throw new UserException.CommandLineException( "No truth set found! Please provide sets of known polymorphic loci marked with the truth=true ROD binding tag. For example, -B:hapmap,VCF,known=false,training=true,truth=true,prior=12.0 hapmapFile.vcf" );
+            throw new UserException.CommandLineException( "No truth set found! Please provide sets of known polymorphic loci marked with the truth=true ROD binding tag. For example, -resource:hapmap,VCF,known=false,training=true,truth=true,prior=12.0 hapmapFile.vcf" );
         }
 
         final VCFHeader vcfHeader = new VCFHeader();
@@ -503,7 +503,7 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
         stream.println("dev.off()");
 
         stream.println("if (exists(\"compactPDF\")) {");
-        stream.println("compactPDF(ouputPDF)");
+        stream.println("compactPDF(outputPDF)");
         stream.println("}");
 
         stream.close();

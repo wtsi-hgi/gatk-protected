@@ -25,7 +25,11 @@ final public class MongoDB {
     protected DBCollection sites;
     protected DBCollection samples;
 
-    final private static MongoDB INSTANCE = new MongoDB();
+    // TODO TODO TODO FOR JOEL
+    // TODO cannot initialize broad specific static variable as ant gatkdocs cannot be run without access to this static variable
+    // TODO really shouldn't be using static variable for such a thing anyway.  Very dangerous
+    // TODO TODO TODO FOR JOEL
+    final private static MongoDB INSTANCE = null; // new MongoDB();
 
     protected static DBCollection getSitesCollection() {
         return INSTANCE.sites;
