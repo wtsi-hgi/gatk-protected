@@ -316,7 +316,7 @@ public class GenotypingEngine {
                     for( final Haplotype h : haplotypes ) {
                         // only make complex substitutions out of consecutive biallelic sites
                         final VariantContext thisHapVC = h.getEventMap().get(thisStart);
-                        if( thisHapVC != null ) { // something was found at this location on this haplotype
+                        if( thisHapVC != null && !thisHapVC.isSymbolic() ) { // something was found at this location on this haplotype
                             if( thisVC == null ) {
                                 thisVC = thisHapVC;
                             } else if( !thisHapVC.hasSameAllelesAs( thisVC ) ) {
@@ -325,7 +325,7 @@ public class GenotypingEngine {
                             }
                         }
                         final VariantContext nextHapVC = h.getEventMap().get(nextStart);
-                        if( nextHapVC != null ) { // something was found at the next location on this haplotype
+                        if( nextHapVC != null && !nextHapVC.isSymbolic() ) { // something was found at the next location on this haplotype
                             if( nextVC == null ) {
                                 nextVC = nextHapVC;
                             } else if( !nextHapVC.hasSameAllelesAs( nextVC ) ) {
@@ -344,7 +344,7 @@ public class GenotypingEngine {
                         }
                     }
                     if( thisVC == null || nextVC == null ) {
-                        continue; // BUGBUG: how does this case happen?
+                        continue;
                         //throw new ReviewedStingException("StartPos TreeSet has an entry for an event that is found on no haplotype. start pos = " + thisStart + ", next pos = " + nextStart);
                     }
                     if( isBiallelic ) {
