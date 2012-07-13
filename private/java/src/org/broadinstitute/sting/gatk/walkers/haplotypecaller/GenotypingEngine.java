@@ -203,6 +203,7 @@ public class GenotypingEngine {
                 System.out.println( ">> Events = " + h.getEventMap());
             }
         }
+        cleanUpSymbolicUnassembledEvents( haplotypes );
         if( activeAllelesToGenotype.isEmpty() && haplotypes.get(0).getSampleKeySet().size() >= 3 ) { // if not in GGA mode and have at least 3 samples try to create MNP and complex events by looking at LD structure
             mergeConsecutiveEventsBasedOnLD( haplotypes, startPosKeySet, ref, refLoc );
         }
@@ -290,6 +291,25 @@ public class GenotypingEngine {
         return returnCalls;
     }
 
+    protected static void cleanUpSymbolicUnassembledEvents( final ArrayList<Haplotype> haplotypes ) {
+        final ArrayList<Haplotype> haplotypesToRemove = new ArrayList<Haplotype>();
+        for( final Haplotype h : haplotypes ) {
+            for( final VariantContext vc : h.getEventMap().values() ) {
+                if( vc.isSymbolic() ) {
+                    for( final Haplotype h2 : haplotypes ) {
+                        for( final VariantContext vc2 : h2.getEventMap().values() ) {
+                            if( vc.getStart() == vc2.getStart() && vc2.isIndel() ) {
+                                haplotypesToRemove.add(h);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        haplotypes.removeAll(haplotypesToRemove);
+    }
+
     protected void mergeConsecutiveEventsBasedOnLD( final ArrayList<Haplotype> haplotypes, final TreeSet<Integer> startPosKeySet, final byte[] ref, final GenomeLoc refLoc ) {
         final int MAX_SIZE_TO_COMBINE = 10;
         final double MERGE_EVENTS_R2_THRESHOLD = 0.95;
@@ -372,7 +392,7 @@ public class GenotypingEngine {
                             mergedAlleles.add( Allele.create( refBases, true ) );
                             mergedAlleles.add( Allele.create( altBases, false ) );
                             final VariantContext mergedVC = ( refBases.length == altBases.length ?
-                                    new VariantContextBuilder("MNP", thisVC.getChr(), thisVC.getStart(), nextVC.getEnd(), mergedAlleles).make() :
+                                    new VariantContextBuilder("MNP", thisVC.getChr(), thisVC.getStart() + (thisVC.isIndel() ? 1 : 0) , nextVC.getEnd(), mergedAlleles).make() :
                                     new VariantContextBuilder("Complex", thisVC.getChr(), thisVC.getStart(), nextVC.getEnd(), mergedAlleles).referenceBaseForIndel(ref[thisStart-refLoc.getStart()]).make() );
 
                             // remove the old event from the eventMap on every haplotype and the start pos key set, replace with merged event
