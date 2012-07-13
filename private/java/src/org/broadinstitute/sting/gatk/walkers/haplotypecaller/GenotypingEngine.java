@@ -203,7 +203,13 @@ public class GenotypingEngine {
                 System.out.println( ">> Events = " + h.getEventMap());
             }
         }
-        cleanUpSymbolicUnassembledEvents( haplotypes );
+        // Create the VC merge priority list
+        final ArrayList<String> priorityList = new ArrayList<String>();
+        for( int iii = 0; iii < haplotypes.size(); iii++ ) {
+            priorityList.add("HC" + iii);
+        }
+
+        cleanUpSymbolicUnassembledEvents( haplotypes, priorityList );
         if( activeAllelesToGenotype.isEmpty() && haplotypes.get(0).getSampleKeySet().size() >= 3 ) { // if not in GGA mode and have at least 3 samples try to create MNP and complex events by looking at LD structure
             mergeConsecutiveEventsBasedOnLD( haplotypes, startPosKeySet, ref, refLoc );
         }
@@ -213,11 +219,6 @@ public class GenotypingEngine {
             }
         }
 
-        // Create the VC merge priority list
-        final ArrayList<String> priorityList = new ArrayList<String>();
-        for( int iii = 0; iii < haplotypes.size(); iii++ ) {
-            priorityList.add("HC" + iii);
-        }
 
         // Walk along each position in the key set and create each event to be outputted
         for( final int loc : startPosKeySet ) {
@@ -291,8 +292,9 @@ public class GenotypingEngine {
         return returnCalls;
     }
 
-    protected static void cleanUpSymbolicUnassembledEvents( final ArrayList<Haplotype> haplotypes ) {
+    protected static void cleanUpSymbolicUnassembledEvents( final ArrayList<Haplotype> haplotypes, final ArrayList<String> priorityList ) {
         final ArrayList<Haplotype> haplotypesToRemove = new ArrayList<Haplotype>();
+        final ArrayList<String> stringsToRemove = new ArrayList<String>();
         for( final Haplotype h : haplotypes ) {
             for( final VariantContext vc : h.getEventMap().values() ) {
                 if( vc.isSymbolic() ) {
@@ -300,6 +302,7 @@ public class GenotypingEngine {
                         for( final VariantContext vc2 : h2.getEventMap().values() ) {
                             if( vc.getStart() == vc2.getStart() && vc2.isIndel() ) {
                                 haplotypesToRemove.add(h);
+                                stringsToRemove.add(vc.getSource());
                                 break;
                             }
                         }
@@ -308,6 +311,7 @@ public class GenotypingEngine {
             }
         }
         haplotypes.removeAll(haplotypesToRemove);
+        priorityList.removeAll(stringsToRemove);
     }
 
     protected void mergeConsecutiveEventsBasedOnLD( final ArrayList<Haplotype> haplotypes, final TreeSet<Integer> startPosKeySet, final byte[] ref, final GenomeLoc refLoc ) {
