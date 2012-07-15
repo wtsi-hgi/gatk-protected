@@ -45,6 +45,7 @@ public class GenotypingEngine {
     private final int MNP_LOOK_AHEAD;
     private final boolean OUTPUT_FULL_HAPLOTYPE_SEQUENCE;
     private final static List<Allele> noCall = new ArrayList<Allele>(); // used to noCall all genotypes until the exact model is applied
+    private final static Allele SYMBOLIC_UNASSEMBLED_EVENT_ALLELE = Allele.create("<UNASSEMBLED_EVENT>", false);
 
     public GenotypingEngine( final boolean DEBUG, final int MNP_LOOK_AHEAD, final boolean OUTPUT_FULL_HAPLOTYPE_SEQUENCE ) {
         this.DEBUG = DEBUG;
@@ -193,14 +194,22 @@ public class GenotypingEngine {
         if( DEBUG ) { System.out.println("=== Best Haplotypes ==="); }
         for( final Haplotype h : haplotypes ) {
             // Walk along the alignment and turn any difference from the reference into an event
-            h.setEventMap( generateVCsFromAlignment( h.getAlignmentStartHapwrtRef(), h.getCigar(), ref, h.getBases(), refLoc, "HC" + count++, MNP_LOOK_AHEAD ) );
+            h.setEventMap( generateVCsFromAlignment( h, h.getAlignmentStartHapwrtRef(), h.getCigar(), ref, h.getBases(), refLoc, "HC" + count++, MNP_LOOK_AHEAD ) );
             if( activeAllelesToGenotype.isEmpty() ) { startPosKeySet.addAll(h.getEventMap().keySet()); }
             if( DEBUG ) {
                 System.out.println( h.toString() );
                 System.out.println( "> Cigar = " + h.getCigar() );
+                System.out.println( "> Left and right breaks = (" + h.leftBreakPoint + " , " + h.rightBreakPoint + ")");
                 System.out.println( ">> Events = " + h.getEventMap());
             }
         }
+        // Create the VC merge priority list
+        final ArrayList<String> priorityList = new ArrayList<String>();
+        for( int iii = 0; iii < haplotypes.size(); iii++ ) {
+            priorityList.add("HC" + iii);
+        }
+
+        cleanUpSymbolicUnassembledEvents( haplotypes, priorityList );
         if( activeAllelesToGenotype.isEmpty() && haplotypes.get(0).getSampleKeySet().size() >= 3 ) { // if not in GGA mode and have at least 3 samples try to create MNP and complex events by looking at LD structure
             mergeConsecutiveEventsBasedOnLD( haplotypes, startPosKeySet, ref, refLoc );
         }
@@ -210,11 +219,6 @@ public class GenotypingEngine {
             }
         }
 
-        // Create the VC merge priority list
-        final ArrayList<String> priorityList = new ArrayList<String>();
-        for( int iii = 0; iii < haplotypes.size(); iii++ ) {
-            priorityList.add("HC" + iii);
-        }
 
         // Walk along each position in the key set and create each event to be outputted
         for( final int loc : startPosKeySet ) {
@@ -288,6 +292,28 @@ public class GenotypingEngine {
         return returnCalls;
     }
 
+    protected static void cleanUpSymbolicUnassembledEvents( final ArrayList<Haplotype> haplotypes, final ArrayList<String> priorityList ) {
+        final ArrayList<Haplotype> haplotypesToRemove = new ArrayList<Haplotype>();
+        final ArrayList<String> stringsToRemove = new ArrayList<String>();
+        for( final Haplotype h : haplotypes ) {
+            for( final VariantContext vc : h.getEventMap().values() ) {
+                if( vc.isSymbolic() ) {
+                    for( final Haplotype h2 : haplotypes ) {
+                        for( final VariantContext vc2 : h2.getEventMap().values() ) {
+                            if( vc.getStart() == vc2.getStart() && vc2.isIndel() ) {
+                                haplotypesToRemove.add(h);
+                                stringsToRemove.add(vc.getSource());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        haplotypes.removeAll(haplotypesToRemove);
+        priorityList.removeAll(stringsToRemove);
+    }
+
     protected void mergeConsecutiveEventsBasedOnLD( final ArrayList<Haplotype> haplotypes, final TreeSet<Integer> startPosKeySet, final byte[] ref, final GenomeLoc refLoc ) {
         final int MAX_SIZE_TO_COMBINE = 10;
         final double MERGE_EVENTS_R2_THRESHOLD = 0.95;
@@ -314,7 +340,7 @@ public class GenotypingEngine {
                     for( final Haplotype h : haplotypes ) {
                         // only make complex substitutions out of consecutive biallelic sites
                         final VariantContext thisHapVC = h.getEventMap().get(thisStart);
-                        if( thisHapVC != null ) { // something was found at this location on this haplotype
+                        if( thisHapVC != null && !thisHapVC.isSymbolic() ) { // something was found at this location on this haplotype
                             if( thisVC == null ) {
                                 thisVC = thisHapVC;
                             } else if( !thisHapVC.hasSameAllelesAs( thisVC ) ) {
@@ -323,7 +349,7 @@ public class GenotypingEngine {
                             }
                         }
                         final VariantContext nextHapVC = h.getEventMap().get(nextStart);
-                        if( nextHapVC != null ) { // something was found at the next location on this haplotype
+                        if( nextHapVC != null && !nextHapVC.isSymbolic() ) { // something was found at the next location on this haplotype
                             if( nextVC == null ) {
                                 nextVC = nextHapVC;
                             } else if( !nextHapVC.hasSameAllelesAs( nextVC ) ) {
@@ -332,6 +358,7 @@ public class GenotypingEngine {
                             }
                         }
                         // count up the co-occurrences of the events for the R^2 calculation
+                        // BUGBUG: use haplotype likelihoods per-sample to make this more accurate
                         if( thisHapVC == null ) {
                             if( nextHapVC == null ) { x11++; }
                             else { x12++; }
@@ -341,7 +368,8 @@ public class GenotypingEngine {
                         }
                     }
                     if( thisVC == null || nextVC == null ) {
-                        throw new ReviewedStingException("StartPos TreeSet has an entry for an event that is found on no haplotype. start pos = " + thisStart + ", next pos = " + nextStart);
+                        continue;
+                        //throw new ReviewedStingException("StartPos TreeSet has an entry for an event that is found on no haplotype. start pos = " + thisStart + ", next pos = " + nextStart);
                     }
                     if( isBiallelic ) {
                         final double R2 = calculateR2LD( x11, x12, x21, x22 );
@@ -354,7 +382,9 @@ public class GenotypingEngine {
 
                             byte[] refBases = thisVC.getReference().getBases();
                             byte[] altBases = thisVC.getAlternateAllele(0).getBases();
-                            for( int locus = thisStart + refBases.length + 1; locus < nextStart; locus++ ) {
+                            final int thisPadding = ( thisVC.getReference().isNull() || thisVC.getAlternateAllele(0).isNull() ? 1 : 0 );
+                            final int nextPadding = ( nextVC.getReference().isNull() || nextVC.getAlternateAllele(0).isNull() ? 1 : 0 );
+                            for( int locus = thisStart + refBases.length + thisPadding ; locus < nextStart + nextPadding; locus++ ) {
                                 final byte refByte = ref[ locus - refLoc.getStart() ];
                                 refBases = ArrayUtils.add(refBases, refByte);
                                 altBases = ArrayUtils.add(altBases, refByte);
@@ -366,7 +396,7 @@ public class GenotypingEngine {
                             mergedAlleles.add( Allele.create( refBases, true ) );
                             mergedAlleles.add( Allele.create( altBases, false ) );
                             final VariantContext mergedVC = ( refBases.length == altBases.length ?
-                                    new VariantContextBuilder("MNP", thisVC.getChr(), thisVC.getStart(), nextVC.getEnd(), mergedAlleles).make() :
+                                    new VariantContextBuilder("MNP", thisVC.getChr(), thisVC.getStart() + (thisVC.isIndel() ? 1 : 0) , nextVC.getEnd(), mergedAlleles).make() :
                                     new VariantContextBuilder("Complex", thisVC.getChr(), thisVC.getStart(), nextVC.getEnd(), mergedAlleles).referenceBaseForIndel(ref[thisStart-refLoc.getStart()]).make() );
 
                             // remove the old event from the eventMap on every haplotype and the start pos key set, replace with merged event
@@ -472,6 +502,10 @@ public class GenotypingEngine {
     }
 
     protected static HashMap<Integer,VariantContext> generateVCsFromAlignment( final int alignmentStartHapwrtRef, final Cigar cigar, final byte[] ref, final byte[] alignment, final GenomeLoc refLoc, final String sourceNameToAdd, final int MNP_LOOK_AHEAD ) {
+        return generateVCsFromAlignment(null, alignmentStartHapwrtRef, cigar, ref, alignment, refLoc, sourceNameToAdd, MNP_LOOK_AHEAD); // BUGBUG: needed for compatibility with HaplotypeResolver code
+    }
+
+    protected static HashMap<Integer,VariantContext> generateVCsFromAlignment( final Haplotype haplotype, final int alignmentStartHapwrtRef, final Cigar cigar, final byte[] ref, final byte[] alignment, final GenomeLoc refLoc, final String sourceNameToAdd, final int MNP_LOOK_AHEAD ) {
         final HashMap<Integer,VariantContext> vcs = new HashMap<Integer,VariantContext>();
 
         int refPos = alignmentStartHapwrtRef;
@@ -492,10 +526,17 @@ public class GenotypingEngine {
                     }
                     if( !allN ) {
                         final ArrayList<Allele> insertionAlleles = new ArrayList<Allele>();
-                        insertionAlleles.add( Allele.create(Allele.NULL_ALLELE_STRING, true));
-                        insertionAlleles.add(Allele.create(insertionBases, false));
                         final int insertionStart = refLoc.getStart() + refPos - 1;
-                        vcs.put(insertionStart, new VariantContextBuilder(sourceNameToAdd, refLoc.getContig(), insertionStart, insertionStart, insertionAlleles).referenceBaseForIndel(ref[refPos-1]).make());
+                        if( haplotype != null && (haplotype.leftBreakPoint + alignmentStartHapwrtRef + refLoc.getStart() - 1 == insertionStart + elementLength + 1 || haplotype.rightBreakPoint + alignmentStartHapwrtRef + refLoc.getStart() - 1 == insertionStart + elementLength + 1) ) {
+                            insertionAlleles.add( Allele.create(ref[refPos-1], true) );
+                            insertionAlleles.add( SYMBOLIC_UNASSEMBLED_EVENT_ALLELE );
+                            vcs.put(insertionStart, new VariantContextBuilder(sourceNameToAdd, refLoc.getContig(), insertionStart, insertionStart, insertionAlleles).make());
+                        } else {
+                            insertionAlleles.add( Allele.create(Allele.NULL_ALLELE_STRING, true) );
+                            insertionAlleles.add( Allele.create(insertionBases, false) );
+                            vcs.put(insertionStart, new VariantContextBuilder(sourceNameToAdd, refLoc.getContig(), insertionStart, insertionStart, insertionAlleles).referenceBaseForIndel(ref[refPos-1]).make());
+                        }
+
                     }
                     alignmentPos += elementLength;
                     break;
@@ -505,10 +546,18 @@ public class GenotypingEngine {
                 case D:
                     final byte[] deletionBases = Arrays.copyOfRange( ref, refPos, refPos + elementLength );
                     final ArrayList<Allele> deletionAlleles = new ArrayList<Allele>();
-                    deletionAlleles.add( Allele.create(deletionBases, true) );
-                    deletionAlleles.add(Allele.create(Allele.NULL_ALLELE_STRING, false));
                     final int deletionStart = refLoc.getStart() + refPos - 1;
-                    vcs.put(deletionStart, new VariantContextBuilder(sourceNameToAdd, refLoc.getContig(), deletionStart, deletionStart + elementLength, deletionAlleles).referenceBaseForIndel(ref[refPos-1]).make());
+                    // BUGBUG: how often does this symbolic deletion allele case happen?
+                    //if( haplotype != null && ( (haplotype.leftBreakPoint + alignmentStartHapwrtRef + refLoc.getStart() + elementLength - 1 >= deletionStart && haplotype.leftBreakPoint + alignmentStartHapwrtRef + refLoc.getStart() + elementLength - 1 < deletionStart + elementLength)
+                    //        || (haplotype.rightBreakPoint + alignmentStartHapwrtRef + refLoc.getStart() + elementLength - 1 >= deletionStart && haplotype.rightBreakPoint + alignmentStartHapwrtRef + refLoc.getStart() + elementLength - 1 < deletionStart + elementLength) ) ) {
+                    //    deletionAlleles.add( Allele.create(ref[refPos-1], true) );
+                    //    deletionAlleles.add( SYMBOLIC_UNASSEMBLED_EVENT_ALLELE );
+                    //    vcs.put(deletionStart, new VariantContextBuilder(sourceNameToAdd, refLoc.getContig(), deletionStart, deletionStart, deletionAlleles).make());
+                    //} else {
+                        deletionAlleles.add( Allele.create(deletionBases, true) );
+                        deletionAlleles.add( Allele.create(Allele.NULL_ALLELE_STRING, false) );
+                        vcs.put(deletionStart, new VariantContextBuilder(sourceNameToAdd, refLoc.getContig(), deletionStart, deletionStart + elementLength, deletionAlleles).referenceBaseForIndel(ref[refPos-1]).make());
+                    //}
                     refPos += elementLength;
                     break;
                 case M:
@@ -536,7 +585,7 @@ public class GenotypingEngine {
                             final byte[] mismatchBases = Arrays.copyOfRange( alignment, startOfMismatch, stopOfMismatch + 1 );
                             final ArrayList<Allele> snpAlleles = new ArrayList<Allele>();
                             snpAlleles.add( Allele.create( refBases, true ) );
-                            snpAlleles.add(Allele.create(mismatchBases, false));
+                            snpAlleles.add( Allele.create( mismatchBases, false ) );
                             final int snpStart = refLoc.getStart() + refPosStartOfMismatch;
                             vcs.put(snpStart, new VariantContextBuilder(sourceNameToAdd, refLoc.getContig(), snpStart, snpStart + (stopOfMismatch - startOfMismatch), snpAlleles).make());
                             numSinceMismatch = -1;
