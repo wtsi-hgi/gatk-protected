@@ -25,11 +25,11 @@ public class BQSRIntegrationTest extends WalkerTest {
         String REF = "public/testdata/exampleFASTA.fasta";
         String BAM = "public/testdata/exampleBAM.bam";
         String GRP = "public/testdata/exampleGRP.grp";
-        String base = String.format("-T PrintReads -R %s -I %s -BQSR %s", REF, BAM, GRP) + " -o %s ";
+        String base = String.format("-T PrintReads -qq -1 -R %s -I %s -BQSR %s", REF, BAM, GRP) + " -o %s ";
         WalkerTestSpec spec = new WalkerTestSpec(base, Arrays.asList("690c7ab414bd39de72a635aedc1fcd66"));
         executeTest("onTheFlyRecalibrationTest", spec);
     }
 
-    // TODO -- add test for -NIQ argument
+    // TODO -- add test for -qq and -NIQ arguments
 
 }
