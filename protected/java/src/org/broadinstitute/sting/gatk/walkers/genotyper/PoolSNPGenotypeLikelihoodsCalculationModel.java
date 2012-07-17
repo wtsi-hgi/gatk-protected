@@ -31,12 +31,6 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.utils.*;
-import org.broadinstitute.sting.utils.baq.BAQ;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.pileup.PileupElement;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -56,7 +50,7 @@ public class PoolSNPGenotypeLikelihoodsCalculationModel extends PoolGenotypeLike
                                                                                final boolean useBQAedPileup,
                                                                                final ReferenceContext ref,
                                                                                final boolean ignoreLaneInformation) {
-        return new PoolSNPGenotypeLikelihoods(alleles, null, UAC.nSamplesPerPool*2, perLaneErrorModels, useBQAedPileup, UAC.IGNORE_LANE_INFO);
+        return new PoolSNPGenotypeLikelihoods(alleles, null, UAC.samplePloidy, perLaneErrorModels, useBQAedPileup, UAC.IGNORE_LANE_INFO);
     }
 
     protected List<Allele> getInitialAllelesToUse(final RefMetaDataTracker tracker,

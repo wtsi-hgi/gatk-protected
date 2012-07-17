@@ -393,7 +393,7 @@ public class PoolGenotypeLikelihoodsUnitTest {
 
         final List<Allele> allAlleles = new ArrayList<Allele>();  // this contains only ref Allele up to now
         final Set<String> laneIDs = new TreeSet<String>();
-        laneIDs.add(PoolGenotypeLikelihoodsCalculationModel.DUMMY_LANE);
+        laneIDs.add(GenotypeLikelihoodsCalculationModel.DUMMY_LANE);
 
         final HashMap<String, ErrorModel> noiselessErrorModels = new HashMap<String, ErrorModel>();
 
