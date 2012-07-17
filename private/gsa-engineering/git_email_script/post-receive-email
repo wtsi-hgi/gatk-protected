@@ -74,7 +74,7 @@
 # Make input suitable for embedding within <pre> tags
 escape()
 {
-	sed 's/\\&/\\&amp\\;/g' | sed 's/\\</\\&lt\\;/g' | sed 's/\\>/\\&gt\\;/g'
+    perl -n -e '$_ =~ s/&/&amp;/g; $_ =~ s/</&lt;/g; $_ =~ s/>/&gt;/g; print "$_";'
 }
 
 #
@@ -502,7 +502,7 @@ print_diffless_summary()
     
     echo "<table border=\"0\" cellpadding=\"3\" cellspacing=\"0\">"
 
-    git diff-tree -C --numstat $oldrev $newrev | while read summary_line
+    git diff-tree -C --numstat $oldrev $newrev | escape | while read summary_line
     do
         LINE_ADDITIONS=`echo "${summary_line}" | awk '{print $1;}'`
         LINE_DELETIONS=`echo "${summary_line}" | awk '{print $2;}'`
