@@ -20,17 +20,17 @@ public class HaplotypeCallerIntegrationTest extends WalkerTest {
 
     @Test
     public void testHaplotypeCallerMultiSample() {
-        HCTest(CEUTRIO_BAM, "", "c45c09cc6a97d4f46c4504f831f1e77d");
+        HCTest(CEUTRIO_BAM, "", "7b4e76934e0c911220b4e7da8776ab2b");
     }
 
     @Test
     public void testHaplotypeCallerSingleSample() {
-        HCTest(NA12878_BAM, "", "a5317546d2f7e0043e153788cab4fdef");
+        HCTest(NA12878_BAM, "", "fcf0cea98a571d5e2d1dfa8b5edc599d");
     }
 
     @Test
     public void testHaplotypeCallerMultiSampleGGA() {
-        HCTest(CEUTRIO_BAM, "-gt_mode GENOTYPE_GIVEN_ALLELES -alleles " + validationDataLocation + "combined.phase1.chr20.raw.indels.sites.vcf", "06b8f903c96c069c6ca5e9596f4cfa0f");
+        HCTest(CEUTRIO_BAM, "-gt_mode GENOTYPE_GIVEN_ALLELES -alleles " + validationDataLocation + "combined.phase1.chr20.raw.indels.sites.vcf", "ff370c42c8b09a29f1aeff5ac57c7ea6");
     }
 }
 

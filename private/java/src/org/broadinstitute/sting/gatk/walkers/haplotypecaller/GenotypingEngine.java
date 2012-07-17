@@ -249,13 +249,14 @@ public class GenotypingEngine {
                     }
                 }
 
-                //if( eventsAtThisLoc.isEmpty() ) { continue; }
+                if( eventsAtThisLoc.isEmpty() ) { continue; }
 
                 // Create the allele mapping object which maps the original haplotype alleles to the alleles present in just this event
                 final ArrayList<ArrayList<Haplotype>> alleleMapper = createAlleleMapper( loc, eventsAtThisLoc, haplotypes );
 
                 // Merge the event to find a common reference representation
                 final VariantContext mergedVC = VariantContextUtils.simpleMerge(genomeLocParser, eventsAtThisLoc, priorityList, VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED, VariantContextUtils.GenotypeMergeType.PRIORITIZE, false, false, null, false, false);
+                if( mergedVC == null ) { continue; }
 
                 final HashMap<Allele, ArrayList<Haplotype>> alleleHashMap = new HashMap<Allele, ArrayList<Haplotype>>();
                 int aCount = 0;
@@ -396,7 +397,7 @@ public class GenotypingEngine {
                             mergedAlleles.add( Allele.create( refBases, true ) );
                             mergedAlleles.add( Allele.create( altBases, false ) );
                             final VariantContext mergedVC = ( refBases.length == altBases.length ?
-                                    new VariantContextBuilder("MNP", thisVC.getChr(), thisVC.getStart() + (thisVC.isIndel() ? 1 : 0) , nextVC.getEnd(), mergedAlleles).make() :
+                                    new VariantContextBuilder("MNP", thisVC.getChr(), thisVC.getStart() + (thisVC.isIndel() && !thisVC.isComplexIndel() ? 1 : 0) , nextVC.getEnd(), mergedAlleles).make() :
                                     new VariantContextBuilder("Complex", thisVC.getChr(), thisVC.getStart(), nextVC.getEnd(), mergedAlleles).referenceBaseForIndel(ref[thisStart-refLoc.getStart()]).make() );
 
                             // remove the old event from the eventMap on every haplotype and the start pos key set, replace with merged event

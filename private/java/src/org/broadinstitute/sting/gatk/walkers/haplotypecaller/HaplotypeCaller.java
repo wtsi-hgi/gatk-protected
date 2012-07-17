@@ -27,10 +27,9 @@ package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
 import com.google.java.contract.Ensures;
 import net.sf.picard.reference.IndexedFastaSequenceFile;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.ArgumentCollection;
-import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
+import org.broadinstitute.sting.gatk.arguments.DbsnpArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -38,6 +37,7 @@ import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.annotator.VariantAnnotatorEngine;
+import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.AnnotatorCompatibleWalker;
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
@@ -90,7 +90,7 @@ import java.util.*;
 
 @PartitionBy(PartitionType.LOCUS)
 @ActiveRegionExtension(extension=65, maxRegion=275)
-public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
+public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> implements AnnotatorCompatibleWalker {
 
     /**
      * A raw, unfiltered, highly specific callset in VCF format.
@@ -130,6 +130,48 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
 
     @Argument(fullName="useAllelesTrigger", shortName="allelesTrigger", doc = "If specified, use additional trigger on variants found in an external alleles file", required=false)
     protected boolean USE_ALLELES_TRIGGER = false;
+
+    /**
+     * rsIDs from this file are used to populate the ID column of the output.  Also, the DB INFO flag will be set when appropriate.
+     * dbSNP is not used in any way for the calculations themselves.
+     */
+    @ArgumentCollection
+    protected DbsnpArgumentCollection dbsnp = new DbsnpArgumentCollection();
+    public RodBinding<VariantContext> getDbsnpRodBinding() { return dbsnp.dbsnp; }
+
+    /**
+     * If a call overlaps with a record from the provided comp track, the INFO field will be annotated
+     *  as such in the output with the track name (e.g. -comp:FOO will have 'FOO' in the INFO field).
+     *  Records that are filtered in the comp track will be ignored.
+     *  Note that 'dbSNP' has been special-cased (see the --dbsnp argument).
+     */
+    @Input(fullName="comp", shortName = "comp", doc="comparison VCF file", required=false)
+    public List<RodBinding<VariantContext>> comps = Collections.emptyList();
+    public List<RodBinding<VariantContext>> getCompRodBindings() { return comps; }
+
+    // The following are not used by the Unified Genotyper
+    public RodBinding<VariantContext> getSnpEffRodBinding() { return null; }
+    public List<RodBinding<VariantContext>> getResourceRodBindings() { return Collections.emptyList(); }
+    public boolean alwaysAppendDbsnpId() { return false; }
+
+    /**
+     * Which annotations to add to the output VCF file. See the VariantAnnotator -list argument to view available annotations.
+     */
+    @Argument(fullName="annotation", shortName="A", doc="One or more specific annotations to apply to variant calls", required=false)
+    protected List<String> annotationsToUse = new ArrayList<String>(Arrays.asList(new String[]{"ClippingRankSumTest"}));
+
+    /**
+     * Which annotations to exclude from output in the VCF file.  Note that this argument has higher priority than the -A or -G arguments,
+     * so annotations will be excluded even if they are explicitly included with the other options.
+     */
+    @Argument(fullName="excludeAnnotation", shortName="XA", doc="One or more specific annotations to exclude", required=false)
+    protected List<String> annotationsToExclude = new ArrayList<String>(Arrays.asList(new String[]{"HaplotypeScore", "MappingQualityZero", "SpanningDeletions", "TandemRepeatAnnotator"}));
+
+    /**
+     * Which groups of annotations to add to the output VCF file. See the VariantAnnotator -list argument to view available groups.
+     */
+    @Argument(fullName="group", shortName="G", doc="One or more classes/groups of annotations to apply to variant calls", required=false)
+    protected String[] annotationClassesToUse = { "Standard" };
 
     @ArgumentCollection
     private UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
@@ -194,7 +236,7 @@ public class HaplotypeCaller extends ActiveRegionWalker<Integer, Integer> {
         UG_engine_simple_genotyper = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
 
         // initialize the output VCF header
-        annotationEngine = new VariantAnnotatorEngine(getToolkit());
+        annotationEngine = new VariantAnnotatorEngine(Arrays.asList(annotationClassesToUse), annotationsToUse, annotationsToExclude, this, getToolkit());
 
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
 
