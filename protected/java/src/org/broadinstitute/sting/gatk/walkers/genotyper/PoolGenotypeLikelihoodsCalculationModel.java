@@ -1,3 +1,26 @@
+/*
+ * Copyright (c) 2010, The Broad Institute
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ */
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import org.apache.log4j.Logger;
@@ -5,7 +28,6 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.MathUtils;
@@ -17,17 +39,8 @@ import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
 
-/**
- * Created by IntelliJ IDEA.
- * User: delangel
- * Date: 3/12/12
- * Time: 12:19 PM
- * To change this template use File | Settings | File Templates.
- */
 public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLikelihoodsCalculationModel {
 
-    public static final String DUMMY_LANE = "Lane1";
-    public static final String DUMMY_POOL = "Pool1";
     //protected Set<String> laneIDs;
     public enum Model {
         SNP,
@@ -37,14 +50,11 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
         BOTH
     }
 
-    final protected PoolCallerUnifiedArgumentCollection UAC;
+    final protected UnifiedArgumentCollection UAC;
 
     protected PoolGenotypeLikelihoodsCalculationModel(UnifiedArgumentCollection UAC, Logger logger) {
         super(UAC,logger);
-        if (UAC instanceof PoolCallerUnifiedArgumentCollection)
-            this.UAC = (PoolCallerUnifiedArgumentCollection)UAC;
-        else
-            this.UAC = new PoolCallerUnifiedArgumentCollection(); // dummy copy
+        this.UAC = UAC;
 
     }
 
@@ -227,7 +237,7 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
             ReadBackedPileup pileup = AlignmentContextUtils.stratify(sample.getValue(), contextType).getBasePileup();
 
             // create the GenotypeLikelihoods object
-            final PoolGenotypeLikelihoods GL = getPoolGenotypeLikelihoodObject(allAlleles, null, UAC.nSamplesPerPool*2, perLaneErrorModels, useBAQedPileup, ref, UAC.IGNORE_LANE_INFO);
+            final PoolGenotypeLikelihoods GL = getPoolGenotypeLikelihoodObject(allAlleles, null, UAC.samplePloidy, perLaneErrorModels, useBAQedPileup, ref, UAC.IGNORE_LANE_INFO);
             // actually compute likelihoods
             final int nGoodBases = GL.add(pileup, UAC);
             if ( nGoodBases > 0 )
@@ -248,7 +258,7 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
         final HashMap<String, Object> attributes = new HashMap<String, Object>();
 
         if (UAC.referenceSampleName != null && perLaneErrorModels != null)
-            attributes.put(ErrorModel.REFSAMPLE_DEPTH_KEY, ErrorModel.getTotalReferenceDepth(perLaneErrorModels));
+            attributes.put(VCFConstants.REFSAMPLE_DEPTH_KEY, ErrorModel.getTotalReferenceDepth(perLaneErrorModels));
 
         builder.attributes(attributes);
         // create the genotypes; no-call everyone for now
@@ -291,7 +301,7 @@ public abstract class PoolGenotypeLikelihoodsCalculationModel extends GenotypeLi
 
             Set<String> laneIDs = new TreeSet<String>();
             if (UAC.TREAT_ALL_READS_AS_SINGLE_POOL || UAC.IGNORE_LANE_INFO)
-                laneIDs.add(PoolGenotypeLikelihoodsCalculationModel.DUMMY_LANE);
+                laneIDs.add(DUMMY_LANE);
             else
                 laneIDs = parseLaneIDs(refPileup.getReadGroups());
             // build per-lane error model for all lanes present in ref sample

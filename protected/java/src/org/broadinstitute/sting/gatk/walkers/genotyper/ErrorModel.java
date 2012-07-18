@@ -1,6 +1,5 @@
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
-import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
@@ -9,7 +8,6 @@ import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 
 /**
@@ -33,7 +31,6 @@ public class ErrorModel  {
     
     private static final double log10MinusE = Math.log10(Math.exp(1.0));
 
-    public static final String REFSAMPLE_DEPTH_KEY = "REFDEPTH";
     /**
      * Calculates the probability of the data (reference sample reads) given the phred scaled site quality score.
      * 

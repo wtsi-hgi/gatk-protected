@@ -36,7 +36,7 @@ import java.util.*;
 
 public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
     static final int MAX_LENGTH_FOR_POOL_PL_LOGGING = 10; // if PL vectors longer than this # of elements, don't log them
-    final protected PoolCallerUnifiedArgumentCollection UAC;
+    final protected UnifiedArgumentCollection UAC;
 
     private final int ploidy;
     private final static double MAX_LOG10_ERROR_TO_STOP_EARLY = 6; // we want the calculation to be accurate to 1 / 10^6
@@ -44,15 +44,8 @@ public class PoolAFCalculationModel extends AlleleFrequencyCalculationModel {
 
     protected PoolAFCalculationModel(UnifiedArgumentCollection UAC, int N, Logger logger, PrintStream verboseWriter) {
         super(UAC, N, logger, verboseWriter);
-        if (UAC instanceof PoolCallerUnifiedArgumentCollection) {
-            this.UAC = (PoolCallerUnifiedArgumentCollection)UAC;
-            ploidy = 2*this.UAC.nSamplesPerPool;
-        }
-        else {
-            this.UAC = new PoolCallerUnifiedArgumentCollection(); // dummy copy
-            ploidy = VariantContextUtils.DEFAULT_PLOIDY;
-        }
-
+        ploidy = UAC.samplePloidy;
+        this.UAC = UAC;
 
     }
 
