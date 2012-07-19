@@ -36,7 +36,7 @@ public class BQSRIntegrationTest extends WalkerTest {
 
     @DataProvider(name = "BQSRTest")
     public Object[][] createBQSRTestData() {
-        String HiSeqBam = publicTestDir + "HiSeq.1mb.1RG.bam";
+        String HiSeqBam = privateTestDir + "HiSeq.1mb.1RG.bam";
         String HiSeqInterval = "chr1:10,000,000-10,100,000";
         return new Object[][]{
                 {new BQSRTest(hg18Reference, HiSeqBam, HiSeqInterval, "", "087dbc3e3f0cee6b891aecad2d0faf25")},
@@ -115,8 +115,8 @@ public class BQSRIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 "-T PrintReads" +
                         " -R " + hg18Reference +
-                        " -I " + publicTestDir + "HiSeq.1mb.1RG.bam" +
-                        " -BQSR " + publicTestDir + "HiSeq.1mb.1RG.table" +
+                        " -I " + privateTestDir + "HiSeq.1mb.1RG.bam" +
+                        " -BQSR " + privateTestDir + "HiSeq.1mb.1RG.table" +
                         params.args +
                         " -o %s",
                 Arrays.asList(params.md5));
