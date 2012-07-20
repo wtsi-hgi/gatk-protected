@@ -311,7 +311,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
                                 stats.contradictoryPhaseSites++;
                                 addToOutput += "\tcontradictory";
 
-                                if (phasingVc.hasAttribute(ReadBackedPhasingWalker.PHASING_INCONSISTENT_KEY)) {
+                                if (phasingVc.hasAttribute(ReadBackedPhasing.PHASING_INCONSISTENT_KEY)) {
                                     stats.contradictoryPhaseSitesWithPhaseInconsistency++;
                                     addToOutput += "\tphaseInconsistent";                                    
                                     useTrioPhase = true;

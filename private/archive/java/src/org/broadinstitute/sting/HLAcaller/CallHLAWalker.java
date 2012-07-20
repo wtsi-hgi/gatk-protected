@@ -49,7 +49,7 @@ import java.util.List;
  * Original Call HLA walker (older). Look here for inspiration, but not for the most recent tools
  * @author shermanjia
  */
-public class CallHLAWalker extends LocusWalker<Integer, Pair<Long, Long>>{
+public class CallHLAWalker extends LocusWalker<Integer, Pair<Long, Long>> {
     @Output
     public PrintStream out;
 

@@ -5,14 +5,12 @@ import org.broad.tribble.util.variantcontext.VariantContext;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.varianteval.VariantEvalWalker;
+import org.broadinstitute.sting.gatk.walkers.varianteval.VariantEval;
 import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.VariantEvaluator;
-import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.report.tags.Analysis;
 import org.broadinstitute.sting.utils.report.tags.DataPoint;
 import org.broadinstitute.sting.utils.report.utils.TableType;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 
@@ -111,7 +109,7 @@ public class ACTransitionTable extends VariantEvaluator {
         }
     }
 
-    public ACTransitionTable(VariantEvalWalker parent) {
+    public ACTransitionTable(VariantEval parent) {
         //super(parent);
     }
 
