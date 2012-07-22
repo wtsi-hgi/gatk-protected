@@ -32,7 +32,7 @@ for(cov in levels(data$CovariateName)) {    # for each covariate in turn
   } else {
     d$CovariateValue = as.numeric(levels(d$CovariateValue))[as.integer(d$CovariateValue)] # efficient way to convert factors back to their real values
   }
-#  d=subset(d,Observations>2000) # only show bins which have enough data to acually estimate the quality
+#  d=subset(d,Observations>2000) # only show bins which have enough data to actually estimate the quality
   
   if( cov != "QualityScore" ) {    
     p <- ggplot(d, aes(x=CovariateValue,y=Accuracy,alpha=log10(Observations))) +
