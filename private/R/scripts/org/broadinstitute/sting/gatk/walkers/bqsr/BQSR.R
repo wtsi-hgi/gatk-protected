@@ -29,11 +29,13 @@ for(cov in levels(data$CovariateName)) {    # for each covariate in turn
   d = data[data$CovariateName==cov,]        # pull out just the data for this covariate so we can treat the non-numeric values appropriately
   if( cov == "Context" ) {
     d$CovariateValue = as.character(d$CovariateValue)
+    d$CovariateValue = substring(d$CovariateValue,nchar(d$CovariateValue)-2,nchar(d$CovariateValue))
   } else {
     d$CovariateValue = as.numeric(levels(d$CovariateValue))[as.integer(d$CovariateValue)] # efficient way to convert factors back to their real values
   }
-#  d=subset(d,Observations>2000) # only show bins which have enough data to actually estimate the quality
-  
+  #d=subset(d,Observations>2000) # only show bins which have enough data to actually estimate the quality
+  d=d[sample.int(length(d[,1]),min(length(d[,1]),4000)),] # don't plot too many values because it makes the PDFs too massive
+
   if( cov != "QualityScore" ) {    
     p <- ggplot(d, aes(x=CovariateValue,y=Accuracy,alpha=log10(Observations))) +
       geom_abline(intercept=0, slope=0, linetype=2) + 
@@ -54,9 +56,9 @@ for(cov in levels(data$CovariateName)) {    # for each covariate in turn
       
     } else {
       c <- p + geom_point(aes(color=Recalibration)) + scale_color_manual(values=c("maroon1","blue")) + facet_grid(.~EventType) +
-        opts(axis.text.x=theme_text(angle=90, hjust=0))
+        opts(axis.text.x=theme_text(angle=90, hjust=0)) + xlab(paste(cov,"Covariate (3 base suffix)"))
       p <- ggplot(d, aes(x=CovariateValue,y=AverageReportedQuality,alpha=log10(Observations))) +
-        xlab(paste(cov,"Covariate")) +
+        xlab(paste(cov,"Covariate (3 base suffix)")) +
         ylab("Mean Quality Score") +
         blankTheme
       f <- p + geom_point(aes(color=Recalibration)) + scale_color_manual(values=c("maroon1","blue")) + facet_grid(.~EventType) +
@@ -85,3 +87,8 @@ pdf(args[2],height=9,width=15)
 distributeGraphRows(list(a,b,c), c(1,1,1))
 distributeGraphRows(list(d,e,f), c(1,1,1))
 dev.off()
+
+
+if (exists('compactPDF')) {
+  compactPDF(args[2])
+}
