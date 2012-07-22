@@ -45,7 +45,7 @@ import java.util.ArrayList;
  * Calculates the probability of observing data for each genotype at every position. NOTE: run FindClosestAllele first to create .filter file. Usage: java -jar GenomeAnalysisTK.jar -T CalculateBaseLikelihoods -I INPUT.bam -R /broad/1KG/reference/human_b36_both.fasta -L /humgen/gsa-scr1/GSA/sjia/454_HLA/HAPMAP270/HLA_exons.interval [-filter INPUT.filter -minAllowedMismatches 7] | grep -v "INFO" | grep -v "MISALIGNED" > OUTPUT.baselikelihoods
  * @author shermanjia
  */
-public class CalculateBaseLikelihoodsWalker extends LocusWalker<Integer, Pair<Long, Long>>{
+public class CalculateBaseLikelihoodsWalker extends LocusWalker<Integer, Pair<Long, Long>> {
     @Output
     public PrintStream out;
 

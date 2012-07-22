@@ -17,7 +17,7 @@ import java.util.HashSet;
  * Date: 1/19/12
  */
 
-public class CountReadsByLocus extends LocusWalker<Integer, Integer>{
+public class CountReadsByLocus extends LocusWalker<Integer, Integer> {
 
     private final HashSet<GATKSAMRecord> myReads = new HashSet<GATKSAMRecord>();
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {

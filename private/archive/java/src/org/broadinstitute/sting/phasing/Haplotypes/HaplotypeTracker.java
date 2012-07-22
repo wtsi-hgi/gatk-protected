@@ -26,7 +26,7 @@ package org.broadinstitute.sting.gatk.walkers.phasing.Haplotypes;
 
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.walkers.phasing.ReadBackedPhasingWalker;
+import org.broadinstitute.sting.gatk.walkers.phasing.ReadBackedPhasing;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -91,7 +91,7 @@ public class HaplotypeTracker {
                         throw new ReviewedStingException("EVERY sample should have a haplotype [by code above and getToolkit().getSamples()]");
 
                     // Terminate the haplotype before here:
-                    if (!gt.isPhased() || (requirePQ && !gt.hasAttribute(ReadBackedPhasingWalker.PQ_KEY))) {
+                    if (!gt.isPhased() || (requirePQ && !gt.hasAttribute(ReadBackedPhasing.PQ_KEY))) {
                         sampleHap.finalizeHaplotype();
 
                         // Start a new haplotype from the current position:

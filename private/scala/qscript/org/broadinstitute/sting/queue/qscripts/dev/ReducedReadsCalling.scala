@@ -23,13 +23,10 @@
  */
 
 import org.apache.commons.io.FilenameUtils
-import org.broadinstitute.sting.pipeline.PicardAggregationUtils
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
 import org.broadinstitute.sting.queue.function.ListWriterFunction
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.utils.exceptions.UserException
-import org.broadinstitute.sting.gatk.walkers.compression.reducereads.ReduceReadsWalker.DownsampleStrategy
 import io.Source._
 import collection.JavaConversions._
 
