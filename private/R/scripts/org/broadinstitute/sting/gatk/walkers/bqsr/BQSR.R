@@ -34,7 +34,13 @@ for(cov in levels(data$CovariateName)) {    # for each covariate in turn
     d$CovariateValue = as.numeric(levels(d$CovariateValue))[as.integer(d$CovariateValue)] # efficient way to convert factors back to their real values
   }
   #d=subset(d,Observations>2000) # only show bins which have enough data to actually estimate the quality
-  d=d[sample.int(length(d[,1]),min(length(d[,1]),4000)),] # don't plot too many values because it makes the PDFs too massive
+  dSub=subset(d,EventType=="Base Substitution")
+  dIns=subset(d,EventType=="Base Insertion")
+  dDel=subset(d,EventType=="Base Deletion")
+  dSub=dSub[sample.int(length(dSub[,1]),min(length(dSub[,1]),2000)),] # don't plot too many values because it makes the PDFs too massive
+  dIns=dIns[sample.int(length(dIns[,1]),min(length(dIns[,1]),2000)),] # don't plot too many values because it makes the PDFs too massive
+  dDel=dDel[sample.int(length(dDel[,1]),min(length(dDel[,1]),2000)),] # don't plot too many values because it makes the PDFs too massive
+  d=rbind(dSub, dIns, dDel)
 
   if( cov != "QualityScore" ) {    
     p <- ggplot(d, aes(x=CovariateValue,y=Accuracy,alpha=log10(Observations))) +
