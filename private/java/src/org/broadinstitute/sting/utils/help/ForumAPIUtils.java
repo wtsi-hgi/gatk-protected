@@ -40,7 +40,7 @@ import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.List;
 
-class ForumAPIUtils {
+public class ForumAPIUtils {
     /**
      * How we post to the forum
      */
