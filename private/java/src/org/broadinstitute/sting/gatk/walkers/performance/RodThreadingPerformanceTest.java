@@ -24,10 +24,10 @@
 
 package org.broadinstitute.sting.gatk.walkers.performance;
 
+import org.broad.tribble.AbstractFeatureReader;
 import org.broad.tribble.Tribble;
 import org.broad.tribble.index.Index;
 import org.broad.tribble.index.IndexFactory;
-import org.broad.tribble.source.BasicFeatureSource;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -159,7 +159,7 @@ public class RodThreadingPerformanceTest extends RodWalker<Integer, Integer> {
         public void run() {
             try {
                 FeatureCodec codec = new VCFCodec();
-                BasicFeatureSource source = new BasicFeatureSource(VCFFile.getAbsolutePath(), index, codec);
+                AbstractFeatureReader source = AbstractFeatureReader.getFeatureReader(VCFFile.getAbsolutePath(), codec, index);
 
                 // now read iterate over the file
                 long recordCount = 0l;

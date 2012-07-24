@@ -190,8 +190,8 @@ class WholeGenomePipeline extends QScript {
           call.excludeIntervals = excludeIntervals
           call.dbsnp = dbsnp135
           call.downsample_to_coverage = 50
-          call.standard_min_confidence_threshold_for_calling = 4.0
-          call.standard_min_confidence_threshold_for_emitting = 4.0
+          call.standard_min_confidence_threshold_for_calling = 10.0
+          call.standard_min_confidence_threshold_for_emitting = 10.0
           call.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
           call.genotype_likelihoods_model = glModel
           call.out = tmpBase + "." + glModel.toString.toLowerCase + "s.vcf"

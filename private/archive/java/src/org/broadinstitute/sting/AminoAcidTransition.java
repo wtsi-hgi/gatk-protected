@@ -5,7 +5,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.contexts.variantcontext.VariantContextUtils;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.varianteval.VariantEvalWalker;
+import org.broadinstitute.sting.gatk.walkers.varianteval.VariantEval;
 import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.VariantEvaluator;
 import org.broadinstitute.sting.gatk.walkers.varianteval.tags.Analysis;
 import org.broadinstitute.sting.gatk.walkers.varianteval.tags.DataPoint;
@@ -128,7 +128,7 @@ public class AminoAcidTransition extends VariantEvaluator {
     private boolean enabled;
     private AminoAcidTable lookup;
 
-    public AminoAcidTransition(VariantEvalWalker parent) {
+    public AminoAcidTransition(VariantEval parent) {
         //super(parent);
         //enabled = parent.aminoAcidTransitionKey != null;
         enabled = true;
@@ -139,7 +139,7 @@ public class AminoAcidTransition extends VariantEvaluator {
         }
     }
 
-    private void getParsingInformation(VariantEvalWalker parent) {
+    private void getParsingInformation(VariantEval parent) {
         if ( enabled() ) {
 //            infoKey = parent.aminoAcidTransitionKey;
 //            infoValueSplit = parent.aminoAcidTransitionSplit;

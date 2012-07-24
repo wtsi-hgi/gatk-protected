@@ -114,7 +114,7 @@ public class PhasingEval extends RodWalker<Integer, Integer> {
 
     private boolean isPhysicallyPhased(Collection<Genotype> genotypes) {
         for (Genotype g : genotypes) {
-            if (g.isHet() && g.hasAttribute(ReadBackedPhasingWalker.PQ_KEY))
+            if (g.isHet() && g.hasAttribute(ReadBackedPhasing.PQ_KEY))
                 return true;
         }
 

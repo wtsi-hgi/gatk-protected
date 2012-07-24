@@ -49,6 +49,7 @@ import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.io.Resource;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.GenotypeLikelihoods;
+import org.broadinstitute.sting.utils.variantcontext.GenotypeType;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
@@ -147,10 +148,10 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
      * Trivial wrapper class.  Data is a collection of Datum.
      */
     public static class Data {
-        Collection<Datum> values;
+        final Collection<Datum> values;
 
         public Data() { this(new LinkedList<Datum>()); }
-        public Data(Collection<Datum> data) { this.values = data; }
+        public Data(Collection<Datum> data) { values = data; }
 
         final public static Data EMPTY_DATA = new Data(Collections.<Datum>emptyList());
     }
@@ -167,7 +168,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         final GenotypeLikelihoods pl;
         final String ref, alt;
         final VariantContext.Type siteType;
-        final Genotype.Type genotypeType;
+        final GenotypeType genotypeType;
 
         @Override
         public int compareTo(Datum o) {
@@ -176,7 +177,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             return bySample != 0 ? bySample : byRG;
         }
 
-        public Datum(final GenomeLoc loc, String ref, String alt, String sample, String rgID, GenotypeLikelihoods pl, VariantContext.Type siteType, Genotype.Type genotypeType) {
+        public Datum(final GenomeLoc loc, String ref, String alt, String sample, String rgID, GenotypeLikelihoods pl, VariantContext.Type siteType, GenotypeType genotypeType) {
             this.loc = loc;
             this.ref = ref;
             this.alt = alt;
@@ -272,31 +273,24 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             snpEngine = new UnifiedGenotyperEngine(getToolkit(), uac, Logger.getLogger(UnifiedGenotyperEngine.class), null, null, samples,2*samples.size() );
 
         }
-   }
-
+    }
 
     //---------------------------------------------------------------------------------------------------------------
     //
     // map
     //
     //---------------------------------------------------------------------------------------------------------------
-    public Data map( RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context ) {
+
+    public Data map( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
         if ( tracker == null || tracker.getNTracksWithBoundFeatures() == 0 )
             return Data.EMPTY_DATA;
 
         // Grabs a usable VariantContext from the Alleles ROD
-        VariantContext vcComp = getVCComp(tracker,ref,context);
+        final VariantContext vcComp = getVCComp(tracker, ref, context);
         if( vcComp == null )
             return Data.EMPTY_DATA;
 
-        Data data = new Data();
-        if ( externalLikelihoods.isEmpty() ) {
-            data = calculateGenotypeDataFromAlignments(tracker,ref,context,vcComp);
-        } else {
-            data = calculateGenotypeDataFromExternalVC(tracker,ref,context,vcComp);
-        }
-
-        return data;
+        return ( externalLikelihoods.isEmpty() ? calculateGenotypeDataFromAlignments(tracker, ref, context, vcComp) : calculateGenotypeDataFromExternalVC(tracker, ref, context, vcComp) );
     }
 
     /**
@@ -307,8 +301,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
      * @param sample
      * @return
      */
-    private static Genotype getGenotype(RefMetaDataTracker tracker, ReferenceContext ref, String sample, UnifiedGenotyperEngine engine) {
-        for ( VariantContext vc : tracker.getValues(engine.getUAC().alleles, ref.getLocus()) ) {
+    private static Genotype getGenotype( final RefMetaDataTracker tracker, final ReferenceContext ref, final String sample, final UnifiedGenotyperEngine engine ) {
+        for ( final VariantContext vc : tracker.getValues(engine.getUAC().alleles, ref.getLocus()) ) {
             if ( vc.isNotFiltered() && vc.hasGenotype(sample) )
                 return vc.getGenotype(sample);
             else
@@ -330,7 +324,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     }
 
     @Override
-    public Data treeReduce( final Data sum1, final Data sum2) {
+    public Data treeReduce( final Data sum1, final Data sum2 ) {
         sum2.values.addAll(sum1.values);
         return sum2;
     }
@@ -341,23 +335,23 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     }
 
     @Override
-    public void onTraversalDone(Data data) {
+    public void onTraversalDone( final Data data ) {
         // print the header
-        List<String> pGNames = Arrays.asList("QofAAGivenD", "QofABGivenD", "QofBBGivenD");
-        List<String> fields = Arrays.asList("sample", "rg", "loc", "ref", "alt", "siteType", "pls", "comp", "pGGivenDType", "pGGivenD", "pDGivenG");
+        final List<String> pGNames = Arrays.asList("QofAAGivenD", "QofABGivenD", "QofBBGivenD");
+        final List<String> fields = Arrays.asList("sample", "rg", "loc", "ref", "alt", "siteType", "pls", "comp", "pGGivenDType", "pGGivenD", "pDGivenG");
         moltenDataset.println(Utils.join("\t", fields));
 
         // determine the priors by counting all of the events we've seen in comp
-        double[] counts = new double[]{1, 1, 1};
-        for ( Datum d : data.values ) { counts[d.genotypeType.ordinal()-1]++; }
+        final double[] counts = new double[]{1, 1, 1};
+        for ( final Datum d : data.values ) { counts[d.genotypeType.ordinal()-1]++; }
         double sum = MathUtils.sum(counts);
-        logger.info(String.format("Types %s %s %s", Genotype.Type.values()[1], Genotype.Type.values()[2], Genotype.Type.values()[3]));
+        logger.info(String.format("Types %s %s %s", GenotypeType.values()[1], GenotypeType.values()[2], GenotypeType.values()[3]));
         logger.info(String.format("Counts %.0f %.0f %.0f %.0f", counts[0], counts[1], counts[2], sum));
         double[] log10priors = new double[]{Math.log10(counts[0] / sum), Math.log10(counts[1] / sum), Math.log10(counts[2] / sum)};
         logger.info(String.format("Priors %.2f %.2f %.2f", log10priors[0], log10priors[1], log10priors[2]));
 
         // emit the molten data set
-        for ( Datum d : data.values ) {
+        for ( final Datum d : data.values ) {
             final double[] log10pDGivenG = d.pl.getAsVector();
             final double[] log10pGGivenD = log10pDGivenG.clone();
             for ( int i = 0; i < log10priors.length; i++ ) log10pGGivenD[i] += log10priors[i];
@@ -378,20 +372,21 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         RScriptExecutor executor = new RScriptExecutor();
         executor.addScript(new Resource(SCRIPT_FILE, CalibrateGenotypeLikelihoods.class));
         executor.addArgs(moltenDatasetFileName.getAbsolutePath());
+        executor.addArgs( externalLikelihoods.isEmpty() ? 1 : 0 ); // only plot the "ALL" read group if running without external likelihood files
         logger.info("Generating plots...");
         executor.exec();
     }
 
-    private VariantContext getVCComp(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+    private VariantContext getVCComp( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
         if (doIndels)
             return UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, indelEngine.getUAC().alleles );
         return UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, snpEngine.getUAC().alleles );
     }
 
-    private Data calculateGenotypeDataFromAlignments(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context, VariantContext vcComp) {
-        Data data = new Data();
-        Map <String,AlignmentContext> contextBySample = AlignmentContextUtils.splitContextBySampleName(context);
-        for (Map.Entry<String,AlignmentContext> sAC : contextBySample.entrySet()) {
+    private Data calculateGenotypeDataFromAlignments( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context, final VariantContext vcComp ) {
+        final Data data = new Data();
+        final Map <String,AlignmentContext> contextBySample = AlignmentContextUtils.splitContextBySampleName(context);
+        for ( final Map.Entry<String,AlignmentContext> sAC : contextBySample.entrySet())  {
             String sample = sAC.getKey();
             AlignmentContext sampleAC = sAC.getValue();
             Genotype compGT = getGenotype(tracker, ref, sample, snpEngine != null ? snpEngine : indelEngine);
@@ -401,7 +396,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             // now split by read group
             Map<SAMReadGroupRecord,AlignmentContext> byRG = AlignmentContextUtils.splitContextByReadGroup(sampleAC, getToolkit().getSAMFileHeader().getReadGroups());
             byRG.put(new SAMReadGroupRecord("ALL"), context);     // uncomment to include a synthetic RG for all RG for the sample
-            for ( Map.Entry<SAMReadGroupRecord, AlignmentContext> rgAC : byRG.entrySet() ) {
+            for ( final Map.Entry<SAMReadGroupRecord, AlignmentContext> rgAC : byRG.entrySet() ) {
                 VariantCallContext call;
                 if ( (vcComp.isIndel() || vcComp.isMixed()) && doIndels ) {
                     //throw new UserException.BadInput("CalibrateGenotypeLikelihoods does not currently support indel GL calibration.  This capability needs to be tested and verified to be working with the new genotyping code for indels in UG");
@@ -415,7 +410,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
                 if ( call == null )
                     throw new ReviewedStingException("Unexpected genotyping failure " + sample + " at " + ref.getLocus() + " call " + call);
 
-                Genotype rgGT = call.getGenotype(sample);
+                final Genotype rgGT = call.getGenotype(sample);
 
                 if ( rgGT != null && ! rgGT.isNoCall() && rgGT.hasLikelihoods() ) {
                     addValue(data, vcComp, ref, sample, rgAC.getKey().getReadGroupId(), rgGT, compGT);
@@ -426,9 +421,9 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         return data;
     }
 
-    private final void addValue(final Data data, final VariantContext vcComp, final ReferenceContext ref, final String sample,
-                                final String rgID, final Genotype calledGT, final Genotype compGT) {
-        String refs,alts;
+    private final void addValue( final Data data, final VariantContext vcComp, final ReferenceContext ref, final String sample,
+                                 final String rgID, final Genotype calledGT, final Genotype compGT ) {
+        String refs, alts;
         if (vcComp.isIndel()) {
             refs = ((char)ref.getBase()) + vcComp.getReference().getDisplayString();
             alts = ((char)ref.getBase()) + vcComp.getAlternateAllele(0).getDisplayString();
@@ -442,14 +437,13 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         data.values.add(d);
     }
 
-    private Data calculateGenotypeDataFromExternalVC(RefMetaDataTracker tracker,
-                                                     ReferenceContext ref,
-                                                     AlignmentContext context,
-                                                     VariantContext vcComp) {
+    private Data calculateGenotypeDataFromExternalVC( final RefMetaDataTracker tracker,
+                                                      final ReferenceContext ref,
+                                                      final AlignmentContext context,
+                                                      final VariantContext vcComp ) {
+
         // the tracker should contain a VCF with external likelihoods.
-        // These are either by-sample or by-read-group, disambiguated by whether a
-        // read group --> sample mapping was provided on the command line or not.
-        Data data = new Data();
+        final Data data = new Data();
         for( final RodBinding<VariantContext> rod : externalLikelihoods ) {
             final VariantContext extVC = tracker.getFirstValue(rod);
             if ( extVC == null ) {
@@ -457,7 +451,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             }
     
             // make sure there is an alternate allele
-            if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0) {
+            if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0 ) {
                 return Data.EMPTY_DATA;
             }
     

@@ -4,10 +4,7 @@ import org.broad.tribble.*;
 import org.broad.tribble.exception.CodecLineParsingException;
 import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
+import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
 
@@ -61,14 +58,14 @@ import java.util.*;
  * @author Mark DePristo
  * @since 2010
  */
-public class SoapSNPCodec extends AbstractFeatureCodec implements NameAwareCodec {
+public class SoapSNPCodec extends AsciiFeatureCodec<VariantContext> implements NameAwareCodec {
     private String[] parts;
 
     // we store a name to give to each of the variant contexts we emit
     private String name = "Unknown";
 
-    public Feature decodeLoc(String line) {
-        return decode(line);
+    public SoapSNPCodec() {
+        super(VariantContext.class);
     }
 
     /**
@@ -79,7 +76,7 @@ public class SoapSNPCodec extends AbstractFeatureCodec implements NameAwareCodec
      * @return Return the Feature encoded by the line,  or null if the line does not represent a feature (e.g. is
      *         a comment)
      */
-    public Feature decode(String line) {
+    public VariantContext decode(String line) {
         try {
             // parse into lines
             parts = line.trim().split("\\s+");
@@ -169,7 +166,7 @@ public class SoapSNPCodec extends AbstractFeatureCodec implements NameAwareCodec
 
         Collection<Allele> alleles = new HashSet<Allele>(genotypeAlleles);
         alleles.add(refAllele);
-        Genotype genotype = new Genotype("unknown", genotypeAlleles); // todo -- probably should include genotype quality
+        Genotype genotype = GenotypeBuilder.create("unknown", genotypeAlleles); // todo -- probably should include genotype quality
 
         return new AlleleAndGenotype( alleles, genotype );
     }
@@ -196,18 +193,6 @@ public class SoapSNPCodec extends AbstractFeatureCodec implements NameAwareCodec
         //    throw new IllegalStateException("BUG: unexpected consensus genotype " + alt + " does not contain the reference base " + ref);
 
         return Arrays.asList(a1, a2);
-    }
-
-    /**
-     * @return VariantContext
-     */
-    public Class<VariantContext> getFeatureType() {
-        return VariantContext.class;
-    }
-
-    public Object readHeader(LineReader reader)  {
-        
-        return null;  // we don't have a meaningful header
     }
 
     /**

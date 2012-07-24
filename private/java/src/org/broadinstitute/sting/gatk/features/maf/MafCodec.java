@@ -27,6 +27,7 @@ package org.broadinstitute.sting.gatk.features.maf;
 
 import org.apache.log4j.Logger;
 import org.broad.tribble.AbstractFeatureCodec;
+import org.broad.tribble.AsciiFeatureCodec;
 import org.broad.tribble.Feature;
 import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.exceptions.StingException;
@@ -42,7 +43,7 @@ import java.util.*;
  * Time: 12:04:10 PM
  * To change this template use File | Settings | File Templates.
  */
-public class MafCodec extends AbstractFeatureCodec {
+public class MafCodec extends AsciiFeatureCodec<MafFeature> {
      private final static Logger log = Logger.getLogger(MafCodec.class);
 
      private int expectedTokenCount = -1;
@@ -81,6 +82,7 @@ public class MafCodec extends AbstractFeatureCodec {
     private boolean tooFewColsWarned = false;
 
      public MafCodec() {
+         super(MafFeature.class);
          allColumns = new ArrayList<Column>(30);
          Field[] fields = this.getClass().getDeclaredFields();
          try {
@@ -113,8 +115,8 @@ public class MafCodec extends AbstractFeatureCodec {
      * @return  Return the FeatureLoc encoded by the line, or null if the line does not represent a feature (e.g. is
      * a comment)
      */
-    public Feature decode(String line) {
-           return reallyDecode(line,true);
+    public MafFeature decode(String line) {
+        return reallyDecode(line,true);
     }
 
     /** Decodes a maf line. If <code>extra</code> is false, will decode only location and return;
@@ -123,7 +125,7 @@ public class MafCodec extends AbstractFeatureCodec {
      * @param extra
      * @return
      */
-    public Feature reallyDecode(String line, boolean extra) {
+    public MafFeature reallyDecode(String line, boolean extra) {
 
         // ignore commented-out lines
         if (line.startsWith("#")) return null;
@@ -276,19 +278,6 @@ public class MafCodec extends AbstractFeatureCodec {
         if ( VARCLASS_COL.isSet(tokens) ) feature.setVariantClassification(tokens[VARCLASS_COL.getIndex()]);
 
         return feature;
-    }
-
-    public Class getFeatureType() {
-        return MafFeature.class;
-    }
-
-
-    /**  Read and return the header, or null if there is no header.
-     *
-     * @return header object
-     */
-    public Object readHeader(LineReader reader) {
-        return null;
     }
 
     /** Set expected column indices for MafLite

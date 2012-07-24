@@ -91,13 +91,13 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
         trios = getFamilySpecsFromCommandLineInput(familySpecs);
 
         report = new GATKReport();
-        report.addTable("SwitchMetrics", "Specifies metrics regarding the switches");
+        report.addTable("SwitchMetrics", "Specifies metrics regarding the switches", 5);
         GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
-        switchMetrics.addPrimaryKey("sample");
-        switchMetrics.addColumn("markersSeen", 0);
-        switchMetrics.addColumn("numSwitches", 0);
-        switchMetrics.addColumn("switchErrorRate", 0);
-        switchMetrics.addColumn("switchState", false, false);
+        switchMetrics.addColumn("sample");
+        switchMetrics.addColumn("markersSeen");
+        switchMetrics.addColumn("numSwitches");
+        switchMetrics.addColumn("switchErrorRate");
+        switchMetrics.addColumn("switchState");
     }
 
     private boolean isSwitched(Genotype a, Genotype b) {
@@ -150,7 +150,8 @@ public class ComputeSwitchErrorRate extends RodWalker<Integer, Integer> {
     public void onTraversalDone(Integer sum) {
         GATKReportTable switchMetrics = report.getTable("SwitchMetrics");
 
-        switchMetrics.divideColumns("switchErrorRate", "numSwitches", "markersSeen");
+        // TODO -- not implemented in the new GATK reports; fix this
+        // switchMetrics.divideColumns("switchErrorRate", "numSwitches", "markersSeen");
 
         report.print(out);
     }

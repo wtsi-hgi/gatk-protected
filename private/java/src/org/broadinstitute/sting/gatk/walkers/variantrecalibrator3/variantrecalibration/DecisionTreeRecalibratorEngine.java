@@ -22,6 +22,12 @@ public class DecisionTreeRecalibratorEngine extends VariantRecalibratorEngine<De
         gmmEngine = new GMMRecalibratorEngine(vrac);
     }
 
+    public DecisionTreeRecalibratorEngine clone() {
+        DecisionTreeRecalibratorEngine engine = new DecisionTreeRecalibratorEngine(super.VRAC);
+        engine.gmmEngine = gmmEngine;
+        return engine;
+    }
+
     public void evaluateData(List<VariantDatum> data, DecisionTree tree, boolean contrastive) {
         // no such thing as contrastive
         if ( contrastive ) {

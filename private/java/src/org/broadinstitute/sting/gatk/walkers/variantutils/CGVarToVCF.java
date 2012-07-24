@@ -35,7 +35,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;
@@ -50,7 +50,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
     protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
     @Output(doc="File to which variants should be written", required=true)
-    protected VCFWriter vcfWriter = null;
+    protected VariantContextWriter vcfWriter = null;
 
     @Argument(fullName="sample", shortName="sample", doc="The sample name represented by the variant rod", required=true)
     protected String sampleName = null;
@@ -86,7 +86,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
 
     private void writeHet(VariantContext vc) {
         List<Allele> alleles = new ArrayList<Allele>(vc.getAlleles());
-        Genotype g = new Genotype(sampleName, alleles);
+        Genotype g = GenotypeBuilder.create(sampleName, alleles);
         write(vc, g);
     }
 
@@ -94,7 +94,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
         List<Allele> alleles = new ArrayList<Allele>(2);
         alleles.add(vc.getAlternateAllele(0));
         alleles.add(vc.getAlternateAllele(0));
-        Genotype g = new Genotype(sampleName, alleles);
+        Genotype g = GenotypeBuilder.create(sampleName, alleles);
         write(vc, g);
     }
 

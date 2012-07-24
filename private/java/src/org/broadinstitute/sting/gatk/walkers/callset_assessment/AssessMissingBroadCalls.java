@@ -37,7 +37,7 @@ import org.broadinstitute.sting.gatk.walkers.Window;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
@@ -60,7 +60,7 @@ public class AssessMissingBroadCalls extends RodWalker<Integer, Integer> {
     private static final String qual_key = "BI_QUAL";
 
     @Output(doc="File to which variants should be written",required=true)
-    protected VCFWriter writer = null;
+    protected VariantContextWriter writer = null;
 
     public void initialize() {
         final ArrayList<String> inputNames = new ArrayList<String>();

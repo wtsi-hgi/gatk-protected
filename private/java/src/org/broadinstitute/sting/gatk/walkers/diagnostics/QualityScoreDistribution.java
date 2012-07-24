@@ -100,9 +100,9 @@ public class QualityScoreDistribution extends ReadWalker<HashMap<Byte, Long>, Ha
     public void onTraversalDone(HashMap<Byte, Long> result) {
         super.onTraversalDone(result);
 
-        GATKReportTable table = new GATKReportTable("QualityScoreDistribution", "Distribution of all quality scores found in the input BAM(s)");
-        table.addPrimaryKey("Qual", true);
-        table.addColumn("Count", true);
+        GATKReportTable table = new GATKReportTable("QualityScoreDistribution", "Distribution of all quality scores found in the input BAM(s)", 2);
+        table.addColumn("Qual");
+        table.addColumn("Count");
 
         for (Map.Entry<Byte, Long> entry : result.entrySet())
             table.set(entry.getKey(), "Count", entry.getValue());

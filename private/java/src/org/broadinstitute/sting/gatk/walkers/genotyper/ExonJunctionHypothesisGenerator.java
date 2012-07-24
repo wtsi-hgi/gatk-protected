@@ -30,14 +30,12 @@ import java.util.*;
  * Created by IntelliJ IDEA.
  * User: chartl
  * Date: 11/16/11
- * Time: 2:06 PM
- * To change this template use File | Settings | File Templates.
  */
 @ReadFilters({DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class,MappingQualityZeroFilter.class})
 public class ExonJunctionHypothesisGenerator extends ReadWalker<TreeSet<ExonJunctionHypothesisGenerator.IntronLossJunctions>,TreeSet<ExonJunctionHypothesisGenerator.IntronLossJunctions>> {
 
     /**
-     * A raw, unfiltered, highly specific callset in VCF format.
+     * A raw, unfiltered, highly sensitive callset in VCF format.
      */
     @Output
     protected PrintStream out = null;

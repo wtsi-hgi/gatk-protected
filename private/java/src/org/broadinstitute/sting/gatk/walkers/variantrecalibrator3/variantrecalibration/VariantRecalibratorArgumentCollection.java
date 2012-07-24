@@ -41,7 +41,8 @@ public class VariantRecalibratorArgumentCollection {
     public enum Mode {
         SNP,
         INDEL,
-        BOTH
+        BOTH,
+        BOTH_SIMULTANEOUS
     }
 
     @Argument(fullName = "mode", shortName = "mode", doc = "Recalibration mode to employ: 1.) SNP for recalibrating only snps (emitting indels untouched in the output VCF); 2.) INDEL for indels; and 3.) BOTH for recalibrating both snps and indels simultaneously.", required = false)
@@ -84,6 +85,10 @@ public class VariantRecalibratorArgumentCollection {
     @Argument(fullName="RInputFile",doc="File that will contain raw data for the R script to read",required=false)
     String RInputFile = "VRW-RInput.txt";
     @Argument(fullName="nTree",doc="Number of trees for Random Forest",required=false)
-    String numTree = "1200";
+    String numTree = "15000";
+    @Argument(fullName="noNegativeModel",doc="Disable negative modeling for GMM",required=false)
+    boolean noNegativeModel = false;
+    @Argument(fullName="rPDF",shortName="pdf",required=true,doc="PDF file for tree ROC and importance plotting")
+    File pdf = null;
 
 }

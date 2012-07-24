@@ -66,6 +66,13 @@ public class GMMRecalibratorEngine extends VariantRecalibratorEngine<GaussianMix
         super(VRAC);
     }
 
+    public GMMRecalibratorEngine clone() {
+        GMMRecalibratorEngine toRet = new GMMRecalibratorEngine(super.VRAC);
+        toRet.goodModel = goodModel;
+        toRet.badModel = badModel;
+        return toRet;
+    }
+
     @Deprecated
     protected GaussianMixtureModel generateModel(final List<VariantDatum> data, boolean isFinal) {
         throw new ReviewedStingException("This implementaiton is deprecated. Please use the one allowing ngaussians immediately specified.");
@@ -120,7 +127,9 @@ public class GMMRecalibratorEngine extends VariantRecalibratorEngine<GaussianMix
             double minProb = Double.MAX_VALUE;
             for( int iii = 0; iii < annotations.length; iii++ ) {
                 final Double goodProbLog10 = goodModel.evaluateDatumInOneDimension(datum, iii);
-                final Double badProbLog10 = badModel.evaluateDatumInOneDimension(datum, iii);
+                logger.debug(datum.toString());
+                logger.debug(String.format("%s",badModel));
+                final Double badProbLog10 = badModel != null ? badModel.evaluateDatumInOneDimension(datum, iii) : 0.0;
                 if( goodProbLog10 != null && badProbLog10 != null ) {
                     final double prob = goodProbLog10 - badProbLog10;
                     if(prob < minProb) { minProb = prob; worstAnnotation = iii; }
@@ -145,23 +154,26 @@ public class GMMRecalibratorEngine extends VariantRecalibratorEngine<GaussianMix
             throw new UserException("NaN LOD value assigned. Clustering with this few variants and these annotations is unsafe. Please consider raising the number of variants used to train the negative model (via --percentBadVariants 0.05, for example) or lowering the maximum number of Gaussians to use in the model (via --maxGaussians 4, for example)");
         }
 
-        final ExpandingArrayList<VariantDatum> negativeTrainingData = dataManager.selectWorstVariants(VRAC.PERCENT_BAD_VARIANTS,VRAC.MIN_NUM_BAD_VARIANTS);
-        badModel = this.generateModel(negativeTrainingData,isFinal,VRAC.NEG_MAX_GAUSSIANS);
-        this.variationalBayesExpectationMaximization(badModel,negativeTrainingData);
-        this.evaluateData(dataManager.getData(),badModel,true);
+        if ( ! VRAC.noNegativeModel ) {
 
-        // Detect if the negative model failed to converge because of too few points and/or too many Gaussians and try again
-        while( badModel.failedToConverge && VRAC.NEG_MAX_GAUSSIANS > 1 ) {
-            logger.info("Negative model failed to converge. Retrying...");
-            VRAC.NEG_MAX_GAUSSIANS--;
-            badModel = this.generateModel( negativeTrainingData,isFinal, VRAC.NEG_MAX_GAUSSIANS );
-            this.evaluateData( dataManager.getData(), goodModel, false );
-            this.evaluateData( dataManager.getData(), badModel, true );
-        }
+            final ExpandingArrayList<VariantDatum> negativeTrainingData = dataManager.selectWorstVariants(VRAC.PERCENT_BAD_VARIANTS,VRAC.MIN_NUM_BAD_VARIANTS);
+            badModel = this.generateModel(negativeTrainingData,isFinal,VRAC.NEG_MAX_GAUSSIANS);
+            this.variationalBayesExpectationMaximization(badModel,negativeTrainingData);
+            this.evaluateData(dataManager.getData(),badModel,true);
 
-        if( badModel.failedToConverge ) {
-            logger.warn("Bad model consistently failing to converge; using flat prior. NaN LOD value assigned. Clustering with this few variants and these annotations is unsafe. Please consider raising the number of variants used to train the negative model (via --percentBadVariants 0.05, for example) or lowering the maximum number of Gaussians to use in the model (via --maxGaussians 4, for example)");
-            this.evaluateData( dataManager.getData(), goodModel, false );
+            // Detect if the negative model failed to converge because of too few points and/or too many Gaussians and try again
+            while( badModel.failedToConverge && VRAC.NEG_MAX_GAUSSIANS > 1 ) {
+                logger.info("Negative model failed to converge. Retrying...");
+                VRAC.NEG_MAX_GAUSSIANS--;
+                badModel = this.generateModel( negativeTrainingData,isFinal, VRAC.NEG_MAX_GAUSSIANS );
+                this.evaluateData( dataManager.getData(), goodModel, false );
+                this.evaluateData( dataManager.getData(), badModel, true );
+            }
+
+            if( badModel.failedToConverge ) {
+                logger.warn("Bad model consistently failing to converge; using flat prior. NaN LOD value assigned. Clustering with this few variants and these annotations is unsafe. Please consider raising the number of variants used to train the negative model (via --percentBadVariants 0.05, for example) or lowering the maximum number of Gaussians to use in the model (via --maxGaussians 4, for example)");
+                this.evaluateData( dataManager.getData(), goodModel, false );
+            }
         }
     }
 

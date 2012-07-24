@@ -135,14 +135,14 @@ public class AggregateMetrics extends CommandLineProgram {
 
                             Object[] key = new Object[]{"dbsnp", "eval", functionalClass, novelty, squidSample};
 
-                            Object cvKey = cvTable.findPrimaryKeyByData(key);
-                            if (cvKey == null) {
+                            int cvKey = cvTable.findRowByData(key);
+                            if (cvKey == -1) {
                                 logger.warn(String.format("  Could not find CountVariants key %s in %s", Arrays.asList(key), evalFilename));
                                 continue;
                             }
 
-                            Object titvKey = titvTable.findPrimaryKeyByData(key);
-                            if (titvKey == null) {
+                            int titvKey = titvTable.findRowByData(key);
+                            if (titvKey == -1) {
                                 logger.warn(String.format("  Could not find TiTvVariantEvaluator key %s in %s", Arrays.asList(key), evalFilename));
                                 continue;
                             }

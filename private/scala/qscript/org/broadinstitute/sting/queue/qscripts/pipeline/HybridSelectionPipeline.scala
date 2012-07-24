@@ -71,6 +71,7 @@ class HybridSelectionPipeline extends QScript {
     val hapmap = resources + "hapmap_3.3.b37.sites.vcf"
     val dbsnp129 = resources + "dbsnp_135.b37.excluding_sites_after_129.vcf"
     val dbsnp135 = resources + "dbsnp_135.b37.vcf"
+    val goldStandardIndels = resources + "Mills_and_1000G_gold_standard.indels.b37.sites.vcf"
 
     var reference = "/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta"
     var useK1gExomes = false
@@ -90,7 +91,6 @@ class HybridSelectionPipeline extends QScript {
       val writeBamList = new ListWriterFunction
       writeBamList.inputFiles = PicardAggregationUtils.getSampleBams(picardSamples).toSeq
       writeBamList.listFile = projectName +".bam.list"
-      writeBamList.jobOutputFile = writeBamList.listFile + ".out"
       add(writeBamList)
 
       // Use the Picard reference instead of the 1000 Genomes version
@@ -115,18 +115,6 @@ class HybridSelectionPipeline extends QScript {
         FILTER_HARD
     }
 
-    val flankIntervals = projectName + ".flanks.intervals"
-
-    if (qscript.expandIntervals > 0) {
-      val writeFlanks = new WriteFlankingIntervalsFunction
-      writeFlanks.reference = reference
-      writeFlanks.inputIntervals = intervals
-      writeFlanks.flankSize = qscript.expandIntervals
-      writeFlanks.outputIntervals = flankIntervals
-      writeFlanks.jobOutputFile = writeFlanks.outputIntervals + ".out"
-      add(writeFlanks)
-    }
-
     trait CommandLineGATKArgs extends CommandLineGATK {
       this.reference_sequence = reference
       this.intervals = Seq(qscript.intervals)
@@ -135,7 +123,7 @@ class HybridSelectionPipeline extends QScript {
 
     trait ExpandedIntervals extends CommandLineGATK {
       if (qscript.expandIntervals > 0)
-        this.intervals :+= flankIntervals
+        this.interval_padding = qscript.expandIntervals
     }
 
     val call = new UnifiedGenotyper with CommandLineGATKArgs with ExpandedIntervals
@@ -146,7 +134,6 @@ class HybridSelectionPipeline extends QScript {
     call.downsample_to_coverage = 600
     call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     call.out = projectName + ".unfiltered.vcf"
-    call.jobOutputFile = call.out + ".out"
     call.scatterCount = qscript.variantCallerScatterCount
     add(call)
 
@@ -154,14 +141,12 @@ class HybridSelectionPipeline extends QScript {
     selectSNPs.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.SNP
     selectSNPs.variant = call.out
     selectSNPs.out = projectName + ".snps.unfiltered.vcf"
-    selectSNPs.jobOutputFile = selectSNPs.out + ".out"
     add(selectSNPs)
 
     val selectIndels = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
     selectIndels.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.INDEL
     selectIndels.variant = call.out
     selectIndels.out = projectName + ".indels.unfiltered.vcf"
-    selectIndels.jobOutputFile = selectIndels.out + ".out"
     add(selectIndels)
 
     val filteredSNPsVcf = variantFilterType match {
@@ -189,7 +174,6 @@ class HybridSelectionPipeline extends QScript {
         buildSNPModel.TStranche = trancheLevels
         buildSNPModel.tranches_file = projectName + ".snps.tranches"
         buildSNPModel.recal_file = projectName + ".snps.recal"
-        buildSNPModel.jobOutputFile = buildSNPModel.recal_file + ".out"
         add(buildSNPModel)
 
         val applySNPModel = new ApplyRecalibration with CommandLineGATKArgs with ExpandedIntervals
@@ -198,7 +182,6 @@ class HybridSelectionPipeline extends QScript {
         applySNPModel.recal_file = buildSNPModel.recal_file
         applySNPModel.ts_filter_level = 98.5
         applySNPModel.out = projectName + ".snps.recalibrated.vcf"
-        applySNPModel.jobOutputFile = applySNPModel.out + ".out"
         add(applySNPModel)
 
         applySNPModel.out
@@ -209,7 +192,6 @@ class HybridSelectionPipeline extends QScript {
         filterSNPs.filterName = Seq("SNP_QD", "SNP_MQ", "SNP_HaplotypeScore", "SNP_MQRankSum", "SNP_ReadPosRankSum", "SNP_FS")
         filterSNPs.filterExpression = Seq("QD<2.0", "MQ<40.0", "HaplotypeScore>13.0", "MQRankSum<-12.5", "ReadPosRankSum<-8.0", "FS>60.0")
         filterSNPs.out = projectName + ".snps.filtered.vcf"
-        filterSNPs.jobOutputFile = filterSNPs.out + ".out"
         add(filterSNPs)
 
         filterSNPs.out
@@ -223,7 +205,6 @@ class HybridSelectionPipeline extends QScript {
     filterIndels.filterName = Seq("Indel_FS", "Indel_QD", "Indel_ReadPosRankSum", "Indel_InbreedingCoeff")
     filterIndels.filterExpression = Seq("FS>200.0", "QD<2.0", "ReadPosRankSum<-20.0", "InbreedingCoeff<-0.8")
     filterIndels.out = projectName + ".indels.filtered.vcf"
-    filterIndels.jobOutputFile = filterIndels.out + ".out"
     add(filterIndels)
 
     val combineSNPsIndels = new CombineVariants with CommandLineGATKArgs with ExpandedIntervals
@@ -232,7 +213,6 @@ class HybridSelectionPipeline extends QScript {
     combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     combineSNPsIndels.assumeIdenticalSamples = true
     combineSNPsIndels.out = projectName + ".unannotated.vcf"
-    combineSNPsIndels.jobOutputFile = combineSNPsIndels.out + ".out"
     add(combineSNPsIndels)
 
     val snpsIndelsVcf =
@@ -244,7 +224,6 @@ class HybridSelectionPipeline extends QScript {
         removeK1gSamples.exclude_sample_file :+= k1gExomesSamples
         removeK1gSamples.excludeNonVariants = true
         removeK1gSamples.out = projectName + ".selected.vcf"
-        removeK1gSamples.jobOutputFile = removeK1gSamples.out + ".out"
         add(removeK1gSamples)
 
         removeK1gSamples.out
@@ -256,7 +235,6 @@ class HybridSelectionPipeline extends QScript {
     snpEff.genomeVersion = "GRCh37.64"
     snpEff.onlyCoding = true
     snpEff.outVcf = projectName + ".snpeff.vcf"
-    snpEff.jobOutputFile = snpEff.outVcf + ".out"
     snpEff.memoryLimit = snpEffMemory
     add(snpEff)
 
@@ -265,34 +243,33 @@ class HybridSelectionPipeline extends QScript {
     annotate.snpEffFile = snpEff.outVcf
     annotate.annotation :+= "SnpEff"
     annotate.out = projectName + ".vcf"
-    annotate.jobOutputFile = annotate.out + ".out"
     add(annotate)
+
+    def newVariantEval = {
+      val eval = new VariantEval with CommandLineGATKArgs
+      eval.eval :+= annotate.out
+      eval.dbsnp = dbsnp129
+      eval.goldStandard = goldStandardIndels
+      eval.doNotUseAllStandardModules = true
+      eval.doNotUseAllStandardStratifications = true
+      eval
+    }
 
     for (strats <- Seq(
       Seq("AlleleCount"),
       Seq("Sample")
     )) {
-      def newStratsEval(suffix: String): VariantEval = {
-        val eval = new VariantEval with CommandLineGATKArgs
-        eval.eval :+= annotate.out
-        eval.dbsnp = dbsnp129
-        eval.doNotUseAllStandardModules = true
-        eval.evalModule = Seq("TiTvVariantEvaluator", "CountVariants", "CompOverlap", "MultiallelicSummary")
-        eval.doNotUseAllStandardStratifications = true
-        eval.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ strats
-        eval.out = projectName + strats.map(_.toLowerCase).mkString(".by_", "_", "") + suffix
-        eval.jobOutputFile = eval.out + ".out"
-        eval
-      }
-
-      val targetEval = newStratsEval(".eval")
-      add(targetEval)
-
-      if (qscript.expandIntervals > 0) {
-        val flanksEval = newStratsEval(".flanks.eval")
-        flanksEval.intervals = Seq(flankIntervals)
-        add(flanksEval)
-      }
+      val stratsEval = newVariantEval
+      stratsEval.evalModule = Seq("TiTvVariantEvaluator", "CountVariants", "CompOverlap", "IndelSummary", "MultiallelicSummary")
+      stratsEval.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ strats
+      stratsEval.out = projectName + strats.map(_.toLowerCase).mkString(".by_", "_", ".eval")
+      add(stratsEval)
     }
+
+    val indelEval = newVariantEval
+    indelEval.evalModule = List("IndelSummary", "IndelLengthHistogram")
+    indelEval.stratificationModule = Seq("EvalRod", "CompRod", "Sample", "TandemRepeat", "OneBPIndel")
+    indelEval.out = projectName + ".indel.eval"
+    add(indelEval)
   }
 }

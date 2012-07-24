@@ -9,7 +9,6 @@ import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.walkers.ActiveRegionExtension;
 import org.broadinstitute.sting.gatk.walkers.ActiveRegionWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
 
 import java.io.PrintStream;
 
@@ -49,7 +48,7 @@ public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInAc
     }
 
     @Override
-    public Datum map( final ActiveRegion activeRegion, final RefMetaDataTracker tracker ) {
+    public Datum map( final org.broadinstitute.sting.utils.activeregion.ActiveRegion activeRegion, final RefMetaDataTracker tracker ) {
         return new Datum(activeRegion.getLocation(), activeRegion.getExtendedLoc(), activeRegion.isActive, activeRegion.size());
     }
 
