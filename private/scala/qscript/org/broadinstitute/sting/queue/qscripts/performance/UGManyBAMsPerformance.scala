@@ -38,6 +38,10 @@ class UGManyBAMsPerformance extends QScript {
     this.downsample_to_coverage = 60
   }
 
+  trait PR_ARGS extends PrintReads with UNIVERSAL_GATK_ARGS {
+    this.memoryLimit = 32
+  }
+
   trait UG_ARGS extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
     this.genotype_likelihoods_model = Model.BOTH
     this.capMaxAllelesForIndels = true
@@ -67,7 +71,7 @@ class UGManyBAMsPerformance extends QScript {
           val sublist = new SubSliceList(sliceStart, sliceEnd, bamSrcFile)
           add(sublist)
 
-          val pr = new PrintReads() with UNIVERSAL_GATK_ARGS
+          val pr = new PrintReads() with PR_ARGS
           pr.input_file :+= sublist.list
           pr.out = "combined_%d_%d.bam".format(sliceStart, sliceEnd)
           add(pr)
