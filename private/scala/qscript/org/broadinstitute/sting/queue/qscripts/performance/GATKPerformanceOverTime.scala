@@ -37,7 +37,7 @@ class GATKPerformanceOverTime extends QScript {
 
   val RECAL_BAM_FILENAME = "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam"
   val dbSNP_FILENAME = "dbsnp_132.b37.vcf"
-  val RECAL_FILENAME = "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.csv"
+  val RECAL_FILENAME = "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.csv"  // TODO -- update to use recal table for BQSRv2
   val b37_FILENAME = "human_g1k_v37.fasta"
 
   def makeResource(x: String): File = new File("%s/%s".format(resourcesDir, x))
@@ -122,7 +122,8 @@ class GATKPerformanceOverTime extends QScript {
             }
 
             add(new CountCov(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
-            add(new Recal(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
+            // TODO -- re-enable when we have a new recal table ready
+	    // add(new Recal(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
 
             if ( subiteration == 0 )
               addMultiThreadedTest(() => new CountCov(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
@@ -212,16 +213,16 @@ class GATKPerformanceOverTime extends QScript {
     def commandLine = "./samtools mpileup -ub %s -f %s -l %s | ./bcftools view -vcg -l %s - > %s".format(bamList, b37_FILENAME, intervals, intervals, outVCF)
   }
 
-  class CountCov(inBam: File) extends CountCovariates with UNIVERSAL_GATK_ARGS {
+  class CountCov(inBam: File) extends BaseRecalibrator with UNIVERSAL_GATK_ARGS {
     this.knownSites :+= makeResource(dbSNP_FILENAME)
-    this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "DinucCovariate")
+    this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
     this.input_file :+= inBam
-    this.recal_file = new File("/dev/null")
+    this.out = new File("/dev/null")
   }
 
-  class Recal(inBam: File) extends TableRecalibration with UNIVERSAL_GATK_ARGS {
+  class Recal(inBam: File) extends PrintReads with UNIVERSAL_GATK_ARGS {
     this.input_file :+= inBam
-    this.recal_file = makeResource(RECAL_FILENAME)
+    this.BQSR = makeResource(RECAL_FILENAME)
     this.baq = CalculationMode.CALCULATE_AS_NECESSARY
     this.out = new File("/dev/null")
   }
