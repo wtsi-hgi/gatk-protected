@@ -12,11 +12,10 @@ import java.io.FileNotFoundException;
 import java.util.HashMap;
 
 /**
- * Created by IntelliJ IDEA.
- * User: chartl
- * Date: 6/27/11
- * Time: 2:36 PM
- * To change this template use File | Settings | File Templates.
+ * Filter out reads given a list of aberrant insert sizes and read group ids
+ *
+ * @author chartl
+ * @since 6/27/11
  */
 public class AddAberrantInsertTagFilter extends ReadFilter {
     @Argument(shortName="aif",fullName = "aberrantInsertPercentileFile",required=false, doc="File containing aberrant insert size cutoffs per read group")
