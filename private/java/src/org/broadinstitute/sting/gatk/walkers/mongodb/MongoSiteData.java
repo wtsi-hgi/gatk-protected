@@ -218,14 +218,6 @@ public class MongoSiteData {
         builder.attributes(attributes);
         builder.filters(filters);
 
-        long index = start - ref.getWindow().getStart() - 1;
-        if ( index >= 0 ) {
-            // we were given enough reference context to create the VariantContext
-            builder.referenceBaseForIndel(ref.getBases()[(int)index]);        // TODO: needed?
-        }
-
-        builder.referenceBaseForIndel(ref.getBases()[0]);                   // TODO: correct?
-
         return builder;
     }
 }

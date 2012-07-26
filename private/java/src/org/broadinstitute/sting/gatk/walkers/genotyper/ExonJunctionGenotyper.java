@@ -342,7 +342,6 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             ExactAFCalculationModel.linearExactMultiAllelic(GLs,1,prior,result);
             VariantContextBuilder vcb = new VariantContextBuilder("EJG",refPos.getContig(),refPos.getStop(),refPos.getStop(),Arrays.asList(ref,alt));
             vcb.genotypes(GLs);
-            vcb.referenceBaseForIndel(paddingBase);
             List<Allele> alleles = new ArrayList<Allele>(2);
             alleles.add(ref);
             alleles.add(Allele.create(hypothesis.toString()));
