@@ -3,11 +3,10 @@ package org.broadinstitute.sting.gatk.filters;
 import net.sf.samtools.SAMRecord;
 
 /**
- * Created by IntelliJ IDEA.
- * User: chartl
- * Date: 10/17/11
- * Time: 11:14 PM
- * To change this template use File | Settings | File Templates.
+ * Filter out reads that have unmapped mates
+ *
+ * @author chartl
+ * @since 10/17/11
  */
 public class MateUnmappedFilter extends ReadFilter {
 
