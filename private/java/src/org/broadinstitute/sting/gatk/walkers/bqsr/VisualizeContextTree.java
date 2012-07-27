@@ -33,6 +33,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.RefWalker;
+import org.broadinstitute.sting.utils.recalibration.RecalDatum;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.ext.*;
 import org.jgrapht.graph.DefaultEdge;
@@ -142,7 +143,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
             return String.format("%s:Q%d:N%d",
                     contextDatum.context,
                     (int)contextDatum.getEmpiricalQuality(),
-                    (int)(Math.log10(contextDatum.numObservations) * 10));
+                    (int)(Math.log10(contextDatum.getNumObservations()) * 10));
         }
     }
 
@@ -255,8 +256,8 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
                 up.put(parentContext, parent);
             }
 
-            parent.numObservations += cd.numObservations;
-            parent.numMismatches += cd.numMismatches;
+            parent.incrementNumObservations(cd.getNumObservations());
+            parent.incrementNumMismatches(cd.getNumMismatches());
         }
 
         return new ArrayList<ContextDatum>(up.values());

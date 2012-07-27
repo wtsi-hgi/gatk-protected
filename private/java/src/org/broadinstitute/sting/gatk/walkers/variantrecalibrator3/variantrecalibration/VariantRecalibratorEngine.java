@@ -1,7 +1,5 @@
 package org.broadinstitute.sting.gatk.walkers.variantrecalibrator3.variantrecalibration;
 
-import org.broadinstitute.sting.gatk.walkers.bqsr.RecalDataManager;
-
 import java.util.List;
 
 /**
