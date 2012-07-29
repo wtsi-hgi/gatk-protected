@@ -34,6 +34,7 @@ import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.RefWalker;
 import org.broadinstitute.sting.utils.recalibration.RecalDatum;
+import org.broadinstitute.sting.utils.recalibration.RecalDatumTree;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.ext.*;
 import org.jgrapht.graph.DefaultEdge;
@@ -106,7 +107,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         return 0;
     }
 
-    final class ContextDatum extends RecalDatum {
+    final class ContextDatum extends RecalDatumTree {
         final String context;
 
         ContextDatum(final String context, final long observations, final long errors ) {
@@ -140,10 +141,11 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     final static class ContextDataLabelProvider implements VertexNameProvider<ContextDatum> {
         @Override
         public String getVertexName(final ContextDatum contextDatum) {
-            return String.format("%s:Q%d:N%d",
+            return String.format("%s:Q%d:N%d:P%.2e",
                     contextDatum.context,
                     (int)contextDatum.getEmpiricalQuality(),
-                    (int)(Math.log10(contextDatum.getNumObservations()) * 10));
+                    (int)(Math.log10(contextDatum.getNumObservations()) * 10),
+                    contextDatum.getPenalty());
         }
     }
 
@@ -157,7 +159,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
             final String color = heatmapColors(Qscale);
             components.put("color", color);
             components.put("fontcolor", color);
-            components.put("penwidth", "2.0");
+            components.put("penwidth", "0.5");
             components.put("fontsize", "10.0");
             components.put("shape", "none");
             return components;
@@ -258,6 +260,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
 
             parent.incrementNumObservations(cd.getNumObservations());
             parent.incrementNumMismatches(cd.getNumMismatches());
+            parent.addSubnode(cd);
         }
 
         return new ArrayList<ContextDatum>(up.values());

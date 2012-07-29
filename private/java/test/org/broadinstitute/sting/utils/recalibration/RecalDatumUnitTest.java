@@ -105,6 +105,7 @@ public class RecalDatumUnitTest extends BaseTest {
         if ( cfg.getReportedQual() != -1 )
             Assert.assertEquals(datum.getEstimatedQReportedAsByte(), cfg.getReportedQual());
         BaseTest.assertEqualsDoubleSmart(datum.getEmpiricalQuality(), cfg.getErrorRatePhredScaled());
+        BaseTest.assertEqualsDoubleSmart(datum.getEmpiricalErrorRate(), cfg.getErrorRate());
     }
 
     @Test(dataProvider = "RecalDatumTestProvider")
