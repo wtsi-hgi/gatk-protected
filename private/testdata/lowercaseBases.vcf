@@ -1,5 +1,4 @@
 ##fileformat=VCFv4.1
-##ALT=<ID=DEL,Description="Deletion">
 ##INFO=<ID=AC,Number=.,Type=Integer,Description="Alternate Allele Count">
 ##contig=<ID=1,length=249250621,assembly=b37>
 ##contig=<ID=10,length=135534747,assembly=b37>
@@ -88,8 +87,7 @@
 ##reference=GRCh37
 ##reference=file:///humgen/1kg/reference/human_g1k_v37.fasta
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	
-1	737406	.	GTTAAT	G,GTT,C	141	PASS	AC=79,2,3
-1	738636	MERGED_DEL	A	<DEL>	100	PASS	AC=10
-1	765084	FOO	TTTTG	T,TTTTGGGG	420	PASS	AC=43,5
-1	766593	.	CTGCTTTGTCTTATGTTTAAAAATGT	AAAAAAAA	420	PASS	AC=3
-1	776769	.	TCCACAGCCAGGA	CC	420	PASS	AC=4
+1	737406	.	gttaat	G,gtt,C	141	PASS	AC=79,1,2
+1	765084	FOO	ttttg	T,TTTTGGGG	420	PASS	AC=43,3
+1	766593	.	CTGCTTTGTCTTatgTTTaaaaaTGT	AAAaaaAA	420	PASS	AC=3
+1	776769	.	TCCACAGCCAGGA	cc	420	PASS	AC=4
