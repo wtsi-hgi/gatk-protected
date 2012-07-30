@@ -33,8 +33,9 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.RefWalker;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.recalibration.RecalDatum;
-import org.broadinstitute.sting.utils.recalibration.RecalDatumTree;
+import org.broadinstitute.sting.utils.recalibration.RecalDatumNode;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.ext.*;
 import org.jgrapht.graph.DefaultEdge;
@@ -89,6 +90,24 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     @Argument(fullName = "prefix", shortName = "prefix", doc="", required = false)
     public String prefix = null;
 
+    @Argument(fullName = "operation", shortName = "op", doc="", required = false)
+    public Operation operation = Operation.JUST_VIEW;
+
+    @Argument(fullName = "pruneTarget", shortName = "pruneTarget", doc="", required = false)
+    public int pruneTarget = -1;
+
+    public enum Operation {
+        JUST_VIEW,
+        PRUNE_BY_DEPTH,
+        PRUNE_BY_PENALTY
+    }
+
+    @Override
+    public void initialize() {
+        if ( operation != Operation.JUST_VIEW && pruneTarget == -1 )
+            throw new UserException.BadArgumentValue("pruneTarget", "pruneTarget must be provided when operation isn't just to view");
+    }
+
     @Override
     public boolean isDone() {
         return true;
@@ -107,10 +126,12 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         return 0;
     }
 
-    final class ContextDatum extends RecalDatumTree {
+    final class ContextDatum extends RecalDatum {
+        public final static String ROOT_CONTEXT = "x";
+
         final String context;
 
-        ContextDatum(final String context, final long observations, final long errors ) {
+        public ContextDatum(final String context, final long observations, final long errors ) {
             super(observations, errors, (byte)qualToTake);
             this.context = context;
         }
@@ -132,29 +153,29 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         }
 
         public String getParentContext() {
-            return context.substring(0, size() - 1);
+            return size() == 1 ? ROOT_CONTEXT : context.substring(0, size() - 1);
         }
 
         public int size() { return context.length(); }
     }
 
-    final static class ContextDataLabelProvider implements VertexNameProvider<ContextDatum> {
+    final static class ContextDataLabelProvider implements VertexNameProvider<RecalDatumNode<ContextDatum>> {
         @Override
-        public String getVertexName(final ContextDatum contextDatum) {
+        public String getVertexName(final RecalDatumNode<ContextDatum> contextDatum) {
             return String.format("%s:Q%d:N%d:P%.2e",
-                    contextDatum.context,
-                    (int)contextDatum.getEmpiricalQuality(),
-                    (int)(Math.log10(contextDatum.getNumObservations()) * 10),
+                    contextDatum.getRecalDatum().context,
+                    (int)contextDatum.getRecalDatum().getEmpiricalQuality(),
+                    (int)(Math.log10(contextDatum.getRecalDatum().getNumObservations()) * 10),
                     contextDatum.getPenalty());
         }
     }
 
-    final static class ContextDataAttributeProvider implements ComponentAttributeProvider<ContextDatum> {
+    final static class ContextDataAttributeProvider implements ComponentAttributeProvider<RecalDatumNode<ContextDatum>> {
         @Override
-        public Map<String, String> getComponentAttributes(final ContextDatum contextDatum) {
+        public Map<String, String> getComponentAttributes(final RecalDatumNode<ContextDatum> contextDatum) {
             final Map<String, String> components = new HashMap<String, String>();
 
-            final double Q = contextDatum.getEmpiricalQuality();
+            final double Q = contextDatum.getRecalDatum().getEmpiricalQuality();
             final double Qscale = Math.min(Math.max(Q - 10, 0), 60) / 60.0; // from 0.0 -> 1.0
             final String color = heatmapColors(Qscale);
             components.put("color", color);
@@ -207,78 +228,126 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         final GATKReport recalibrationReport = new GATKReport(RECAL_FILE);
         final GATKReportTable optionalCovariates = recalibrationReport.getTable("RecalTable2");
         final List<ContextDatum> ourContexts = subsetToOurContexts(optionalCovariates);
-        final List<ContextDatum> allCombinations = createAllSubcontexts(ourContexts);
-        final List<ContextDatum> filteredCombinations = filterContexts(allCombinations);
-        final DirectedGraph<ContextDatum, DefaultEdge> contextTree = buildContextTree(filteredCombinations);
+        final RecalDatumNode<ContextDatum> root = createAllSubcontexts(ourContexts);
+
+        RecalDatumNode<ContextDatum> finalTree = filterContexts(root);
+        switch (operation) {
+            case PRUNE_BY_DEPTH:
+                finalTree = finalTree.pruneToDepth(pruneTarget);
+                break;
+            case PRUNE_BY_PENALTY:
+                finalTree = finalTree.pruneByPenalty(pruneTarget);
+                break;
+            case JUST_VIEW:
+                // all set
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected operation");
+        }
+
+
+        visualizeTree(finalTree);
+    }
+
+    private final void visualizeTree(final RecalDatumNode<ContextDatum> root) {
+        final DirectedGraph<RecalDatumNode<ContextDatum>, DefaultEdge> contextGraph = buildContextTree(root);
 
         // create the visualizer, and write out the DOT graph for us
-        final VertexNameProvider<ContextDatum> vertexIDProvider = new StringNameProvider<ContextDatum>();
-        final VertexNameProvider<ContextDatum> vertexLabelProvider = new ContextDataLabelProvider();
-        final EdgeNameProvider<ContextDatum> edgeNameProvider = null; // new StringEdgeNameProvider();
-        final ComponentAttributeProvider<ContextDatum> vertexAttributeProvider = new ContextDataAttributeProvider();
+        final VertexNameProvider<RecalDatumNode<ContextDatum>> vertexIDProvider = new StringNameProvider<RecalDatumNode<ContextDatum>>();
+        final VertexNameProvider<RecalDatumNode<ContextDatum>> vertexLabelProvider = new ContextDataLabelProvider();
+        final EdgeNameProvider<RecalDatumNode<ContextDatum>> edgeNameProvider = null; // new StringEdgeNameProvider();
+        final ComponentAttributeProvider<RecalDatumNode<ContextDatum>> vertexAttributeProvider = new ContextDataAttributeProvider();
         final DOTExporter exporter = new DOTExporter(vertexIDProvider, vertexLabelProvider, edgeNameProvider, vertexAttributeProvider, null);
 
-        exporter.export(new PrintWriter(out), contextTree);
+        exporter.export(new PrintWriter(out), contextGraph);
     }
 
-    private final List<ContextDatum> filterContexts(final List<ContextDatum> contexts) {
-        final List<ContextDatum> filtered = new ArrayList<ContextDatum>(contexts.size());
+    private final RecalDatumNode<ContextDatum> filterContexts(final RecalDatumNode<ContextDatum> node) {
+        return node;
 
-        for ( final ContextDatum cd : contexts )
-            if ( cd.size() <= maxDepth &&
-                 (prefix == null || cd.context.startsWith(prefix)) )
-                filtered.add(cd);
-
-        return filtered;
+        // TODO -- fixme
+//        final ContextDatum datum = node.getRecalDatum();
+//        if ( datum.size() <= maxDepth && (prefix == null || datum.context.startsWith(prefix)) ) {
+//            final Set<RecalDatumNode<ContextDatum>> filteredSubs = new HashSet<RecalDatumNode<ContextDatum>>();
+//            for ( final RecalDatumNode<ContextDatum> sub : node.getSubnodes() ) {
+//                final RecalDatumNode<ContextDatum> filteredSub = filterContexts(sub);
+//                if ( filteredSub != null )
+//                    filteredSubs.add(filteredSub);
+//            }
+//            return new RecalDatumNode<ContextDatum>(datum, filteredSubs);
+//        }
+//        else
+//            return null;
     }
 
-    private final List<ContextDatum> createAllSubcontexts(final List<ContextDatum> nContexts) {
-        final int n = nContexts.get(0).size();
+    // ---------------------------------------------------------------------------
+    //
+    // Go from a flat list of contexts to the full tree
+    //
+    // ---------------------------------------------------------------------------
 
-        if ( n == 0 ) // recursive case -- we are done
-            return Arrays.asList(new ContextDatum("x", 0, 0));
-        else {
-            final List<ContextDatum> oneLayerUp = createSubcontextsOnNextLayer(nContexts, n);
-            final List<ContextDatum> allUp = createAllSubcontexts(oneLayerUp);
+    private final RecalDatumNode<ContextDatum> createAllSubcontexts(final List<ContextDatum> nContexts) {
+        final Queue<RecalDatumNode<ContextDatum>> remaining = new LinkedList<RecalDatumNode<ContextDatum>>();
+        final Map<String, RecalDatumNode<ContextDatum>> contextToNodes = new HashMap<String, RecalDatumNode<ContextDatum>>();
+        RecalDatumNode<ContextDatum> root = null;
 
-            final List<ContextDatum> all = new ArrayList<ContextDatum>(nContexts);
-            all.addAll(allUp);
-            return all;
-        }
-    }
+        // initialize -- start with all of the contexts
+        for ( final ContextDatum cd : nContexts )
+            remaining.add(new RecalDatumNode<ContextDatum>(cd));
 
-    private final List<ContextDatum> createSubcontextsOnNextLayer(final List<ContextDatum> contexts, int contextSize) {
-        Map<String, ContextDatum> up = new HashMap<String, ContextDatum>(contexts.size());
+        while ( remaining.peek() != null ) {
+            final RecalDatumNode<ContextDatum> add = remaining.poll();
+            final ContextDatum cd = add.getRecalDatum();
 
-        for ( final ContextDatum cd : contexts ) {
             final String parentContext = cd.getParentContext();
-            ContextDatum parent = up.get(parentContext);
+            RecalDatumNode<ContextDatum> parent = contextToNodes.get(parentContext);
             if ( parent == null ) {
-                parent = new ContextDatum(parentContext, 0, 0);
-                up.put(parentContext, parent);
+                // haven't yet found parent, so make one, and enqueue it for processing
+                parent = new RecalDatumNode<ContextDatum>(new ContextDatum(parentContext, 0, 0));
+                contextToNodes.put(parentContext, parent);
+
+                if ( parentContext != ContextDatum.ROOT_CONTEXT )
+                    remaining.add(parent);
+                else
+                    root = parent;
             }
 
-            parent.incrementNumObservations(cd.getNumObservations());
-            parent.incrementNumMismatches(cd.getNumMismatches());
-            parent.addSubnode(cd);
+            parent.getRecalDatum().incrementNumObservations(cd.getNumObservations());
+            parent.getRecalDatum().incrementNumMismatches(cd.getNumMismatches());
+            parent.addSubnode(add);
         }
 
-        return new ArrayList<ContextDatum>(up.values());
+        if ( root == null )
+            throw new RuntimeException("root is unexpectedly null");
+
+        // set the fixed penalty everywhere in the tree, so that future modifications
+        // don't
+        root.calcAndSetFixedPenalty(true);
+
+        return root;
     }
 
-    private final DirectedGraph<ContextDatum, DefaultEdge> buildContextTree(final List<ContextDatum> ourContexts) {
-        DirectedGraph<ContextDatum, DefaultEdge> g = new SimpleDirectedGraph<ContextDatum, org.jgrapht.graph.DefaultEdge>(DefaultEdge.class);
 
-        for ( final ContextDatum cd : ourContexts ) {
-            // add the vertices
-            g.addVertex(cd);
+    // ---------------------------------------------------------------------------
+    //
+    // Functions to visualize trees
+    //
+    // ---------------------------------------------------------------------------
 
-            for ( final ContextDatum cd2 : ourContexts ) {
-                if ( cd.isParentContext(cd2) )
-                    g.addEdge(cd, cd2);
-            }
-        }
-
+    private final DirectedGraph<RecalDatumNode<ContextDatum>, DefaultEdge> buildContextTree(final RecalDatumNode<ContextDatum> root) {
+        final DirectedGraph<RecalDatumNode<ContextDatum>, DefaultEdge> g = new SimpleDirectedGraph<RecalDatumNode<ContextDatum>, org.jgrapht.graph.DefaultEdge>(DefaultEdge.class);
+        buildContextTreeRec(g, root);
         return g;
+    }
+
+    private final void buildContextTreeRec(final DirectedGraph<RecalDatumNode<ContextDatum>, DefaultEdge> g, final RecalDatumNode<ContextDatum> root) {
+        // add the vertices
+        g.addVertex(root);
+
+        for ( final RecalDatumNode<ContextDatum> sub : root.getSubnodes() ) {
+            g.addVertex(sub);
+            g.addEdge(root, sub);
+            buildContextTreeRec(g, sub);
+        }
     }
 }
