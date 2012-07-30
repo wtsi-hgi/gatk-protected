@@ -42,6 +42,7 @@ import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.SimpleDirectedGraph;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.*;
@@ -75,8 +76,11 @@ import java.util.*;
 public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     private final static Logger logger = Logger.getLogger(VisualizeContextTree.class);
 
-    @Output(doc="Write output to this BAM filename instead of STDOUT")
+    @Output(doc="Write analysis output to this file")
     PrintStream out;
+
+    @Argument(fullName = "treeOutPrefix", shortName = "treeOutPrefix", doc="Write tree output to files with this prefix", required = true)
+    public String treeOutputPrefix;
 
     @Argument(fullName = "recalFile", doc="", required = true)
     public File RECAL_FILE;
@@ -90,22 +94,19 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     @Argument(fullName = "prefix", shortName = "prefix", doc="", required = false)
     public String prefix = null;
 
-    @Argument(fullName = "operation", shortName = "op", doc="", required = false)
-    public Operation operation = Operation.JUST_VIEW;
+    @Argument(fullName = "operations", shortName = "ops", doc="", required = false)
+    public Set<Operation> operations = EnumSet.allOf(Operation.class);
 
-    @Argument(fullName = "pruneTarget", shortName = "pruneTarget", doc="", required = false)
-    public int pruneTarget = -1;
+    @Argument(fullName = "contextToKeep", shortName = "contextToKeep", doc="", required = false)
+    public String contextToKeep = "I";
+
+    @Argument(fullName = "pruneTarget", shortName = "pt", doc="", required = false)
+    public List<Integer> pruneTargets = Arrays.asList(4);
 
     public enum Operation {
-        JUST_VIEW,
+        KEEP_ORIGINAL,
         PRUNE_BY_DEPTH,
         PRUNE_BY_PENALTY
-    }
-
-    @Override
-    public void initialize() {
-        if ( operation != Operation.JUST_VIEW && pruneTarget == -1 )
-            throw new UserException.BadArgumentValue("pruneTarget", "pruneTarget must be provided when operation isn't just to view");
     }
 
     @Override
@@ -139,17 +140,6 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         @Override
         public String toString() {
             return context;
-        }
-
-        /**
-         * Are the context bases of this object a prefix of the those in cd2?
-         *
-         * @param cd2
-         * @return
-         */
-        public boolean isParentContext(final ContextDatum cd2) {
-            return (cd2.context.startsWith(context) && cd2.size() - 1 == size()) ||
-                    (cd2.size() == 1 && size() == 0);
         }
 
         public String getParentContext() {
@@ -213,7 +203,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
 
     private final boolean keepRow( final Object rowKey, final GATKReportTable optionalCovariates) {
         final List<String> columnsToCheck = Arrays.asList("QualityScore", "CovariateName", "EventType");
-        final List<Object> valuesToMatch = Arrays.asList((Object)Integer.toString(this.qualToTake), "Context", "I");
+        final List<Object> valuesToMatch = Arrays.asList((Object)Integer.toString(this.qualToTake), "Context", contextToKeep);
         for ( int i = 0; i < columnsToCheck.size(); i++ ) {
             final Object actual = optionalCovariates.get(rowKey, columnsToCheck.get(i));
             final Object expected = valuesToMatch.get(i);
@@ -230,26 +220,52 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         final List<ContextDatum> ourContexts = subsetToOurContexts(optionalCovariates);
         final RecalDatumNode<ContextDatum> root = createAllSubcontexts(ourContexts);
 
-        RecalDatumNode<ContextDatum> finalTree = filterContexts(root);
-        switch (operation) {
-            case PRUNE_BY_DEPTH:
-                finalTree = finalTree.pruneToDepth(pruneTarget);
-                break;
-            case PRUNE_BY_PENALTY:
-                finalTree = finalTree.pruneByPenalty(pruneTarget);
-                break;
-            case JUST_VIEW:
-                // all set
-                break;
-            default:
-                throw new IllegalArgumentException("Unexpected operation");
-        }
+        RecalDatumNode<ContextDatum> initialTree = filterContexts(root);
 
-
-        visualizeTree(finalTree);
+        analyzeAdaptiveTrees(initialTree);
     }
 
-    private final void visualizeTree(final RecalDatumNode<ContextDatum> root) {
+    /**
+     * loop over the prune targets, collecting information and writing out the analysis output
+     *
+     * @param initialTree
+     */
+    private void analyzeAdaptiveTrees(RecalDatumNode<ContextDatum> initialTree) {
+        GATKReport report = GATKReport.newSimpleReport("AdaptiveContextAnalysis", "operation", "pruneTarget", "size", "numLeafs", "minDepth", "maxDepth", "penalty");
+
+        for ( final int pruneTarget : pruneTargets ) {
+            for ( final Operation operation : operations ) {
+                RecalDatumNode<ContextDatum> prunedTree = null;
+                switch (operation) {
+                    case KEEP_ORIGINAL:
+                        prunedTree = initialTree;
+                        break;
+                    case PRUNE_BY_DEPTH:
+                        final double potentialDepth = Math.log10(pruneTarget) / Math.log10(4);
+                        if ( Math.floor(potentialDepth) == potentialDepth ) { // we are divisable by 4
+                            final int depth = (int)Math.floor(potentialDepth) + 1;
+                            prunedTree = initialTree.pruneToDepth(depth);
+                        }
+                        break;
+                    case PRUNE_BY_PENALTY:
+                        prunedTree = initialTree.pruneByPenalty(pruneTarget+1);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unexpected operation");
+                }
+
+                if ( prunedTree != null ) {
+                    report.addRow(operation, pruneTarget, prunedTree.size(), prunedTree.numLeaves(), prunedTree.minDepth(), prunedTree.maxDepth(), prunedTree.totalPenalty());
+                    final String name = String.format(".prune_op_%s.prune_target_%d", operation, pruneTarget);
+                    visualizeTree(name, prunedTree);
+                }
+            }
+        }
+
+        report.print(out);
+    }
+
+    private final void visualizeTree(final String outputName, final RecalDatumNode<ContextDatum> root) {
         final DirectedGraph<RecalDatumNode<ContextDatum>, DefaultEdge> contextGraph = buildContextTree(root);
 
         // create the visualizer, and write out the DOT graph for us
@@ -259,7 +275,14 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         final ComponentAttributeProvider<RecalDatumNode<ContextDatum>> vertexAttributeProvider = new ContextDataAttributeProvider();
         final DOTExporter exporter = new DOTExporter(vertexIDProvider, vertexLabelProvider, edgeNameProvider, vertexAttributeProvider, null);
 
-        exporter.export(new PrintWriter(out), contextGraph);
+        final File dest = new File(treeOutputPrefix + "." + outputName + ".dot");
+        try {
+            final PrintWriter out = new PrintWriter(new PrintStream(dest));
+            exporter.export(out, contextGraph);
+            out.close();
+        } catch ( FileNotFoundException e ) {
+            throw new UserException.CouldNotCreateOutputFile(dest, e);
+        }
     }
 
     private final RecalDatumNode<ContextDatum> filterContexts(final RecalDatumNode<ContextDatum> node) {
