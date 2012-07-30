@@ -107,12 +107,14 @@ public class CGVarCodec extends AsciiFeatureCodec<VariantContext> {
             alt = Allele.create(array[8], false);
             end = start;
         } else if ( type.equals(INSERTION_TYPE) ) {
-            ref = Allele.create(Allele.NULL_ALLELE_STRING, true);
-            alt = Allele.create(array[7], false);
+            // We need to give it an arbitrary reference padding base
+            ref = Allele.create("N", true);
+            alt = Allele.create("N" + array[7], false);
             end = start;
         } else if ( type.equals(DELETION_TYPE) ) {
-            ref = Allele.create(array[7], true);
-            alt = Allele.create(Allele.NULL_ALLELE_STRING, false);
+            // We need to give it an arbitrary reference padding base
+            ref = Allele.create("N" + array[7], true);
+            alt = Allele.create("N", false);
             end = start + ref.length();
         //} else if ( type.equals(REF_TYPE) ) {
         //    ref = Allele.create("N", true); // ref bases aren't accurate
