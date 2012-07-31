@@ -70,11 +70,6 @@ public class GreedyGLGenotyper extends RodWalker<Integer, Integer>  implements T
             VariantContextBuilder builder = new VariantContextBuilder("UG_call", loc.getContig(), loc.getStart(), loc.getStop(), vc.getAlleles());
             builder.log10PError(vc.getPhredScaledQual()/-10.0);
             builder.filters(vc.getFilters());
-            if ( vc.hasReferenceBaseForIndel() ) {
-                builder.referenceBaseForIndel(vc.getReferenceBaseForIndel());
-            } else {
-                builder.referenceBaseForIndel(ref.getBase());
-            }
             builder.genotypes(genotypes);
             builder.attributes(vc.getAttributes());
             VariantContext vcCall = builder.make();

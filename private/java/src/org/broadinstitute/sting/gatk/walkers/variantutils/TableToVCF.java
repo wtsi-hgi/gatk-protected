@@ -98,16 +98,15 @@ public class TableToVCF extends RodWalker<VariantContext,Integer> {
             end = 1+featureLoc.getStart();
         } else if ( type.equals(VariantType.DELETION) ) {
             int size = Integer.parseInt(features.get(1));
-            byte[] refBase = new byte[size];
-            for ( int idx = 1; idx <= size; idx++ ) {
-                refBase[idx-1] = reference.getBases()[50+idx];
-            }
-            ref = Allele.create(refBase,true);
-            alt = Allele.create(Allele.NULL_ALLELE_STRING,false);
+            final byte[] refBase = Arrays.copyOfRange(reference.getBases(), 50, 50 + size + 1);
+            ref = Allele.create(refBase, true);
+            alt = Allele.create(reference.getBase(), false);
             end = featureLoc.getStart()+size    ;
         } else if ( type.equals(VariantType.INSERTION) ) {
-            alt = Allele.create(features.get(3).getBytes());
-            ref = Allele.create(Allele.NULL_ALLELE_STRING,true);
+            StringBuilder sb = new StringBuilder(reference.getBase());
+            sb.append(features.get(3).getBytes());
+            alt = Allele.create(sb.toString());
+            ref = Allele.create(reference.getBase(), true);
             end = featureLoc.getStart();
         } else { // MNP
             int size = Integer.parseInt(features.get(1));
