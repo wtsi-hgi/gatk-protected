@@ -127,9 +127,8 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         return 0;
     }
 
+    public final static String ROOT_CONTEXT = "x";
     final class ContextDatum extends RecalDatum {
-        public final static String ROOT_CONTEXT = "x";
-
         final String context;
 
         public ContextDatum(final String context, final long observations, final long errors ) {
@@ -329,7 +328,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
                 parent = new RecalDatumNode<ContextDatum>(new ContextDatum(parentContext, 0, 0));
                 contextToNodes.put(parentContext, parent);
 
-                if ( parentContext != ContextDatum.ROOT_CONTEXT )
+                if ( parentContext != ROOT_CONTEXT )
                     remaining.add(parent);
                 else
                     root = parent;
