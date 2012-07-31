@@ -23,7 +23,7 @@ class UGManyBAMsPerformance extends QScript {
   val bamCounts: List[Int] = List(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096)
 
   @Argument(shortName = "memVal", doc="The list of given RAM values (in GB) to test", required=false)
-  val memoryValues: List[Int] = List(1, 2, 4, 8, 16, 32)
+  val memoryValues: List[Double] = List(1, 2, 4, 8, 16, 32)
 
   @Argument(shortName = "perBAM", doc="How many samples to include per combined BAM (1 to skip the combination step)", required=false)
   val samplesPerBAM: Int = 1
@@ -92,7 +92,7 @@ class UGManyBAMsPerformance extends QScript {
 
       for (givenMem <- memoryValues) {
         val cl = new CountLoci() with UNIVERSAL_GATK_ARGS
-        val clOutFile = "Count_%d_BAMs_%d_GB.txt".format(numBAMs, givenMem)
+        val clOutFile = "Count_%d_BAMs_%.1f_GB.txt".format(numBAMs, givenMem.toFloat)
         cl.out = new File(clOutFile)
         cl.memoryLimit = givenMem
         cl.input_file = inputBAMsList
@@ -103,7 +103,7 @@ class UGManyBAMsPerformance extends QScript {
         add(cl)
 
         val ug = new UnifiedGenotyper() with UG_ARGS
-        val ugOutFile = "Performance_%d_BAMs_%d_GB.vcf".format(numBAMs, givenMem)
+        val ugOutFile = "Performance_%d_BAMs_%.1f_GB.vcf".format(numBAMs, givenMem.toFloat)
         ug.out = new File(ugOutFile)
         ug.memoryLimit = givenMem
         ug.input_file = inputBAMsList
