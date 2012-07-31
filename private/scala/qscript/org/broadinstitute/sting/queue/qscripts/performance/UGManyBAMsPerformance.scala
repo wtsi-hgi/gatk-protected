@@ -28,6 +28,9 @@ class UGManyBAMsPerformance extends QScript {
   @Argument(shortName = "perBAM", doc="How many samples to include per combined BAM (1 to skip the combination step)", required=false)
   val samplesPerBAM: Int = 1
 
+  @Argument(shortName = "nt", doc="How many threads to use (1 for single-threaded)", required=false)
+  val numThreads: Int = 1
+
   val referenceFile = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
   val dbsnpFile = new File("/humgen/gsa-pipeline/resources/b37/v4/dbsnp_135.b37.vcf")
 
@@ -36,6 +39,7 @@ class UGManyBAMsPerformance extends QScript {
     this.reference_sequence = referenceFile
     this.intervalsString = Seq(interval)
     this.downsample_to_coverage = 60
+    this.num_threads = numThreads
   }
 
   trait PR_ARGS extends PrintReads with UNIVERSAL_GATK_ARGS {
