@@ -813,11 +813,8 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         if ( samples == null || samples.isEmpty() )
             return vc;
 
-        final VariantContext sub;
-        if ( excludeNonVariants )
-            sub = vc.subContextFromSamples(samples, true); // strip out the alternate alleles that aren't being used
-        else
-            sub = vc.subContextFromSamples(samples, false);
+        // strip out the alternate alleles that aren't being used, if requested
+        final VariantContext sub = vc.subContextFromSamples(samples, excludeNonVariants);
         VariantContextBuilder builder = new VariantContextBuilder(sub);
 
         GenotypesContext newGC = sub.getGenotypes();
