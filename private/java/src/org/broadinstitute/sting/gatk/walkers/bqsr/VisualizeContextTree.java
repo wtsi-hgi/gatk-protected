@@ -85,9 +85,6 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     @Argument(fullName = "recalFile", doc="", required = true)
     public File RECAL_FILE;
 
-    @Argument(fullName = "Qual", shortName = "Q", doc="Quality scores to visualize", required = false)
-    public int qualToTake = 45;
-
     @Argument(fullName = "maxDepth", shortName = "maxDepth", doc="Quality scores to visualize", required = false)
     public int maxDepth = 4;
 
@@ -97,8 +94,8 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     @Argument(fullName = "operations", shortName = "ops", doc="", required = false)
     public Set<Operation> operations = EnumSet.allOf(Operation.class);
 
-    @Argument(fullName = "contextToKeep", shortName = "contextToKeep", doc="", required = false)
-    public String contextToKeep = "I";
+    @Argument(fullName = "contextType", shortName = "C", doc="", required = false)
+    public List<String> contextTypes = Arrays.asList("I", "M", "D");
 
     @Argument(fullName = "pruneTarget", shortName = "pt", doc="", required = false)
     public List<Integer> pruneTargets = Arrays.asList(4);
@@ -132,7 +129,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         final String context;
 
         public ContextDatum(final String context, final long observations, final long errors ) {
-            super(observations, errors, (byte)qualToTake);
+            super(observations, errors, (byte)30); // TODO -- should use default value?
             this.context = context;
         }
 
@@ -185,11 +182,11 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         //return String.format("#%2x%2x%2x", (int)R, (int)G, (int)B);
     }
 
-    private final List<ContextDatum> subsetToOurContexts(final GATKReportTable optionalCovariates) {
+    private final List<ContextDatum> subsetToOurContexts(final GATKReportTable optionalCovariates, final String contextType) {
         final List<ContextDatum> toKeep = new ArrayList<ContextDatum>();
 
         for ( Object rowKey : optionalCovariates.getRowIDs() ) {
-            if ( keepRow(rowKey, optionalCovariates) ) {
+            if ( keepRow(rowKey, optionalCovariates, contextType) ) {
                 final String context = (String)optionalCovariates.get(rowKey, "CovariateValue");
                 final long observations = (Long)optionalCovariates.get(rowKey, "Observations");
                 final long errors = (Long)optionalCovariates.get(rowKey, "Errors");
@@ -200,9 +197,10 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         return toKeep;
     }
 
-    private final boolean keepRow( final Object rowKey, final GATKReportTable optionalCovariates) {
+    private final boolean keepRow( final Object rowKey, final GATKReportTable optionalCovariates, final String contextType) {
         final List<String> columnsToCheck = Arrays.asList("QualityScore", "CovariateName", "EventType");
-        final List<Object> valuesToMatch = Arrays.asList((Object)Integer.toString(this.qualToTake), "Context", contextToKeep);
+        final int qualToTake = contextType.equals("M") ? 30 : 45; // TODO fixme!
+        final List<Object> valuesToMatch = Arrays.asList((Object)Integer.toString(qualToTake), "Context", contextType);
         for ( int i = 0; i < columnsToCheck.size(); i++ ) {
             final Object actual = optionalCovariates.get(rowKey, columnsToCheck.get(i));
             final Object expected = valuesToMatch.get(i);
@@ -216,12 +214,15 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     public void onTraversalDone(final Integer result) {
         final GATKReport recalibrationReport = new GATKReport(RECAL_FILE);
         final GATKReportTable optionalCovariates = recalibrationReport.getTable("RecalTable2");
-        final List<ContextDatum> ourContexts = subsetToOurContexts(optionalCovariates);
-        final RecalDatumNode<ContextDatum> root = createAllSubcontexts(ourContexts);
 
-        RecalDatumNode<ContextDatum> initialTree = filterContexts(root);
+        for ( final String contextType : contextTypes ) {
+            final List<ContextDatum> ourContexts = subsetToOurContexts(optionalCovariates, contextType);
+            final RecalDatumNode<ContextDatum> root = createAllSubcontexts(ourContexts);
 
-        analyzeAdaptiveTrees(initialTree);
+            RecalDatumNode<ContextDatum> initialTree = filterContexts(root);
+
+            analyzeAdaptiveTrees(initialTree, contextType);
+        }
     }
 
     /**
@@ -229,8 +230,8 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
      *
      * @param initialTree
      */
-    private void analyzeAdaptiveTrees(RecalDatumNode<ContextDatum> initialTree) {
-        GATKReport report = GATKReport.newSimpleReport("AdaptiveContextAnalysis", "operation", "pruneTarget", "size", "numLeafs", "minDepth", "maxDepth", "penalty");
+    private void analyzeAdaptiveTrees(final RecalDatumNode<ContextDatum> initialTree, final String contextType) {
+        GATKReport report = GATKReport.newSimpleReport("AdaptiveContextAnalysis", "contextType", "operation", "pruneTarget", "size", "numLeafs", "minDepth", "maxDepth", "penalty");
 
         for ( final int pruneTarget : pruneTargets ) {
             for ( final Operation operation : operations ) {
@@ -254,8 +255,8 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
                 }
 
                 if ( prunedTree != null ) {
-                    report.addRow(operation, pruneTarget, prunedTree.size(), prunedTree.numLeaves(), prunedTree.minDepth(), prunedTree.maxDepth(), prunedTree.totalPenalty());
-                    final String name = String.format(".prune_op_%s.prune_target_%d", operation, pruneTarget);
+                    report.addRow(contextType, operation, pruneTarget, prunedTree.size(), prunedTree.numLeaves(), prunedTree.minDepth(), prunedTree.maxDepth(), prunedTree.totalPenalty());
+                    final String name = String.format("contextType_%s.prune_op_%s.prune_target_%d", contextType, operation, pruneTarget);
                     visualizeTree(name, prunedTree);
                 }
             }
