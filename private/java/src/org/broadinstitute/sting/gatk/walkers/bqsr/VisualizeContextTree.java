@@ -80,8 +80,8 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     @Argument(fullName = "operations", shortName = "ops", doc="", required = false)
     public Set<Operation> operations = EnumSet.allOf(Operation.class);
 
-    @Argument(fullName = "contextType", shortName = "C", doc="", required = false)
-    public List<String> contextTypes = Arrays.asList("I", "M", "D");
+    @Argument(fullName = "eventType", shortName = "eventType", doc="", required = false)
+    public List<String> eventTypes = Arrays.asList("I", "M", "D");
 
     @Argument(fullName = "pruneTarget", shortName = "pt", doc="", required = false)
     public List<Integer> pruneTargets = Arrays.asList(4);
@@ -95,9 +95,11 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     @Argument(fullName = "qualForMVisualization", shortName = "qualForMVisualization", doc="", required = false)
     public int QUAL_FOR_M_VISUALIZATION = 30;
 
-
     @Argument(fullName = "writePartialContexts", shortName = "writePartialContexts", doc="", required = false)
     public boolean WRITE_PARTIAL_CONTEXTS = false;
+
+    @Argument(fullName = "nContext", shortName = "nContext", doc="", required = false)
+    public boolean DEBUG_CONTEXT_WITH_N = false;
 
     public enum Mode {
         ANALYZE,
@@ -228,8 +230,8 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
 
         final AdaptiveTreeAnalysis analysisReport = new AdaptiveTreeAnalysis();
         if ( MODE == Mode.ANALYZE) {
-            for ( final String contextType : contextTypes ) {
-                final RecalDataSubset selectInfo = new RecalDataSubset(contextType);
+            for ( final String eventType : eventTypes) {
+                final RecalDataSubset selectInfo = new RecalDataSubset(eventType);
                 final List<ContextDatum> ourContexts = subsetToOurContexts(optionalCovariates, selectInfo);
                 final RecalDatumNode<ContextDatum> root = AdaptiveContext.createTreeFromFlatContexts(ourContexts);
 
@@ -259,7 +261,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
 
                 // write out the full tree to the new BQSR report
                 final RecalDatumNode<ContextDatum> fullTree =
-                        WRITE_PARTIAL_CONTEXTS ? pruned : AdaptiveContext.fillToDepth(pruned, root.maxDepth() - 1);
+                        WRITE_PARTIAL_CONTEXTS ? pruned : AdaptiveContext.fillToDepth(pruned, root.maxDepth() - 1, DEBUG_CONTEXT_WITH_N);
                 addContextsToReport(updatedReport, selectInfo, fullTree);
             }
 
@@ -419,6 +421,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
 
         for ( final int pruneTarget : pruneTargets ) {
             for ( final Operation operation : operations ) {
+                logger.info("Analyzing " + selectInfo + " with pruneType " + pruneTarget + " and operation " + operation);
                 RecalDatumNode<ContextDatum> prunedTree = applyOpToTree(operation, pruneTarget, initialTree);
 
                 if ( prunedTree != null ) {
