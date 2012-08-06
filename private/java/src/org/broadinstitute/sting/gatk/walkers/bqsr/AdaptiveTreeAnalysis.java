@@ -18,7 +18,9 @@ public final class AdaptiveTreeAnalysis {
     private final GATKReport report;
 
     public AdaptiveTreeAnalysis() {
-        report = GATKReport.newSimpleReport("AdaptiveContextAnalysis", "QualityScore", "contextType", "operation", "pruneTarget", "size", "numLeafs", "minDepth", "maxDepth", "penalty");
+        report = GATKReport.newSimpleReport("AdaptiveContextAnalysis", "QualityScore", "eventType", "operation",
+                "pruneTarget", "size", "numLeafs", "minDepth",
+                "maxDepth", "penalty", "maxPenalty", "minPenalty");
     }
 
     /**
@@ -35,7 +37,8 @@ public final class AdaptiveTreeAnalysis {
                     final int pruneTarget,
                     final RecalDatumNode<ContextDatum> prunedTree) {
         report.addRow(qual, contextType, operation, pruneTarget, prunedTree.size(), prunedTree.numLeaves(),
-                prunedTree.minDepth(), prunedTree.maxDepth(), prunedTree.totalPenalty());
+                prunedTree.minDepth(), prunedTree.maxDepth(),
+                prunedTree.totalPenalty(), prunedTree.maxPenalty(), prunedTree.minPenalty());
     }
 
 

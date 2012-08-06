@@ -63,7 +63,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     PrintStream out;
 
     @Argument(fullName = "treeOutPrefix", shortName = "treeOutPrefix", doc="Write tree output to files with this prefix", required = false)
-    public String treeOutputPrefix;
+    public String treeOutputPrefix = "";
 
     @Input(fullName = "recalFile", doc="", required = true)
     public File RECAL_FILE;
@@ -80,8 +80,8 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     @Argument(fullName = "operations", shortName = "ops", doc="", required = false)
     public Set<Operation> operations = EnumSet.allOf(Operation.class);
 
-    @Argument(fullName = "contextType", shortName = "C", doc="", required = false)
-    public List<String> contextTypes = Arrays.asList("I", "M", "D");
+    @Argument(fullName = "eventType", shortName = "eventType", doc="", required = false)
+    public List<String> eventTypes = Arrays.asList("I", "M", "D");
 
     @Argument(fullName = "pruneTarget", shortName = "pt", doc="", required = false)
     public List<Integer> pruneTargets = Arrays.asList(4);
@@ -95,9 +95,11 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     @Argument(fullName = "qualForMVisualization", shortName = "qualForMVisualization", doc="", required = false)
     public int QUAL_FOR_M_VISUALIZATION = 30;
 
-
     @Argument(fullName = "writePartialContexts", shortName = "writePartialContexts", doc="", required = false)
     public boolean WRITE_PARTIAL_CONTEXTS = false;
+
+    @Argument(fullName = "nContext", shortName = "nContext", doc="", required = false)
+    public boolean DEBUG_CONTEXT_WITH_N = false;
 
     public enum Mode {
         ANALYZE,
@@ -142,19 +144,27 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
      * @return
      */
     private Set<RecalDataSubset> getQualAndEventTypesForContext(final GATKReportTable optionalCovariates) {
-        final Set<RecalDataSubset> all = new HashSet<RecalDataSubset>();
+        Set<RecalDataSubset> all = new HashSet<RecalDataSubset>();
         for ( int i = 0; i < optionalCovariates.getNumRows(); i++ ) {
-            final String rg = (String)optionalCovariates.get(i, "ReadGroup");
-            final int qual = Integer.valueOf((String)optionalCovariates.get(i, "QualityScore"));
-            final String eventType = (String)optionalCovariates.get(i, "EventType");
-            all.add(new RecalDataSubset(rg, qual, eventType));
+            if ( optionalCovariates.get(i, "CovariateName").equals("Context") ) {
+                final String rg = (String)optionalCovariates.get(i, "ReadGroup");
+                final int qual = Integer.valueOf((String)optionalCovariates.get(i, "QualityScore"));
+                final String eventType = (String)optionalCovariates.get(i, "EventType");
+                all.add(new RecalDataSubset(rg, qual, eventType));
+            }
         }
+
+        // sort all by transforming it into a treeset
+        all = new TreeSet<RecalDataSubset>(all);
 
         for ( final RecalDataSubset qe : all ) {
             logger.info("Found QE " + qe);
         }
 
-        return TEST ? Collections.singleton(new RecalDataSubset(all.iterator().next().rg, 45, "I")) : all;
+        if ( TEST )
+            return Collections.singleton(new RecalDataSubset(all.iterator().next().rg, 45, "I"));
+        else
+            return all;
     }
 
     /**
@@ -213,13 +223,15 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     public void onTraversalDone(final Integer result) {
         // TODO -- split into two walkers
 
+        logger.info("Reading recalibration report " + RECAL_FILE);
         final GATKReport recalibrationReport = new GATKReport(RECAL_FILE);
         final GATKReportTable optionalCovariates = recalibrationReport.getTable("RecalTable2");
+        logger.info(" ... done");
 
         final AdaptiveTreeAnalysis analysisReport = new AdaptiveTreeAnalysis();
         if ( MODE == Mode.ANALYZE) {
-            for ( final String contextType : contextTypes ) {
-                final RecalDataSubset selectInfo = new RecalDataSubset(contextType);
+            for ( final String eventType : eventTypes) {
+                final RecalDataSubset selectInfo = new RecalDataSubset(eventType);
                 final List<ContextDatum> ourContexts = subsetToOurContexts(optionalCovariates, selectInfo);
                 final RecalDatumNode<ContextDatum> root = AdaptiveContext.createTreeFromFlatContexts(ourContexts);
 
@@ -239,10 +251,17 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
                 final RecalDatumNode<ContextDatum> root = AdaptiveContext.createTreeFromFlatContexts(ourContext);
                 final RecalDatumNode<ContextDatum> pruned = root.pruneByPenalty(pruneTarget+1);
 
-                final RecalDatumNode<ContextDatum> fullTree =
-                        WRITE_PARTIAL_CONTEXTS ? pruned : AdaptiveContext.fillToDepth(pruned, root.maxDepth() - 1);
-
+                // write out the analysis of the pruning by penalty
                 analysisReport.add(selectInfo.qual, selectInfo.eventType, Operation.PRUNE_BY_PENALTY, pruneTarget, pruned);
+
+                // and for comparison purposes the pruning by depth
+                final RecalDatumNode<ContextDatum> prunedByDepth = applyOpToTree(Operation.PRUNE_BY_DEPTH, pruneTarget, root);
+                if ( prunedByDepth != null )
+                    analysisReport.add(selectInfo.qual, selectInfo.eventType, Operation.PRUNE_BY_DEPTH, pruneTarget, prunedByDepth);
+
+                // write out the full tree to the new BQSR report
+                final RecalDatumNode<ContextDatum> fullTree =
+                        WRITE_PARTIAL_CONTEXTS ? pruned : AdaptiveContext.fillToDepth(pruned, root.maxDepth() - 1, DEBUG_CONTEXT_WITH_N);
                 addContextsToReport(updatedReport, selectInfo, fullTree);
             }
 
@@ -265,7 +284,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
      * All of the other information in the BSQR context table associated with the context covariates
      * we've turned into a tree.  Needed when writing the adaptive tree back out again.
      */
-    private class RecalDataSubset {
+    private class RecalDataSubset implements Comparable<RecalDataSubset> {
         final String rg;
         final int qual;
         final String eventType;
@@ -282,6 +301,18 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
             this.eventType = eventType;
         }
 
+        @Override
+        public int compareTo(RecalDataSubset recalDataSubset) {
+            int cmp = new Integer(qual).compareTo(recalDataSubset.qual);
+
+            if ( cmp == 0 )
+                cmp = eventType.compareTo(recalDataSubset.eventType);
+
+            if ( cmp == 0 )
+                cmp = rg.compareTo(recalDataSubset.eventType);
+
+            return cmp;
+        }
 
         @Override
         public String toString() {
@@ -361,6 +392,26 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         }
     }
 
+    private RecalDatumNode<ContextDatum> applyOpToTree(final Operation operation,
+                                                       final int pruneTarget,
+                                                       final RecalDatumNode<ContextDatum> initialTree) {
+        switch (operation) {
+            case KEEP_ORIGINAL:
+                return initialTree;
+            case PRUNE_BY_DEPTH:
+                final double potentialDepth = Math.log10(pruneTarget) / Math.log10(4);
+                if ( Math.floor(potentialDepth) == potentialDepth ) { // we are divisable by 4
+                    final int depth = (int)Math.floor(potentialDepth) + 1;
+                    return initialTree.pruneToDepth(depth);
+                } else
+                    return null;
+            case PRUNE_BY_PENALTY:
+                return initialTree.pruneByPenalty(pruneTarget+1);
+            default:
+                throw new IllegalArgumentException("Unexpected operation");
+        }
+    }
+
     /**
      * loop over the prune targets, collecting information in analysisReport
      */
@@ -370,24 +421,8 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
 
         for ( final int pruneTarget : pruneTargets ) {
             for ( final Operation operation : operations ) {
-                RecalDatumNode<ContextDatum> prunedTree = null;
-                switch (operation) {
-                    case KEEP_ORIGINAL:
-                        prunedTree = initialTree;
-                        break;
-                    case PRUNE_BY_DEPTH:
-                        final double potentialDepth = Math.log10(pruneTarget) / Math.log10(4);
-                        if ( Math.floor(potentialDepth) == potentialDepth ) { // we are divisable by 4
-                            final int depth = (int)Math.floor(potentialDepth) + 1;
-                            prunedTree = initialTree.pruneToDepth(depth);
-                        }
-                        break;
-                    case PRUNE_BY_PENALTY:
-                        prunedTree = initialTree.pruneByPenalty(pruneTarget+1);
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unexpected operation");
-                }
+                logger.info("Analyzing " + selectInfo + " with pruneType " + pruneTarget + " and operation " + operation);
+                RecalDatumNode<ContextDatum> prunedTree = applyOpToTree(operation, pruneTarget, initialTree);
 
                 if ( prunedTree != null ) {
                     analysisReport.add(selectInfo.qual, selectInfo.eventType, operation, pruneTarget, prunedTree);
@@ -421,7 +456,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         final ComponentAttributeProvider<RecalDatumNode<ContextDatum>> vertexAttributeProvider = new ContextDataAttributeProvider();
         final DOTExporter exporter = new DOTExporter(vertexIDProvider, vertexLabelProvider, edgeNameProvider, vertexAttributeProvider, null);
 
-        final File dest = new File(treeOutputPrefix + "." + outputName + ".dot");
+        final File dest = new File(treeOutputPrefix + outputName + ".dot");
         try {
             final PrintWriter out = new PrintWriter(new PrintStream(dest));
             exporter.export(out, contextGraph);

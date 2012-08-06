@@ -18,11 +18,31 @@ public final class ContextDatum extends RecalDatum {
 
     @Override
     public String toString() {
-        return context == ROOT_CONTEXT ? "x" : context;
+        return isRootContext() ? "x" : context;
     }
 
+    /**
+     * What's the parent context of this ContextDatum?  The parent is the context excluding
+     * the last base of this parent's context.  Because contexts run from 0 [more context] to N [least]
+     * the parent context is the substring from 1 to N.
+     *
+     * getParent(ACGT) => CGT
+     * getParent(CGT) => GT
+     * getParent(GT) => T
+     * getParent(T) => ROOT_CONTEXT
+     * getParent(ROOT_CONTEXT) => IllegalArgumentException
+     *
+     * @return
+     */
     public String getParentContext() {
-        return size() == 1 ? ROOT_CONTEXT : context.substring(0, size() - 1);
+        if ( isRootContext() )
+            throw new IllegalArgumentException("cannot get parent of root context");
+        else
+            return size() == 1 ? ROOT_CONTEXT : context.substring(1, size());
+    }
+
+    public boolean isRootContext() {
+        return context.equals(ROOT_CONTEXT);
     }
 
     public int size() { return context.length(); }
