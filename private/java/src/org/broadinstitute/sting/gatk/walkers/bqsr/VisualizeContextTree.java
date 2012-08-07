@@ -83,8 +83,14 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
     @Argument(fullName = "eventType", shortName = "eventType", doc="", required = false)
     public List<String> eventTypes = Arrays.asList("I", "M", "D");
 
-    @Argument(fullName = "pruneTarget", shortName = "pt", doc="", required = false)
-    public List<Integer> pruneTargets = Arrays.asList(4);
+    @Argument(fullName = "maxPTarget", shortName = "mpt", doc="The maximum P-value to allow when pruning to Pvalue, as phred-scaled value (i.e., 30 means 10^-3)", required = false)
+    public List<Integer> maxPTargets = Arrays.asList(30);
+
+    @Argument(fullName = "numNodesTarget", shortName = "nnt", doc="The maximum number of nodes to allow in the tree when pruning to num nodes", required = false)
+    public List<Integer> numNodesTargets = Arrays.asList(64);
+
+    @Argument(fullName = "maxDepthTarget", shortName = "mdt", doc="The maximum depth allowed in the tree when pruning to depth", required = false)
+    public List<Integer> maxDepthTargets = Arrays.asList(3);
 
     @Argument(fullName = "mode", shortName = "mode", doc="", required = false)
     public Mode MODE = Mode.ANALYZE;
@@ -108,9 +114,21 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
 
     public enum Operation {
         KEEP_ORIGINAL,
-        PRUNE_BY_DEPTH,
-        PRUNE_BY_PENALTY
+        PRUNE_TO_DEPTH,
+        PRUNE_TO_NUM_NODES_BY_PENALTY,
+        PRUNE_TO_PENALTY
     }
+
+    private List<Integer> getPruneTargets(final Operation operation) {
+        switch ( operation ) {
+            case KEEP_ORIGINAL: return Arrays.asList(0); // doesn't matter
+            case PRUNE_TO_DEPTH: return maxDepthTargets;
+            case PRUNE_TO_NUM_NODES_BY_PENALTY: return numNodesTargets;
+            case PRUNE_TO_PENALTY: return maxPTargets;
+            default: throw new IllegalArgumentException("Expected operation " + operation);
+        }
+    }
+
 
     @Override
     public void initialize() {
@@ -240,24 +258,29 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
                 analyzeAdaptiveTrees(selectInfo, analysisReport, initialTree);
             }
         } else if ( MODE == Mode.UPDATE ) {
+            if ( operations.size() != 1 )
+                throw new UserException.BadArgumentValue("operations", "Only one operation allowed with UPDATE mode");
+
+            final Operation operation = operations.iterator().next();
+            final List<Integer> pruneTargets = getPruneTargets(operation);
             if ( pruneTargets.size() != 1 )
                 throw new UserException.BadArgumentValue("pruneTarget", "Only one pruneTarget allowed with UPDATE mode");
+            final int pruneTarget = pruneTargets.get(0);
 
             final GATKReport updatedReport = startUpdatedReport(recalibrationReport);
-            final int pruneTarget = pruneTargets.get(0);
             for ( final RecalDataSubset selectInfo : getQualAndEventTypesForContext(optionalCovariates) ) {
                 logger.info("Processing recal data " + selectInfo);
                 final List<ContextDatum> ourContext = subsetToOurContexts(optionalCovariates, selectInfo);
                 final RecalDatumNode<ContextDatum> root = AdaptiveContext.createTreeFromFlatContexts(ourContext);
-                final RecalDatumNode<ContextDatum> pruned = root.pruneByPenalty(pruneTarget+1);
+                final RecalDatumNode<ContextDatum> pruned = applyOpToTree(operation, pruneTarget, root);
 
-                // write out the analysis of the pruning by penalty
-                analysisReport.add(selectInfo.qual, selectInfo.eventType, Operation.PRUNE_BY_PENALTY, pruneTarget, pruned);
+                // write out the analysis of the pruning as requested
+                analysisReport.add(selectInfo.qual, selectInfo.eventType, operation, pruneTarget, pruned);
 
                 // and for comparison purposes the pruning by depth
-                final RecalDatumNode<ContextDatum> prunedByDepth = applyOpToTree(Operation.PRUNE_BY_DEPTH, pruneTarget, root);
+                final RecalDatumNode<ContextDatum> prunedByDepth = applyOpToTree(Operation.PRUNE_TO_DEPTH, pruneTarget, root);
                 if ( prunedByDepth != null )
-                    analysisReport.add(selectInfo.qual, selectInfo.eventType, Operation.PRUNE_BY_DEPTH, pruneTarget, prunedByDepth);
+                    analysisReport.add(selectInfo.qual, selectInfo.eventType, Operation.PRUNE_TO_DEPTH, pruneTarget, prunedByDepth);
 
                 // write out the full tree to the new BQSR report
                 final RecalDatumNode<ContextDatum> fullTree =
@@ -398,15 +421,12 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
         switch (operation) {
             case KEEP_ORIGINAL:
                 return initialTree;
-            case PRUNE_BY_DEPTH:
-                final double potentialDepth = Math.log10(pruneTarget) / Math.log10(4);
-                if ( Math.floor(potentialDepth) == potentialDepth ) { // we are divisable by 4
-                    final int depth = (int)Math.floor(potentialDepth) + 1;
-                    return initialTree.pruneToDepth(depth);
-                } else
-                    return null;
-            case PRUNE_BY_PENALTY:
-                return initialTree.pruneByPenalty(pruneTarget+1);
+            case PRUNE_TO_DEPTH:
+                return initialTree.pruneToDepth(pruneTarget + 1); // add one for the root
+            case PRUNE_TO_NUM_NODES_BY_PENALTY:
+                return initialTree.pruneByPenalty(pruneTarget+1); // add one for the root
+            case PRUNE_TO_PENALTY:
+                return initialTree.pruneToNoMoreThanPenalty(pruneTarget, true);
             default:
                 throw new IllegalArgumentException("Unexpected operation");
         }
@@ -419,8 +439,8 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
                                       final AdaptiveTreeAnalysis analysisReport,
                                       final RecalDatumNode<ContextDatum> initialTree) {
 
-        for ( final int pruneTarget : pruneTargets ) {
-            for ( final Operation operation : operations ) {
+        for ( final Operation operation : operations ) {
+            for ( final int pruneTarget : getPruneTargets(operation) ) {
                 logger.info("Analyzing " + selectInfo + " with pruneType " + pruneTarget + " and operation " + operation);
                 RecalDatumNode<ContextDatum> prunedTree = applyOpToTree(operation, pruneTarget, initialTree);
 
