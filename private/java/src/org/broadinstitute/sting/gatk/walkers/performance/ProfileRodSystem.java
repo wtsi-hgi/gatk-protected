@@ -299,7 +299,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             ArrayList<VariantContext> VCs = new ArrayList<VariantContext>(10000);
 
             int counter = 0;
-            while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
+            while ((counter++ < MAX_RECORDS || MAX_RECORDS == -1) && it.hasNext()) {
                 VCs.add(it.next());
             }
 
