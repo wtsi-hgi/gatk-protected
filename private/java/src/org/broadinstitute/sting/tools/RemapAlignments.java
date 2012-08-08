@@ -231,8 +231,8 @@ public class RemapAlignments extends CommandLineProgram {
                     r.setMappingQuality(0);
                 } else {
                     r.setMappingQuality(37);
-                    r.setAttribute("X0", new Integer(1));
-                    r.setAttribute("X1", new Integer(0));
+                    r.setAttribute("X0", Integer.valueOf(1));
+                    r.setAttribute("X1", Integer.valueOf(0));
                 }
     		r.setNotPrimaryAlignmentFlag(false);
     		
