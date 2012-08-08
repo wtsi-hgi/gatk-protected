@@ -38,7 +38,7 @@ public final class AdaptiveTreeAnalysis {
                     final RecalDatumNode<ContextDatum> prunedTree) {
         report.addRow(qual, contextType, operation, pruneTarget, prunedTree.size(), prunedTree.numLeaves(),
                 prunedTree.minDepth(), prunedTree.maxDepth(),
-                prunedTree.totalPenalty(), prunedTree.maxPenalty(), prunedTree.minPenalty());
+                prunedTree.totalPenalty(), prunedTree.maxPenalty(true), prunedTree.minPenalty(true));
     }
 
 
