@@ -48,7 +48,7 @@ class UGManyBAMsPerformance extends QScript {
 
   trait UG_ARGS extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
     this.genotype_likelihoods_model = Model.BOTH
-    this.capMaxAllelesForIndels = true
+    this.capMaxAltAllelesForIndels = true
     this.dbsnp = dbsnpFile
   }
 
