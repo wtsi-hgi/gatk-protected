@@ -2,8 +2,6 @@ package org.broadinstitute.sting.utils.codecs;
 
 import org.broad.tribble.*;
 import org.broad.tribble.exception.CodecLineParsingException;
-import org.broad.tribble.readers.LineReader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
 import java.util.*;

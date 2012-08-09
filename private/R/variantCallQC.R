@@ -87,7 +87,7 @@ summaryTable <- function(metricsBySites, metricsBySample) {
   raw <- rbind(data.frame(raw), melt.data.frame(noveltyMissenseSilent, id.vars=c("Novelty"), measure.vars=c("missenseSilentRatio")))
   table <- cast(raw, Novelty ~ ...)
   # doesn't work with textplot
-  colnames(table) <- c("Novelty", "Target Size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "Del/Ins Ratio", "Ka/Ks")
+  colnames(table) <- c("Novelty", "Target Size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "Ins/Del Ratio", "Ka/Ks")
   return(table)
 }
 
@@ -100,7 +100,7 @@ sampleSummaryTable <- function(metricsBySamples, missenseSilentSummary) {
   table$tiTvRatio <- round(table$tiTvRatio, 2)
   table$insertionDeletionRatio <- round(table$insertionDeletionRatio, 2)
   table$missenseSilentRatio <- round(table$missenseSilentRatio, 2)
-  colnames(table) <- c("Novelty", "Target Size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "Del/Ins Ratio", "Ka/Ks")
+  colnames(table) <- c("Novelty", "Target Size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "Ins/Del Ratio", "Ka/Ks")
   return(table)
 }
 

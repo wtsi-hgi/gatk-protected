@@ -5,7 +5,7 @@ import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import io.Source._
 import org.broadinstitute.sting.utils.exceptions.UserException
-import org.broadinstitute.sting.gatk.walkers.compression.reducereads.ReduceReadsWalker.DownsampleStrategy
+import org.broadinstitute.sting.gatk.walkers.compression.reducereads.ReduceReads.DownsampleStrategy
 
 /**
  * Created by IntelliJ IDEA.

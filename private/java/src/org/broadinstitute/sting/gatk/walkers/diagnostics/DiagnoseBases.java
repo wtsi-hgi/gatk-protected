@@ -47,7 +47,7 @@ import java.util.Map;
  * @author Mauricio Carneiro
  * @since 2/27/12
  */
-public class DiagnoseBases extends LocusWalker<DiagnoseBases.ErrorCounts, DiagnoseBases.ErrorCounts> {    
+public class DiagnoseBases extends LocusWalker<DiagnoseBases.ErrorCounts, DiagnoseBases.ErrorCounts> {
     @Output
     PrintStream out;
 

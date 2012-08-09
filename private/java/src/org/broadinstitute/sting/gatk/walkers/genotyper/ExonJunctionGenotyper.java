@@ -41,15 +41,13 @@ import java.util.*;
  * Created by IntelliJ IDEA.
  * User: chartl
  * Date: 11/16/11
- * Time: 5:09 PM
- * To change this template use File | Settings | File Templates.
  */
 @ReadFilters({DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class,MappingQualityZeroFilter.class})
 public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.EvaluationContext,ExonJunctionGenotyper.ECLikelihoods> {
 
 
     /**
-     * A raw, unfiltered, highly specific callset in VCF format.
+     * A raw, unfiltered, highly sensitive callset in VCF format.
      */
     @Output(doc="File to which variants should be written", required = true)
     protected VariantContextWriter vcfWriterBase = null;
@@ -344,7 +342,6 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             ExactAFCalculationModel.linearExactMultiAllelic(GLs,1,prior,result);
             VariantContextBuilder vcb = new VariantContextBuilder("EJG",refPos.getContig(),refPos.getStop(),refPos.getStop(),Arrays.asList(ref,alt));
             vcb.genotypes(GLs);
-            vcb.referenceBaseForIndel(paddingBase);
             List<Allele> alleles = new ArrayList<Allele>(2);
             alleles.add(ref);
             alleles.add(Allele.create(hypothesis.toString()));
