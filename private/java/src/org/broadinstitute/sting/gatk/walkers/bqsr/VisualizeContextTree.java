@@ -326,7 +326,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
 
         @Override
         public int compareTo(RecalDataSubset recalDataSubset) {
-            int cmp = new Integer(qual).compareTo(recalDataSubset.qual);
+            int cmp = Integer.valueOf(qual).compareTo(recalDataSubset.qual);
 
             if ( cmp == 0 )
                 cmp = eventType.compareTo(recalDataSubset.eventType);
