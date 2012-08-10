@@ -390,6 +390,8 @@ public class ReadPair {
                 case N:
                     overlap -= ce.getLength();
                 case M:
+                case EQ:
+                case X:
                     posOnRef += ce.getLength();
                     break;
                 default:

@@ -23,10 +23,13 @@ class UGManyBAMsPerformance extends QScript {
   val bamCounts: List[Int] = List(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096)
 
   @Argument(shortName = "memVal", doc="The list of given RAM values (in GB) to test", required=false)
-  val memoryValues: List[Int] = List(1, 2, 4, 8, 16, 32)
+  val memoryValues: List[Double] = List(1, 2, 4, 8, 16, 32)
 
   @Argument(shortName = "perBAM", doc="How many samples to include per combined BAM (1 to skip the combination step)", required=false)
   val samplesPerBAM: Int = 1
+
+  @Argument(shortName = "nt", doc="How many threads to use (1 for single-threaded)", required=false)
+  val numThreads: Int = 1
 
   val referenceFile = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
   val dbsnpFile = new File("/humgen/gsa-pipeline/resources/b37/v4/dbsnp_135.b37.vcf")
@@ -36,6 +39,7 @@ class UGManyBAMsPerformance extends QScript {
     this.reference_sequence = referenceFile
     this.intervalsString = Seq(interval)
     this.downsample_to_coverage = 60
+    this.num_threads = numThreads
   }
 
   trait PR_ARGS extends PrintReads with UNIVERSAL_GATK_ARGS {
@@ -44,7 +48,7 @@ class UGManyBAMsPerformance extends QScript {
 
   trait UG_ARGS extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
     this.genotype_likelihoods_model = Model.BOTH
-    this.capMaxAllelesForIndels = true
+    this.capMaxAltAllelesForIndels = true
     this.dbsnp = dbsnpFile
   }
 
@@ -88,7 +92,7 @@ class UGManyBAMsPerformance extends QScript {
 
       for (givenMem <- memoryValues) {
         val cl = new CountLoci() with UNIVERSAL_GATK_ARGS
-        val clOutFile = "Count_%d_BAMs_%d_GB.txt".format(numBAMs, givenMem)
+        val clOutFile = "Count_%d_BAMs_%.1f_GB.txt".format(numBAMs, givenMem.toFloat)
         cl.out = new File(clOutFile)
         cl.memoryLimit = givenMem
         cl.input_file = inputBAMsList
@@ -99,7 +103,7 @@ class UGManyBAMsPerformance extends QScript {
         add(cl)
 
         val ug = new UnifiedGenotyper() with UG_ARGS
-        val ugOutFile = "Performance_%d_BAMs_%d_GB.vcf".format(numBAMs, givenMem)
+        val ugOutFile = "Performance_%d_BAMs_%.1f_GB.vcf".format(numBAMs, givenMem.toFloat)
         ug.out = new File(ugOutFile)
         ug.memoryLimit = givenMem
         ug.input_file = inputBAMsList
