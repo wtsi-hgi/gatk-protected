@@ -1,5 +1,6 @@
 library(gsalib)
 library(ggplot2)
+library(reshape)
 #library(gplots)
 library(tools)
 
@@ -16,7 +17,7 @@ if ( onCMDLine ) {
   file <- args[1]
   outputPDF <- args[2]
 } else {
-  file <- "/Users/depristo/Desktop/broadLocal/GATK/unstable/Q-20675@gsa4.jobreport.txt"
+  file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/GATKPerformanceOverTime.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-24937@gsa1.jobreport.txt"
   outputPDF <- NA
 }
@@ -63,7 +64,7 @@ plotCmdByX <- function(report, X, includeFacet = F, logUnit = 10) {
   if ( logUnit == 10 ) {
     p = p + scale_x_log10() + scale_y_log10()
   } else if ( logUnit == 2 ) {
-    p = p + scale_x_log2() + scale_y_log2()
+    p = p + scale_x_continuous(trans = "log2") + scale_y_continuous(trans = "log2")
   }
   p = p + xlab(X) + ylab(paste("Runtime", RUNTIME_UNITS))
   p = p + opts(title=report$analysisName)
@@ -127,11 +128,12 @@ for ( report in list(allReports$CountLoci, allReports$UnifiedGenotyper) ) {
 }
 
 # Create reports just doing runtime vs. GATK version
-for ( report in list(allReports$TableRecalibration, allReports$CountCovariates, 
-                     allReports$SelectVariants, allReports$CombineVariants,
-                     allReports$VariantEval))  {
-  #print(head(report))
-  plotByGATKVersion(report)
+if ( "CombineVariants" %in% names(allReports) ) {
+  for ( report in list(allReports$SelectVariants, allReports$CombineVariants,
+                       allReports$VariantEval))  {
+    #print(head(report))
+    plotByGATKVersion(report)
+  }
 }
 
 for ( assess in unique(allReports$UnifiedGenotyper.nt$assessment)) {
@@ -140,8 +142,9 @@ for ( assess in unique(allReports$UnifiedGenotyper.nt$assessment)) {
   print(p)
 }
 
-print(plotByNT(allReports$CountCovariates.nt))
-print(plotByNT(allReports$VariantEval.nt))
+if ( "VariantEval.nt" %in% names(allReports) ) {
+  print(plotByNT(allReports$VariantEval.nt))
+}
 
 if ( ! is.na(outputPDF) ) {
   dev.off()
