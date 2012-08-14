@@ -10,30 +10,33 @@ class GATKPerformanceOverTime extends QScript {
   val STD_RESULTS_DIR = "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime"
 
   @Argument(shortName = "results", doc="results", required=false)
-  val resultsDir: File = new File("runResults");
+  val resultsDir: File = new File("runResults")
 
   @Argument(shortName = "test", doc="test", required=false)
-  val TEST: Boolean = false;
+  val TEST: Boolean = false
+
+  @Argument(shortName = "justUG", doc="Just run UnifiedGenotyper tests", required=false)
+  val justUG: Boolean = false
 
   @Argument(shortName = "resources", doc="resources", required=true)
   val resourcesDir: String = ""
 
-  @Argument(shortName = "myJarFile", doc="Path to the current GATK jar file", required=false)
-  val myJarFile: String = "/home/unix/depristo/dev/GenomeAnalysisTK/projects/gatkPerformance/dist/GenomeAnalysisTK.jar"
+  @Argument(shortName = "myJarFile", doc="Path to the current GATK jar file", required=true)
+  val myJarFile: File = null
 
   @Argument(shortName = "iterations", doc="it", required=false)
-  val iterations: Int = 3;
+  val iterations: Int = 3
 
-  val nIterationsForSingleTestsPerIteration: Int = 3;
+  val nIterationsForSingleTestsPerIteration: Int = 3
 
   @Argument(shortName = "ntTest", doc="For each value provided we will use -nt VALUE in the multi-threaded tests", required=false)
-  val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8, 10, 12);
+  val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8, 10, 12, 16, 24, 32)
 
   @Argument(shortName = "steps", doc="steps", required=false)
-  val steps: Int = 10;
+  val steps: Int = 10
 
   @Argument(shortName = "maxNSamples", doc="maxNSamples", required=false)
-  val maxNSamples: Int = 1000000;
+  val maxNSamples: Int = 1000000
 
   val RECAL_BAM_FILENAME = "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam"
   val dbSNP_FILENAME = "dbsnp_132.b37.vcf"
@@ -48,25 +51,23 @@ class GATKPerformanceOverTime extends QScript {
 
   // TODO -- count the number of lines in the bam.list file
   val WGSAssessment = new AssessmentParameters("WGS", "wgs.bam.list.local.list", "wgs.bam.list.intervals", 1103, 50)
+  val WGSDeepAssessment = new AssessmentParameters("WGS.deep", "wgs.deep.bam.list.local.list", "wgs.deep.bam.list.intervals", 1, 250)
   val WExAssessment = new AssessmentParameters("WEx", "wex.bam.list.local.list", "wex.bam.list.intervals", 140, 500)
 
-  val assessments = List(WGSAssessment, WExAssessment)
+  val assessments = List(WGSAssessment, WGSDeepAssessment, WExAssessment)
 
   val GATK_RELEASE_DIR = new File("/humgen/gsa-hpprojects/GATK/bin/")
   val GATKs: Map[String, File] = Map(
-    "v1.3" -> findMostRecentGATKVersion("1.3"),
-    "v1.4" -> findMostRecentGATKVersion("1.4"),
-    "v1.5" -> findMostRecentGATKVersion("1.5"),
-    "v1.6" -> findMostRecentGATKVersion("1.6"),
-    "v1.cur" -> myJarFile) // TODO -- how do I get this value?
+    "v2.cur" -> myJarFile, // TODO -- how do I get this value?
+    "v1.6" -> findMostRecentGATKVersion("1.6"))
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
-    this.logging_level = "INFO";
-    this.reference_sequence = makeResource(b37_FILENAME);
-    this.memoryLimit = 4
+    this.logging_level = "INFO"
+    this.reference_sequence = makeResource(b37_FILENAME)
+    this.memoryLimit = 8
   }
 
-  def script = {
+  def script() {
     if ( ! resultsDir.exists ) resultsDir.mkdirs()
 
     for ( iteration <- 0 until iterations ) {
@@ -102,65 +103,46 @@ class GATKPerformanceOverTime extends QScript {
 
             if ( nSamples == assess.nSamples )
               addMultiThreadedTest(() => new Call(sublist.list, nSamples, name) with VersionOverrides)
-
-            //add(new CallWithSamtools(sublist.list, nSamples, name, assess.intervals))
           }
         }
       }
 
-      for ( subiteration <- 0 until nIterationsForSingleTestsPerIteration ) {
-        for ( (gatkName, gatkJar) <- GATKs ) {
-          //          if ( gatkName != "1.2" ) { // todo generalize
-          { // BQSR
-            trait VersionOverrides extends CommandLineGATK {
-              this.jarFile = gatkJar
-              this.dcov = 50
-              this.intervalsString :+= (if ( TEST ) "20:10,000,000-10,001,000" else "20:10,000,000-20,000,000")
-              this.configureJobReport(Map( "iteration" ->
-                (subiteration + (iteration * nIterationsForSingleTestsPerIteration)).toString,
-                "gatk" -> gatkName))
-            }
-
-            add(new CountCov(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
-            // TODO -- re-enable when we have a new recal table ready
-	    // add(new Recal(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
-
-            if ( subiteration == 0 )
-              addMultiThreadedTest(() => new CountCov(makeResource(RECAL_BAM_FILENAME)) with VersionOverrides)
-          }
-
-          { // Standard VCF tools
+      if ( ! justUG ) {
+        for ( subiteration <- 0 until nIterationsForSingleTestsPerIteration ) {
+          for ( (gatkName, gatkJar) <- GATKs ) {
+            { // Standard VCF tools
             trait VersionOverrides extends CommandLineGATK {
               this.jarFile = gatkJar
               this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
             }
 
-            val CV = new CombineVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
-            CV.variant = COMBINE_FILES
-            CV.intervalsString = (if ( TEST ) List("1:10,000,000-10,010,000") else List("1", "2", "3", "4", "5"))
-            CV.out = new File("/dev/null")
-            add(CV)
+              val CV = new CombineVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
+              CV.variant = COMBINE_FILES
+              CV.intervalsString = (if ( TEST ) List("1:10,000,000-10,010,000") else List("1", "2", "3", "4", "5"))
+              CV.out = new File("/dev/null")
+              add(CV)
 
-            val SV = new SelectVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
-            SV.variant = makeResource("chunk_1.vcf")
-            SV.sample_name = List("HG00096") // IMPORTANT THAT THIS SAMPLE BE IN CHUNK ONE
-            if ( TEST ) SV.intervalsString = List("1:10,000,000-10,010,000")
-            SV.out = new File("/dev/null")
-            add(SV)
+              val SV = new SelectVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
+              SV.variant = makeResource("chunk_1.vcf")
+              SV.sample_name = List("HG00096") // IMPORTANT THAT THIS SAMPLE BE IN CHUNK ONE
+              if ( TEST ) SV.intervalsString = List("1:10,000,000-10,010,000")
+              SV.out = new File("/dev/null")
+              add(SV)
 
-            def makeVE(): CommandLineGATK = {
-              val VE = new VariantEval with UNIVERSAL_GATK_ARGS with VersionOverrides
-              VE.eval :+= makeResource("chunk_1.vcf")
-              if ( TEST ) VE.intervalsString = List("1:10,000,000-10,010,000")
-              VE.out = new File("/dev/null")
-              VE.comp :+= new TaggedFile(makeResource(dbSNP_FILENAME), "dbSNP")
-              VE
+              def makeVE(): CommandLineGATK = {
+                val VE = new VariantEval with UNIVERSAL_GATK_ARGS with VersionOverrides
+                VE.eval :+= makeResource("chunk_1.vcf")
+                if ( TEST ) VE.intervalsString = List("1:10,000,000-10,010,000")
+                VE.out = new File("/dev/null")
+                VE.comp :+= new TaggedFile(makeResource(dbSNP_FILENAME), "dbSNP")
+                VE
+              }
+
+              add(makeVE())
+              if ( subiteration == 0 )
+                addMultiThreadedTest(makeVE)
+              //            }
             }
-
-            add(makeVE())
-            if ( subiteration == 0 )
-              addMultiThreadedTest(makeVE)
-            //            }
           }
         }
       }
@@ -188,16 +170,16 @@ class GATKPerformanceOverTime extends QScript {
   }
 
   class Call(@Input(doc="foo") bamList: File, n: Int, name: String) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
-    @Output(doc="foo") var outVCF: File = new File("/dev/null")
     this.input_file :+= bamList
     this.stand_call_conf = 10.0
     this.o = outVCF
     this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE
+    @Output(doc="foo") var outVCF: File = new File("/dev/null")
   }
 
   class MyCountLoci(@Input(doc="foo") bamList: File, n: Int, name: String) extends CountLoci with UNIVERSAL_GATK_ARGS {
-    @Output(doc="foo") var outFile: File = new File("/dev/null")
     this.input_file :+= bamList
+    @Output(doc="foo") var outFile: File = new File("/dev/null")
     this.o = outFile
   }
 
@@ -205,26 +187,6 @@ class GATKPerformanceOverTime extends QScript {
     this.analysisName = "SliceList"
     @Output(doc="foo") var list: File = new File("%s/%s.bams.%d.list".format(resultsDir.getPath, prefix, n))
     def commandLine = "head -n %d %s | awk '{print \"%s/\" $1}' > %s".format(n, bamList, resourcesDir, list)
-  }
-
-  class CallWithSamtools(@Input(doc="foo") bamList: File, n: Int, name: String, intervals: File) extends CommandLineFunction {
-    this.analysisName = "samtools"
-    @Output(doc="foo") var outVCF: File = new File("/dev/null")
-    def commandLine = "./samtools mpileup -ub %s -f %s -l %s | ./bcftools view -vcg -l %s - > %s".format(bamList, b37_FILENAME, intervals, intervals, outVCF)
-  }
-
-  class CountCov(inBam: File) extends BaseRecalibrator with UNIVERSAL_GATK_ARGS {
-    this.knownSites :+= makeResource(dbSNP_FILENAME)
-    this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
-    this.input_file :+= inBam
-    this.out = new File("/dev/null")
-  }
-
-  class Recal(inBam: File) extends PrintReads with UNIVERSAL_GATK_ARGS {
-    this.input_file :+= inBam
-    this.BQSR = makeResource(RECAL_FILENAME)
-    this.baq = CalculationMode.CALCULATE_AS_NECESSARY
-    this.out = new File("/dev/null")
   }
 
   def dedupe(elements:List[Int]):List[Int] = {
