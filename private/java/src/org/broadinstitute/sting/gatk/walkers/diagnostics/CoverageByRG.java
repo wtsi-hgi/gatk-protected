@@ -205,19 +205,22 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
 
     @Override
     public void onTraversalDone(List<Pair<GenomeLoc, LinkedHashMap<String, Long>>> results) {
+        int rowID = 0;
         for (Pair<GenomeLoc, LinkedHashMap<String, Long>> intervalPair : results) {
             GenomeLoc interval = intervalPair.getFirst();
             LinkedHashMap<String, Long> counts = intervalPair.getSecond();
+            rowID++;
+            reportTable.set(rowID, columnInterval, interval.toString());
 
             // Get coverage by taking total counts and dividing by interval length
-            for (String key : counts.keySet()) {
+            for (String key : counts.keySet())
                 if (!key.equals(columnVariants))
-                    reportTable.set(interval.toString(), key, (double) counts.get(key) / (double) interval.size());
-            }
-            reportTable.set(interval.toString(), columnIntervalSize, interval.size());
+                    reportTable.set(rowID, key, (double) counts.get(key) / (double) interval.size());
+
+            reportTable.set(rowID, columnIntervalSize, interval.size());
 
             if (counts.containsKey(columnVariants))
-                reportTable.set(interval.toString(), columnVariants, counts.get(columnVariants));
+                reportTable.set(rowID, columnVariants, counts.get(columnVariants));
         }
         GATKReport report = new GATKReport(reportTable);
 
