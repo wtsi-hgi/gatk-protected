@@ -64,7 +64,7 @@ class GATKPerformanceOverTime extends QScript {
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO"
     this.reference_sequence = makeResource(b37_FILENAME)
-    this.memoryLimit = 8
+    this.memoryLimit = 4
   }
 
   def script() {
@@ -153,7 +153,8 @@ class GATKPerformanceOverTime extends QScript {
     if ( ntTests.size > 1 ) {
       for ( nt <- ntTests ) {
         val cmd = makeCommand()
-        cmd.nt = nt
+        cmd.nt = cmd.nt
+        cmd.memoryLimit = cmd.memoryLimit * (if ( nt >= 8 ) (if (nt>=16) 4 else 2) else 1)
         cmd.addJobReportBinding("nt", nt)
         cmd.analysisName = cmd.analysisName + ".nt"
         add(cmd)
