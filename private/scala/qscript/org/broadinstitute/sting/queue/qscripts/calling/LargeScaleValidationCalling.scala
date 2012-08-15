@@ -48,51 +48,50 @@ class LargeScaleValidationCalling extends QScript {
     this.jobQueue = "gsa"
     this.intervalsString :+= qscript.intervals
   }
+  class PPC(val callName: String, val allelesFile: String) extends UnifiedGenotyper with CommandLineGATKArgs {
+    this.scatterCount = qscript.variantCallerScatterCount
+    this.input_file :+= qscript.bamList
+    this.sample_ploidy = Some(qscript.ploidy)
+    this.dbsnp = qscript.dbSNP
+    this.out = qscript.outputDir + "/"+qscript.baseName + "."+callName+".vcf"
+    this.reference_sample_name = "NA12878"
+    //      this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
+    this.gt_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
+    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    this.alleles = new File(allelesFile)
+    this.ignoreLane = true
+    this.maxAltAlleles = Some(1)  // memory usage will overflow without this
+
+  }
+  class SNPPC(callName: String, allelesFile: String) extends PPC(callName, allelesFile) {
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.SNP
+    this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
+  }
+
+  class IndelPC( callName: String,  allelesFile: String) extends PPC(callName, allelesFile) {
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.INDEL
+    this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.vcf")
+  }
+
+  class BothPC( callName: String,  allelesFile: String) extends PPC(callName, allelesFile) {
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.snp_indel_combined.vcf")
+  }
+
+  class Eval(evalVCF: File) extends VariantEval with CommandLineGATKArgs {
+    this.eval :+= evalVCF
+    this.dbsnp = qscript.dbSNP
+    this.doNotUseAllStandardModules = true
+    this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap", "IndelSummary")
+    this.doNotUseAllStandardStratifications = true
+    this.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "TandemRepeat") //++ extraStrats
+    // this.num_threads = qscript.num_threads
+    // this.memoryLimit = 8
+    this.out = swapExt(evalVCF, ".vcf", ".eval")
+  }
 
   def script = {
 
-    class PC(val callName: String, val allelesFile: String) extends UnifiedGenotyper with CommandLineGATKArgs {
-      this.scatterCount = qscript.variantCallerScatterCount // the smallest interval list has 63 intervals, one for each Mb on chr20
-      this.input_file :+= qscript.bamList
-      this.pnrm = AlleleFrequencyCalculationModel.Model.POOL
-      this.sample_ploidy = Some(qscript.ploidy)
-      this.dbsnp = qscript.dbSNP
-      this.out = qscript.outputDir + "/"+qscript.baseName + "."+callName+".vcf"
-      this.refsample = "NA12878"
-      this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
-      this.gt_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
-      this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
-      this.alleles = new File(allelesFile)
-      this.ignoreLane = true
-      this.maxAlleles = Some(1)  // memory usage will overflow without this
-
-    }
-    class SNPPC( callName: String,  allelesFile: String) extends PC(callName, allelesFile) {
-      this.glm = GenotypeLikelihoodsCalculationModel.Model.POOLSNP
-      this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
-    }
-
-    class IndelPC( callName: String,  allelesFile: String) extends PC(callName, allelesFile) {
-      this.glm = GenotypeLikelihoodsCalculationModel.Model.POOLINDEL
-      this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.vcf")
-    }
-
-    class BothPC( callName: String,  allelesFile: String) extends PC(callName, allelesFile) {
-      this.glm = GenotypeLikelihoodsCalculationModel.Model.POOLBOTH
-      this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.snp_indel_combined.vcf")
-    }
-
-    class Eval(evalVCF: File) extends VariantEval with CommandLineGATKArgs {
-      this.eval :+= evalVCF
-      this.dbsnp = qscript.dbSNP
-      this.doNotUseAllStandardModules = true
-      this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap", "IndelSummary")
-      this.doNotUseAllStandardStratifications = true
-      this.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "TandemRepeat") //++ extraStrats
-     // this.num_threads = qscript.num_threads
-     // this.memoryLimit = 8
-      this.out = swapExt(evalVCF, ".vcf", ".eval")
-    }
 
 
     val omnimono = new SNPPC("omniMono","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.1000_control_sites_OmniMono.SNP.sites.vcf")
@@ -100,10 +99,10 @@ class LargeScaleValidationCalling extends QScript {
     val exomechippoly = new SNPPC("exomeChip","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.1000_control_sites_ExomeChip.SNP.sites.vcf")
     val millspoly = new IndelPC("millsPoly","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.1000_control_sites_MillsGenotypeInPhase1.INDEL.sites.vcf")
     val multiAllelicIndels = new IndelPC("multiallelicIndels","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.2000_validation_sites_multiAllelicIndels.sites.vcf")
-    multiAllelicIndels.maxAlleles = Some(3)
+    multiAllelicIndels.maxAltAlleles = Some(3)
     val lostToImputation = new SNPPC("lostToImputation","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.2000_lost_to_Imputation.sites.vcf")
     val multiAllelicSNPs = new SNPPC("multiAllelicSNPs","/humgen/gsa-hpprojects/dev/largeScaleValidation/inputSets/triallelics.EricBanks.vcf")
-    multiAllelicSNPs.maxAlleles = Some(3)
+    multiAllelicSNPs.maxAltAlleles = Some(3)
     val lof = new BothPC("LOF","/humgen/gsa-hpprojects/dev/largeScaleValidation/inputSets/LOF.DanielMacArthur.vcf")
     val afIndels = new IndelPC("afIndels","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.5000_validation_sites_AF_distributed.indels.sites.vcf")
     val unifIndels = new IndelPC("unifIndels","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.5000_validation_sites_Uniformly_distributed.indels.sites.vcf")
