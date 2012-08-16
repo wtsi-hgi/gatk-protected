@@ -408,7 +408,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
                     break;
 
                 if ( call == null )
-                    throw new ReviewedStingException("Unexpected genotyping failure " + sample + " at " + ref.getLocus() + " call " + call);
+                    throw new ReviewedStingException("Unexpected genotyping failure " + sample + " at " + ref.getLocus());
 
                 final Genotype rgGT = call.getGenotype(sample);
 

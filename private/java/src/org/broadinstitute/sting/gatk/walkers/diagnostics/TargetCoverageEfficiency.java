@@ -116,7 +116,7 @@ public class TargetCoverageEfficiency extends LocusWalker<Long, ArrayList<Long>>
             GenomeLoc interval = intervalPair.getFirst();
             List<Long> distribution = intervalPair.getSecond();
 
-            int targetIndex = (int) Math.floor((interval.getStart() + interval.getStop()) / 2) - interval.getStart();    // Our target will be in the middle of the interval
+            int targetIndex = ((interval.getStart() + interval.getStop()) / 2) - interval.getStart();    // Our target will be in the middle of the interval
             long targetCoverage = distribution.get(targetIndex);
             double averageCoverage = MathUtils.average(distribution);
             double ratio = (averageCoverage == 0) ? 0 : targetCoverage / averageCoverage;
