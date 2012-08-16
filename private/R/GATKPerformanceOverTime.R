@@ -17,7 +17,8 @@ if ( onCMDLine ) {
   file <- args[1]
   outputPDF <- args[2]
 } else {
-  file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/GATKPerformanceOverTime.jobreport.txt"
+  #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/GATKPerformanceOverTime.jobreport.txt"
+  file <- "~/Desktop/broadLocal/GATK/unstable/GATKPerformanceOverTime.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-24937@gsa1.jobreport.txt"
   outputPDF <- NA
 }
@@ -58,7 +59,7 @@ plotCmdByX <- function(report, X, includeFacet = F, logUnit = 10) {
   p = ggplot(data=report, aes(x=X, y=runtime, group=gatk, color=gatk))
   if ( includeFacet ) 
     p = p + facet_grid(. ~ assessment, scales="free")
-  #p = p + geom_jitter()
+  p = p + geom_jitter()
   #p = p + geom_point()
   p = p + geom_smooth()
   if ( logUnit == 10 ) {
@@ -121,10 +122,12 @@ if ( ! is.na(outputPDF) ) {
 }
 
 # Create reports for per N sample CountLoci and UG
-for ( report in list(allReports$CountLoci, allReports$UnifiedGenotyper) ) {
-  #print(head(report))
-  print(plotByNSamples(report))
-  plotNormalizedByNSamples(report)
+if ( "UnifiedGenotyper" %in% names(allReports) ) {
+  for ( report in list(allReports$CountLoci, allReports$UnifiedGenotyper) ) {
+    #print(head(report))
+    print(plotByNSamples(report))
+    plotNormalizedByNSamples(report)
+  }
 }
 
 # Create reports just doing runtime vs. GATK version
@@ -136,10 +139,21 @@ if ( "CombineVariants" %in% names(allReports) ) {
   }
 }
 
-for ( assess in unique(allReports$UnifiedGenotyper.nt$assessment)) {
-  p = plotByNT(allReports$UnifiedGenotyper.nt[allReports$UnifiedGenotyper.nt$assessment == assess,])
-  p = p + opts(title=paste("UnifiedGenotyper performance as a function of nt for", assess))
-  print(p)
+if ( "UnifiedGenotyper.nt" %in% names(allReports) ) {
+  for ( assess in unique(allReports$UnifiedGenotyper.nt$assessment)) {
+    p = plotByNT(allReports$UnifiedGenotyper.nt[allReports$UnifiedGenotyper.nt$assessment == assess,])
+    p = p + opts(title=paste("UnifiedGenotyper performance as a function of nt for", assess))
+    print(p)
+  }
+}
+
+if ( "CombineVariants.nt" %in% names(allReports) ) {
+  for ( assess in unique(allReports$CombineVariants.nt$assessment)) {
+    p = plotByNT(allReports$CombineVariants.nt[allReports$CombineVariants.nt$assessment == assess,])
+    p = p + facet_grid(output ~ .)
+    p = p + opts(title=paste("CombineVariants performance as a function of nt for", assess))
+    print(p)
+  }
 }
 
 if ( "VariantEval.nt" %in% names(allReports) ) {
