@@ -160,7 +160,7 @@ public class PairMaker extends CommandLineProgram {
                         if ( r1.getMappingQuality() > 0 &&
                               r2.getMappingQuality() > 0  ) { unique = true; both_unique++; }
 
-                        if ( r1.getReferenceIndex() != r2.getReferenceIndex() ) {
+                        if ( !r1.getReferenceIndex().equals(r2.getReferenceIndex()) ) {
                              inter_chrom++;
                         } else {
                              switch ( orientation(r1,r2) ) {
@@ -543,7 +543,7 @@ public class PairMaker extends CommandLineProgram {
     private int fragmentSize(final SAMRecord r1, final SAMRecord r2) {
         if ( r1 == null || AlignmentUtils.isReadUnmapped(r1) ||
              r2 == null || AlignmentUtils.isReadUnmapped(r2) ||
-                r1.getReferenceIndex() != r2.getReferenceIndex() ) return INFINITY;
+                !r1.getReferenceIndex().equals(r2.getReferenceIndex()) ) return INFINITY;
         if ( r1.getAlignmentStart() <= r2.getAlignmentStart() )
              return ( r2.getAlignmentStart() + r2.getReadLength() - r1.getAlignmentStart());
         else return ( r1.getAlignmentStart() + r1.getReadLength() - r2.getAlignmentStart());
@@ -571,7 +571,7 @@ public class PairMaker extends CommandLineProgram {
 
         SAMRecord left, right;
 
-        if ( r1.getReferenceIndex() == r2.getReferenceIndex() ) {
+        if ( !r1.getReferenceIndex().equals(r2.getReferenceIndex()) ) {
             if ( r1.getAlignmentStart() <= r2.getAlignmentStart() ) {
                 left = r1;
                 right = r2;

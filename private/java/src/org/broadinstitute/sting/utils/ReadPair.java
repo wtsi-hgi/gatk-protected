@@ -330,7 +330,7 @@ public class ReadPair {
                 AlignmentUtils.isReadUnmapped(left) || AlignmentUtils.isReadUnmapped(right) ) {
             throw new StingException("No read (null) or unmapped read provided: fragment size is not defined");
         }
-        if ( left.getReferenceIndex() != right.getReferenceIndex() ) {
+        if ( !left.getReferenceIndex().equals(right.getReferenceIndex()) ) {
             throw new StingException("Left/right reads map onto different contigs: fragment size is not defined");
         }
 
