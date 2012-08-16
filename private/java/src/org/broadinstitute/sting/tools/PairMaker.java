@@ -71,7 +71,7 @@ public class PairMaker extends CommandLineProgram {
     @Option(shortName="Q", optional=true, doc="Minimum mapping quality required on both ends in order to accept the pair.")
         public Integer MINQ = -1;
 
-    public static int INFINITY = 1000000000;
+    public static final int INFINITY = 1000000000;
 
     // we will collect some stats along the way:
     private int fragments_seen = 0;

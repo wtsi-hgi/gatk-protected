@@ -69,13 +69,13 @@ public class CNVstats extends RodWalker<CNVstatistics, CNVstatistics> {
     @ArgumentCollection
     protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
-    public static String CNV_TAG = "<CNV>";
-    public static String CN_FIELD = "CN";
+    public static final String CNV_TAG = "<CNV>";
+    public static final String CN_FIELD = "CN";
 
-    public static String SVLEN_FIELD = "SVLEN";
-    public static String AC_FIELD = "AC";
+    public static final String SVLEN_FIELD = "SVLEN";
+    public static final String AC_FIELD = "AC";
 
-    public static int DIPLOID = 2;
+    public static final int DIPLOID = 2;
 
     public void initialize() {
     }
