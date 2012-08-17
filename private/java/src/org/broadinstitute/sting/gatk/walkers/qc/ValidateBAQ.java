@@ -26,7 +26,7 @@ import java.io.PrintStream;
  */
 @BAQMode(QualityMode = BAQ.QualityMode.DONT_MODIFY, ApplicationTime = BAQ.ApplicationTime.HANDLED_IN_WALKER)
 @Reference(window=@Window(start=-5,stop=5))
-@Requires({DataSource.READS, DataSource.REFERENCE, DataSource.REFERENCE_BASES})
+@Requires({DataSource.READS, DataSource.REFERENCE})
 public class ValidateBAQ extends ReadWalker<Integer, Integer> {
     @Output(doc="File to which results should be written",required=true)
     protected PrintStream out;
