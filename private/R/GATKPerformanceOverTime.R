@@ -17,7 +17,8 @@ if ( onCMDLine ) {
   file <- args[1]
   outputPDF <- args[2]
 } else {
-  file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelCombineVariants2/GATKPerformanceOverTime.jobreport.txt"
+  file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelBQSR/GATKPerformanceOverTime.jobreport.txt"
+  #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelCombineVariants2/GATKPerformanceOverTime.jobreport.txt"
   #file <- "~/Desktop/broadLocal/GATK/unstable/GATKPerformanceOverTime.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-24937@gsa1.jobreport.txt"
   outputPDF <- NA
@@ -152,6 +153,12 @@ if ( "CombineVariants.nt" %in% names(allReports) ) {
     p = p + facet_grid(output ~ .)
     p = p + opts(title=paste("CombineVariants performance as a function of nt"))
     print(p)
+}
+
+if ( "BaseRecalibrator.nt" %in% names(allReports) ) {
+  p = plotByNT(allReports$BaseRecalibrator.nt)
+  p = p + opts(title=paste("BaseRecalibrator performance as a function of nt"))
+  print(p)
 }
 
 if ( "VariantEval.nt" %in% names(allReports) ) {
