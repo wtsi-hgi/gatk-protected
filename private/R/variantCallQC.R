@@ -24,7 +24,7 @@ if ( onCMDLine ) {
   projectName <- "InDevelopmentInR"
 
   #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012"
-  root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/GoT2D_final_dgi_batch_1"
+  root <- "~/Desktop/broadLocal/tmp.data/esp.all.snps.unfiltered.indels.filtered.bcf"
   #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.all.unannotated.chr1"
   #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes"
   #root <- "/humgen/gsa-hpprojects/ESP/calls/broadOnly_chr1_v2/esp.all.unannotated.chr1"
