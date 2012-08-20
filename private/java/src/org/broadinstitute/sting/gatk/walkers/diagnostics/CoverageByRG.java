@@ -100,11 +100,9 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
     protected DbsnpArgumentCollection dbsnp = new DbsnpArgumentCollection();
 
 
-    GATKReportTable reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", true);
-    ;
+    GATKReportTable reportTable;
 
     HashMap<String, String> rgGroups = new HashMap<String, String>();
-    ;
     List<HashSet<String>> readGroupIds = new LinkedList<HashSet<String>>();
 
     final String columnInterval = "Interval";
@@ -126,12 +124,6 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
 
 
     public void initialize() {
-        //Sets up our report table columns (by Read Groups + GCcontent)
-        reportTable.addPrimaryKey(columnInterval, true);
-        reportTable.addColumn(columnGC, 0, true);
-        reportTable.addColumn(columnIntervalSize, 0, true);
-        reportTable.addColumn(columnVariants, 0, true);
-
         int groupIndex = 1;
         for (String groupString : groups) {
             String groupID = "G" + groupIndex;
@@ -142,9 +134,7 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
 
             HashSet<String> groupSet = new HashSet<String>();
             groupSet.addAll(Arrays.asList(rgs));
-            readGroupIds.add(groupSet);                         // Add this RG group to the list of RGs 
-
-            reportTable.addColumn(groupID, 0, true);            // Add this RG group to the report table
+            readGroupIds.add(groupSet);                         // Add this RG group to the list of RGs
 
             groupIndex++;
         }
@@ -157,10 +147,16 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
                 readGroupIds.add(rgSet);                       // Add this RG group to the list of RGs
 
                 rgGroups.put(readGroupID, readGroupID);        // Update the hash with all RGs that correspond to this group
-
-                reportTable.addColumn(readGroupID, 0, true);   // Add this RG group to the report table 
             }
         }
+
+        reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", 4 + rgGroups.size(), true);        //Sets up our report table columns (by Read Groups + GCcontent)
+        reportTable.addColumn(columnInterval);
+        reportTable.addColumn(columnGC);
+        reportTable.addColumn(columnIntervalSize);
+        reportTable.addColumn(columnVariants);
+        for ( String rg : rgGroups.values() )
+            reportTable.addColumn(rg);
     }
 
     public boolean isReduceByInterval() {
@@ -209,19 +205,22 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
 
     @Override
     public void onTraversalDone(List<Pair<GenomeLoc, LinkedHashMap<String, Long>>> results) {
+        int rowID = 0;
         for (Pair<GenomeLoc, LinkedHashMap<String, Long>> intervalPair : results) {
             GenomeLoc interval = intervalPair.getFirst();
             LinkedHashMap<String, Long> counts = intervalPair.getSecond();
+            rowID++;
+            reportTable.set(rowID, columnInterval, interval.toString());
 
-            // Get coverage by taking total counts and diving by interval length
-            for (String key : counts.keySet()) {
+            // Get coverage by taking total counts and dividing by interval length
+            for (String key : counts.keySet())
                 if (!key.equals(columnVariants))
-                    reportTable.set(interval.toString(), key, (double) counts.get(key) / (double) interval.size());
-            }
-            reportTable.set(interval.toString(), columnIntervalSize, interval.size());
+                    reportTable.set(rowID, key, (double) counts.get(key) / (double) interval.size());
+
+            reportTable.set(rowID, columnIntervalSize, interval.size());
 
             if (counts.containsKey(columnVariants))
-                reportTable.set(interval.toString(), columnVariants, counts.get(columnVariants));
+                reportTable.set(rowID, columnVariants, counts.get(columnVariants));
         }
         GATKReport report = new GATKReport(reportTable);
 

@@ -5,7 +5,7 @@ import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import io.Source._
 import org.broadinstitute.sting.utils.exceptions.UserException
-import org.broadinstitute.sting.gatk.walkers.compression.reducereads.ReduceReadsWalker.DownsampleStrategy
+import org.broadinstitute.sting.gatk.walkers.compression.reducereads.ReduceReads.DownsampleStrategy
 
 /**
  * Created by IntelliJ IDEA.
@@ -22,12 +22,11 @@ class RRead extends QScript {
   @Argument(shortName = "int",      required = false, fullName = "intervals", doc = "") protected val intervals: File = null
   @Argument(shortName = "sg",       required = false, fullName = "scatterCount", doc ="") protected val scatterCount = 50
   @Argument(shortName = "csmm",     required = false, fullName = "context_size_mismatches", doc = "") protected var contextSizeMismatches: Option[Int] = None
-  @Argument(shortName = "csindels", required = false, fullName = "context_size_indels", doc = "") protected var contextSizeIndels: Option[Int] = None
   @Argument(shortName = "minmap",   required = false, fullName = "minimum_mapping_quality", doc ="") protected var minMappingQuality: Option[Int] = None
   @Argument(shortName = "mintail",  required = false, fullName = "minimum_tail_qualities", doc ="") protected var minTailQuality: Option[Byte] = None
   @Argument(shortName = "minvar",   required = false, fullName = "minimum_alt_proportion_to_trigger_variant", doc = "") protected var minAltProportionToTriggerVariant: Option[Double] = None
   @Argument(shortName = "mindel",   required = false, fullName = "minimum_del_proportion_to_trigger_variant", doc = "") protected var minIndelProportionToTriggerVariant: Option[Double] = None
-  @Argument(shortName = "minqual",  required = false, fullName = "minimum_base_quality_to_consider", doc = "") protected var minBaseQual: Option[Int] = None
+  @Argument(shortName = "minqual",  required = false, fullName = "minimum_base_quality_to_consider", doc = "") protected var minBaseQual: Option[Byte] = None
   @Argument(shortName = "ds",       required = false, fullName = "downsample_coverage", doc = "") protected var downsampleCoverage: Option[Int] = None
   @Argument(shortName = "dm",       required = false, fullName = "downsample_strategy", doc = "") protected var downsampleStrategy: DownsampleStrategy = null
   @Argument(shortName = "dl",       required = false, fullName = "", doc = "") protected var debugLevel: Option[Int] = None
@@ -76,8 +75,7 @@ class RRead extends QScript {
       rr.out = reducedBAM
       rr.scatterCount = scatterCount
       if (intervals != null) rr.intervals = intervalList
-      if (contextSizeMismatches != None) rr.context_size_mismatches = Some(contextSizeMismatches)
-      if (contextSizeIndels != None) rr.context_size_indels = Some(contextSizeIndels)
+      if (contextSizeMismatches != None) rr.context_size = Some(contextSizeMismatches)
       if (minMappingQuality != None) rr.minimum_mapping_quality = Some(minMappingQuality)
       if (minTailQuality != None) rr.minimum_tail_qualities = Some(minTailQuality)
       if (minAltProportionToTriggerVariant != None) rr.minimum_alt_proportion_to_trigger_variant = Some(minAltProportionToTriggerVariant)

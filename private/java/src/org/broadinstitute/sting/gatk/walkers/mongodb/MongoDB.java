@@ -15,36 +15,43 @@ import java.net.UnknownHostException;
  * Handles Mongo DB connections
  */
 final public class MongoDB {
-    private final static String MONGO_HOST = "couchdb.broadinstitute.org";
-    private final static Integer MONGO_PORT = 43054;
-    private final static String MONGO_DB_NAME = "bjorn";
-    private final static String MONGO_ATTRIBUTES_COLLECTION = "attributes";
-    private final static String MONGO_SAMPLES_COLLECTION = "samples";
+    private final static String DB_HOST = "couchdb.broadinstitute.org";
+    private final static Integer DB_PORT = 43054;
+    private final static String DB_NAME = "gxdb";
+    private final static String SITES_COLLECTION = "sites";
+    private final static String SAMPLES_COLLECTION = "samples";
 
     protected Mongo mongo;
-    protected DBCollection mongoAttributes;
-    protected DBCollection mongoSamples;
+    protected DBCollection sites;
+    protected DBCollection samples;
 
-    final private static MongoDB INSTANCE = new MongoDB();
+    private static MongoDB INSTANCE = null;
 
-    public static DBCollection getAttributesCollection() {
-        return INSTANCE.mongoAttributes;
+    synchronized protected static MongoDB getInstance() {
+        if (INSTANCE == null) {
+            INSTANCE = new MongoDB();
+        }
+        return INSTANCE;
     }
 
-    public static DBCollection getSamplesCollection() {
-        return INSTANCE.mongoSamples;
+    protected static DBCollection getSitesCollection() {
+        return getInstance().sites;
     }
 
-    public static void close() {
-        INSTANCE.mongo.close();
+    protected static DBCollection getSamplesCollection() {
+        return getInstance().samples;
+    }
+
+    protected static void close() {
+        getInstance().mongo.close();
     }
 
     private MongoDB() {
         try {
-            mongo = new Mongo(MONGO_HOST, MONGO_PORT);
-            DB mongoDb = mongo.getDB(MONGO_DB_NAME);
-            mongoAttributes = mongoDb.getCollection(MONGO_ATTRIBUTES_COLLECTION);
-            mongoSamples = mongoDb.getCollection(MONGO_SAMPLES_COLLECTION);
+            mongo = new Mongo(DB_HOST, DB_PORT);
+            DB mongoDb = mongo.getDB(DB_NAME);
+            sites = mongoDb.getCollection(SITES_COLLECTION);
+            samples = mongoDb.getCollection(SAMPLES_COLLECTION);
         } catch (UnknownHostException e) {
             throw new StingException(e.getMessage(), e);
         }

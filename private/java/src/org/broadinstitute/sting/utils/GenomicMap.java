@@ -279,6 +279,8 @@ public class GenomicMap implements Iterable<Map.Entry<String, Collection<GenomeL
 				break;
 			case D:
             case M:
+            case EQ:
+            case X:
 ///////////
                 if ( delayedGap > 0 ) {
                     // we get here if previous M or D element ended exactly at the interval boundary; we need

@@ -24,7 +24,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.cancer;
 
-import net.sf.picard.util.MathUtil;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
@@ -36,13 +35,11 @@ import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.*;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.*;
 
 /**
@@ -52,8 +49,11 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
     @ArgumentCollection
     protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
-    @Argument(shortName="t", fullName="tumorsample", required=true, doc="List of tumor samples")
-    public Set<String> tumorSamplesArg;
+    @Argument(shortName="n", fullName="normalSample", required=true, doc="The normal sample")
+    public String normalSample;
+
+    @Argument(shortName="t", fullName="tumorSample", required=true, doc="The tumor sample")
+    public String tumorSample;
 
     @Argument(shortName="somaticPriorQ", fullName="somaticPriorQ", required=false, doc="Phred-scaled probability that a site is a somatic mutation")
     public byte somaticPriorQ = 60;
@@ -65,15 +65,13 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
     public boolean minimalVCF = false;
 
     @Output
-    protected VCFWriter vcfWriter = null;
+    protected VariantContextWriter vcfWriter = null;
 
     private final String SOMATIC_LOD_TAG_NAME = "SOMATIC_LOD";
     private final String SOMATIC_AC_TAG_NAME = "SOMATIC_AC";
     private final String SOMATIC_NONREF_TAG_NAME = "SOMATIC_NNR";
-    private final String SOURCE_NAME = "AssignSomaticStatus";
 
-    private Set<String> tumorSamples = new HashSet<String>();
-    private Set<String> normalSamples = new HashSet<String>();
+    private final Set<String> samples = new HashSet<String>(2);
 
     /**
      * Parse the familial relationship specification, and initialize VCF writer
@@ -83,78 +81,64 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
         rodNames.add(variantCollection.variants.getName());
 
         Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
-        tumorSamplesArg = SampleUtils.getSamplesFromCommandLineInput(tumorSamplesArg);
         Set<String> vcfSamples = SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE);
 
         // set up tumor and normal samples
-        for ( final String sample : vcfSamples ) {
-            if ( tumorSamplesArg.contains(sample) )
-                tumorSamples.add(sample);
-            else
-                normalSamples.add(sample);
-        }
-        logger.info("N tumor  samples: " + tumorSamples.size());
-        logger.info("N normal samples: " + normalSamples.size());
-        if ( tumorSamples.size() != normalSamples.size() )
-            logger.warn("Number of tumor samples isn't equal the number of normal samples");
+        if ( !vcfSamples.contains(normalSample) )
+            throw new UserException.BadArgumentValue("--normalSample", "the normal sample " + normalSample + " doesn't match any sample from the input VCF");
+        if ( !vcfSamples.contains(tumorSample) )
+            throw new UserException.BadArgumentValue("--tumorSample", "the tumor sample " + tumorSample + " doesn't match any sample from the input VCF");
+
+        logger.info("Normal sample: " + normalSample);
+        logger.info("Tumor  sample: " + tumorSample);
 
         Set<VCFHeaderLine> headerLines = new HashSet<VCFHeaderLine>();
         headerLines.addAll(VCFUtils.getHeaderFields(this.getToolkit()));
         headerLines.add(new VCFInfoHeaderLine(VCFConstants.SOMATIC_KEY, 0, VCFHeaderLineType.Flag, "Is this a confidently called somatic mutation"));
-        headerLines.add(new VCFFormatHeaderLine(SOMATIC_LOD_TAG_NAME, 1, VCFHeaderLineType.Float, "log10 probability that the site is a somatic mutation"));
-        headerLines.add(new VCFFormatHeaderLine(SOMATIC_AC_TAG_NAME, 1, VCFHeaderLineType.Integer, "Allele count of samples with somatic event"));
-        headerLines.add(new VCFFormatHeaderLine(SOMATIC_NONREF_TAG_NAME, 1, VCFHeaderLineType.Integer, "Number of samples with somatic event"));
-            headerLines.add(new VCFHeaderLine("source", SOURCE_NAME));
-        vcfWriter.writeHeader(new VCFHeader(headerLines, vcfSamples));
+        headerLines.add(new VCFInfoHeaderLine(SOMATIC_LOD_TAG_NAME, 1, VCFHeaderLineType.Float, "log10 probability that the site is a somatic mutation"));
+        headerLines.add(new VCFInfoHeaderLine(SOMATIC_AC_TAG_NAME, 1, VCFHeaderLineType.Integer, "Allele count of samples with somatic event"));
+        headerLines.add(new VCFInfoHeaderLine(SOMATIC_NONREF_TAG_NAME, 1, VCFHeaderLineType.Integer, "Number of samples with somatic event"));
+
+        samples.add(normalSample);
+        samples.add(tumorSample);
+        vcfWriter.writeHeader(new VCFHeader(headerLines, samples));
     }
 
-    private double log10pNonRefInSamples(final VariantContext vc, final Set<String> samples) {
-        double[] log10ps = log10PLFromSamples(vc, samples, false);
-        return MathUtils.log10sumLog10(log10ps); // product of probs => prod in real space
+    private double log10pNonRefInSamples(final VariantContext vc, final String sample) {
+        return log10PLFromSamples(vc, sample, false);
      }
 
-    private double log10pRefInSamples(final VariantContext vc, final Set<String> samples) {
-        double[] log10ps = log10PLFromSamples(vc, samples, true);
-        return MathUtils.sum(log10ps); // product is sum
+    private double log10pRefInSamples(final VariantContext vc, final String sample) {
+        return log10PLFromSamples(vc, sample, true);
     }
 
-    private double[] log10PLFromSamples(final VariantContext vc, final Set<String> samples, boolean calcRefP) {
-        double[] log10p = new double[samples.size()];
+    private double log10PLFromSamples(final VariantContext vc, final String sample, boolean calcRefP) {
 
-        int i = 0;
-        for ( final String sample : samples ) {
-            Genotype g = vc.getGenotype(sample);
-            double log10pSample = -1000;
-            if ( ! g.isNoCall() ) {
-                double[] gLikelihoods = MathUtils.normalizeFromLog10(g.getLikelihoods().getAsVector());
-                log10pSample = Math.log10(calcRefP ? gLikelihoods[0] : 1 - gLikelihoods[0]);
-                log10pSample = Double.isInfinite(log10pSample) ? -10000 : log10pSample;
-            }
-            log10p[i++] = log10pSample;
+        Genotype g = vc.getGenotype(sample);
+        double log10pSample = -1000;
+        if ( ! g.isNoCall() ) {
+            final double[] gLikelihoods = MathUtils.normalizeFromLog10(g.getLikelihoods().getAsVector());
+            log10pSample = Math.log10(calcRefP ? gLikelihoods[0] : 1 - gLikelihoods[0]);
+            log10pSample = Double.isInfinite(log10pSample) ? -10000 : log10pSample;
         }
-
-        return log10p;
+        return log10pSample;
     }
 
     private int calculateTumorAC(final VariantContext vc) {
         int ac = 0;
-        for ( final String sample : tumorSamples ) {
-            switch ( vc.getGenotype(sample).getType() ) {
-                case HET:       ac += 1; break;
-                case HOM_VAR:   ac += 2; break;
-                case NO_CALL: case UNAVAILABLE: case HOM_REF: break;
-            }
+        switch ( vc.getGenotype(tumorSample).getType() ) {
+            case HET:       ac += 1; break;
+            case HOM_VAR:   ac += 2; break;
+            case NO_CALL: case UNAVAILABLE: case HOM_REF: break;
         }
         return ac;
     }
 
     private int calculateTumorNNR(final VariantContext vc) {
         int nnr = 0;
-        for ( final String sample : tumorSamples ) {
-            switch ( vc.getGenotype(sample).getType() ) {
-                case HET: case HOM_VAR: nnr += 1; break;
-                case NO_CALL: case UNAVAILABLE: case HOM_REF: break;
-            }
+        switch ( vc.getGenotype(tumorSample).getType() ) {
+            case HET: case HOM_VAR: nnr += 1; break;
+            case NO_CALL: case UNAVAILABLE: case HOM_REF: break;
         }
         return nnr;
     }
@@ -175,12 +159,12 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
      */
     private double calcLog10pSomatic(final VariantContext vc) {
         // walk over tumors
-        double log10pNonRefInTumors = log10pNonRefInSamples(vc, tumorSamples);
-        double log10pRefInTumors = log10pRefInSamples(vc, tumorSamples);
+        double log10pNonRefInTumors = log10pNonRefInSamples(vc, tumorSample);
+        double log10pRefInTumors = log10pRefInSamples(vc, tumorSample);
 
         // walk over normals
-        double log10pNonRefInNormals = log10pNonRefInSamples(vc, normalSamples);
-        double log10pRefInNormals = log10pRefInSamples(vc, normalSamples);
+        double log10pNonRefInNormals = log10pNonRefInSamples(vc, normalSample);
+        double log10pRefInNormals = log10pRefInSamples(vc, normalSample);
 
         // priors
         double log10pSomaticPrior = MathUtils.phredScaleToLog10Probability(somaticPriorQ);
@@ -207,7 +191,11 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
     @Override
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if (tracker != null) {
-            for ( final VariantContext vc : tracker.getValues(variantCollection.variants, context.getLocation()) ) {
+            for ( VariantContext vc : tracker.getValues(variantCollection.variants, context.getLocation()) ) {
+                vc = vc.subContextFromSamples(samples);
+                if ( !vc.isPolymorphicInSamples() )
+                    continue;
+
                 double log10pSomatic = calcLog10pSomatic(vc);
 
                 // write in the somatic status probability
@@ -220,7 +208,9 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
                     attrs.put(SOMATIC_AC_TAG_NAME, calculateTumorAC(vc));
 
                 }
-                VariantContext newvc =  new VariantContextBuilder(vc).attributes(attrs).make();
+                final VariantContextBuilder builder = new VariantContextBuilder(vc).attributes(attrs);
+                VariantContextUtils.calculateChromosomeCounts(builder, false);
+                VariantContext newvc = builder.make();
 
                 vcfWriter.add(newvc);
             }

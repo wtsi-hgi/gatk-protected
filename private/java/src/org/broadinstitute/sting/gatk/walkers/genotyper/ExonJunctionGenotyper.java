@@ -11,16 +11,16 @@ import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportColumn;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.report.*;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
 import org.broadinstitute.sting.utils.codecs.table.TableFeature;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -29,6 +29,8 @@ import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriterFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -39,20 +41,18 @@ import java.util.*;
  * Created by IntelliJ IDEA.
  * User: chartl
  * Date: 11/16/11
- * Time: 5:09 PM
- * To change this template use File | Settings | File Templates.
  */
 @ReadFilters({DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class,MappingQualityZeroFilter.class})
 public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.EvaluationContext,ExonJunctionGenotyper.ECLikelihoods> {
 
 
     /**
-     * A raw, unfiltered, highly specific callset in VCF format.
+     * A raw, unfiltered, highly sensitive callset in VCF format.
      */
     @Output(doc="File to which variants should be written", required = true)
-    protected VCFWriter vcfWriterBase = null;
+    protected VariantContextWriter vcfWriterBase = null;
 
-    protected SortingVCFWriter vcfWriter;
+    protected VariantContextWriter vcfWriter;
 
     @Input(shortName="r",fullName="refSeq",required=true,doc="The RefSeq Gene definition track")
     public RodBinding<RefSeqFeature> refSeqRodBinding;
@@ -195,7 +195,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
         Set<String> sampleStr = SampleUtils.getSAMFileSamples(getToolkit());
         ilglcm.setSamples(sampleStr);
 
-        vcfWriter = new SortingVCFWriter(vcfWriterBase,1500000);
+        vcfWriter = VariantContextWriterFactory.sortOnTheFly(vcfWriterBase,1500000);
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), sampleStr));
 
         try {
@@ -274,16 +274,17 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             GATKReport report = new GATKReport(readGroupInsertHistogramFile);
             GATKReportTable reportTable = report.getTable("InsertSizeDistributionByReadGroup");
             // rows are insert sizes, columns are read groups
-            for (GATKReportColumn reportColumn : reportTable.getColumns() ) {
+            for (GATKReportColumn reportColumn : reportTable.getColumnInfo() ) {
                 // annoyingly, the column has no knowledge of its own rows
                 int sum = 0;
                 for ( int row = 0; row < reportTable.getNumRows(); row++ ) {
                     sum += Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
                 }
                 byte[] rgHist = new byte[MAX_INSERT_SIZE];
-                for ( int row = 0; row < rgHist.length; row++) {
+                for ( int row = 0; row < reportTable.getNumRows(); row++ ) {
+                    final int insertSize = Integer.parseInt( (String) reportTable.get(row,0));
                     int val = 1;
-                    if ( reportTable.containsKey(row) ) {
+                    if ( insertSize < rgHist.length ) {
                         val = Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
                     }
                     rgHist[row] = QualityUtils.probToQual( 1.0-( ( (double) val )/sum ), Math.pow(10,-25.4) );
@@ -321,11 +322,11 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                 //logger.info(gl.getKey() + Arrays.deepToString(ArrayUtils.toObject(gl.getValue())));
                 HashMap<String, Object> attributes = new HashMap<String, Object>();
                 if ( rawLiks.containsKey(s) ) {
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, GenotypeLikelihoods.fromLog10Likelihoods(MathUtils.normalizeFromLog10(rawLiks.get(s), false, true)));
+                    attributes.put(VCFConstants.GENOTYPE_PL_KEY, GenotypeLikelihoods.fromLog10Likelihoods(MathUtils.normalizeFromLog10(rawLiks.get(s), false, true)));
                 } else {
-                    attributes.put(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY,VCFConstants.MISSING_VALUE_v4);
+                    attributes.put(VCFConstants.GENOTYPE_PL_KEY,VCFConstants.MISSING_VALUE_v4);
                 }
-                GLs.add(new Genotype(s, noCall, Genotype.NO_LOG10_PERROR, null, attributes, false));
+                GLs.add(GenotypeBuilder.create(s, noCall, attributes));
             }
             Map<String,Object> attributes = new HashMap<String,Object>();
             attributes.put("SNS", likelihoods.getSupNoSupRatio());
@@ -341,7 +342,6 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             ExactAFCalculationModel.linearExactMultiAllelic(GLs,1,prior,result);
             VariantContextBuilder vcb = new VariantContextBuilder("EJG",refPos.getContig(),refPos.getStop(),refPos.getStop(),Arrays.asList(ref,alt));
             vcb.genotypes(GLs);
-            vcb.referenceBaseForIndel(paddingBase);
             List<Allele> alleles = new ArrayList<Allele>(2);
             alleles.add(ref);
             alleles.add(Allele.create(hypothesis.toString()));

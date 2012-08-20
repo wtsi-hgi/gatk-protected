@@ -6,7 +6,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.contexts.variantcontext.VariantContextUtils;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.varianteval.VariantEvalWalker;
+import org.broadinstitute.sting.gatk.walkers.varianteval.VariantEval;
 import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.VariantEvaluator;
 import org.broadinstitute.sting.gatk.walkers.varianteval.tags.Analysis;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -37,7 +37,7 @@ public class AlleleFrequencyComparison extends VariantEvaluator {
 
     public String getName() { return "Allele Frequency Comparison"; }
 
-    public AlleleFrequencyComparison(VariantEvalWalker parent) {
+    public AlleleFrequencyComparison(VariantEval parent) {
         //super(parent);
     }
 

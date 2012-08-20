@@ -30,18 +30,18 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 
 public class SelectHeadersIntegrationTest extends WalkerTest {
+    private static String testfile = privateTestDir + "NA12878.hg19.example1.vcf";
+
     public static String baseTestString(String args) {
-        return "-T SelectHeaders -R " + hg19Reference + " -L 1 -o %s -NO_HEADER" + args;
+        return "-T SelectHeaders -R " + hg19Reference + " -L 1 -o %s --no_cmdline_in_header" + args;
     }
 
     @Test
     public void testSelectHeaderName() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile),
                 1,
-                Arrays.asList("de03c3c170398c5657ec5b9cbb56fc9b")
+                Arrays.asList("c338b844c3cd1fe8fbe3df4d7b07321e")
         );
 
         executeTest("testSelectHeaderName--" + testfile, spec);
@@ -49,12 +49,10 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
 
     @Test
     public void testSelectHeaderExpression() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -he '(FILTER|INFO|FORMAT)' --variant " + testfile),
                 1,
-                Arrays.asList("de03c3c170398c5657ec5b9cbb56fc9b")
+                Arrays.asList("c338b844c3cd1fe8fbe3df4d7b07321e")
         );
 
         executeTest("testSelectHeaderExpression--" + testfile, spec);
@@ -62,38 +60,21 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
 
     @Test
     public void testExcludeHeaderName() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -xl_hn CombineVariants --variant " + testfile),
                 1,
-                Arrays.asList("851f8a46f64930e644ffd364f134870f")
+                Arrays.asList("7b8e82c246307bdb2460f3c1e776cfdc")
         );
 
         executeTest("testExcludeHeaderName--" + testfile, spec);
     }
 
     @Test
-    public void testIncludeReferenceName() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
-        WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString(" -irn --variant " + testfile),
-                1,
-                Arrays.asList("91de3d2db9cac963073150192d8b289e")
-        );
-
-        executeTest("testIncludeReferenceName--" + testfile, spec);
-    }
-
-    @Test
     public void testIncludeIntervals() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -iln --variant " + testfile),
                 1,
-                Arrays.asList("26c15aac907b6d62ef9edb85eeb89b9f")
+                Arrays.asList("582e1617b76a99b394eafed30ed02eee")
         );
 
         executeTest("testIncludeIntervals--" + testfile, spec);
@@ -102,34 +83,31 @@ public class SelectHeadersIntegrationTest extends WalkerTest {
 
     @Test
     public void testComplexSelection() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
         WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString(" -he '(FILTER|INFO|FORMAT)' -irn -iln --variant " + testfile),
+                baseTestString(" -he '(FILTER|INFO|FORMAT)' -iln --variant " + testfile),
                 1,
-                Arrays.asList("6e243821aa868c9a56f938419aa698f2")
+                Arrays.asList("1b2eef1f362d2445428f49476556fcaa")
         );
 
         executeTest("testComplexSelection--" + testfile, spec);
     }
 
     @Test
-    public void testParallelization() {
-        String testfile = validationDataLocation + "NA12878.hg19.example1.vcf";
-
-        WalkerTestSpec spec;
-
-        spec = new WalkerTestSpec(
+    public void testParallelization2() {
+        WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile + " -nt 2"),
                 1,
-                Arrays.asList("de03c3c170398c5657ec5b9cbb56fc9b")
+                Arrays.asList("c338b844c3cd1fe8fbe3df4d7b07321e")
         );
         executeTest("testParallelization (2 threads)--" + testfile, spec);
+    }
 
-        spec = new WalkerTestSpec(
+    @Test
+    public void testParallelization4() {
+        WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -hn FILTER -hn INFO -hn FORMAT --variant " + testfile + " -nt 4"),
                 1,
-                Arrays.asList("de03c3c170398c5657ec5b9cbb56fc9b")
+                Arrays.asList("c338b844c3cd1fe8fbe3df4d7b07321e")
         );
 
         executeTest("testParallelization (4 threads)--" + testfile, spec);

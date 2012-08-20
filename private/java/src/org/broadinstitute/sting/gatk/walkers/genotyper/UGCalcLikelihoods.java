@@ -35,6 +35,7 @@ import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
@@ -58,7 +59,7 @@ public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> 
 
     // control the output
     @Output(doc="File to which variants should be written",required=true)
-    protected VCFWriter writer = null;
+    protected VariantContextWriter writer = null;
 
     // the calculation arguments
     private UnifiedGenotyperEngine UG_engine = null;
@@ -74,10 +75,11 @@ public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> 
 
         // initialize the header
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
-        headerInfo.add(new VCFInfoHeaderLine(VCFConstants.DOWNSAMPLED_KEY, 0, VCFHeaderLineType.Flag, "Were any of the samples downsampled?"));
-        headerInfo.add(new VCFFormatHeaderLine(VCFConstants.GENOTYPE_KEY, 1, VCFHeaderLineType.String, "Genotype"));
-        headerInfo.add(new VCFFormatHeaderLine(VCFConstants.DEPTH_KEY, 1, VCFHeaderLineType.Integer, "Read Depth (only filtered reads used for calling)"));
-        headerInfo.add(new VCFFormatHeaderLine(VCFConstants.PHRED_GENOTYPE_LIKELIHOODS_KEY, 3, VCFHeaderLineType.Float, "Normalized, Phred-scaled likelihoods for AA,AB,BB genotypes where A=ref and B=alt; not applicable if site is not biallelic"));
+        VCFStandardHeaderLines.addStandardFormatLines(headerInfo, true,
+                VCFConstants.GENOTYPE_KEY,
+                VCFConstants.GENOTYPE_QUALITY_KEY,
+                VCFConstants.DEPTH_KEY,
+                VCFConstants.GENOTYPE_PL_KEY);
 
         writer.writeHeader(new VCFHeader(headerInfo, samples)) ;
     }

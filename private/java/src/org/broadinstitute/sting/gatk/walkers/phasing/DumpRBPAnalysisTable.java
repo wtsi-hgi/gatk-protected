@@ -75,80 +75,79 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
         tableName = "RBPResults." + SAMPLE;
 
         report = new GATKReport();
-        report.addTable(tableName, "RBP results for " + SAMPLE);
+        report.addTable(tableName, "RBP results for " + SAMPLE, 61);
 
         GATKReportTable rbpTable = report.getTable(tableName);
-        rbpTable.addPrimaryKey("pk", false);
-        rbpTable.addColumn("sample", SAMPLE);
-        rbpTable.addColumn("chr", "unknown");
-        rbpTable.addColumn("start", 0);
-        rbpTable.addColumn("id", "unknown");
-        rbpTable.addColumn("ref", "unknown");
-        rbpTable.addColumn("alt", "unknown");
+        rbpTable.addColumn("sample");
+        rbpTable.addColumn("chr");
+        rbpTable.addColumn("start");
+        rbpTable.addColumn("id");
+        rbpTable.addColumn("ref");
+        rbpTable.addColumn("alt");
 
-        rbpTable.addColumn("truth.GT", "unknown");
-        rbpTable.addColumn("truth.AC", 0.0);
-        rbpTable.addColumn("truth.AN", 0.0);
-        rbpTable.addColumn("truth.AF", 0.0);
-        rbpTable.addColumn("truth.GQ", 0.0);
-        rbpTable.addColumn("truth.DP", 0.0);
-        rbpTable.addColumn("truth.TP", 0.0);
+        rbpTable.addColumn("truth.GT");
+        rbpTable.addColumn("truth.AC");
+        rbpTable.addColumn("truth.AN");
+        rbpTable.addColumn("truth.AF");
+        rbpTable.addColumn("truth.GQ");
+        rbpTable.addColumn("truth.DP");
+        rbpTable.addColumn("truth.TP");
 
-        rbpTable.addColumn("rbp00.GT", "unknown");
-        rbpTable.addColumn("rbp00.AC", 0.0);
-        rbpTable.addColumn("rbp00.AN", 0.0);
-        rbpTable.addColumn("rbp00.AF", 0.0);
-        rbpTable.addColumn("rbp00.GQ", 0.0);
-        rbpTable.addColumn("rbp00.DP", 0.0);
-        rbpTable.addColumn("rbp00.PQ", 0.0);
+        rbpTable.addColumn("rbp00.GT");
+        rbpTable.addColumn("rbp00.AC");
+        rbpTable.addColumn("rbp00.AN");
+        rbpTable.addColumn("rbp00.AF");
+        rbpTable.addColumn("rbp00.GQ");
+        rbpTable.addColumn("rbp00.DP");
+        rbpTable.addColumn("rbp00.PQ");
 
-        rbpTable.addColumn("rbp01.GT", "unknown");
-        rbpTable.addColumn("rbp01.AC", 0.0);
-        rbpTable.addColumn("rbp01.AN", 0.0);
-        rbpTable.addColumn("rbp01.AF", 0.0);
-        rbpTable.addColumn("rbp01.GQ", 0.0);
-        rbpTable.addColumn("rbp01.DP", 0.0);
-        rbpTable.addColumn("rbp01.PQ", 0.0);
+        rbpTable.addColumn("rbp01.GT");
+        rbpTable.addColumn("rbp01.AC");
+        rbpTable.addColumn("rbp01.AN");
+        rbpTable.addColumn("rbp01.AF");
+        rbpTable.addColumn("rbp01.GQ");
+        rbpTable.addColumn("rbp01.DP");
+        rbpTable.addColumn("rbp01.PQ");
 
-        rbpTable.addColumn("rbp10.GT", "unknown");
-        rbpTable.addColumn("rbp10.AC", 0.0);
-        rbpTable.addColumn("rbp10.AN", 0.0);
-        rbpTable.addColumn("rbp10.AF", 0.0);
-        rbpTable.addColumn("rbp10.GQ", 0.0);
-        rbpTable.addColumn("rbp10.DP", 0.0);
-        rbpTable.addColumn("rbp10.PQ", 0.0);
+        rbpTable.addColumn("rbp10.GT");
+        rbpTable.addColumn("rbp10.AC");
+        rbpTable.addColumn("rbp10.AN");
+        rbpTable.addColumn("rbp10.AF");
+        rbpTable.addColumn("rbp10.GQ");
+        rbpTable.addColumn("rbp10.DP");
+        rbpTable.addColumn("rbp10.PQ");
 
-        rbpTable.addColumn("rbp11.GT", "unknown");
-        rbpTable.addColumn("rbp11.AC", 0.0);
-        rbpTable.addColumn("rbp11.AN", 0.0);
-        rbpTable.addColumn("rbp11.AF", 0.0);
-        rbpTable.addColumn("rbp11.GQ", 0.0);
-        rbpTable.addColumn("rbp11.DP", 0.0);
-        rbpTable.addColumn("rbp11.PQ", 0.0);
+        rbpTable.addColumn("rbp11.GT");
+        rbpTable.addColumn("rbp11.AC");
+        rbpTable.addColumn("rbp11.AN");
+        rbpTable.addColumn("rbp11.AF");
+        rbpTable.addColumn("rbp11.GQ");
+        rbpTable.addColumn("rbp11.DP");
+        rbpTable.addColumn("rbp11.PQ");
 
-        rbpTable.addColumn("beagle00.GT", "unknown");
-        rbpTable.addColumn("beagle00.AF", 0.0);
-        rbpTable.addColumn("beagle00.GA", 0.0);
-        rbpTable.addColumn("beagle00.AR2", 0.0);
-        rbpTable.addColumn("beagle00.DR2", 0.0);
+        rbpTable.addColumn("beagle00.GT");
+        rbpTable.addColumn("beagle00.AF");
+        rbpTable.addColumn("beagle00.GA");
+        rbpTable.addColumn("beagle00.AR2");
+        rbpTable.addColumn("beagle00.DR2");
 
-        rbpTable.addColumn("beagle01.GT", "unknown");
-        rbpTable.addColumn("beagle01.AF", 0.0);
-        rbpTable.addColumn("beagle01.GA", 0.0);
-        rbpTable.addColumn("beagle01.AR2", 0.0);
-        rbpTable.addColumn("beagle01.DR2", 0.0);
+        rbpTable.addColumn("beagle01.GT");
+        rbpTable.addColumn("beagle01.AF");
+        rbpTable.addColumn("beagle01.GA");
+        rbpTable.addColumn("beagle01.AR2");
+        rbpTable.addColumn("beagle01.DR2");
 
-        rbpTable.addColumn("beagle10.GT", "unknown");
-        rbpTable.addColumn("beagle10.AF", 0.0);
-        rbpTable.addColumn("beagle10.GA", 0.0);
-        rbpTable.addColumn("beagle10.AR2", 0.0);
-        rbpTable.addColumn("beagle10.DR2", 0.0);
+        rbpTable.addColumn("beagle10.GT");
+        rbpTable.addColumn("beagle10.AF");
+        rbpTable.addColumn("beagle10.GA");
+        rbpTable.addColumn("beagle10.AR2");
+        rbpTable.addColumn("beagle10.DR2");
 
-        rbpTable.addColumn("beagle11.GT", "unknown");
-        rbpTable.addColumn("beagle11.AF", 0.0);
-        rbpTable.addColumn("beagle11.GA", 0.0);
-        rbpTable.addColumn("beagle11.AR2", 0.0);
-        rbpTable.addColumn("beagle11.DR2", 0.0);
+        rbpTable.addColumn("beagle11.GT");
+        rbpTable.addColumn("beagle11.AF");
+        rbpTable.addColumn("beagle11.GA");
+        rbpTable.addColumn("beagle11.AR2");
+        rbpTable.addColumn("beagle11.DR2");
     }
 
     @Override
@@ -203,41 +202,41 @@ public class DumpRBPAnalysisTable extends RodWalker<Integer, Integer> {
                 rbpTable.set(pk, "truth.AC", truth.getAttribute("AC", 0));
                 rbpTable.set(pk, "truth.AN", truth.getAttribute("AN", 0));
                 rbpTable.set(pk, "truth.AF", truth.getAttribute("AF", 0));
-                rbpTable.set(pk, "truth.GQ", truthG.getAttribute("GQ", 0.0));
-                rbpTable.set(pk, "truth.DP", truthG.getAttribute("DP", 0));
-                rbpTable.set(pk, "truth.TP", truthG.getAttribute("TP", 0.0));
+                rbpTable.set(pk, "truth.GQ", truthG.getExtendedAttribute("GQ", 0.0));
+                rbpTable.set(pk, "truth.DP", truthG.getExtendedAttribute("DP", 0));
+                rbpTable.set(pk, "truth.TP", truthG.getExtendedAttribute("TP", 0.0));
 
                 rbpTable.set(pk, "rbp00.GT", rbp00G.isNoCall() ? "./." : rbp00G.getGenotypeString());
                 rbpTable.set(pk, "rbp00.AC", rbp00.getAttribute("AC", 0));
                 rbpTable.set(pk, "rbp00.AN", rbp00.getAttribute("AN", 0));
                 rbpTable.set(pk, "rbp00.AF", rbp00.getAttribute("AF", 0));
-                rbpTable.set(pk, "rbp00.GQ", rbp00G.getAttribute("GQ", 0.0));
-                rbpTable.set(pk, "rbp00.DP", rbp00G.getAttribute("DP", 0));
-                rbpTable.set(pk, "rbp00.PQ", rbp00G.getAttribute("PQ", 0.0));
+                rbpTable.set(pk, "rbp00.GQ", rbp00G.getExtendedAttribute("GQ", 0.0));
+                rbpTable.set(pk, "rbp00.DP", rbp00G.getExtendedAttribute("DP", 0));
+                rbpTable.set(pk, "rbp00.PQ", rbp00G.getExtendedAttribute("PQ", 0.0));
 
                 rbpTable.set(pk, "rbp01.GT", rbp01G.isNoCall() ? "./." : rbp01G.getGenotypeString());
                 rbpTable.set(pk, "rbp01.AC", rbp01.getAttribute("AC", 0));
                 rbpTable.set(pk, "rbp01.AN", rbp01.getAttribute("AN", 0));
                 rbpTable.set(pk, "rbp01.AF", rbp01.getAttribute("AF", 0));
-                rbpTable.set(pk, "rbp01.GQ", rbp01G.getAttribute("GQ", 0.0));
-                rbpTable.set(pk, "rbp01.DP", rbp01G.getAttribute("DP", 0));
-                rbpTable.set(pk, "rbp01.PQ", rbp01G.getAttribute("PQ", 0.0));
+                rbpTable.set(pk, "rbp01.GQ", rbp01G.getExtendedAttribute("GQ", 0.0));
+                rbpTable.set(pk, "rbp01.DP", rbp01G.getExtendedAttribute("DP", 0));
+                rbpTable.set(pk, "rbp01.PQ", rbp01G.getExtendedAttribute("PQ", 0.0));
 
                 rbpTable.set(pk, "rbp10.GT", rbp10G.isNoCall() ? "./." : rbp10G.getGenotypeString());
                 rbpTable.set(pk, "rbp10.AC", rbp10.getAttribute("AC", 0));
                 rbpTable.set(pk, "rbp10.AN", rbp10.getAttribute("AN", 0));
                 rbpTable.set(pk, "rbp10.AF", rbp10.getAttribute("AF", 0));
-                rbpTable.set(pk, "rbp10.GQ", rbp10G.getAttribute("GQ", 0.0));
-                rbpTable.set(pk, "rbp10.DP", rbp10G.getAttribute("DP", 0));
-                rbpTable.set(pk, "rbp10.PQ", rbp10G.getAttribute("PQ", 0.0));
+                rbpTable.set(pk, "rbp10.GQ", rbp10G.getExtendedAttribute("GQ", 0.0));
+                rbpTable.set(pk, "rbp10.DP", rbp10G.getExtendedAttribute("DP", 0));
+                rbpTable.set(pk, "rbp10.PQ", rbp10G.getExtendedAttribute("PQ", 0.0));
 
                 rbpTable.set(pk, "rbp11.GT", rbp11G.isNoCall() ? "./." : rbp11G.getGenotypeString());
                 rbpTable.set(pk, "rbp11.AC", rbp11.getAttribute("AC", 0));
                 rbpTable.set(pk, "rbp11.AN", rbp11.getAttribute("AN", 0));
                 rbpTable.set(pk, "rbp11.AF", rbp11.getAttribute("AF", 0));
-                rbpTable.set(pk, "rbp11.GQ", rbp11G.getAttribute("GQ", 0.0));
-                rbpTable.set(pk, "rbp11.DP", rbp11G.getAttribute("DP", 0));
-                rbpTable.set(pk, "rbp11.PQ", rbp11G.getAttribute("PQ", 0.0));
+                rbpTable.set(pk, "rbp11.GQ", rbp11G.getExtendedAttribute("GQ", 0.0));
+                rbpTable.set(pk, "rbp11.DP", rbp11G.getExtendedAttribute("DP", 0));
+                rbpTable.set(pk, "rbp11.PQ", rbp11G.getExtendedAttribute("PQ", 0.0));
 
                 rbpTable.set(pk, "beagle00.GT", beagle00G.isNoCall() ? "./." : beagle00G.getGenotypeString());
                 rbpTable.set(pk, "beagle00.AF", beagle00.getAttribute("AF", 0));

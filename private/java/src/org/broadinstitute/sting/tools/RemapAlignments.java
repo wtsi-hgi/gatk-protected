@@ -231,8 +231,8 @@ public class RemapAlignments extends CommandLineProgram {
                     r.setMappingQuality(0);
                 } else {
                     r.setMappingQuality(37);
-                    r.setAttribute("X0", new Integer(1));
-                    r.setAttribute("X1", new Integer(0));
+                    r.setAttribute("X0", Integer.valueOf(1));
+                    r.setAttribute("X1", Integer.valueOf(0));
                 }
     		r.setNotPrimaryAlignmentFlag(false);
     		
@@ -321,9 +321,9 @@ public class RemapAlignments extends CommandLineProgram {
     
 /*    
     private int bwa_approx_mapQ(SAMRecord r, int max_diff) {
-    	int c1 = (Integer)r.getAttribute("X0");
-    	int c2 = (Integer)r.getAttribute("X1");
-    	int mm = (Integer)r.getAttribute("NM");
+    	int c1 = (Integer)r.getExtendedAttribute("X0");
+    	int c2 = (Integer)r.getExtendedAttribute("X1");
+    	int mm = (Integer)r.getExtendedAttribute("NM");
     	if ( c1 > 0 ) return 0;
     	if ( c1 == 0 ) return 23;
     	if ( mm == max_diff ) return 25;

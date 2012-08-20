@@ -24,10 +24,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.mongodb;
 
-import com.mongodb.BasicDBList;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBCursor;
-import com.mongodb.DBObject;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
@@ -44,7 +40,7 @@ import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MendelianViolation;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variantcontext.*;
@@ -210,7 +206,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
     protected RodBinding<VariantContext> concordanceTrack;
 
     @Output(doc="File to which variants should be written",required=true)
-    protected VCFWriter vcfWriter = null;
+    protected VariantContextWriter vcfWriter = null;
 
     @Argument(fullName="sample_name", shortName="sn", doc="Include genotypes from this sample. Can be specified multiple times", required=false)
     public Set<String> sampleNames = new HashSet<String>(0);
@@ -232,6 +228,9 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
      */
     @Input(fullName="exclude_sample_file", shortName="xl_sf", doc="File containing a list of samples (one per line) to exclude. Can be specified multiple times", required=false)
     public Set<File> XLsampleFiles = new HashSet<File>(0);
+
+    @Argument(fullName="no_samples", shortName="no_s", doc="Indicates that no samples should be selected.  Without setting this option, selecting no samples will specify ALL samples", required=false)
+    protected boolean SITES_ONLY = false;
 
     /**
      * Note that these expressions are evaluated *after* the specified samples are extracted and the INFO field annotations are updated.
@@ -364,7 +363,10 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
     private Set<String> IDsToKeep = null;
 
-    private final static boolean mongoOn = true;
+    private MongoBlockKey activeBlockKey = null;
+
+    private Map<Integer, List<MongoSiteData>> activeBlockSiteData = new HashMap<Integer, List<MongoSiteData>>();
+    private Map<String, Map<Integer, List<MongoSampleData>>> activeBlockSampleMap = new HashMap<String, Map<Integer, List<MongoSampleData>>>();
 
     /**
      * Set up the VCF writer, the sample expressions and regexs, and the JEXL matcher
@@ -395,7 +397,13 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         samples.removeAll(XLsamplesFromFile);
         samples.removeAll(XLsampleNames);
 
-        if ( samples.size() == 0 && !NO_SAMPLES_SPECIFIED )
+        // finally check to see if we want no samples at all
+        if (SITES_ONLY) {
+            samples.clear();
+            NO_SAMPLES_SPECIFIED = true;
+        }
+
+        if ( samples.size() == 0 && !NO_SAMPLES_SPECIFIED)
             throw new UserException("All samples requested to be included were also requested to be excluded.");
 
         for ( String sample : samples )
@@ -487,11 +495,28 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         if ( tracker == null )
             return 0;
 
-        Collection<VariantContext> vcs = mongoOn ? getMongoVariants(ref, context.getLocation()) : tracker.getValues(variantCollection.variants, context.getLocation());
+        Collection<VariantContext> vcs = new ArrayList<VariantContext>();
+
+        MongoBlockKey block_id = new MongoBlockKey(context.getLocation());
+
+        // Blocks must be accessed in order.  If the previous block is complete, remove it from memory.
+
+        if (!block_id.equals(activeBlockKey)) {
+            activeBlockKey = block_id;
+            activeBlockSiteData = MongoSiteData.retrieveFromMongo(activeBlockKey);
+            activeBlockSampleMap = new HashMap<String, Map<Integer, List<MongoSampleData>>>();
+            for (String sample : samples) {
+                activeBlockSampleMap.put(sample, MongoSampleData.retrieveFromMongo(activeBlockKey, sample));
+            }
+        }
+
+        vcs.addAll(getMongoVariants(ref, context.getLocation(), samples));
 
         if ( vcs == null || vcs.size() == 0) {
             return 0;
         }
+
+        vcs = combineMongoVariants(vcs);
 
         for (VariantContext vc : vcs) {
             if ( IDsToKeep != null && ! IDsToKeep.contains(vc.getID()) )
@@ -567,126 +592,32 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         return 1;
     }
 
-    private Collection<VariantContext> getMongoVariants(ReferenceContext ref, GenomeLoc location) {
-        String contig = location.getContig();
-        long start = location.getStart();
+    private Collection<VariantContext> getMongoVariants(ReferenceContext ref, GenomeLoc location, Set<String> samples) {
+        Integer start = location.getStart();
 
         ArrayList<VariantContext> vcs = new ArrayList<VariantContext>();
 
-        BasicDBObject query = new BasicDBObject();
-        query.put("contig", contig);
-        query.put("start", start);
-        // can't know stop location for deletions from reference
+        if (!activeBlockSiteData.containsKey(start)) {
+            return vcs;
+        }
 
-        DBCursor attributesCursor = MongoDB.getAttributesCollection().find(query);
-        DBCursor samplesCursor = MongoDB.getSamplesCollection().find(query);
+        for (MongoSiteData oneSite : activeBlockSiteData.get(start)) {
+            VariantContextBuilder builder = oneSite.builder(ref);
+            vcs.add(builder.make());
 
-        Map<Pair<String,List<Allele>>,VariantContextBuilder> attributesFromDB = new HashMap<Pair<String,List<Allele>>,VariantContextBuilder>();
-
-        while(attributesCursor.hasNext()) {
-            DBObject oneResult = attributesCursor.next();
-
-            String sourceROD = (String)oneResult.get("sourceROD");
-
-            ArrayList<Allele> alleles = new ArrayList<Allele>();
-            BasicDBObject allelesInDb = (BasicDBObject)oneResult.get("alleles");
-            for (Object alleleInDb : allelesInDb.values()) {
-                String rawAllele = (String)alleleInDb;
-                boolean isRef = rawAllele.contains("*");
-                String allele = rawAllele.replace("*", "");
-                alleles.add(Allele.create(allele, isRef));
-            }
-
-            // primary key to uniquely identify variant
-            Pair<String, List<Allele>> sourceRodAllelePair = new Pair<String, List<Allele>>(sourceROD, alleles);
-
-            Map<String, Object> attributes = new TreeMap<String, Object>();
-            BasicDBList attrsInDb = (BasicDBList)oneResult.get("attributes");
-            for (Object attrInDb : attrsInDb) {
-                BasicDBObject attrKVP = (BasicDBObject)attrInDb;
-                String key = (String)attrKVP.get("key");
-                Object value = attrKVP.get("value");
-                attributes.put(key, value);
-            }
-
-            Set<String> filters = new HashSet<String>();
-            BasicDBObject filtersInDb = (BasicDBObject)oneResult.get("filters");
-            if (filtersInDb != null) {
-                for (Object filterInDb : filtersInDb.values()) {
-                    filters.add((String)filterInDb);
+            for (String sample: samples) {
+                if (activeBlockSampleMap.containsKey(sample) && activeBlockSampleMap.get(sample).containsKey(start)) {
+                    for (MongoSampleData oneSample : activeBlockSampleMap.get(sample).get(start)) {
+                        if (oneSample.matches(oneSite)) {
+                            builder.genotypes(oneSample.getGenotype());
+                            vcs.add(builder.make());
+                        }
+                    }
                 }
             }
-
-            String source = (String)oneResult.get("source");
-            String id = (String)oneResult.get("id");
-            Double error = (Double)oneResult.get("error");
-            Long stop = (Long)oneResult.get("stop");
-
-            VariantContextBuilder builder = new VariantContextBuilder(source, contig, start, stop, sourceRodAllelePair.getSecond());
-
-            builder.id(id);
-            builder.log10PError(error);
-            builder.attributes(attributes);
-            builder.filters(filters);
-
-            long index = start - ref.getWindow().getStart() - 1;
-            if ( index >= 0 ) {
-                // we were given enough reference context to create the VariantContext
-                builder.referenceBaseForIndel(ref.getBases()[(int)index]);        // TODO: needed?
-            }
-
-            builder.referenceBaseForIndel(ref.getBases()[0]);                   // TODO: correct?
-
-            attributesFromDB.put(sourceRodAllelePair, builder);
         }
 
-        while(samplesCursor.hasNext()) {
-            DBObject oneResult = samplesCursor.next();
-
-            String sourceROD = (String)oneResult.get("sourceROD");
-
-            ArrayList<Allele> alleles = new ArrayList<Allele>();
-            BasicDBObject allelesInDb = (BasicDBObject)oneResult.get("alleles");
-            for (Object alleleInDb : allelesInDb.values()) {
-                String rawAllele = (String)alleleInDb;
-                boolean isRef = rawAllele.contains("*");
-                String allele = rawAllele.replace("*", "");
-                alleles.add(Allele.create(allele, isRef));
-            }
-
-            // primary key to uniquely identify variant
-            Pair<String, List<Allele>> sourceRodAllelePair = new Pair<String, List<Allele>>(sourceROD, alleles);
-            VariantContextBuilder builder = attributesFromDB.get(sourceRodAllelePair);
-
-            String sample = (String)oneResult.get("sample");
-
-            BasicDBObject genotypeInDb = (BasicDBObject)oneResult.get("genotype");
-            Double genotypeError = (Double)genotypeInDb.get("error");
-
-            ArrayList<Allele> genotypeAlleles = new ArrayList<Allele>();
-            BasicDBObject genotypeAllelesInDb = (BasicDBObject)genotypeInDb.get("alleles");
-            for (Object alleleInDb : genotypeAllelesInDb.values()) {
-                String rawAllele = (String)alleleInDb;
-                boolean isRef = rawAllele.contains("*");
-                String allele = rawAllele.replace("*", "");
-                genotypeAlleles.add(Allele.create(allele, isRef));
-            }
-
-            Map<String, Object> genotypeAttributes = new TreeMap<String, Object>();
-            BasicDBList genotypeAttrsInDb = (BasicDBList)genotypeInDb.get("attributes");
-            for (Object attrInDb : genotypeAttrsInDb) {
-                BasicDBObject attrKVP = (BasicDBObject)attrInDb;
-                String key = (String)attrKVP.get("key");
-                Object value = attrKVP.get("value");
-                genotypeAttributes.put(key, value);
-            }
-
-            Genotype genotype = new Genotype(sample, genotypeAlleles, genotypeError);
-            builder.genotypes(Genotype.modifyAttributes(genotype, genotypeAttributes));
-            vcs.add(builder.make());
-        }
-
-        return combineMongoVariants(vcs);
+        return vcs;
     }
 
     // Copied from CombineVariants
@@ -856,10 +787,8 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
     }
 
     public void onTraversalDone(Integer result) {
-        if (mongoOn) {
-            MongoDB.close();
-        }
-        
+        MongoDB.close();
+
         logger.info(result + " records processed.");
 
         if (SELECT_RANDOM_NUMBER) {
@@ -884,11 +813,8 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         if ( samples == null || samples.isEmpty() )
             return vc;
 
-        final VariantContext sub;
-        if ( excludeNonVariants )
-            sub = vc.subContextFromSamples(samples); // strip out the alternate alleles that aren't being used
-        else
-            sub = vc.subContextFromSamples(samples, vc.getAlleles());
+        // strip out the alternate alleles that aren't being used, if requested
+        final VariantContext sub = vc.subContextFromSamples(samples, excludeNonVariants);
         VariantContextBuilder builder = new VariantContextBuilder(sub);
 
         GenotypesContext newGC = sub.getGenotypes();
@@ -906,7 +832,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
                     ArrayList<Allele> alleles = new ArrayList<Allele>(2);
                     alleles.add(Allele.create((byte)'.'));
                     alleles.add(Allele.create((byte)'.'));
-                    genotypes.add(new Genotype(genotype.getSampleName(),alleles, Genotype.NO_LOG10_PERROR,genotype.getFilters(),new HashMap<String, Object>(),false));
+                    genotypes.add(GenotypeBuilder.create(genotype.getSampleName(),alleles));
                 }
                 else{
                     genotypes.add(genotype);
@@ -938,9 +864,9 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         for (String sample : originalVC.getSampleNames()) {
             Genotype g = originalVC.getGenotype(sample);
 
-            if ( g.isNotFiltered() ) {
+            if ( ! g.isFiltered() ) {
 
-                String dp = (String) g.getAttribute("DP");
+                String dp = (String) g.getExtendedAttribute("DP");
                 if (dp != null && ! dp.equals(VCFConstants.MISSING_DEPTH_v3) && ! dp.equals(VCFConstants.MISSING_VALUE_v4) ) {
                     depth += Integer.valueOf(dp);
                 }

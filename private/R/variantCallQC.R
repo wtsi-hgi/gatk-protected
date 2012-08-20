@@ -1,6 +1,7 @@
 library(gplots)
 library(gsalib)
 library(ggplot2)
+library(reshape)
 
 # for testing only
 #source("~/Desktop/broadLocal/GATK/unstable/public/R/src/org/broadinstitute/sting/utils/R/gsalib/R/gsa.variantqc.utils.R")
@@ -23,7 +24,7 @@ if ( onCMDLine ) {
   projectName <- "InDevelopmentInR"
 
   #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/C783_277_826_calling8Mar2012"
-  root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/GoT2D_final_dgi_batch_1"
+  root <- "~/Desktop/broadLocal/tmp.data/esp.all.snps.unfiltered.indels.filtered.bcf"
   #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/esp.all.unannotated.chr1"
   #root <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/indelQC/ALL.wex.broad.illumina.20110521.snps.indels.genotypes"
   #root <- "/humgen/gsa-hpprojects/ESP/calls/broadOnly_chr1_v2/esp.all.unannotated.chr1"
@@ -86,7 +87,7 @@ summaryTable <- function(metricsBySites, metricsBySample) {
   raw <- rbind(data.frame(raw), melt.data.frame(noveltyMissenseSilent, id.vars=c("Novelty"), measure.vars=c("missenseSilentRatio")))
   table <- cast(raw, Novelty ~ ...)
   # doesn't work with textplot
-  colnames(table) <- c("Novelty", "Target Size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "Del/Ins Ratio", "Ka/Ks")
+  colnames(table) <- c("Novelty", "Target Size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "Ins/Del Ratio", "Ka/Ks")
   return(table)
 }
 
@@ -99,7 +100,7 @@ sampleSummaryTable <- function(metricsBySamples, missenseSilentSummary) {
   table$tiTvRatio <- round(table$tiTvRatio, 2)
   table$insertionDeletionRatio <- round(table$insertionDeletionRatio, 2)
   table$missenseSilentRatio <- round(table$missenseSilentRatio, 2)
-  colnames(table) <- c("Novelty", "Target Size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "Del/Ins Ratio", "Ka/Ks")
+  colnames(table) <- c("Novelty", "Target Size (bp)", "No. SNPs", "Ti/Tv", "No. Indels", "Ins/Del Ratio", "Ka/Ks")
   return(table)
 }
 

@@ -31,7 +31,7 @@ import org.apache.commons.jexl2.Expression;
 import org.apache.commons.jexl2.JexlEngine;
 import org.apache.log4j.Logger;
 import org.broad.tribble.util.popgen.HardyWeinbergCalculation;
-import org.broadinstitute.sting.gatk.walkers.phasing.ReadBackedPhasingWalker;
+import org.broadinstitute.sting.gatk.walkers.phasing.ReadBackedPhasing;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
@@ -1117,7 +1117,7 @@ public class VariantContextUtils {
             Map<String, Object> mergedGtAttribs = new HashMap<String, Object>();
             PhaseAndQuality phaseQual = calcPhaseForMergedGenotypes(gt1, gt2);
             if (phaseQual.PQ != null)
-                mergedGtAttribs.put(ReadBackedPhasingWalker.PQ_KEY, phaseQual.PQ);
+                mergedGtAttribs.put(ReadBackedPhasing.PQ_KEY, phaseQual.PQ);
 
             Genotype mergedGt = new Genotype(sample, mergedAllelesForSample, mergedGQ, mergedGtFilters, mergedGtAttribs, phaseQual.isPhased);
             mergedGenotypes.put(sample, mergedGt);
@@ -1308,7 +1308,7 @@ public class VariantContextUtils {
         public PhaseAndQuality(Genotype gt) {
             this.isPhased = gt.isPhased();
             if (this.isPhased) {
-                this.PQ = gt.getAttributeAsDouble(ReadBackedPhasingWalker.PQ_KEY, -1);
+                this.PQ = gt.getAttributeAsDouble(ReadBackedPhasing.PQ_KEY, -1);
                 if ( this.PQ == -1 ) this.PQ = null;
             }
         }

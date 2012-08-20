@@ -24,11 +24,9 @@
 
 package org.broadinstitute.sting.gatk.walkers.misc.intronloss;
 
-import ca.mcgill.mcb.pcingola.fastq.Fastq;
 import net.sf.picard.fastq.FastqRecord;
 import net.sf.picard.fastq.FastqWriter;
 import net.sf.picard.fastq.FastqWriterFactory;
-import org.apache.commons.math.stat.descriptive.rank.Max;
 import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Input;
@@ -41,7 +39,6 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportColumn;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
-import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
 import org.broadinstitute.sting.gatk.walkers.RefWalker;
 import org.broadinstitute.sting.utils.BaseUtils;
@@ -130,16 +127,17 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
                     GATKReport report = new GATKReport(readGroupInsertHistogram);
                     GATKReportTable reportTable = report.getTable("InsertSizeDistributionByReadGroup");
                     // rows are insert sizes, columns are read groups
-                    for (GATKReportColumn reportColumn : reportTable.getColumns() ) {
+                    for (GATKReportColumn reportColumn : reportTable.getColumnInfo() ) {
                         // annoyingly, the column has no knowledge of its own rows
                         int sum = 0;
                         for ( int row = 0; row < reportTable.getNumRows(); row++ ) {
                             sum += Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
                         }
                         byte[] rgHist = new byte[MAX_INSERT_SIZE];
-                        for ( int row = 0; row < rgHist.length; row++) {
+                        for ( int row = 0; row < reportTable.getNumRows(); row++ ) {
+                            final int insertSize = Integer.parseInt( (String) reportTable.get(row,0));
                             int val = 1;
-                            if ( reportTable.containsKey(row) ) {
+                            if ( insertSize < rgHist.length ) {
                                 val = Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
                             }
                             rgHist[row] = QualityUtils.probToQual( 1.0-( ( (double) val )/sum ), Math.pow(10,-25.4) );
