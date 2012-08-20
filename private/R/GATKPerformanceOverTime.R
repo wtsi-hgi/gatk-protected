@@ -17,9 +17,9 @@ if ( onCMDLine ) {
   file <- args[1]
   outputPDF <- args[2]
 } else {
-  file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelBQSR/GATKPerformanceOverTime.jobreport.txt"
+  #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelBQSR/GATKPerformanceOverTime.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelCombineVariants2/GATKPerformanceOverTime.jobreport.txt"
-  #file <- "~/Desktop/broadLocal/GATK/unstable/GATKPerformanceOverTime.jobreport.txt"
+  file <- "~/Desktop/broadLocal/GATK/unstable/GATKPerformanceOverTime.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-24937@gsa1.jobreport.txt"
   outputPDF <- NA
 }
@@ -140,29 +140,27 @@ if ( "CombineVariants" %in% names(allReports) ) {
   }
 }
 
-if ( "UnifiedGenotyper.nt" %in% names(allReports) ) {
-  for ( assess in unique(allReports$UnifiedGenotyper.nt$assessment)) {
-    p = plotByNT(allReports$UnifiedGenotyper.nt[allReports$UnifiedGenotyper.nt$assessment == assess,])
-    p = p + opts(title=paste("UnifiedGenotyper performance as a function of nt for", assess))
-    print(p)
+getAssessments <- function(report) {
+  if ( "assessment" %in% names(report) ) {
+    return(levels(report$assessment))
+  } else {
+    stop(paste("Missing assessment field for report", report[1, "analysisName"]))
   }
 }
 
-if ( "CombineVariants.nt" %in% names(allReports) ) {
-    p = plotByNT(allReports$CombineVariants.nt)
-    p = p + facet_grid(output ~ .)
-    p = p + opts(title=paste("CombineVariants performance as a function of nt"))
-    print(p)
-}
-
-if ( "BaseRecalibrator.nt" %in% names(allReports) ) {
-  p = plotByNT(allReports$BaseRecalibrator.nt)
-  p = p + opts(title=paste("BaseRecalibrator performance as a function of nt"))
-  print(p)
-}
-
-if ( "VariantEval.nt" %in% names(allReports) ) {
-  print(plotByNT(allReports$VariantEval.nt))
+#
+# Plot runtime vs. NT for all of the NT tests
+#
+ntReports <- c("CombineVariants.nt", "UnifiedGenotyper.nt", "CountLoci.nt", "BaseRecalibrator.nt", "VariantEval.nt")
+for ( ntReport in ntReports ) {
+  if ( ntReport %in% names(allReports) ) {
+    report = allReports[[ntReport]]
+    for ( assess in getAssessments(report) ) {
+      p = plotByNT(report[report$assessment == assess,])
+      p = p + opts(title=paste(ntReport, " performance as a function of nt for ", assess))
+      print(p)
+    }
+  }
 }
 
 if ( ! is.na(outputPDF) ) {
