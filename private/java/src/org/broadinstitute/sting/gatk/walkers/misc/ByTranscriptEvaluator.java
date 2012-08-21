@@ -8,13 +8,21 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
+import org.broadinstitute.sting.gatk.walkers.varianteval.util.EvaluationContext;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFInfoHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
+import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.*;
 
@@ -30,6 +38,12 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
     @Input(doc="eval file",shortName="eval",fullName="eval",required=true)
     RodBinding<VariantContext> eval;
 
+    @Input(doc="bootstrap file",shortName="boot",fullName = "boot",required=false)
+    RodBinding<VariantContext> bootBinding = null;
+
+    @Argument(doc="bootSample",shortName="bs",fullName="bootSample",required=false)
+    String bootSam = null;
+
     @Argument(doc="Additional keys added to the info field by the annotation engine. Must have a corresponding info header line.",required=false,fullName="keys",shortName="k")
     List<String> additionalKeys = new ArrayList<String>();
 
@@ -39,15 +53,24 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
     @Argument(doc="Only use CCDS transcripts",required=false,shortName="ccds",fullName="ccdsOnly")
     boolean ccdsOnly = false;
 
+    @Argument(doc="Only use Refseq transcripts",required=false,shortName="refseq",fullName="refseqOnly")
+    boolean refseqOnly = false;
+
+    @Argument(doc="Only use ENSEMBL transcripts",required=false,shortName="ensembl",fullName="ensemblOnly")
+    boolean ensemblOnly = false;
+
     @Argument(doc="Minimum allele frequency",required=false,shortName="minAAF",fullName="minAAF")
     double minAAF = 0.0;
 
     @Argument(doc="Maximum allele frequency",required=false,shortName="maxAAF",fullName="maxAAF")
     double maxAAF = 1.0;
 
+    @Argument(doc="Ignore these transcripts (e.g. for being spurious/noncoding)",required=false,shortName="xt",fullName="excludeTranscripts")
+    File ignoreTranscriptFile = null;
+
     @Hidden
     @Argument(doc="Allele frequency key",required=false,fullName="afKey")
-    String afkey = "AF";
+    List<String> afkey = Arrays.asList(new String[]{"AF"});
 
     @Output
     PrintStream out;
@@ -64,45 +87,45 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
 
     private final List<String> REQUESTED_FIELDS = Arrays.asList(new String[]{TRANSCRIPT_NAME_KEY,GENE_NAME_KEY,CONSEQ_NAME_KEY,SIFT_KEY,POLYPHEN_KEY,CCDS_KEY});
 
+    private long nSeen = 0l;
+    private long nProcessed = 0l;
     public void initialize() {
-
-        VCFHeader header = VCFUtils.getVCFHeadersFromRods(getToolkit(), Arrays.asList(eval)).get(eval.getName());
-        VCFInfoHeaderLine csqFormat = header.getInfoHeaderLine("CSQ");
-        Map<String,VCFInfoHeaderLine> additionalFormats = new HashMap<String,VCFInfoHeaderLine>(additionalKeys.size());
-        for ( String k : additionalKeys ) {
-            additionalFormats.put(k,header.getInfoHeaderLine(k));
-        }
-
-        transcriptInfoParser = new TranscriptInfoParser(csqFormat,additionalFormats,REQUESTED_FIELDS);
+        assertCodeIsWorking();
+        assertInputsAreGood();
+        transcriptInfoParser = initializeTranscriptParser();
     }
 
     public VariantContext map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext alignment) {
         if ( tracker != null && tracker.hasValues(eval) ) {
             VariantContext myEval = tracker.getFirstValue(eval);
             // todo -- update the filtering clause here to take command line values
-            if ( ! myEval.isFiltered() && myEval.isBiallelic() && myEval.isSNP() && myEval.isPolymorphicInSamples() && matchesFrequency(myEval)) {
-                logger.debug(ref.getLocus());
-                return transcriptInfoParser.parseTranscriptInfo(myEval);
+            if ( ! bootBinding.isBound() ) {
+                if ( ! myEval.isFiltered() && myEval.isSNP() ) {
+                    nSeen++;
+                    return transcriptInfoParser.addTranscriptInformationToVC(myEval);
+                }
+            } else {
+                if ( getBootstrapAC(tracker,bootBinding,bootSam) > 0 ) {
+                    nSeen++;
+                    return transcriptInfoParser.addTranscriptInformationToVC(myEval);
+                } else {
+                    return null;
+                }
             }
         }
 
         return null;
     }
 
-    private boolean matchesFrequency(VariantContext vc) {
-        if ( ! vc.hasAttribute(afkey)  )
-            return false;
-        double af = Double.parseDouble(vc.getAttribute(afkey).toString());
-        return (af > minAAF && af < maxAAF);
-    }
-
     public EvalContext reduce(VariantContext map, EvalContext prevReduce) {
         if ( map == null ) {
             return prevReduce;
         }
-
-
-        prevReduce.addContext((Map<String,Set<VariantTranscriptContext>>) map.getAttribute(TRANSCRIPT_INFO_KEY));
+        Map<String,Set<VariantTranscriptContext>> contextsByGene = (Map<String,Set<VariantTranscriptContext>>) map.getAttribute(TRANSCRIPT_INFO_KEY);
+        if ( contextsByGene.size() > 0 ) {
+            prevReduce.addContext(contextsByGene);
+            nProcessed++;
+        }
 
         return prevReduce;
     }
@@ -119,98 +142,348 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
 
     public void onTraversalDone(EvalContext context) {
         List<String> colNames = new ArrayList<String>(25);
-        colNames.addAll(Arrays.asList(new String[]{"Gene","Transcript","nVariants"}));
+        colNames.addAll(Arrays.asList(new String[]{"Gene","Transcript","nVariants","nCoding"}));
         // todo -- logic to dynamically determine what requested statistics to output
         colNames.addAll(Arrays.asList(new String[]{"SYN","NONSYN","STOP","SPLICE","PolyphenDamaging","SiftDeleterious"}));
-        GATKReport report = GATKReport.newSimpleReport("TranscriptReport",colNames);
-        ArrayList<Object> values = new ArrayList<Object>(colNames.size());
+        GATKReport transcriptReport = GATKReport.newSimpleReport("TranscriptReport",colNames);
         for ( GeneInfo geneInfo : context.getGenes() ) {
-            Set<TranscriptInfo> transcripts = new HashSet<TranscriptInfo>(geneInfo.getTranscripts());
-            transcripts.add(geneInfo.worstAnnotationTranscript);
-            for ( TranscriptInfo transcriptInfo : transcripts ) {
+
+            for ( TranscriptInfo transcriptInfo : geneInfo.getTranscripts() ) {
                 // todo -- logic to hook up user-requested statistics to access pattern
-                values.clear();
-                values.add(geneInfo.geneName);
-                values.add(transcriptInfo.transcriptName);
-                values.add(transcriptInfo.numVariants);
-                values.add(transcriptInfo.getCounts(ConsequenceType.SYNONYMOUS_CODING));
-                values.add(transcriptInfo.getCounts(ConsequenceType.NONSYNONYMOUS_CODING));
-                values.add(transcriptInfo.getCounts(ConsequenceType.STOP_GAIN)+transcriptInfo.getCounts(ConsequenceType.STOP_LOSS));
-                values.add(transcriptInfo.getCounts(ConsequenceType.SPLICE_SITE));
-                values.add(transcriptInfo.getPolyphenAbove(0.85));
-                values.add(transcriptInfo.getSiftBelow(0.05));
-                report.addRowList(values);
+                ArrayList<Object> transValues = getTranscriptOutputValues(geneInfo,transcriptInfo,colNames);
+                transcriptReport.addRowList(transValues);
+            }
+
+            if ( geneInfo.hasMultipleTranscripts() ) {
+                ArrayList<Object> mostDamagingValues = getTranscriptOutputValues(geneInfo,geneInfo.mostDeleteriousAnnotationTranscript,colNames);
+                ArrayList<Object> leastDamagingValues = getTranscriptOutputValues(geneInfo,geneInfo.leastDeleteriousAnnotationTranscript,colNames);
+                transcriptReport.addRowList(mostDamagingValues);
+                transcriptReport.addRowList(leastDamagingValues);
             }
         }
-        report.print(out);
+        transcriptReport.print(out);
+        out.printf("%n");
+        GATKReport variantReport = GATKReport.newSimpleReport("VariantReport",Arrays.asList(new String[]{"NumberOfTranscripts","NumCodingVariants"}));
+        Map<Integer,Integer> variantCountsByNTranscript = countVariantsByNTranscript(context);
+        for (Map.Entry<Integer,Integer> countByNTranscript : variantCountsByNTranscript.entrySet() ) {
+            variantReport.addRow(countByNTranscript.getKey(),countByNTranscript.getValue());
+        }
+        variantReport.print(out);
+
+        logger.info(String.format("Traversal Result: Num_Seen=%d and Num_Processed=%d",nSeen,nProcessed));
     }
+
+    private void assertInputsAreGood() {
+        if ( refseqOnly && ccdsOnly || refseqOnly && ensemblOnly || ensemblOnly && ccdsOnly) {
+            throw new UserException("Cannot exclusively use multiple of specific transcripts (ensembl,refseq,ccds). Choose exactly one and not multiple.");
+        }
+
+        if ( bootSam == null && bootBinding.isBound() ) {
+            throw new UserException("Please provide a specific bootstrap sample");
+        }
+    }
+
+    public int getBootstrapAC(RefMetaDataTracker tracker, RodBinding<VariantContext> binding, String sample) {
+        if ( ! tracker.hasValues(bootBinding) ) {
+            return -1;
+        }
+        VariantContext bootstrap = tracker.getFirstValue(binding);
+        Genotype bootGeno = bootstrap.getGenotype(sample);
+        Object bac = bootGeno.getAnyAttribute("BAC");
+        return parseBAC(bac);
+    }
+
+    private int parseBAC(Object bac) {
+        String[] sp = bac.toString().split(",");
+        int b = 0;
+        for ( String s : sp ) {
+            int t = Integer.parseInt(s);
+            if ( t > b ) {
+                b = t;
+            }
+        }
+
+        return b;
+    }
+
+    private Map<Integer,Integer> countVariantsByNTranscript(EvalContext evalContext) {
+        Map<Integer,Integer> countsByNTranscript = new HashMap<Integer,Integer>(16);
+        for ( String genesOverlappingVariantStr : evalContext.variantGeneList ) {
+            logger.debug(genesOverlappingVariantStr);
+            String[] genesOverlappingVariant = genesOverlappingVariantStr.split(",");
+            int maxNTranscript = 0;
+            for ( String gene : genesOverlappingVariant ) {
+                int nTranscript = evalContext.geneInfoMap.get(gene).getTranscripts().size();
+                if ( nTranscript > maxNTranscript )
+                    maxNTranscript = nTranscript;
+            }
+
+            // cutoff at 10+ transcripts
+            if ( maxNTranscript > 10 )
+                maxNTranscript = 10;
+
+            if (!  countsByNTranscript.containsKey(maxNTranscript) ) {
+                countsByNTranscript.put(maxNTranscript,0);
+            }
+
+            int counts = countsByNTranscript.get(maxNTranscript);
+            countsByNTranscript.put(maxNTranscript,1+counts);
+        }
+
+        return countsByNTranscript;
+    }
+
+    private TranscriptInfoParser initializeTranscriptParser() {
+        VCFHeader header = VCFUtils.getVCFHeadersFromRods(getToolkit(), Arrays.asList(eval)).get(eval.getName());
+        VCFInfoHeaderLine csqFormat = header.getInfoHeaderLine("CSQ");
+        Map<String,VCFInfoHeaderLine> additionalFormats = new HashMap<String,VCFInfoHeaderLine>(additionalKeys.size());
+        for ( String k : additionalKeys ) {
+            additionalFormats.put(k,header.getInfoHeaderLine(k));
+        }
+
+        Set<String> ignoreTranscripts = readTranscriptsToIgnore(ignoreTranscriptFile);
+
+        return new TranscriptInfoParser(csqFormat,additionalFormats,REQUESTED_FIELDS,ignoreTranscripts);
+    }
+
+    private Set<String> readTranscriptsToIgnore(File ignoreFile) {
+        if ( ignoreFile == null )
+            return new HashSet<String>(0);
+
+        Set<String> badTranscripts = new HashSet<String>(100000);
+
+        try {
+            for ( String transcript : new XReadLines(ignoreFile) ) {
+                badTranscripts.add(transcript);
+            }
+        } catch (IOException ioException ) {
+            throw new UserException("Error opening file for reading: "+ignoreFile.getAbsolutePath());
+        }
+
+        return badTranscripts;
+    }
+
+    private ArrayList<Object> getTranscriptOutputValues(GeneInfo geneInfo, TranscriptInfo transcriptInfo, List<String> columnNames) {
+        ArrayList<Object> values = new ArrayList<Object>(columnNames.size());
+        values.add(geneInfo.geneName);
+        values.add(transcriptInfo.transcriptName);
+        values.add(transcriptInfo.numVariants);
+        values.add(getNumCodingVariants(transcriptInfo));
+        values.add(transcriptInfo.getCounts(ConsequenceType.SYNONYMOUS_CODING));
+        values.add(transcriptInfo.getCounts(ConsequenceType.NONSYNONYMOUS_CODING));
+        values.add(transcriptInfo.getCounts(ConsequenceType.STOP_GAIN)+transcriptInfo.getCounts(ConsequenceType.STOP_LOSS));
+        values.add(transcriptInfo.getCounts(ConsequenceType.SPLICE_SITE)+transcriptInfo.getCounts(ConsequenceType.ESSENTIAL_SPLICE));
+        values.add(transcriptInfo.getPolyphenAbove(0.75));
+        values.add(transcriptInfo.getSiftBelow(0.10));
+        return values;
+    }
+
+    private int getNumCodingVariants(TranscriptInfo transcriptInfo) {
+        int nCoding = 0;
+        for ( Map.Entry<ConsequenceType,Integer> consequenceCounts : transcriptInfo.consequenceCounts.entrySet() ) {
+            if ( ConsequenceType.isCoding(consequenceCounts.getKey()) ) {
+                nCoding += consequenceCounts.getValue();
+            }
+        }
+        return nCoding;
+    }
+
+    private void assertCodeIsWorking() {
+        if ( ConsequenceType.isCoding(ConsequenceType.GENE_NOT_CODING) )
+            throw new StingException("The ConsequenceType Enum is busted. GENE_NOT_CODING should not be coding.");
+
+        if ( ! ConsequenceType.isCoding(ConsequenceType.SYNONYMOUS_CODING) )
+            throw new StingException("The ConsequenceType Enum is busted! Syn_Coding should be coding.");
+    }
+
+/*    // note: from previous incarnation that did not use bootstraps
+    @Deprecated
+    private boolean matchesFrequency(VariantContext vc) {
+        String afk = null;
+        for ( String k : afkey ) {
+            if ( vc.hasAttribute(k) ) {
+                afk = k;
+                break;
+            }
+        }
+        if ( afk == null  )
+            return false;
+
+        if ( ! vc.isBiallelic() ) {
+            Object afObject = vc.getAttribute(afk);
+            double  af = 0.0;
+            if ( afObject instanceof  String) {
+                String[] afstring = ((String) afObject).split(",");
+                for ( String s : afstring ) {
+                    af += Double.parseDouble(s);
+                }
+            } else {
+                List<Object> afList = (List<Object>) afObject;
+                for ( Object o : afList ) {
+                    if (o instanceof  String ) {
+                        af += Double.parseDouble((String) o );
+                    } else {
+                        af += (Double) o;
+                    }
+                }
+
+            }
+
+            return (af > minAAF && af < maxAAF);
+        }
+        double af = Double.parseDouble(vc.getAttribute(afk).toString());
+        return (af > minAAF && af < maxAAF);
+    }*/
 
     class TranscriptInfoParser {
 
         Map<String,Integer> fieldOffset;
+        final Set<String> ignoreTranscripts;
 
-        public TranscriptInfoParser(VCFInfoHeaderLine csqFormat, Map<String,VCFInfoHeaderLine> extraFields, List<String> requestedFields) {
+        public TranscriptInfoParser(VCFInfoHeaderLine csqFormat, Map<String,VCFInfoHeaderLine> extraFields, List<String> requestedFields, Set<String> ignoreTrans) {
             String fieldStr = csqFormat.getDescription().replaceFirst("Consequence type as predicted by VEP. Format: ","");
             // fieldStr should be of the format KEY1|KEY2|KEY3|KEY4|...
             String[] fields = fieldStr.split("\\|");
             fieldOffset = new HashMap<String,Integer>(requestedFields.size());
-            // todo -- this is n^2 but nobody cares since it's only done once and the fields aren't really that big, but n^2 is kinda ugly
             for ( String rf : requestedFields ) {
                 fieldOffset.put(rf,ArrayUtils.indexOf(fields,rf));
             }
+
+            ignoreTranscripts = ignoreTrans;
+        }
+
+        private String getGeneName(String[] transcriptFields) {
+            return transcriptFields[fieldOffset.get(GENE_NAME_KEY)];
+        }
+
+        private String getTranscriptName(String[] transcriptFields) {
+            return transcriptFields[fieldOffset.get(TRANSCRIPT_NAME_KEY)];
+        }
+
+        private String getCCDS_ID(String[] transcriptFields) {
+            if ( fieldOffset.get(CCDS_KEY) >= transcriptFields.length ) {
+                return null;
+            }
+
+            String ccdsID = transcriptFields[fieldOffset.get(CCDS_KEY)];
+
+            if ( ccdsID.equals("") )
+                return null;
+
+            return ccdsID;
+        }
+
+        private Set<ConsequenceType> decodeConsequences(String[] transcriptFields) {
+            return ConsequenceType.decode(transcriptFields[fieldOffset.get(CONSEQ_NAME_KEY)]);
+        }
+
+        private boolean isRefseqTranscript(VariantTranscriptContext context) {
+            return context.getTranscriptName().startsWith("NM_");
+        }
+
+        private boolean isEnsemblTranscript(VariantTranscriptContext context) {
+            return context.getTranscriptName().startsWith("ENS");
+        }
+
+        private boolean isCCDSTranscript(VariantTranscriptContext context) {
+            return context.getCCDS_ID() != null;
+        }
+
+        private VariantTranscriptContext setTranscriptIDs(String[] transcriptFields,VariantTranscriptContext context) {
+            context.setGeneName(getGeneName(transcriptFields));
+            context.setTranscriptName(getTranscriptName(transcriptFields));
+            context.setCCDS_ID(getCCDS_ID(transcriptFields));
+            return context;
+        }
+
+        private VariantTranscriptContext setSIFTscore(String[] transFields, VariantTranscriptContext context) {
+            if ( transFields.length > fieldOffset.get(SIFT_KEY) ) {
+                String siftStr = transFields[fieldOffset.get(SIFT_KEY)];
+                if ( ! siftStr.equals("") ) {
+                    double sift = parseSiftOrPolyphen(siftStr);
+                    context.setSiftScore(sift);
+                }
+            }
+
+            return context;
+        }
+
+        private VariantTranscriptContext setPolyphenScore(String[] transFields, VariantTranscriptContext context) {
+            if ( transFields.length > fieldOffset.get(POLYPHEN_KEY) ) {
+                String polyStr = transFields[fieldOffset.get(POLYPHEN_KEY)];
+                if ( ! polyStr.equals("") ) {
+                    double polyphen = parseSiftOrPolyphen(polyStr);
+                    context.setPolyphenScore(polyphen);
+                }
+            }
+
+            return context;
+        }
+
+        private boolean isInSpecifiedDB(VariantTranscriptContext context) {
+            return  ! ( context.geneName == null || context.geneName.equals("") ||
+                    ( refseqOnly && ! isRefseqTranscript(context) ) ||
+                    ( ensemblOnly && ! isEnsemblTranscript(context) ) ||
+                    ( ccdsOnly && ! isCCDSTranscript(context) ) );
+        }
+
+        private VariantTranscriptContext setConsequences(String[] transcriptFields, VariantTranscriptContext context) {
+            Set<ConsequenceType> consequences = decodeConsequences(transcriptFields);
+            context.setConsequences(consequences);
+            return context;
+        }
+
+        private VariantTranscriptContext setConservationScores(String[] transcriptFields, VariantTranscriptContext context) {
+            VariantTranscriptContext vtc = setSIFTscore(transcriptFields,context);
+            vtc = setPolyphenScore(transcriptFields,vtc);
+            return vtc;
+        }
+
+        private boolean transcriptOrGeneNotCoding(VariantTranscriptContext context) {
+            return context.getConsequences().contains(ConsequenceType.GENE_NOT_CODING);
+        }
+
+        private boolean ignoreTranscript(VariantTranscriptContext context) {
+            return ignoreTranscripts.contains(context.getTranscriptName());
         }
 
         public Map<String,Set<VariantTranscriptContext>> parse(String CSQvalue) {
-            String[] tVals = CSQvalue.split(",");
-            Map<String,Set<VariantTranscriptContext>> toRet = new HashMap<String,Set<VariantTranscriptContext>>(tVals.length);
-            for ( String tval : tVals ) {
+            String[] transInfoByTranscript = CSQvalue.split(",");
+            Map<String,Set<VariantTranscriptContext>> contextsByTranscriptName = new HashMap<String,Set<VariantTranscriptContext>>(transInfoByTranscript.length);
+            for ( String tval : transInfoByTranscript ) {
                 String[] fields = tval.split("\\|");
                 VariantTranscriptContext vtc = new VariantTranscriptContext();
-                vtc.setGeneName(fields[fieldOffset.get(GENE_NAME_KEY)]);
-                if ( vtc.getGeneName().equals("") )
-                    continue;
-                vtc.setTranscriptName(fields[fieldOffset.get(TRANSCRIPT_NAME_KEY)]);
-                String ccds = "";
-                if ( fieldOffset.get(CCDS_KEY) < fields.length)
-                    ccds = fields[fieldOffset.get(CCDS_KEY)];
-                if ( ccds.equals("") && ccdsOnly ) {
-                    logger.debug(ccds);
-                    continue;
-                }
+                vtc = setTranscriptIDs(fields,vtc);
 
-                // if specified, ignore genes that are flagged as not coding
-                Set<ConsequenceType> consequences = ConsequenceType.decode(fields[fieldOffset.get(CONSEQ_NAME_KEY)]);
-                if ( consequences.contains(ConsequenceType.GENE_NOT_CODING) && ignoreNonCoding ) {
+                if ( ! isInSpecifiedDB(vtc) )
                     continue;
-                }
-                vtc.setConsequences(consequences);
 
-                if ( fields.length > Math.max(fieldOffset.get(SIFT_KEY),fieldOffset.get(POLYPHEN_KEY))) {
-                    String sift = fields[fieldOffset.get(SIFT_KEY)];
-                    String polyphen = fields[fieldOffset.get(POLYPHEN_KEY)];
-                    if ( ! sift.equals("") ) {
-                        vtc.setSiftScore(parseSift(sift));
-                    }
-                    if ( ! polyphen.equals("") ) {
-                        vtc.setPolyphenScore(parseSift(polyphen));
-                    }
+                if ( ignoreTranscript(vtc) )
+                    continue;
+
+                vtc = setConsequences(fields,vtc);
+
+                if ( transcriptOrGeneNotCoding(vtc) && ignoreNonCoding )
+                    continue;
+
+                vtc = setConservationScores(fields,vtc);
+
+                if ( ! contextsByTranscriptName.containsKey(vtc.getGeneName()) ) {
+                    contextsByTranscriptName.put(vtc.getGeneName(),new HashSet<VariantTranscriptContext>(12));
                 }
-                if ( ! toRet.containsKey(vtc.getGeneName()) ) {
-                    toRet.put(vtc.getGeneName(),new HashSet<VariantTranscriptContext>(12));
-                }
-                toRet.get(vtc.getGeneName()).add(vtc);
+                contextsByTranscriptName.get(vtc.getGeneName()).add(vtc);
             }
 
-            return toRet;
+            return contextsByTranscriptName;
         }
 
-        public VariantContext parseTranscriptInfo(VariantContext context) {
+        public VariantContext addTranscriptInformationToVC(VariantContext context) {
             VariantContextBuilder builder = new VariantContextBuilder(context);
             builder.attribute(TRANSCRIPT_INFO_KEY,this.parse(context.getAttribute("CSQ").toString()));
             return builder.make();
         }
 
-        private double parseSift(String sift) {
+        private double parseSiftOrPolyphen(String sift) {
             // string of form EFFECT(number)
             return Double.parseDouble(sift.split("\\(")[1].replace(")",""));
         }
@@ -223,6 +496,7 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
         private Set<ConsequenceType> consequences;
         private Double siftScore;
         private Double polyphenScore;
+        private String CCDSid;
 
         public String getTranscriptName() {
             return transcriptName;
@@ -238,6 +512,10 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
 
         public void setGeneName(String name) {
             geneName = name;
+        }
+
+        public void setCCDS_ID(String id) {
+            CCDSid = id;
         }
 
         public void setConsequences(Set<ConsequenceType> types) {
@@ -271,54 +549,79 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
         public double getPolyphenScore() {
             return polyphenScore;
         }
+
+        public String getCCDS_ID() {
+            return CCDSid;
+        }
     }
 
     class GeneInfo {
         private String geneName;
         private Map<String,TranscriptInfo> transcripts;
-        private TranscriptInfo worstAnnotationTranscript;
+        private TranscriptInfo mostDeleteriousAnnotationTranscript;
+        private TranscriptInfo leastDeleteriousAnnotationTranscript;
         private long numVariants;
 
         public GeneInfo(String name) {
             geneName = name;
             numVariants = 0l;
             transcripts = new HashMap<String,TranscriptInfo>(16);
-            worstAnnotationTranscript = new TranscriptInfo(geneName+"_worst");
+            mostDeleteriousAnnotationTranscript = new TranscriptInfo(geneName+"_mostDeleterious");
+            leastDeleteriousAnnotationTranscript = new TranscriptInfo(geneName+"_leastDeleterious");
         }
 
         public void addContexts(Set<VariantTranscriptContext> contexts) {
-            ConsequenceType worstType = ConsequenceType.INTERGENIC;
+            ConsequenceType mostDeleterious = null;
+            ConsequenceType leastDeleterious = null;
             double polyPhen = Double.MIN_VALUE;
             double sift = Double.MAX_VALUE;
+
             for ( VariantTranscriptContext context : contexts ) {
                 if ( ! transcripts.containsKey(context.getTranscriptName()) ) {
                     addTranscript(context.getTranscriptName());
                 }
 
                 transcripts.get(context.getTranscriptName()).addContext(context);
+
                 for ( ConsequenceType type : context.getConsequences() ) {
-                    if ( type.compareTo(worstType) < 0 ) {
-                        worstType = type;
+
+                    if ( ConsequenceType.inCodingRegion(type) && ( mostDeleterious == null || type.compareTo(mostDeleterious) < 0 )) {
+                        mostDeleterious = type;
+                    }
+
+                    if ( ConsequenceType.inCodingRegion(type) && (leastDeleterious == null || type.compareTo(leastDeleterious) > 0)) {
+                        leastDeleterious = type;
                     }
                 }
+
                 if ( context.hasPolyphenScore() && context.getPolyphenScore() > polyPhen ) {
                     polyPhen = context.getPolyphenScore();
                 }
+
                 if ( context.hasSiftScore() && context.getSiftScore() < sift ) {
                     sift = context.getSiftScore();
                 }
             }
 
-            worstAnnotationTranscript.numVariants++;
-            if ( worstType.compareTo(ConsequenceType.INTRON) <= 0 ) {
-                worstAnnotationTranscript.addConsequence(worstType);
-                if ( polyPhen > -1.0 && sift > -1.0 ) {
-                    worstAnnotationTranscript.polyphenScores.add(polyPhen);
-                    worstAnnotationTranscript.siftScores.add(sift);
-                }
-            }
-            //logger.debug(numVariants);
+            updateConsensusTranscripts(mostDeleterious,leastDeleterious,polyPhen,sift);
+
             numVariants++;
+        }
+
+        private void updateConsensusTranscripts(ConsequenceType mostDeleterious, ConsequenceType leastDeleterious, Double polyPhen, Double sift) {
+            if ( mostDeleterious != null && ConsequenceType.inCodingRegion(mostDeleterious) )
+                updateConsensus(mostDeleteriousAnnotationTranscript, mostDeleterious, polyPhen,sift);
+            if ( leastDeleterious != null && ConsequenceType.inCodingRegion(leastDeleterious) )
+                updateConsensus(leastDeleteriousAnnotationTranscript,leastDeleterious,polyPhen,sift);
+        }
+
+        private void updateConsensus(TranscriptInfo consensus,ConsequenceType consequence, Double polyPhen, Double sift) {
+            consensus.numVariants++;
+            consensus.addConsequence(consequence);
+            if ( polyPhen > -1.0 && sift > -1.0 ) {
+                consensus.polyphenScores.add(polyPhen);
+                consensus.siftScores.add(sift);
+            }
         }
 
         private void addTranscript(String tName) {
@@ -329,6 +632,7 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
             if ( ! other.geneName.equals(this.geneName) ) {
                 throw new IllegalStateException("Gene info objects referencing different genes can not be merged");
             }
+
             for ( Map.Entry<String,TranscriptInfo> info : other.transcripts.entrySet() ) {
                 if ( transcripts.containsKey(info.getKey()) ) {
                     transcripts.get(info.getKey()).merge(info.getValue());
@@ -336,11 +640,18 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
                     transcripts.put(info.getKey(),info.getValue());
                 }
             }
+
+            mostDeleteriousAnnotationTranscript.merge(other.mostDeleteriousAnnotationTranscript);
+            leastDeleteriousAnnotationTranscript.merge(other.leastDeleteriousAnnotationTranscript);
             numVariants += other.numVariants;
         }
 
         public Collection<TranscriptInfo> getTranscripts() {
             return transcripts.values();
+        }
+
+        public boolean hasMultipleTranscripts() {
+            return getTranscripts().size() > 1;
         }
     }
 
@@ -361,10 +672,10 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
         }
 
         public void merge(TranscriptInfo other) {
-            // todo -- right now do nothing (names will be the same)
             this.numVariants += other.numVariants;
             this.polyphenScores.addAll(other.polyphenScores);
             this.siftScores.addAll(other.siftScores);
+
             for ( Map.Entry<ConsequenceType,Integer> otherEtry : other.consequenceCounts.entrySet() ) {
                 if ( this.consequenceCounts.containsKey(otherEtry.getKey()) ) {
                     this.consequenceCounts.put(otherEtry.getKey(),this.consequenceCounts.get(otherEtry.getKey())+otherEtry.getValue());
@@ -372,6 +683,7 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
                     this.consequenceCounts.put(otherEtry.getKey(),otherEtry.getValue());
                 }
             }
+
         }
 
         public void addContext(VariantTranscriptContext context) {
@@ -380,9 +692,11 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
                 if ( ! type.describesTranscript )
                     addConsequence(type);
             }
+
             if ( context.hasPolyphenScore() ) {
                 polyphenScores.add(context.getPolyphenScore());
             }
+
             if (context.hasSiftScore()) {
                 siftScores.add(context.getSiftScore());
             }
@@ -446,22 +760,40 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
 
     class EvalContext {
         private Map<String,GeneInfo> geneInfoMap;
+        private ArrayList<String> variantGeneList;
 
         public EvalContext() {
-            geneInfoMap = new HashMap<String,GeneInfo>(1024);
+            geneInfoMap = new HashMap<String,GeneInfo>(4096);
+            variantGeneList = new ArrayList<String>(4194304);
         }
 
         public boolean hasGene(String name) {
             return geneInfoMap.keySet().contains(name);
         }
 
-        public void addContext(Map<String,Set<VariantTranscriptContext>> context) {
-            for ( Map.Entry<String,Set<VariantTranscriptContext>> geneVTC : context.entrySet() ) {
+        public void addContext(Map<String,Set<VariantTranscriptContext>> contextByGene) {
+            Set<String> genesVariantIsCodingIn = new HashSet<String>(8);
+            for ( Map.Entry<String,Set<VariantTranscriptContext>> geneVTC : contextByGene.entrySet() ) {
                 if ( ! geneInfoMap.containsKey(geneVTC.getKey()) ) {
                     geneInfoMap.put(geneVTC.getKey(),new GeneInfo(geneVTC.getKey()));
                 }
                 geneInfoMap.get(geneVTC.getKey()).addContexts(geneVTC.getValue());
+                if ( isCodingInSomeTranscript(geneVTC.getValue()) )
+                    genesVariantIsCodingIn.add(geneVTC.getKey());
             }
+            if ( genesVariantIsCodingIn.size() > 0 )
+                variantGeneList.add(Utils.join(",",genesVariantIsCodingIn));
+        }
+
+        private boolean isCodingInSomeTranscript(Set<VariantTranscriptContext> vtContexts) {
+            for ( VariantTranscriptContext vtContext : vtContexts ) {
+                for ( ConsequenceType consequence : vtContext.getConsequences() ) {
+                    if ( ConsequenceType.isCoding(consequence) )
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         public void merge(EvalContext other) {
@@ -472,6 +804,7 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
                     geneInfoMap.put(infoEntry.getKey(),infoEntry.getValue());
                 }
             }
+            variantGeneList.addAll(other.variantGeneList);
         }
 
         public Collection<GeneInfo> getGenes() {
@@ -488,12 +821,12 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
         ESSENTIAL_SPLICE("Essential splice site - both donor and acceptor","ESSENTIAL_SPLICE_SITE"),
         SPLICE_SITE("1-3 bps into an exon or 3-8 bps into an intron","SPLICE_SITE"),
         NONSYNONYMOUS_CODING("Nonsynonymous coding. Includes codon change, codon loss, and codon gain.","NON_SYNONYMOUS_CODING"),
-        TF_BINDING("Transcription factor binding motif","TRANSCRIPTION_FACTOR_BINDING_MOTIF"),
-        REGULATORY("Regulatory region","REGULATORY_REGION"),
         SYNONYMOUS_CODING("Synonymous coding - includes both stop and other codons","SYNONYMOUS_CODING"),
         INTRON("Intronic","INTRONIC"),
+        TF_BINDING("Transcription factor binding motif","TRANSCRIPTION_FACTOR_BINDING_MOTIF"),
         PRIME_5("5 prime UTR","5PRIME_UTR"),
         PRIME_3("3 prime UTR","3PRIME_UTR"),
+        REGULATORY("Regulatory region","REGULATORY_REGION"),
         UPSTREAM("upstream - within 5KB","UPSTREAM"),
         DOWNSTREAM("downstream - within 5KB","DOWNSTREAM"),
         COMPLEX("Complex in/del","COMPLEX_INDEL"),
@@ -506,7 +839,7 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
 
 
         static Map<String,ConsequenceType> parsingMap = new HashMap<String,ConsequenceType>(ConsequenceType.values().length);
-        // i know this is dumb, and you should use this.valueOf, but you can't have an enum named "5_PRIME_UTR" as it starts with a number.
+        // i know this is dumb, and you should use this.valueOf, but you can't have an enum named "5PRIME_UTR" as it starts with a number.
         // so this is the only way. Annoying.
 
         private String description;
@@ -535,6 +868,14 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
                 matching.add(parsingMap.get(ct));
             }
             return matching;
+        }
+
+        public static boolean isCoding(ConsequenceType type) {
+            return type.compareTo(INTRON) < 0;
+        }
+
+        public static boolean inCodingRegion(ConsequenceType type) {
+            return type.compareTo(INTERGENIC) < 0;
         }
 
     }
