@@ -8,13 +8,12 @@ import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * This tool computes the insert size distributions (from the ISIZE field of the GATKSAMRecord) for each sample and read group in a BAM
@@ -133,25 +132,40 @@ public class InsertSizeDistribution extends ReadWalker<Integer, Integer> {
         rgTable.addColumn("InsertSize","%d");
         rgTable.addColumn("Count","%d");
 
+        // be explicit about inserts with 0 observations
         for ( Map.Entry<String,Map<Integer,Integer>> sampleInsertSize : samCounts.entrySet() ) {
-            TreeSet<Integer> insertSizes = new TreeSet<Integer>(sampleInsertSize.getValue().keySet());
-            for ( Integer insert : insertSizes ) {
+            if ( sampleInsertSize.getValue().size() == 0 ) {
+                logger.warn("Sample "+sampleInsertSize.getKey()+" present in header, but no reads counted");
+                continue;
+            }
+            Integer maxInsert = Collections.max(new ArrayList<Integer>(sampleInsertSize.getValue().keySet()));
+            for ( Integer insert = 0; insert < maxInsert; insert++ ) {
                 String rid = sampleInsertSize.getKey()+"."+insert.toString();
                 samTable.addRowID(rid);
                 samTable.set(rid,"Sample",sampleInsertSize.getKey());
                 samTable.set(rid,"InsertSize",insert);
-                samTable.set(rid,"Count",sampleInsertSize.getValue().get(insert));
+                Integer count = sampleInsertSize.getValue().get(insert);
+                if ( count == null )
+                    count = 0;
+                samTable.set(rid,"Count",count);
             }
         }
 
         for ( Map.Entry<String,Map<Integer,Integer>> rgInsertSize : rgCounts.entrySet() ) {
-            TreeSet<Integer> insertSizes = new TreeSet<Integer>(rgInsertSize.getValue().keySet());
-            for ( Integer insert : insertSizes ) {
+            if ( rgInsertSize.getValue().size() == 0 ) {
+                logger.warn("Read group "+rgInsertSize.getKey()+" present in header, but no reads counted");
+                continue;
+            }
+            Integer maxInsert = Collections.max(new ArrayList<Integer>(rgInsertSize.getValue().keySet()));
+            for ( Integer insert = 0; insert < maxInsert; insert++ ) {
                 String rid = rgInsertSize.getKey()+"."+insert.toString();
                 rgTable.addRowID(rid);
                 rgTable.set(rid,"ReadGroup",rgInsertSize.getKey());
                 rgTable.set(rid,"InsertSize",insert);
-                rgTable.set(rid,"Count",rgInsertSize.getValue().get(insert));
+                Integer count = rgInsertSize    .getValue().get(insert);
+                if ( count == null )
+                    count = 0;
+                rgTable.set(rid,"Count",count);
             }
         }
         // Write report.
