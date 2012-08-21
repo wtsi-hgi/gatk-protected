@@ -155,7 +155,9 @@ public class SplitReads extends CommandLineProgram {
 				break;
 			case I:
 			case M:
-			case S:
+            case EQ:
+            case X:
+            case S:
 			case H: // all these elements are real bases on the read. Skip them completely if 
 				    // 'start' is past them, or crop if it is inside:
 				elementEnd += ce.getLength(); // 1 base past end of the current element on the read
@@ -179,7 +181,9 @@ public class SplitReads extends CommandLineProgram {
 				break;
 			case I:
 			case M:
-			case S:
+            case EQ:
+            case X:
+            case S:
 			case H: // all these elements are real bases on the read. Add them and count them 
 				    // making sure that the last element gets cropped if needed:
 				elementEnd += ce.getLength(); // 1 base past end of the current element on the read

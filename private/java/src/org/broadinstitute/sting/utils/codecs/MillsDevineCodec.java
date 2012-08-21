@@ -25,9 +25,7 @@
 
 package org.broadinstitute.sting.utils.codecs;
 
-import org.broad.tribble.AbstractFeatureCodec;
 import org.broad.tribble.AsciiFeatureCodec;
-import org.broad.tribble.Feature;
 import org.broad.tribble.readers.LineReader;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -134,13 +132,14 @@ public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
         Allele ref, alt = null;
 
         //System.out.println(line);
+        // We need to give it an arbitrary reference padding base
         if ( REF_TYPE.equals(INSERTION_TYPE) ) {
-            ref = Allele.create(Allele.NULL_ALLELE_STRING, true);
-            alt = Allele.create(SEQ.toUpperCase(), false);
+            ref = Allele.create("N", true);
+            alt = Allele.create("N" + SEQ.toUpperCase(), false);
             end = start;
         } else if ( REF_TYPE.equals(DELETION_TYPE) ) {
-            ref = Allele.create(SEQ.toUpperCase(), true);
-            alt = Allele.create(Allele.NULL_ALLELE_STRING, false);
+            ref = Allele.create("N" + SEQ.toUpperCase(), true);
+            alt = Allele.create("N", false);
             end = start + ref.length();
         //} else if ( type.equals(REF_TYPE) ) {
         //    ref = Allele.create("N", true); // ref bases aren't accurate
@@ -176,7 +175,7 @@ public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
         // create a new feature given the array
 //        VariantContext vcCall = new VariantContext("UG_call", loc.getContig(), loc.getStart(), endLoc,
    //             myAlleles, genotypes, phredScaledConfidence/10.0, passesCallThreshold(phredScaledConfidence) ? null : filter, attributes, refContext.getBase());
-        VariantContext vc =  new VariantContextBuilder("Mills", CHR, start, end, alleles).id(INDEL_ID).attributes(attrs).referenceBaseForIndel("N".getBytes()[0]).make();
+        VariantContext vc =  new VariantContextBuilder("Mills", CHR, start, end, alleles).id(INDEL_ID).attributes(attrs).make();
 	    //System.out.println(vc.toString());
 	/*        if(array[1].equals("3") ) {
 	    System.out.format("%s %s %s\n",CHR,START,REF_TYPE);

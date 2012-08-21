@@ -31,16 +31,12 @@ import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgume
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.RefWalker;
 import org.broadinstitute.sting.gatk.walkers.Reference;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.Window;
-import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
@@ -136,9 +132,8 @@ public class Yamagishi extends RodWalker<Pair<String, String>, Map<String, Yamag
         if ( vc.isSNP() ) {
             vcBases = vc.getAlternateAllele(0).getBaseString();
         } else if (vc.isIndel()) {
-            vcBases = new String(new byte[]{vc.getReferenceBaseForIndel()});
             if ( vc.isSimpleInsertion() ) {
-                vcBases = vcBases + vc.getAlternateAllele(0).getBaseString();
+                vcBases = vc.getAlternateAllele(0).getBaseString();
             } else if ( vc.isSimpleDeletion() ) {
                 final int delSize = Math.abs(vc.getIndelLengths().get(0));
                 if ( delSize > WINDOW_SIZE )

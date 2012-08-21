@@ -1,4 +1,5 @@
-import org.broadinstitute.sting.gatk.walkers.bqsr.RecalDataManager
+import org.broadinstitute.sting.utils.recalibration.RecalUtils
+import org.broadinstitute.sting.gatk.walkers.bqsr.RecalUtils
 import org.broadinstitute.sting.queue.extensions.gatk.BaseQualityScoreRecalibrator
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.util.QScriptUtils
@@ -51,7 +52,7 @@ class BQSR extends QScript {
     this.BQSR = input
     this.no_plots = if (scatter > 0) {dontGeneratePlots} else {true}
     this.keep_intermediate_files = if (scatter > 0) {keepCSV} else {false}
-    this.solid_nocall_strategy = RecalDataManager.SOLID_NOCALL_STRATEGY.PURGE_READ
+    this.solid_nocall_strategy = RecalUtils.SOLID_NOCALL_STRATEGY.PURGE_READ
     this.scatterCount = scatter
   }
 }
