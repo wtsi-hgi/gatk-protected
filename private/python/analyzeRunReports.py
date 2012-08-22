@@ -6,7 +6,6 @@ from xml.etree.cElementTree import *
 import gzip
 import datetime
 import re
-import MySQLdb
 import unittest
 import traceback
 
@@ -400,7 +399,7 @@ class RecordDecoder:
             self.fields.extend(fields)
             self.formatters[key] = zip(fields, funcs)
     
-        add(["id", "walker-name"], id)
+        add(["id", "walker-name", "tag"], id)
         addComplex("svn-version", ["svn-version", "gatk-version", "gatk-minor-version", "release-type"], [id, formatMajorVersion, formatMinorVersion, formatReleaseType])
         add(["start-time", "end-time"], formatRuntime)      
         add(["run-time", "user-name"], id)
@@ -559,6 +558,7 @@ addHandler('summary', SummaryReport)
 DB_EXISTS = True
 class SQLRecordHandler(StageHandler):
     def __init__(self, name, out):
+        import MySQLdb
         StageHandler.__init__(self, name, out)
         
     def initialize(self, args):
@@ -577,7 +577,7 @@ class SQLRecordHandler(StageHandler):
         pass
 
     def getFields(self):
-        return ["id", "walker-name", "gatk-version", 
+        return ["id", "walker-name", "tag", "gatk-version",
                 "gatk-minor-version", "svn-version", 
                 "start-time", "end-time", "run-time", 
                 "user-name", "host-name", "domain-name", 

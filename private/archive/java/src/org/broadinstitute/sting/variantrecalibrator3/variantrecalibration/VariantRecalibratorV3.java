@@ -33,12 +33,14 @@ import org.broadinstitute.sting.gatk.walkers.PartitionBy;
 import org.broadinstitute.sting.gatk.walkers.PartitionType;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
+import org.broadinstitute.sting.gatk.walkers.variantrecalibration.ApplyRecalibration;
 import org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibrator;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.R.RScriptExecutor;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.collections.ExpandingArrayList;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.io.Resource;
@@ -242,9 +244,10 @@ public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantD
             throw new UserException.CommandLineException( "No truth set found! Please provide sets of known polymorphic loci marked with the truth=true ROD binding tag. For example, -resource:hapmap,VCF,known=false,training=true,truth=true,prior=12.0 hapmapFile.vcf" );
         }
 
-        final VCFHeader vcfHeader = new VCFHeader();
         recalWriter = VariantContextWriterFactory.create(RECAL_FILE, getMasterSequenceDictionary());
-        recalWriter.writeHeader(vcfHeader);
+        final Set<VCFHeaderLine> hInfo = new HashSet<VCFHeaderLine>();
+        ApplyRecalibration.addVQSRStandardHeaderLines(hInfo);
+        recalWriter.writeHeader( new VCFHeader(hInfo) );
     }
 
     //---------------------------------------------------------------------------------------------------------------

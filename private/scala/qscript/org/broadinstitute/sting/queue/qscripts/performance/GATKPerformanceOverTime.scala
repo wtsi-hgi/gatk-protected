@@ -9,8 +9,6 @@ import org.broadinstitute.sting.queue.function.QFunction
 import org.broadinstitute.sting.queue.engine.JobRunInfo
 
 class GATKPerformanceOverTime extends QScript {
-  val STD_RESULTS_DIR = "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime"
-
   @Argument(shortName = "results", doc="results", required=false)
   val resultsDir: File = new File("runResults")
 
@@ -24,7 +22,7 @@ class GATKPerformanceOverTime extends QScript {
   val myJarFile: File = null
 
   @Argument(shortName = "iterations", doc="it", required=false)
-  val iterations: Int = 3
+  val iterations: Int = 2
 
   @Argument(shortName = "assessment", doc="Which assessments should we run?", required=false)
   val assessmentsArg: Set[String] = Assessment.values map(_.toString)
@@ -41,6 +39,7 @@ class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "maxNSamples", doc="maxNSamples", required=false)
   val maxNSamples: Int = 1000000
 
+  val MY_TAG = "GATKPerformanceOverTime"
   val RECAL_BAM_FILENAME = "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.20GAV.8.bam"
   val dbSNP_FILENAME = "dbsnp_132.b37.vcf"
   val BIG_VCF_WITH_GENOTYPES = "ALL.chr22.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz"
@@ -55,7 +54,7 @@ class GATKPerformanceOverTime extends QScript {
 
   // TODO -- count the number of lines in the bam.list file
   val WGSAssessment = new AssessmentParameters("WGS.multiSample.4x", "wgs.bam.list.local.list", "wgs.bam.list.intervals", 1103, 50, true)
-  val WGSDeepAssessment = new AssessmentParameters("WGS.singleSample.60x", "wgs.deep.bam.list.local.list", "wgs.deep.bam.list.intervals", 1, 250, false)
+  val WGSDeepAssessment = new AssessmentParameters("WGS.singleSample.60x", "wgs.deep.bam.list.local.list", "wgs.deep.bam.list.intervals", 1, 250, true)
   val WExAssessment = new AssessmentParameters("WEx.multiSample.150x", "wex.bam.list.local.list", "wex.bam.list.intervals", 140, 500, true)
 
   val dataSets = List(WGSAssessment, WGSDeepAssessment, WExAssessment)
@@ -108,13 +107,13 @@ class GATKPerformanceOverTime extends QScript {
 
             // SNP calling
             if ( assessments.contains(Assessment.UG) )
-              add(new Call(sublist.list, nSamples, name, assess.baq) with VersionOverrides)
+              addGATKCommand(new Call(sublist.list, nSamples, name, assess.baq) with VersionOverrides)
             if ( assessments.contains(Assessment.UG_NT) && nSamples == assess.nSamples )
               addMultiThreadedTest(() => new Call(sublist.list, nSamples, name, assess.baq) with VersionOverrides)
 
             // CountLoci
             if ( assessments.contains(Assessment.CL) ) {
-              add(new MyCountLoci(sublist.list, nSamples, name) with VersionOverrides)
+              addGATKCommand(new MyCountLoci(sublist.list, nSamples, name) with VersionOverrides)
               if ( nSamples == assess.nSamples )
                 addMultiThreadedTest(() => new MyCountLoci(sublist.list, nSamples, name) with VersionOverrides)
             }
@@ -132,8 +131,7 @@ class GATKPerformanceOverTime extends QScript {
 
                 def makeCV(): CommandLineGATK = {
                   val CV = new CombineVariants with UNIVERSAL_GATK_ARGS
-                  CV.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName,
-                    "output" -> outputName, "assessment" -> "CombineVariants.nt"))
+                  CV.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> outputName))
                   CV.jarFile = gatkJar
                   CV.intervalsString :+= "22"
                   CV.variant = List(makeResource(BIG_VCF_WITH_GENOTYPES))
@@ -149,7 +147,7 @@ class GATKPerformanceOverTime extends QScript {
             if ( assessments.contains(Assessment.BQSR_NT) ) {
               def makeBQSR(): CommandLineGATK = {
                 val BQSR = new BaseRecalibrator with UNIVERSAL_GATK_ARGS
-                BQSR.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> "BQSR.nt"))
+                BQSR.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> RECAL_BAM_FILENAME))
                 BQSR.jarFile = gatkJar
                 BQSR.intervalsString :+= "20"
                 BQSR.knownSites :+= makeResource(dbSNP_FILENAME)
@@ -179,7 +177,7 @@ class GATKPerformanceOverTime extends QScript {
             CV.intervalsString = (if ( TEST ) List("1:10,000,000-10,010,000") else List("1", "2", "3", "4", "5"))
             CV.out = new File("/dev/null")
             if ( assessments.contains(Assessment.CV) )
-              add(CV)
+              addGATKCommand(CV)
 
             val SV = new SelectVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
             SV.variant = makeResource("chunk_1.vcf")
@@ -187,7 +185,7 @@ class GATKPerformanceOverTime extends QScript {
             if ( TEST ) SV.intervalsString = List("1:10,000,000-10,010,000")
             SV.out = new File("/dev/null")
             if ( assessments.contains(Assessment.SV) )
-              add(SV)
+              addGATKCommand(SV)
 
             def makeVE(): CommandLineGATK = {
               val VE = new VariantEval with UNIVERSAL_GATK_ARGS with VersionOverrides
@@ -195,11 +193,12 @@ class GATKPerformanceOverTime extends QScript {
               if ( TEST ) VE.intervalsString = List("1:10,000,000-10,010,000")
               VE.out = new File("/dev/null")
               VE.comp :+= new TaggedFile(makeResource(dbSNP_FILENAME), "dbSNP")
+              VE.addJobReportBinding("assessment", "chunk_1.vcf")
               VE
             }
 
             if ( assessments.contains(Assessment.VE) ) {
-              add(makeVE())
+              addGATKCommand(makeVE())
             }
 
             if ( assessments.contains(Assessment.VE_NT) && subiteration == 0 )
@@ -218,7 +217,7 @@ class GATKPerformanceOverTime extends QScript {
         cmd.memoryLimit = cmd.memoryLimit * (if ( nt >= 8 ) (if (nt>=16) 4 else 2) else 1)
         cmd.addJobReportBinding("nt", nt)
         cmd.analysisName = cmd.analysisName + ".nt"
-        add(cmd)
+        addGATKCommand(cmd)
       }
     }
   }
@@ -249,6 +248,12 @@ class GATKPerformanceOverTime extends QScript {
     this.analysisName = "SliceList"
     @Output(doc="foo") var list: File = new File("%s/%s.bams.%d.list".format(resultsDir.getPath, prefix, n))
     def commandLine = "head -n %d %s | awk '{print \"%s/\" $1}' > %s".format(n, bamList, resourcesDir, list)
+  }
+
+  def addGATKCommand(gatkCmd: CommandLineGATK) {
+    if ( gatkCmd.jarFile == null || ! gatkCmd.jarFile.getAbsolutePath.matches(".*-1.[0-9]*-.*") )
+      gatkCmd.tag = MY_TAG
+    add(gatkCmd)
   }
 
   def dedupe(elements:List[Int]):List[Int] = {
