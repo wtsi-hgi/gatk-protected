@@ -39,7 +39,9 @@ import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 
@@ -85,7 +87,8 @@ public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> 
     }
 
     public VariantCallContext map(RefMetaDataTracker tracker, ReferenceContext refContext, AlignmentContext rawContext) {
-        VariantContext call = UG_engine.calculateLikelihoods(tracker, refContext, rawContext);
+        final Map<String,PerReadAlleleLikelihoodMap> perReadAlleleLikelihoodMap = new HashMap<String,PerReadAlleleLikelihoodMap>();
+        VariantContext call = UG_engine.calculateLikelihoods(tracker, refContext, rawContext, perReadAlleleLikelihoodMap);
         return call == null ? null : new VariantCallContext(call, true);
     }
 
