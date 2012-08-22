@@ -36,7 +36,7 @@ class GATKPerformanceOverTime extends QScript {
   val maxNSamples: Int = 1000000
 
   val MY_TAG = "GATKPerformanceOverTime"
-  val RECAL_BAM_FILENAME = "wgs.deep.bam.list.local.list"
+  val RECAL_BAM_FILENAME = "wgs.deep.bam.list.cache/CEUTrio.HiSeq.WGS.b37_decoy.NA12878.clean.dedup.recal.bam"
   val dbSNP_FILENAME = "dbsnp_132.b37.vcf"
   val BIG_VCF_WITH_GENOTYPES = "ALL.chr1.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz"
   val RECAL_FILENAME = "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.csv"  // TODO -- update to use recal table for BQSRv2
