@@ -24,7 +24,7 @@ class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "assessment", doc="Which assessments should we run?", required=false)
   val assessmentsArg: Set[String] = Assessment.values map(_.toString)
 
-  val nIterationsForSingleTestsPerIteration: Int = 3
+  val nIterationsForSingleTestsPerIteration: Int = 1
 
   @Argument(shortName = "ntTest", doc="For each value provided we will use -nt VALUE in the multi-threaded tests", required=false)
   val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24)
@@ -39,6 +39,7 @@ class GATKPerformanceOverTime extends QScript {
   val RECAL_BAM_FILENAME = "wgs.deep.bam.list.cache/CEUTrio.HiSeq.WGS.b37_decoy.NA12878.clean.dedup.recal.bam"
   val dbSNP_FILENAME = "dbsnp_132.b37.vcf"
   val BIG_VCF_WITH_GENOTYPES = "ALL.chr1.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz"
+  val BIG_VCF_WITH_GENOTYPES_16_COMPATIBLE = new File("/humgen/gsa-hpprojects/GATK/bundle/1.5/b37/1000G_omni2.5.b37.vcf")
   val RECAL_FILENAME = "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.csv"  // TODO -- update to use recal table for BQSRv2
   val b37_FILENAME = "human_g1k_v37.fasta"
 
@@ -138,7 +139,6 @@ class GATKPerformanceOverTime extends QScript {
                   val CV = new CombineVariants with UNIVERSAL_GATK_ARGS
                   CV.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> outputName))
                   CV.jarFile = gatkJar
-                  CV.intervalsString :+= "22"
                   CV.variant = List(makeResource(BIG_VCF_WITH_GENOTYPES))
                   CV.out = new File("/dev/null")
                   CV.bcf = outputBCF
@@ -186,7 +186,7 @@ class GATKPerformanceOverTime extends QScript {
               addGATKCommand(CV)
 
             val SV = new SelectVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
-            SV.variant = makeResource("chunk_1.vcf")
+            SV.variant = BIG_VCF_WITH_GENOTYPES_16_COMPATIBLE
             SV.sample_name = List("HG00096") // IMPORTANT THAT THIS SAMPLE BE IN CHUNK ONE
             SV.out = new File("/dev/null")
             if ( assessments.contains(Assessment.SV) )
@@ -194,7 +194,7 @@ class GATKPerformanceOverTime extends QScript {
 
             def makeVE(): CommandLineGATK = {
               val VE = new VariantEval with UNIVERSAL_GATK_ARGS with VersionOverrides
-              VE.eval :+= makeResource("chunk_1.vcf")
+              VE.eval :+= BIG_VCF_WITH_GENOTYPES_16_COMPATIBLE
               VE.out = new File("/dev/null")
               VE.comp :+= new TaggedFile(makeResource(dbSNP_FILENAME), "dbSNP")
               VE.addJobReportBinding("assessment", "chunk_1.vcf")
