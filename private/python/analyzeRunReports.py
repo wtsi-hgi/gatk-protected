@@ -403,6 +403,7 @@ class RecordDecoder:
         addComplex("svn-version", ["svn-version", "gatk-version", "gatk-minor-version", "release-type"], [id, formatMajorVersion, formatMinorVersion, formatReleaseType])
         add(["start-time", "end-time"], formatRuntime)      
         add(["run-time", "user-name"], id)
+        add(["num-threads", "percent-time-running", "percent-time-waiting", "percent-time-blocking", "percent-time-waiting-for-io"], id)
         addComplex("host-name", ["host-name", "domain-name"], [formatHostName, formatDomainName])
         add(["java", "machine"], toString)
         add(["max-memory", "total-memory", "iterations"], id)
@@ -580,8 +581,9 @@ class SQLRecordHandler(StageHandler):
         return ["id", "walker-name", "tag", "gatk-version",
                 "gatk-minor-version", "svn-version", 
                 "start-time", "end-time", "run-time", 
-                "user-name", "host-name", "domain-name", 
-                "total-memory", "stacktrace", "exception-at-brief", 
+                "user-name", "host-name", "domain-name",
+                "num-threads", "percent-time-running", "percent-time-waiting", "percent-time-blocking", "percent-time-waiting-for-io",
+                "total-memory", "stacktrace", "exception-at-brief",
                 "exception-msg", "is-user-exception", "exception-class", 
                 "run-status", "release-type"]
         
