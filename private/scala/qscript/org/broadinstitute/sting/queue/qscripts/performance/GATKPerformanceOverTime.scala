@@ -283,7 +283,7 @@ class GATKPerformanceOverTime extends QScript {
     this.intervalsString = List("1", "2", "3", "4", "5")
     this.knownSites :+= makeResource(dbSNP_FILENAME)
     // must explicitly list the covariates so that BQSR v1 works
-    //this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
+    this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
     this.input_file :+= makeResource(RECAL_BAM_FILENAME)
     this.out = new File("/dev/null")
     this.no_plots = true
