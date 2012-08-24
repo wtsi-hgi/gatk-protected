@@ -132,11 +132,7 @@ class GATKPerformanceOverTime extends QScript {
         BQSR.jarFile = gatkJar
         BQSR
       }
-      if ( gatkName.contains("v2") )
-        1 + 1
-        //addMultiThreadedTest(makeBQSR, 8) // max nt until BQSR is performant
-      else
-        addMultiThreadedTest(makeBQSR, 8) // max nt until BQSR is performant
+      addMultiThreadedTest(makeBQSR, 8) // max nt until BQSR is performant
     }
   }
 
@@ -284,18 +280,21 @@ class GATKPerformanceOverTime extends QScript {
    * @param v2
    */
   class MyBaseRecalibrator(val v2: Boolean) extends BaseRecalibrator with UNIVERSAL_GATK_ARGS {
-    this.intervalsString :+= "1:10,100,000-100,000,000"
+    this.intervalsString :+= "1"
     this.knownSites :+= makeResource(dbSNP_FILENAME)
+    // must explicitly list the covariates so that BQSR v1 works
     this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
     this.input_file :+= makeResource(RECAL_BAM_FILENAME)
     this.out = new File("/dev/null")
     this.no_plots = true
     this.memoryLimit = 12
+
     if ( ! v2 ) {
-      this.analysis_type = "CountCovariates"
-      this.np = false
+      this.analysis_type = "CountCovariates" // BQSR v1 name is CountCovariates
+      this.np = false // there's no no ploting option in BQSR v1
     }
 
+    // terrible terrible hack.  Explicitly remove the -o output which isn't present in v1
     override def commandLine(): String = {
       if ( ! v2 )
         super.commandLine.replace("'-o' '/dev/null'", "")
