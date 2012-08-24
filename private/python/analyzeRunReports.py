@@ -8,6 +8,7 @@ import datetime
 import re
 import unittest
 import traceback
+import MySQLdb
 
 MISSING_VALUE = "NA"
 RUN_REPORT_LIST = "GATK-run-reports"
@@ -559,7 +560,6 @@ addHandler('summary', SummaryReport)
 DB_EXISTS = True
 class SQLRecordHandler(StageHandler):
     def __init__(self, name, out):
-        import MySQLdb
         StageHandler.__init__(self, name, out)
         
     def initialize(self, args):
