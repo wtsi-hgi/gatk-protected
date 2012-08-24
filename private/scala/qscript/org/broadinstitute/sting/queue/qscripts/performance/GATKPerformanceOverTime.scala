@@ -280,10 +280,10 @@ class GATKPerformanceOverTime extends QScript {
    * @param v2
    */
   class MyBaseRecalibrator(val v2: Boolean) extends BaseRecalibrator with UNIVERSAL_GATK_ARGS {
-    this.intervalsString :+= "1"
+    this.intervalsString = List("1", "2", "3", "4", "5")
     this.knownSites :+= makeResource(dbSNP_FILENAME)
     // must explicitly list the covariates so that BQSR v1 works
-    this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
+    //this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
     this.input_file :+= makeResource(RECAL_BAM_FILENAME)
     this.out = new File("/dev/null")
     this.no_plots = true
@@ -296,8 +296,9 @@ class GATKPerformanceOverTime extends QScript {
 
     // terrible terrible hack.  Explicitly remove the -o output which isn't present in v1
     override def commandLine(): String = {
-      if ( ! v2 )
-        super.commandLine.replace("'-o' '/dev/null'", "")
+      val covariates = "-cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate"
+        if ( ! v2 )
+        super.commandLine.replace("'-o' '/dev/null'", covariates)
       else
         super.commandLine
     }
