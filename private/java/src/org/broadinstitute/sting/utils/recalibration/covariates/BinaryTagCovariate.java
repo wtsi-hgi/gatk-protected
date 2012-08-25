@@ -8,6 +8,8 @@ import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 /**
  * Binary covariate allows BQSR to recalibrate based on a binary covariate in the BAM file. This covariate should assume values of 1 and 0.
  *
+ * Private (test) covariate that shouldn't be used by the general public
+ *
  * @author Mauricio Carneiro
  * @since 7/6/12
  */
@@ -17,6 +19,8 @@ public class BinaryTagCovariate implements ExperimentalCovariate {
 
     @Override
     public void initialize(RecalibrationArgumentCollection RAC) {
+        if ( RAC.BINARY_TAG_NAME == null )
+            throw new UserException.BadArgumentValue("bintag", "no name provided for binary tag covariate");
         tag = RAC.BINARY_TAG_NAME;
     }
 
