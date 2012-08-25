@@ -128,7 +128,7 @@ class GATKPerformanceOverTime extends QScript {
     if ( assessments.contains(Assessment.BQSR_NT) ) {
       def makeBQSR(): BaseRecalibrator = {
         val BQSR = new MyBaseRecalibrator(gatkName.contains("v2"))
-        BQSR.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> RECAL_BAM_FILENAME))
+        BQSR.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> "20GAV.8.bam"))
         BQSR.jarFile = gatkJar
         BQSR
       }
@@ -283,7 +283,6 @@ class GATKPerformanceOverTime extends QScript {
     this.intervalsString = List("1", "2", "3", "4", "5")
     this.knownSites :+= makeResource(dbSNP_FILENAME)
     // must explicitly list the covariates so that BQSR v1 works
-    this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
     this.input_file :+= makeResource(RECAL_BAM_FILENAME)
     this.out = new File("/dev/null")
     this.no_plots = true
@@ -293,11 +292,13 @@ class GATKPerformanceOverTime extends QScript {
       this.analysis_type = "CountCovariates" // BQSR v1 name is CountCovariates
       this.np = false // there's no no ploting option in BQSR v1
     }
+    // don't need to list the covariates explicitly for V2 and it causes problems for v1
+    //this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
 
     // terrible terrible hack.  Explicitly remove the -o output which isn't present in v1
     override def commandLine(): String = {
       val covariates = "-cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate"
-        if ( ! v2 )
+      if ( ! v2 )
         super.commandLine.replace("'-o' '/dev/null'", covariates)
       else
         super.commandLine
