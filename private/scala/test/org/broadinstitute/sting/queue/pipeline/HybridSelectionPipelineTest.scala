@@ -36,12 +36,12 @@ class HybridSelectionPipelineTest {
   val k1gChr20Dataset = {
     val dataset = newK1gDataset("Barcoded_1000G_WEx_chr20", BaseTest.hg19Chr20Intervals)
 
-    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.all.all", "nCalledLoci", 1463)
+    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.all.all", "nCalledLoci", 1465)
     dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.known.all", "nCalledLoci", 1199)
-    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.novel.all", "nCalledLoci", 264)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.all.all", "tiTvRatio", 3.59)
+    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.novel.all", "nCalledLoci", 266)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.all.all", "tiTvRatio", 3.56)
     dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.known.all", "tiTvRatio", 3.78)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.novel.all", "tiTvRatio", 2.85)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.novel.all", "tiTvRatio", 2.76)
 
     dataset
   }
