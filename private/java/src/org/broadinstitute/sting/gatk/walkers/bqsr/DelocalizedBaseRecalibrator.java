@@ -105,6 +105,8 @@ import java.util.ArrayList;
  */
 
 @DocumentedGATKFeature( groupName = "BAM Processing and Analysis Tools", extraDocs = {CommandLineGATK.class} )
+// TODO -- did you really want to allow BAQ?
+// TODO -- can you fix the commenting style here?  It's just painful
 @BAQMode(ApplicationTime = BAQ.ApplicationTime.ON_INPUT, QualityMode = BAQ.QualityMode.ADD_TAG)
 @By(DataSource.READS)
 @ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class})                                   // only look at covered loci, not every loci of the reference file
