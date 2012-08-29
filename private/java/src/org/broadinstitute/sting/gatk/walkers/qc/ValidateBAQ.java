@@ -7,7 +7,7 @@ import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.SimpleTimer;
@@ -74,7 +74,7 @@ public class ValidateBAQ extends ReadWalker<Integer, Integer> {
 
     long goodReads = 0, badReads = 0;
 
-    public Integer map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker tracker) {
+    public Integer map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker tracker) {
 
         if ( (readName == null || readName.equals(read.getReadName())) && read.getReadLength() <= maxReadLen && (includeReadsWithoutBAQTag || BAQ.hasBAQTag(read) ) ) {
             if ( baqHMM.excludeReadFromBAQ(read) )

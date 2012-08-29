@@ -4,8 +4,7 @@ import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -28,7 +27,7 @@ public class ValidateRODForReads extends ReadWalker<Integer, Integer> {
     private PrintStream out;
 
     @Override
-    public Integer map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker tracker) {
+    public Integer map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker tracker) {
         if (tracker != null) {
 ////            Map<Integer, Collection<GATKFeature>> mapping = tracker.getContigOffsetMapping();
 ////            for (Map.Entry<Integer, Collection<GATKFeature>> entry : mapping.entrySet()) {

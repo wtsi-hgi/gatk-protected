@@ -2,7 +2,7 @@ package org.broadinstitute.sting.gatk.walkers.misc;
 
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
@@ -38,7 +38,7 @@ public class OriginalQualScoreHistogram extends ReadWalker<Boolean,Long> {
         return read.getAttribute("OQ") != null;
     }
 
-    public Boolean map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public Boolean map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
         byte[] quals = read.getOriginalBaseQualities();
         for ( int offset = 0; offset < quals.length; offset++ ) {
             qualsByOffset.get(offset)[ (int) quals[offset]]++;

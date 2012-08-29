@@ -33,7 +33,7 @@ import org.broadinstitute.sting.gatk.CommandLineGATK;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.MappingQualityUnavailableFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
@@ -207,7 +207,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
      * For each read at this locus get the various covariate values and increment that location in the map based on
      * whether or not the base matches the reference at this particular location
      */
-    public Long map( final ReferenceContext ref, final GATKSAMRecord read, final ReadMetaDataTracker metaDataTracker ) {
+    public Long map( final ReferenceContext ref, final GATKSAMRecord read, final RefMetaDataTracker metaDataTracker ) {
 
         RecalUtils.parsePlatformForRead(read, RAC);
         // BUGBUG: solid support should go here.
@@ -228,7 +228,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         return 1L;
     }
 
-    protected boolean[] calculateSkipArray( final GATKSAMRecord read, final ReadMetaDataTracker metaDataTracker ) {
+    protected boolean[] calculateSkipArray( final GATKSAMRecord read, final RefMetaDataTracker metaDataTracker ) {
         final byte[] bases = read.getReadBases();
         final boolean[] skip = new boolean[bases.length];
         for( int iii = 0; iii < bases.length; iii++ ) {

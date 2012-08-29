@@ -9,8 +9,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
 import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.*;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
@@ -101,7 +100,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
         return prevRed;
     }
 
-    public EvaluationContext map(ReferenceContext context, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public EvaluationContext map(ReferenceContext context, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
         if ( read.getReadGroup() == null ) { return null; }
 
         final HashSet<TableFeature> hypotheses = new HashSet<TableFeature>(metaDataTracker.getValues(hypothesisRodBinding));

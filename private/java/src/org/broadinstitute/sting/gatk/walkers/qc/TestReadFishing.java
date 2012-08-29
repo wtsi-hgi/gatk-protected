@@ -35,7 +35,7 @@ import org.broadinstitute.sting.alignment.bwa.c.BWACAligner;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
@@ -136,7 +136,7 @@ public class TestReadFishing extends ReadWalker<Integer,Long> {
     }
 
     @Override
-    public Integer map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public Integer map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
         Alignment bestAlignment = aligner.getBestAlignment(read.getReadBases());
         System.out.println("bestAlignment = " + bestAlignment);
         return 1;

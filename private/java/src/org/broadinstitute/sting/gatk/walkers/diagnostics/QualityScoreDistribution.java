@@ -26,7 +26,7 @@ package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
@@ -75,7 +75,7 @@ public class QualityScoreDistribution extends ReadWalker<HashMap<Byte, Long>, Ha
     }
 
     @Override
-    public HashMap<Byte, Long> map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public HashMap<Byte, Long> map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
         HashMap<Byte, Long> qualsMap = new HashMap<Byte, Long>(QualityUtils.MAX_QUAL_SCORE);
         byte [] quals = read.getBaseQualities();
         initQualsMap(qualsMap);
