@@ -206,12 +206,7 @@ public class ExonJunctionHypothesisGenerator extends ReadWalker<TreeSet<ExonJunc
     }
 
     public TreeSet<IntronLossJunctions> map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
-        List<RefSeqFeature> refSeqFeatures = new ArrayList<RefSeqFeature>(16);
-        for (GATKFeature feature : metaDataTracker.getAllCoveringRods() ) {
-            if ( feature.getUnderlyingObject().getClass().isAssignableFrom(RefSeqFeature.class) ) {
-                refSeqFeatures.add((RefSeqFeature) feature.getUnderlyingObject());
-            }
-        }
+        final List<RefSeqFeature> refSeqFeatures = new ArrayList<RefSeqFeature>(metaDataTracker.getValues(refSeqRodBinding));
 
         TreeSet<IntronLossJunctions> junctionsSet = new TreeSet<IntronLossJunctions>();
         GenomeLoc readLoc = getToolkit().getGenomeLocParser().createGenomeLoc(read);
