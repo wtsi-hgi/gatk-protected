@@ -25,17 +25,14 @@
 
 package org.broadinstitute.sting.gatk.walkers.bqsr;
 
-import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.gatk.CommandLineGATK;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.MappingQualityUnavailableFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.recalibration.*;
@@ -46,9 +43,7 @@ import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.help.DocumentedGATKFeature;
-import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -106,27 +101,26 @@ import java.util.ArrayList;
 
 @DocumentedGATKFeature( groupName = "BAM Processing and Analysis Tools", extraDocs = {CommandLineGATK.class} )
 // TODO -- did you really want to allow BAQ?
-// TODO -- can you fix the commenting style here?  It's just painful
 @BAQMode(ApplicationTime = BAQ.ApplicationTime.ON_INPUT, QualityMode = BAQ.QualityMode.ADD_TAG)
 @By(DataSource.READS)
-@ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class})                                   // only look at covered loci, not every loci of the reference file
-@Requires({DataSource.READS, DataSource.REFERENCE})                                         // filter out all reads with zero or unavailable mapping quality
-@PartitionBy(PartitionType.READ)                                                                                       // this walker requires both -I input.bam and -R reference.fasta
+@ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class}) // only look at covered loci, not every loci of the reference file
+@Requires({DataSource.READS, DataSource.REFERENCE}) // filter out all reads with zero or unavailable mapping quality
+@PartitionBy(PartitionType.READ) // this walker requires both -I input.bam and -R reference.fasta
 public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implements TreeReducible<Long> {
     @ArgumentCollection
-    private final RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection();                          // all the command line arguments for BQSR and it's covariates
+    private final RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection(); // all the command line arguments for BQSR and it's covariates
 
-    private QuantizationInfo quantizationInfo;                                                                          // an object that keeps track of the information necessary for quality score quantization
+    private QuantizationInfo quantizationInfo; // an object that keeps track of the information necessary for quality score quantization
 
     private RecalibrationTables recalibrationTables;
 
-    private Covariate[] requestedCovariates;                                                                            // list to hold the all the covariate objects that were requested (required + standard + experimental)
+    private Covariate[] requestedCovariates; // list to hold the all the covariate objects that were requested (required + standard + experimental)
 
     private RecalibrationEngine recalibrationEngine;
 
     private int minimumQToUse;
 
-    protected static final String COVARS_ATTRIBUTE = "COVARS";                                                          // used to store covariates array as a temporary attribute inside GATKSAMRecord.\
+    protected static final String COVARS_ATTRIBUTE = "COVARS"; // used to store covariates array as a temporary attribute inside GATKSAMRecord.\
 
     private static final String NO_DBSNP_EXCEPTION = "This calculation is critically dependent on being able to skip over known variant sites. Please provide a VCF file containing known sites of genetic variation.";
 
@@ -143,16 +137,16 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         if (RAC.FORCE_PLATFORM != null)
             RAC.DEFAULT_PLATFORM = RAC.FORCE_PLATFORM;
 
-        if (RAC.knownSites.isEmpty() && !RAC.RUN_WITHOUT_DBSNP)                                                         // Warn the user if no dbSNP file or other variant mask was specified
+        if (RAC.knownSites.isEmpty() && !RAC.RUN_WITHOUT_DBSNP) // Warn the user if no dbSNP file or other variant mask was specified
             throw new UserException.CommandLineException(NO_DBSNP_EXCEPTION);
 
         if (RAC.LIST_ONLY) {
             RecalUtils.listAvailableCovariates(logger);
             System.exit(0);
         }
-        RAC.recalibrationReport = getToolkit().getArguments().BQSR_RECAL_FILE;                                          // if we have a recalibration file, record it so it goes on the report table
+        RAC.recalibrationReport = getToolkit().getArguments().BQSR_RECAL_FILE; // if we have a recalibration file, record it so it goes on the report table
 
-        Pair<ArrayList<Covariate>, ArrayList<Covariate>> covariates = RecalUtils.initializeCovariates(RAC);       // initialize the required and optional covariates
+        Pair<ArrayList<Covariate>, ArrayList<Covariate>> covariates = RecalUtils.initializeCovariates(RAC); // initialize the required and optional covariates
         ArrayList<Covariate> requiredCovariates = covariates.getFirst();
         ArrayList<Covariate> optionalCovariates = covariates.getSecond();
 
@@ -164,9 +158,9 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
             requestedCovariates[covariateIndex++] = covariate;
 
         logger.info("The covariates being used here: ");
-        for (Covariate cov : requestedCovariates) {                                                                     // list all the covariates being used
+        for (Covariate cov : requestedCovariates) { // list all the covariates being used
             logger.info("\t" + cov.getClass().getSimpleName());
-            cov.initialize(RAC);                                                                                        // initialize any covariate member variables using the shared argument collection
+            cov.initialize(RAC); // initialize any covariate member variables using the shared argument collection
         }
 
         int numReadGroups = 0;
