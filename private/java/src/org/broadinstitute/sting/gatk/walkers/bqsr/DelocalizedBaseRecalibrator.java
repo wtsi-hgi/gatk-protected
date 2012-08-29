@@ -25,6 +25,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.bqsr;
 
+import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
@@ -35,6 +36,7 @@ import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.recalibration.*;
 import org.broadinstitute.sting.utils.recalibration.covariates.Covariate;
 import org.broadinstitute.sting.utils.baq.BAQ;
@@ -100,8 +102,7 @@ import java.util.ArrayList;
  */
 
 @DocumentedGATKFeature( groupName = "BAM Processing and Analysis Tools", extraDocs = {CommandLineGATK.class} )
-// TODO -- did you really want to allow BAQ?
-@BAQMode(ApplicationTime = BAQ.ApplicationTime.ON_INPUT, QualityMode = BAQ.QualityMode.ADD_TAG)
+@BAQMode(ApplicationTime = BAQ.ApplicationTime.FORBIDDEN)
 @By(DataSource.READS)
 @ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class}) // only look at covered loci, not every loci of the reference file
 @Requires({DataSource.READS, DataSource.REFERENCE}) // filter out all reads with zero or unavailable mapping quality
@@ -123,6 +124,9 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     protected static final String COVARS_ATTRIBUTE = "COVARS"; // used to store covariates array as a temporary attribute inside GATKSAMRecord.\
 
     private static final String NO_DBSNP_EXCEPTION = "This calculation is critically dependent on being able to skip over known variant sites. Please provide a VCF file containing known sites of genetic variation.";
+
+    private final BAQ baq = new BAQ(); // BAQ the reads on the fly to generate the alignment uncertainty vector
+    private IndexedFastaSequenceFile referenceReader; // fasta reference reader for use with BAQ calculation
 
     /**
      * Parse the -cov arguments and create a list of covariates to be used here
@@ -172,6 +176,14 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         recalibrationEngine.initialize(requestedCovariates, recalibrationTables);
 
         minimumQToUse = getToolkit().getArguments().PRESERVE_QSCORES_LESS_THAN;
+
+        try {
+            // fasta reference reader for use with BAQ calculation
+            referenceReader = new CachingIndexedFastaSequenceFile(getToolkit().getArguments().referenceFile);
+        } catch( FileNotFoundException e ) {
+            throw new UserException.CouldNotReadInputFile(getToolkit().getArguments().referenceFile, e);
+        }
+
     }
 
     private RecalibrationEngine initializeRecalibrationEngine() {
@@ -352,10 +364,10 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     }
 
     private byte[] calculateBAQArray( final GATKSAMRecord read ) {
+        baq.baqRead(read, referenceReader, BAQ.CalculationMode.CALCULATE_AS_NECESSARY, BAQ.QualityMode.ADD_TAG);
         final byte[] tag = BAQ.getBAQTag(read);
         if( tag == null ) {
-            throw new UserException.BadInput("This walker requires either that BAQ be turned on for input, i.e. -baq CALCULATE_AS_NECESSARY, " +
-                    "or that the input BAM be previously BAQ'ed with a BAQ tag. The BAQ tag wasn't found for read: " + read);
+            throw new ReviewedStingException("BAQ tag was generated and then requested but can't be found in read: " + read);
         }
         return tag;
     }
