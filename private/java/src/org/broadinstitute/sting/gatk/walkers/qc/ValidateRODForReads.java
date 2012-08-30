@@ -6,7 +6,7 @@ import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.walkers.TreeReducible;
+import org.broadinstitute.sting.gatk.walkers.ThreadSafeMapReduce;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
@@ -20,7 +20,7 @@ import java.util.TreeMap;
 /**
  * validate the rods for reads
  */
-public class ValidateRODForReads extends ReadWalker<Integer, Integer> implements TreeReducible<Integer> {
+public class ValidateRODForReads extends ReadWalker<Integer, Integer> implements ThreadSafeMapReduce {
     // a mapping of the position to the count of rods
     HashMap<GenomeLoc, Integer> map = new HashMap<GenomeLoc, Integer>();
 
@@ -57,11 +57,6 @@ public class ValidateRODForReads extends ReadWalker<Integer, Integer> implements
     @Override
     public Integer reduce(Integer value, Integer sum) {
         return sum + value;
-    }
-
-    @Override
-    public Integer treeReduce(Integer lhs, Integer rhs) {
-        return lhs + rhs;
     }
 
     public void onTraversalDone(Integer result) {
