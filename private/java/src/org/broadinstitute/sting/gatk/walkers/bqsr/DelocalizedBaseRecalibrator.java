@@ -232,7 +232,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         final byte[] bases = read.getReadBases();
         final boolean[] skip = new boolean[bases.length];
         for( int iii = 0; iii < bases.length; iii++ ) {
-            skip[iii] = !BaseUtils.isRegularBase(bases[iii]) | isLowQualityBase(read, iii) | metaDataTracker.getReadOffsetMapping().containsKey(iii);
+            skip[iii] = !BaseUtils.isRegularBase(bases[iii]) || isLowQualityBase(read, iii) || metaDataTracker.getReadOffsetMapping().containsKey(iii);
         }
         return skip;
     }
