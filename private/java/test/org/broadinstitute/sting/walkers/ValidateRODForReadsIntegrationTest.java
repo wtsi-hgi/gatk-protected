@@ -12,16 +12,29 @@ public class ValidateRODForReadsIntegrationTest extends WalkerTest {
 
     private final String vcfFile = privateTestDir + "rodForReadsVCFCheck.withRG.vcf";
 
-     public static String baseTestString() {
-            return "-T ValidateRODForReads -o %s -R " + publicTestDir + "exampleFASTA.fasta" + " -I " + publicTestDir + "exampleBAM.bam";
-        }
-
+    public static String baseTestString() {
+        return "-T ValidateRODForReads -o %s -R " + publicTestDir + "exampleFASTA.fasta" + " -I " + publicTestDir + "exampleBAM.bam";
+    }
 
     @Test
-    public void testSimpleVCFPileup() {
+         public void testSimpleVCFPileup() {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString() + " -V " + vcfFile, 1,
                 Arrays.asList("f7919e9dc156fb5d3ad0541666864ea5"));
-        executeTest("testSimpleVCFPileup", spec);
+        executeTestParallel("testSimpleVCFPileup", spec);
+    }
+
+    @Test
+    public void testComplexRODs() {
+        WalkerTestSpec spec = new WalkerTestSpec(
+            "-T ValidateRODForReads -o %s -R "
+                    + b37KGReference + " -I "
+                    + validationDataLocation + "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam"
+                    + " -L 20:10,000,000-11,000,000 "
+                    + " -V " + validationDataLocation + "NA12878.HiSeq.WGS.b37_decoy.indel.recalibrated.vcf"
+                    + " -V " + validationDataLocation + "NA12878.omni.vcf",
+                1,
+                Arrays.asList("8060cde53b9de9032ca54f738d2e7d19"));
+        executeTestParallel("testComplexRODs", spec);
     }
 }

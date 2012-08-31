@@ -36,15 +36,15 @@ import org.broadinstitute.sting.gatk.filters.*;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
-import org.broadinstitute.sting.utils.recalibration.*;
-import org.broadinstitute.sting.utils.recalibration.covariates.Covariate;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.classloader.GATKLiteUtils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.help.DocumentedGATKFeature;
+import org.broadinstitute.sting.utils.recalibration.*;
+import org.broadinstitute.sting.utils.recalibration.covariates.Covariate;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.File;
@@ -108,7 +108,7 @@ import java.util.List;
 @BAQMode(ApplicationTime = BAQ.ApplicationTime.FORBIDDEN)
 @ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class, UnmappedReadFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class})
 @PartitionBy(PartitionType.READ)
-public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implements TreeReducible<Long> {
+public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implements ThreadSafeMapReduce {
     @ArgumentCollection
     private final RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection(); // all the command line arguments for BQSR and it's covariates
 
@@ -440,11 +440,6 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     public Long reduce(Long mapped, Long sum) {
         sum += mapped;
         return sum;
-    }
-
-    public Long treeReduce(Long sum1, Long sum2) {
-        sum1 += sum2;
-        return sum1;
     }
 
     @Override
