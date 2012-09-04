@@ -33,6 +33,7 @@ import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.gatk.CommandLineGATK;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.*;
+import org.broadinstitute.sting.gatk.iterators.ReadTransformer;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
@@ -104,8 +105,8 @@ import java.util.List;
  * </pre>
  */
 
-@DocumentedGATKFeature( groupName = "BAM Processing and Analysis Tools", extraDocs = {CommandLineGATK.class} )
-@BAQMode(ApplicationTime = BAQ.ApplicationTime.FORBIDDEN)
+@DocumentedGATKFeature(groupName = "BAM Processing and Analysis Tools", extraDocs = {CommandLineGATK.class})
+@BAQMode(ApplicationTime = ReadTransformer.ApplicationTime.FORBIDDEN)
 @ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class, UnmappedReadFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class})
 @PartitionBy(PartitionType.READ)
 public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implements ThreadSafeMapReduce {

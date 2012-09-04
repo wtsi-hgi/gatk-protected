@@ -7,6 +7,7 @@ import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.iterators.ReadTransformer;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.MathUtils;
@@ -24,7 +25,7 @@ import java.io.PrintStream;
  * Can also count the number of reads matching a given criterion using read filters (see the
  * --read-filter command line argument).  Simplest example of a read-backed analysis.
  */
-@BAQMode(QualityMode = BAQ.QualityMode.DONT_MODIFY, ApplicationTime = BAQ.ApplicationTime.HANDLED_IN_WALKER)
+@BAQMode(QualityMode = BAQ.QualityMode.DONT_MODIFY, ApplicationTime = ReadTransformer.ApplicationTime.HANDLED_IN_WALKER)
 @Reference(window=@Window(start=-5,stop=5))
 @Requires({DataSource.READS, DataSource.REFERENCE})
 public class ValidateBAQ extends ReadWalker<Integer, Integer> {
