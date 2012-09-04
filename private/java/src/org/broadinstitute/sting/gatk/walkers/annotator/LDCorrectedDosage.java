@@ -1,8 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.annotator;
 
-import Jama.Matrix;
-import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.math.linear.MatrixUtils;
+import org.apache.commons.math.linear.*;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -45,7 +43,7 @@ public class LDCorrectedDosage extends GenotypeAnnotation implements Experimenta
     private static final String VCF_HEADER_DESCRIPTION = "LD-Controlled Genotype Dosages";
     private TreeSet<GenomeLoc> matrixPositions = new TreeSet<GenomeLoc>();
     private HashMap<String,Integer> sampleOffsets = null;
-    private Matrix predictorMatrix = null ;
+    private RealMatrix predictorMatrix = null ;
 
     public List<String> getKeyNames() { return Arrays.asList(VCF_KEY_NAME); }
 
@@ -83,10 +81,19 @@ public class LDCorrectedDosage extends GenotypeAnnotation implements Experimenta
              }
 
              // Extract the genotypes into a matrix
-             Matrix newGenotypes = extractGenotypeVector(vc);
+             RealVector newGenotypes = extractGenotypeVector(vc);
 
+             double[][] matrix = predictorMatrix.getData();
+             for ( int i = 0; i < matrix.length; i++ ) {
+                 StringBuffer buf = new StringBuffer();
+                 for ( int j = 0; j < matrix[0].length; j++ ) {
+                    buf.append(matrix[i][j]);
+                    buf.append(" ");
+                 }
+                 System.out.println(buf);
+             }
              // Calculate the residuals
-             Matrix residuals = runOLS(predictorMatrix,newGenotypes);
+             RealMatrix residuals = runOLS(predictorMatrix, newGenotypes);
 
              // remove any genotypes beyond the window
              Set<GenomeLoc> toRemove = new HashSet<GenomeLoc>();
@@ -109,52 +116,61 @@ public class LDCorrectedDosage extends GenotypeAnnotation implements Experimenta
          System.out.println("Foo3");
 
          // grab the residual from the matrix. The row is the last row, and the column is the sample offset.
-         double resid = predictorMatrix.get(predictorMatrix.getRowDimension(),sampleOffsets.get(g.getSampleName()));
+         double resid = predictorMatrix.getEntry(predictorMatrix.getRowDimension(),sampleOffsets.get(g.getSampleName()));
 
          // stick the residual into the builder
          gb.attribute(VCF_KEY_NAME,resid);
 
      }
 
-    private Matrix runOLS(Matrix predict, Matrix response) {
-        Matrix beta = predict.solve(response);
-        return response.minus(beta.times(predict));
+    private RealMatrix runOLS(RealMatrix predict, RealVector response) {
+        DecompositionSolver solver = new SingularValueDecompositionImpl(predict).getSolver();
+        RealVector coefficients = solver.solve(response);
+        RealVector residuals = response.subtract(predict.operate(coefficients));
+        return new Array2DRowRealMatrix(residuals.getData()).transpose();
     }
 
     // remove rows 1 to numRowsToRemove
-    private Matrix removeRows(Matrix baseMatrix, int numRowsToRemove) {
+    private RealMatrix removeRows(RealMatrix baseMatrix, int numRowsToRemove) {
         int[] rowsToKeep = new int[baseMatrix.getRowDimension()-numRowsToRemove];
         rowsToKeep[0]=0;
         int idx = 1;
         for ( int i = 1+numRowsToRemove; i < baseMatrix.getRowDimension(); i++ ) {
-            rowsToKeep[idx]=i;
+            rowsToKeep[idx++]=i;
         }
-        return baseMatrix.getMatrix(rowsToKeep, 0, baseMatrix.getColumnDimension() - 1);
+        int[] colsToKeep = new int[baseMatrix.getColumnDimension()];
+        for ( int i = 0; i < colsToKeep.length; i++ ) {
+            colsToKeep[i] = i;
+        }
+        return baseMatrix.getSubMatrix(rowsToKeep,colsToKeep);
     }
 
-    private Matrix extendMatrix(Matrix baseMatrix, Matrix extension) {
+    private RealMatrix extendMatrix(RealMatrix baseMatrix, RealMatrix extension) {
         int nRow = baseMatrix.getRowDimension() + extension.getRowDimension();
-        return new Matrix(ArrayUtils.addAll(baseMatrix.getRowPackedCopy(),extension.getRowPackedCopy()),nRow);
+        RealMatrix extendedMatrix = baseMatrix.createMatrix(nRow,baseMatrix.getColumnDimension());
+        extendedMatrix.setSubMatrix(baseMatrix.getData(),0,0);
+        extendedMatrix.setSubMatrix(extension.getData(),baseMatrix.getRowDimension(),0);
+        return extendedMatrix;
     }
 
-    private Matrix extractGenotypeVector(VariantContext vc) {
+    private RealVector extractGenotypeVector(VariantContext vc) {
         double[] genotypeVector = new double[vc.getNSamples()];
         int idx = 0;
         for ( Genotype genotype : vc.getGenotypes() ) {
             genotypeVector[idx++] = (double) genotype.countAllele(vc.getAlternateAllele(0));
         }
 
-        return new Matrix(genotypeVector,1);
+        return new ArrayRealVector(genotypeVector);
     }
 
-    private Matrix initializeMatrix(VariantContext context) {
+    private RealMatrix initializeMatrix(VariantContext context) {
         // need to know the number of samples in order to initialize the matrix properly
-        double[] ones = new double[context.getNSamples()];
+        double[][] ones = new double[context.getNSamples()][1];
         for ( int i = 0; i < ones.length; i++ ) {
-            ones[i] = 1.0;
+            ones[i][0] = 1.0;
         }
         // the zeroth row of the matrix will always be a row of ones (the intercept)
-        return new Matrix(ones,1);
+        return new Array2DRowRealMatrix(ones);
     }
 
     private HashMap<String,Integer> initializeSampleMap(VariantContext context) {
