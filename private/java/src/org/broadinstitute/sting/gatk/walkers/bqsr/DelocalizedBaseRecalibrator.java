@@ -224,7 +224,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
             final double[] snpErrors = calculateFractionalErrorArray(skip, isSNP, baqArray);
             final double[] insertionErrors = calculateFractionalErrorArray(skip, isInsertion, baqArray);
             final double[] deletionErrors = calculateFractionalErrorArray(skip, isDeletion, baqArray);
-            recalibrationEngine.updateDataForRead(read, snpErrors, insertionErrors, deletionErrors);
+            recalibrationEngine.updateDataForRead(read, skip, snpErrors, insertionErrors, deletionErrors);
             return 1L;
         } else {
             return 0L;
