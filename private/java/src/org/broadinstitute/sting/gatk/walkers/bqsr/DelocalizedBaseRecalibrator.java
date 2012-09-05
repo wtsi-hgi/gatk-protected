@@ -47,6 +47,7 @@ import org.broadinstitute.sting.utils.help.DocumentedGATKFeature;
 import org.broadinstitute.sting.utils.recalibration.*;
 import org.broadinstitute.sting.utils.recalibration.covariates.Covariate;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -247,7 +248,8 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         int readPos = 0;
         final HashSet<Integer> startLocations = new HashSet<Integer>();
         for( final Feature f : features ) {
-            startLocations.add(f.getStart());
+            final int offset = f instanceof VariantContext && ((VariantContext)f).isSimpleDeletion() ? 1 : 0;
+            startLocations.add(f.getStart() + offset); // assumes reads and features are on the same contig
         }
         final boolean[] knownSitesStart = new boolean[read.getReadBases().length];
         Arrays.fill(knownSitesStart, false);
@@ -284,11 +286,10 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
                         break;
                     default:
                         throw new ReviewedStingException("Unsupported cigar operator: " + ce.getOperator());
-
                 }
             }
         }
-        return  knownSitesStart;
+        return knownSitesStart;
     }
 
     // BUGBUG: can be merged with calculateIsIndel
@@ -331,6 +332,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     protected static int[] calculateIsIndel( final GATKSAMRecord read, final EventType mode ) {
         final byte[] readBases = read.getReadBases();
         final int[] indel = new int[readBases.length];
+        Arrays.fill(indel, 0);
         int readPos = 0;
         for ( final CigarElement ce : read.getCigar().getCigarElements() ) {
             final int elementLength = ce.getLength();
@@ -341,26 +343,20 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
                 case S:
                 {
                     for (int iii = 0; iii < elementLength; iii++) {
-                        indel[readPos++] = 0;
+                        readPos++;
                     }
                     break;
                 }
                 case D:
                 {
-                    final int pos = ( read.getReadNegativeStrandFlag() ? (readPos + 1 < indel.length ? readPos + 1 : readPos) : readPos );
-                    indel[pos] = ( mode.equals(EventType.BASE_DELETION) ? 1 : 0 );
+                    indel[readPos] = ( mode.equals(EventType.BASE_DELETION) ? 1 : 0 );
                     break;
                 }
                 case I:
                 {
-                    if( !read.getReadNegativeStrandFlag() ) {
-                        indel[readPos] = ( mode.equals(EventType.BASE_INSERTION) ? 1 : 0 );
-                    }
+                    indel[readPos] = ( mode.equals(EventType.BASE_INSERTION) ? 1 : 0 );
                     for (int iii = 0; iii < elementLength; iii++) {
-                        indel[readPos++] = 0;
-                    }
-                    if( read.getReadNegativeStrandFlag()) {
-                        indel[(readPos < indel.length ? readPos : readPos - 1)] = ( mode.equals(EventType.BASE_INSERTION) ? 1 : 0 );
+                        readPos++;
                     }
                     break;
                 }
@@ -407,7 +403,11 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         return fractionalErrors;
     }
 
-    private static void calculateAndStoreErrorsInBlock( final int iii, final int blockStartIndex, final boolean[] skip, final int[] errorArray, final double[] fractionalErrors ) {
+    private static void calculateAndStoreErrorsInBlock( final int iii,
+                                                        final int blockStartIndex,
+                                                        final boolean[] skip,
+                                                        final int[] errorArray,
+                                                        final double[] fractionalErrors ) {
         int totalErrors = 0;
         for( int jjj = Math.max(0,blockStartIndex-1); jjj <= iii; jjj++ ) {
             totalErrors += ( skip[jjj] ? 0 : errorArray[jjj] );
