@@ -109,7 +109,7 @@ import java.util.List;
 @BAQMode(ApplicationTime = ReadTransformer.ApplicationTime.FORBIDDEN)
 @ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class, UnmappedReadFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class})
 @PartitionBy(PartitionType.READ)
-public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implements ThreadSafeMapReduce {
+public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implements NanoSchedulable {
     @ArgumentCollection
     private final RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection(); // all the command line arguments for BQSR and it's covariates
 
