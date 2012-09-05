@@ -28,23 +28,24 @@ package org.broadinstitute.sting.gatk.walkers.bqsr;
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
+import org.broad.tribble.Feature;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.gatk.CommandLineGATK;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.filters.MappingQualityUnavailableFilter;
-import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.filters.*;
+import org.broadinstitute.sting.gatk.iterators.ReadTransformer;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
-import org.broadinstitute.sting.utils.recalibration.*;
-import org.broadinstitute.sting.utils.recalibration.covariates.Covariate;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.classloader.GATKLiteUtils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.help.DocumentedGATKFeature;
+import org.broadinstitute.sting.utils.recalibration.*;
+import org.broadinstitute.sting.utils.recalibration.covariates.Covariate;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.File;
@@ -52,6 +53,9 @@ import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
 
 /**
  * First pass of the base quality score recalibration -- Generates recalibration table based on various user-specified covariates (such as read group, reported quality score, machine cycle, and nucleotide context).
@@ -101,13 +105,11 @@ import java.util.ArrayList;
  * </pre>
  */
 
-@DocumentedGATKFeature( groupName = "BAM Processing and Analysis Tools", extraDocs = {CommandLineGATK.class} )
-@BAQMode(ApplicationTime = BAQ.ApplicationTime.FORBIDDEN)
-@By(DataSource.READS)
-@ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class}) // only look at covered loci, not every loci of the reference file
-@Requires({DataSource.READS, DataSource.REFERENCE}) // filter out all reads with zero or unavailable mapping quality
-@PartitionBy(PartitionType.READ) // this walker requires both -I input.bam and -R reference.fasta
-public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implements TreeReducible<Long> {
+@DocumentedGATKFeature(groupName = "BAM Processing and Analysis Tools", extraDocs = {CommandLineGATK.class})
+@BAQMode(ApplicationTime = ReadTransformer.ApplicationTime.FORBIDDEN)
+@ReadFilters({MappingQualityZeroFilter.class, MappingQualityUnavailableFilter.class, UnmappedReadFilter.class, NotPrimaryAlignmentFilter.class, DuplicateReadFilter.class, FailsVendorQualityCheckFilter.class})
+@PartitionBy(PartitionType.READ)
+public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implements ThreadSafeMapReduce {
     @ArgumentCollection
     private final RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection(); // all the command line arguments for BQSR and it's covariates
 
@@ -207,7 +209,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
      * For each read at this locus get the various covariate values and increment that location in the map based on
      * whether or not the base matches the reference at this particular location
      */
-    public Long map( final ReferenceContext ref, final GATKSAMRecord read, final ReadMetaDataTracker metaDataTracker ) {
+    public Long map( final ReferenceContext ref, final GATKSAMRecord read, final RefMetaDataTracker metaDataTracker ) {
 
         RecalUtils.parsePlatformForRead(read, RAC);
         // BUGBUG: solid support should go here.
@@ -219,22 +221,74 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         final int[] isDeletion = calculateIsIndel(read, EventType.BASE_DELETION);
         final byte[] baqArray = calculateBAQArray(read);
 
-        final double[] snpErrors = calculateFractionalErrorArray(skip, isSNP, baqArray);
-        final double[] insertionErrors = calculateFractionalErrorArray(skip, isInsertion, baqArray);
-        final double[] deletionErrors = calculateFractionalErrorArray(skip, isDeletion, baqArray);
-
-        recalibrationEngine.updateDataForRead(read, snpErrors, insertionErrors, deletionErrors);
-
-        return 1L;
+        if( baqArray != null ) { // some reads just can't be BAQ'ed
+            final double[] snpErrors = calculateFractionalErrorArray(skip, isSNP, baqArray);
+            final double[] insertionErrors = calculateFractionalErrorArray(skip, isInsertion, baqArray);
+            final double[] deletionErrors = calculateFractionalErrorArray(skip, isDeletion, baqArray);
+            recalibrationEngine.updateDataForRead(read, skip, snpErrors, insertionErrors, deletionErrors);
+            return 1L;
+        } else {
+            return 0L;
+        }
     }
 
-    protected boolean[] calculateSkipArray( final GATKSAMRecord read, final ReadMetaDataTracker metaDataTracker ) {
+    protected boolean[] calculateSkipArray( final GATKSAMRecord read, final RefMetaDataTracker metaDataTracker ) {
         final byte[] bases = read.getReadBases();
         final boolean[] skip = new boolean[bases.length];
+        final boolean[] knownSitesStart = calculateKnownSitesStart( read, metaDataTracker.getValues(RAC.knownSites) );
         for( int iii = 0; iii < bases.length; iii++ ) {
-            skip[iii] = !BaseUtils.isRegularBase(bases[iii]) | isLowQualityBase(read, iii) | metaDataTracker.getReadOffsetMapping().containsKey(iii);
+            skip[iii] = !BaseUtils.isRegularBase(bases[iii]) || isLowQualityBase(read, iii) || knownSitesStart[iii];
         }
         return skip;
+    }
+
+    protected static boolean[] calculateKnownSitesStart( final GATKSAMRecord read, final List<Feature> features ) {
+        int refPos = read.getSoftStart();
+        int readPos = 0;
+        final HashSet<Integer> startLocations = new HashSet<Integer>();
+        for( final Feature f : features ) {
+            startLocations.add(f.getStart());
+        }
+        final boolean[] knownSitesStart = new boolean[read.getReadBases().length];
+        Arrays.fill(knownSitesStart, false);
+        if(!startLocations.isEmpty()) {
+            // need to walk the read to decide where the overlapping start locations of the features are located
+            for ( final CigarElement ce : read.getCigar().getCigarElements() ) {
+                final int elementLength = ce.getLength();
+                switch (ce.getOperator()) {
+                    case M:
+                    case EQ:
+                    case X:
+                    case S:
+                        for( int iii = 0; iii < elementLength; iii++ ) {
+                            knownSitesStart[readPos] = knownSitesStart[readPos] || startLocations.contains(refPos);
+                            readPos++;
+                            refPos++;
+                        }
+                        break;
+                    case D:
+                    case N:
+                        for( int iii = 0; iii < elementLength; iii++ ) {
+                            knownSitesStart[readPos] = knownSitesStart[readPos] || startLocations.contains(refPos);
+                            refPos++;
+                        }
+                        break;
+                    case I:
+                        for( int iii = 0; iii < elementLength; iii++ ) {
+                            knownSitesStart[readPos] = knownSitesStart[readPos] || startLocations.contains(refPos);
+                            readPos++;
+                        }
+                        break;
+                    case H:
+                    case P:
+                        break;
+                    default:
+                        throw new ReviewedStingException("Unsupported cigar operator: " + ce.getOperator());
+
+                }
+            }
+        }
+        return  knownSitesStart;
     }
 
     // BUGBUG: can be merged with calculateIsIndel
@@ -365,11 +419,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
 
     private byte[] calculateBAQArray( final GATKSAMRecord read ) {
         baq.baqRead(read, referenceReader, BAQ.CalculationMode.CALCULATE_AS_NECESSARY, BAQ.QualityMode.ADD_TAG);
-        final byte[] tag = BAQ.getBAQTag(read);
-        if( tag == null ) {
-            throw new ReviewedStingException("BAQ tag was generated and then requested but can't be found in read: " + read);
-        }
-        return tag;
+        return BAQ.getBAQTag(read);
     }
 
     /**
@@ -391,11 +441,6 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     public Long reduce(Long mapped, Long sum) {
         sum += mapped;
         return sum;
-    }
-
-    public Long treeReduce(Long sum1, Long sum2) {
-        sum1 += sum2;
-        return sum1;
     }
 
     @Override

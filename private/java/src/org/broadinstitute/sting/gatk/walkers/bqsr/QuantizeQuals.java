@@ -30,7 +30,7 @@ import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
@@ -119,7 +119,7 @@ public class QuantizeQuals extends ReadWalker<SAMRecord, SAMFileWriter> {
      * @param read the read itself, as a SAMRecord
      * @return the read itself
      */
-    public SAMRecord map( ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker ) {
+    public SAMRecord map( ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker metaDataTracker ) {
         final byte[] quantizedQuals = read.getBaseQualities().clone();
 
         for ( int i = 0; i < quantizedQuals.length; i++ ) {

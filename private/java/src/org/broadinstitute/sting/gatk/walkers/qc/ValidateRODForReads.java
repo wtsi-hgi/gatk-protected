@@ -4,22 +4,25 @@ import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.gatk.walkers.ThreadSafeMapReduce;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.PrintStream;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * validate the rods for reads
  */
-public class ValidateRODForReads extends ReadWalker<Integer, Integer> {
+public class ValidateRODForReads extends ReadWalker<Integer, Integer> implements ThreadSafeMapReduce {
     // a mapping of the position to the count of rods
-    HashMap<GenomeLoc, Integer> map = new LinkedHashMap<GenomeLoc, Integer>();
+    HashMap<GenomeLoc, Integer> map = new HashMap<GenomeLoc, Integer>();
 
     @Input(fullName = "variants", shortName = "V", doc="The VCF files to merge together", required=true)
     public List<RodBinding<VariantContext>> variants;
@@ -28,18 +31,20 @@ public class ValidateRODForReads extends ReadWalker<Integer, Integer> {
     private PrintStream out;
 
     @Override
-    public Integer map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker tracker) {
+    public Integer map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker tracker) {
         if (tracker != null) {
-            Map<Integer, Collection<GATKFeature>> mapping = tracker.getContigOffsetMapping();
-            for (Map.Entry<Integer, Collection<GATKFeature>> entry : mapping.entrySet()) {
-                GenomeLoc location = ref.getGenomeLocParser().createGenomeLoc(read.getReferenceName(),entry.getKey());
-                if (!map.containsKey(location)) {
-                    map.put(location,0);
+            final List<VariantContext> features = tracker.getValues(variants);
+            for ( final VariantContext f : features ) {
+                synchronized (map) {
+                    final GenomeLoc location = ref.getGenomeLocParser().createGenomeLoc(f);
+                    if (!map.containsKey(location)) {
+                        map.put(location,0);
+                    }
+                    map.put(location,map.get(location)+1);
                 }
-                map.put(location,map.get(location)+1);
             }
 
-            return mapping.size();
+            return features.size();
         }
         return 0;
     }
@@ -56,8 +61,8 @@ public class ValidateRODForReads extends ReadWalker<Integer, Integer> {
 
     public void onTraversalDone(Integer result) {
         out.println("[REDUCE RESULT] Traversal result is: " + result + " ROD entries seen");
-        for (GenomeLoc location : map.keySet()) {
-            out.println(location + " -> " + map.get(location));
+        for (final Map.Entry<GenomeLoc, Integer> entry : new TreeMap<GenomeLoc, Integer>(map).entrySet() ) {
+            out.println(entry.getKey() + " -> " + entry.getValue());
         }
     }
 }

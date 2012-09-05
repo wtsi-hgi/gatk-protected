@@ -7,7 +7,7 @@ import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
 import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
 import org.broadinstitute.sting.gatk.filters.NotPrimaryAlignmentFilter;
 import org.broadinstitute.sting.gatk.filters.UnmappedReadFilter;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.ContigComparator;
@@ -141,7 +141,7 @@ public class ContigStats extends ReadWalker<GATKSAMRecord, ContigStats.ContigSta
     }
 
     @Override
-    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
         return read;
     }
 
