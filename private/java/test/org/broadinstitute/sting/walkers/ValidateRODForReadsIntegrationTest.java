@@ -21,7 +21,7 @@ public class ValidateRODForReadsIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString() + " -V " + vcfFile, 1,
                 Arrays.asList("f7919e9dc156fb5d3ad0541666864ea5"));
-        executeTestParallel("testSimpleVCFPileup", spec);
+        executeTestParallel("testSimpleVCFPileup", spec, ParallelTestType.NANO_SCHEDULED);
     }
 
     @Test
@@ -35,6 +35,6 @@ public class ValidateRODForReadsIntegrationTest extends WalkerTest {
                     + " -V " + validationDataLocation + "NA12878.omni.vcf",
                 1,
                 Arrays.asList("8060cde53b9de9032ca54f738d2e7d19"));
-        executeTestParallel("testComplexRODs", spec);
+        executeTestParallel("testComplexRODs", spec, ParallelTestType.NANO_SCHEDULED);
     }
 }

@@ -19,8 +19,8 @@ if ( onCMDLine ) {
 } else {
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelBQSR/GATKPerformanceOverTime.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelCombineVariants2/GATKPerformanceOverTime.jobreport.txt"
-  file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime//GATKPerformanceOverTime.jobreport.txt"
-  #file <- "~/Desktop/broadLocal/GATK/unstable/GATKPerformanceOverTime.jobreport.txt"
+  #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/nanoUG//GATKPerformanceOverTime.jobreport.txt"
+  file <- "~/Desktop/broadLocal/GATK/unstable/GATKPerformanceOverTime.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-24937@gsa1.jobreport.txt"
   outputPDF <- NA
 }
@@ -53,16 +53,17 @@ plotByNSamples <- function(report) {
 }
 
 plotByNT <- function(report, includeFacet = F) {
-  plotCmdByX(report, "nt", includeFacet, logUnit = 2, T)
+  report$groups = interaction(report$gatk, report$ntType)
+  plotCmdByX(report, "nt", includeFacet, groups = groups, logUnit = 2, T)
 }
 
-plotCmdByX <- function(report, X, includeFacet = F, logUnit = 10, useWeights=F) {
+plotCmdByX <- function(report, X, includeFacet = F, groups = gatk, logUnit = 10, useWeights=F) {
   report$X <- report[[X]]
   if ( useWeights )
     report$weight = 1 / report$X^2
   else
     report$weight = 1
-  p = ggplot(data=report, aes(x=X, y=runtime, group=gatk, color=gatk))
+  p = ggplot(data=report, aes(x=X, y=runtime, group=groups, color=groups))
   if ( includeFacet ) 
     p = p + facet_grid(. ~ assessment, scales="free")
   p = p + geom_jitter()
@@ -78,7 +79,7 @@ plotCmdByX <- function(report, X, includeFacet = F, logUnit = 10, useWeights=F) 
   }
   p = p + xlab(X) + ylab(paste("Runtime", RUNTIME_UNITS))
   p = p + opts(title=report$analysisName)
-  p = p + geom_boxplot(aes(group=interaction(X, gatk)))
+  p = p + geom_boxplot(aes(group=interaction(X, groups)))
   p
 }
 #plotByNT(allReports$CombineVariants.nt)
@@ -160,7 +161,8 @@ getAssessments <- function(report) {
 #
 # Plot runtime vs. NT for all of the NT tests
 #
-ntReports <- c("CombineVariants.nt", "UnifiedGenotyper.nt", "CountLoci.nt", "BaseRecalibrator.nt", "VariantEval.nt")
+ntReports <- c("CombineVariants.nt", "UnifiedGenotyper.nt", "UnifiedGenotyper.nct", 
+               "CountLoci.nt", "BaseRecalibrator.nt", "VariantEval.nt")
 for ( ntReport in ntReports ) {
   if ( ntReport %in% names(allReports) ) {
     report = allReports[[ntReport]]

@@ -1,3 +1,4 @@
+import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 import org.broadinstitute.sting.gatk.DownsampleType
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
