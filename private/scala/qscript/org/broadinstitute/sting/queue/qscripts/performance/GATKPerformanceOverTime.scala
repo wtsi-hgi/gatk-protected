@@ -4,6 +4,7 @@ import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import java.lang.Math
 import org.broadinstitute.sting.utils.PathUtils
+import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel
 
 class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "results", doc="results", required=false)
@@ -23,6 +24,9 @@ class GATKPerformanceOverTime extends QScript {
 
   @Argument(shortName = "justDeepWGS", doc="it", required=false)
   val justDeepWGS: Boolean = false
+
+  @Argument(shortName = "skipBAQ", doc="it", required=false)
+  val skipBAQ: Boolean = false
 
   @Argument(shortName = "assessment", doc="Which assessments should we run?", required=false)
   val assessmentsArg: Set[String] = Assessment.values map(_.toString)
@@ -231,7 +235,8 @@ class GATKPerformanceOverTime extends QScript {
                 cmd.nct = nt
               cmd.memoryLimit = cmd.memoryLimit * (if ( nt >= 8 ) (if (nt>=16) 4 else 2) else 1)
               cmd.addJobReportBinding("nt", nt)
-              cmd.analysisName = cmd.analysisName + "." + (if ( useNT ) "nt" else "nct")
+              cmd.addJobReportBinding("ntType", if ( useNT ) "nt" else "nct")
+              cmd.analysisName = cmd.analysisName + ".nt"
               addGATKCommand(cmd)
             }
           }
@@ -251,8 +256,9 @@ class GATKPerformanceOverTime extends QScript {
   class Call(@Input(doc="foo") bamList: File, n: Int, name: String, useBaq: Boolean) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
     this.input_file :+= bamList
     this.stand_call_conf = 10.0
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.o = outVCF
-    this.baq = if ( useBaq ) org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE else org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
+    //this.baq = if ( ! skipBAQ && useBaq ) org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE else org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
     @Output(doc="foo") var outVCF: File = new File("/dev/null")
   }
 
