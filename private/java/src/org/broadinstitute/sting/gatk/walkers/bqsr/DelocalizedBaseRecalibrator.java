@@ -47,6 +47,7 @@ import org.broadinstitute.sting.utils.help.DocumentedGATKFeature;
 import org.broadinstitute.sting.utils.recalibration.*;
 import org.broadinstitute.sting.utils.recalibration.covariates.Covariate;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
@@ -236,60 +237,26 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     protected boolean[] calculateSkipArray( final GATKSAMRecord read, final RefMetaDataTracker metaDataTracker ) {
         final byte[] bases = read.getReadBases();
         final boolean[] skip = new boolean[bases.length];
-        final boolean[] knownSitesStart = calculateKnownSitesStart( read, metaDataTracker.getValues(RAC.knownSites) );
+        final boolean[] knownSites = calculateKnownSites(read, metaDataTracker.getValues(RAC.knownSites));
         for( int iii = 0; iii < bases.length; iii++ ) {
-            skip[iii] = !BaseUtils.isRegularBase(bases[iii]) || isLowQualityBase(read, iii) || knownSitesStart[iii];
+            skip[iii] = !BaseUtils.isRegularBase(bases[iii]) || isLowQualityBase(read, iii) || knownSites[iii];
         }
         return skip;
     }
 
-    protected static boolean[] calculateKnownSitesStart( final GATKSAMRecord read, final List<Feature> features ) {
-        int refPos = read.getSoftStart();
-        int readPos = 0;
-        final HashSet<Integer> startLocations = new HashSet<Integer>();
+    protected static boolean[] calculateKnownSites( final GATKSAMRecord read, final List<Feature> features ) {
+        final int BUFFER_SIZE = 5;
+        final int readLength = read.getReadBases().length;
+        final boolean[] knownSites = new boolean[readLength];
+        Arrays.fill(knownSites, false);
         for( final Feature f : features ) {
-            final int offset = f instanceof VariantContext && ((VariantContext)f).isSimpleDeletion() ? 1 : 0;
-            startLocations.add(f.getStart() + offset); // assumes reads and features are on the same contig
+            int featureStartOnRead = ReadUtils.getReadCoordinateForReferenceCoordinate(read.getSoftStart(), read.getCigar(), f.getStart(), ReadUtils.ClippingTail.LEFT_TAIL, true); // BUGBUG: should I use LEFT_TAIL here?
+            if( featureStartOnRead == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) { featureStartOnRead = 0; }
+            int featureEndOnRead = ReadUtils.getReadCoordinateForReferenceCoordinate(read.getSoftStart(), read.getCigar(), f.getEnd(), ReadUtils.ClippingTail.LEFT_TAIL, true);
+            if( featureEndOnRead == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) { featureEndOnRead = readLength; }
+            Arrays.fill(knownSites, Math.max(0, featureStartOnRead - BUFFER_SIZE), Math.min(readLength, featureEndOnRead + BUFFER_SIZE), true);
         }
-        final boolean[] knownSitesStart = new boolean[read.getReadBases().length];
-        Arrays.fill(knownSitesStart, false);
-        if(!startLocations.isEmpty()) {
-            // need to walk the read to decide where the overlapping start locations of the features are located
-            for ( final CigarElement ce : read.getCigar().getCigarElements() ) {
-                final int elementLength = ce.getLength();
-                switch (ce.getOperator()) {
-                    case M:
-                    case EQ:
-                    case X:
-                    case S:
-                        for( int iii = 0; iii < elementLength; iii++ ) {
-                            knownSitesStart[readPos] = knownSitesStart[readPos] || startLocations.contains(refPos);
-                            readPos++;
-                            refPos++;
-                        }
-                        break;
-                    case D:
-                    case N:
-                        for( int iii = 0; iii < elementLength; iii++ ) {
-                            knownSitesStart[readPos] = knownSitesStart[readPos] || startLocations.contains(refPos);
-                            refPos++;
-                        }
-                        break;
-                    case I:
-                        for( int iii = 0; iii < elementLength; iii++ ) {
-                            knownSitesStart[readPos] = knownSitesStart[readPos] || startLocations.contains(refPos);
-                            readPos++;
-                        }
-                        break;
-                    case H:
-                    case P:
-                        break;
-                    default:
-                        throw new ReviewedStingException("Unsupported cigar operator: " + ce.getOperator());
-                }
-            }
-        }
-        return knownSitesStart;
+        return knownSites;
     }
 
     // BUGBUG: can be merged with calculateIsIndel
@@ -349,14 +316,21 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
                 }
                 case D:
                 {
-                    indel[readPos] = ( mode.equals(EventType.BASE_DELETION) ? 1 : 0 );
+                    final int index = ( read.getReadNegativeStrandFlag() ? readPos : ( readPos > 0 ? readPos - 1 : readPos ) );
+                    indel[index] = ( mode.equals(EventType.BASE_DELETION) ? 1 : 0 );
                     break;
                 }
                 case I:
                 {
-                    indel[readPos] = ( mode.equals(EventType.BASE_INSERTION) ? 1 : 0 );
+                    final boolean forwardStrandRead = !read.getReadNegativeStrandFlag();
+                    if( forwardStrandRead ) {
+                        indel[(readPos > 0 ? readPos - 1 : readPos)] = ( mode.equals(EventType.BASE_INSERTION) ? 1 : 0 );
+                    }
                     for (int iii = 0; iii < elementLength; iii++) {
                         readPos++;
+                    }
+                    if( !forwardStrandRead ) {
+                        indel[(readPos < indel.length ? readPos : readPos - 1)] = ( mode.equals(EventType.BASE_INSERTION) ? 1 : 0 );
                     }
                     break;
                 }
