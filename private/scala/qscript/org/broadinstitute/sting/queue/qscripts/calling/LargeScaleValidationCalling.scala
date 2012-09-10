@@ -3,6 +3,7 @@ package queue.qscripts.calling
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotyperEngine, AlleleFrequencyCalculationModel, GenotypeLikelihoodsCalculationModel}
+import org.broadinstitute.sting.gatk.DownsampleType
 
 /**
  * Created by IntelliJ IDEA.
@@ -61,6 +62,7 @@ class LargeScaleValidationCalling extends QScript {
     this.alleles = new File(allelesFile)
     this.ignoreLane = true
     this.maxAltAlleles = Some(1)  // memory usage will overflow without this
+    this.dt = DownsampleType.NONE
 
   }
   class SNPPC(callName: String, allelesFile: String) extends PPC(callName, allelesFile) {
@@ -88,6 +90,18 @@ class LargeScaleValidationCalling extends QScript {
     // this.num_threads = qscript.num_threads
     // this.memoryLimit = 8
     this.out = swapExt(evalVCF, ".vcf", ".eval")
+  }
+
+  class SampleEval(evalVCF: File) extends Eval {
+    this.stratificationModule :+= "Sample"
+    // this.num_threads = qscript.num_threads
+    // this.memoryLimit = 8
+    this.out = swapExt(evalVCF, ".vcf", ".bySample.eval")
+  }
+
+  class ACEval(evalVCF: File) extends VariantEval with CommandLineGATKArgs {
+    this.stratificationModule :+= "AlleleCount"
+    this.out = swapExt(evalVCF, ".vcf", ".byAC.eval")
   }
 
   def script = {
