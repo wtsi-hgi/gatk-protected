@@ -9,8 +9,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
 import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.*;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
@@ -101,14 +100,11 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
         return prevRed;
     }
 
-    public EvaluationContext map(ReferenceContext context, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public EvaluationContext map(ReferenceContext context, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
         if ( read.getReadGroup() == null ) { return null; }
-        HashSet<TableFeature> hypotheses = new HashSet<TableFeature>(16);
-        for (GATKFeature feature : metaDataTracker.getAllCoveringRods() ) {
-            if ( feature.getUnderlyingObject().getClass().isAssignableFrom(TableFeature.class) ) {
-                hypotheses.add((TableFeature) feature.getUnderlyingObject());
-            }
-        }
+
+        final HashSet<TableFeature> hypotheses = new HashSet<TableFeature>(metaDataTracker.getValues(hypothesisRodBinding));
+
         //logger.debug("Tracker Size "+Integer.toString(metaDataTracker.getAllCoveringRods().size())+" Hyp: "+hypotheses.size());
 
         if ( hypotheses.size() == 0 ) {
@@ -117,7 +113,6 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
 
         //logger.debug(hypotheses);
 
-        Map<String,RefSeqFeature> refSeqFeatures = new HashMap<String,RefSeqFeature>(16);
         GenomeLoc readLoc = null;
         if ( ! read.getReadUnmappedFlag() ) {
             readLoc =  getToolkit().getGenomeLocParser().createGenomeLoc(read);
@@ -129,10 +124,9 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             return null;
         }
 
-        for (GATKFeature feature : metaDataTracker.getAllCoveringRods() ) {
-            if ( feature.getUnderlyingObject().getClass().isAssignableFrom(RefSeqFeature.class) ) {
-                refSeqFeatures.put(((RefSeqFeature) feature.getUnderlyingObject()).getTranscriptUniqueGeneName(),(RefSeqFeature) feature.getUnderlyingObject());
-            }
+        final Map<String,RefSeqFeature> refSeqFeatures = new HashMap<String,RefSeqFeature>(16);
+        for (final RefSeqFeature refSeqFeature : metaDataTracker.getValues(refSeqRodBinding) ) {
+            refSeqFeatures.put(refSeqFeature.getTranscriptUniqueGeneName(),refSeqFeature);
         }
 
         EvaluationContext ec = new EvaluationContext();

@@ -8,7 +8,7 @@ PERFORMANCE_TEST_ROOT_DIR="/humgen/gsa-scr1/gsa-engineering/performance_test_wor
 PERFORMANCE_TEST_WORKING_DIR="${PERFORMANCE_TEST_ROOT_DIR}/${TEST_NAME}"
 PERFORMANCE_TEST_QSCRIPT="private/scala/qscript/org/broadinstitute/sting/queue/qscripts/performance/GATKPerformanceOverTime.scala"
 RESOURCES_DIR="/home/unix/depristo/work/oneOffProjects/gatkPerformanceOverTime/resources"
-JOB_QUEUE="gsa-engineering"
+JOB_QUEUE="gsa"
 ANALYSIS_SCRIPT="private/R/GATKPerformanceOverTime.R"
 WEB_DIR="/humgen/gsa-hpprojects/performance"
 ANNOUNCE_MAILING_LIST="gsamembers@broadinstitute.org"
@@ -88,7 +88,7 @@ java -Djava.io.tmpdir=${TEMP_DIR} \
 -myJarFile dist/GenomeAnalysisTK.jar \
 -resources "${RESOURCES_DIR}" \
 -iterations 3 \
--qsub \
+-bsub \
 -jobQueue "${JOB_QUEUE}" \
 -run \
 -startFromScratch \

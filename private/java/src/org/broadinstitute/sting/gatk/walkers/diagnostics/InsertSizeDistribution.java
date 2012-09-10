@@ -4,12 +4,10 @@ import net.sf.samtools.SAMReadGroupRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
@@ -83,7 +81,7 @@ public class InsertSizeDistribution extends ReadWalker<Integer, Integer> {
     }
 
     @Override
-    public Integer map(ReferenceContext referenceContext, GATKSAMRecord samRecord, ReadMetaDataTracker readMetaDataTracker) {
+    public Integer map(ReferenceContext referenceContext, GATKSAMRecord samRecord, RefMetaDataTracker RefMetaDataTracker) {
 
         int insert = Math.abs(samRecord.getInferredInsertSize());
         if ( insert > maxInsert )

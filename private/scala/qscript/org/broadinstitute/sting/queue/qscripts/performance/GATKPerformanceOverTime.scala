@@ -3,17 +3,12 @@ package org.broadinstitute.sting.queue.qscripts.performance
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import java.lang.Math
-import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 import org.broadinstitute.sting.utils.PathUtils
-import org.broadinstitute.sting.queue.function.QFunction
-import org.broadinstitute.sting.queue.engine.JobRunInfo
+import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel
 
 class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "results", doc="results", required=false)
   val resultsDir: File = new File("runResults")
-
-  @Argument(shortName = "test", doc="test", required=false)
-  val TEST: Boolean = false
 
   @Argument(shortName = "resources", doc="resources", required=true)
   val resourcesDir: String = ""
@@ -24,13 +19,20 @@ class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "iterations", doc="it", required=false)
   val iterations: Int = 2
 
+  @Argument(shortName = "smallData", doc="it", required=false)
+  val smallData: Boolean = false
+
+  @Argument(shortName = "justDeepWGS", doc="it", required=false)
+  val justDeepWGS: Boolean = false
+
+  @Argument(shortName = "skipBAQ", doc="it", required=false)
+  val skipBAQ: Boolean = false
+
   @Argument(shortName = "assessment", doc="Which assessments should we run?", required=false)
   val assessmentsArg: Set[String] = Assessment.values map(_.toString)
-
-  val nIterationsForSingleTestsPerIteration: Int = 3
+  var assessments: Set[Assessment.Assessment] = _
 
   @Argument(shortName = "ntTest", doc="For each value provided we will use -nt VALUE in the multi-threaded tests", required=false)
-  //val ntTests: List[Int] = List(4, 6, 8, 10, 12, 16, 24, 32)
   val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24)
 
   @Argument(shortName = "steps", doc="steps", required=false)
@@ -39,10 +41,13 @@ class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "maxNSamples", doc="maxNSamples", required=false)
   val maxNSamples: Int = 1000000
 
+  val singleTestsPerIteration = 3
+
   val MY_TAG = "GATKPerformanceOverTime"
-  val RECAL_BAM_FILENAME = "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.20GAV.8.bam"
+  val RECAL_BAM_FILENAME = "CEUTrio.HiSeq.WGS.b37_decoy.NA12878.clean.dedup.recal.20GAV.8.bam"
   val dbSNP_FILENAME = "dbsnp_132.b37.vcf"
-  val BIG_VCF_WITH_GENOTYPES = "ALL.chr22.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz"
+  val BIG_VCF_WITH_GENOTYPES = "ALL.chr1.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz"
+  val BIG_VCF_WITH_GENOTYPES_16_COMPATIBLE = new File("/humgen/gsa-hpprojects/GATK/bundle/1.5/b37/1000G_omni2.5.b37.vcf")
   val RECAL_FILENAME = "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.csv"  // TODO -- update to use recal table for BQSRv2
   val b37_FILENAME = "human_g1k_v37.fasta"
 
@@ -50,14 +55,28 @@ class GATKPerformanceOverTime extends QScript {
   def makeChunk(x: Int): File = makeResource("chunk_%d.vcf".format(x))
   def COMBINE_FILES: List[File] = Range(1,10).map(makeChunk).toList
 
-  class AssessmentParameters(val name: String, val bamList: File, val intervals: File, val nSamples: Int, val dcov: Int, val baq: Boolean)
+  class AssessmentParameters(val name: String,
+                             val bamList: File,
+                             val fullIntervals: String,
+                             val shortIntervals: String,
+                             val nSamples: Int,
+                             val dcov: Int,
+                             val baq: Boolean) {
+    def addIntervals(gatkCmd : CommandLineGATK, useFull: Boolean): CommandLineGATK = {
+      val intervals = if (useFull && ! smallData) fullIntervals else shortIntervals
+      val maybeFile = makeResource(intervals)
+      if ( maybeFile.exists() )
+        gatkCmd.intervals :+= maybeFile
+      else
+        gatkCmd.intervalsString :+= intervals
+      gatkCmd
+    }
+  }
 
   // TODO -- count the number of lines in the bam.list file
-  val WGSAssessment = new AssessmentParameters("WGS.multiSample.4x", "wgs.bam.list.local.list", "wgs.bam.list.intervals", 1103, 50, true)
-  val WGSDeepAssessment = new AssessmentParameters("WGS.singleSample.60x", "wgs.deep.bam.list.local.list", "wgs.deep.bam.list.intervals", 1, 250, true)
-  val WExAssessment = new AssessmentParameters("WEx.multiSample.150x", "wex.bam.list.local.list", "wex.bam.list.intervals", 140, 500, true)
-
-  val dataSets = List(WGSAssessment, WGSDeepAssessment, WExAssessment)
+  val WGSAssessment = new AssessmentParameters("WGS.multiSample.4x", "wgs.bam.list.local.list", "wgs.bam.list.select.intervals", "20:10000000-11000000", 1103, 50, true)
+  val WGSDeepAssessment = new AssessmentParameters("WGS.singleSample.60x", "wgs.deep.bam.list.local.list", "wgs.deep.bam.list.select.intervals", "1", 1, 250, true)
+  val WExAssessment = new AssessmentParameters("WEx.multiSample.150x", "wex.bam.list.local.list", "wex.bam.list.select.intervals", "wex.bam.list.small.intervals", 140, 500, true)
 
   val GATK_RELEASE_DIR = new File("/humgen/gsa-hpprojects/GATK/bin/")
   val GATKs: Map[String, File] = Map(
@@ -66,8 +85,12 @@ class GATKPerformanceOverTime extends QScript {
 
   object Assessment extends Enumeration {
     type Assessment = Value
-    val UG, UG_NT, CL, CV, CV_NT, VE, VE_NT, SV, BQSR_NT = Value
+    val UG, UG_NT, CL, CL_NT, CV, CV_NT, VE, VE_NT, SV, BQSR_NT = Value
   }
+
+  val NCT_ASSESSMENTS = List(Assessment.UG_NT, Assessment.CL_NT, Assessment.BQSR_NT)
+
+  def supportsNCT(assessment: Assessment.Assessment) = NCT_ASSESSMENTS contains assessment
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO"
@@ -76,148 +99,148 @@ class GATKPerformanceOverTime extends QScript {
   }
 
   def script() {
-    val assessments = assessmentsArg.map(Assessment.withName(_))
+    assessments = assessmentsArg.map(Assessment.withName(_))
 
     if ( ! resultsDir.exists ) resultsDir.mkdirs()
 
+    // iterate over GATK's and data sets
     for ( iteration <- 0 until iterations ) {
-      for ( assess <- dataSets ) {
-        for (nSamples <- divideSamples(assess.nSamples) ) {
-          val sublist = new SliceList(assess.name, nSamples, makeResource(assess.bamList))
-          if ( iteration == 0 ) add(sublist) // todo - remove condition when Queue bug is fixed
-          for ( (gatkName, gatkJar) <- GATKs ) {
-            val name: String = "assess.%s_gatk.%s_iter.%d".format(assess.name, gatkName, iteration)
+      for ( (gatkName, gatkJar) <- GATKs ) {
 
-            trait VersionOverrides extends CommandLineGATK {
-              this.jarFile = gatkJar
-              this.dcov = assess.dcov
-
-              // special handling of test intervals
-              if ( TEST )
-                this.intervalsString :+= "20:10,000,000-10,001,000"
-              else
-                this.intervals :+= makeResource(assess.intervals)
-
-              this.configureJobReport(Map(
-                "iteration" -> iteration,
-                "gatk" -> gatkName,
-                "nSamples" -> nSamples,
-                "assessment" -> assess.name))
-            }
-
-            // SNP calling
-            if ( assessments.contains(Assessment.UG) )
-              addGATKCommand(new Call(sublist.list, nSamples, name, assess.baq) with VersionOverrides)
-            if ( assessments.contains(Assessment.UG_NT) && nSamples == assess.nSamples )
-              addMultiThreadedTest(() => new Call(sublist.list, nSamples, name, assess.baq) with VersionOverrides)
-
-            // CountLoci
-            if ( assessments.contains(Assessment.CL) ) {
-              addGATKCommand(new MyCountLoci(sublist.list, nSamples, name) with VersionOverrides)
-              if ( nSamples == assess.nSamples )
-                addMultiThreadedTest(() => new MyCountLoci(sublist.list, nSamples, name) with VersionOverrides)
-            }
-          }
-        }
-      }
-
-      // GATK v2 specific tests
-      for ( iteration <- 0 until iterations ) {
-        for ( (gatkName, gatkJar) <- GATKs ) {
-          if ( gatkName.contains("v2") ) {
-            if ( assessments.contains(Assessment.CV_NT) ) {
-              for ( outputBCF <- List(true, false) ) {
-                val outputName = if ( outputBCF ) "bcf" else "vcf"
-
-                def makeCV(): CommandLineGATK = {
-                  val CV = new CombineVariants with UNIVERSAL_GATK_ARGS
-                  CV.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> outputName))
-                  CV.jarFile = gatkJar
-                  CV.intervalsString :+= "22"
-                  CV.variant = List(makeResource(BIG_VCF_WITH_GENOTYPES))
-                  CV.out = new File("/dev/null")
-                  CV.bcf = outputBCF
-                  CV
-                }
-
-                addMultiThreadedTest(makeCV)
-              }
-            }
-
-            if ( assessments.contains(Assessment.BQSR_NT) ) {
-              def makeBQSR(): CommandLineGATK = {
-                val BQSR = new BaseRecalibrator with UNIVERSAL_GATK_ARGS
-                BQSR.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> RECAL_BAM_FILENAME))
-                BQSR.jarFile = gatkJar
-                BQSR.intervalsString :+= "20"
-                BQSR.knownSites :+= makeResource(dbSNP_FILENAME)
-                //this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
-                BQSR.input_file :+= makeResource(RECAL_BAM_FILENAME)
-                BQSR.out = new File("/dev/null")
-                BQSR.no_plots = true
-                BQSR
-              }
-
-              addMultiThreadedTest(makeBQSR)
-            }
-          }
-        }
-      }
-
-      for ( subiteration <- 0 until nIterationsForSingleTestsPerIteration ) {
-        for ( (gatkName, gatkJar) <- GATKs ) {
-          { // Standard VCF tools
-          trait VersionOverrides extends CommandLineGATK {
-            this.jarFile = gatkJar
-            this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
-          }
-
-            val CV = new CombineVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
-            CV.variant = COMBINE_FILES
-            CV.intervalsString = (if ( TEST ) List("1:10,000,000-10,010,000") else List("1", "2", "3", "4", "5"))
-            CV.out = new File("/dev/null")
-            if ( assessments.contains(Assessment.CV) )
-              addGATKCommand(CV)
-
-            val SV = new SelectVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
-            SV.variant = makeResource("chunk_1.vcf")
-            SV.sample_name = List("HG00096") // IMPORTANT THAT THIS SAMPLE BE IN CHUNK ONE
-            if ( TEST ) SV.intervalsString = List("1:10,000,000-10,010,000")
-            SV.out = new File("/dev/null")
-            if ( assessments.contains(Assessment.SV) )
-              addGATKCommand(SV)
-
-            def makeVE(): CommandLineGATK = {
-              val VE = new VariantEval with UNIVERSAL_GATK_ARGS with VersionOverrides
-              VE.eval :+= makeResource("chunk_1.vcf")
-              if ( TEST ) VE.intervalsString = List("1:10,000,000-10,010,000")
-              VE.out = new File("/dev/null")
-              VE.comp :+= new TaggedFile(makeResource(dbSNP_FILENAME), "dbSNP")
-              VE.addJobReportBinding("assessment", "chunk_1.vcf")
-              VE
-            }
-
-            if ( assessments.contains(Assessment.VE) ) {
-              addGATKCommand(makeVE())
-            }
-
-            if ( assessments.contains(Assessment.VE_NT) && subiteration == 0 )
-              addMultiThreadedTest(makeVE)
-          }
-        }
+        enqueueCommandsForEachAssessment(iteration, gatkName, gatkJar)
+        enqueueMultiThreadedCommands(iteration, gatkName, gatkJar)
+        enqueueSingleTestCommands(iteration, gatkName, gatkJar)
       }
     }
   }
 
-  def addMultiThreadedTest(makeCommand: () => CommandLineGATK) {
-    if ( ntTests.size > 1 ) {
+  def enqueueMultiThreadedCommands(iteration: Int, gatkName: String, gatkJar: File) {
+    // GATK v2 specific tests
+    if ( assessments.contains(Assessment.CV_NT) ) {
+      if ( gatkName.contains("v2") ) {
+        for ( outputBCF <- List(true, false) ) {
+          def makeCV(): CommandLineGATK = {
+            val outputName = if ( outputBCF ) "bcf" else "vcf"
+            val CV = new CombineVariants with UNIVERSAL_GATK_ARGS
+            CV.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> outputName))
+            CV.jarFile = gatkJar
+            CV.variant = List(makeResource(BIG_VCF_WITH_GENOTYPES))
+            CV.out = new File("/dev/null")
+            CV.bcf = outputBCF
+            CV
+          }
+          addMultiThreadedTest(gatkName, Assessment.CV_NT, makeCV)
+        }
+      }
+    }
+
+    if ( assessments.contains(Assessment.BQSR_NT) ) {
+      def makeBQSR(): BaseRecalibrator = {
+        val BQSR = new MyBaseRecalibrator(gatkName.contains("v2"))
+        BQSR.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> "20GAV.8.bam"))
+        BQSR.jarFile = gatkJar
+        BQSR
+      }
+      addMultiThreadedTest(gatkName, Assessment.BQSR_NT, makeBQSR, 8) // max nt until BQSR is performant
+    }
+  }
+
+  def enqueueSingleTestCommands(iteration: Int, gatkName: String, gatkJar: File) {
+    for ( subiteration <- 0 until singleTestsPerIteration ) {
+      trait VersionOverrides extends CommandLineGATK {
+        this.jarFile = gatkJar
+        this.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName))
+      }
+
+      val CV = new CombineVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
+      CV.variant = COMBINE_FILES
+      CV.intervalsString = List("1", "2", "3", "4", "5")
+      CV.out = new File("/dev/null")
+      if ( assessments.contains(Assessment.CV) )
+        addGATKCommand(CV)
+
+      val SV = new SelectVariants with UNIVERSAL_GATK_ARGS with VersionOverrides
+      SV.variant = BIG_VCF_WITH_GENOTYPES_16_COMPATIBLE
+      SV.sample_name = List("HG00096") // IMPORTANT THAT THIS SAMPLE BE IN CHUNK ONE
+      SV.out = new File("/dev/null")
+      if ( assessments.contains(Assessment.SV) )
+        addGATKCommand(SV)
+
+      def makeVE(): CommandLineGATK = {
+        val VE = new VariantEval with UNIVERSAL_GATK_ARGS with VersionOverrides
+        VE.eval :+= BIG_VCF_WITH_GENOTYPES_16_COMPATIBLE
+        VE.out = new File("/dev/null")
+        VE.comp :+= new TaggedFile(makeResource(dbSNP_FILENAME), "dbSNP")
+        VE.addJobReportBinding("assessment", BIG_VCF_WITH_GENOTYPES_16_COMPATIBLE.getName)
+        VE
+      }
+
+      if ( assessments.contains(Assessment.VE) ) {
+        addGATKCommand(makeVE())
+      }
+
+      if ( assessments.contains(Assessment.VE_NT) )
+        addMultiThreadedTest(gatkName, Assessment.VE_NT, makeVE)
+    }
+  }
+
+  def enqueueCommandsForEachAssessment(iteration: Int, gatkName: String, gatkJar: File) {
+    val dataSets = if ( justDeepWGS ) List(WGSDeepAssessment) else List(WGSAssessment, WGSDeepAssessment, WExAssessment)
+
+    for ( assess <- dataSets ) {
+      for (nSamples <- divideSamples(assess.nSamples) ) {
+        val sublist = new SliceList(assess.name, nSamples, makeResource(assess.bamList))
+        if ( iteration == 0 ) add(sublist) // todo - remove condition when Queue bug is fixed
+        val name: String = "assess.%s_gatk.%s_iter.%d".format(assess.name, gatkName, iteration)
+
+        trait VersionOverrides extends CommandLineGATK {
+          this.jarFile = gatkJar
+          this.dcov = assess.dcov
+
+          this.configureJobReport(Map(
+            "iteration" -> iteration,
+            "gatk" -> gatkName,
+            "nSamples" -> nSamples,
+            "assessment" -> assess.name))
+        }
+
+        // SNP calling
+        if ( assessments.contains(Assessment.UG) )
+          addGATKCommand(assess.addIntervals(new Call(sublist.list, nSamples, name, assess.baq) with VersionOverrides, false))
+        if ( assessments.contains(Assessment.UG_NT) && nSamples == assess.nSamples )
+          addMultiThreadedTest(gatkName, Assessment.UG_NT, () => assess.addIntervals(new Call(sublist.list, nSamples, name, assess.baq) with VersionOverrides, false))
+
+        // CountLoci
+        if ( assessments.contains(Assessment.CL) )
+          addGATKCommand(assess.addIntervals(new MyCountLoci(sublist.list, nSamples, name) with VersionOverrides, true))
+        if ( assessments.contains(Assessment.CL_NT) && nSamples == assess.nSamples )
+          addMultiThreadedTest(gatkName, Assessment.CL_NT, () => assess.addIntervals(new MyCountLoci(sublist.list, nSamples, name) with VersionOverrides, true))
+      }
+    }
+  }
+
+  def addMultiThreadedTest(gatkName: String,
+                           assessment: Assessment.Assessment,
+                           makeCommand: () => CommandLineGATK, maxNT : Int = 1000) {
+    if ( ntTests.size >= 1 ) {
       for ( nt <- ntTests ) {
-        val cmd = makeCommand()
-        cmd.nt = nt
-        cmd.memoryLimit = cmd.memoryLimit * (if ( nt >= 8 ) (if (nt>=16) 4 else 2) else 1)
-        cmd.addJobReportBinding("nt", nt)
-        cmd.analysisName = cmd.analysisName + ".nt"
-        addGATKCommand(cmd)
+        if ( nt < maxNT ) {
+          for ( useNT <- List(true, false) ) {
+            if ( useNT || (supportsNCT(assessment) && gatkName.contains("v2.cur") )) {
+              // TODO -- fix v2.cur testing
+              val cmd = makeCommand()
+              if ( useNT )
+                cmd.nt = nt
+              else
+                cmd.nct = nt
+              cmd.memoryLimit = cmd.memoryLimit * (if ( nt >= 8 ) (if (nt>=16) 4 else 2) else 1)
+              cmd.addJobReportBinding("nt", nt)
+              cmd.addJobReportBinding("ntType", if ( useNT ) "nt" else "nct")
+              cmd.analysisName = cmd.analysisName + ".nt"
+              addGATKCommand(cmd)
+            }
+          }
+        }
       }
     }
   }
@@ -233,8 +256,9 @@ class GATKPerformanceOverTime extends QScript {
   class Call(@Input(doc="foo") bamList: File, n: Int, name: String, useBaq: Boolean) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
     this.input_file :+= bamList
     this.stand_call_conf = 10.0
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.o = outVCF
-    this.baq = if ( useBaq ) org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE else org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
+    //this.baq = if ( ! skipBAQ && useBaq ) org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE else org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
     @Output(doc="foo") var outVCF: File = new File("/dev/null")
   }
 
@@ -271,5 +295,36 @@ class GATKPerformanceOverTime extends QScript {
    */
   def findMostRecentGATKVersion(version: String): File = {
     PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, version)
+  }
+
+  /**
+   * This is a total abuse of the Queue system.  Override the command line function and remove the
+   * -o /dev/null argument which isn't present in BQSR v1.  Otherwise this system magically
+   * @param v2
+   */
+  class MyBaseRecalibrator(val v2: Boolean) extends BaseRecalibrator with UNIVERSAL_GATK_ARGS {
+    this.intervalsString = List("1", "2", "3", "4", "5")
+    this.knownSites :+= makeResource(dbSNP_FILENAME)
+    // must explicitly list the covariates so that BQSR v1 works
+    this.input_file :+= makeResource(RECAL_BAM_FILENAME)
+    this.out = new File("/dev/null")
+    this.no_plots = true
+    this.memoryLimit = 12
+
+    if ( ! v2 ) {
+      this.analysis_type = "CountCovariates" // BQSR v1 name is CountCovariates
+      this.np = false // there's no no ploting option in BQSR v1
+    }
+    // don't need to list the covariates explicitly for V2 and it causes problems for v1
+    //this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
+
+    // terrible terrible hack.  Explicitly remove the -o output which isn't present in v1
+    override def commandLine(): String = {
+      val covariates = "-cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate"
+      if ( ! v2 )
+        super.commandLine.replace("'-o' '/dev/null'", covariates)
+      else
+        super.commandLine
+    }
   }
 }
