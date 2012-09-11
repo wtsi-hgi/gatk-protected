@@ -63,7 +63,18 @@ plotCmdByX <- function(report, X, includeFacet = F, groups = gatk, logUnit = 10,
     report$weight = 1 / report$X^2
   else
     report$weight = 1
-  p = ggplot(data=report, aes(x=X, y=runtime, group=groups, color=groups))
+  
+  if ( logUnit == 10 ) {
+    units = "log10"
+    p = ggplot(data=report, aes(x=log10(X), y=log10(runtime), group=groups, color=groups))
+  } else if ( logUnit == 2 ) {
+    units = "log2"
+    p = ggplot(data=report, aes(x=log2(X), y=log2(runtime), group=groups, color=groups))
+  } else {
+    unit = ""
+    p = ggplot(data=report, aes(x=X, y=runtime, group=groups, color=groups))
+  }
+  
   if ( includeFacet ) 
     p = p + facet_grid(. ~ assessment, scales="free")
   p = p + geom_jitter()
@@ -72,12 +83,7 @@ plotCmdByX <- function(report, X, includeFacet = F, groups = gatk, logUnit = 10,
   p = p + stat_smooth(method=lm, se=FALSE, aes(weight=weight), linetype="dashed")
   p = p + geom_smooth(method="lm", se=FALSE, formula = y ~ ns(x,2))
   
-  if ( logUnit == 10 ) {
-    p = p + scale_x_log10() + scale_y_log10()
-  } else if ( logUnit == 2 ) {
-    p = p + scale_x_continuous(trans = "log2", breaks=unique(report$X)) + scale_y_continuous(trans = "log2")
-  }
-  p = p + xlab(X) + ylab(paste("Runtime", RUNTIME_UNITS))
+  p = p + xlab(paste(units, X)) + ylab(paste(units, "Runtime", RUNTIME_UNITS))
   p = p + opts(title=report$analysisName)
   p = p + geom_boxplot(aes(group=interaction(X, groups)))
   p
