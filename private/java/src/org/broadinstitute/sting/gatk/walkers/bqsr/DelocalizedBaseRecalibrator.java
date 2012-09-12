@@ -262,9 +262,9 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         }
 
         if( baqArray != null ) { // some reads just can't be BAQ'ed
-            final double[] snpErrors = calculateFractionalErrorArray(isSNP, baqArray);
-            final double[] insertionErrors = calculateFractionalErrorArray(isInsertion, baqArray);
-            final double[] deletionErrors = calculateFractionalErrorArray(isDeletion, baqArray);
+            final double[] snpErrors = calculateFractionalErrorArray(skip, isSNP, baqArray);
+            final double[] insertionErrors = calculateFractionalErrorArray(skip, isInsertion, baqArray);
+            final double[] deletionErrors = calculateFractionalErrorArray(skip, isDeletion, baqArray);
             recalibrationEngine.updateDataForRead(read, skip, snpErrors, insertionErrors, deletionErrors);
             if( DEBUG ) {
                 System.out.print("s: ");
@@ -304,7 +304,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     }
 
     protected static boolean[] calculateKnownSites( final GATKSAMRecord read, final List<Feature> features ) {
-        final int BUFFER_SIZE = 0;
+        final int BUFFER_SIZE = 5;
         final int readLength = read.getReadBases().length;
         final boolean[] knownSites = new boolean[readLength];
         Arrays.fill(knownSites, false);
@@ -402,8 +402,8 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         return indel;
     }
 
-    protected static double[] calculateFractionalErrorArray( final int[] errorArray, final byte[] baqArray ) {
-        if( errorArray.length != baqArray.length ) {
+    protected static double[] calculateFractionalErrorArray( final boolean[] skip, final int[] errorArray, final byte[] baqArray ) {
+        if( skip.length != errorArray.length || skip.length != baqArray.length ) {
             throw new ReviewedStingException("Array length mismatch detected. Malformed read?");
         }
 
@@ -420,7 +420,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
                 if( !inBlock ) {
                     fractionalErrors[iii] = (double) errorArray[iii];
                 } else {
-                    calculateAndStoreErrorsInBlock(iii, blockStartIndex, errorArray, fractionalErrors);
+                    calculateAndStoreErrorsInBlock(iii, blockStartIndex, skip, errorArray, fractionalErrors);
                     inBlock = false; // reset state variables
                     blockStartIndex = BLOCK_START_UNSET; // reset state variables
                 }
@@ -430,18 +430,19 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
             }
         }
         if( inBlock ) {
-            calculateAndStoreErrorsInBlock(iii-1, blockStartIndex, errorArray, fractionalErrors);
+            calculateAndStoreErrorsInBlock(iii-1, blockStartIndex, skip, errorArray, fractionalErrors);
         }
         return fractionalErrors;
     }
 
     private static void calculateAndStoreErrorsInBlock( final int iii,
                                                         final int blockStartIndex,
+                                                        final boolean[] skip,
                                                         final int[] errorArray,
                                                         final double[] fractionalErrors ) {
         int totalErrors = 0;
-        for( int jjj = Math.max(0, blockStartIndex-1); jjj <= iii; jjj++ ) {
-            totalErrors += errorArray[jjj];
+        for( int jjj = Math.max(0,blockStartIndex-1); jjj <= iii; jjj++ ) {
+            totalErrors += ( skip[jjj] ? 0 : errorArray[jjj] );
         }
         for( int jjj = Math.max(0, blockStartIndex-1); jjj <= iii; jjj++ ) {
             fractionalErrors[jjj] = ((double) totalErrors) / ((double)(iii - Math.max(0,blockStartIndex-1) + 1));
