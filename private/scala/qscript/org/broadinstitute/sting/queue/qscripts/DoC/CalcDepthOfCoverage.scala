@@ -77,7 +77,7 @@ class CalcDepthOfCoverage extends QScript {
 
   trait LargeMemoryLimit extends CommandLineFunction {
     if (largeMemory < 0) {
-      this.memoryLimit = 8
+      this.memoryLimit = 6
     }
     else {
       this.memoryLimit = largeMemory
@@ -128,7 +128,7 @@ class CalcDepthOfCoverage extends QScript {
     }
 
     // Want 0 precision for base counts:
-    val mergeBaseDepths = new MergeGATKdepths(docs.map(u => u.outPrefix), outputBase.getPath + BASE_DOC_OUTPUT_SUFFIX, "Depth_for_", xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, Some(0), true) with LargeMemoryLimit
+    val mergeBaseDepths = new MergeGATKdepths(docs.map(u => u.outPrefix), outputBase.getPath + BASE_DOC_OUTPUT_SUFFIX, "Depth_for_", xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, Some(0), true) with LargeMemoryLimit with LongRunTime
     add(mergeBaseDepths)
   }
 }
