@@ -50,6 +50,9 @@ class CalcDepthOfCoverage extends QScript {
   @Input(doc = "Memory (in GB) required for storing the whole matrix in memory", shortName = "wholeMatrixMemory", required = false)
   var wholeMatrixMemory = -1
 
+  @Input(doc = "Memory (in GB) required for merging the big matrix", shortName = "largeMemory", required = false)
+  var largeMemory = -1
+
   @Argument(shortName = "sampleIDsMap", doc = "File mapping BAM sample IDs to desired sample IDs", required = false)
   var sampleIDsMap: String = ""
 
@@ -71,6 +74,15 @@ class CalcDepthOfCoverage extends QScript {
   val DOC_OUTPUT_SUFFIX: String = ".DoC.txt"
   val BASE_DOC_OUTPUT_SUFFIX: String = ".per_base.DoC.txt"
 
+
+  trait LargeMemoryLimit extends CommandLineFunction {
+    if (largeMemory < 0) {
+      this.memoryLimit = 6
+    }
+    else {
+      this.memoryLimit = largeMemory
+    }
+  }
 
   trait WholeMatrixMemoryLimit extends CommandLineFunction {
     // Since loading ALL of the data can take significant memory:
@@ -111,12 +123,12 @@ class CalcDepthOfCoverage extends QScript {
     addAll(docs)
 
     for (minCoverageCalc <- minCoverageCalcs) {
-      val mergeDepths = new MergeGATKdepths(docs.map(u => u.intervalSampleOut), outputBase.getPath + ".min_" + minCoverageCalc + DOC_OUTPUT_SUFFIX, "_%_above_" + minCoverageCalc, xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, None) with WholeMatrixMemoryLimit
+      val mergeDepths = new MergeGATKdepths(docs.map(u => u.intervalSampleOut), outputBase.getPath + ".min_" + minCoverageCalc + DOC_OUTPUT_SUFFIX, "_%_above_" + minCoverageCalc, xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, None, false) with WholeMatrixMemoryLimit
       add(mergeDepths)
     }
 
     // Want 0 precision for base counts:
-    val mergeBaseDepths = new MergeGATKdepths(docs.map(u => u.outPrefix), outputBase.getPath + BASE_DOC_OUTPUT_SUFFIX, "Depth_for_", xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, Some(0)) with WholeMatrixMemoryLimit
+    val mergeBaseDepths = new MergeGATKdepths(docs.map(u => u.outPrefix), outputBase.getPath + BASE_DOC_OUTPUT_SUFFIX, "Depth_for_", xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, Some(0), true) with LargeMemoryLimit with LongRunTime
     add(mergeBaseDepths)
   }
 }
