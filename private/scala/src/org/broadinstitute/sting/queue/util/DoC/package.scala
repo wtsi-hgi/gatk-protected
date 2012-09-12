@@ -3,6 +3,7 @@ package org.broadinstitute.sting.queue.util
 import java.io.File
 import org.broadinstitute.sting.queue.extensions.gatk.{IntervalScatterFunction, CommandLineGATK}
 import org.broadinstitute.sting.queue.function.scattergather.ScatterGatherableFunction
+import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 import org.broadinstitute.sting.commandline.{Input, Gather, Output}
 import org.broadinstitute.sting.queue.function.CommandLineFunction
 
@@ -18,7 +19,7 @@ package object DoC {
     this.input_file = bams
 
     this.downsample_to_coverage = Some(MAX_DEPTH)
-    //this.downsampling_type = DownsampleType.BY_SAMPLE
+    this.downsampling_type = DownsampleType.BY_SAMPLE
 
     this.scatterCount = scatterCountInput
     this.scatterClass = classOf[IntervalScatterFunction]
