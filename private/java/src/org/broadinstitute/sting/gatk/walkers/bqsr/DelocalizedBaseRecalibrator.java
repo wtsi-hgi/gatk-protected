@@ -249,7 +249,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     }
 
     protected static boolean[] calculateKnownSites( final GATKSAMRecord read, final List<Feature> features ) {
-        final int BUFFER_SIZE = 0;
+        final int BUFFER_SIZE = 10;
         final int readLength = read.getReadBases().length;
         final boolean[] knownSites = new boolean[readLength];
         Arrays.fill(knownSites, false);
@@ -313,9 +313,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
                 case X:
                 case S:
                 {
-                    for (int iii = 0; iii < elementLength; iii++) {
-                        readPos++;
-                    }
+                    readPos += elementLength;
                     break;
                 }
                 case D:
@@ -358,13 +356,14 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         final int BLOCK_START_UNSET = -1;
 
         final double[] fractionalErrors = new double[baqArray.length];
+        Arrays.fill(fractionalErrors, 0.0);
         boolean inBlock = false;
         int blockStartIndex = BLOCK_START_UNSET;
         int iii;
         for( iii = 0; iii < fractionalErrors.length; iii++ ) {
             if( baqArray[iii] == NO_BAQ_UNCERTAINTY ) {
                 if( !inBlock ) {
-                    fractionalErrors[iii] = errorArray[iii];
+                    fractionalErrors[iii] = (double) errorArray[iii];
                 } else {
                     calculateAndStoreErrorsInBlock(iii, blockStartIndex, errorArray, fractionalErrors);
                     inBlock = false; // reset state variables
@@ -386,16 +385,16 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
                                                         final int[] errorArray,
                                                         final double[] fractionalErrors ) {
         int totalErrors = 0;
-        for( int jjj = Math.max(0,blockStartIndex-1); jjj <= iii; jjj++ ) {
+        for( int jjj = Math.max(0, blockStartIndex-1); jjj <= iii; jjj++ ) {
             totalErrors += errorArray[jjj];
         }
-        for( int jjj = Math.max(0,blockStartIndex-1); jjj <= iii; jjj++ ) {
+        for( int jjj = Math.max(0, blockStartIndex-1); jjj <= iii; jjj++ ) {
             fractionalErrors[jjj] = ((double) totalErrors) / ((double)(iii - Math.max(0,blockStartIndex-1) + 1));
         }
     }
 
     private byte[] calculateBAQArray( final GATKSAMRecord read ) {
-        baq.baqRead(read, referenceReader, BAQ.CalculationMode.CALCULATE_AS_NECESSARY, BAQ.QualityMode.ADD_TAG);
+        baq.baqRead(read, referenceReader, BAQ.CalculationMode.RECALCULATE, BAQ.QualityMode.ADD_TAG);
         return BAQ.getBAQTag(read);
     }
 
