@@ -111,12 +111,12 @@ class CalcDepthOfCoverage extends QScript {
     addAll(docs)
 
     for (minCoverageCalc <- minCoverageCalcs) {
-      val mergeDepths = new MergeGATKdepths(docs.map(u => u.intervalSampleOut), outputBase.getPath + ".min_" + minCoverageCalc + DOC_OUTPUT_SUFFIX, "_%_above_" + minCoverageCalc, xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, None) with WholeMatrixMemoryLimit
+      val mergeDepths = new MergeGATKdepths(docs.map(u => u.intervalSampleOut), outputBase.getPath + ".min_" + minCoverageCalc + DOC_OUTPUT_SUFFIX, "_%_above_" + minCoverageCalc, xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, None, false) with WholeMatrixMemoryLimit
       add(mergeDepths)
     }
 
     // Want 0 precision for base counts:
-    val mergeBaseDepths = new MergeGATKdepths(docs.map(u => u.outPrefix), outputBase.getPath + BASE_DOC_OUTPUT_SUFFIX, "Depth_for_", xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, Some(0)) with WholeMatrixMemoryLimit
+    val mergeBaseDepths = new MergeGATKdepths(docs.map(u => u.outPrefix), outputBase.getPath + BASE_DOC_OUTPUT_SUFFIX, "Depth_for_", xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, Some(0), true)
     add(mergeBaseDepths)
   }
 }

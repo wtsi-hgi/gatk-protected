@@ -76,7 +76,7 @@ package object DoC {
     override def toString(): String = String.format("[Group %s [%s] with samples %s against bams %s]", name, DoC_output, samples, bams)
   }
 
-  class MergeGATKdepths(DoCsToCombine: List[File], outFile: String, columnSuffix: String, xhmmExec: File, sampleIDsMap: String, sampleIDsMapFromColumn: Int, sampleIDsMapToColumn: Int, rdPrecisionArg: Option[Int]) extends CommandLineFunction {
+  class MergeGATKdepths(DoCsToCombine: List[File], outFile: String, columnSuffix: String, xhmmExec: File, sampleIDsMap: String, sampleIDsMapFromColumn: Int, sampleIDsMapToColumn: Int, rdPrecisionArg: Option[Int], outputTargetsBySamples: Boolean) extends CommandLineFunction {
     @Input(doc = "")
     var inputDoCfiles: List[File] = DoCsToCombine
 
@@ -95,6 +95,8 @@ package object DoC {
       }
       case None => {}
     }
+    if (outputTargetsBySamples)
+      command += " --outputTargetsBySamples"
 
     def commandLine = command
 
