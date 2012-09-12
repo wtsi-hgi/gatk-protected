@@ -150,7 +150,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
             RecalUtils.listAvailableCovariates(logger);
             System.exit(0);
         }
-        RAC.recalibrationReport = getToolkit().getArguments().BQSR_RECAL_FILE; // if we have a recalibration file, record it so it goes on the report table
+        RAC.existingRecalibrationReport = getToolkit().getArguments().BQSR_RECAL_FILE; // if we have a recalibration file, record it so it goes on the report table
 
         Pair<ArrayList<Covariate>, ArrayList<Covariate>> covariates = RecalUtils.initializeCovariates(RAC); // initialize the required and optional covariates
         ArrayList<Covariate> requiredCovariates = covariates.getFirst();
@@ -451,7 +451,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         generateReport();
         logger.info("...done!");
 
-        if ( RAC.RECAL_PDF != null ) {
+        if ( RAC.RECAL_PDF_FILE != null ) {
             logger.info("Generating recalibration plots...");
             generatePlots();
         }
