@@ -41,6 +41,7 @@ import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.classloader.GATKLiteUtils;
+import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -224,7 +225,10 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
      * For each read at this locus get the various covariate values and increment that location in the map based on
      * whether or not the base matches the reference at this particular location
      */
-    public Long map( final ReferenceContext ref, final GATKSAMRecord read, final RefMetaDataTracker metaDataTracker ) {
+    public Long map( final ReferenceContext ref, final GATKSAMRecord _read, final RefMetaDataTracker metaDataTracker ) {
+
+        final GATKSAMRecord read = ReadClipper.hardClipAdaptorSequence(_read);
+        if( read.isEmpty() ) { return 0L; } // the whole read was inside the adaptor so skip it
 
         RecalUtils.parsePlatformForRead(read, RAC);
         // BUGBUG: solid support should go here.
@@ -318,7 +322,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
             if( featureStartOnRead == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) { featureStartOnRead = 0; }
             int featureEndOnRead = ReadUtils.getReadCoordinateForReferenceCoordinate(read.getSoftStart(), read.getCigar(), f.getEnd(), ReadUtils.ClippingTail.LEFT_TAIL, true);
             if( featureEndOnRead == ReadUtils.CLIPPING_GOAL_NOT_REACHED ) { featureEndOnRead = readLength; }
-            Arrays.fill(knownSites, Math.max(0, featureStartOnRead - BUFFER_SIZE), Math.min(readLength, featureEndOnRead + BUFFER_SIZE), true);
+            Arrays.fill(knownSites, Math.max(0, featureStartOnRead - BUFFER_SIZE), Math.min(readLength, featureEndOnRead + 1 + BUFFER_SIZE), true);
         }
         return knownSites;
     }
