@@ -120,6 +120,9 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     @Argument(fullName = "bqsrBAQGapOpenPenalty", shortName="bqsrBAQGOP", doc="BQSR BAQ gap open penalty (Phred Scaled).  Default value is 40.  30 is perhaps better for whole genome call sets", required = false)
     public double BAQGOP = BAQ.DEFAULT_GOP;
 
+    @Argument(fullName = "skipBufferWindow", shortName="skipBufferWindow", doc="BQSR BAQ gap open penalty (Phred Scaled).  Default value is 40.  30 is perhaps better for whole genome call sets", required = false)
+    public int skipBufferWindow = 0;
+
     @Argument(fullName="debug", shortName="debug", doc="If specified, print out very verbose debug information about each triggering active region", required = false)
     protected boolean DEBUG;
 
@@ -137,7 +140,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
 
     private static final String NO_DBSNP_EXCEPTION = "This calculation is critically dependent on being able to skip over known variant sites. Please provide a VCF file containing known sites of genetic variation.";
 
-    private final BAQ baq = new BAQ(BAQGOP); // BAQ the reads on the fly to generate the alignment uncertainty vector
+    private BAQ baq; // BAQ the reads on the fly to generate the alignment uncertainty vector
     private IndexedFastaSequenceFile referenceReader; // fasta reference reader for use with BAQ calculation
 
     /**
@@ -145,6 +148,8 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
      * Based on the covariates' estimates for initial capacity allocate the data hashmap
      */
     public void initialize() {
+
+        baq = new BAQ(BAQGOP); // setup the BAQ object with the provided gap open penalty
 
         // check for unsupported access
         if (getToolkit().isGATKLite() && !getToolkit().getArguments().disableIndelQuals)
@@ -303,8 +308,8 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         return skip;
     }
 
-    protected static boolean[] calculateKnownSites( final GATKSAMRecord read, final List<Feature> features ) {
-        final int BUFFER_SIZE = 5;
+    protected boolean[] calculateKnownSites( final GATKSAMRecord read, final List<Feature> features ) {
+        final int BUFFER_SIZE = skipBufferWindow;
         final int readLength = read.getReadBases().length;
         final boolean[] knownSites = new boolean[readLength];
         Arrays.fill(knownSites, false);
@@ -418,7 +423,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         for( iii = 0; iii < fractionalErrors.length; iii++ ) {
             if( baqArray[iii] == NO_BAQ_UNCERTAINTY ) {
                 if( !inBlock ) {
-                    fractionalErrors[iii] = (double) errorArray[iii];
+                    fractionalErrors[iii] = ( skip[iii] ? 0.0 : (double) errorArray[iii] );
                 } else {
                     calculateAndStoreErrorsInBlock(iii, blockStartIndex, skip, errorArray, fractionalErrors);
                     inBlock = false; // reset state variables
@@ -431,6 +436,9 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         }
         if( inBlock ) {
             calculateAndStoreErrorsInBlock(iii-1, blockStartIndex, skip, errorArray, fractionalErrors);
+        }
+        if( fractionalErrors.length != skip.length ) {
+            throw new ReviewedStingException("Output array length mismatch detected. Malformed read?");
         }
         return fractionalErrors;
     }
