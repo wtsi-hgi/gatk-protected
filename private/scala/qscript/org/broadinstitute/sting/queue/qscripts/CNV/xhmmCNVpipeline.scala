@@ -163,7 +163,7 @@ class xhmmCNVpipeline extends QScript {
     }
     addAll(docs)
 
-    val mergeDepths = new MergeGATKdepths(docs.map(u => u.intervalSampleOut), outputBase.getPath + RD_OUTPUT_SUFFIX, "_mean_cvg", xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, None) with WholeMatrixMemoryLimit
+    val mergeDepths = new MergeGATKdepths(docs.map(u => u.intervalSampleOut), outputBase.getPath + RD_OUTPUT_SUFFIX, "_mean_cvg", xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, None, false) with WholeMatrixMemoryLimit
     add(mergeDepths)
 
     var excludeTargets : List[File] = List[File]()
