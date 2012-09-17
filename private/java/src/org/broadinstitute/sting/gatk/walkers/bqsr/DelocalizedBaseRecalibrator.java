@@ -51,7 +51,6 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.PrintStream;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -151,7 +150,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
             RecalUtils.listAvailableCovariates(logger);
             System.exit(0);
         }
-        RAC.recalibrationReport = getToolkit().getArguments().BQSR_RECAL_FILE; // if we have a recalibration file, record it so it goes on the report table
+        RAC.existingRecalibrationReport = getToolkit().getArguments().BQSR_RECAL_FILE; // if we have a recalibration file, record it so it goes on the report table
 
         Pair<ArrayList<Covariate>, ArrayList<Covariate>> covariates = RecalUtils.initializeCovariates(RAC); // initialize the required and optional covariates
         ArrayList<Covariate> requiredCovariates = covariates.getFirst();
@@ -452,7 +451,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         generateReport();
         logger.info("...done!");
 
-        if (!RAC.NO_PLOTS) {
+        if ( RAC.RECAL_PDF_FILE != null ) {
             logger.info("Generating recalibration plots...");
             generatePlots();
         }
@@ -464,10 +463,10 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         File recalFile = getToolkit().getArguments().BQSR_RECAL_FILE;
         if (recalFile != null) {
             RecalibrationReport report = new RecalibrationReport(recalFile);
-            RecalUtils.generateRecalibrationPlot(RAC.RECAL_FILE, report.getRecalibrationTables(), recalibrationTables, requestedCovariates, RAC.KEEP_INTERMEDIATE_FILES);
+            RecalUtils.generateRecalibrationPlot(RAC, report.getRecalibrationTables(), recalibrationTables, requestedCovariates);
         }
         else
-            RecalUtils.generateRecalibrationPlot(RAC.RECAL_FILE, recalibrationTables, requestedCovariates, RAC.KEEP_INTERMEDIATE_FILES);
+            RecalUtils.generateRecalibrationPlot(RAC, recalibrationTables, requestedCovariates);
     }
 
     /**
@@ -480,14 +479,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     }
 
     private void generateReport() {
-        PrintStream output;
-        try {
-            output = new PrintStream(RAC.RECAL_FILE);
-        } catch (FileNotFoundException e) {
-            throw new UserException.CouldNotCreateOutputFile(RAC.RECAL_FILE, "could not be created");
-        }
-
-        RecalUtils.outputRecalibrationReport(RAC, quantizationInfo, recalibrationTables, requestedCovariates, output);
+        RecalUtils.outputRecalibrationReport(RAC, quantizationInfo, recalibrationTables, requestedCovariates);
     }
 }
 
