@@ -56,6 +56,8 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -178,6 +180,12 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         for (Covariate cov : requestedCovariates) { // list all the covariates being used
             logger.info("\t" + cov.getClass().getSimpleName());
             cov.initialize(RAC); // initialize any covariate member variables using the shared argument collection
+        }
+
+        try {
+            RAC.RECAL_TABLE = new PrintStream(RAC.RECAL_TABLE_FILE);
+        } catch (IOException e) {
+            throw new UserException.CouldNotCreateOutputFile(RAC.RECAL_TABLE_FILE, e);
         }
 
         int numReadGroups = 0;
