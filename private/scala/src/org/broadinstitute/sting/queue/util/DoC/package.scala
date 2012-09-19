@@ -35,7 +35,7 @@ package object DoC {
       " --minBaseQuality 0" +
       " --minMappingQuality " + minMappingQuality +
       " --start " + START_BIN + " --stop " + MAX_DEPTH + " --nBins " + NUM_BINS +
-      minCoverageCalcs.map(cov => " --summaryCoverageThreshold " + cov).reduceLeft(_ + "" + _) +
+      (if (!minCoverageCalcs.isEmpty) minCoverageCalcs.map(cov => " --summaryCoverageThreshold " + cov).reduceLeft(_ + "" + _) else "") +
       " --includeRefNSites" +
       " -o " + DoC_output
 
