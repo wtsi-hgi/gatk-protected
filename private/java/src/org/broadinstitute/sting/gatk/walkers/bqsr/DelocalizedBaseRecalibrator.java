@@ -29,6 +29,7 @@ import net.sf.picard.reference.IndexedFastaSequenceFile;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.SAMFileHeader;
 import org.broad.tribble.Feature;
+import org.broadinstitute.sting.commandline.Advanced;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.gatk.CommandLineGATK;
@@ -118,14 +119,9 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     @ArgumentCollection
     private final RecalibrationArgumentCollection RAC = new RecalibrationArgumentCollection(); // all the command line arguments for BQSR and it's covariates
 
+    @Advanced
     @Argument(fullName = "bqsrBAQGapOpenPenalty", shortName="bqsrBAQGOP", doc="BQSR BAQ gap open penalty (Phred Scaled).  Default value is 40.  30 is perhaps better for whole genome call sets", required = false)
     public double BAQGOP = BAQ.DEFAULT_GOP;
-
-    @Argument(fullName = "skipBufferWindow", shortName="skipBufferWindow", doc="BQSR BAQ gap open penalty (Phred Scaled).  Default value is 40.  30 is perhaps better for whole genome call sets", required = false)
-    public int skipBufferWindow = 0;
-
-    @Argument(fullName="debug", shortName="debug", doc="If specified, print out very verbose debug information about each triggering active region", required = false)
-    protected boolean DEBUG;
 
     private QuantizationInfo quantizationInfo; // an object that keeps track of the information necessary for quality score quantization
 
@@ -240,64 +236,13 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         final int[] isDeletion = calculateIsIndel(read, EventType.BASE_DELETION);
         final byte[] baqArray = calculateBAQArray(read);
 
-        if( DEBUG ) {
-            System.out.println(read.getReadName());
-            System.out.println(read.getCigar() + " " + (read.getReadNegativeStrandFlag() ? "neg" : "pos") );
-            System.out.print("K: ");
-            for(int iii = 0; iii < skip.length; iii++) {
-                System.out.print(skip[iii] ? 1 : 0);
-            }
-            System.out.println();
-            System.out.print("S: ");
-            for(int iii = 0; iii < isSNP.length; iii++) {
-                System.out.print(isSNP[iii]);
-            }
-            System.out.println();
-            System.out.print("I: ");
-            for(int iii = 0; iii < isInsertion.length; iii++) {
-                System.out.print(isInsertion[iii]);
-            }
-            System.out.println();
-            System.out.print("D: ");
-            for(int iii = 0; iii < isDeletion.length; iii++) {
-                System.out.print(isDeletion[iii]);
-            }
-            System.out.println();
-            System.out.print("B: ");
-            for(int iii = 0; iii < baqArray.length; iii++) {
-                System.out.print((char)baqArray[iii]);
-            }
-            System.out.println();
-        }
-
         if( baqArray != null ) { // some reads just can't be BAQ'ed
-            final double[] snpErrors = calculateFractionalErrorArray(skip, isSNP, baqArray);
-            final double[] insertionErrors = calculateFractionalErrorArray(skip, isInsertion, baqArray);
-            final double[] deletionErrors = calculateFractionalErrorArray(skip, isDeletion, baqArray);
+            final double[] snpErrors = calculateFractionalErrorArray(isSNP, baqArray);
+            final double[] insertionErrors = calculateFractionalErrorArray(isInsertion, baqArray);
+            final double[] deletionErrors = calculateFractionalErrorArray(isDeletion, baqArray);
             recalibrationEngine.updateDataForRead(read, skip, snpErrors, insertionErrors, deletionErrors);
-            if( DEBUG ) {
-                System.out.print("s: ");
-                for(int iii = 0; iii < snpErrors.length; iii++) {
-                    System.out.print(MathUtils.compareDoubles(snpErrors[iii], 0.0, 1E-3)==0 ? 0 : "*");
-                }
-                System.out.println();
-                System.out.print("i: ");
-                for(int iii = 0; iii < insertionErrors.length; iii++) {
-                    System.out.print(MathUtils.compareDoubles(insertionErrors[iii], 0.0, 1E-3)==0 ? 0 : "*");
-                }
-                System.out.println();
-                System.out.print("d: ");
-                for(int iii = 0; iii < deletionErrors.length; iii++) {
-                    System.out.print(MathUtils.compareDoubles(deletionErrors[iii], 0.0, 1E-3)==0 ? 0 : "*");
-                }
-                System.out.println();
-                System.out.println("--- Data point added successfully ---");
-            }
             return 1L;
         } else {
-            if( DEBUG ) {
-                System.out.println("!!! ADD FAILED :( !!!");
-            }
             return 0L;
         }
     }
@@ -313,7 +258,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     }
 
     protected boolean[] calculateKnownSites( final GATKSAMRecord read, final List<Feature> features ) {
-        final int BUFFER_SIZE = skipBufferWindow;
+        final int BUFFER_SIZE = 0;
         final int readLength = read.getReadBases().length;
         final boolean[] knownSites = new boolean[readLength];
         Arrays.fill(knownSites, false);
@@ -411,8 +356,8 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         return indel;
     }
 
-    protected static double[] calculateFractionalErrorArray( final boolean[] skip, final int[] errorArray, final byte[] baqArray ) {
-        if( skip.length != errorArray.length || skip.length != baqArray.length ) {
+    protected static double[] calculateFractionalErrorArray( final int[] errorArray, final byte[] baqArray ) {
+        if(errorArray.length != baqArray.length ) {
             throw new ReviewedStingException("Array length mismatch detected. Malformed read?");
         }
 
@@ -427,9 +372,9 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         for( iii = 0; iii < fractionalErrors.length; iii++ ) {
             if( baqArray[iii] == NO_BAQ_UNCERTAINTY ) {
                 if( !inBlock ) {
-                    fractionalErrors[iii] = ( skip[iii] ? 0.0 : (double) errorArray[iii] );
+                    fractionalErrors[iii] = (double) errorArray[iii];
                 } else {
-                    calculateAndStoreErrorsInBlock(iii, blockStartIndex, skip, errorArray, fractionalErrors);
+                    calculateAndStoreErrorsInBlock(iii, blockStartIndex, errorArray, fractionalErrors);
                     inBlock = false; // reset state variables
                     blockStartIndex = BLOCK_START_UNSET; // reset state variables
                 }
@@ -439,9 +384,9 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
             }
         }
         if( inBlock ) {
-            calculateAndStoreErrorsInBlock(iii-1, blockStartIndex, skip, errorArray, fractionalErrors);
+            calculateAndStoreErrorsInBlock(iii-1, blockStartIndex, errorArray, fractionalErrors);
         }
-        if( fractionalErrors.length != skip.length ) {
+        if( fractionalErrors.length != errorArray.length ) {
             throw new ReviewedStingException("Output array length mismatch detected. Malformed read?");
         }
         return fractionalErrors;
@@ -449,12 +394,11 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
 
     private static void calculateAndStoreErrorsInBlock( final int iii,
                                                         final int blockStartIndex,
-                                                        final boolean[] skip,
                                                         final int[] errorArray,
                                                         final double[] fractionalErrors ) {
         int totalErrors = 0;
         for( int jjj = Math.max(0,blockStartIndex-1); jjj <= iii; jjj++ ) {
-            totalErrors += ( skip[jjj] ? 0 : errorArray[jjj] );
+            totalErrors += errorArray[jjj];
         }
         for( int jjj = Math.max(0, blockStartIndex-1); jjj <= iii; jjj++ ) {
             fractionalErrors[jjj] = ((double) totalErrors) / ((double)(iii - Math.max(0,blockStartIndex-1) + 1));
