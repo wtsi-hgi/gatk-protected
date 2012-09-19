@@ -168,7 +168,7 @@ getAssessments <- function(report) {
 # Plot runtime vs. NT for all of the NT tests
 #
 ntReports <- c("CombineVariants.nt", "UnifiedGenotyper.nt", "UnifiedGenotyper.nct", 
-               "CountLoci.nt", "BaseRecalibrator.nt", "VariantEval.nt")
+               "CountLoci.nt", "BaseRecalibrator.nt", "VariantEval.nt", "PrintReads.nt")
 for ( ntReport in ntReports ) {
   if ( ntReport %in% names(allReports) ) {
     report = allReports[[ntReport]]

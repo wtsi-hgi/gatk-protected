@@ -5,6 +5,7 @@ import org.broadinstitute.sting.queue.extensions.gatk._
 import java.lang.Math
 import org.broadinstitute.sting.utils.PathUtils
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel
+import org.broadinstitute.sting.utils.baq.BAQ
 
 class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "results", doc="results", required=false)
@@ -45,10 +46,10 @@ class GATKPerformanceOverTime extends QScript {
 
   val MY_TAG = "GATKPerformanceOverTime"
   val RECAL_BAM_FILENAME = "CEUTrio.HiSeq.WGS.b37_decoy.NA12878.clean.dedup.recal.20GAV.8.bam"
+  val RECAL_GATKREPORT_FILENAME = "CEUTrio.HiSeq.WGS.b37_decoy.NA12878.clean.dedup.recal.20GAV.8.grp"
   val dbSNP_FILENAME = "dbsnp_132.b37.vcf"
   val BIG_VCF_WITH_GENOTYPES = "ALL.chr1.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf.gz"
   val BIG_VCF_WITH_GENOTYPES_16_COMPATIBLE = new File("/humgen/gsa-hpprojects/GATK/bundle/1.5/b37/1000G_omni2.5.b37.vcf")
-  val RECAL_FILENAME = "NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.csv"  // TODO -- update to use recal table for BQSRv2
   val b37_FILENAME = "human_g1k_v37.fasta"
 
   def makeResource(x: String): File = new File("%s/%s".format(resourcesDir, x))
@@ -85,12 +86,14 @@ class GATKPerformanceOverTime extends QScript {
 
   object Assessment extends Enumeration {
     type Assessment = Value
-    val UG, UG_NT, CL, CL_NT, CV, CV_NT, VE, VE_NT, SV, BQSR_NT = Value
+    val UG, UG_NT, CL, CL_NT, CV, CV_NT, VE, VE_NT, SV, BQSR_NT, PRINT_READS_NT = Value
   }
 
-  val NCT_ASSESSMENTS = List(Assessment.UG_NT, Assessment.CL_NT, Assessment.BQSR_NT)
-
+  val NCT_ASSESSMENTS = List(Assessment.UG_NT, Assessment.CL_NT, Assessment.BQSR_NT, Assessment.PRINT_READS_NT)
   def supportsNCT(assessment: Assessment.Assessment) = NCT_ASSESSMENTS contains assessment
+
+  val NO_NT_ASSESSMENTS = List(Assessment.PRINT_READS_NT)
+  def supportsNT(assessment: Assessment.Assessment) = ! (NO_NT_ASSESSMENTS contains assessment)
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO"
@@ -143,6 +146,26 @@ class GATKPerformanceOverTime extends QScript {
       }
       addMultiThreadedTest(gatkName, Assessment.BQSR_NT, makeBQSR, 8) // max nt until BQSR is performant
     }
+
+    if ( assessments.contains(Assessment.PRINT_READS_NT) ) {
+      for ( assessment <- List("BQSR", "BAQ") ) {
+        def makePrintReads(): PrintReads = {
+          val PR = new PrintReads with UNIVERSAL_GATK_ARGS
+          PR.intervalsString = List("1", "2", "3", "4", "5")
+          PR.input_file :+= makeResource(RECAL_BAM_FILENAME)
+          PR.out = new File("/dev/null")
+          PR.memoryLimit = 4
+          if ( assessment.equals("BQSR") )
+            PR.baq = BAQ.CalculationMode.RECALCULATE
+          else
+            PR.BQSR = makeResource(RECAL_GATKREPORT_FILENAME)
+          PR.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> assessment))
+          PR.jarFile = gatkJar
+          PR
+        }
+        addMultiThreadedTest(gatkName, Assessment.PRINT_READS_NT, makePrintReads)
+      }
+    }
   }
 
   def enqueueSingleTestCommands(iteration: Int, gatkName: String, gatkJar: File) {
@@ -191,7 +214,7 @@ class GATKPerformanceOverTime extends QScript {
       for (nSamples <- divideSamples(assess.nSamples) ) {
         val sublist = new SliceList(assess.name, nSamples, makeResource(assess.bamList))
         if ( iteration == 0 ) add(sublist) // todo - remove condition when Queue bug is fixed
-        val name: String = "assess.%s_gatk.%s_iter.%d".format(assess.name, gatkName, iteration)
+        val name: String = "%s/assess.%s_gatk.%s_iter.%d".format(resultsDir, assess.name, gatkName, iteration)
 
         trait VersionOverrides extends CommandLineGATK {
           this.jarFile = gatkJar
@@ -226,7 +249,8 @@ class GATKPerformanceOverTime extends QScript {
       for ( nt <- ntTests ) {
         if ( nt < maxNT ) {
           for ( useNT <- List(true, false) ) {
-            if ( useNT || (supportsNCT(assessment) && gatkName.contains("v2.cur") )) {
+            if ( ( useNT && supportsNT(assessment)) ||
+                 (! useNT && supportsNCT(assessment) && gatkName.contains("v2.cur") )) {
               // TODO -- fix v2.cur testing
               val cmd = makeCommand()
               if ( useNT )
@@ -308,15 +332,11 @@ class GATKPerformanceOverTime extends QScript {
     // must explicitly list the covariates so that BQSR v1 works
     this.input_file :+= makeResource(RECAL_BAM_FILENAME)
     this.out = new File("/dev/null")
-    this.no_plots = true
     this.memoryLimit = 12
 
     if ( ! v2 ) {
       this.analysis_type = "CountCovariates" // BQSR v1 name is CountCovariates
-      this.np = false // there's no no ploting option in BQSR v1
     }
-    // don't need to list the covariates explicitly for V2 and it causes problems for v1
-    //this.covariate ++= List("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
 
     // terrible terrible hack.  Explicitly remove the -o output which isn't present in v1
     override def commandLine(): String = {
