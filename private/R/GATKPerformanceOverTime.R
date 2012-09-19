@@ -53,8 +53,19 @@ plotByNSamples <- function(report) {
 }
 
 plotByNT <- function(report, includeFacet = F) {
-  report$groups = interaction(report$gatk, report$ntType)
-  plotCmdByX(report, "nt", includeFacet, groups = groups, logUnit = 2, T)
+  minReport = report[,c("nt", "runtime", "gatk", "ntType", "assessment")]
+  nt1Rows = subset(minReport, nt == 1)
+  if ( nrow(nt1Rows) > 0 ) {
+    runtimeNT1 = mean(nt1Rows$runtime)
+    nts = unique(minReport$nt)
+    idealRuntimes = runtimeNT1 / nts
+    myAssessment = unique(minReport$assessment)[1]
+    idealDF = data.frame(nt=nts, runtime=idealRuntimes, gatk="ideal", ntType="nt", assessment=myAssessment)
+    minReport = rbind(minReport, idealDF)
+  }
+  
+  minReport$groups = interaction(minReport$gatk, minReport$ntType)
+  plotCmdByX(minReport, "nt", includeFacet, groups = groups, logUnit = 2, T)
 }
 
 plotCmdByX <- function(report, X, includeFacet = F, groups = gatk, logUnit = 10, useWeights=F) {
