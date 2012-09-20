@@ -59,7 +59,7 @@ class ReduceReadsQC extends QScript {
     val filter = new SelectVariants() with UNIVERSAL_GATK_ARGS
     filter.variant = callsVCF
     filter.out = filteredVCF
-    filter.select :+= "QD > 10 && DP > 50 && FS < 10"
+    filter.select :+= "QD>10.0 && DP>50 && FS<10.0"
 
     add(ug, filter)
 
