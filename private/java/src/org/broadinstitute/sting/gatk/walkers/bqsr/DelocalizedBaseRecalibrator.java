@@ -478,4 +478,3 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         RecalUtils.outputRecalibrationReport(RAC, quantizationInfo, recalibrationTables, requestedCovariates);
     }
 }
-
