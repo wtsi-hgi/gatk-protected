@@ -49,7 +49,7 @@ distributeLogGraph <- function(graph, xName) {
 }
 
 plotByNSamples <- function(report) {
-  plotCmdByX(report, "nSamples", T, logUnit = 10)
+  plotCmdByX(report, "nSamples", T, groupBy="gatk", logUnit = 10)
 }
 
 plotByNT <- function(report, includeFacet = F) {
@@ -65,10 +65,11 @@ plotByNT <- function(report, includeFacet = F) {
   }
   
   minReport$groups = interaction(minReport$gatk, minReport$ntType)
-  plotCmdByX(minReport, "nt", includeFacet, groups = groups, logUnit = 2, T)
+  plotCmdByX(minReport, "nt", includeFacet, groupBy = "groups", logUnit = 2, T)
 }
 
-plotCmdByX <- function(report, X, includeFacet = F, groups = gatk, logUnit = 10, useWeights=F) {
+plotCmdByX <- function(report, X, includeFacet = F, groupBy = "gatk", logUnit = 10, useWeights=F) {
+  report$groups = report[[groupBy]]
   report$X <- report[[X]]
   if ( useWeights )
     report$weight = 1 / report$X^2
@@ -99,7 +100,7 @@ plotCmdByX <- function(report, X, includeFacet = F, groups = gatk, logUnit = 10,
   p = p + geom_boxplot(aes(group=interaction(X, groups)))
   p
 }
-#plotByNT(allReports$CombineVariants.nt)
+#plotByNSamples(allReports$UnifiedGenotyper)
 
 plotNormalizedByNSamples <- function(report) {
   norm = ddply(report, .(nSamples, assessment), transform, normRuntime = runtime / mean(runtime))
