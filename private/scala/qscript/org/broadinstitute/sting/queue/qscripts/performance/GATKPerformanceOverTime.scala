@@ -156,6 +156,7 @@ class GATKPerformanceOverTime extends QScript {
         ug.intervalsString :+= manyDeepExomeIntervals
         ug.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> "manyDeepExomes"))
         ug.jarFile = gatkJar
+        ug.glm = GenotypeLikelihoodsCalculationModel.Model.SNP
         ug.memoryLimit = 16
         ug
       }
