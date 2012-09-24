@@ -94,14 +94,11 @@ overallSummaryTable <- function(reportMetrics, size){
 }
 
 CompSummaryTP <- function(gatkReport) {
-	report <- selectCumulativeMetrics(gatkReport,'FunctionalClass')
 	
+	report <- selectCumulativeMetrics(gatkReport,'FunctionalClass')
 	validationReport <-report$ValidationReport
 	
-	# print("--------------------------- validationReport ----------------------------------------------") 
-    # print(validationReport)
-    # print("-------------------------------------------------------------------------")
-    omni <- subset(validationReport, CompRod=="omni")
+	omni <- subset(validationReport, CompRod=="omni")
     omni_all <- CompSummaryAllSamplesTPByComp(omni)
     omni_all$"Comp" <- "Omni"
     
@@ -122,7 +119,7 @@ CompSummaryFP <- function(gatkReport) {
 	
 	report <- selectCumulativeMetrics(gatkReport,'FunctionalClass')
 	validationReport <- report$ValidationReport
-	   
+    
     omni_mono <- subset(validationReport, CompRod=="omni_mono")
     omni_mono_all <- CompSummaryAllSamplesFPByComp(omni_mono)
     omni_mono_all$"Comp" <- "FP - omni mono"
@@ -136,7 +133,7 @@ CompSummaryFP <- function(gatkReport) {
     
     colnames(table) <- c("Novelty", "Comp","1-specificity")
     table <- subset(table, Novelty != "novel")
-	
+
 	return(table)
 }
 
