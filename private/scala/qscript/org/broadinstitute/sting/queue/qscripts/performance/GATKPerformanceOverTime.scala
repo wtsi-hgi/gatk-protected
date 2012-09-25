@@ -52,6 +52,9 @@ class GATKPerformanceOverTime extends QScript {
   val BIG_VCF_WITH_GENOTYPES_16_COMPATIBLE = new File("/humgen/gsa-hpprojects/GATK/bundle/1.5/b37/1000G_omni2.5.b37.vcf")
   val b37_FILENAME = "human_g1k_v37.fasta"
 
+  val manyDeepExomeSamples = "combined_5022.bam"
+  val manyDeepExomeIntervals = "1:1104385-1684501"
+
   def makeResource(x: String): File = new File("%s/%s".format(resourcesDir, x))
   def makeChunk(x: Int): File = makeResource("chunk_%d.vcf".format(x))
   def COMBINE_FILES: List[File] = Range(1,10).map(makeChunk).toList
@@ -86,13 +89,13 @@ class GATKPerformanceOverTime extends QScript {
 
   object Assessment extends Enumeration {
     type Assessment = Value
-    val UG, UG_NT, CL, CL_NT, CV, CV_NT, VE, VE_NT, SV, BQSR_NT, PRINT_READS_NT = Value
+    val UG, UG_NT, CL, CL_NT, CV, CV_NT, VE, VE_NT, SV, BQSR_NT, PRINT_READS_NT, MANY_SAMPLES_NT = Value
   }
 
-  val NCT_ASSESSMENTS = List(Assessment.UG_NT, Assessment.CL_NT, Assessment.BQSR_NT, Assessment.PRINT_READS_NT)
+  val NCT_ASSESSMENTS = List(Assessment.UG_NT, Assessment.CL_NT, Assessment.BQSR_NT, Assessment.PRINT_READS_NT, Assessment.MANY_SAMPLES_NT)
   def supportsNCT(assessment: Assessment.Assessment) = NCT_ASSESSMENTS contains assessment
 
-  val NO_NT_ASSESSMENTS = List(Assessment.PRINT_READS_NT)
+  val NO_NT_ASSESSMENTS = List(Assessment.PRINT_READS_NT, Assessment.MANY_SAMPLES_NT)
   def supportsNT(assessment: Assessment.Assessment) = ! (NO_NT_ASSESSMENTS contains assessment)
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
@@ -145,6 +148,19 @@ class GATKPerformanceOverTime extends QScript {
         BQSR
       }
       addMultiThreadedTest(gatkName, Assessment.BQSR_NT, makeBQSR, 8) // max nt until BQSR is performant
+    }
+
+    if ( assessments.contains(Assessment.MANY_SAMPLES_NT) ) {
+      def makeUG(): UnifiedGenotyper = {
+        val ug = new Call(makeResource(manyDeepExomeSamples), 1, "manyDeepExomes", false) with UNIVERSAL_GATK_ARGS
+        ug.intervalsString :+= manyDeepExomeIntervals
+        ug.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> "manyDeepExomes"))
+        ug.jarFile = gatkJar
+        ug.glm = GenotypeLikelihoodsCalculationModel.Model.SNP
+        ug.memoryLimit = 16
+        ug
+      }
+      addMultiThreadedTest(gatkName, Assessment.MANY_SAMPLES_NT, makeUG, scaleMem = false)
     }
 
     if ( assessments.contains(Assessment.PRINT_READS_NT) ) {
@@ -244,10 +260,12 @@ class GATKPerformanceOverTime extends QScript {
 
   def addMultiThreadedTest(gatkName: String,
                            assessment: Assessment.Assessment,
-                           makeCommand: () => CommandLineGATK, maxNT : Int = 1000) {
+                           makeCommand: () => CommandLineGATK,
+                           maxNT : Int = 1000,
+                           scaleMem : Boolean = true) {
     if ( ntTests.size >= 1 ) {
       for ( nt <- ntTests ) {
-        if ( nt < maxNT ) {
+        if ( nt <= maxNT ) {
           for ( useNT <- List(true, false) ) {
             if ( ( useNT && supportsNT(assessment)) ||
                  (! useNT && supportsNCT(assessment) && gatkName.contains("v2.cur") )) {
@@ -257,7 +275,8 @@ class GATKPerformanceOverTime extends QScript {
                 cmd.nt = nt
               else
                 cmd.nct = nt
-              cmd.memoryLimit = cmd.memoryLimit * (if ( nt >= 8 ) (if (nt>=16) 4 else 2) else 1)
+              if ( scaleMem )
+                cmd.memoryLimit = cmd.memoryLimit * (if ( nt >= 8 ) (if (nt>=16) 4 else 2) else 1)
               cmd.addJobReportBinding("nt", nt)
               cmd.addJobReportBinding("ntType", if ( useNT ) "nt" else "nct")
               cmd.analysisName = cmd.analysisName + ".nt"
@@ -281,9 +300,9 @@ class GATKPerformanceOverTime extends QScript {
     this.input_file :+= bamList
     this.stand_call_conf = 10.0
     this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
-    this.o = outVCF
     //this.baq = if ( ! skipBAQ && useBaq ) org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE else org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
     @Output(doc="foo") var outVCF: File = new File("/dev/null")
+    this.o = outVCF
   }
 
   class MyCountLoci(@Input(doc="foo") bamList: File, n: Int, name: String) extends CountLoci with UNIVERSAL_GATK_ARGS {
