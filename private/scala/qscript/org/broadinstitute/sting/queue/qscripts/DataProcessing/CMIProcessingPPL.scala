@@ -154,7 +154,6 @@ class CMIProcessingPPL extends QScript {
       val tumorDedup   = swapExt(tumor, ".bam", ".clean.dedup.bam")
       val tumorRecal   = swapExt(tumor, ".bam", ".clean.dedup.recal.bam")
 
-      val tumorTargetIntervals = swapExt(normal, ".bam", ".intervals")
       val tumorMetricsFile     = swapExt(normal, ".bam", ".metrics")
       val tumorPreRecalFile    = swapExt(normal, ".bam", ".pre_recal.table")
       val tumorPostRecalFile   = swapExt(normal, ".bam", ".post_recal.table")
@@ -264,10 +263,10 @@ class CMIProcessingPPL extends QScript {
 
       // BAM pipeline
       if (useBAMs) {
-        val revertedBAM = revertBAM(first, true)
-        add(bwa(generateBWAInputParameters(useBAMs, false), revertedBAM, saiFile1))
+        val revertedBAM = revertBAM(first, removeAlignmentInformation = true)
+        add(bwa(generateBWAInputParameters(useBAMs, isSecondOfPair = false), revertedBAM, saiFile1))
         if (pairEndedAnalysis) {
-          add(bwa(generateBWAInputParameters(true, true), revertedBAM, saiFile2),
+          add(bwa(generateBWAInputParameters(isBAM = true, isSecondOfPair = true), revertedBAM, saiFile2),
               bwa_sam_pe(revertedBAM, revertedBAM, saiFile1, saiFile2, alignedSAM))
         }
         else {
@@ -277,10 +276,10 @@ class CMIProcessingPPL extends QScript {
 
       // FASTQ pipeline
       else {
-        add(bwa(generateBWAInputParameters(false, false), first, saiFile1))
+        add(bwa(generateBWAInputParameters(isBAM = false, isSecondOfPair = false), first, saiFile1))
         if (pairEndedAnalysis) {
           val second = secondOfPairs(i)
-          add(bwa(generateBWAInputParameters(false, true), second, saiFile2),
+          add(bwa(generateBWAInputParameters(isBAM = false, isSecondOfPair = true), second, saiFile2),
               bwa_sam_pe(first, second, saiFile1, saiFile2, alignedSAM))
         }
         else {
