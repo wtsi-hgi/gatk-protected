@@ -39,7 +39,6 @@ import org.broadinstitute.sting.gatk.iterators.ReadTransformer;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
 import org.broadinstitute.sting.utils.classloader.GATKLiteUtils;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
@@ -52,7 +51,6 @@ import org.broadinstitute.sting.utils.recalibration.*;
 import org.broadinstitute.sting.utils.recalibration.covariates.Covariate;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -61,7 +59,6 @@ import java.io.PrintStream;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -191,7 +188,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         int numReadGroups = 0;
         for ( final SAMFileHeader header : getToolkit().getSAMFileHeaders() )
             numReadGroups += header.getReadGroups().size();
-        recalibrationTables = new RecalibrationTables(requestedCovariates, numReadGroups);
+        recalibrationTables = new RecalibrationTables(requestedCovariates, numReadGroups, RAC.RECAL_TABLE_UPDATE_LOG);
 
         recalibrationEngine = initializeRecalibrationEngine();
         recalibrationEngine.initialize(requestedCovariates, recalibrationTables);
