@@ -15,19 +15,25 @@ import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 
 import net.sf.samtools.SAMFileHeader.SortOrder
 
-import org.broadinstitute.sting.queue.util.QScriptUtils
 import org.broadinstitute.sting.queue.function.ListWriterFunction
 import org.broadinstitute.sting.commandline.Hidden
+import io.Source
+import org.broadinstitute.sting.utils.NGSPlatform
+import collection.mutable
 
-class CMIBAMPPL extends QScript {
+class CMIProcessingPipeline extends QScript {
   qscript =>
 
-  /****************************************************************************
+  /*****************************************************************************
     * Required Parameters
     ****************************************************************************/
 
-  @Input(doc="a BAM list of one or more raw BAMs", fullName="bam_list", shortName="bl", required=true)
-  var bamList: File = _
+  @Input(doc="a table with all the necessary information to process the data", fullName="metadata", shortName="m", required=true)
+  var metaData: File = _
+
+  /********************************************************************************
+    * Additional Parameters that the pipeline should have pre-defined in the image
+    *******************************************************************************/
 
   @Input(doc="Reference fasta file", fullName="reference", shortName="R", required=true)
   var reference: File = _
@@ -35,40 +41,23 @@ class CMIBAMPPL extends QScript {
   @Input(doc="DBSNP or known callset to use (must be in VCF format)", fullName="dbsnp", shortName="D", required=true)
   var dbSNP: Seq[File] = Seq()
 
-  /****************************************************************************
-    * Optional Input Parameters
-    ****************************************************************************/
-
-  @Input(doc="List of indices of tumor BAMs", fullName="tumor", shortName="t", required=false)
-  var tumorBAMs: Seq[Int] = _
-
-  @Argument(doc="Perform pair ended analysis", fullName="pair_ended", shortName="pe", required=false)
-  var pairEndedAnalysis: Boolean = false
-
-
-  /****************************************************************************
-    * Additional Parameters
-    ****************************************************************************/
+  @Input(doc="The path to the binary of bwa (usually BAM files have already been mapped - but if you want to remap this is the option)", fullName="path_to_bwa", shortName="bwa", required=false)
+  var bwaPath: File = _
 
   @Input(doc="extra VCF files to use as reference indels for Indel Realignment", fullName="extra_indels", shortName="indels", required=false)
   var indels: Seq[File] = Seq()
 
-  @Input(doc="The path to the binary of bwa (usually BAM files have already been mapped - but if you want to remap this is the option)", fullName="path_to_bwa", shortName="bwa", required=false)
-  var bwaPath: File = _
-
-  @Argument(doc="Use BWASW instead of BWA aln", fullName="use_bwa_sw", shortName="bwasw", required=false)
-  var useBWAsw: Boolean = false
-
-  @Argument(doc="Number of threads BWA should use", fullName="bwa_threads", shortName="bt", required=false)
-  var bwaThreads: Int = 1
-
-  @Argument(doc="Perform validation on the BAM files", fullName="validation", shortName="vs", required=false)
-  var validation: Boolean = false
-
-
   /****************************************************************************
     * Hidden Parameters
     ****************************************************************************/
+  @Hidden
+  @Argument(doc="Use BWASW instead of BWA aln", fullName="use_bwa_sw", shortName="bwasw", required=false)
+  var useBWAsw: Boolean = false
+
+  @Hidden
+  @Argument(doc="Number of threads BWA should use", fullName="bwa_threads", shortName="bt", required=false)
+  var bwaThreads: Int = 1
+
   @Hidden
   @Argument(doc="How many ways to scatter/gather", fullName="scatter_gather", shortName="sg", required=false)
   var nContigs: Int = 0
@@ -81,12 +70,12 @@ class CMIBAMPPL extends QScript {
   @Argument(doc="Run the pipeline in test mode only", fullName = "test_mode", shortName = "test", required=false)
   var testMode: Boolean = false
 
-
-  /****************************************************************************
-    * Global Variables
-    ****************************************************************************/
+  @Hidden
+  @Argument(doc="BWA Parameteres", fullName = "bwa_parameters", shortName = "bp", required=false)
   val bwaParameters: String = " -q 5 -l 32 -k 2 -t 4 -o 1 "
+
   val cleaningExtension: String = ".clean.bam"
+  val headerVersion: String = "#FILE1,FILE2,INDIVIDUAL,SAMPLE,LIBRARY,SEQUENCING,TUMOR,PLATFORM,PLATFORM_UNIT,CENTER,DESCRIPTION,DATE_SEQUENCED"
 
   /****************************************************************************
     * Main script
@@ -94,69 +83,124 @@ class CMIBAMPPL extends QScript {
 
   def script() {
 
-    val bams: Seq[File] = QScriptUtils.createSeqFromFile(bamList)
+    // todo -- preprocess metadata
+    var lanes = Seq[MetaInfo]()
+    var id = 1
+    for (line: String <- Source.fromFile(metaData).getLines()) {
+      if (line.startsWith("#")) {
+        checkMetaDataHeader(line)
+      }
+      else {
+        lanes :+= new MetaInfo(id, line.split(","))
+        id = id + 1
+      }
+    }
 
-    assert(bams.length <= 5, "Current implementation is limited to 5 bams. See source code for details on the n-way out indel cleaning procedure")
+    // todo -- align fastQ's from lanes object
+    val samples = new mutable.HashMap[String, Seq[File]]()
+    for (meta <- lanes) {
+      val bamFile = performAlignment(meta)
+      if (samples.contains(meta.sample)) {
+        samples.put(meta.sample, samples(meta.sample) ++ Seq(bamFile))
+      }
+      else {
+        samples.put(meta.sample, Seq(bamFile))
+      }
+    }
+    // todo -- add optional bam de-multiplexing and re-multiplexing pipeline
 
-//    Alignment cannot be performed at this pipeline because we need the per lane information
-//    to generate a single read group per BAM file and later join them. This will be done in
-//    the raw bam pipeline that precedes this one.
-//    val alnBAMs = performAlignment(bams)
+    var allBAMs = Seq[File]()
+    for ((sample,bams) <- samples) {
+      val sampleBAM = new File(sample + ".bam")
+      allBAMs +:= sampleBAM
+      add(joinBAMs(bams, sampleBAM))
+    }
 
-    clean(bams)
-    for (bam <- bams) {
-      val cleanBAM   = swapExt(bam, ".bam", ".clean.bam")
-      val dedupBAM   = swapExt(bam, ".bam", ".clean.dedup.bam")
-      val recalBAM   = swapExt(bam, ".bam", ".clean.dedup.recal.bam")
-      val reducedBAM = swapExt(bam, ".bam", ".clean.dedup.recal.reduced.bam") 
-
-      // Accessory files
-      val metricsFile     = swapExt(bam, ".bam", ".metrics")
-      val preRecalFile    = swapExt(bam, ".bam", ".pre_recal.table")
-      val postRecalFile   = swapExt(bam, ".bam", ".post_recal.table")
+    clean(allBAMs)
+    for (bam <- allBAMs) {
+      val cleanBAM      = swapExt(bam, ".bam", cleaningExtension)
+      val dedupBAM      = swapExt(bam, ".bam", ".clean.dedup.bam")
+      val recalBAM      = swapExt(bam, ".bam", ".clean.dedup.recal.bam")
+      val reducedBAM    = swapExt(bam, ".bam", ".clean.dedup.recal.reduced.bam")
+      val metricsFile   = swapExt(bam, ".bam", ".metrics")
+      val preRecalFile  = swapExt(bam, ".bam", ".pre_recal.table")
+      val postRecalFile = swapExt(bam, ".bam", ".post_recal.table")
 
       add(dedup(cleanBAM, dedupBAM, metricsFile))
       recalibrate(dedupBAM, preRecalFile, postRecalFile, recalBAM)
       add(reduce(recalBAM, reducedBAM))
-       
     }
   }
 
-//  /****************************************************************************
-//    * Helper classes and methods
-//    ****************************************************************************/
-//
-//  /**
-//   * BWA alignment
-//   *
-//   * @return
-//   */
-//  def performAlignment(bams: Seq[File]): Seq[File] = {
-//    var alnBAMs: Seq[File] = Seq()
-//
-//    for (bam <- bams) {
-//      val ext: String = ".bam"
-//      val saiFile1: File = swapExt(bam, ext, ".1.sai")
-//      val saiFile2: File = swapExt(bam, ext, ".2.sai")
-//      val alnSAM: File   = swapExt(bam, ext, ".sam")
-//      val alnBAM: File   = swapExt(bam, ext, ".aln.bam")
-//
-//      if (pairEndedAnalysis) {
-//        add(bwa(" -b1 ", bam, saiFile1),
-//            bwa(" -b2 ", bam, saiFile2),
-//            bwa_sam_pe(bam, bam, saiFile1, saiFile2, alnSAM))
-//      }
-//      else {
-//        add(bwa(" -b ", bam, saiFile1),
-//            bwa_sam_se(bam, saiFile1, alnSAM))
-//      }
-//      add(sortSam(alnSAM, alnBAM, SortOrder.coordinate))
-//      addReadGroups(alnBAM, new SAMFileReader(alnSAM))
-//      alnBAMs :+= rgBAM
-//    }
-//
-//    alnBAMs
-//  }
+  /****************************************************************************
+    * Helper classes and methods
+    ****************************************************************************/
+
+  private class MetaInfo (
+    val id: Int,
+    val file1: File,
+    val file2: File,
+    val individual: String,
+    val sample: String,
+    val library: String,
+    val sequencing: String,
+    val tumor: Int,
+    val platform: NGSPlatform,
+    val platformUnit: String,
+    val center: String,
+    val description: String,
+    val dateSequenced: String
+  ) {
+    def this(idP: Int, headerArray: Array[String]) =
+      this (
+        idP,
+        new File(headerArray(0)),
+        if (headerArray(1).isEmpty) {null} else {new File(headerArray(1))},
+        headerArray(2),
+        headerArray(3),
+        headerArray(4),
+        headerArray(5),
+        headerArray(6).toInt,
+        NGSPlatform.fromReadGroupPL(headerArray(7)),
+        headerArray(8),
+        headerArray(9),
+        headerArray(10),
+        headerArray(11)
+      )
+    def bamFileName = individual + "." + sample + "." + library + "." + sequencing + "." + id + "." + tumor + ".bam"
+    def readGroupString = "@RG\tID:%d\tCN:%s\tDS:%s\tDT:%s\tLB:%s\tPL:%s\tPU:%s\tSM:%s".format(id, center, description, dateSequenced, library, platform, platformUnit, sample)
+  }
+
+  def checkMetaDataHeader(header: String) {
+    assert(header == headerVersion,
+      String.format("Your header doesn't match the header this version of the pipeline is expecting.\n\tYour header: %s\n\t Our header: %s\n", header, headerVersion))
+  }
+
+
+  /**
+   * BWA alignment for the lane (pair ended or not)
+   *
+   * @return an aligned bam file for the lane
+   */
+  def performAlignment(metaInfo: MetaInfo): File = {
+    val saiFile1: File = new File(metaInfo.file1 + ".1.sai")
+    val saiFile2: File = new File(metaInfo.file2 + ".2.sai")
+    val alnSAM: File   = new File(metaInfo.file1 + ".sam")
+    val alnBAM: File   = new File(metaInfo.bamFileName)
+
+    add(bwa(" ", metaInfo.file1, saiFile1))
+
+    if (!metaInfo.file2.isEmpty) {
+      add(bwa(" ", metaInfo.file2, saiFile2),
+          bwa_sam_pe(metaInfo.file1, metaInfo.file2, saiFile1, saiFile2, alnSAM, metaInfo.readGroupString))
+    }
+    else {
+          add(bwa_sam_se(metaInfo.file1, saiFile1, alnSAM, metaInfo.readGroupString))
+    }
+    add(sortSam(alnSAM, alnBAM, SortOrder.coordinate))
+
+    alnBAM
+  }
 
   def clean(allBAMs: Seq[File]) {
     val bam: File = allBAMs(0)
@@ -205,7 +249,6 @@ class CMIBAMPPL extends QScript {
   }
 
   case class indel (inBAMs: Seq[File], tIntervals: File) extends IndelRealigner with CommandLineGATKArgs {
-    // Generating the output files for Queue to keep track
     // TODO -- THIS IS A WORKAROUND FOR QUEUE'S LIMITATION OF TRACKING LISTS OF FILES (implementation limited to 5 files)
     @Output(doc="first cleaned bam file", required=true) var out1: File = swapExt(inBAMs(0), ".bam", cleaningExtension)
     @Output(doc="first cleaned bam file", required=true) var ind1: File = swapExt(out1, ".bam", ".bai")
@@ -318,23 +361,23 @@ class CMIBAMPPL extends QScript {
     this.jobName = outFQ + ".convert_to_fastq"
   }
 
-  case class bwa_sam_se (inBAM: File, inSai: File, outBAM: File) extends CommandLineFunction with ExternalCommonArgs {
+  case class bwa_sam_se (inBAM: File, inSai: File, outBAM: File, readGroupString: String) extends CommandLineFunction with ExternalCommonArgs {
     @Input(doc="bam file to be aligned") var bam = inBAM
     @Input(doc="bwa alignment index file") var sai = inSai
     @Output(doc="output aligned bam file") var alignedBam = outBAM
-    def commandLine = bwaPath + " samse " + reference + " " + sai + " " + bam + " > " + alignedBam
+    def commandLine = bwaPath + " samse " + reference + " " + sai + " " + bam + " -r \"" + readGroupString + "\" > " + alignedBam
     this.memoryLimit = 6
     this.analysisName = outBAM + ".bwa_sam_se"
     this.jobName = outBAM + ".bwa_sam_se"
   }
 
-  case class bwa_sam_pe (inFile1: File, inFile2: File, inSai1: File, inSai2:File, outBAM: File) extends CommandLineFunction with ExternalCommonArgs {
+  case class bwa_sam_pe (inFile1: File, inFile2: File, inSai1: File, inSai2:File, outBAM: File, readGroupString: String) extends CommandLineFunction with ExternalCommonArgs {
     @Input(doc="bam file to be aligned") var first = inFile1
     @Input(doc="bam file to be aligned") var second = inFile2
     @Input(doc="bwa alignment index file for 1st mating pair") var sai1 = inSai1
     @Input(doc="bwa alignment index file for 2nd mating pair") var sai2 = inSai2
     @Output(doc="output aligned bam file") var alignedBam = outBAM
-    def commandLine = bwaPath + " sampe " + reference + " " + sai1 + " " + sai2 + " " + first + " " + second + " > " + alignedBam
+    def commandLine = bwaPath + " sampe " + reference + " " + sai1 + " " + sai2 + " " + first + " " + second + " -r \"" + readGroupString + "\" > " + alignedBam
     this.memoryLimit = 6
     this.analysisName = outBAM + ".bwa_sam_pe"
     this.jobName = outBAM + ".bwa_sam_pe"
