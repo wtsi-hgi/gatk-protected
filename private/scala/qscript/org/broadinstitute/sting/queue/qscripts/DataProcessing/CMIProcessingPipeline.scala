@@ -59,6 +59,10 @@ class CMIProcessingPipeline extends QScript {
   var bwaThreads: Int = 1
 
   @Hidden
+  @Argument(doc="Number of threads BWA should use", fullName="mem_limit", shortName="mem", required=false)
+  var memLimit: Int = 4
+
+  @Hidden
   @Argument(doc="How many ways to scatter/gather", fullName="scatter_gather", shortName="sg", required=false)
   var nContigs: Int = 0
 
@@ -223,7 +227,7 @@ class CMIProcessingPipeline extends QScript {
 
   // General arguments to non-GATK tools
   trait ExternalCommonArgs extends CommandLineFunction {
-    this.memoryLimit = 4
+    this.memoryLimit = qscript.memLimit
     this.isIntermediate = true
   }
 
@@ -372,8 +376,8 @@ class CMIProcessingPipeline extends QScript {
   }
 
   case class bwa_sam_pe (inFile1: File, inFile2: File, inSai1: File, inSai2:File, outBAM: File, readGroupString: String) extends CommandLineFunction with ExternalCommonArgs {
-    @Input(doc="bam file to be aligned") var first = inFile1
-    @Input(doc="bam file to be aligned") var second = inFile2
+    @Input(doc="First file to be aligned") var first = inFile1
+    @Input(doc="Second file to be aligned") var second = inFile2
     @Input(doc="bwa alignment index file for 1st mating pair") var sai1 = inSai1
     @Input(doc="bwa alignment index file for 2nd mating pair") var sai2 = inSai2
     @Output(doc="output aligned bam file") var alignedBam = outBAM
