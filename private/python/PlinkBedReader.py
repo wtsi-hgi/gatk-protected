@@ -20,6 +20,7 @@ class FileIterator(collections.Iterable):
  def __init__(self,fileHandle,returnClass):
   self.returnClass = returnClass
   self.fileHandle = fileHandle
+  self.nextLine = fileHandle.readline()
 
  def __iter__(self):
   return self
@@ -27,10 +28,22 @@ class FileIterator(collections.Iterable):
  def __next__(self):
   return self.next()
 
+ def __peek__(self):
+  return self.peek()
+
+ def peek(self):
+  if ( self.nextLine == "" ):
+   return None
+  return self.returnClass(self.nextLine)
+
+ def isDone(self):
+  return self.nextLine == ""
+
  def next(self):
-  line = self.fileHandle.readline()
-  if ( line == "" ):
+  if ( self.nextLine == "" ):
    raise StopIteration
+  line = self.nextLine
+  self.nextLine = self.fileHandle.readline()
   return self.returnClass(line)
 
 class ReusableCachedIterator(collections.Iterable):
@@ -46,12 +59,24 @@ class ReusableCachedIterator(collections.Iterable):
 
  def __next__(self):
   return self.next()
+
+ def __peek__(self):
+  return self.peek()
+
+ def peek(self):
+  if ( self.cacheIndex == self.cacheLength ):
+   return None
+  return self.objectCache[self.cacheIndex]
+
  def next(self):
   if ( self.cacheIndex == self.cacheLength ):
    raise StopIteration
   object = self.objectCache[self.cacheIndex]
   self.cacheIndex += 1
   return object 
+
+ def isDone(self):
+  return self.cacheIndex == self.cacheLength
 
  def reset(self):
   self.cacheIndex = 0
@@ -72,10 +97,13 @@ class BedGenotypeIterator(collections.Iterable):
   mode = struct.unpack('b',bedFileHandle.read(1))[0]
   return mode
 
- def __init__(self,fileHandle):
+ def __init__(self,fileHandle,nGenotypesPerMajor):
   self.fileHandle = fileHandle
   self.currentByteDecoded = self.decode(self.fileHandle.read(1))
   self.currentGenotypeOffsetInByte = 0
+  self.nBytesPerMajor = int((3+nGenotypesPerMajor)/4)
+  self.genotypesInFinalByte = nGenotypesPerMajor % 4
+  self.currentByteOfMajor = 1
 
  def __iter__(self):
   return self
@@ -83,10 +111,23 @@ class BedGenotypeIterator(collections.Iterable):
  def __next__(self):
   return self.next()
 
+ def __peek__(self):
+  return self.peek()
+
+ def peek(self):
+  if ( self.currentByteDecoded == None ):
+   return None
+  return self.currentByteDecoded[self.currentGenotypeOffsetInByte]
+
  def next(self):
+  #print(str(self.currentByteOfMajor)+":"+str(self.nBytesPerMajor)+"::"+str(self.currentGenotypeOffsetInByte)+":"+str(self.genotypesInFinalByte-1))
   if ( self.currentByteDecoded == None ):
    raise StopIteration
-  if ( self.currentGenotypeOffsetInByte < 3 ):
+  if ( self.currentByteOfMajor == self.nBytesPerMajor ):
+   nGenotypesInByte = self.genotypesInFinalByte
+  else:
+   nGenotypesInByte = 4
+  if ( self.currentGenotypeOffsetInByte < nGenotypesInByte - 1 ):
    genotype = self.currentByteDecoded[self.currentGenotypeOffsetInByte]
    self.currentGenotypeOffsetInByte += 1
   else:
@@ -99,6 +140,10 @@ class BedGenotypeIterator(collections.Iterable):
    else:
     self.currentByteDecoded = None
     self.currentOffsetInByte = None
+   if ( self.currentByteOfMajor == self.nBytesPerMajor ):
+    self.currentByteOfMajor = 1
+   else:
+    self.currentByteOfMajor += 1
   return genotype
 
  def decode(self,genoByte):
@@ -118,17 +163,16 @@ class PlinkBinaryReader:
   self.bimFile = open(basePath+".bim",'r')
   self.bedFile = open(basePath+".bed",'rb')
   self.mode = BedGenotypeIterator.getMode(self.bedFile) 
-  self.sampleIterator = ReusableCachedIterator(self.famFile,utils.Plink.Sample)
-  if ( self.mode == HeaderMode.SNP_MAJOR ):
-   self.snpIterator = ReusableCachedIterator(self.bimFile,utils.Plink.Variant)
-   self.numMajorGenotypes = self.snpIterator.size()
-   self.currentMinor = self.sampleIterator.next()
-  elif ( self.mode == HeaderMode.INDIVIDUAL_MAJOR ):
-   self.snpIterator = FileIterator(self.bimFile,utils.Plink.Variant)
-   self.numMajorGenotypes = self.sampleIterator.size()
-   self.currentMinor = self.snpIterator.next()
-  self.genotypeIterator = BedGenotypeIterator(self.bedFile)
+  if ( self.mode == HeaderMode.INDIVIDUAL_MAJOR ):
+   self.majorIterator = ReusableCachedIterator(self.famFile,utils.Plink.Sample)
+   self.minorIterator = ReusableCachedIterator(self.bimFile,utils.Plink.Variant)
+  elif ( self.mode == HeaderMode.SNP_MAJOR ):
+   self.majorIterator = FileIterator(self.bimFile,utils.Plink.Variant)
+   self.minorIterator = ReusableCachedIterator(self.famFile,utils.Plink.Sample)
+  self.numGenotypesPerMajor = self.minorIterator.size()
+  self.genotypeIterator = BedGenotypeIterator(self.bedFile,self.numGenotypesPerMajor)
   self.majorOffset = 0
+  print("Major: %s, Minor: %s" % (str(self.majorIterator.peek()),str(self.minorIterator.peek())))
 
  def __iter__(self):
   return self
@@ -141,40 +185,58 @@ class PlinkBinaryReader:
  def __next__(self):
   return self.next()
 
+ def __peek__(self):
+  return self.peek()
+
+ def peek(self):
+  if ( self.majorOffset == None or self.majorIterator.peek() == None ):
+   genotype = None
+  elif ( self.mode == HeaderMode.SNP_MAJOR ):
+   genotype = utils.Plink.Genotype(self.majorIterator.peek(),self.minorIterator.peek(),self.genotypeIterator.peek())
+  else:
+   genotype = utils.Plink.Genotype(self.minorIterator.peek(),self.majorIterator.peek(),self.genotypeIterator.peek())
+  return genotype
+
  def next(self):
-  if ( self.majorOffset == None ):
+  if ( self.majorOffset == None or self.majorIterator.isDone() ):
    raise StopIteration
   try:
    if ( self.mode == HeaderMode.SNP_MAJOR ):
-    genotype = utils.Plink.Genotype(self.snpIterator.next(),self.currentMinor,self.genotypeIterator.next())
+    genotype = utils.Plink.Genotype(self.majorIterator.peek(),self.minorIterator.next(),self.genotypeIterator.next())
    else:
-    genotype = utils.Plink.Genotype(self.currentMinor,self.sampleIterator.next(),self.genotypeIterator.next())
+    genotype = utils.Plink.Genotype(self.minorIterator.next(),self.majorIterator.peek(),self.genotypeIterator.next())
   except StopIteration:
    raise BaseException("Iteration stopped prematurely!")
   self.majorOffset += 1
-  if ( self.majorOffset == self.numMajorGenotypes ):
-    # increment the minor
+  if ( self.majorOffset == self.numGenotypesPerMajor ):
+    # done with the minor genotypes, so need to increment the major
     try:
-     if ( self.mode == HeaderMode.SNP_MAJOR ):
-      self.currentMinor = self.sampleIterator.next()
-      self.snpIterator.reset()
-     else:
-      self.currentMinor = self.snpIterator.next()
-      self.sampleIterator.reset()
+     self.majorIterator.next()
+     self.minorIterator.reset()
      self.majorOffset = 0
     except StopIteration:
-     self.majorOffset = None
+     raise StopIteration 
   return genotype
 
+ def snpMajor(self):
+  return self.mode == HeaderMode.SNP_MAJOR
+
+ def individualMajor(self):
+  return self.mode == HeaderMode.INDIVIDUAL_MAJOR
+ 
  def __getSamples__(self):
   # store the offset of the sample iterator
-  iterOffset = self.sampleIterator.cacheIndex
+  if ( self.mode == HeaderMode.SNP_MAJOR ):
+   sampleIterator = self.minorIterator
+  else:
+   raise BaseError("Not implemented: getSamples for individual-major mode")
+  iterOffset = sampleIterator.cacheIndex
   # set the index to 0
-  self.sampleIterator.cacheIndex = 0
+  sampleIterator.cacheIndex = 0
   # read the samples into a list
-  samples = [s for s in self.sampleIterator]
+  samples = [s for s in sampleIterator]
   # reset the offset
-  self.sampleIterator.cacheIndex = iterOffset
+  sampleIterator.cacheIndex = iterOffset
   # return samples
   return samples
 

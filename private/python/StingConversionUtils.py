@@ -129,6 +129,11 @@ class Plink:
             Plink.Genotype.Type.HET : 1,
             Plink.Genotype.Type.HOM_VAR : 2 }[genotype.type]
 
+  def __str__(self):
+   return "%s:%s:%s" % (str(self.sample),str(self.variant),str(self.type))
+
+ ## todo -- there is no appropriate way to sort on PLINK variants unless the whole bim file is read in
+ ## to establish contig order. Since we deal with human, assume standard 1-22,X,Y,MT
  class Variant:
   def __init__(self,bimLine):
    (chr,id,cm,pos,ref,alt) = bimLine.strip().split()
@@ -142,6 +147,41 @@ class Plink:
   def __repr__(self):
    return "Variant: (%s,%s)" %(self.chr,self.pos)
 
+  def __lt__(self,other):
+   if ( self.chr2int(self.chr) < self.chr2int(other.chr) ):
+    return True
+   elif ( int(self.pos) < int(other.pos) ):
+    return True
+   return False
+
+  def __eq__(self,other):
+   if ( other == None ):
+    return False
+   if ( self.chr2int(self.chr) == self.chr2int(other.chr) ):
+    return int(self.pos) == int(other.pos)
+   return False
+
+  def __hash__(self):
+   return self.chr.__hash__() ^ self.pos.__hash__()
+
+  def distanceTo(self,other):
+   if ( self.chr != other.chr ):
+    return 500000000
+   else:
+    return abs(int(other.pos)-int(self.pos))
+
+  def chr2int(self,c):
+   try:
+    return int(c)
+   except ValueError:
+    if ( c == "X" ):
+     return 23
+    if ( c == "Y" ):
+      return 24
+    if ( c == "MT" ):
+      return 25
+   raise BaseError("Currently works only for contigs 1-22,X,Y,MT. Try removing the 'chr' prefix? Exceptioning Contig "+c)
+
  class Sample:
   def __init__(self,famLine):
    (famid,id,patid,matid,sex,pheno) = famLine.strip().split()[0:6]
@@ -154,4 +194,10 @@ class Plink:
 
   def __repr__(self):
    return "Sample: (%s,%s)" % (self.family_id,self.individual_id)
+
+  def __hash__(self):
+   return self.individual_id.__hash__()
+
+  def __eq__(self,other):
+   return repr(self)==repr(other)
 

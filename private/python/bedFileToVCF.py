@@ -38,8 +38,8 @@ def writeHeader(outVCF,inBed,args):
  fields.extend(map(lambda x: x.individual_id,pb.getSamples(inBed)))
  outVCF.write("#%s\n" % ("\t".join(fields)))
 
-def writeBody(outVCF,inBed):
- curVariant = None
+def writeBodySNPMajor(outVCF,inBed):
+ curVariant = inBed.peek().variant
  formattedGenotypes = list()
  alleleCount = 0
  alleleNumber = 0
@@ -55,10 +55,10 @@ def writeBody(outVCF,inBed):
    # dump the logged variant
    if ( curVariant != None ):
     info = "%s;%s;%s" % ("%s=%d" %   (VCFBodyConstants.acKey,alleleCount),
-                         "%s=%.3f" % (VCFBodyConstants.afKey,float(alleleCount)/alleleNumber),
+                         "%s=%.3f" % (VCFBodyConstants.afKey,float(alleleCount)/alleleNumber if alleleNumber > 0 else 0.0),
                          "%s=%d" %   (VCFBodyConstants.anKey,alleleNumber))
     outVCF.write("%s\t%s\n" % 
-       (VCFBodyConstants.getStandardFields(variant.chr,variant.pos,variant.id,variant.ref,variant.alt,info),
+       (VCFBodyConstants.getStandardFields(curVariant.chr,curVariant.pos,curVariant.id,curVariant.ref,curVariant.alt,info),
         "\t".join(formattedGenotypes)))
    # reset data
    formattedGenotypes = list()
@@ -69,7 +69,25 @@ def writeBody(outVCF,inBed):
    alleleCount += genotype.getDosage()
    alleleNumber += 0 if genotype.isNoCall() else 2
    formattedGenotypes.append(utils.plinkGenotypeToVCFString(genotype))
- if ( curVariant != None ):
+
+def writeBodyIndividualMajor(outVCF,inBed):
+ # the annoying thing is reading in the full information and transposing
+ individualBySnp = dict()
+ for genoype in inBed:
+  if ( genotype.variant not in individualBySNP ):
+   individualBySnp[genotype.variant] = list()
+  individualBySnp[genotype.variant].append(genotype)
+ # now march down the snps and output them
+ snps = individualBySnp.keys()
+ snps.sort()
+ for snp in snps:
+  alleleCount = 0
+  alleleNumber = 0
+  formattedGenotypes = list()
+  for genotype in individualBySnp[snp]:
+   alleleCount += genotype.getDosage()
+   alleleNumber += 0 if genotype.isNoCall() else 2
+   formattedGenotypes.append(utils.plinkGenotypeToVCFString(genotype))
   info = "%s;%s;%s" % ("%s=%d" %   (VCFBodyConstants.acKey,alleleCount),
                        "%s=%.3f" % (VCFBodyConstants.afKey,float(alleleCount)/alleleNumber),
                        "%s=%d" %   (VCFBodyConstants.anKey,alleleNumber))
@@ -80,7 +98,10 @@ def runMain():
  vcfOutput = open(args.vcf,'w')
  bedReader = pb.getReader(args.bedBase)
  writeHeader(vcfOutput,bedReader,args)
- writeBody(vcfOutput,bedReader)
+ if ( bedReader.snpMajor() ):
+  writeBodySNPMajor(vcfOutput,bedReader)
+ else:
+  writeBodyIndividualMajor(vcfOutput,bedReader)
 
 if __name__ == '__main__':
  runMain()
