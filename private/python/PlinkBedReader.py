@@ -21,6 +21,7 @@ class FileIterator(collections.Iterable):
   self.returnClass = returnClass
   self.fileHandle = fileHandle
   self.nextLine = fileHandle.readline()
+  self.nextLineCache = None
 
  def __iter__(self):
   return self
@@ -34,7 +35,9 @@ class FileIterator(collections.Iterable):
  def peek(self):
   if ( self.nextLine == "" ):
    return None
-  return self.returnClass(self.nextLine)
+  if ( self.nextLineCache == None ):
+   self.nextLineCache = self.returnClass(self.nextLine)
+  return self.nextLineCache
 
  def isDone(self):
   return self.nextLine == ""
@@ -42,9 +45,13 @@ class FileIterator(collections.Iterable):
  def next(self):
   if ( self.nextLine == "" ):
    raise StopIteration
-  line = self.nextLine
+  if ( self.nextLineCache == None ):
+   curObj = self.returnClass(self.nextLine)
+  else:
+   curObj = self.nextLineCache
   self.nextLine = self.fileHandle.readline()
-  return self.returnClass(line)
+  self.nextLineCache = None
+  return curObj 
 
 class ReusableCachedIterator(collections.Iterable):
  '''A class for reading in file information and iterating over the cached information,looping back to the top'''
@@ -103,6 +110,8 @@ class BedGenotypeIterator(collections.Iterable):
   self.currentGenotypeOffsetInByte = 0
   self.nBytesPerMajor = int((3+nGenotypesPerMajor)/4)
   self.genotypesInFinalByte = nGenotypesPerMajor % 4
+  if ( self.genotypesInFinalByte == 0 ):
+   self.genotypesInFinalByte = 4
   self.currentByteOfMajor = 1
 
  def __iter__(self):

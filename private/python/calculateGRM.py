@@ -68,11 +68,11 @@ def streamAndLocalCorrect(args,reader):
 
 def getCorrectedDosagesDebug(responseVar,predictorVar):
  # just pass the response through normally, subtracting the mean
- respArray = numpy.array(list(map(lambda u: float(u.getDosage()),responseVar[1])))
- mean = numpy.sum(respArray)/respArray.size
+ calledGenotypes = numpy.array(list(map(lambda u: float(u.getDosage()), filter(lambda z: z != -1, responseVar[1]))))
+ mean = numpy.sum(calledGenotypes)/calledGenotypes.size
  var = math.sqrt(mean*(1.0-mean))
- respArray -= mean
- respArray /= var
+ respArray = numpy.array(list(map(lambda u: (float(u.getDosage())-mean)/var if u.getDosage() > -1 else -1,responseVar[1])))
+ # calculate the mean only after filtering out the no-calls
  return (responseVar[0], respArray)
 
 ##NEEDS_TEST
@@ -268,9 +268,9 @@ def printGRMFromDosages(args,correctedDosages):
  out = open(args.grm,'w')
  # the dosages come in as a list of lists, where correctedDosages[i] are the dosages for snp [i]. So for dosages[i][j] we need to iterate over [j] first.
  for samIdx1 in range(len(dosages[0])):
-  for samIdx2 in range(samIdx1):
+  for samIdx2 in range(samIdx1+1):
    nVariants,relatedness = calcDistance(samIdx1,samIdx2,correctedDosages)
-   out.write("%d\t%d\t%d\t%.8e\n" % (samIdx1,samIdx2,nVariants,relatedness))
+   out.write("%d\t%d\t%d\t%.8e\n" % (1+samIdx1,1+samIdx2,nVariants,relatedness))
 
 def calcDistance(idx1,idx2,dosages):
  # compute the relatedness between sample 1 and sample 2, given the dosages
@@ -290,8 +290,9 @@ def calcDistance(idx1,idx2,dosages):
  ## for now - don't bother normalizing. The mean dosage should already be 0, from the regression.
  # todo -- make the behavior togglable via a command line argument.
  # todo -- this is just an inner product. numpy should be able to speed it up.
- numVar = len(dosages)
- return (numVar,sum(map(lambda x: dosages[x][idx1]*dosages[x][idx2],range(numVar)))/numVar)
+ varIdx = range(len(dosages))
+ numCalled = len(list(filter(lambda x: dosages[x][idx1] != -1 and dosages[x][idx2] != -1, varIdx)))
+ return (numCalled,sum(map(lambda x: dosages[x][idx1]*dosages[x][idx2] if dosages[x][idx1] != -1 and dosages[x][idx2] != -1 else 0 ,varIdx))/numCalled)
 
 def assertArgsAreGood(args):
  """ Assert that the command line arguments are within expected parameters.

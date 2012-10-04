@@ -119,13 +119,17 @@ class Plink:
    self.sample = sample
    self.variant = variant
    self.type = type
+   self.dosage = Plink.Genotype.__getDosage__(self)
+
+  def getDosage(self):
+   return self.dosage
 
   def isNoCall(genotype):
    return genotype.type == Plink.Genotype.Type.NO_CALL
 
-  def getDosage(genotype):
+  def __getDosage__(genotype):
    return { Plink.Genotype.Type.HOM_REF : 0,
-            Plink.Genotype.Type.NO_CALL : 0,
+            Plink.Genotype.Type.NO_CALL : -1,
             Plink.Genotype.Type.HET : 1,
             Plink.Genotype.Type.HOM_VAR : 2 }[genotype.type]
 
@@ -137,28 +141,29 @@ class Plink:
  class Variant:
   def __init__(self,bimLine):
    (chr,id,cm,pos,ref,alt) = bimLine.strip().split()
-   self.chr = chr
-   self.pos = pos
+   self.chr = self.chr2int(chr)
+   self.chrStr = chr
+   self.pos = int(pos)
    self.id = id
    self.cm = cm
    self.ref = ref
    self.alt = alt
 
   def __repr__(self):
-   return "Variant: (%s,%s)" %(self.chr,self.pos)
+   return "Variant: (%d,%d)" %(self.chr,self.pos)
 
   def __lt__(self,other):
-   if ( self.chr2int(self.chr) < self.chr2int(other.chr) ):
+   if ( self.chr < other.chr ):
     return True
-   elif ( int(self.pos) < int(other.pos) ):
+   elif ( self.pos < other.pos ):
     return True
    return False
 
   def __eq__(self,other):
    if ( other == None ):
     return False
-   if ( self.chr2int(self.chr) == self.chr2int(other.chr) ):
-    return int(self.pos) == int(other.pos)
+   if ( self.chr == other.chr ):
+    return self.pos == other.pos
    return False
 
   def __hash__(self):
@@ -168,7 +173,7 @@ class Plink:
    if ( self.chr != other.chr ):
     return 500000000
    else:
-    return abs(int(other.pos)-int(self.pos))
+    return abs(other.pos-self.pos)
 
   def chr2int(self,c):
    try:
