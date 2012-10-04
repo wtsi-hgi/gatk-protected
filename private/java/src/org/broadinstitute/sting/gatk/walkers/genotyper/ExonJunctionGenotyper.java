@@ -345,13 +345,13 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             VariantContext asCon = vcb.make();
             GenotypesContext genAssigned = VariantContextUtils.assignDiploidGenotypes(asCon);
             vcb.genotypes(genAssigned);
-            final double[] normalizedPosteriors = UnifiedGenotyperEngine.generateNormalizedPosteriors(result, new double[2]);
-            logger.debug(normalizedPosteriors[0]);
+            final double pOfF0 = result.getNormalizedPosteriorOfAFzero();
+            logger.debug(pOfF0);
             double log10err;
-            if ( Double.isInfinite(normalizedPosteriors[0]) ) {
+            if ( Double.isInfinite(pOfF0) ) {
                 log10err = result.getLog10LikelihoodOfAFzero();
             } else {
-                log10err = normalizedPosteriors[0];
+                log10err = pOfF0;
             }
             vcb.log10PError(log10err);
             attributes.put("MLEAC",result.getAlleleCountsOfMLE()[0]);
