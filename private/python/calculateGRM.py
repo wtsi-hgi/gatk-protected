@@ -24,6 +24,8 @@ def parseArgs():
          help="The minimum frequency of a variant to use for local/global LD correction")
  parser.add_argument("-maxFrequencyCorrect",action='store',default=1.0-1e-7,type=float,dest="maxFrequencyCorrect",required=False,
          help="The maximum frequency of a variant to use for local/global LD correction")
+ parser.add_argument("-naCorrect",action='store_true',dest="naCorrect",required=False,
+         help="Replace missing genotype values with the mean dosage (2 x p) rather than ignoring them")
  return parser.parse_args()
 
 ## stream in the SNPs, break them into bins of "independent correctors" and "dependent genotypes", and run a correction
@@ -43,7 +45,7 @@ def streamAndLocalCorrect(args,reader):
  dosages = dict()
  individualMissingCalculate = dict()
  individualMissingCorrect = dict()
- genotypes = getNextVariant(reader)
+ genotypes = getNextVariant(reader,args)
  # this is a 3-ple: (PlinkVariant,List[PlinkGenotype],List[Int])
  siteNo = 0 
  while ( genotypes != None and len(dependentGenotypeIntervals) > 0):
@@ -58,7 +60,7 @@ def streamAndLocalCorrect(args,reader):
    varsToCorrectWith = regressionVariants[1]
    correctedVar,correctedDosages = getCorrectedDosagesDebug(varToCorrect,varsToCorrectWith) 
    dosages[correctedVar] = correctedDosages
-  genotypes = getNextVariant(reader)
+  genotypes = getNextVariant(reader,args)
   siteNo += 1
  # there may yet be intervals not totally complete
  for completedVariant in findCompletedVariants(dependentGenotypeIntervals,regressorVariants,variantsToCorrect,args.localCorrectionBP):
@@ -262,10 +264,11 @@ def calcDistanceToInterval(var,interval):
 def getIntervals(intervalFile):
  return list(map(lambda y: (y[0],int(y[1]),int(y[2])), map(lambda x: x.strip().split(), open(intervalFile).readlines())))
 
-def getNextVariant(reader):
+def getNextVariant(reader,args):
  """ Given a plink binary bed file reader (in SNP major mode), aggregates genotypes across individuals until the whole variant has been accumulated.
      Genotypes are not necessary at this point: only dosages. Thus the genotype objects are discarded in favor of doubles.
      @reader - a plink binary reader
+     @args - the command line arguments. For deciding whether to correct missing dosages, or keep track of them.
      @return - a 3ple: (Variant, List[Double], List[Int]) of the Variant object representing the site information, a list of genotype dosages (converted to a numpy array),
                   and a list of individuals missing genotypes (by index)
  """
@@ -291,6 +294,9 @@ def getNextVariant(reader):
    sIdx += 1
   freq = sumDos/an
   variant.frequency = freq
+  if ( args.naCorrect ):
+   for t in missing:
+    genotypes[t] = 2*freq
   return (variant,numpy.array(genotypes),missing)
  except StopIteration:
   return None
@@ -327,10 +333,10 @@ def printGRMFromDosages(args,correctedDosageMap,individualMissingDosages):
  # the dosages come in as a list of lists, where correctedDosages[i] are the dosages for snp [i]. So for dosages[i][j] we need to iterate over [j] first.
  for samIdx1 in range(correctedDosages[0,:].size):
   for samIdx2 in range(samIdx1+1):
-   nVariants,relatedness = calcDistance(samIdx1,samIdx2,correctedDosages,individualMissingDosages)
+   nVariants,relatedness = calcDistance(samIdx1,samIdx2,correctedDosages,individualMissingDosages,args)
    out.write("%d\t%d\t%d\t%.8e\n" % (1+samIdx1,1+samIdx2,nVariants,relatedness))
 
-def calcDistance(idx1,idx2,dosages,missing):
+def calcDistance(idx1,idx2,dosages,missing,args):
  # compute the relatedness between sample 1 and sample 2, given the dosages
  # dosages come in as a matrix dosage[snp][sample] = value
  ## note on this calculation:
@@ -358,24 +364,23 @@ def calcDistance(idx1,idx2,dosages,missing):
   sam12missing.update(missing[idx1])
  if ( idx2 in missing ):
   sam12missing.update(missing[idx2])
- sam12missing = list(sam12missing)
- # extract the values
- sam1val = sam1Dos[sam12missing]
- sam2val = sam2Dos[sam12missing]
- # set values to 0
- print(sam1Dos.getT())
- print(sam12missing)
- sam1Dos[sam12missing] = 0
- sam2Dos[sam12missing] = 0
- print(sam1Dos.getT())
+ if ( not args.naCorrect ):
+  sam12missing = list(sam12missing)
+  # extract the values
+  sam1val = sam1Dos[sam12missing]
+  sam2val = sam2Dos[sam12missing]
+  # set values to 0
+  sam1Dos[sam12missing] = 0
+  sam2Dos[sam12missing] = 0
  # inner product
  dist = numpy.dot(sam1Dos.getT(),sam2Dos)[0]
  # normalize
  nVar = sam1Dos.size - len(sam12missing)
  dist /= nVar
- # revert the values
- sam1Dos[sam12missing] = sam1val
- sam2Dos[sam12missing] = sam2val
+ if ( not args.naCorrect ):
+  # revert the values
+  sam1Dos[sam12missing] = sam1val
+  sam2Dos[sam12missing] = sam2val
  # return
  return (nVar,dist) 
 

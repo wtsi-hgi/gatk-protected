@@ -129,7 +129,6 @@ class BedGenotypeIterator(collections.Iterable):
   return self.currentByteDecoded[self.currentGenotypeOffsetInByte]
 
  def next(self):
-  #print(str(self.currentByteOfMajor)+":"+str(self.nBytesPerMajor)+"::"+str(self.currentGenotypeOffsetInByte)+":"+str(self.genotypesInFinalByte-1))
   if ( self.currentByteDecoded == None ):
    raise StopIteration
   if ( self.currentByteOfMajor == self.nBytesPerMajor ):
@@ -142,7 +141,6 @@ class BedGenotypeIterator(collections.Iterable):
   else:
    genotype = self.currentByteDecoded[self.currentGenotypeOffsetInByte]
    nextByte = self.fileHandle.read(1)
-   #print("Next byte: "+str(nextByte))
    if ( nextByte != b"" ):
     self.currentByteDecoded = self.decode(nextByte)
     self.currentGenotypeOffsetInByte = 0
@@ -181,7 +179,6 @@ class PlinkBinaryReader:
   self.numGenotypesPerMajor = self.minorIterator.size()
   self.genotypeIterator = BedGenotypeIterator(self.bedFile,self.numGenotypesPerMajor)
   self.majorOffset = 0
-  print("Major: %s, Minor: %s" % (str(self.majorIterator.peek()),str(self.minorIterator.peek())))
 
  def __iter__(self):
   return self
