@@ -10,7 +10,9 @@ import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
 import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.report.*;
+import org.broadinstitute.sting.gatk.report.GATKReport;
+import org.broadinstitute.sting.gatk.report.GATKReportColumn;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.*;
@@ -333,7 +335,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             AlleleFrequencyCalculationResult result = new AlleleFrequencyCalculationResult(1);
             double[] prior = computeAlleleFrequencyPriors(GLs.size()*2+1);
             // gls, num alt, priors, result, preserve
-            ExactAFCalculationModel.linearExactMultiAllelic(GLs,1,prior,result);
+            DiploidExactAFCalculation.linearExactMultiAllelic(GLs, 1, prior, result);
             VariantContextBuilder vcb = new VariantContextBuilder("EJG",refPos.getContig(),refPos.getStop(),refPos.getStop(),Arrays.asList(ref,alt));
             vcb.genotypes(GLs);
             List<Allele> alleles = new ArrayList<Allele>(2);
@@ -343,13 +345,13 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             VariantContext asCon = vcb.make();
             GenotypesContext genAssigned = VariantContextUtils.assignDiploidGenotypes(asCon);
             vcb.genotypes(genAssigned);
-            final double[] normalizedPosteriors = UnifiedGenotyperEngine.generateNormalizedPosteriors(result, new double[2]);
-            logger.debug(normalizedPosteriors[0]);
+            final double pOfF0 = result.getNormalizedPosteriorOfAFzero();
+            logger.debug(pOfF0);
             double log10err;
-            if ( Double.isInfinite(normalizedPosteriors[0]) ) {
+            if ( Double.isInfinite(pOfF0) ) {
                 log10err = result.getLog10LikelihoodOfAFzero();
             } else {
-                log10err = normalizedPosteriors[0];
+                log10err = pOfF0;
             }
             vcb.log10PError(log10err);
             attributes.put("MLEAC",result.getAlleleCountsOfMLE()[0]);
