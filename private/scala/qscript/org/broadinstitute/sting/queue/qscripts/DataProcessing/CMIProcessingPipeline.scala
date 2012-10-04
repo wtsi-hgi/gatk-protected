@@ -208,7 +208,7 @@ class CMIProcessingPipeline extends QScript {
 
   def clean(allBAMs: Seq[File]) {
     val bam: File = allBAMs(0)
-    val targetIntervals = swapExt(bam, ".bam", ".cleaning_intervals")
+    val targetIntervals = swapExt(bam, ".bam", ".cleaning.interval_list")
     add(target(allBAMs, targetIntervals), indel(allBAMs, targetIntervals))
   }
 
@@ -266,7 +266,13 @@ class CMIProcessingPipeline extends QScript {
     @Output(doc="first cleaned bam file", required=false) var ind5: File = if (inBAMs.length >= 2) {swapExt(out5, ".bam", ".bai")} else {null}
     this.input_file = inBAMs
     this.targetIntervals = tIntervals
-    this.nWayOut = cleaningExtension
+
+    // FIXME - nWayOut doesn't seem to work, for now really only support single sample BAMs
+    if (inBAMs.length == 1) {
+      this.o = out1
+    } else {
+      this.nWayOut = cleaningExtension
+    }
     this.known ++= qscript.dbSNP
     if (qscript.indels != null)
       this.known ++= qscript.indels
@@ -382,7 +388,7 @@ class CMIProcessingPipeline extends QScript {
     @Input(doc="bwa alignment index file for 2nd mating pair") var sai2 = inSai2
     @Output(doc="output aligned bam file") var alignedBam = outBAM
     def commandLine = bwaPath + " sampe " + reference + " " + sai1 + " " + sai2 + " " + first + " " + second + " -r \"" + readGroupString + "\" > " + alignedBam
-    this.memoryLimit = 6
+    this.memoryLimit = 1
     this.analysisName = outBAM + ".bwa_sam_pe"
     this.jobName = outBAM + ".bwa_sam_pe"
   }
