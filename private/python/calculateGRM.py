@@ -1,3 +1,4 @@
+import cProfile
 import PlinkBedReader as PlinkReader
 import argparse
 import numpy
@@ -40,13 +41,15 @@ def streamAndLocalCorrect(args,reader):
  regressorVariants = list()
  variantsToCorrect = list() 
  dosages = dict()
- genotypes = getNextVariant(reader) 
- # this is a 2-ple: (PlinkVariant,List[PlinkGenotype])
- siteNo = 1
+ individualMissingCalculate = dict()
+ individualMissingCorrect = dict()
+ genotypes = getNextVariant(reader)
+ # this is a 3-ple: (PlinkVariant,List[PlinkGenotype],List[Int])
+ siteNo = 0 
  while ( genotypes != None and len(dependentGenotypeIntervals) > 0):
-  if ( siteNo % 1000 == 0 ):
+  if ( siteNo % 10000 == 1 ):
    print("read : "+str(siteNo) + " at : " + str(genotypes[0].pos) + " accum : "+str(len(regressorVariants))+ " compute : "+str(len(variantsToCorrect)))
-  accumulateVariant(genotypes,regressorVariants,variantsToCorrect,dependentGenotypeIntervals,args.localCorrectionBP) 
+  accumulateVariant(genotypes,regressorVariants,variantsToCorrect,dependentGenotypeIntervals,args.localCorrectionBP,args,individualMissingCalculate,individualMissingCorrect) 
   doneIntervals = removeStaleIntervals(genotypes[0],regressorVariants,dependentGenotypeIntervals,args.localCorrectionBP)
   completedVariants = findCompletedVariants(doneIntervals,regressorVariants,variantsToCorrect,args.localCorrectionBP)
   removeStaleVariants(doneIntervals,dependentGenotypeIntervals,regressorVariants,variantsToCorrect,args.localCorrectionBP) 
@@ -64,15 +67,24 @@ def streamAndLocalCorrect(args,reader):
   correctedVar,correctedDosages = getCorrectedDosagesDebug(varToCorrect,varsToUse)
   dosages[correctedVar]=correctedDosages
   # why is this a map?  
- return dosages
+ return (dosages,individualMissingCalculate)
 
 def getCorrectedDosagesDebug(responseVar,predictorVar):
+ """ A debug version of getCorrectedDosages that does not do regression, but only corrects by the mean and variance of the response.
+     No-calls are not dealt with here. In the non-debug version, they are replaced with mean values (2*variant.frequency) prior to regression.
+     Missing-value indeces are not propagated forward, as they are maintained (in a more useful orientation) by individual missing dictionaries.
+     @responseVar - a 3ple (Variant,numpy.array[Double],List[Int]) of the GRM-relevant variant site, its dosages, and the list of individuals that are missing values
+     @predictorVar - a List[(Variant,numpy.array[Double],List[Int])] of the LD-correction predictor variant sites, their dosages, and thier missing individuals lists
+     @return - a 2ple (Variant,numpy.array[Double]) where, if the frequency of the site is f, the dosages have been corrected by (x-f)/sqrt(f(1-f))
+ """
  # just pass the response through normally, subtracting the mean
- calledGenotypes = numpy.array(list(map(lambda u: float(u.getDosage()), filter(lambda z: z != -1, responseVar[1]))))
- mean = numpy.sum(calledGenotypes)/calledGenotypes.size
- var = math.sqrt(mean*(1.0-mean))
- respArray = numpy.array(list(map(lambda u: (float(u.getDosage())-mean)/var if u.getDosage() > -1 else -1,responseVar[1])))
- # calculate the mean only after filtering out the no-calls
+ mean = responseVar[0].frequency
+ if ( mean < 1e-9 or mean > 1-1e-9 ):
+  std = 1
+ else:
+  std = math.sqrt(2*mean*(1.0-mean))
+ mean = 2*responseVar[0].frequency
+ respArray = (responseVar[1] - mean)/std
  return (responseVar[0], respArray)
 
 ##NEEDS_TEST
@@ -137,19 +149,24 @@ def getRegressionVariants(variant,accumulator,distance):
    nearVariants.append(v)
  return (variant,nearVariants) 
  
-def accumulateVariant(genotypes,correctorVariantsList,variantsToCorrectList,intervalsToCorrectList,distance):
+def accumulateVariant(genotypes,correctorVariantsList,variantsToCorrectList,intervalsToCorrectList,distance,args,individualMissingCalculate,individualMissingCorrect):
  """ Takes a variant genotype and identifies the correct bin in which to put it. This identification is solely dependent on
      the distance between the variant and its closest interval. In particular:
       + > @distance BP == ignore
       + <= @distance BP, but > 0bp == it is a corrector variant
       + =0 BP == it is a variant to correct
-     @genotypes - The variant site and genotypes to place into bin. A 2-ple (PlinkVariant,List[PlinkGenotype]).
-     @correctorVariantsList - the list of variants to use for downstream genotype correction. A list: List[(PlinkVariant,List[PlinkGenotype])]
-     @variantsToCorrectList - the list of variants to correct and get dosages for during downstream correction. A list: List[(PlinkVariant,List[PlinkGenotype])]
+     @genotypes - The variant site and genotypes to place into bin. A 3-ple (PlinkVariant,List[Double],List[Int]).
+     @correctorVariantsList - the list of variants to use for downstream genotype correction. A list: List[(PlinkVariant,List[Double])]
+     @variantsToCorrectList - the list of variants to correct and get dosages for during downstream correction. A list: List[(PlinkVariant,List[Double])]
      @intervalsToCorrectList - the list of intervals that determine which variants to correct. A list: List[(String,Int,Int)]
      @distance - the number of BP from the start or end of an interval for which variants should be used for local correction. An Int.
+     @args - the command line arguments (for minimum and maximum frequency cutoffs)
+     @individualMissingCalculate - a dict { Int -> List[Int] } mapping individual indeces to indeces of variants in variantsToCorrectList that are missing genotypes
+     @individualMissingCorrect - a dict { Int -> List[Int] } mapping individual indeces to indeces of variants in correctorVariantsList that are missing genotypes
+     @return - none
+     @sideEffects - Update one of (@correctorVariantsList,@individualMissingCorrect) or (@variantsToCorrectList,@individualMissingCalculate)
  """
- freq = sum(map(lambda x: x.getDosage(),genotypes[1]))/len(genotypes[1])
+ freq = genotypes[0].frequency 
  inInterval = False
  nearInterval = False
  variant = genotypes[0] # get the PlinkVariant
@@ -172,8 +189,23 @@ def accumulateVariant(genotypes,correctorVariantsList,variantsToCorrectList,inte
    continue
  if ( inInterval and freq < args.maxFrequency and freq > args.minFrequency ):
   variantsToCorrectList.append(genotypes)
+  updateMissing(individualMissingCalculate,genotypes[2],len(variantsToCorrectList)-1)
  elif ( nearInterval and freq < args.maxFrequencyCorrect and freq > args.minFrequencyCorrect ):
   correctorVariantsList.append(genotypes)
+  updateMissing(individualMissingCorrect,genotypes[2],len(correctorVariantsList)-1)
+
+def updateMissing(individualMissingMap,individualIndeces,variantIdx):
+ """ For each individual in @individualIndeces, appends @variantIdx to the list of missing genotypes (by site) in the missing map
+     @individualMissingMap - a dict { Int -> List[Int] } mapping individual indeces to indeces of variants that are missing genotypes
+     @individualIndeces - a List[Int] of individual indeces that are missing this locus
+     @variantIdx - the index of this locus
+     @return - nothing
+     @sideEffect - individualMissingMap is updated
+ """
+ for iIdx in individualIndeces:
+  if ( iIdx not in individualMissingMap ):
+   individualMissingMap[iIdx] = list()
+  individualMissingMap[iIdx].append(variantIdx)
 
 def removeStaleIntervals(variant,correctorVariantsList,intervalsToCorrectList,distance):
  """ Examine the lists to identify, remove, and return intervals that are stale (e.g. intervals far enough from varaints as to never include a variant again)
@@ -216,9 +248,9 @@ def removeStaleVariants(completedIntervalsList,remainingIntervalsList,regressorV
     variantsToCorrectList.pop(0)
 
 def calcDistanceToInterval(var,interval):
- if ( var.chr != interval[0] ):
+ if ( var.chrStr != interval[0] ):
   return 500000000
- varpos = int(var.pos)
+ varpos = var.pos
  if ( varpos > interval[2] ): # after the interval
   return -(varpos - interval[2])
  elif ( varpos < interval[1] ): # before the interval
@@ -231,18 +263,40 @@ def getIntervals(intervalFile):
  return list(map(lambda y: (y[0],int(y[1]),int(y[2])), map(lambda x: x.strip().split(), open(intervalFile).readlines())))
 
 def getNextVariant(reader):
- # accumulate all samples into a single tuple of (common variant, list<genotype>)
- rpeek = reader.peek()
- if ( rpeek == None ):
+ """ Given a plink binary bed file reader (in SNP major mode), aggregates genotypes across individuals until the whole variant has been accumulated.
+     Genotypes are not necessary at this point: only dosages. Thus the genotype objects are discarded in favor of doubles.
+     @reader - a plink binary reader
+     @return - a 3ple: (Variant, List[Double], List[Int]) of the Variant object representing the site information, a list of genotype dosages (converted to a numpy array),
+                  and a list of individuals missing genotypes (by index)
+ """
+ try:
+  # accumulate all samples into a single tuple of (common variant, list<genotype>)
+  genotypes = list() 
+  sIdx = 0
+  sumDos = 0.0
+  an = 0
+  variant = None
+  missing = list()
+  while ( sIdx < reader.numGenotypesPerMajor ):
+   geno = reader.next()
+   if ( variant == None ):
+    variant = geno.variant
+   dos = geno.getDosage()
+   if ( dos > -1 ):
+    sumDos += dos
+    an += 2
+   else:
+    missing.append(sIdx)
+   genotypes.append(dos)
+   sIdx += 1
+  freq = sumDos/an
+  variant.frequency = freq
+  return (variant,numpy.array(genotypes),missing)
+ except StopIteration:
   return None
- curVariant = rpeek.variant
- genotypes = list()
- while ( reader.peek() != None and reader.peek().variant == curVariant ):
-  genotypes.append(reader.next())
- return (curVariant,genotypes)
 
 ## given the dosages, we want to further correct by some global set of SNPs (e.g. known causal/associated loci)
-def globallyCorrectDosages(args,dosages):
+def globallyCorrectDosages(args,dosages,individualMissingDosages):
  # need to read in the global variants. This means re-reading, but whatever.
  bedReader = PlinkReader.getReader(args.bedBase)
  # get the IDs of the global correctors
@@ -264,15 +318,19 @@ def globallyCorrectDosages(args,dosages):
  return correctedDosages
 
 ## now we want to actually compute the GRM
-def printGRMFromDosages(args,correctedDosages):
+def printGRMFromDosages(args,correctedDosageMap,individualMissingDosages):
+ """
+ """
  out = open(args.grm,'w')
+ # get the dosages
+ correctedDosages = numpy.matrix([correctedDosageMap[t] for t in correctedDosageMap])
  # the dosages come in as a list of lists, where correctedDosages[i] are the dosages for snp [i]. So for dosages[i][j] we need to iterate over [j] first.
- for samIdx1 in range(len(dosages[0])):
+ for samIdx1 in range(correctedDosages[0,:].size):
   for samIdx2 in range(samIdx1+1):
-   nVariants,relatedness = calcDistance(samIdx1,samIdx2,correctedDosages)
+   nVariants,relatedness = calcDistance(samIdx1,samIdx2,correctedDosages,individualMissingDosages)
    out.write("%d\t%d\t%d\t%.8e\n" % (1+samIdx1,1+samIdx2,nVariants,relatedness))
 
-def calcDistance(idx1,idx2,dosages):
+def calcDistance(idx1,idx2,dosages,missing):
  # compute the relatedness between sample 1 and sample 2, given the dosages
  # dosages come in as a matrix dosage[snp][sample] = value
  ## note on this calculation:
@@ -290,9 +348,36 @@ def calcDistance(idx1,idx2,dosages):
  ## for now - don't bother normalizing. The mean dosage should already be 0, from the regression.
  # todo -- make the behavior togglable via a command line argument.
  # todo -- this is just an inner product. numpy should be able to speed it up.
- varIdx = range(len(dosages))
- numCalled = len(list(filter(lambda x: dosages[x][idx1] != -1 and dosages[x][idx2] != -1, varIdx)))
- return (numCalled,sum(map(lambda x: dosages[x][idx1]*dosages[x][idx2] if dosages[x][idx1] != -1 and dosages[x][idx2] != -1 else 0 ,varIdx))/numCalled)
+ # alter the map into the matrix (effectively going to individual major mode):
+ # pluck out the dosages
+ sam1Dos = dosages[:,idx1]
+ sam2Dos = dosages[:,idx2]
+ # get the missing indeces
+ sam12missing = set()
+ if ( idx1 in missing ):
+  sam12missing.update(missing[idx1])
+ if ( idx2 in missing ):
+  sam12missing.update(missing[idx2])
+ sam12missing = list(sam12missing)
+ # extract the values
+ sam1val = sam1Dos[sam12missing]
+ sam2val = sam2Dos[sam12missing]
+ # set values to 0
+ print(sam1Dos.getT())
+ print(sam12missing)
+ sam1Dos[sam12missing] = 0
+ sam2Dos[sam12missing] = 0
+ print(sam1Dos.getT())
+ # inner product
+ dist = numpy.dot(sam1Dos.getT(),sam2Dos)[0]
+ # normalize
+ nVar = sam1Dos.size - len(sam12missing)
+ dist /= nVar
+ # revert the values
+ sam1Dos[sam12missing] = sam1val
+ sam2Dos[sam12missing] = sam2val
+ # return
+ return (nVar,dist) 
 
 def assertArgsAreGood(args):
  """ Assert that the command line arguments are within expected parameters.
@@ -306,7 +391,7 @@ def assertArgsAreGood(args):
  if ( args.maxFrequency > 1.0 - 1e-9 or args.maxFrequencyCorrect > 1.0-1e-9 ):
   raise BaseError("The maximum frequency must be <1")
 
-if __name__ == "__main__":
+def runMain():
  # get the arguments
  args = parseArgs()
  assertArgsAreGood(args)
@@ -315,11 +400,15 @@ if __name__ == "__main__":
  if ( not bedReader.snpMajor() ):
   raise BaseError("This tool currently only works with bed files in SNP-major mode. Please transpose the bed file.")
  # step 1: generate a locally-corrected per-sample dosages
- dosages = streamAndLocalCorrect(args,bedReader)
+ dosages,missingByIndividual = streamAndLocalCorrect(args,bedReader)
  # step 2: generate globally-corrected per-sample dosages
  if ( args.globalCorrection != None ):
-  dosages = globallyCorrectDosages(args,dosages)
- else:
-  dosages = [dosages[t] for t in dosages]
+  dosages = globallyCorrectDosages(args,dosages,missingByIndividual)
  # step 3: calculate the GRM and print it out
- printGRMFromDosages(args,dosages)
+ printGRMFromDosages(args,dosages,missingByIndividual)
+
+
+if __name__ == "__main__":
+ runMain()
+ #cProfile.run('runMain()')
+

@@ -148,6 +148,8 @@ class Plink:
    self.cm = cm
    self.ref = ref
    self.alt = alt
+   self.frequency = None # none == uncalculated
+   self.missing = None # uncalculated.
 
   def __repr__(self):
    return "Variant: (%d,%d)" %(self.chr,self.pos)
