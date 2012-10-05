@@ -335,7 +335,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             AlleleFrequencyCalculationResult result = new AlleleFrequencyCalculationResult(1);
             double[] prior = computeAlleleFrequencyPriors(GLs.size()*2+1);
             // gls, num alt, priors, result, preserve
-            DiploidExactAFCalculation.linearExactMultiAllelic(GLs, 1, prior, result);
+
             VariantContextBuilder vcb = new VariantContextBuilder("EJG",refPos.getContig(),refPos.getStop(),refPos.getStop(),Arrays.asList(ref,alt));
             vcb.genotypes(GLs);
             List<Allele> alleles = new ArrayList<Allele>(2);
@@ -345,6 +345,10 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             VariantContext asCon = vcb.make();
             GenotypesContext genAssigned = VariantContextUtils.assignDiploidGenotypes(asCon);
             vcb.genotypes(genAssigned);
+
+            DiploidExactAFCalculation AFCalculator = new ReferenceDiploidExactAFCalculation(samples.size(), 4);
+            AFCalculator.computeLog10PNonRef(vcb.make(), prior, result);
+
             final double pOfF0 = result.getNormalizedPosteriorOfAFzero();
             logger.debug(pOfF0);
             double log10err;
@@ -357,6 +361,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             attributes.put("MLEAC",result.getAlleleCountsOfMLE()[0]);
             VariantContextUtils.calculateChromosomeCounts(vcb.make(),attributes,false);
             vcb.attributes(attributes);
+
             vcfWriter.add(vcb.make());
         }
 
