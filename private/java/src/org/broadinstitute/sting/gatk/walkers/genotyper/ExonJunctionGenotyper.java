@@ -15,9 +15,9 @@ import org.broadinstitute.sting.gatk.report.GATKReportColumn;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AlleleFrequencyCalculationResult;
-import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.DiploidExactAFCalculation;
-import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.ReferenceDiploidExactAFCalculation;
+import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalcResult;
+import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.DiploidExactAFCalc;
+import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.ReferenceDiploidExactAFCalc;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
@@ -335,7 +335,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                      "hypothesis "+hypothesis.toString()+" . Would suggest running with full smith waterman to avoid misgenotyping");
                 attributes.put("FSWF",true);
             }
-            AlleleFrequencyCalculationResult result = new AlleleFrequencyCalculationResult(1);
+            AFCalcResult result = new AFCalcResult(1);
             double[] prior = computeAlleleFrequencyPriors(GLs.size()*2+1);
             // gls, num alt, priors, result, preserve
 
@@ -349,7 +349,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             GenotypesContext genAssigned = VariantContextUtils.assignDiploidGenotypes(asCon);
             vcb.genotypes(genAssigned);
 
-            DiploidExactAFCalculation AFCalculator = new ReferenceDiploidExactAFCalculation(samples.size(), 4);
+            DiploidExactAFCalc AFCalculator = new ReferenceDiploidExactAFCalc(samples.size(), 4);
             AFCalculator.computeLog10PNonRef(vcb.make(), prior, result);
 
             final double pOfF0 = result.getNormalizedPosteriorOfAFzero();
