@@ -15,7 +15,7 @@ import org.broadinstitute.sting.gatk.report.GATKReportColumn;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalcResult;
+import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalcResultTracker;
 import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.DiploidExactAFCalc;
 import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.ReferenceDiploidExactAFCalc;
 import org.broadinstitute.sting.utils.*;
@@ -335,7 +335,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                      "hypothesis "+hypothesis.toString()+" . Would suggest running with full smith waterman to avoid misgenotyping");
                 attributes.put("FSWF",true);
             }
-            AFCalcResult result = new AFCalcResult(1);
+            AFCalcResultTracker resultTracker = new AFCalcResultTracker(1);
             double[] prior = computeAlleleFrequencyPriors(GLs.size()*2+1);
             // gls, num alt, priors, result, preserve
 
@@ -350,18 +350,18 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             vcb.genotypes(genAssigned);
 
             DiploidExactAFCalc AFCalculator = new ReferenceDiploidExactAFCalc(samples.size(), 4);
-            AFCalculator.computeLog10PNonRef(vcb.make(), prior, result);
+            AFCalculator.computeLog10PNonRef(vcb.make(), prior, resultTracker);
 
-            final double pOfF0 = result.getNormalizedPosteriorOfAFzero();
+            final double pOfF0 = resultTracker.getNormalizedPosteriorOfAFzero();
             logger.debug(pOfF0);
             double log10err;
             if ( Double.isInfinite(pOfF0) ) {
-                log10err = result.getLog10LikelihoodOfAFzero();
+                log10err = resultTracker.getLog10LikelihoodOfAFzero();
             } else {
                 log10err = pOfF0;
             }
             vcb.log10PError(log10err);
-            attributes.put("MLEAC",result.getAlleleCountsOfMLE()[0]);
+            attributes.put("MLEAC", resultTracker.getAlleleCountsOfMLE()[0]);
             VariantContextUtils.calculateChromosomeCounts(vcb.make(),attributes,false);
             vcb.attributes(attributes);
 
