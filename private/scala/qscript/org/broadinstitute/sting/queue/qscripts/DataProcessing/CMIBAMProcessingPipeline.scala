@@ -21,7 +21,7 @@ import io.Source
 import org.broadinstitute.sting.utils.NGSPlatform
 import collection.mutable
 
-class CMIProcessingPipeline extends QScript {
+class CMIBAMProcessingPipeline extends QScript {
   qscript =>
 
   /*****************************************************************************
@@ -59,7 +59,7 @@ class CMIProcessingPipeline extends QScript {
   var bwaThreads: Int = 1
 
   @Hidden
-  @Argument(doc="Number of threads BWA should use", fullName="mem_limit", shortName="mem", required=false)
+  @Argument(doc="Default memory limit per job", fullName="mem_limit", shortName="mem", required=false)
   var memLimit: Int = 4
 
   @Hidden
