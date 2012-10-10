@@ -58,7 +58,7 @@ def streamAndLocalCorrect(args,reader):
   for regressionVariants in completedVariants:
    varToCorrect = regressionVariants[0]
    varsToCorrectWith = regressionVariants[1]
-   correctedVar,correctedDosages = getCorrectedDosagesDebug(varToCorrect,varsToCorrectWith) 
+   correctedVar,correctedDosages = getCorrectedDosagesNoRegression(varToCorrect,varsToCorrectWith) 
    dosages[correctedVar] = correctedDosages
   genotypes = getNextVariant(reader,args)
   siteNo += 1
@@ -66,13 +66,13 @@ def streamAndLocalCorrect(args,reader):
  for completedVariant in findCompletedVariants(dependentGenotypeIntervals,regressorVariants,variantsToCorrect,args.localCorrectionBP):
   varToCorrect = completedVariant[0]
   varsToUse = completedVariant[1]
-  correctedVar,correctedDosages = getCorrectedDosagesDebug(varToCorrect,varsToUse)
+  correctedVar,correctedDosages = getCorrectedDosagesNoRegression(varToCorrect,varsToUse)
   dosages[correctedVar]=correctedDosages
   # why is this a map?  
  return (dosages,individualMissingCalculate)
 
-def getCorrectedDosagesDebug(responseVar,predictorVar):
- """ A debug version of getCorrectedDosages that does not do regression, but only corrects by the mean and variance of the response.
+def getCorrectedDosagesNoRegression(responseVar,predictorVar):
+ """ A regression-free version of getCorrectedDosages that does not do regression, but only corrects by the mean and variance of the response.
      No-calls are not dealt with here. In the non-debug version, they are replaced with mean values (2*variant.frequency) prior to regression.
      Missing-value indeces are not propagated forward, as they are maintained (in a more useful orientation) by individual missing dictionaries.
      @responseVar - a 3ple (Variant,numpy.array[Double],List[Int]) of the GRM-relevant variant site, its dosages, and the list of individuals that are missing values
@@ -89,20 +89,68 @@ def getCorrectedDosagesDebug(responseVar,predictorVar):
  respArray = (responseVar[1] - mean)/std
  return (responseVar[0], respArray)
 
-##NEEDS_TEST
-def getCorrectedDosages(responseVar,predictorVar):
- # workhorse method: take the response and predictor variants, and generate LD-corrected
- # dosages of the response variable via Logistic R or OLSR. todo -- hook this up to the command line.
+def formatResponse(respVar):
+ """ A helper function that takes a list of doubles and reformats it as a numpy.array of doubles. This list is housed inside of a 2-ple.
+     @respVar - a 2ple (PlinkVariant,List[Float]) of a variant site and the per-sample dosages.
+     @return - a 2ple (PlinkVariant,numpy.array[Float]) of a variant site and the per-sample dosages.
+ """
+ return (respVar[0],numpy.array(respVar[1]))
+
+def getCorrectedDosages(responseVar,predictorVar,args):
+ """ The workhorse method for LD correction. Given dosages (in @responseVar), calculate a set of corrected dosages based on those
+     in @predictorVar. If @predictorVar is empty, this is simply normalizing by mean and variance. If it has dosages in it, then
+     this is a bit more complicted: call into the linear library to run logistic regression of @responseVar on @predictorVar,
+     and take the residuals as dosages. These residuals will have a very different variance from @responseVar, which has var = p(1-p).
+     instead if you work out the variance of a bernoulli mix, it's sum p_i(1-p_i), and thus here to correct for "frequency" it should be
+     through the "average" variance: 1/n sum p_i|G(1-p_i|G). However, for pairwise comparisons, the variance is sample-dependent (depending, of course
+     on the surrounding haplotype), and so it should be (r1*r2)/(sqrt(v1)*sqrt(v2)) for residuals and variance. Thus normalize each residual by the
+     variance of the predicted value. For r^2 = 0 or r^2 = 1, this reduces to sqrt(p(1-p)).
+     @responseVar - a 3ple (PlinkVariant, List[Float],List[Int]) of the variant site and per-sample dosages to be corrected
+     @predictorVar - a list of 3ples List[(PlinkVariant,List[Float],List[Int])] of variant sites and per-sample dosages to use for correction
+     @args - the command line arguments, to check if missing values have been fixed or whether they should be excluded
+     @return - A (PlinkVariant,numpy.array([Float])) pair that gives the variant site, and the corrected frequencies.
+ """ 
+ if ( len(predictorVar) == 0 ):
+  return getCorrectedDosagesNoRegression(responseVar,predictorVar)
  # 1: stick the response into a numpy vector array
- respArray = numpy.array(list(map(lambda u: u.getDosage(),responseVar[1])))
- # 2: stick the predictors into a numpy matrix array
- predArray = list(map(lambda u: numpy.array(list(map(lambda v: v.getDosage(),u[1]))),predictorVar))
- predArray.append(numpy.array(list(map(lambda x: 1.0, responseVar[1]))))
- predArray = numpy.array(predArray)
- # 3: if the predictor array is too large, do something; todo -- me
- # 4: run a regression on this
- regression = linear.GLM.Logistic.simpleNewton(respArray,predArray,N)
- return (responseVar[0],regression.residuals)
+ if ( args.naCorrect ):
+  respArray = numpy.array(responseVar[1])
+  predArray = numpy.matrix(list(map(lambda u: u[1], predictorVar)))
+ else:
+  respMissing = responseVar[2]
+  respArray = list(map(lambda x: responseVar[1][x], filter(lambda u: u not in respMissing, range(len(responseVar[1])))))
+  respArray = numpy.array(respArray) 
+  # 2: stick the predictors into a numpy matrix array
+  predArray = list()
+  for pv in predictorVar:
+   # missing values in predictors always set to frequency
+   for mv in pv[2]:
+    pv[1][mv] = pv[0].frequency
+   predArray.append(list(map(lambda i: pv[1][i], filter(lambda u: u not in respMissing, range(len(pv[1]))))))
+  predArray = numpy.matrix(predArray)
+ # 3: run a regression on this
+ if ( respArray.shape[0] - len(predictorVar) < 1 ):
+  raise BaseError("Too many variants for the sample size. Try decreasing localCorrectBP.")
+ elif ( respArray.shape[0] - len(predictorVar) > 30 ):
+  regression = linear.GLM.Logistic.Fit.newton(respArray,predArray.T,2)
+ else:
+  regression = linear.GLM.Logistic.Fit.gradientDescent(respArray,predArray.T,2)
+ # 4: if missing values have been removed, put the dosages back in
+ predP = regression.predictedValues/2
+ normalizedResids = regression.residuals/numpy.sqrt(predP*(1-predP))
+ if ( not args.naCorrect ):
+  fullIdx = 0
+  residIdx = 0
+  finalDosages = list()
+  while ( fullIdx < len(responseVar[1]) ):
+   if ( fullIdx in responseVar[2] ):
+    finalDosages.append(-1.0)
+   else:
+    finalDosages.append(normalizedResids[residIdx])
+    residIdx += 1
+   fullIdx += 1
+  return (responseVar[0],finalDosages,responseVar[2])
+ return (responseVar[0],normalizedResids,responseVar[2])
 
 
 def globalCorrect(dosage,globalGenotypes):
@@ -189,9 +237,10 @@ def accumulateVariant(genotypes,correctorVariantsList,variantsToCorrectList,inte
   else:
    # way after the interval, continue
    continue
- if ( inInterval and freq < args.maxFrequency and freq > args.minFrequency ):
-  variantsToCorrectList.append(genotypes)
-  updateMissing(individualMissingCalculate,genotypes[2],len(variantsToCorrectList)-1)
+ if ( inInterval ):
+  if( freq < args.maxFrequency and freq > args.minFrequency ):
+   variantsToCorrectList.append(genotypes)
+   updateMissing(individualMissingCalculate,genotypes[2],len(variantsToCorrectList)-1)
  elif ( nearInterval and freq < args.maxFrequencyCorrect and freq > args.minFrequencyCorrect ):
   correctorVariantsList.append(genotypes)
   updateMissing(individualMissingCorrect,genotypes[2],len(correctorVariantsList)-1)
@@ -290,7 +339,7 @@ def getNextVariant(reader,args):
     an += 2
    else:
     missing.append(sIdx)
-   genotypes.append(dos)
+   genotypes.append(float(dos))
    sIdx += 1
   freq = sumDos/an
   variant.frequency = freq
