@@ -49,18 +49,8 @@ print(toBi(c(50, 50, 50, 50, 0, 50), T))
 print(toBi(c(50, 50, 50, 50, 50,  0), F))
 print(toBi(c(50, 50, 50, 50, 50,  0), T))
 
-toBi2 <- function(pls, second) {
-  totalP = 10^(pls/-10)
-  totalP = totalP / sum(totalP)
-  
-  if ( second ) {
-    het = sum(totalP[c(4,5)])
-    hom = sum(totalP[c(3,6)])
-  } else {
-    het = sum(totalP[c(2,4)])
-    hom = totalP[3]
-  }
-  
-  bi = c(totalP[1], het, hom)
-  round(-10 * log10(bi))
-}
+print(toBi(c(5, 4, 3, 2, 1, 0), F))
+print(toBi(c(5, 4, 3, 2, 1, 0), T))
+
+print(toBi(c(10, 10, 10, 10, 10, 0), F))
+print(toBi(c(10, 10, 10, 10, 10, 0), T))
