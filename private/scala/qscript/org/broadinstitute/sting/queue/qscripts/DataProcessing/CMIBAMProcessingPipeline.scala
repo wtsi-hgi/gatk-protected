@@ -9,7 +9,6 @@ package org.broadinstitute.sting.queue.qscripts
 
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.picard._
 import org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel
 import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 
@@ -20,6 +19,7 @@ import org.broadinstitute.sting.commandline.Hidden
 import io.Source
 import org.broadinstitute.sting.utils.NGSPlatform
 import collection.mutable
+import org.broadinstitute.sting.queue.extensions.picard._
 
 class CMIBAMProcessingPipeline extends QScript {
   qscript =>
@@ -47,6 +47,12 @@ class CMIBAMProcessingPipeline extends QScript {
   @Input(doc="extra VCF files to use as reference indels for Indel Realignment", fullName="extra_indels", shortName="indels", required=false)
   var indels: Seq[File] = Seq()
 
+  @Input(doc="Interval file with targets used in exome capture (used for QC metrics)", fullName="targets", shortName="targets", required=false)
+  var targets: File = new File("/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
+
+  @Input(doc="Interval file with baits used in exome capture (used for QC metrics)", fullName="baits", shortName="baits", required=false)
+  var baits: File = new File("/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list")
+
   /****************************************************************************
     * Hidden Parameters
     ****************************************************************************/
@@ -73,6 +79,10 @@ class CMIBAMProcessingPipeline extends QScript {
   @Hidden
   @Argument(doc="Run the pipeline in test mode only", fullName = "test_mode", shortName = "test", required=false)
   var testMode: Boolean = false
+
+  @Hidden
+  @Argument(doc="Run single sample germline calling in resulting bam", fullName = "doSingleSampleCalling", shortName = "call", required=false)
+  var doSingleSampleCalling: Boolean = false
 
   @Hidden
   @Argument(doc="BWA Parameteres", fullName = "bwa_parameters", shortName = "bp", required=false)
@@ -129,10 +139,26 @@ class CMIBAMProcessingPipeline extends QScript {
       val metricsFile   = swapExt(bam, ".bam", ".metrics")
       val preRecalFile  = swapExt(bam, ".bam", ".pre_recal.table")
       val postRecalFile = swapExt(bam, ".bam", ".post_recal.table")
-
+      val outVCF        = swapExt(reducedBAM,".bam",".vcf")
       add(dedup(cleanBAM, dedupBAM, metricsFile))
+      if (qscript.targets != null && qscript.baits != null) {
+        add(calculateHSMetrics(dedupBAM,swapExt(dedupBAM,".bam",".hs_metrics")))
+      }
       recalibrate(dedupBAM, preRecalFile, postRecalFile, recalBAM)
       add(reduce(recalBAM, reducedBAM))
+
+      // collect QC metrics based on full BAM
+      val outHsMetrics = swapExt(recalBAM,".bam",".hs_metrics")
+      val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
+      val outMultipleMetrics = swapExt(recalBAM,".bam",".metrics")
+      add(calculateHSMetrics(recalBAM, outHsMetrics))
+      add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
+      add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
+
+      // add single sample vcf germline calling
+      if (qscript.doSingleSampleCalling) {
+        add(call(reducedBAM, outVCF))
+      }
     }
   }
 
@@ -311,8 +337,20 @@ class CMIBAMProcessingPipeline extends QScript {
     this.input_file :+= inBAM
     this.out = outBAM
     this.isIntermediate = false
-    this.analysisName = outBAM + ".recalibration"
-    this.jobName = outBAM + ".recalibration"
+    this.analysisName = outBAM + ".reduce"
+    this.jobName = outBAM + ".reduce"
+  }
+
+  case class call (inBAM: File, outVCF: File) extends UnifiedGenotyper with CommandLineGATKArgs {
+    this.input_file :+= inBAM
+    this.out = outVCF
+    this.isIntermediate = false
+    this.analysisName = outVCF + ".singleSampleCalling"
+    this.jobName = outVCF + ".singleSampleCalling"
+    //this.dbsnp = qscript.dbSNP.
+    this.downsample_to_coverage = 600
+    this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.scatterCount = nContigs
   }
 
 
@@ -329,6 +367,35 @@ class CMIBAMProcessingPipeline extends QScript {
     this.memoryLimit = 16
     this.analysisName = outBAM + ".dedup"
     this.jobName = outBAM + ".dedup"
+    this.assumeSorted = Some(true)
+  }
+
+  case class calculateHSMetrics (inBAM:File, outFile: File) extends CalculateHsMetrics with ExternalCommonArgs {
+    this.reference = qscript.reference
+    this.input :+= inBAM
+    this.output = outFile
+    this.targets = qscript.targets
+    this.baits = qscript.baits
+    this.analysisName = outFile + ".hsMetrics"
+    this.jobName = outFile + ".hsMetrics"
+    // todo - do we want to compute per-read group HS metrics?
+
+  }
+
+  case class calculateGCMetrics (inBAM:File, outFile: File) extends CollectGcBiasMetrics with ExternalCommonArgs {
+    this.reference = qscript.reference
+    this.input :+= inBAM
+    this.output = outFile
+    this.analysisName = outFile + ".gcMetrics"
+    this.jobName = outFile + ".gcMetrics"
+  }
+
+  case class calculateMultipleMetrics (inBAM:File, outFile: File) extends CollectMultipleMetrics with ExternalCommonArgs {
+    this.reference = qscript.reference
+    this.input :+= inBAM
+    this.output = outFile
+    this.analysisName = outFile + ".metrics"
+    this.jobName = outFile + ".metrics"
   }
 
   case class joinBAMs (inBAMs: Seq[File], outBAM: File) extends MergeSamFiles with ExternalCommonArgs {
