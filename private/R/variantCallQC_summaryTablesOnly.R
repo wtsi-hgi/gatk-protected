@@ -122,11 +122,11 @@ CompSummaryFP <- function(gatkReport) {
     
     omni_mono <- subset(validationReport, CompRod=="omni_mono")
     omni_mono_all <- CompSummaryAllSamplesFPByComp(omni_mono)
-    omni_mono_all$"Comp" <- "FP - omni mono"
+    omni_mono_all$"Comp" <- "omni mono"
     
     fp_MVL <- subset(validationReport, CompRod=="fp_MVL")
     fp_MVL_all <- CompSummaryAllSamplesFPByComp(fp_MVL)
-    fp_MVL_all$"Comp" <- "FP MVL"
+    fp_MVL_all$"Comp" <- "MVL"
     
     table_allSamples <- rbind(omni_mono_all, fp_MVL_all)
     table <- table_allSamples[, c(1,7,6)]
@@ -144,6 +144,7 @@ CompSummaryAllSamplesTPByComp <- function(compTable) {
     table <- cast(raw, Novelty ~ ...)
     table$sensitivity <- round(table$sensitivity, 2)
     table$sensitivityCalc <- apply(table,1,function(raw) {y <- paste(as.character(raw[4]) ,"(", as.character(raw[2]),"/",as.character(raw[3]+raw[2]),")", sep = " ")})
+    # table$sensitivityText <- apply(table,1,function(raw) {y <- paste(as.character(raw[4]) , "%", sep = " ")})
     return(table) 
 }
 
@@ -153,6 +154,7 @@ CompSummaryAllSamplesFPByComp <- function(compTable) {
     table <- cast(raw, Novelty ~ ...)
     table$sensitivity <- round(table$sensitivity, 2)
     table$OneMinusSpecificity <- apply(table,1,function(raw) {y <- paste(as.character(raw[4]) ,"(", as.character(raw[2]),"/",as.character(raw[3]+raw[2]),")", sep = " ")})
+    # table$sensitivityText <- apply(table,1,function(raw) {y <- paste(as.character(raw[4]) , "%", sep = " ")})
     return(table) 
 }
 
