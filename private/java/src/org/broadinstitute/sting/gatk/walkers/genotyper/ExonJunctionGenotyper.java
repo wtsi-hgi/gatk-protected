@@ -15,9 +15,9 @@ import org.broadinstitute.sting.gatk.report.GATKReportColumn;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalc;
+import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalcFactory;
 import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalcResult;
-import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.DiploidExactAFCalc;
-import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.ReferenceDiploidExactAFCalc;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
@@ -348,7 +348,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             GenotypesContext genAssigned = VariantContextUtils.assignDiploidGenotypes(asCon);
             vcb.genotypes(genAssigned);
 
-            DiploidExactAFCalc AFCalculator = new ReferenceDiploidExactAFCalc(samples.size(), 4);
+            final AFCalc AFCalculator = AFCalcFactory.createAFCalc(samples.size());
             final AFCalcResult result = AFCalculator.getLog10PNonRef(vcb.make(), prior);
 
             final double log10POfF0 = result.getLog10PosteriorOfAFGT0();
