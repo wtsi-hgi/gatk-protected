@@ -148,10 +148,8 @@ class CMIBAMProcessingPipeline extends QScript {
       add(reduce(recalBAM, reducedBAM))
 
       // collect QC metrics based on full BAM
-      val outHsMetrics = swapExt(recalBAM,".bam",".hs_metrics")
       val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
       val outMultipleMetrics = swapExt(recalBAM,".bam",".metrics")
-      add(calculateHSMetrics(recalBAM, outHsMetrics))
       add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
       add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
 
@@ -351,6 +349,10 @@ class CMIBAMProcessingPipeline extends QScript {
     this.downsample_to_coverage = 600
     this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.scatterCount = nContigs
+
+    // todo - tmp hack, GATK will hang if we run it with a small-target BAM but standard exome intervals
+    // for now have the caller just traverse the whole genome even though it will waste 99.999% of its time
+    //this.intervalsString :+= qscript.targets.getName
   }
 
 
