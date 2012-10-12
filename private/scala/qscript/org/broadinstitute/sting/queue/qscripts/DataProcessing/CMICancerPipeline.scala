@@ -55,11 +55,17 @@ class CMICancerPipeline extends QScript {
   /****************************************************************************
     * Optional Input Parameters
     ****************************************************************************/
-  @Input(doc="Panel Of Normals or known artifact sites to use (must be in VCF format)", fullName="panel_of_normals", shortName="PON", required=false)
+  @Input(doc="Panel Of Normals or known artifact sites to use (must be in VCF format)", fullName="panel_of_normals", shortName="pon", required=false)
   var pon: Seq[File] = Seq()
 
   @Input(doc="COSMIC sites to use (must be in VCF format)", fullName="cosmic", shortName="C", required=false)
   var cosmic: Seq[File] = Seq()
+
+  /****************************************************************************
+    * Optional Input Parameters with sensible defaults
+    ****************************************************************************/
+  @Input(doc="Base filter for SomaticIndelDetector", fullName="indel_base_filter", shortName = "ibf", required=false)
+  var indelCallerBaseFilter: String = "T_COV<6||N_COV<4||(T_INDEL_F<=0.3&&T_CONS_CNT<7)||T_INDEL_CF<=0.7"
 
 
   /****************************************************************************
@@ -129,9 +135,10 @@ class CMICancerPipeline extends QScript {
 
   def cancer (tumorBam : File, normalBam : File, tumorFractionContamination : Float, outPrefix : String) {
     val rawMutations = outPrefix + ".call_stats.txt"
+    val rawVcf = outPrefix + ".vcf"
     val rawCoverage = outPrefix + ".wig.txt"
 
-    add(mutect(tumorBam, normalBam, tumorFractionContamination, rawMutations, rawCoverage))
+    add(mutect(tumorBam, normalBam, tumorFractionContamination, rawMutations, rawVcf, rawCoverage))
     indels(tumorBam, normalBam, outPrefix)
 
   }
@@ -141,10 +148,10 @@ class CMICancerPipeline extends QScript {
     val filteredIndels = outPrefix + ".filtered.indels.txt"
 
     add(callIndels(tumorBam, normalBam, rawIndels))
-//    add(filterIndelsStep1(rawIndels, filteredIndels))
+ //   add(filterIndelsStep1(rawIndels, filteredIndels))
   }
 
-  case class mutect (tumorBam : File, normalBam : File, tumorFractionContamination : Float, outMutations : File, outCoverage : File) extends MuTect with CommandLineGATKArgs {
+  case class mutect (tumorBam : File, normalBam : File, tumorFractionContamination : Float, outMutations : File,  outVcf : File, outCoverage : File) extends MuTect with CommandLineGATKArgs {
     this.scatterCount = 1
     this.memoryLimit = 4
     this.jarFile = qscript.mutectJar
@@ -153,6 +160,7 @@ class CMICancerPipeline extends QScript {
     this.cosmic = qscript.cosmic
     this.normal_panel = qscript.pon
 
+    this.only_passing_calls = true
     this.enable_extended_output = true
     this.downsample_to_coverage = 1000 // TODO: how deep should this be?
     this.fraction_contamination = Some(tumorFractionContamination)
@@ -162,6 +170,8 @@ class CMICancerPipeline extends QScript {
 
     this.out = outMutations
     this.coverage_file = outCoverage
+    this.vcf = outVcf
+
 
     this.analysisName = tumorBam.toString + ".mutect"
     this.jobName = this.analysisName
@@ -174,7 +184,7 @@ class CMICancerPipeline extends QScript {
     this.memoryLimit = 4
     this.jarFile = qscript.indelGenotyperJar
 
-    val baseFilter = "T_COV<6||N_COV<4||(T_INDEL_F<=0.3&&T_CONS_CNT<7)||T_INDEL_CF<=0.7"
+    val baseFilter = qscript.indelCallerBaseFilter;
 
     this.input_file :+= new TaggedFile(tumorBam, "tumor")
     this.input_file :+= new TaggedFile(normalBam, "normal")
