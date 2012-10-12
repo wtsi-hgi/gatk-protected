@@ -5,7 +5,7 @@
  * Time: 12:04 PM
  */
 
-package org.broadinstitute.sting.queue.qscripts
+package org.broadinstitute.sting.queue.qscripts.DataProcessing
 
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
@@ -56,7 +56,7 @@ class CMIBAMProcessingPipeline extends QScript {
 
 
   // todo hotfix: paste mutect parameters here
-  @Argument(doc="Run single sample germline calling in resulting bam", fullName = "doMutect", shortName = "mutect", required=false)
+  @Argument(doc="Run single sample germline calling in resulting bam", fullName = "doMutect", shortName = "doMutect", required=false)
   var doMutect: Boolean = false
 
   @Input(doc="COSMIC sites to use (must be in VCF format)", fullName="cosmic", shortName="C", required=false)
@@ -533,7 +533,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.cosmic = qscript.cosmic
     this.normal_panel = qscript.pon
 
-    this.only_passing_calls = true
+    //this.only_passing_calls = true
     this.enable_extended_output = true
     this.downsample_to_coverage = 1000 // TODO: how deep should this be?
     this.fraction_contamination = Some(tumorFractionContamination)
@@ -543,7 +543,7 @@ class CMIBAMProcessingPipeline extends QScript {
 
     this.out = outMutations
     this.coverage_file = outCoverage
-    this.vcf = outVcf
+    //this.vcf = outVcf
 
 
     this.analysisName = tumorBam.toString + ".mutect"
