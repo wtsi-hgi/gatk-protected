@@ -2,7 +2,7 @@ package queue.qscripts.calling
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotyperEngine, AlleleFrequencyCalculationModel, GenotypeLikelihoodsCalculationModel}
+import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotyperEngine, GenotypeLikelihoodsCalculationModel}
 import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 
 /**
