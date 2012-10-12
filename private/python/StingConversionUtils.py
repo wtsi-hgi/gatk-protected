@@ -124,6 +124,10 @@ class Plink:
   def getDosage(self):
    return self.dosage
 
+  def setType(self,newType):
+   self.type = newType
+   self.dosage = Plink.Genotype.__getDosage__(self)
+
   def isNoCall(genotype):
    return genotype.type == Plink.Genotype.Type.NO_CALL
 
