@@ -5,7 +5,7 @@
  * Time: 12:04 PM
  */
 
-package org.broadinstitute.sting.queue.qscripts.DataProcessing
+package org.broadinstitute.sting.queue.qscripts
 
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
