@@ -56,7 +56,7 @@ class CMIBAMProcessingPipeline extends QScript {
 
 
   // todo hotfix: paste mutect parameters here
-  @Argument(doc="Run single sample germline calling in resulting bam", fullName = "doMutect", shortName = "doMutect", required=false)
+  @Argument(doc="Run mutect calling in resulting bam", fullName = "doMutect", shortName = "doMutect", required=false)
   var doMutect: Boolean = false
 
   @Input(doc="COSMIC sites to use (must be in VCF format)", fullName="cosmic", shortName="C", required=false)
@@ -176,22 +176,21 @@ class CMIBAMProcessingPipeline extends QScript {
       if (qscript.doSingleSampleCalling) {
         add(call(reducedBAM, outVCF))
       }
-
-      // todo hotfix part 3: add cancer-specific calling also at the end
-      if (qscript.doMutect) {
-        val tumorBam = allBAMs(0)
-        val normalBam = allBAMs(1)
-        val tumorFractionContamination:Float = 0.01f
-        val outPrefix = tumorBam.getName + "-vs-" + normalBam.getName // TODO: use CMI ids here
-        val rawMutations = outPrefix + ".call_stats.txt"
-        val rawVcf = outPrefix + ".vcf"
-        val rawCoverage = outPrefix + ".wig.txt"
-
-        add(mutect(tumorBam, normalBam, tumorFractionContamination, rawMutations, rawVcf, rawCoverage))
-
-      }
+    }
+    // todo hotfix part 3: add cancer-specific calling also at the end
+    if (qscript.doMutect) {
+      val normalBam = swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.bam")
+      val tumorBam = swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.bam")
+      val tumorFractionContamination:Float = 0.01f
+      val outPrefix = tumorBam.getName + "-vs-" + normalBam.getName // TODO: use CMI ids here
+      val rawMutations = outPrefix + ".call_stats.txt"
+      val rawVcf = outPrefix + ".vcf"
+      val rawCoverage = outPrefix + ".wig.txt"
+      //print(tumorBam.getName)
+      add(mutect(tumorBam, normalBam, tumorFractionContamination, rawMutations, rawVcf, rawCoverage))
 
     }
+
   }
 
   /****************************************************************************
