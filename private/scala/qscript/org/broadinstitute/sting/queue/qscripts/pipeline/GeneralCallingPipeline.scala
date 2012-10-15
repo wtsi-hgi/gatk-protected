@@ -33,15 +33,6 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName="scatterCount", doc="set the number of the scattered jobs", required=false)
   var scatterCount: Int = 0
 
-  @Argument(shortName="useBQSR.2.0", doc="turn on a first step of using 2.0 BQSR on the input bam file", required=false)
-  var useBQSR2: Boolean = false
-
-  @Argument(shortName="usePhaseBT", doc="apply phaseByTrasmission on the output vcf", required=false)
-  var usePhaseBT: Boolean = false
-
-  @Argument(shortName="useEvalSummary", doc="create a pdf file with eval summery tables of the output vcf", required=false)
-  var useEvalSummary: Boolean = false
-
   @Argument(shortName="outputDir", doc="output directory", required=false)
   var outputDir: String = "./tmp"
 
@@ -65,12 +56,34 @@ class GeneralCallingPipeline extends QScript {
 
   @Argument(shortName="deletions", doc="Maximum deletion fraction allowed at a site to call a genotype.", required=false)
   var deletions: Double = -1
-   
+
   @Input(doc="Exclude intervals list", shortName = "XL", required=false)
   var excludeIntervals: List[File] = Nil
 
   @Input(doc="PED file of the family", shortName="ped")
   var ped: File = _
+
+  /************* invlude/exclude steps of the pipeline ***********************/
+
+  @Argument(shortName = "doNotCall", doc="don't call any events", required=false )
+  var doNotCall: Boolean = false
+
+  @Argument(shortName = "doNotUseVQSR", doc="don't call preform VQSR on the called vcf", required=false )
+  var doNotUseVQSR: Boolean = false
+
+
+  @Argument(shortName="useBQSR.2.0", doc="turn on a first step of using 2.0 BQSR on the input bam file", required=false)
+  var useBQSR2: Boolean = false
+
+  @Argument(shortName="usePhaseBT", doc="apply phaseByTrasmission on the output vcf", required=false)
+  var usePhaseBT: Boolean = false
+
+  @Argument(shortName="createEvalSummaryReport", doc="create a pdf file with eval summery tables of the output vcf", required=false)
+  var createEvalSummaryReport: Boolean = false
+
+  @Argument(shortName="createFullPostQCReport", doc="create a pdf file with full QC eval report of the output vcf", required=false)
+  var createFullPostQCReport: Boolean = false
+
 
   val dbSNP_135 = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_135.b37.vcf"  // Best Practices v4
   val hapmap = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/hapmap_3.3.b37.sites.vcf"                       // Best Practices v4
@@ -81,7 +94,7 @@ class GeneralCallingPipeline extends QScript {
   val dbSNP_129 = "/humgen/gsa-hpprojects/GATK/data/dbsnp_129_b37.vcf"
   val omni_mono: String = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Omni2.5_chip/Omni25_monomorphic_2141_samples.b37.vcf"
   val MVL_FP: String =  "/humgen/gsa-hpprojects/GATK/badSitesDB/Autism.HighMVLR.Exome.indels.vcf"
-
+  val CEUTrio_ped = "/broad/hptmp/ami/tmp/CEUTrio.ped" //todo: move to a proper location
 
 
   val queueLogDir = ".qlog/"
@@ -220,8 +233,11 @@ class HCBase(inputVCF: File) extends HaplotypeCaller with HaplotypeCallerArgumen
 }
  
 
-// 3)
-class VQSRBase extends VariantRecalibrator with BaseCommandArguments {
+  /****************************************************************************************
+  *                3.)   VariantRecalibrator                                              *
+  *****************************************************************************************/
+
+  class VQSRBase extends VariantRecalibrator with BaseCommandArguments {
    
     this.nt = 2
     this.allPoly = true
@@ -289,8 +305,10 @@ class RecalBoth(inputVCF: File) extends VariantRecalibrator with HaplotypeCaller
 
 }
 
+    /****************************************************************************************
+    *               4.) Apply the recalibration table to the appropriate tranches           *
+    *****************************************************************************************/
 
-// 4.) Apply the recalibration table to the appropriate tranches
 class applyVQSRBase extends ApplyRecalibration with BaseCommandArguments  {
   this.memoryLimit = 6
 }
@@ -333,7 +351,10 @@ class CutBoth(inputVCF: File) extends applyVQSRBase with HaplotypeCallerArgument
     this.jobName = queueLogDir + name + ".bothcut"
 }
 
-// 5) Combine Snps and Indels for UG if mode == BOTH
+    /****************************************************************************************
+    *               5) Combine Snps and Indels for UG if mode == BOTH                       *
+    *****************************************************************************************/
+
 class CombineSNPsIndels extends CombineVariants with CombineIndelSnps {
     this.variant :+= TaggedFile(indelsOutput, "indels")
     this.variant :+= TaggedFile(snpsOutput, "snps")
@@ -344,8 +365,10 @@ class CombineSNPsIndels extends CombineVariants with CombineIndelSnps {
 
 
 
+/****************************************************************************************
+*                6.) Variant Evaluation Base(OPTIONAL)                                  *
+*****************************************************************************************/
 
-// 6.) Variant Evaluation Base(OPTIONAL)
 class EvalBase extends VariantEval with BaseCommandArguments {
       this.memoryLimit = 3
       this.comp :+= new TaggedFile(hapmap, "hapmap" )
@@ -390,15 +413,26 @@ class Eval(evalVCF: File, prefix: String, extraStrats: Seq[String]) extends Vari
     this.num_threads = 1
     this.memoryLimit = 8
     this.out = outputDir + swapExt(evalVCF, ".vcf", prefix + ".eval")
+    this.sample = samples
+    this.analysisName = name + "_VE"
+    this.jobName = queueLogDir + name + ".eval"
 }
 
-class QCRScript(@Input var vcf: File, @Input var bySite: File) extends CommandLineFunction {
+class QCSummaryRScript(@Input var vcf: File, @Input var bySite: File) extends CommandLineFunction {
     @Output var pdf: File = outputDir + swapExt(vcf, ".vcf", ".pdf")
     private val project = vcf.getName.stripSuffix(".vcf")
     def commandLine = "Rscript %s/variantCallQC_summaryTablesOnly.R %s %s %s".format(RPath, project, bySite, pdf)
 }
 
-// 7) PhaseByTrasmission
+class QCRScript(@Input var vcf: File, @Input var byAC: File, @Input var bySite: File, @Input var indelQC: File) extends CommandLineFunction {
+    @Output var pdf: File = swapExt(vcf, ".vcf", ".pdf")
+    private val project = vcf.getName.stripSuffix(".vcf")
+    def commandLine = "Rscript %s/variantCallQC.R %s %s %s %s %s".format(RPath, project, bySite, byAC, indelQC, pdf)
+}
+
+//------------------------------------------------------------------------------------ //
+//                      7) PhaseByTrasmission                                          //
+//------------------------------------------------------------------------------------ //
 class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments {
   this.pedigree = Seq(qscript.ped)
   this.variant = inputVCF
@@ -412,21 +446,22 @@ def script() {
   if (pipelineVersion == 1){
 	if (mode == "SNP"){
 		val UGgenotyper = new snpCaller
-		//val evalUnfiltered = new evalSnp  //VariantEval with UnifiedGenotyperArguments
 		val snpRecalibrator = new snpRecal
 		val snpApplyVQSR = new applySnpVQSR
 		val evaluateSnp = new snpEvaluation
  
-		add (UGgenotyper)
+		if (! doNotCall){
+      add (UGgenotyper)
+    }
 		add (snpRecalibrator)
 		add (snpApplyVQSR)
 		add (evaluateSnp)
 
-    if (useEvalSummary){
+    if (createEvalSummaryReport){
       val evalVCF = snpApplyVQSR.out
       val bySample = new Eval( evalVCF, ".bySample", Seq("Sample"))
       add(bySample)
-      val qc = new QCRScript(evalVCF, bySample.out)  //val qc = new QCRScript(evalVCF, byAC.out, bySample.out, indelQC.out)
+      val qc = new QCSummaryRScript(evalVCF, bySample.out)
       add(qc)
     }
     if(usePhaseBT){add(new PBT(snpApplyVQSR.out)) }
@@ -438,57 +473,71 @@ def script() {
 		val indelApplyVQSR = new applyIndelVQSR
 		val evaluateIndel = new indelEvaluation
 
-		add (UGgenotyper)
+    if (! doNotCall){
+      add (UGgenotyper)
+    }
 		add (indelRecalibrator)
 		add (indelApplyVQSR)
 		add (evaluateIndel)
 
-    if (useEvalSummary){
+    if (createEvalSummaryReport){
       val evalVCF = indelApplyVQSR.out
       val bySample = new Eval( evalVCF, ".bySample", Seq("Sample"))
       add(bySample)
-      val qc = new QCRScript(evalVCF, bySample.out)  //val qc = new QCRScript(evalVCF, byAC.out, bySample.out, indelQC.out)
+      val qc = new QCSummaryRScript(evalVCF, bySample.out)
       add(qc)
     }
 
     if(usePhaseBT){add(new PBT(indelApplyVQSR.out)) }
 	}
 
-  // currently running separat runs for SNPs and INDELS
+  // currently running separate runs for SNPs and INDELS
 	if (mode == "BOTH"){
 		val snpUGgenotyper = new snpCaller
                 val snpRecalibrator = new snpRecal
                 val snpApplyVQSR = new applySnpVQSR
-		val evaluateSnp = new snpEvaluation
 		val indelUGgenotyper = new indelCaller
 		val indelRecalibrator = new indelRecal
 		val indelApplyVQSR = new applyIndelVQSR
-	  val evaluateIndel = new indelEvaluation
-    val combineSNPsIndels = new CombineSNPsIndels
+	  val combineSNPsIndels = new CombineSNPsIndels
 
-		add (snpUGgenotyper)
+    if (! doNotCall){
+      add (snpUGgenotyper)
+      add (indelUGgenotyper)
+    }
 		add (snpRecalibrator)
 		add (snpApplyVQSR)
-		add (evaluateSnp)
-		add (indelUGgenotyper)
+
 		add (indelRecalibrator)
 		add (indelApplyVQSR)
-		add (evaluateIndel)
-    add (combineSNPsIndels)
+		add (combineSNPsIndels)
 
-    if (useEvalSummary){
-      val evalVCF = combineSNPsIndels.out
+    if (createEvalSummaryReport || createFullPostQCReport){
+      val evalVCF: File = combineSNPsIndels.out
+
       val bySample = new Eval( evalVCF, ".bySample", Seq("Sample"))
       add(bySample)
-      val qc = new QCRScript(evalVCF, bySample.out)  //val qc = new QCRScript(evalVCF, byAC.out, bySample.out, indelQC.out)
-      add(qc)
+
+      if (createFullPostQCReport){
+        val byAC = new Eval(evalVCF, ".byAC", Seq("AlleleCount"))
+        add(byAC)
+        val indelQC = new Eval(evalVCF, ".indelQC", Seq("Sample"))
+        indelQC.stratificationModule = Seq("EvalRod", "CompRod", "Sample", "TandemRepeat", "OneBPIndel")
+        indelQC.evalModule = List("IndelSummary", "IndelLengthHistogram")
+        add(indelQC)
+        val qc = new QCRScript(evalVCF, byAC.out, bySample.out, indelQC.out)
+        add(qc)
+
+      }
+      if (createEvalSummaryReport){
+        val qc = new QCSummaryRScript(evalVCF, bySample.out)
+        add(qc)
+      }
     }
+
 
     if(usePhaseBT){add(new PBT(combineSNPsIndels.out)) }
 	}
-
-
-		
  }
 
  else {
@@ -515,16 +564,33 @@ def script() {
     val HCRecalibrator = new RecalBoth(HC_vcfFile)
     val HCApplyVQSR = new CutBoth(HC_vcfFile)
 
-    add (HCgenotyper)
+    if (! doNotCall){
+      add (HCgenotyper)
+    }
 		add (HCRecalibrator)
 		add (HCApplyVQSR)
 
-    if (useEvalSummary){
-      val evalVCF = HCApplyVQSR.out
+    if (createEvalSummaryReport || createFullPostQCReport){
+      val evalVCF: File = HCApplyVQSR.out
+
       val bySample = new Eval( evalVCF, ".bySample", Seq("Sample"))
       add(bySample)
-      val qc = new QCRScript(evalVCF, bySample.out)  //val qc = new QCRScript(evalVCF, byAC.out, bySample.out, indelQC.out)
-      add(qc)
+
+      if (createFullPostQCReport){
+        val byAC = new Eval(evalVCF, ".byAC", Seq("AlleleCount"))
+        add(byAC)
+        val indelQC = new Eval(evalVCF, ".indelQC", Seq("Sample"))
+        indelQC.stratificationModule = Seq("EvalRod", "CompRod", "Sample", "TandemRepeat", "OneBPIndel")
+        indelQC.evalModule = List("IndelSummary", "IndelLengthHistogram")
+        add(indelQC)
+        val qc = new QCRScript(evalVCF, byAC.out, bySample.out, indelQC.out)
+        add(qc)
+
+      }
+      if (createEvalSummaryReport){
+        val qc = new QCSummaryRScript(evalVCF, bySample.out)
+        add(qc)
+      }
     }
 
     if(usePhaseBT){add(new PBT(HCApplyVQSR.out)) }
@@ -534,18 +600,35 @@ def script() {
 		val HCgenotyper = new HCBase(qscript.bamFile)
 		val HC_vcfFile = HCgenotyper.out
 		val HCRecalibrator = new RecalBoth(HC_vcfFile)
-		val HCApplyVQSR = new CutBoth(HC_vcfFile)	
+		val HCApplyVQSR = new CutBoth(HC_vcfFile)
 
-		add (HCgenotyper)
+    if (! doNotCall){
+      add (HCgenotyper)
+    }
 		add (HCRecalibrator)
 		add (HCApplyVQSR)
 
-    if (useEvalSummary){
-      val evalVCF = HCApplyVQSR.out
+    if (createEvalSummaryReport || createFullPostQCReport){
+      val evalVCF: File = HCApplyVQSR.out
+
       val bySample = new Eval( evalVCF, ".bySample", Seq("Sample"))
       add(bySample)
-      val qc = new QCRScript(evalVCF, bySample.out)  //val qc = new QCRScript(evalVCF, byAC.out, bySample.out, indelQC.out)
-      add(qc)
+
+      if (createFullPostQCReport){
+        val byAC = new Eval(evalVCF, ".byAC", Seq("AlleleCount"))
+        add(byAC)
+        val indelQC = new Eval(evalVCF, ".indelQC", Seq("Sample"))
+        indelQC.stratificationModule = Seq("EvalRod", "CompRod", "Sample", "TandemRepeat", "OneBPIndel")
+        indelQC.evalModule = List("IndelSummary", "IndelLengthHistogram")
+        add(indelQC)
+        val qc = new QCRScript(evalVCF, byAC.out, bySample.out, indelQC.out)
+        add(qc)
+
+      }
+      if (createEvalSummaryReport){
+        val qc = new QCSummaryRScript(evalVCF, bySample.out)  //val qc = new QCRScript(evalVCF, byAC.out, bySample.out, indelQC.out)
+        add(qc)
+      }
     }
     if(usePhaseBT){add(new PBT(HCApplyVQSR.out)) }
 	}
