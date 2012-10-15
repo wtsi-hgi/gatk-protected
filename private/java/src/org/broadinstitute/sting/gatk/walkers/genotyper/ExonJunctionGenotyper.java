@@ -10,9 +10,14 @@ import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
 import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.report.*;
+import org.broadinstitute.sting.gatk.report.GATKReport;
+import org.broadinstitute.sting.gatk.report.GATKReportColumn;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalc;
+import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalcFactory;
+import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalcResult;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
@@ -330,10 +335,9 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                      "hypothesis "+hypothesis.toString()+" . Would suggest running with full smith waterman to avoid misgenotyping");
                 attributes.put("FSWF",true);
             }
-            AlleleFrequencyCalculationResult result = new AlleleFrequencyCalculationResult(1);
             double[] prior = computeAlleleFrequencyPriors(GLs.size()*2+1);
             // gls, num alt, priors, result, preserve
-            ExactAFCalculationModel.linearExactMultiAllelic(GLs,1,prior,result);
+
             VariantContextBuilder vcb = new VariantContextBuilder("EJG",refPos.getContig(),refPos.getStop(),refPos.getStop(),Arrays.asList(ref,alt));
             vcb.genotypes(GLs);
             List<Allele> alleles = new ArrayList<Allele>(2);
@@ -343,18 +347,17 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             VariantContext asCon = vcb.make();
             GenotypesContext genAssigned = VariantContextUtils.assignDiploidGenotypes(asCon);
             vcb.genotypes(genAssigned);
-            final double[] normalizedPosteriors = UnifiedGenotyperEngine.generateNormalizedPosteriors(result, new double[2]);
-            logger.debug(normalizedPosteriors[0]);
-            double log10err;
-            if ( Double.isInfinite(normalizedPosteriors[0]) ) {
-                log10err = result.getLog10LikelihoodOfAFzero();
-            } else {
-                log10err = normalizedPosteriors[0];
-            }
-            vcb.log10PError(log10err);
-            attributes.put("MLEAC",result.getAlleleCountsOfMLE()[0]);
+
+            final AFCalc AFCalculator = AFCalcFactory.createAFCalc(samples.size());
+            final AFCalcResult result = AFCalculator.getLog10PNonRef(vcb.make(), prior);
+
+            final double log10POfF0 = result.getLog10PosteriorOfAFGT0();
+            logger.debug(log10POfF0);
+            vcb.log10PError(log10POfF0);
+            attributes.put("MLEAC", result.getAlleleCountsOfMLE()[0]);
             VariantContextUtils.calculateChromosomeCounts(vcb.make(),attributes,false);
             vcb.attributes(attributes);
+
             vcfWriter.add(vcb.make());
         }
 

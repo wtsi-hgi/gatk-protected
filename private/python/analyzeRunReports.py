@@ -229,6 +229,7 @@ def parseException(elt):
         userException = elt.find("is-user-exception").text
         if userException == "true":
             runStatus = "user-exception"
+            stackTraceString = "no-stacktrace-for-user-exceptions"
 
     return msgText, stackTraceString, userException, runStatus, exceptionClass
 
