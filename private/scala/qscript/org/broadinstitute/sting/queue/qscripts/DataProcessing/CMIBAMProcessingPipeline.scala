@@ -36,23 +36,23 @@ class CMIBAMProcessingPipeline extends QScript {
     * Additional Parameters that the pipeline should have pre-defined in the image
     *******************************************************************************/
 
-  @Input(doc="Reference fasta file", fullName="reference", shortName="R", required=true)
-  var reference: File = _
+  @Input(doc="Reference fasta file", fullName="reference", shortName="R", required=false)
+  var reference: File = new File("/refdata/human_g1k_v37_decoy.fasta")
 
-  @Input(doc="DBSNP or known callset to use (must be in VCF format)", fullName="dbsnp", shortName="D", required=true)
-  var dbSNP: Seq[File] = Seq()
+  @Input(doc="DBSNP or known callset to use (must be in VCF format)", fullName="dbsnp", shortName="D", required=false)
+  var dbSNP: Seq[File] = Seq(new File("/refdata/dbsnp_135.b37.vcf"))
 
   @Input(doc="The path to the binary of bwa (usually BAM files have already been mapped - but if you want to remap this is the option)", fullName="path_to_bwa", shortName="bwa", required=false)
-  var bwaPath: File = _
+  var bwaPath: File = "/opt/bwa/bin/bwa"
 
   @Input(doc="extra VCF files to use as reference indels for Indel Realignment", fullName="extra_indels", shortName="indels", required=false)
   var indelSites: Seq[File] = Seq()
 
   @Input(doc="Interval file with targets used in exome capture (used for QC metrics)", fullName="targets", shortName="targets", required=false)
-  var targets: File = new File("/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
+  var targets: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
 
   @Input(doc="Interval file with baits used in exome capture (used for QC metrics)", fullName="baits", shortName="baits", required=false)
-  var baits: File = new File("/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list")
+  var baits: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list")
 
 
   // todo hotfix: paste mutect parameters here
@@ -60,10 +60,10 @@ class CMIBAMProcessingPipeline extends QScript {
   var doMutect: Boolean = false
 
   @Input(doc="COSMIC sites to use (must be in VCF format)", fullName="cosmic", shortName="C", required=false)
-  var cosmic: Seq[File] = Seq()
+  var cosmic: Seq[File] = Seq(new File("/refdata/hg19_cosmic_v54_120711.vcf"))
 
   @Input(doc="The path to the binary of MuTect", fullName="mutect_jar", shortName="mj", required=false)
-  var mutectJar: File = _
+  var mutectJar: File = new File("/opt/cmi-cancer/mutect/muTect.jar")
 
   @Input(doc="Panel Of Normals or known artifact sites to use (must be in VCF format)", fullName="panel_of_normals", shortName="pon", required=false)
   var pon: Seq[File] = Seq()
@@ -307,6 +307,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.scatterCount = nContigs
     this.analysisName = outIntervals + ".target"
     this.jobName = outIntervals + ".target"
+    this.intervals :+= qscript.targets // todo hotfix - only run in given targets, otherwise we're just wasting computation
   }
 
   case class indel (inBAMs: Seq[File], tIntervals: File) extends IndelRealigner with CommandLineGATKArgs {
@@ -372,6 +373,8 @@ class CMIBAMProcessingPipeline extends QScript {
     this.isIntermediate = false
     this.analysisName = outBAM + ".reduce"
     this.jobName = outBAM + ".reduce"
+    this.intervals :+= qscript.targets // TODO hotfix - just so we don't waste 50 hours to completion on a 10kb BAM
+
   }
 
   case class call (inBAM: File, outVCF: File) extends UnifiedGenotyper with CommandLineGATKArgs {
@@ -385,9 +388,8 @@ class CMIBAMProcessingPipeline extends QScript {
     this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.scatterCount = nContigs
 
-    // todo - tmp hack, GATK will hang if we run it with a small-target BAM but standard exome intervals
-    // for now have the caller just traverse the whole genome even though it will waste 99.999% of its time
-    //this.intervalsString :+= qscript.targets.getName
+     // for now have the caller just traverse the whole genome even though it will waste 99.999% of its time
+    this.intervals :+= qscript.targets // TODO hotfix - just so we don't waste 50 hours to completion on a 10kb BAM
   }
 
 
@@ -532,7 +534,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.cosmic = qscript.cosmic
     this.normal_panel = qscript.pon
 
-    //this.only_passing_calls = true
+    this.only_passing_calls = true
     this.enable_extended_output = true
     this.downsample_to_coverage = 1000 // TODO: how deep should this be?
     this.fraction_contamination = Some(tumorFractionContamination)
@@ -542,7 +544,7 @@ class CMIBAMProcessingPipeline extends QScript {
 
     this.out = outMutations
     this.coverage_file = outCoverage
-    //this.vcf = outVcf
+    this.vcf = outVcf
 
 
     this.analysisName = tumorBam.toString + ".mutect"
