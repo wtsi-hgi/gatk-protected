@@ -73,18 +73,21 @@ public class ProfileNestedIntegerArray extends CommandLineProgram {
     @Argument(fullName = "useExperimentalArrays", shortName = "useExperimentalArrays", doc = "Use the experimental NestedIntegerArray implementation?", required = false)
     private boolean useExperimentalArrays = false;
 
-    @Argument(fullName = "maxEnqueuedOperations", shortName = "maxEnqueuedOperations", doc = "Maximum number of operations that can be submitted to the thread pool at once", required = false)
-    private int maxEnqueuedOperations = 1024;
+    @Argument(fullName = "maxEnqueuedTasks", shortName = "maxEnqueuedTasks", doc = "Maximum number of tasks that can be submitted to the thread pool at once", required = false)
+    private int maxEnqueuedTasks = 10000;
+
+    @Argument(fullName = "operationsPerThread", shortName = "operationsPerThread", doc = "Number of array operations to execute within each thread", required = false)
+    private int operationsPerThread = 100000;
 
     @Argument(fullName = "operationBufferSize", shortName = "operationBufferSize", doc = "Number of operations to load at a time from the log file before dispatching them for execution", required = false)
-    private int operationBufferSize = 100000;
+    private int operationBufferSize = 20000000;
 
     @Argument(fullName = "debug", shortName = "debug", doc = "Output debugging information", required = false)
     private boolean debug = false;
 
     private PeekableIterator<String> operationLogIterator;
     private Iterator<ArrayOperation> operationIterator;
-    private List<ArrayOperation> operationBuffer;
+    private List<BulkArrayOperationRunner> bulkArrayOperationBuffer;
     private Map<String, NestedIntegerArray<RecalDatum>> arrays;
     private ExecutorService threadPool;
     private Semaphore threadPoolSlot;
@@ -96,10 +99,14 @@ public class ProfileNestedIntegerArray extends CommandLineProgram {
         initializeArrays();
 
         operationIterator = new ArrayOperationIterator();
-        operationBuffer = new ArrayList<ArrayOperation>(operationBufferSize);
+        bulkArrayOperationBuffer = new ArrayList<BulkArrayOperationRunner>(operationBufferSize / operationsPerThread + 1);
 
         threadPool = Executors.newFixedThreadPool(threadPoolSize);
-        threadPoolSlot = new Semaphore(maxEnqueuedOperations);
+        threadPoolSlot = new Semaphore(maxEnqueuedTasks);
+
+        logger.info("Running test with settings:");
+        logger.info(String.format("operationLog=%s threadPoolSize=%d maxEnqueuedTasks=%d operationsPerThread=%d operationBufferSize=%d useExperimentalArrays=%b",
+                                  operationLog, threadPoolSize, maxEnqueuedTasks, operationsPerThread, operationBufferSize, useExperimentalArrays));
 
         SimpleTimer wallClockTimer = new SimpleTimer("wallClock");
         wallClockTimer.start();
@@ -154,29 +161,18 @@ public class ProfileNestedIntegerArray extends CommandLineProgram {
             do {
                 bufferUpcomingOperations();
 
-                for ( final ArrayOperation operation : operationBuffer ) {
-
+                for  ( BulkArrayOperationRunner bulkOperation : bulkArrayOperationBuffer ) {
                     // Record stats so that we can make sure the thread pool is always using all its threads
                     // and that we're not I/O bound
-                    int currentlyEnqueuedOperations = maxEnqueuedOperations - threadPoolSlot.availablePermits();
+                    int currentlyEnqueuedOperations = maxEnqueuedTasks - threadPoolSlot.availablePermits();
                     maxObservedEnqueuedOperations = Math.max(maxObservedEnqueuedOperations, currentlyEnqueuedOperations);
                     enqueuedOperationsRunningTotal += currentlyEnqueuedOperations;
                     numObservations++;
 
                     threadPoolSlot.acquire();
-
-                    threadPool.execute( new Runnable() {
-                                            public void run() {
-                                                try {
-                                                    operation.run();
-                                                }
-                                                finally {
-                                                    threadPoolSlot.release();
-                                                }
-                                            }
-                                        } );
+                    threadPool.execute(bulkOperation);
                 }
-            } while ( operationBuffer.size() > 0 );
+            } while ( bulkArrayOperationBuffer.size() > 0 );
 
             threadPool.shutdown();
             if ( ! threadPool.awaitTermination(300, TimeUnit.SECONDS) ) {
@@ -193,10 +189,36 @@ public class ProfileNestedIntegerArray extends CommandLineProgram {
     }
 
     private void bufferUpcomingOperations() {
-        operationBuffer.clear();
+        bulkArrayOperationBuffer.clear();
+        int totalOperationsLoaded = 0;
 
-        while ( operationIterator.hasNext() && operationBuffer.size() < operationBufferSize ) {
-            operationBuffer.add(operationIterator.next());
+        while ( operationIterator.hasNext() && totalOperationsLoaded < operationBufferSize ) {
+            List<ArrayOperation> operations = new ArrayList<ArrayOperation>(operationsPerThread);
+            while ( operationIterator.hasNext() && operations.size() < operationsPerThread && totalOperationsLoaded < operationBufferSize ) {
+                operations.add(operationIterator.next());
+                totalOperationsLoaded++;
+            }
+
+            bulkArrayOperationBuffer.add(new BulkArrayOperationRunner(operations));
+        }
+    }
+
+    private class BulkArrayOperationRunner implements Runnable {
+        private List<ArrayOperation> operations;
+
+        public BulkArrayOperationRunner( List<ArrayOperation> operations ) {
+            this.operations = operations;
+        }
+
+        public void run() {
+            try {
+                for ( ArrayOperation operation : operations ) {
+                    operation.run();
+                }
+            }
+            finally {
+                threadPoolSlot.release();
+            }
         }
     }
 
