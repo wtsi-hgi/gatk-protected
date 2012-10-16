@@ -128,6 +128,10 @@ class CMIBAMProcessingPipeline extends QScript {
 
     // todo -- align fastQ's from lanes object
     val samples = new mutable.HashMap[String, Seq[File]]()
+
+    // todo -- parse all the sample level metadata into a single structure (not per lane)
+    val tumorInfo = new mutable.HashMap[String, Int]()
+
     for (meta <- lanes) {
       val bamFile = performAlignment(meta)
       if (samples.contains(meta.sample)) {
@@ -135,6 +139,14 @@ class CMIBAMProcessingPipeline extends QScript {
       }
       else {
         samples.put(meta.sample, Seq(bamFile))
+      }
+
+      if (tumorInfo.contains(meta.sample)) {
+        // check that the type of this sample hasn't changed
+        assert(meta.tumor == tumorInfo(meta.sample),
+          String.format("Tumor type for sample %s is internally inconsistent within metadata file.  Found %s and %s\n", meta.sample, meta.tumor.toString, tumorInfo(meta.sample).toString))
+      } else {
+        tumorInfo.put(meta.sample, meta.tumor)
       }
     }
     // todo -- add optional bam de-multiplexing and re-multiplexing pipeline
@@ -179,15 +191,20 @@ class CMIBAMProcessingPipeline extends QScript {
     }
     // todo hotfix part 3: add cancer-specific calling also at the end
     if (qscript.doMutect) {
-      val normalBam = swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.bam")
-      val tumorBam = swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.bam")
+
+      val normalName = tumorInfo.filter( P => P._2 == 0).keysIterator.next()
+      val tumorName = tumorInfo.filter( P => P._2 == 1).keysIterator.next()
+
+      // todo hotfix: there is not a way right now to look up the BAM for a sample?
+      val normalBam = normalName + ".clean.dedup.recal.bam"
+      val tumorBam = tumorName + ".clean.dedup.recal.bam"
       val tumorFractionContamination:Float = 0.01f
-      val outPrefix = tumorBam.getName + "-vs-" + normalBam.getName // TODO: use CMI ids here
+      val outPrefix = tumorName + "-vs-" + normalName
       val rawMutations = outPrefix + ".call_stats.txt"
       val rawVcf = outPrefix + ".vcf"
       val rawCoverage = outPrefix + ".wig.txt"
-      //print(tumorBam.getName)
-      add(mutect(tumorBam, normalBam, tumorFractionContamination, rawMutations, rawVcf, rawCoverage))
+      print("MUTECT Tumor BAM is: " + tumorBam.getName)
+      add(mutect(tumorName, tumorBam, normalName, normalBam, tumorFractionContamination, rawMutations, rawVcf, rawCoverage))
 
     }
 
@@ -525,7 +542,8 @@ class CMIBAMProcessingPipeline extends QScript {
 
   // todo hotfix - pasted from cancer pipeline
 
-  case class mutect (tumorBam : File, normalBam : File, tumorFractionContamination : Float, outMutations : File,  outVcf : File, outCoverage : File) extends MuTect with CommandLineGATKArgs {
+  case class mutect (tumorName : String, tumorBam : File, normalName : String, normalBam : File, tumorFractionContamination : Float, outMutations : File,  outVcf : File, outCoverage : File) extends MuTect with CommandLineGATKArgs {
+    this.isIntermediate = false
     this.scatterCount = 1
     this.memoryLimit = 4
     this.jarFile = qscript.mutectJar
