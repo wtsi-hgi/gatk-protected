@@ -141,7 +141,6 @@ class CMICancerPipeline extends QScript {
   // General arguments to GATK walkers
   trait CommandLineGATKArgs extends CommandLineGATK with ExternalCommonArgs {
     this.reference_sequence = qscript.reference
-    this.intervals = qscript.intervals
   }
 
   def cancer (tumorName : String, tumorBam : File, normalName : String, normalBam : File, tumorFractionContamination : Float, outPrefix : String) {
@@ -173,6 +172,7 @@ class CMICancerPipeline extends QScript {
     this.scatterCount = 1
     this.memoryLimit = 4
     this.jarFile = qscript.mutectJar
+    this.intervals = qscript.intervals
 
     this.dbsnp = qscript.dbSNP
     this.cosmic = qscript.cosmic

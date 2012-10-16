@@ -529,6 +529,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.scatterCount = 1
     this.memoryLimit = 4
     this.jarFile = qscript.mutectJar
+    this.intervals :+= qscript.targets
 
     this.dbsnp = qscript.dbSNP
     this.cosmic = qscript.cosmic
