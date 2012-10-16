@@ -29,7 +29,7 @@ import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMFileWriter;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
@@ -58,7 +58,7 @@ public class IOCrusher extends ReadWalker<GATKSAMRecord, ArrayList<SAMFileWriter
     /**
      *
      */
-    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
+    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
         nReadsRead++;
         return read;
     }

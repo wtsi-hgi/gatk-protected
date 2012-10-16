@@ -3,6 +3,7 @@ package org.broadinstitute.sting.queue.qscripts.annotations
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.library.ipf.vcf.VCFExtractIntervals
+import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 
 class ScatteredFullVariantAnnotator extends QScript {
   qscript =>

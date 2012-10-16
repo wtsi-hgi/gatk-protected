@@ -6,9 +6,14 @@ from xml.etree.cElementTree import *
 import gzip
 import datetime
 import re
-import MySQLdb
 import unittest
 import traceback
+
+try:
+    import MySQLdb
+except ImportError, e:
+    pass # no mysql, let's hope they aren't trying to use it
+
 
 MISSING_VALUE = "NA"
 RUN_REPORT_LIST = "GATK-run-reports"
@@ -208,21 +213,24 @@ def eltIsException(elt):
     
 RUN_STATUS_SUCCESS = "success"
 def parseException(elt):
-    msgElt = elt.find("message")
+    # parse the message text
     msgText = "MISSING"
-    userException = "NA"
-    runStatus = RUN_STATUS_SUCCESS
-    if msgElt != None: 
+    msgElt = elt.find("message")
+    if msgElt != None:
         msgText = msgElt.text
-        runStatus = "sting-exception"
-    
+
     stackTraceString, exceptionClass = parseStackTrace(elt, 0)
-    
+
+    # the only way to reach this function is because an error occurred,
+    # so our status is either a sting or user exception
+    userException = "false"
+    runStatus = "sting-exception"
     if elt.find("is-user-exception") != None:
-        #print elt.find("is-user-exception")
         userException = elt.find("is-user-exception").text
-        if userException == "true": runStatus = "user-exception"
-    #if runStatus != "completed": print stackTrace, elt.find('stacktrace')
+        if userException == "true":
+            runStatus = "user-exception"
+            stackTraceString = "no-stacktrace-for-user-exceptions"
+
     return msgText, stackTraceString, userException, runStatus, exceptionClass
 
 def parseStackTrace(elt, depth):
@@ -400,10 +408,11 @@ class RecordDecoder:
             self.fields.extend(fields)
             self.formatters[key] = zip(fields, funcs)
     
-        add(["id", "walker-name"], id)
+        add(["id", "walker-name", "tag"], id)
         addComplex("svn-version", ["svn-version", "gatk-version", "gatk-minor-version", "release-type"], [id, formatMajorVersion, formatMinorVersion, formatReleaseType])
         add(["start-time", "end-time"], formatRuntime)      
         add(["run-time", "user-name"], id)
+        add(["num-threads", "percent-time-running", "percent-time-waiting", "percent-time-blocking", "percent-time-waiting-for-io"], id)
         addComplex("host-name", ["host-name", "domain-name"], [formatHostName, formatDomainName])
         add(["java", "machine"], toString)
         add(["max-memory", "total-memory", "iterations"], id)
@@ -422,7 +431,10 @@ class RecordDecoder:
         # add missing data
         for field in self.fields:
             if field not in bindings:
-                bindings[field] = MISSING_VALUE
+                if ( field == "run-status" ):
+                    bindings[field] = RUN_STATUS_SUCCESS
+                else:
+                    bindings[field] = MISSING_VALUE
 
         return bindings
 
@@ -577,11 +589,12 @@ class SQLRecordHandler(StageHandler):
         pass
 
     def getFields(self):
-        return ["id", "walker-name", "gatk-version", 
+        return ["id", "walker-name", "tag", "gatk-version",
                 "gatk-minor-version", "svn-version", 
                 "start-time", "end-time", "run-time", 
-                "user-name", "host-name", "domain-name", 
-                "total-memory", "stacktrace", "exception-at-brief", 
+                "user-name", "host-name", "domain-name",
+                "num-threads", "percent-time-running", "percent-time-waiting", "percent-time-blocking", "percent-time-waiting-for-io",
+                "total-memory", "stacktrace", "exception-at-brief",
                 "exception-msg", "is-user-exception", "exception-class", 
                 "run-status", "release-type"]
         
