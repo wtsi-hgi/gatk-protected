@@ -9,8 +9,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
 import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
 import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
-import org.broadinstitute.sting.gatk.refdata.ReadMetaDataTracker;
-import org.broadinstitute.sting.gatk.refdata.utils.GATKFeature;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadFilters;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
@@ -20,7 +19,6 @@ import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
-import org.broadinstitute.sting.utils.sam.ReadUtils;
 
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
@@ -205,13 +203,8 @@ public class ExonJunctionHypothesisGenerator extends ReadWalker<TreeSet<ExonJunc
         }
     }
 
-    public TreeSet<IntronLossJunctions> map(ReferenceContext ref, GATKSAMRecord read, ReadMetaDataTracker metaDataTracker) {
-        List<RefSeqFeature> refSeqFeatures = new ArrayList<RefSeqFeature>(16);
-        for (GATKFeature feature : metaDataTracker.getAllCoveringRods() ) {
-            if ( feature.getUnderlyingObject().getClass().isAssignableFrom(RefSeqFeature.class) ) {
-                refSeqFeatures.add((RefSeqFeature) feature.getUnderlyingObject());
-            }
-        }
+    public TreeSet<IntronLossJunctions> map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
+        final List<RefSeqFeature> refSeqFeatures = new ArrayList<RefSeqFeature>(metaDataTracker.getValues(refSeqRodBinding));
 
         TreeSet<IntronLossJunctions> junctionsSet = new TreeSet<IntronLossJunctions>();
         GenomeLoc readLoc = getToolkit().getGenomeLocParser().createGenomeLoc(read);

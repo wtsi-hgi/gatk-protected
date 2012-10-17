@@ -1,7 +1,7 @@
 library(gsalib)
 library(ggplot2)
 library(reshape)
-#library(gplots)
+library(splines)
 library(tools)
 
 args <- commandArgs(TRUE)
@@ -17,9 +17,10 @@ if ( onCMDLine ) {
   file <- args[1]
   outputPDF <- args[2]
 } else {
-  file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelBQSR/GATKPerformanceOverTime.jobreport.txt"
+  #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelBQSR/GATKPerformanceOverTime.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelCombineVariants2/GATKPerformanceOverTime.jobreport.txt"
-  #file <- "~/Desktop/broadLocal/GATK/unstable/GATKPerformanceOverTime.jobreport.txt"
+  #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/nanoUG//GATKPerformanceOverTime.jobreport.txt"
+  file <- "~/Desktop/broadLocal/GATK/unstable/GATKPerformanceOverTime.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-24937@gsa1.jobreport.txt"
   outputPDF <- NA
 }
@@ -48,31 +49,58 @@ distributeLogGraph <- function(graph, xName) {
 }
 
 plotByNSamples <- function(report) {
-  plotCmdByX(report, "nSamples", T, logUnit = 10)
+  plotCmdByX(report, "nSamples", T, groupBy="gatk", logUnit = 10)
 }
 
 plotByNT <- function(report, includeFacet = F) {
-  plotCmdByX(report, "nt", includeFacet, logUnit = 2)
+  minReport = report[,c("nt", "runtime", "gatk", "ntType", "assessment")]
+  nt1Rows = subset(minReport, nt == 1)
+  if ( nrow(nt1Rows) > 0 ) {
+    runtimeNT1 = mean(nt1Rows$runtime)
+    nts = unique(minReport$nt)
+    idealRuntimes = runtimeNT1 / nts
+    myAssessment = unique(minReport$assessment)[1]
+    idealDF = data.frame(nt=nts, runtime=idealRuntimes, gatk="ideal", ntType="nt", assessment=myAssessment)
+    minReport = rbind(minReport, idealDF)
+  }
+  
+  minReport$groups = interaction(minReport$gatk, minReport$ntType)
+  plotCmdByX(minReport, "nt", includeFacet, groupBy = "groups", logUnit = 2, T)
 }
 
-plotCmdByX <- function(report, X, includeFacet = F, logUnit = 10) {
+plotCmdByX <- function(report, X, includeFacet = F, groupBy = "gatk", logUnit = 10, useWeights=F) {
+  report$groups = report[[groupBy]]
   report$X <- report[[X]]
-  p = ggplot(data=report, aes(x=X, y=runtime, group=gatk, color=gatk))
+  if ( useWeights )
+    report$weight = 1 / report$X^2
+  else
+    report$weight = 1
+  
+  if ( logUnit == 10 ) {
+    units = "log10"
+    p = ggplot(data=report, aes(x=log10(X), y=log10(runtime), group=groups, color=groups))
+  } else if ( logUnit == 2 ) {
+    units = "log2"
+    p = ggplot(data=report, aes(x=log2(X), y=log2(runtime), group=groups, color=groups))
+  } else {
+    unit = ""
+    p = ggplot(data=report, aes(x=X, y=runtime, group=groups, color=groups))
+  }
+  
   if ( includeFacet ) 
     p = p + facet_grid(. ~ assessment, scales="free")
   p = p + geom_jitter()
-  #p = p + geom_point()
-  p = p + geom_smooth()
-  if ( logUnit == 10 ) {
-    p = p + scale_x_log10(breaks=unique(report$X)) + scale_y_log10()
-  } else if ( logUnit == 2 ) {
-    p = p + scale_x_continuous(trans = "log2", breaks=unique(report$X)) + scale_y_continuous(trans = "log2")
-  }
-  p = p + xlab(X) + ylab(paste("Runtime", RUNTIME_UNITS))
+
+  # linear and quadratic fits
+  p = p + stat_smooth(method=lm, se=FALSE, aes(weight=weight), linetype="dashed")
+  p = p + geom_smooth(method="lm", se=FALSE, formula = y ~ ns(x,2))
+  
+  p = p + xlab(paste(units, X)) + ylab(paste(units, "Runtime", RUNTIME_UNITS))
   p = p + opts(title=report$analysisName)
-  p = p + geom_boxplot(aes(group=interaction(X, gatk)))
+  p = p + geom_boxplot(aes(group=interaction(X, groups)))
   p
 }
+#plotByNSamples(allReports$UnifiedGenotyper)
 
 plotNormalizedByNSamples <- function(report) {
   norm = ddply(report, .(nSamples, assessment), transform, normRuntime = runtime / mean(runtime))
@@ -81,7 +109,7 @@ plotNormalizedByNSamples <- function(report) {
   p = p + geom_boxplot(aes(group=interaction(nSamples, gatk)), outlier.colour="blue")
   #p = p + geom_jitter()
   #p = p + geom_point()
-  p = p + geom_smooth()
+  p = p + geom_smooth(se=FALSE)
   p = p + scale_x_log10()# + scale_y_log10()
   p = p + opts(title=paste("Runtime per nSamples relative to nSamples mean value", report$analysisName))
   print(p)
@@ -140,29 +168,28 @@ if ( "CombineVariants" %in% names(allReports) ) {
   }
 }
 
-if ( "UnifiedGenotyper.nt" %in% names(allReports) ) {
-  for ( assess in unique(allReports$UnifiedGenotyper.nt$assessment)) {
-    p = plotByNT(allReports$UnifiedGenotyper.nt[allReports$UnifiedGenotyper.nt$assessment == assess,])
-    p = p + opts(title=paste("UnifiedGenotyper performance as a function of nt for", assess))
-    print(p)
+getAssessments <- function(report) {
+  if ( "assessment" %in% names(report) ) {
+    return(levels(report$assessment))
+  } else {
+    stop(paste("Missing assessment field for report", report[1, "analysisName"]))
   }
 }
 
-if ( "CombineVariants.nt" %in% names(allReports) ) {
-    p = plotByNT(allReports$CombineVariants.nt)
-    p = p + facet_grid(output ~ .)
-    p = p + opts(title=paste("CombineVariants performance as a function of nt"))
-    print(p)
-}
-
-if ( "BaseRecalibrator.nt" %in% names(allReports) ) {
-  p = plotByNT(allReports$BaseRecalibrator.nt)
-  p = p + opts(title=paste("BaseRecalibrator performance as a function of nt"))
-  print(p)
-}
-
-if ( "VariantEval.nt" %in% names(allReports) ) {
-  print(plotByNT(allReports$VariantEval.nt))
+#
+# Plot runtime vs. NT for all of the NT tests
+#
+ntReports <- c("CombineVariants.nt", "UnifiedGenotyper.nt", "UnifiedGenotyper.nct", 
+               "CountLoci.nt", "BaseRecalibrator.nt", "VariantEval.nt", "PrintReads.nt")
+for ( ntReport in ntReports ) {
+  if ( ntReport %in% names(allReports) ) {
+    report = allReports[[ntReport]]
+    for ( assess in getAssessments(report) ) {
+      p = plotByNT(report[report$assessment == assess,])
+      p = p + opts(title=paste(ntReport, " performance as a function of nt for ", assess))
+      print(p)
+    }
+  }
 }
 
 if ( ! is.na(outputPDF) ) {

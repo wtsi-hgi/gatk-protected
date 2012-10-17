@@ -131,7 +131,7 @@ class HybridSelectionPipeline extends QScript {
     if (useK1gExomes)
       call.input_file :+= k1gExomesBam
     call.dbsnp = dbsnp135
-    call.downsample_to_coverage = 600
+    call.downsample_to_coverage = 60
     call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     call.out = projectName + ".unfiltered.vcf"
     call.scatterCount = qscript.variantCallerScatterCount

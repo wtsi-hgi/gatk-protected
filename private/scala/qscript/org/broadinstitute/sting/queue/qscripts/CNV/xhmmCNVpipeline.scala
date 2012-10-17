@@ -2,8 +2,8 @@ package org.broadinstitute.sting.queue.qscripts.CNV
 
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.gatk.DownsampleType
 import org.broadinstitute.sting.queue.util.VCF_BAM_utilities
+import org.broadinstitute.sting.queue.util.DoC._
 import org.broadinstitute.sting.commandline.Hidden
 import java.io.{PrintStream, PrintWriter}
 import org.broadinstitute.sting.utils.text.XReadLines
@@ -111,10 +111,9 @@ class xhmmCNVpipeline extends QScript {
   var longJobQueue: String = ""
 
 
-  val DOC_OUTPUT_SUFFIX: String = ".sample_interval_summary"
+  val PREPARED_TARGS_SUFFIX: String = ".merged.interval_list"
 
   val RD_OUTPUT_SUFFIX: String = ".RD.txt"
-  val PREPARED_TARGS_SUFFIX: String = ".merged.interval_list"
 
   val TARGS_GC_SUFFIX = ".locus_GC.txt"
   val EXTREME_GC_TARGS_SUFFIX = ".extreme_gc_targets.txt"
@@ -141,73 +140,30 @@ class xhmmCNVpipeline extends QScript {
       this.jobQueue = longJobQueue
   }
 
-  // A group has a list of samples and bam files to use for DoC
-  class Group(val name: String, val samples: List[String], val bams: List[File]) {
-    // getName() just includes the file name WITHOUT the path:
-    val groupOutputName = name + "." + outputBase.getName()
-
-    // Comment this out, so that when jobs are scattered in DoC class below, they do not scatter into outputs at directories that don't exist!!! :
-    //def DoC_output = new File(outputBase.getParentFile(), groupOutputName)
-
-    def DoC_output = new File(groupOutputName)
-
-    override def toString(): String = String.format("[Group %s [%s] with samples %s against bams %s]", name, DoC_output, samples, bams)
-  }
-
   def script = {
-    val prepTargets = new PrepareTargets(List(qscript.intervals), outputBase.getPath + PREPARED_TARGS_SUFFIX)
+    val prepTargets = new PrepareTargets(List(qscript.intervals), outputBase.getPath + PREPARED_TARGS_SUFFIX, xhmmExec, referenceFile)
     add(prepTargets)
 
     trait CommandLineGATKArgs extends CommandLineGATK {
-      this.intervalsString = List(prepTargets.out)
+      this.intervals :+= prepTargets.out
       this.jarFile = qscript.gatkJarFile
       this.reference_sequence = qscript.referenceFile
       this.logging_level = "INFO"
-    }
-
-    class DoC(t: Group) extends CommandLineGATKArgs with ScatterGatherableFunction {
-      this.analysis_type = "DepthOfCoverage"
-
-      this.input_file = t.bams
-
-      this.downsample_to_coverage = MAX_DEPTH
-      this.downsampling_type = DownsampleType.BY_SAMPLE
-
-      this.scatterCount = scatterCountInput
-      this.scatterClass = classOf[IntervalScatterFunction]
-
-      // The HACK for DoC to work properly within Queue:
-      val commandLineSuppliedOutputFilesPrefix = t.DoC_output
-
-      @Output
-      @Gather(classOf[org.broadinstitute.sting.queue.function.scattergather.SimpleTextGatherFunction])
-      var intervalSampleOut: File = new File(commandLineSuppliedOutputFilesPrefix.getPath() + DOC_OUTPUT_SUFFIX)
-
-      override def commandLine = super.commandLine +
-        " --omitDepthOutputAtEachBase --omitLocusTable --minBaseQuality 0 --minMappingQuality " + minMappingQuality +
-        " --start " + START_BIN + " --stop " + MAX_DEPTH + " --nBins " + NUM_BINS +
-        " --includeRefNSites" +
-        " -o " + commandLineSuppliedOutputFilesPrefix
-
-      override def shortDescription = "DoC: " + commandLineSuppliedOutputFilesPrefix
-
-      this.jobOutputFile = commandLineSuppliedOutputFilesPrefix + ".out"
     }
 
     val sampleToBams: scala.collection.mutable.Map[String, scala.collection.mutable.Set[File]] = VCF_BAM_utilities.getMapOfBAMsForSample(VCF_BAM_utilities.parseBAMsInput(bams))
     val samples: List[String] = sampleToBams.keys.toList
     Console.out.printf("Samples are %s%n", samples)
 
-    val groups: List[Group] = buildDoCgroups(samples, sampleToBams)
+    val groups: List[Group] = buildDoCgroups(samples, sampleToBams, samplesPerJob, outputBase)
     var docs: List[DoC] = List[DoC]()
     for (group <- groups) {
       Console.out.printf("Group is %s%n", group)
-      val doc = new DoC(group)
-      docs ::= doc
-      add(doc)
+      docs ::= new DoC(group.bams, group.DoC_output, MAX_DEPTH, minMappingQuality, scatterCountInput, START_BIN, NUM_BINS, Nil) with CommandLineGATKArgs
     }
+    addAll(docs)
 
-    val mergeDepths = new MergeGATKdepths(docs.map(u => u.intervalSampleOut))
+    val mergeDepths = new MergeGATKdepths(docs.map(u => u.intervalSampleOut), outputBase.getPath + RD_OUTPUT_SUFFIX, "_mean_cvg", xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, None, false) with WholeMatrixMemoryLimit
     add(mergeDepths)
 
     var excludeTargets : List[File] = List[File]()
@@ -233,14 +189,16 @@ class xhmmCNVpipeline extends QScript {
 
       val removeFiles = "rm -f " + regFile + " " + locDB
       val createRegFile = "cat " + intervals + " | awk 'BEGIN{OFS=\"\\t\"; print \"#CHR\\tBP1\\tBP2\\tID\"} {split($1,a,\":\"); chr=a[1]; if (match(chr,\"chr\")==0) {chr=\"chr\"chr} split(a[2],b,\"-\"); bp1=b[1]; bp2=bp1; if (length(b) > 1) {bp2=b[2]} print chr,bp1,bp2,NR}' > " + regFile
-      val createLOCDB = pseqExec + " . loc-load --locdb " + locDB + " --file " + regFile + " --group targets"
-      val calcRepeatMaskedPercent = pseqExec + " . loc-stats --locdb " + locDB + " --group targets --seqdb " + pseqSeqDB + " | awk '{if (NR > 1) print $_}' | sort -k1 -g | awk '{print $10}' | paste " + intervals + " - | awk '{print $1\"\\t\"$2}' > " + out
+      val createLOCDB = pseqExec + " . loc-load --locdb " + locDB + " --file " + regFile + " --group targets --out " + locDB + ".loc-load"
+      val calcRepeatMaskedPercent = pseqExec + " . loc-stats --locdb " + locDB + " --group targets --seqdb " + pseqSeqDB + " --out " + locDB + ".loc-stats"
+      val extractRepeatMaskedPercent = "cat " + locDB + ".loc-stats.locstats | awk '{if (NR > 1) print $_}' | sort -k1 -g | awk '{print $10}' | paste " + intervals + " - | awk '{print $1\"\\t\"$2}' > " + out
 
       var command: String =
         removeFiles +
           " && " + createRegFile +
           " && " + createLOCDB +
-          " && " + calcRepeatMaskedPercent
+          " && " + calcRepeatMaskedPercent +
+          " && " + extractRepeatMaskedPercent
 
       def commandLine = command
 
@@ -283,24 +241,6 @@ class xhmmCNVpipeline extends QScript {
     }
   }
 
-  class PrepareTargets(intervalsIn : List[File], outIntervals : String) extends CommandLineFunction {
-    @Input(doc="List of files containing targeted intervals to be prepared and merged")
-    var inIntervals : List[File] = intervalsIn
-
-    @Output(doc="The merged intervals file to write to")
-    var out : File = new File(outIntervals)
-
-    var command: String =
-      xhmmExec + " --prepareTargets" +
-      " -F " + referenceFile +
-      inIntervals.map(intervFile => " --targets " + intervFile).reduceLeft(_ + "" + _) +
-      " --mergedTargets " + out
-
-    def commandLine = command
-
-    override def description = "Sort all target intervals, merge overlapping ones, and print the resulting interval list: " + command
-  }
-
   class ExcludeTargetsBasedOnValue(locus_valueIn : File, outSuffix : String, minVal : Double, maxVal : Double) extends InProcessFunction {
     @Input(doc="")
     var locus_value : File = locus_valueIn
@@ -330,38 +270,6 @@ class xhmmCNVpipeline extends QScript {
 
       outWriter.close
     }
-  }
-
-  def buildDoCgroups(samples: List[String], sampleToBams: scala.collection.mutable.Map[String, scala.collection.mutable.Set[File]]): List[Group] = {
-
-    def buildDoCgroupsHelper(samples: List[String], count: Int): List[Group] = (samples splitAt samplesPerJob) match {
-      case (Nil, y) =>
-        return Nil
-      case (subsamples, remaining) =>
-        return new Group("group" + count, subsamples, VCF_BAM_utilities.findBAMsForSamples(subsamples, sampleToBams)) ::
-          buildDoCgroupsHelper(remaining, count + 1)
-    }
-
-    return buildDoCgroupsHelper(samples, 0)
-  }
-
-  class MergeGATKdepths(DoCsToCombine: List[File]) extends CommandLineFunction with WholeMatrixMemoryLimit {
-    @Input(doc = "")
-    var inputDoCfiles: List[File] = DoCsToCombine
-
-    @Output
-    val mergedDoC: File = new File(outputBase.getPath + RD_OUTPUT_SUFFIX)
-
-    var command: String =
-      xhmmExec + " --mergeGATKdepths" +
-      inputDoCfiles.map(input => " --GATKdepths " + input).reduceLeft(_ + "" + _) +
-      " -o " + mergedDoC
-    if (sampleIDsMap != "")
-      command += " --sampleIDmap " + sampleIDsMap + " --fromID " + sampleIDsMapFromColumn + " --toID " + sampleIDsMapToColumn
-
-    def commandLine = command
-
-    override def description = "Combines DoC outputs for multiple samples (at same loci): " + command
   }
 
   class FilterCenterRawMatrix(inputParam: File, excludeTargetsIn : List[File]) extends CommandLineFunction with WholeMatrixMemoryLimit {
