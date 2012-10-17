@@ -134,14 +134,45 @@ class GLM:
     # reweight by the squared residuals
     betaChangeSq = 1.0
     iter = 0
-    while ( betaChangeSq > 0.00001 and iter < 100 ):
-     print(beta)
+    while ( betaChangeSq > 1e-6 and iter < 100 ):
+     try:
+      pred = GLM.Logistic.predict(predictors,beta,N)
+      pred_P = pred/N
+      resid = (response-pred) 
+      W = numpy.diag(N*pred_P*(1.0-pred_P)) 
+      XW = numpy.inner(numpy.transpose(predictors),W)
+      inverted = numpy.linalg.inv(XW*predictors)
+      step = resid*predictors*inverted
+      beta_new = beta + step
+      betaChangeSq = numpy.linalg.norm(step)**2/len(beta)
+      beta = beta_new
+     except OverflowError:
+      # happens if data is separable (pred_P == 1.0 or 0.0)
+      return GLM.Logistic.Fit.newtonPenalized(response,predictors,N,beta-step)
+    fitObj = GLM.Logistic.Fit()
+    fitObj.coefficients = beta
+    fitObj.predictedValues = GLM.Logistic.predict(predictors,beta,N)
+    fitObj.residuals = response - fitObj.predictedValues
+    return fitObj
+
+   # package GLM.Logistic.Fit
+   def newtonPenalized(response,predictors,N,beta=None):
+    """ Uses penalized IRLS to control the growth of beta.
+    """
+    # initial guess
+    if ( beta == None ):
+     beta = numpy.linalg.lstsq(predictors,response)[0]
+    # reweight by the squared residuals
+    betaChangeSq = 1.0
+    iter = 0
+    PENALTY = numpy.matrix(numpy.eye(predictors.shape[1]))
+    while ( betaChangeSq > 1e-6 and iter < 100 ):
      pred = GLM.Logistic.predict(predictors,beta,N)
      pred_P = pred/N
-     resid = (response-pred) 
-     W = numpy.diag(N*pred_P*(1.0-pred_P)) 
+     resid = (response-pred)
+     W = numpy.diag(N*pred_P*(1.0-pred_P))
      XW = numpy.inner(numpy.transpose(predictors),W)
-     inverted = numpy.linalg.inv(XW*predictors)
+     inverted = numpy.linalg.inv(XW*predictors+PENALTY)
      step = resid*predictors*inverted
      beta_new = beta + step
      betaChangeSq = numpy.linalg.norm(step)**2/len(beta)
@@ -152,10 +183,11 @@ class GLM:
     fitObj.residuals = response - fitObj.predictedValues
     return fitObj
 
+
    # package GLM.Logistic.Fit
    def quasiNewton(response,predictors,N):
     """ Uses a BGFS approximation scheme to the Newton update (e.g. approximate hessian) to
-        fit the logistic coefficients
+        fit the logistic coefficients.
     """
     assert false
     beta = OLS.fitCoefficients(response,predictors)

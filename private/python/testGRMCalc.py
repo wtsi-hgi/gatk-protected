@@ -53,6 +53,21 @@ def grmCalculationUnitTest():
 def localCorrectionUnitTest():
  testCorrectionSansRegression()
  testRegressionCorrection()
+ testEdgeCaseRegression()
+
+def testEdgeCaseRegression():
+ """ Tests some edge cases of regressions that have been found during normal operation of the code.
+     These cases tend to yield problems even when the data is exported and the model run in R.
+ """
+ resp1 = numpy.array(list(map(lambda x: float(x),open("test/resp_break.tsv").readline().strip().split("\t"))))
+ pred1 = numpy.matrix(list(map(lambda x: list(map(lambda y: float(y),x.strip().split("\t"))),open("test/pred_break.tsv").readlines())))
+ result1 = linear.GLM.Logistic.Fit.newton(resp1,pred1,2)
+ if ( abs(result1.residuals[0] - 1.000507 ) < 1e-5 ):
+  raise TestException("Bad residual. Expected: %e, observed: %e" % (1.000507,result1.residuals[0]))
+ if ( abs(result1.residuals[211] - (-0.427816)) < 1e-5 ):
+  raise TestException("Bad residual. Expected: %e, observed: %e" % (-0.427816,result1.residuals[211]))
+ if ( abs(result1.residuals[2099] - (-0.7618973)) < 1e-5 ):
+  raise TestException("Bad residual. Expected: %e, observed: %e" % (-0.7618973,result1.residuals[2099]))
 
 def testRegressionCorrection():
  """ Tests the accuracy of getCorrectedDosages method. Expected values established by performing appropriate calculation in R. Note that
@@ -292,6 +307,18 @@ def singleVariantAccumulationTest():
 def testBedReading():
  singleVariantBedTest()
  multiVariantBedTest()
+ optimizedBedTest()
+
+def optimizedBedTest():
+ args = provider.getArgs(0,"./test/1000G_subset.chr20.79234")
+ reader = PlinkReader.SiteOptimizedPlinkBinaryReader(args.bedBase)
+ if ( not reader.numGenotypesPerMajor == 12 ):
+   raise TestException("Mismatching samples. Expected: %d, observed: %d" %(12,reader.numGenotypesPerMajor))
+ genotypeDosages = calculateGRM.getNextVariantOptimized(reader,args)
+ reader2 = PlinkReader.getReader(args.bedBase)
+ dosages2 = calculateGRM.getNextVariant(reader2,args)
+ if ( str(genotypeDosages) != str(dosages2) ):
+   raise TestException("Mismatching dosage items. Expected: %s, observed: %s" % (str(genotypeDosages),str(dosages2)))
 
 def singleVariantBedTest():
  args = provider.getArgs(0,"./test/1000G_subset.chr20.79234")

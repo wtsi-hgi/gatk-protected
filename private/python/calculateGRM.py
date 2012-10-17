@@ -4,6 +4,9 @@ import argparse
 import numpy
 import math
 import linear_old as linear
+import functools
+
+reduce = functools.reduce
 
 def parseArgs():
  parser = argparse.ArgumentParser(description='Parse out arguments for the generalized burden test')
@@ -26,6 +29,8 @@ def parseArgs():
          help="The maximum frequency of a variant to use for local/global LD correction")
  parser.add_argument("-naCorrect",action='store_true',dest="naCorrect",required=False,
          help="Replace missing genotype values with the mean dosage (2 x p) rather than ignoring them")
+ parser.add_argument("-opt",action="store_true",dest="opt",required=False,
+         help="Use optimized bed reader. Experimental.")
  return parser.parse_args()
 
 ## stream in the SNPs, break them into bins of "independent correctors" and "dependent genotypes", and run a correction
@@ -45,28 +50,32 @@ def streamAndLocalCorrect(args,reader):
  dosages = dict()
  individualMissingCalculate = dict()
  individualMissingCorrect = dict()
- genotypes = getNextVariant(reader,args)
+ if ( args.opt ):
+  nextVar = getNextVariantOptimized
+ else:
+  nextVar = getNextVariant
+ genotypes = nextVar(reader,args)
  # this is a 3-ple: (PlinkVariant,List[Float],List[Int])
- siteNo = 0 
+ siteNo = 0
  while ( genotypes != None and len(dependentGenotypeIntervals) > 0):
-  if ( siteNo % 10000 == 1 ):
+  if ( siteNo % 50 == 1 ):
    print("read : "+str(siteNo) + " at : " + str(genotypes[0].pos) + " accum : "+str(len(regressorVariants))+ " compute : "+str(len(variantsToCorrect)))
   accumulateVariant(genotypes,regressorVariants,variantsToCorrect,dependentGenotypeIntervals,args.localCorrectionBP,args,individualMissingCalculate,individualMissingCorrect,len(dosages)) 
   doneIntervals = removeStaleIntervals(genotypes[0],regressorVariants,dependentGenotypeIntervals,args.localCorrectionBP)
   completedVariants = findCompletedVariants(doneIntervals,regressorVariants,variantsToCorrect,args.localCorrectionBP)
-  removeStaleVariants(doneIntervals,dependentGenotypeIntervals,regressorVariants,variantsToCorrect,args.localCorrectionBP,individualMissingCalculate,individualMissingCorrect) 
+  removeStaleVariants(doneIntervals,dependentGenotypeIntervals,regressorVariants,variantsToCorrect,args.localCorrectionBP)
   for regressionVariants in completedVariants:
    varToCorrect = regressionVariants[0]
    varsToCorrectWith = regressionVariants[1]
-   correctedVar,correctedDosages = getCorrectedDosagesNoRegression(varToCorrect,varsToCorrectWith) 
+   correctedVar,correctedDosages = getCorrectedDosages(varToCorrect,varsToCorrectWith,args) 
    dosages[correctedVar] = correctedDosages
-  genotypes = getNextVariant(reader,args)
+  genotypes = nextVar(reader,args)
   siteNo += 1
  # there may yet be intervals not totally complete
  for completedVariant in findCompletedVariants(dependentGenotypeIntervals,regressorVariants,variantsToCorrect,args.localCorrectionBP):
   varToCorrect = completedVariant[0]
   varsToUse = completedVariant[1]
-  correctedVar,correctedDosages = getCorrectedDosagesNoRegression(varToCorrect,varsToUse)
+  correctedVar,correctedDosages = getCorrectedDosages(varToCorrect,varsToUse,args)
   dosages[correctedVar]=correctedDosages
   # why is this a map?  
  return (dosages,individualMissingCalculate)
@@ -133,7 +142,7 @@ def getCorrectedDosages(responseVar,predictorVar,args):
  # 3: run a regression on this
  if ( respArray.shape[0] - len(predictorVar) < 1 ):
   raise BaseError("Too many variants for the sample size. Try decreasing localCorrectBP.")
- elif ( respArray.shape[0] - len(predictorVar) > 30 ):
+ elif ( respArray.shape[0] - len(predictorVar) > 50 ):
   regression = linear.GLM.Logistic.Fit.newton(respArray,predArray.T,2)
  else:
   regression = linear.GLM.Logistic.Fit.gradientDescent(respArray,predArray.T,2)
@@ -151,8 +160,8 @@ def getCorrectedDosages(responseVar,predictorVar,args):
     finalDosages.append(normalizedResids[residIdx])
     residIdx += 1
    fullIdx += 1
-  return (responseVar[0],finalDosages,responseVar[2])
- return (responseVar[0],normalizedResids,responseVar[2])
+  return (responseVar[0],finalDosages)
+ return (responseVar[0],normalizedResids)
 
 
 def globalCorrect(dosage,globalGenotypes):
@@ -353,6 +362,31 @@ def getNextVariant(reader,args):
  except StopIteration:
   return None
 
+def psum(x,y):
+ """ A version of summing x = x + y where values of y < 0 are ignored
+ """
+ return x if y < 0 else y+x
+
+def getNextVariantOptimized(reader,args):
+ """ An optimized version of getNextVariant. Assumes the reader is the optimized reader, and calls the function to directly get the dosages.
+     Missingness and frequency still need to be calculated for the site.
+     @reader - a plink binary reader
+     @args - the command line arguments. For deciding whether to correct missing dosages, or keep track of them.
+     @return - a 3ple: (Variant, List[Double],List[Int]) of the Variant object representing the site information, a list of genotype dosages (as a numpy array),
+               and a list of individuals missing gneotypes (by index)
+ """
+ try:
+   var,dosage = reader.nextDosageFloat()
+   missing = [i for i in range(len(dosage)) if dosage[i] < 0] 
+   freq = reduce(psum,dosage)/(2*(len(dosage)-len(missing)))
+   var.frequency = freq
+   if ( args.naCorrect ):
+     for t in missing:
+       dosage[t] = freq
+   return (var,numpy.array(dosage),missing)
+ except StopIteration:
+   return None
+
 ## given the dosages, we want to further correct by some global set of SNPs (e.g. known causal/associated loci)
 def globallyCorrectDosages(args,dosages,individualMissingDosages):
  # need to read in the global variants. This means re-reading, but whatever.
@@ -455,14 +489,27 @@ def assertArgsAreGood(args):
  if ( args.maxFrequency > 1.0 - 1e-9 or args.maxFrequencyCorrect > 1.0-1e-9 ):
   raise BaseError("The maximum frequency must be <1")
 
+def writeGRMID(reader,args):
+ """ Write out the mapping from individual index to sample ID.
+ """
+ grmIDOut = open(args.grm+".id",'w')
+ idx = 0
+ for sample in PlinkReader.getSamples(reader): 
+  grmIDOut.write("%s\t%s\n" % (sample.family_id,sample.individual_id))
+  idx += 1
+
 def runMain():
  # get the arguments
  args = parseArgs()
  assertArgsAreGood(args)
  # get the reader
- bedReader = PlinkReader.getReader(args.bedBase)
+ if ( args.opt ):
+  bedReader = PlinkReader.SiteOptimizedPlinkBinaryReader(args.bedBase)
+ else:
+  bedReader = PlinkReader.getReader(args.bedBase)
  if ( not bedReader.snpMajor() ):
   raise BaseError("This tool currently only works with bed files in SNP-major mode. Please transpose the bed file.")
+ writeGRMID(bedReader,args)
  # step 1: generate a locally-corrected per-sample dosages
  dosages,missingByIndividual = streamAndLocalCorrect(args,bedReader)
  # step 2: generate globally-corrected per-sample dosages
@@ -470,10 +517,10 @@ def runMain():
   raise NotImplementedError("Global correction not yet fully tested.")
   dosages = globallyCorrectDosages(args,dosages,missingByIndividual)
  # step 3: calculate the GRM and print it out
- printGRMFromDosages(args,dosages,missingByIndividual)
+ #printGRMFromDosages(args,dosages,missingByIndividual)
 
 
 if __name__ == "__main__":
- runMain()
- #cProfile.run('runMain()')
+ #runMain()
+ cProfile.run('runMain()')
 

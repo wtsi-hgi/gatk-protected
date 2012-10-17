@@ -111,7 +111,10 @@ class VCF:
 
 class Plink:
  class Genotype:
-  
+
+  DOSAGE_ENC = [0,-1,1,2]
+  DOSAGE_ENC_FLT = [0.,-1.,1.,2.]
+
   class Type:
    HOM_REF,NO_CALL,HET,HOM_VAR = range(4)
 
@@ -130,6 +133,12 @@ class Plink:
 
   def isNoCall(genotype):
    return genotype.type == Plink.Genotype.Type.NO_CALL
+
+  def dosageFromEnc(genotypeEnc):
+   return Plink.Genotype.DOSAGE_ENC[genotypeEnc]
+
+  def dosageFromEncAsFloat(genotypeEnc):
+   return Plink.Genotype.DOSAGE_ENC_FLT[genotypeEnc]
 
   def __getDosage__(genotype):
    return { Plink.Genotype.Type.HOM_REF : 0,
