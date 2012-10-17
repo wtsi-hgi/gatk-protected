@@ -36,6 +36,12 @@ class CMIBAMProcessingPipeline extends QScript {
     * Additional Parameters that the pipeline should have pre-defined in the image
     *******************************************************************************/
 
+  // TODO: The metadata file should be decomposed into separate lists. Think SelectVariant's --filter/--filterName pairings.
+  @Input(doc="argument that allows Queue to see and download files", fullName="file1", required=false)
+  var file1: Seq[File] = Nil
+  @Input(doc="even more files that should be downloaded", fullName="file2", required=false)
+  var file2: Seq[File] = Nil
+
   @Input(doc="Reference fasta file", fullName="reference", shortName="R", required=false)
   var reference: File = new File("/refdata/human_g1k_v37_decoy.fasta")
 
@@ -217,6 +223,8 @@ class CMIBAMProcessingPipeline extends QScript {
       val duplicateMetricsFile   = swapExt(bam, ".bam", ".duplicateMetrics")
       val preRecalFile  = swapExt(bam, ".bam", ".pre_recal.table")
       val postRecalFile = swapExt(bam, ".bam", ".post_recal.table")
+      val outVCF        = swapExt(reducedBAM,".bam",".vcf")
+
       add(dedup(cleanBAM, dedupBAM, duplicateMetricsFile))
       if (qscript.targets != null && qscript.baits != null) {
         add(calculateHSMetrics(dedupBAM,swapExt(dedupBAM,".bam",".hs_metrics")))
@@ -232,9 +240,10 @@ class CMIBAMProcessingPipeline extends QScript {
 
       // add single sample vcf germline calling
       if (qscript.doSingleSampleCalling) {
-        val outVCF        = qscript.singleSampleVCF
-        // todo add sanity check so that idx vcf file matches input name
         add(call(reducedBAM, outVCF))
+        // report output parameters
+        qscript.singleSampleVCF = outVCF
+        qscript.singleSampleVCFIndex = outVCF + ".idx"
       }
     }
     // todo hotfix part 3: add cancer-specific calling also at the end
