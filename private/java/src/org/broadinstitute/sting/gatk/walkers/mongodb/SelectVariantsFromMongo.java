@@ -821,7 +821,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
         // if we have fewer alternate alleles in the selected VC than in the original VC, we need to strip out the GL/PLs (because they are no longer accurate)
         if ( vc.getAlleles().size() != sub.getAlleles().size() )
-            newGC = VariantContextUtils.stripPLs(sub.getGenotypes());
+            newGC = VariantContextUtils.stripPLsAndAD(sub.getGenotypes());
 
         //Remove a fraction of the genotypes if needed
         if(fractionGenotypes>0){
