@@ -130,8 +130,8 @@ class CMIBAMProcessingPipeline extends QScript {
   var useBWAsw: Boolean = false
 
   @Hidden
-  @Argument(doc="Number of threads jobs should use", fullName="numThreads", shortName="threads", required=false)
-  var threads: Int = 1
+  @Argument(doc="Number of threads BWA should use", fullName="bwa_threads", shortName="bt", required=false)
+  var bwaThreads: Int = 1
 
   @Hidden
   @Argument(doc="Default memory limit per job", fullName="mem_limit", shortName="mem", required=false)
@@ -223,22 +223,31 @@ class CMIBAMProcessingPipeline extends QScript {
       val duplicateMetricsFile   = swapExt(bam, ".bam", ".duplicateMetrics")
       val preRecalFile  = swapExt(bam, ".bam", ".pre_recal.table")
       val postRecalFile = swapExt(bam, ".bam", ".post_recal.table")
+      val outVCF        = swapExt(reducedBAM,".bam",".vcf")
+
       add(dedup(cleanBAM, dedupBAM, duplicateMetricsFile))
       if (qscript.targets != null && qscript.baits != null) {
-        add(calculateHSMetrics(dedupBAM,swapExt(dedupBAM,".bam",".hs_metrics")))
+//        add(calculateHSMetrics(dedupBAM,swapExt(dedupBAM,".bam",".hs_metrics")))
       }
       recalibrate(dedupBAM, preRecalFile, postRecalFile, recalBAM)
       add(reduce(recalBAM, reducedBAM))
-
+/*
       // collect QC metrics based on full BAM
       val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
       val outMultipleMetrics = swapExt(recalBAM,".bam",".multipleMetrics")
       add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
       add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
-
+  */
+      // add single sample vcf germline calling
+      if (qscript.doSingleSampleCalling) {
+        add(call(reducedBAM, outVCF))
+        // report output parameters
+        qscript.singleSampleVCF = outVCF
+        qscript.singleSampleVCFIndex = outVCF + ".idx"
+      }
     }
     // todo hotfix part 3: add cancer-specific calling also at the end
-/*    if (qscript.doMutect) {
+    if (qscript.doMutect) {
 
       val normalName = tumorInfo.filter( P => P._2 == 0).keysIterator.next()
       val tumorName = tumorInfo.filter( P => P._2 == 1).keysIterator.next()
@@ -257,7 +266,7 @@ class CMIBAMProcessingPipeline extends QScript {
       add(mutect(tumorName, tumorBam, normalName, normalBam, tumorFractionContamination, rawMutations, rawVcf, rawCoverage))
 
     }
-   */
+
   }
 
   /****************************************************************************
@@ -421,8 +430,6 @@ class CMIBAMProcessingPipeline extends QScript {
     this.scatterCount = nContigs
     this.analysisName = outRecalFile + ".covariates"
     this.jobName = outRecalFile + ".covariates"
-    this.nct = Some(qscript.threads)
-    this.nt = Some(qscript.threads)
   }
 
   case class apply_bqsr (inBAM: File, inRecalFile: File, outBAM: File) extends PrintReads with CommandLineGATKArgs {
@@ -434,7 +441,6 @@ class CMIBAMProcessingPipeline extends QScript {
     this.isIntermediate = false
     this.analysisName = outBAM + ".recalibration"
     this.jobName = outBAM + ".recalibration"
-    this.nct = Some(qscript.threads)
   }
   
   case class reduce (inBAM: File, outBAM: File) extends ReduceReads with CommandLineGATKArgs {
@@ -478,7 +484,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = outBAM + ".dedup"
     this.assumeSorted = Some(true)
   }
-
+    /*
   case class calculateHSMetrics (inBAM:File, outFile: File) extends CalculateHsMetrics with ExternalCommonArgs {
     this.reference = qscript.reference
     this.input :+= inBAM
@@ -506,7 +512,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.analysisName = outFile + ".metrics"
     this.jobName = outFile + ".metrics"
   }
-
+                */
   case class joinBAMs (inBAMs: Seq[File], outBAM: File) extends MergeSamFiles with ExternalCommonArgs {
     this.input = inBAMs
     this.output = outBAM
@@ -572,7 +578,7 @@ class CMIBAMProcessingPipeline extends QScript {
   case class bwa_sw (inFastQ: File, outBAM: File) extends CommandLineFunction with ExternalCommonArgs {
     @Input(doc="fastq file to be aligned") var fq = inFastQ
     @Output(doc="output bam file") var bam = outBAM
-    def commandLine = bwaPath + " bwasw -t " + qscript.threads + " " + reference + " " + fq + " > " + bam
+    def commandLine = bwaPath + " bwasw -t " + bwaThreads + " " + reference + " " + fq + " > " + bam
     this.analysisName = outBAM + ".bwasw"
     this.jobName = outBAM + ".bwasw"
   }
@@ -581,7 +587,7 @@ class CMIBAMProcessingPipeline extends QScript {
   case class bwa (inputParms: String, inBAM: File, outSai: File) extends CommandLineFunction with ExternalCommonArgs {
     @Input(doc="bam file to be aligned") var bam = inBAM
     @Output(doc="output sai file") var sai = outSai
-    def commandLine = bwaPath + " aln -t " + qscript.threads + bwaParameters + reference + inputParms + bam + " > " + sai
+    def commandLine = bwaPath + " aln -t " + bwaThreads + bwaParameters + reference + inputParms + bam + " > " + sai
     this.analysisName = outSai + ".bwa_aln_se"
     this.jobName = outSai + ".bwa_aln_se"
   }
@@ -591,6 +597,38 @@ class CMIBAMProcessingPipeline extends QScript {
     this.listFile = outBAMList
     this.analysisName = outBAMList + ".bamList"
     this.jobName = outBAMList + ".bamList"
+  }
+
+  // todo hotfix - pasted from cancer pipeline
+
+  case class mutect (tumorName : String, tumorBam : File, normalName : String, normalBam : File, tumorFractionContamination : Float, outMutations : File,  outVcf : File, outCoverage : File) extends MuTect with CommandLineGATKArgs {
+    this.isIntermediate = false
+    this.scatterCount = 1
+    this.memoryLimit = 4
+    this.jarFile = qscript.mutectJar
+    this.intervals :+= qscript.targets
+
+    this.dbsnp = qscript.dbSNP
+    this.cosmic = qscript.cosmic
+    this.normal_panel = qscript.pon
+
+    this.only_passing_calls = true
+    this.enable_extended_output = true
+    this.downsample_to_coverage = 1000 // TODO: how deep should this be?
+    this.fraction_contamination = Some(tumorFractionContamination)
+
+    this.input_file :+= new TaggedFile(tumorBam, "tumor")
+    this.input_file :+= new TaggedFile(normalBam, "normal")
+
+    this.out = outMutations
+    this.coverage_file = outCoverage
+    this.vcf = outVcf
+
+
+    this.analysisName = tumorBam.toString + ".mutect"
+    this.jobName = this.analysisName
+
+    print ("MuTect CMD:" + this.commandLine)
   }
 
 }
