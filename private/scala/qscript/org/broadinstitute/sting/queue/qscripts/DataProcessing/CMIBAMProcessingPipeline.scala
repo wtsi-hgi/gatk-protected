@@ -36,6 +36,12 @@ class CMIBAMProcessingPipeline extends QScript {
     * Additional Parameters that the pipeline should have pre-defined in the image
     *******************************************************************************/
 
+  // TODO: The metadata file should be decomposed into separate lists. Think SelectVariant's --filter/--filterName pairings.
+  @Input(doc="argument that allows Queue to see and download files", fullName="file1", required=false)
+  var file1: Seq[File] = Nil
+  @Input(doc="even more files that should be downloaded", fullName="file2", required=false)
+  var file2: Seq[File] = Nil
+
   @Input(doc="Reference fasta file", fullName="reference", shortName="R", required=false)
   var reference: File = new File("/refdata/human_g1k_v37_decoy.fasta")
 
@@ -55,10 +61,23 @@ class CMIBAMProcessingPipeline extends QScript {
   var baits: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list")
 
 
+  // todo hotfix: paste mutect parameters here
+  @Argument(doc="Run mutect calling in resulting bam", fullName = "doMutect", shortName = "doMutect", required=false)
+  var doMutect: Boolean = false
+
+  @Input(doc="COSMIC sites to use (must be in VCF format)", fullName="cosmic", shortName="C", required=false)
+  var cosmic: Seq[File] = Seq(new File("/refdata/hg19_cosmic_v54_120711.vcf"))
+
+  @Input(doc="The path to the binary of MuTect", fullName="mutect_jar", shortName="mj", required=false)
+  var mutectJar: File = new File("/opt/cmi-cancer/mutect/muTect.jar")
+
+  @Input(doc="Panel Of Normals or known artifact sites to use (must be in VCF format)", fullName="panel_of_normals", shortName="pon", required=false)
+  var pon: Seq[File] = Seq()
+
   /****************************************************************************
    * Output files, to be passed in by messaging service
    ****************************************************************************/
-
+/*
   @Output(doc="Processed unreduced normal BAM", fullName="unreducedNormalBAM", shortName="unb", required=true)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
   var unreducedNormalBAM: File = _
 
@@ -82,6 +101,26 @@ class CMIBAMProcessingPipeline extends QScript {
 
   @Output(doc="Processed reduced tumor BAM Index", fullName="reducedTumorBAMIndex", shortName="rtbi", required=false)
   var reducedTumorBAMIndex: File = _
+   */
+
+  // in case single sample calls are requested
+  @Output(doc="Processed single sample VCF", fullName="singleSampleVCF", shortName="ssvcf", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
+  var singleSampleVCF: File = _
+
+  @Output(doc="Processed single sample VCF index", fullName="singleSampleVCFIndex", shortName="ssvcfi", required=false)
+  var singleSampleVCFIndex: File = _
+
+  // in case single sample calls are requested
+/*
+  @Output(doc="Processed single sample tumor point mutations", fullName="tumorPointMutationVCF", shortName="tvcf", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
+  var tumorPointMutationVCF: File = _
+
+  @Output(doc="Processed single sample tumor point mutation index", fullName="tumorPointMutationVCFIndex", shortName="tvcfi", required=false)
+  var tumorPointMutationVCFIndex: File = _
+
+  @Output(doc="Tumor raw coverage file", fullName="tumorRawCoverage", shortName="trc", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
+  var tumorRawCoverage: File = _
+   */
 
   /****************************************************************************
     * Hidden Parameters
@@ -91,8 +130,8 @@ class CMIBAMProcessingPipeline extends QScript {
   var useBWAsw: Boolean = false
 
   @Hidden
-  @Argument(doc="Number of threads BWA and parallelizable tools should use", fullName="threads", shortName="threads", required=false)
-  var threads: Int = 8
+  @Argument(doc="Number of threads jobs should use", fullName="numThreads", shortName="threads", required=false)
+  var threads: Int = 1
 
   @Hidden
   @Argument(doc="Default memory limit per job", fullName="mem_limit", shortName="mem", required=false)
