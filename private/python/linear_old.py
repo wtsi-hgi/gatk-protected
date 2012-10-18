@@ -129,27 +129,35 @@ class GLM:
    # package GLM.Logistic.Fit
    def newton(response,predictors,N):
     """ Uses Iteratively Reweighted Least Squares to implement Newton's Method (equivalent for L2 norm)
+        TODO!!! -- find a better way to determine the edge cases.
     """
     # initial guess
     beta = numpy.matrix(numpy.linalg.lstsq(predictors,response)[0]).T
     # reweight by the squared residuals
-    betaChangeSq = 1.0
+    sumPred = 2*response.size
+    prevSumPred = 0.0
+    sumPredProp = 1.0 
     iter = 0
-    while ( betaChangeSq > 1e-6 and iter < 100 ):
+    while (  sumPredProp > 1e-4 and iter < 30 ):
      try:
       pred = GLM.Logistic.predict(predictors,beta,N)
+      prevSumPred = sumPred
+      sumPred = sum(pred)
+      sumPredProp = abs(sumPred-prevSumPred)/prevSumPred
       pred_P = pred/N
       resid = (response-pred) 
       W = numpy.diag(N*pred_P*(1.0-pred_P)) 
       XW = numpy.inner(numpy.transpose(predictors),W)
       inverted = numpy.linalg.inv(XW*predictors)
-      step = resid*predictors*inverted
-      beta_new = beta + step.T
+      step = (resid*predictors*inverted).T
+      beta_new = beta + step
       betaChangeSq = numpy.linalg.norm(step)**2/len(beta)
       beta = beta_new
      except OverflowError:
       # happens if data is separable (pred_P == 1.0 or 0.0)
       return GLM.Logistic.Fit.newtonPenalized(response,predictors,N,beta-step)
+     except numpy.linalg.linalg.LinAlgError:
+      return GLM.Logistic.Fit.newtonPenalized(response,predictors,N,beta-step) 
     fitObj = GLM.Logistic.Fit()
     fitObj.coefficients = beta
     fitObj.predictedValues = GLM.Logistic.predict(predictors,beta,N)
@@ -162,7 +170,7 @@ class GLM:
     """
     # initial guess
     if ( beta == None ):
-     beta = numpy.linalg.lstsq(predictors,response)[0]
+     beta = numpy.matrix(numpy.linalg.lstsq(predictors,response)[0]).T
     # reweight by the squared residuals
     betaChangeSq = 1.0
     iter = 0
@@ -174,7 +182,7 @@ class GLM:
      W = numpy.diag(N*pred_P*(1.0-pred_P))
      XW = numpy.inner(numpy.transpose(predictors),W)
      inverted = numpy.linalg.inv(XW*predictors+PENALTY)
-     step = resid*predictors*inverted
+     step = (resid*predictors*inverted).T
      beta_new = beta + step
      betaChangeSq = numpy.linalg.norm(step)**2/len(beta)
      beta = beta_new
