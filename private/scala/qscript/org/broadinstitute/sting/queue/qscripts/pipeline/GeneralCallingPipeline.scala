@@ -6,17 +6,19 @@ import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
 import org.broadinstitute.sting.queue.extensions.gatk.BaseRecalibrator
 import org.broadinstitute.sting.queue.extensions.gatk.PrintReads
 import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.queue.function.ListWriterFunction
+import org.broadinstitute.sting.queue.function.{RetryMemoryLimit, ListWriterFunction}
+import org.broadinstitute.sting.queue.function._
+
 
 class GeneralCallingPipeline extends QScript {
   qscript =>
 
   // Required arguments.  All initialized to empty values.
 
-  @Input(doc="The reference file for the bam files.", shortName="R")
+  @Input(shortName="R", doc="The reference file for the bam files.")
   var referenceFile: File = _ // _ is scala shorthand for null
 
-  @Input(doc="Bam file to genotype.", shortName="I")
+  @Input(shortName="I", doc="Bam file to genotype.")
   var bamFile: File = _
 
   @Argument(shortName="V", doc="The pipeline version", required=true)
@@ -36,10 +38,10 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName="outputDir", doc="output directory", required=false)
   var outputDir: String = "./tmp"
 
-  @Input(doc="An optional file with a list of intervals to proccess.", shortName="L", required=false)
+  @Input(shortName="L", doc="An optional file with a list of intervals to proccess.",  required=false)
   var intervals: File = _
 
-  @Argument(doc="A optional list of filter names.", shortName="filter", required=false)
+  @Argument(shortName="filter", doc="A optional list of filter names.", required=false)
   var filterNames: List[String] = Nil // Nil is an empty List, versus null which means a non-existent List.
 
   @Argument(shortName="noBAQ", doc="turns off BAQ calculation", required=false)
@@ -48,7 +50,7 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName="mbq", doc="The minimum Phred-Scaled quality score threshold to be considered a good base.", required=false)
   var minimumBaseQuality: Int = -1
 
-  @Argument(doc="An optional list of filter expressions.", shortName="filterExpression", required=false)
+  @Argument(shortName="filterExpression", doc="An optional list of filter expressions.", required=false)
   var filterExpressions: List[String] = Nil
 
   @Argument(shortName="sample", doc="Samples to include in Variant Eval", required=false)
@@ -57,11 +59,17 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName="deletions", doc="Maximum deletion fraction allowed at a site to call a genotype.", required=false)
   var deletions: Double = -1
 
-  @Input(doc="Exclude intervals list", shortName = "XL", required=false)
+  @Input(shortName = "XL", doc="Exclude intervals list", required=false)
   var excludeIntervals: List[File] = Nil
 
-  @Input(doc="PED file of the family", shortName="ped")
+  @Input(shortName="ped", fullName="pedigree", doc="PED file of the family", required=false)
   var ped: File = _
+
+  @Argument(doc="Subdirectory to store the reduced bams. By default set to 'reduced'.", shortName="bamDir", required=false)
+  var bamDir = "reducedBAMs/"
+
+  @Argument(doc="Reduce reads memory limit.", shortName="rrMem", required=false)
+  var reduceReadsMemoryLimit = 4
 
   /************* invlude/exclude steps of the pipeline ***********************/
 
@@ -84,6 +92,10 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName="createFullPostQCReport", doc="create a pdf file with full QC eval report of the output vcf", required=false)
   var createFullPostQCReport: Boolean = false
 
+  @Argument(shortName="CallReduceReads", doc="produces reduce reads bam files", required=false)
+  var CallReduceReads: Boolean = false
+
+
 
   val dbSNP_135 = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_135.b37.vcf"  // Best Practices v4
   val hapmap = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/hapmap_3.3.b37.sites.vcf"                       // Best Practices v4
@@ -98,9 +110,8 @@ class GeneralCallingPipeline extends QScript {
 
 
   val queueLogDir = ".qlog/"
-  val name = "CEUTrio"
   val noET_key = "/humgen/gsa-hpprojects/GATK/data/gatk_user_keys/gsamembers_broadinstitute.org.key"                // TODO: remove before we make it public!!!!
-	
+
 
 trait BaseCommandArguments extends CommandLineGATK {
     this.logging_level = "INFO"
@@ -112,7 +123,7 @@ trait BaseCommandArguments extends CommandLineGATK {
     this.intervals = if (qscript.intervals == null) Nil else List(qscript.intervals)
     this.excludeIntervals = qscript.excludeIntervals
     this.memoryLimit = 2
-    var inputBamFile = qscript.bamFile
+
 }
 
 
@@ -123,36 +134,6 @@ trait HaplotypeCallerArguments extends BaseCommandArguments {
 
 trait BaseBQSR extends BaseCommandArguments{
 
-}
-
-trait CombineIndelSnps extends BaseCommandArguments{
-  var snpsOutput = qscript.outputDir + swapExt(inputBamFile, "bam","snp.recalibrated.filtered.vcf")
-  var indelsOutput = qscript.outputDir + swapExt(inputBamFile, "bam","indel.recalibrated.filtered.vcf")
-  var combineCallsOutput = qscript.outputDir + swapExt(inputBamFile, "bam", "both.recalibrated.filtered.vcf")
-}
-  
-trait snpUnifiedGenotyperArguments extends BaseCommandArguments{
-  
-    var ugOutput = qscript.outputDir + swapExt(inputBamFile, "bam", "snp.unfiltered.vcf")
-    var recalInput = ugOutput
-    var applyRecalInput = ugOutput
-    var tranches_File = qscript.outputDir + swapExt(inputBamFile, "bam","snp.tranches")
-    var recal_File = qscript.outputDir + swapExt(inputBamFile, "bam","snp.recal")
-    var recalVCF = qscript.outputDir + swapExt(inputBamFile, "bam","snp.recalibrated.filtered.vcf")
-    var evalInput = recalVCF
-    var evalOutput = qscript.outputDir + swapExt(recalVCF, "vcf", "eval")
-}
-
-trait indelUnifiedGenotyperArguments extends BaseCommandArguments{
-    
-    var ugOutput = qscript.outputDir + swapExt(inputBamFile, "bam", "indel.unfiltered.vcf")
-    var recalInput = ugOutput
-    var applyRecalInput = ugOutput
-    var tranches_File = qscript.outputDir + swapExt(inputBamFile, "bam","indel.tranches")
-    var recal_File = qscript.outputDir + swapExt(inputBamFile, "bam","indel.recal")
-    var recalVCF = qscript.outputDir + swapExt(inputBamFile, "bam","indel.recalibrated.filtered.vcf")
-    var	evalInput = recalVCF
-    var evalOutput = qscript.outputDir + swapExt(recalVCF, "vcf", "eval")
 }
 
 // 0) BQSR v 2.0
@@ -186,7 +167,7 @@ class RecalBAM( bam: File, recal: File ) extends PrintReads with BaseBQSR{
 
 // 1.) Unified Genotyper Base
 class UGBase extends UnifiedGenotyper with BaseCommandArguments {
-    this.input_file :+= inputBamFile
+
     this.scatterCount = if(qscript.scatterCount == 0) 80 else qscript.scatterCount
     this.nt = 2
     this.dcov = 250 
@@ -196,34 +177,36 @@ class UGBase extends UnifiedGenotyper with BaseCommandArguments {
 }
 
   // 1a.) Call SNPs with UG
-  class snpCaller extends UGBase with snpUnifiedGenotyperArguments {
+  class snpCaller(name: String, inputBamFile: File) extends UGBase with BaseCommandArguments {
+    this.input_file :+= inputBamFile
     if (qscript.minimumBaseQuality >= 0)
       this.min_base_quality_score = qscript.minimumBaseQuality
     if (qscript.deletions >= 0)
       this.max_deletion_fraction = qscript.deletions
-    this.out = ugOutput
+    this.out = qscript.outputDir + name + "snp.unfiltered.vcf"
     this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
     this.baq = if (noBAQ) {org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF} else {org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY}
-    this.analysisName = name + "_UGs"
-    this.jobName =  queueLogDir + name + ".snpcall"
+    this.analysisName = "CEUTrio_UGs"
+    this.jobName =  queueLogDir + "CEU_Trio.snpcall"
   }
 
   // 1b.) Call Indels with UG
-  class indelCaller extends UGBase with indelUnifiedGenotyperArguments {
+  class indelCaller(name: String, inputBamFile: File) extends UGBase with BaseCommandArguments {
+    this.input_file :+= inputBamFile
     this.memoryLimit = 6
-    this.out = ugOutput
+    this.out = qscript.outputDir + name + "indel.unfiltered.vcf"
     this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
     this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
-    this.analysisName = name + "_UGi"
-    this.jobName =  queueLogDir + name + ".indelcall"
+    this.analysisName = "CEUTrio_UGi"
+    this.jobName =  queueLogDir + "CEUTrio.indelcall"
   }
 
 // 1.) HaplotypeCaller 
-class HCBase(inputVCF: File) extends HaplotypeCaller with HaplotypeCallerArguments {
+class HCBase(name:String, inputHCFile: File) extends HaplotypeCaller with HaplotypeCallerArguments {
     this.excludeIntervals = excludeIntervals
     this.scatterCount = if(qscript.scatterCount == 0) 200 else qscript.scatterCount
-    this.input_file :+= inputVCF
-    this.out = qscript.outputDir + swapExt(inputBamFile, "bam", "HaplotypeCaller.vcf")
+    this.input_file :+= inputHCFile
+    this.out = qscript.outputDir + name + "HaplotypeCaller.vcf"
     this.analysisName = "HaplotypeCaller"
     this.stand_call_conf = 10.0
     this.stand_emit_conf = 10.0
@@ -245,11 +228,10 @@ class HCBase(inputVCF: File) extends HaplotypeCaller with HaplotypeCallerArgumen
 }
 
 // 3a)
-class snpRecal extends VQSRBase with snpUnifiedGenotyperArguments{
-
-	this.input :+= recalInput
+class snpRecal(name: String) extends VQSRBase with BaseCommandArguments{
+  this.input :+= qscript.outputDir + name + "snp.unfiltered.vcf"
 	this.resource :+= new TaggedFile( hapmap, "known=false,training=true,truth=true,prior=15.0" ) 
-        this.resource :+= new TaggedFile( omni_b37, "known=false,training=true,truth=true,prior=12.0" ) // truth=false on the bast practices v4
+  this.resource :+= new TaggedFile( omni_b37, "known=false,training=true,truth=true,prior=12.0" ) // truth=false on the bast practices v4
 	this.resource :+= new TaggedFile( training_1000G, "known=false,training=true,prior=10.0" )	// not part of the bast practices v4
 	this.resource :+= new TaggedFile( dbSNP_135, "known=true,training=false,truth=false,prior=2.0" )    // prior=6.0 on the bast practices v4
 	this.resource :+= new TaggedFile( projectConsensus_1000G, "prior=8.0" )				// not part of the bast practices v4
@@ -257,29 +239,29 @@ class snpRecal extends VQSRBase with snpUnifiedGenotyperArguments{
  	// this.use_annotation ++= List("InbreedingCoeff")   //need more then 10 samples
 	this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
  	this.memoryLimit = 8
-	this.tranches_file = tranches_File
-	this.recal_file = recal_File
+	this.tranches_file = qscript.outputDir + name + "snp.tranches"
+	this.recal_file = qscript.outputDir +  name + "snp.recal"
 	this.rscript_file = qscript.outputDir + name + ".snp.vqsr.R"
-	this.analysisName = name + "_VQSRs"
-	this.jobName = queueLogDir + name + ".snprecal"
+	this.analysisName = "CEUTrio_VQSRs"
+	this.jobName = queueLogDir + "CEUTrio.snprecal"
 
 }
 
 // 3b)
-class indelRecal extends VQSRBase with indelUnifiedGenotyperArguments {
+class indelRecal(name:String) extends VQSRBase with BaseCommandArguments {
 
-	this.input :+= recalInput
+	this.input :+= qscript.outputDir + name + "indel.unfiltered.vcf"
 	this.resource :+= new TaggedFile(indelGoldStandardCallset, "known=false,training=true,truth=true,prior=12.0" ) // known=true on the bast practices v4
 	this.resource :+= new TaggedFile( dbSNP_135, "known=true,prior=2.0" )  						// not part of the bast practices v4
 	this.use_annotation ++= List("QD", "HaplotypeScore", "ReadPosRankSum", "FS")
 	// this.use_annotation ++= List("InbreedingCoeff")   //need more then 10 samples   	
 
- 	this.tranches_file = tranches_File
- 	this.recal_file = recal_File
+ 	this.tranches_file = qscript.outputDir + name + "indel.tranches"
+ 	this.recal_file = qscript.outputDir + name + "indel.recal"
  	this.rscript_file = qscript.outputDir + name + ".indel.vqsr.R"
  	this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
- 	this.analysisName = name + "_VQSRi"
- 	this.jobName = queueLogDir + name + ".indelrecal"
+  this.analysisName = "CEUTrio_VQSRi"
+ 	this.jobName = queueLogDir + "CEUTrio.indelrecal"
 }
 
 //3c)
@@ -313,28 +295,28 @@ class applyVQSRBase extends ApplyRecalibration with BaseCommandArguments  {
   this.memoryLimit = 6
 }
 
-class applySnpVQSR extends applyVQSRBase with snpUnifiedGenotyperArguments {
+class applySnpVQSR(name:String) extends applyVQSRBase with BaseCommandArguments {
 
-  this.input :+= applyRecalInput
-  this.tranches_file = tranches_File
-  this.recal_file = recal_File
+  this.input :+= qscript.outputDir + name + "snp.unfiltered.vcf"
+  this.tranches_file = qscript.outputDir + name + "snp.tranches"
+  this.recal_file = qscript.outputDir +  name + "snp.recal"
   this.ts_filter_level = 99.0
   this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
-  this.out = recalVCF
-  this.analysisName = name + "_AVQSRs"
-  this.jobName = queueLogDir + name + ".snpcut"
+  this.out = qscript.outputDir +  name + "snp.recalibrated.filtered.vcf"
+  this.analysisName = "CEUTrio_AVQSRs"
+  this.jobName = queueLogDir + "CEUTrio.snpcut"
 }
 
-class applyIndelVQSR extends applyVQSRBase with indelUnifiedGenotyperArguments {
+class applyIndelVQSR(name:String) extends applyVQSRBase with BaseCommandArguments {
 
-    this.input :+= applyRecalInput
-    this.tranches_file = tranches_File
-    this.recal_file = recal_File
+    this.input :+= qscript.outputDir + name + "indel.unfiltered.vcf"
+    this.tranches_file = qscript.outputDir + name +"indel.tranches"
+    this.recal_file = qscript.outputDir + name +"indel.recal"
     this.ts_filter_level = 95.0  							//best practices v4
     this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
-    this.out = recalVCF
-    this.analysisName = name + "_AVQSRi"
-    this.jobName = queueLogDir + name + ".indelcut"
+    this.out = qscript.outputDir + name + "indel.recalibrated.filtered.vcf"
+    this.analysisName = "CEUTrio_AVQSRi"
+    this.jobName = queueLogDir + "CEUTrio.indelcut"
 }
 
 class CutBoth(inputVCF: File) extends applyVQSRBase with HaplotypeCallerArguments {
@@ -347,20 +329,20 @@ class CutBoth(inputVCF: File) extends applyVQSRBase with HaplotypeCallerArgument
     this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.BOTH
     this.ts_filter_level = 97.0
     this.out = qscript.outputDir + swapExt(inputVCF, "vcf", "both.recalibrated.filtered.vcf")	
-    this.analysisName = name + "_AVQSRb"
-    this.jobName = queueLogDir + name + ".bothcut"
+    this.analysisName = "CEUTrio_AVQSRb"
+    this.jobName = queueLogDir + "CEUTrio.bothcut"
 }
 
     /****************************************************************************************
     *               5) Combine Snps and Indels for UG if mode == BOTH                       *
     *****************************************************************************************/
 
-class CombineSNPsIndels extends CombineVariants with CombineIndelSnps {
-    this.variant :+= TaggedFile(indelsOutput, "indels")
-    this.variant :+= TaggedFile(snpsOutput, "snps")
+class CombineSNPsIndels(name:String) extends CombineVariants with BaseCommandArguments {
+    this.variant :+= TaggedFile(new File(qscript.outputDir + name + "indel.recalibrated.filtered.vcf"), "indels")
+    this.variant :+= TaggedFile(new File(qscript.outputDir + name + "snp.recalibrated.filtered.vcf"), "snps")
     this.filteredrecordsmergetype = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     this.assumeIdenticalSamples = true
-    this.out = combineCallsOutput
+    this.out = qscript.outputDir + name +  "both.recalibrated.filtered.vcf"
 }
 
 
@@ -376,24 +358,25 @@ class EvalBase extends VariantEval with BaseCommandArguments {
       this.sample = samples
 }
 
-// 6a.) SNP Evaluation (OPTIONAL) based on the recalbrated vcf
-class snpEvaluation extends EvalBase with snpUnifiedGenotyperArguments {
+
+  // 6a.) SNP Evaluation (OPTIONAL) based on the recalbrated vcf
+class snpEvaluation(name:String) extends EvalBase with BaseCommandArguments {
      this.comp :+= new TaggedFile( omni_b37, "omni" )
-     this.eval :+= evalInput
-     this.out = evalOutput
-     this.analysisName = name + "_VEs"
-     this.jobName = queueLogDir + name + ".snpeval"
+     this.eval :+= qscript.outputDir +  name + "snp.recalibrated.filtered.vcf"
+     this.out = qscript.outputDir + name+ "eval"
+     this.analysisName = "CEUTrio_VEs"
+     this.jobName = queueLogDir + "CEUTrio.snpeval"
 }
 
   // 6b.) Indel Evaluation (OPTIONAL)
-class indelEvaluation extends EvalBase with indelUnifiedGenotyperArguments {
-    this.eval :+= evalInput
+class indelEvaluation(name:String) extends EvalBase with BaseCommandArguments{
+    this.eval :+= qscript.outputDir + name +"indel.recalibrated.filtered.vcf"
     this.comp :+= new TaggedFile(indelGoldStandardCallset, "indelGS" )
     this.noEV = true
     this.evalModule = List("CompOverlap", "CountVariants", "TiTvVariantEvaluator", "ValidationReport", "IndelSummary")
-    this.out = evalOutput
-    this.analysisName = name + "_VEi"
-    this.jobName = queueLogDir + name + ".indeleval"
+    this.out = qscript.outputDir + name + "eval"
+    this.analysisName = "CEUTrio_VEi"
+    this.jobName = queueLogDir + "CEUTrio.indeleval"
 }
 
 // todo  -- should accept separate indel and snp vcf's, right now script will assume they're combined in one
@@ -414,8 +397,8 @@ class Eval(evalVCF: File, prefix: String, extraStrats: Seq[String]) extends Vari
     this.memoryLimit = 8
     this.out = outputDir + swapExt(evalVCF, ".vcf", prefix + ".eval")
     this.sample = samples
-    this.analysisName = name + "_VE"
-    this.jobName = queueLogDir + name + ".eval"
+    this.analysisName = "CEUTrio_VE"
+    this.jobName = queueLogDir + "CEUTrio.eval"
 }
 
 class QCSummaryRScript(@Input var vcf: File, @Input var bySite: File) extends CommandLineFunction {
@@ -434,29 +417,97 @@ class QCRScript(@Input var vcf: File, @Input var byAC: File, @Input var bySite: 
 //                      7) PhaseByTrasmission                                          //
 //------------------------------------------------------------------------------------ //
 class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments {
+  require(qscript.ped != null && qscript.ped.getName.endsWith(".ped"), "-ped/--pedigree must be specified as <pedigreeFileName>.ped")
   this.pedigree = Seq(qscript.ped)
   this.variant = inputVCF
   this.MendelianViolationsFile = qscript.outputDir + swapExt(variant,"vcf","mendelianViolationsFile.txt")
   this.out = qscript.outputDir + swapExt(variant,"vcf","phaseByTransmission.vcf")
-  this.jobName = queueLogDir + name + ".phaseBT"
+  this.jobName = queueLogDir + "CEUTrio.phaseBT"
 }
 
-def script() {
+
+    /****************************************************************************************
+    *                script                                                                 *
+    *****************************************************************************************/
+
+ def script() {
+    var inputBamFile = qscript.bamFile //todo make sure it work both for bam file and bam list file
+    var name = "noName"_
+    if(inputBamFile.getName.endsWith(".bam.list")){
+      name = inputBamFile.getName.stripSuffix(".bam.list")
+    }
+    else if (inputBamFile.getName.endsWith(".bam")) {
+       name = inputBamFile.getName.stripSuffix(".bam")
+    }
+
+  if (useBQSR2){
+
+    val bams = QScriptUtils.createSeqFromFile(inputBamFile)
+    var recalBams = Seq.empty[File]
+    for (bam <- bams) {
+          val recalFile = qscript.outputDir + swapExt(bam, ".bam", ".recal.grp")
+          add(new BQSR(bam, recalFile))
+          val recalBam = new RecalBAM(bam, recalFile)
+          add(recalBam)
+          recalBams :+= recalBam.out
+    }
+
+    val mergeBamList = new ListWriterFunction
+    mergeBamList.inputFiles = recalBams
+    mergeBamList.listFile = "CEUTrio.recal.bam.list"
+    add(mergeBamList)
+    inputBamFile = mergeBamList.listFile
+  }
+
+  if (CallReduceReads){
+      var bams: Seq[Tuple2[File, File]] = Nil
+      var reducedBams = Seq.empty[File]
+      if (inputBamFile != null) {
+          for (originalBam: File <- io.Source.fromFile(inputBamFile).getLines().toSeq.map(new File(_))) {
+            val reducedBam: File = new File(new File(bamDir, "external"), swapExt(originalBam, ".bam", ".reduced.bam").getName)
+            bams :+= Tuple2(originalBam, reducedBam)
+          }
+        }
+
+        for ((originalBam, reducedBam) <- bams) {
+          val reduce = new ReduceReads with BadMate with RetryMemoryLimit
+          reduce.memoryLimit = qscript.reduceReadsMemoryLimit
+          reduce.reference_sequence = qscript.referenceFile
+          reduce.input_file = Seq(originalBam)
+          reduce.intervals = Seq(qscript.intervals)
+          // reduce.interval_padding = 50
+          reduce.out = reducedBam
+          reducedBams :+= reduce.out
+          add(reduce)
+        }
+
+      val mergeReducedBamList = new ListWriterFunction
+      mergeReducedBamList.inputFiles = reducedBams
+      mergeReducedBamList.listFile = "CEUTrio.reduced.bam.list"
+      add(mergeReducedBamList)
+      inputBamFile = mergeReducedBamList.listFile
+
+    }
+
+
+
+
   // Create the functions that we may run depending on options.
   if (pipelineVersion == 1){
 	if (mode == "SNP"){
-		val UGgenotyper = new snpCaller
-		val snpRecalibrator = new snpRecal
-		val snpApplyVQSR = new applySnpVQSR
-		val evaluateSnp = new snpEvaluation
+		val UGgenotyper = new snpCaller(name,inputBamFile)
+		val snpRecalibrator = new snpRecal(name)
+		val snpApplyVQSR = new applySnpVQSR(name)
+		val evaluateSnp = new snpEvaluation(name)
  
 		if (! doNotCall){
       add (UGgenotyper)
     }
-		add (snpRecalibrator)
-		add (snpApplyVQSR)
-		add (evaluateSnp)
-
+    if (! doNotUseVQSR){
+      add (snpRecalibrator)
+      add (snpApplyVQSR)
+		  add (evaluateSnp)
+    }
     if (createEvalSummaryReport){
       val evalVCF = snpApplyVQSR.out
       val bySample = new Eval( evalVCF, ".bySample", Seq("Sample"))
@@ -468,17 +519,19 @@ def script() {
 	}
 
 	if (mode == "INDEL"){
-		val UGgenotyper = new indelCaller
-		val indelRecalibrator = new indelRecal
-		val indelApplyVQSR = new applyIndelVQSR
-		val evaluateIndel = new indelEvaluation
+		val UGgenotyper = new indelCaller(name,inputBamFile)
+		val indelRecalibrator = new indelRecal(name)
+		val indelApplyVQSR = new applyIndelVQSR(name)
+		val evaluateIndel = new indelEvaluation(name)
 
     if (! doNotCall){
       add (UGgenotyper)
     }
-		add (indelRecalibrator)
-		add (indelApplyVQSR)
-		add (evaluateIndel)
+    if (! doNotUseVQSR){
+      add (indelRecalibrator)
+      add (indelApplyVQSR)
+		  add (evaluateIndel)
+    }
 
     if (createEvalSummaryReport){
       val evalVCF = indelApplyVQSR.out
@@ -493,25 +546,26 @@ def script() {
 
   // currently running separate runs for SNPs and INDELS
 	if (mode == "BOTH"){
-		val snpUGgenotyper = new snpCaller
-                val snpRecalibrator = new snpRecal
-                val snpApplyVQSR = new applySnpVQSR
-		val indelUGgenotyper = new indelCaller
-		val indelRecalibrator = new indelRecal
-		val indelApplyVQSR = new applyIndelVQSR
-	  val combineSNPsIndels = new CombineSNPsIndels
+		val snpUGgenotyper = new snpCaller(name,inputBamFile)
+                val snpRecalibrator = new snpRecal(name)
+                val snpApplyVQSR = new applySnpVQSR(name)
+		val indelUGgenotyper = new indelCaller(name,inputBamFile)
+		val indelRecalibrator = new indelRecal(name)
+		val indelApplyVQSR = new applyIndelVQSR(name)
+	  val combineSNPsIndels = new CombineSNPsIndels(name)
 
     if (! doNotCall){
       add (snpUGgenotyper)
       add (indelUGgenotyper)
     }
-		add (snpRecalibrator)
-		add (snpApplyVQSR)
+    if (! doNotUseVQSR){
+      add (snpRecalibrator)
+		  add (snpApplyVQSR)
 
-		add (indelRecalibrator)
-		add (indelApplyVQSR)
-		add (combineSNPsIndels)
-
+		  add (indelRecalibrator)
+		  add (indelApplyVQSR)
+		  add (combineSNPsIndels)
+    }
     if (createEvalSummaryReport || createFullPostQCReport){
       val evalVCF: File = combineSNPsIndels.out
 
@@ -541,63 +595,9 @@ def script() {
  }
 
  else {
-	if (useBQSR2){
 
-    val bams = QScriptUtils.createSeqFromFile(qscript.bamFile)
-    var recalBams = Seq.empty[File]
-	  for (bam <- bams) {
-		      val recalFile = qscript.outputDir + swapExt(bam, ".bam", ".recal.grp")
-		      add(new BQSR(bam, recalFile))
-          val recalBam = new RecalBAM(bam, recalFile)
-		      add(recalBam)
-          recalBams :+= recalBam.out
-		}
 
-    val mergeBamList = new ListWriterFunction
-    mergeBamList.inputFiles = recalBams
-    mergeBamList.listFile = "%s.recal.bam.list".format(name)
-    add(mergeBamList)
-
-    val HC_input = mergeBamList.listFile
-    val HCgenotyper = new HCBase(HC_input)
-    val HC_vcfFile = HCgenotyper.out
-    val HCRecalibrator = new RecalBoth(HC_vcfFile)
-    val HCApplyVQSR = new CutBoth(HC_vcfFile)
-
-    if (! doNotCall){
-      add (HCgenotyper)
-    }
-		add (HCRecalibrator)
-		add (HCApplyVQSR)
-
-    if (createEvalSummaryReport || createFullPostQCReport){
-      val evalVCF: File = HCApplyVQSR.out
-
-      val bySample = new Eval( evalVCF, ".bySample", Seq("Sample"))
-      add(bySample)
-
-      if (createFullPostQCReport){
-        val byAC = new Eval(evalVCF, ".byAC", Seq("AlleleCount"))
-        add(byAC)
-        val indelQC = new Eval(evalVCF, ".indelQC", Seq("Sample"))
-        indelQC.stratificationModule = Seq("EvalRod", "CompRod", "Sample", "TandemRepeat", "OneBPIndel")
-        indelQC.evalModule = List("IndelSummary", "IndelLengthHistogram")
-        add(indelQC)
-        val qc = new QCRScript(evalVCF, byAC.out, bySample.out, indelQC.out)
-        add(qc)
-
-      }
-      if (createEvalSummaryReport){
-        val qc = new QCSummaryRScript(evalVCF, bySample.out)
-        add(qc)
-      }
-    }
-
-    if(usePhaseBT){add(new PBT(HCApplyVQSR.out)) }
-
-	}
-	else{
-		val HCgenotyper = new HCBase(qscript.bamFile)
+		val HCgenotyper = new HCBase(name,inputBamFile)
 		val HC_vcfFile = HCgenotyper.out
 		val HCRecalibrator = new RecalBoth(HC_vcfFile)
 		val HCApplyVQSR = new CutBoth(HC_vcfFile)
@@ -605,9 +605,10 @@ def script() {
     if (! doNotCall){
       add (HCgenotyper)
     }
-		add (HCRecalibrator)
-		add (HCApplyVQSR)
-
+    if (! doNotUseVQSR){
+		  add (HCRecalibrator)
+		  add (HCApplyVQSR)
+    }
     if (createEvalSummaryReport || createFullPostQCReport){
       val evalVCF: File = HCApplyVQSR.out
 
@@ -631,7 +632,7 @@ def script() {
       }
     }
     if(usePhaseBT){add(new PBT(HCApplyVQSR.out)) }
-	}
+
  }
 }
 
