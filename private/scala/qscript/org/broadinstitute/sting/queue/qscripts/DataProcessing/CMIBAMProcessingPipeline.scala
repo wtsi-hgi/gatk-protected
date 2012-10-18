@@ -224,19 +224,18 @@ class CMIBAMProcessingPipeline extends QScript {
       val preRecalFile  = swapExt(bam, ".bam", ".pre_recal.table")
       val postRecalFile = swapExt(bam, ".bam", ".post_recal.table")
       add(dedup(cleanBAM, dedupBAM, duplicateMetricsFile))
-/*      if (qscript.targets != null && qscript.baits != null) {
+      if (qscript.targets != null && qscript.baits != null) {
         add(calculateHSMetrics(dedupBAM,swapExt(dedupBAM,".bam",".hs_metrics")))
       }
-  */
       recalibrate(dedupBAM, preRecalFile, postRecalFile, recalBAM)
       add(reduce(recalBAM, reducedBAM))
 
       // collect QC metrics based on full BAM
-/*      val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
+      val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
       val outMultipleMetrics = swapExt(recalBAM,".bam",".multipleMetrics")
       add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
       add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
-  */
+
     }
     // todo hotfix part 3: add cancer-specific calling also at the end
 /*    if (qscript.doMutect) {
@@ -479,7 +478,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = outBAM + ".dedup"
     this.assumeSorted = Some(true)
   }
-                         /*
+
   case class calculateHSMetrics (inBAM:File, outFile: File) extends CalculateHsMetrics with ExternalCommonArgs {
     this.reference = qscript.reference
     this.input :+= inBAM
@@ -507,7 +506,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.analysisName = outFile + ".metrics"
     this.jobName = outFile + ".metrics"
   }
-      */
+
   case class joinBAMs (inBAMs: Seq[File], outBAM: File) extends MergeSamFiles with ExternalCommonArgs {
     this.input = inBAMs
     this.output = outBAM
