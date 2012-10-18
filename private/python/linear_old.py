@@ -1,5 +1,6 @@
 import math
 import numpy
+import logitPredict 
 
 ## a python library for the fitting of linear models. No good python3 library exists for this. Lots of special-cases because
 ## it turns out that's what I need. Also because of speedocity.
@@ -80,7 +81,7 @@ class GLM:
     print("Warning: fitting via gradient descent can be painfully slow for serious applications.")
     # initial guess
     beta = OLS.fitCoefficients(response,predictors)
-    beta = beta/numpy.linalg.norm(beta)
+    beta = numpy.matrix(beta/numpy.linalg.norm(beta)).T
     betaChangeSq = 1.0
     iter = 0
     prev_step_size = 1
@@ -130,7 +131,7 @@ class GLM:
     """ Uses Iteratively Reweighted Least Squares to implement Newton's Method (equivalent for L2 norm)
     """
     # initial guess
-    beta = numpy.linalg.lstsq(predictors,response)[0] 
+    beta = numpy.matrix(numpy.linalg.lstsq(predictors,response)[0]).T
     # reweight by the squared residuals
     betaChangeSq = 1.0
     iter = 0
@@ -143,7 +144,7 @@ class GLM:
       XW = numpy.inner(numpy.transpose(predictors),W)
       inverted = numpy.linalg.inv(XW*predictors)
       step = resid*predictors*inverted
-      beta_new = beta + step
+      beta_new = beta + step.T
       betaChangeSq = numpy.linalg.norm(step)**2/len(beta)
       beta = beta_new
      except OverflowError:
@@ -402,4 +403,5 @@ class GLM:
        @beta - coefficient vector.
        @N - number of trials (for binomial logistic).
    """
-   return numpy.array(list(map(lambda u: N*GLM.Logistic.logistic(u,beta),x)))
+   #return numpy.array(list(map(lambda u: N*GLM.Logistic.logistic(u,beta),x)))
+   return logitPredict.predict(x,beta,N)

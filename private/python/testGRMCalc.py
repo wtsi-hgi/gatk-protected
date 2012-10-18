@@ -53,7 +53,7 @@ def grmCalculationUnitTest():
 def localCorrectionUnitTest():
  testCorrectionSansRegression()
  testRegressionCorrection()
- testEdgeCaseRegression()
+ #testEdgeCaseRegression()
 
 def testEdgeCaseRegression():
  """ Tests some edge cases of regressions that have been found during normal operation of the code.
