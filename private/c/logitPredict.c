@@ -216,11 +216,11 @@ static PyObject *lg_calcXW(PyObject *self, PyObject *args) {
 }
 
 PyArrayObject *pymatrix(PyObject *objin)  {
-  return (PyArrayObject *) PyArray_GETCONTIGUOUS(&objin);
+  return (PyArrayObject *) PyArray_GETCONTIGUOUS(objin);
 }
 
 PyArrayObject *pyvector(PyObject *objin)  {
-  return (PyArrayObject *) PyArray_GETCONTIGUOUS(&objin);
+  return (PyArrayObject *) PyArray_GETCONTIGUOUS(objin);
 }
 
 double **pymatrix_to_Carray(PyArrayObject *arrayin)  {
