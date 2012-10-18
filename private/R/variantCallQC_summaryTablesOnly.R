@@ -44,7 +44,7 @@ summaryTable <- function(reportMetrics) {
   newCol <- c(paste(as.character(round(100*(table[2,4]/table[1,4]), 0)),"%"),"--","--")
   table$dbSNPRate <- newCol
   # doesn't work with textplot
-  colnames(table) <- c("Novelty", "Size (bp)", "Variants", "SNPs", "Ti/Tv", "MNPs", "Indels", "Ins/Del","dbSNP rate")
+  colnames(table) <- c("Novelty", "Size (bp)", "Variants", "SNPs", "Ti/Tv", "MNPs", "Indels", "Ins/Del","dbSNP.129 rate")
   return(table)
 }
 
@@ -63,7 +63,7 @@ sampleSummaryTable <- function(reportMetrics){
   table$nVariants <- round(table$nVariants, 0)
   newCol <- c(paste(as.character(round(100*(table[2,4]/table[1,4]), 0)),"%"),"--","--")
   table$dbSNPRate <- newCol
-  colnames(table) <- c("Novelty", "Size (bp)", "Variants", "SNPs", "Ti/Tv", "MNPs", "Indels", "Ins/Del","dbSNP rate")
+  colnames(table) <- c("Novelty", "Size (bp)", "Variants", "SNPs", "Ti/Tv", "MNPs", "Indels", "Ins/Del","dbSNP.129 rate")
   return(table)
 }
 
@@ -81,7 +81,7 @@ overallSummaryTable <- function(reportMetrics, size){
   # ExTiTvRatio <- "2.1 - 2.3"
   # nExVariants <- "?"
   # ExInsertionDeletionRatio <- "?"
-  # expectedLine <- matrix(c("all",size,nExVariants,nExSNPs,ExTiTvRatio,nExMNPs,nExIndels,ExInsertionDeletionRatio,"expected values per sample"),nrow = 1)	
+  # expectedLine <- matrix(c("all",size,nE2xVariants,nExSNPs,ExTiTvRatio,nExMNPs,nExIndels,ExInsertionDeletionRatio,"expected values per sample"),nrow = 1)	
   # expextedLine <- as.table(expectedLine)
   # colnames(expectedLine) <- c("Novelty", "Size (bp)", "Variants", "SNPs", "Ti/Tv", "MNPs", "Indels", "Ins/Del","Metric Type")
   
