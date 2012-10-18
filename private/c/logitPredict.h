@@ -8,3 +8,4 @@ static PyObject *lg_predict(PyObject *self, PyObject *args);
 static PyObject* error_out(PyObject *m);
 static int logitPredict_traverse(PyObject *m,visitproc visit, void *arg);
 static int logitPredict_clear(PyObject *m);
+static PyObject *lg_calcXW(PyObject *self, PyObject *args);

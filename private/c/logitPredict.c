@@ -27,6 +27,7 @@ static PyObject* error_out(PyObject *m){
 static PyMethodDef logitPredictMethods[] = {
  {"error_out",(PyCFunction)error_out,METH_NOARGS,NULL},
  {"predict",lg_predict,METH_VARARGS,NULL},
+ {"predictorsTimesWeights",lg_calcXW,METH_VARARGS,NULL},
  {NULL,NULL}
 };
 
@@ -114,7 +115,7 @@ static PyObject *lg_predict(PyObject *self, PyObject *args) {
  beta = pyvector_to_Carray(betaVec);
 
  /* generate the predictor matrix. Predict is N x K, beta is K x 1, calculate compwise.logit(Predict*beta) */
- PyArrayObject *predictionMat = PyArray_FromDims(1,&nRow,NPY_DOUBLE);
+ PyArrayObject *predictionMat = PyArray_ZEROS(1,&nRow,NPY_DOUBLE,0);
  npy_double* prediction = (npy_double*) predictionMat->data;
  npy_double b;
  npy_intp c,r;
@@ -126,23 +127,100 @@ static PyObject *lg_predict(PyObject *self, PyObject *args) {
  }
  /* convert product into logit into predition */
  npy_double t;
+ double eps = 0.0001;
+ double oneMinusEps = 0.9999;
+ double ulim = 10.0;
+ double llim = -10.0;
  for ( r = 0; r < nRow; r++ ) {
-  t = exp(prediction[r]);
-  prediction[r] = (N*t)/(1+t);
+  if ( prediction[r] > ulim ) {
+   prediction[r] = N*oneMinusEps;
+  } else if ( prediction[r] < llim ) {
+   prediction[r] = N*eps;
+  } else {
+   t = exp(prediction[r]);
+   prediction[r] = (N*t)/(1+t);
+  }
  }
  
  /* remember to DECREF the objects */
  Py_DECREF(predictorMatrixObj);
  Py_DECREF(betaVec);
+
+ /* free objects */
+ free((char*) predictors);
+
  return PyArray_Return(predictionMat);
 }
 
+static PyObject *lg_calcXW(PyObject *self, PyObject *args) {
+ /**** Given the predictors (N x K matrix) and predictions (N x 1 vector), calculate the weights T(Predictors)*diag(predictions) ****/
+ PyObject *predictorObj, *predictionObj;
+ PyArrayObject *predictorMat, *predictionVec;
+ double** predictMatrix;
+ double* predictions;
+ npy_intp nRow,nCol, N,dims[2];
+
+ if ( ! PyArg_ParseTuple(args,"OOi",&predictorObj,&predictionObj,&N) ) return NULL;
+ if ( NULL == predictorObj ) return NULL;
+ if ( NULL == predictionObj ) return NULL;
+
+ Py_INCREF(predictorObj);
+ Py_INCREF(predictionObj);
+
+ /* to python array */
+ predictorMat = pymatrix(predictorObj);
+ predictionVec = pyvector(predictionObj);
+
+ /* row and col */
+ nRow = predictorMat->dimensions[0];
+ nCol = predictorMat->dimensions[1];
+ dims[0] = nCol;
+ dims[1] = nRow;
+
+ if ( predictionVec->dimensions[0] != nRow ) { 
+  printf("Prediction vector dimensions are wrong\n");
+  return NULL;
+ }
+
+ /* to contiguous c arrays */
+ predictMatrix = pymatrix_to_Carray(predictorMat);
+ predictions = pyvector_to_Carray(predictionVec);
+
+ /* now we bave a NxK matrix predictMatrix (X) and Nx1 vector (W). Want to calculate X.T*diag(W), which will be KxN */
+ PyArrayObject *XW_py = PyArray_SimpleNew(2,&dims,NPY_DOUBLE);
+ npy_double** XW = pymatrix_to_Carray(XW_py); 
+
+ npy_intp r,c;
+ npy_double W_npq;
+ double N_doub,val;
+
+ N_doub = (double)((int) N);
+
+ for ( r = 0; r < nRow; r++ ) {
+  W_npq = N_doub*predictions[r]*(1.0-predictions[r]);
+  for ( c = 0; c < nCol; c++ ) {
+   val = W_npq*predictMatrix[r][c];
+   XW[c][r] = W_npq*predictMatrix[r][c];
+  }
+ }
+
+ /* remember to DECREF */
+ Py_DECREF(predictorObj);
+ Py_DECREF(predictionObj);
+
+ /* free objects */
+ free((char*) predictMatrix);
+ free((char*) XW);
+
+ return PyArray_Return(XW_py); 
+}
+
 PyArrayObject *pymatrix(PyObject *objin)  {
-  return (PyArrayObject *) PyArray_ContiguousFromObject(objin,NPY_DOUBLE, 2,2);
+  return (PyArrayObject *) PyArray_GETCONTIGUOUS(&objin);
 }
 
 PyArrayObject *pyvector(PyObject *objin)  {
-  return (PyArrayObject *) PyArray_ContiguousFromObject(objin,NPY_DOUBLE, 1,1);
+  return (PyArrayObject *) PyArray_GETCONTIGUOUS(&objin);
 }
 
 double **pymatrix_to_Carray(PyArrayObject *arrayin)  {

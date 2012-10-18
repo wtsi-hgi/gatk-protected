@@ -53,7 +53,30 @@ def grmCalculationUnitTest():
 def localCorrectionUnitTest():
  testCorrectionSansRegression()
  testRegressionCorrection()
- #testEdgeCaseRegression()
+ testEdgeCaseRegression()
+ largeScaleIntegrityTest()
+
+def largeScaleIntegrityTest():
+ """ Moving from python to c-bindings creates potential problems with memory issues. Doing lots of regressions
+     to test for memory integrity will be useful.
+ """
+ print("Running large-scale memory integrity test.")
+ tolerance = 1e-3
+ nTestFiles = 1
+ nRunsPerFile = 8
+ expectedCoeff = [
+   [2.77075768,0.53143971,-0.72988373,-0.26440337,-0.89550549,-1.87032901,0.63513517,-0.78523482,-0.69541818,0.32939047,0.13667907,0.59443712,
+    0.63398860,-0.68335889,0.54900151,-0.55853686,0.49036169,-0.35506985,0.56495774,-0.39632489,-0.53151681,-0.48094469,0.03851889,-0.62350338,7.14666839]
+   ]
+ for fileNo in range(nTestFiles):
+  predict = numpy.matrix(list(map(lambda x: list(map(lambda y: float(y),x.strip().split("\t"))),open("test/linLargeScaleP%d.txt" % (fileNo+1)).readlines())))
+  response = numpy.array(list(map(lambda x: float(x.strip()),open("test/linLargeScaleR%d.txt" % (fileNo+1)).readlines())))
+  for runNo in range(nRunsPerFile):
+   result = linear.GLM.Logistic.Fit.newton(response,predict,2)
+   coef = result.coefficients
+   for i in range(len(coef)):
+    if ( abs(coef[i]-expectedCoeff[fileNo][i]) > tolerance ):
+     print("Error in run number %d of test %d. Expected: %e   Observed:  %e" % (1+runNo,1+fileNo,coef[i],expectedCoeff[fileNo][i]))
 
 def testEdgeCaseRegression():
  """ Tests some edge cases of regressions that have been found during normal operation of the code.

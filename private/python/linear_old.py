@@ -1,5 +1,7 @@
 import math
 import numpy
+import scipy
+import scipy.sparse
 import logitPredict 
 
 ## a python library for the fitting of linear models. No good python3 library exists for this. Lots of special-cases because
@@ -127,12 +129,13 @@ class GLM:
     return fitObj
 
    # package GLM.Logistic.Fit
-   def newton(response,predictors,N):
+   def newton(response,predictors,N,beta=None):
     """ Uses Iteratively Reweighted Least Squares to implement Newton's Method (equivalent for L2 norm)
         TODO!!! -- find a better way to determine the edge cases.
     """
-    # initial guess
-    beta = numpy.matrix(numpy.linalg.lstsq(predictors,response)[0]).T
+    # if guess not provided guess 0 (numpy.linalg.lstsq has a segfault currently) 
+    if ( beta == None ):
+     beta = numpy.zeros((predictors.shape[1],1))
     # reweight by the squared residuals
     sumPred = 2*response.size
     prevSumPred = 0.0
@@ -146,8 +149,9 @@ class GLM:
       sumPredProp = abs(sumPred-prevSumPred)/prevSumPred
       pred_P = pred/N
       resid = (response-pred) 
-      W = numpy.diag(N*pred_P*(1.0-pred_P)) 
-      XW = numpy.inner(numpy.transpose(predictors),W)
+      #W = numpy.diag(N*pred_P*(1.0-pred_P))
+      #XW = numpy.inner(numpy.transpose(predictors),W)
+      XW = logitPredict.predictorsTimesWeights(predictors,pred_P,N)
       inverted = numpy.linalg.inv(XW*predictors)
       step = (resid*predictors*inverted).T
       beta_new = beta + step
@@ -170,17 +174,20 @@ class GLM:
     """
     # initial guess
     if ( beta == None ):
-     beta = numpy.matrix(numpy.linalg.lstsq(predictors,response)[0]).T
+     #beta = numpy.matrix(numpy.linalg.lstsq(predictors,response)[0]).T
+     # currently broken: corrupts the heap
+     beta = numpy.zeros((predictors.shape[1],1))
     # reweight by the squared residuals
     betaChangeSq = 1.0
     iter = 0
     PENALTY = numpy.matrix(numpy.eye(predictors.shape[1]))
     while ( betaChangeSq > 1e-6 and iter < 100 ):
-     pred = GLM.Logistic.predict(predictors,beta,N)
+     pred = logitPredict.predict(predictors,beta,N)
      pred_P = pred/N
      resid = (response-pred)
-     W = numpy.diag(N*pred_P*(1.0-pred_P))
-     XW = numpy.inner(numpy.transpose(predictors),W)
+     #W = numpy.diag(N*pred_P*(1.0-pred_P))
+     #XW = numpy.inner(numpy.transpose(predictors),W)
+     XW = logitPredict.predictorsTimesWeights(predictors,pred_P,N)
      inverted = numpy.linalg.inv(XW*predictors+PENALTY)
      step = (resid*predictors*inverted).T
      beta_new = beta + step
