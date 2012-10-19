@@ -77,7 +77,7 @@ class CMIBAMProcessingPipeline extends QScript {
   /****************************************************************************
    * Output files, to be passed in by messaging service
    ****************************************************************************/
-/*
+
   @Output(doc="Processed unreduced normal BAM", fullName="unreducedNormalBAM", shortName="unb", required=true)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
   var unreducedNormalBAM: File = _
 
@@ -101,7 +101,7 @@ class CMIBAMProcessingPipeline extends QScript {
 
   @Output(doc="Processed reduced tumor BAM Index", fullName="reducedTumorBAMIndex", shortName="rtbi", required=false)
   var reducedTumorBAMIndex: File = _
-   */
+
 
   // in case single sample calls are requested
   @Output(doc="Processed single sample VCF", fullName="singleSampleVCF", shortName="ssvcf", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
@@ -211,11 +211,9 @@ class CMIBAMProcessingPipeline extends QScript {
       add(joinBAMs(bams, sampleBAM))
     }
 
-    // todo - hotfix part 1- nWayOut doesn't work, do no joint cleaning, so clean individual BAMs
-    //clean(allBAMs)
+    clean(allBAMs)
 
     for (bam <- allBAMs) {
-      clean(Seq(bam))                       // todo hotfix part 2, remove
       val cleanBAM      = swapExt(bam, ".bam", cleaningExtension)
       val dedupBAM      = swapExt(bam, ".bam", ".clean.dedup.bam")
       val recalBAM      = swapExt(bam, ".bam", ".clean.dedup.recal.bam")
@@ -227,17 +225,32 @@ class CMIBAMProcessingPipeline extends QScript {
 
       add(dedup(cleanBAM, dedupBAM, duplicateMetricsFile))
       if (qscript.targets != null && qscript.baits != null) {
-//        add(calculateHSMetrics(dedupBAM,swapExt(dedupBAM,".bam",".hs_metrics")))
+        add(calculateHSMetrics(dedupBAM,swapExt(dedupBAM,".bam",".hs_metrics")))
       }
       recalibrate(dedupBAM, preRecalFile, postRecalFile, recalBAM)
       add(reduce(recalBAM, reducedBAM))
-/*
+
       // collect QC metrics based on full BAM
       val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
       val outMultipleMetrics = swapExt(recalBAM,".bam",".multipleMetrics")
       add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
       add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
-  */
+
+      val normalName = tumorInfo.filter( P => P._2 == 0).keysIterator.next()
+      val tumorName = tumorInfo.filter( P => P._2 == 1).keysIterator.next()
+
+      // todo hotfix: there is not a way right now to look up the BAM for a sample?
+      val normalBam = normalName + ".clean.dedup.recal.bam"
+      val tumorBam = tumorName + ".clean.dedup.recal.bam"
+      qscript.unreducedNormalBAM = new File(normalBam)
+      qscript.unreducedTumorBAM = new File(tumorBam)
+      qscript.unreducedNormalBAMIndex = swapExt(qscript.unreducedNormalBAM,".bam",".bai")
+      qscript.unreducedTumorBAMIndex = swapExt(qscript.unreducedTumorBAMIndex,".bam",".bai")
+      qscript.reducedNormalBAM = swapExt(normalBam,".bam",".reduced.bam")
+      qscript.reducedTumorBAM = swapExt(tumorBam,".bam",".reduced.bam")
+      qscript.reducedNormalBAMIndex = swapExt(qscript.reducedNormalBAM,".bam",".bai")
+      qscript.reducedTumorBAMIndex = swapExt(qscript.reducedTumorBAMIndex,".bam",".bai")
+
       // add single sample vcf germline calling
       if (qscript.doSingleSampleCalling) {
         add(call(reducedBAM, outVCF))
@@ -249,14 +262,6 @@ class CMIBAMProcessingPipeline extends QScript {
     // todo hotfix part 3: add cancer-specific calling also at the end
     if (qscript.doMutect) {
 
-      val normalName = tumorInfo.filter( P => P._2 == 0).keysIterator.next()
-      val tumorName = tumorInfo.filter( P => P._2 == 1).keysIterator.next()
-
-      // todo hotfix: there is not a way right now to look up the BAM for a sample?
-      val normalBam = normalName + ".clean.dedup.recal.bam"
-      val tumorBam = tumorName + ".clean.dedup.recal.bam"
-//      val normalBam = qscript.unreducedNormalBAM
-//      val tumorBam = qscript.unreducedTumorBAM
       val tumorFractionContamination:Float = 0.01f
       val outPrefix = tumorName + "-vs-" + normalName
       val rawMutations = outPrefix + ".call_stats.txt"
@@ -484,7 +489,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = outBAM + ".dedup"
     this.assumeSorted = Some(true)
   }
-    /*
+
   case class calculateHSMetrics (inBAM:File, outFile: File) extends CalculateHsMetrics with ExternalCommonArgs {
     this.reference = qscript.reference
     this.input :+= inBAM
@@ -512,7 +517,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.analysisName = outFile + ".metrics"
     this.jobName = outFile + ".metrics"
   }
-                */
+
   case class joinBAMs (inBAMs: Seq[File], outBAM: File) extends MergeSamFiles with ExternalCommonArgs {
     this.input = inBAMs
     this.output = outBAM
