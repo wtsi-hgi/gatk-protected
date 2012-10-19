@@ -281,7 +281,7 @@ indelPlots <- function(IndelQCReport, byACReport) {
   all = all[, !(colnames(all) %in% c("IndelSummary", "Sample", "CompRod","EvalRod") )]
   rownames(all) <- "Combined callset"
   textplot(t(all))
-
+  
   plotVariantQCWithAllStrats <- function(values, ...) {
     plotVariantQC(IndelSummaryBySampleNoOtherStrats, values, ...)
     plotVariantQC(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("OneBPIndel")), values, anotherStrat="TandemRepeat", ...)
@@ -293,7 +293,7 @@ indelPlots <- function(IndelQCReport, byACReport) {
     plotVariantQC(removeExtraStrats(IndelSummaryBySampleWithoutAll, c("OneBPIndel")), values, anotherStrat="TandemRepeat",...)
   }
   
-  if ( T ) {
+  if ( F ) {
     plotVariantQC(IndelSummaryBySampleNoOtherStrats, c("n_SNPs", "n_indels", "SNP_to_indel_ratio"))
     plotVariantQC(IndelSummaryBySampleNoOtherStrats, c("n_singleton_SNPs", "n_singleton_indels", "SNP_to_indel_ratio_for_singletons"))
     plotVariantQCWithAllStrats(c("n_indels", "n_singleton_indels"))
@@ -302,7 +302,7 @@ indelPlots <- function(IndelQCReport, byACReport) {
     if ( all$n_multiallelic_indel_sites > 0 ) { # if there are at least some multi-allelic sites
       plotVariantQCWithAllStrats(c("n_multiallelic_indel_sites", "percent_of_sites_with_more_than_2_alleles"))
     }
-
+	
     plotVariantQCWithAllStrats(c("indel_novelty_rate"))
     
     # insertion to deletion information
@@ -310,25 +310,23 @@ indelPlots <- function(IndelQCReport, byACReport) {
     
     # special handling of these ratios, as OneBP strat doesn't make sense
     plotVariantQCWithTandemStrat(c("ratio_of_1_and_2_to_3_bp_insertions", "ratio_of_1_and_2_to_3_bp_deletions"), fixHistogramX=T)
-
+	
     # het : hom ratios information
     plotVariantQCWithAllStrats(c("SNP_het_to_hom_ratio", "indel_het_to_hom_ratio"), fixHistogramX=T)
- 
+    
     plotRatioByAlleleCount(IndelSummaryByAC$AlleleCount, IndelSummaryByAC$n_insertions, IndelSummaryByAC$n_deletions, "Insertion to deletion ratio", 1)
     plotRatioByAlleleCount(IndelSummaryByAC$AlleleCount, IndelSummaryByAC$n_novel_indels*100, IndelSummaryByAC$n_indels, "% novel indels", 50)
     plotRatioByAlleleCount(IndelSummaryByAC$AlleleCount, IndelSummaryByAC$n_SNPs, IndelSummaryByAC$n_indels, "SNP to indel ratio", 50)
-
     # optional frameshift counts
     hasFrameShift = ! is.na(max(IndelSummaryBySampleNoOtherStrats$frameshift_rate_for_coding_indels))
     if ( hasFrameShift ) {
       plotVariantQC(IndelSummaryBySampleNoOtherStrats, c("frameshift_rate_for_coding_indels"))
       plotRatioByAlleleCount(IndelSummaryByAC$AlleleCount, IndelSummaryByAC$n_coding_indels_frameshifting * 100, IndelSummaryByAC$n_coding_indels_frameshifting + IndelSummaryByAC$n_coding_indels_in_frame, "Indel frameshift rate (%)", 0.1)
     } 
-
     lengthHistogram <- removeExtraStrats(IndelQCReport$IndelLengthHistogram, c("OneBPIndel"))
     indelLengthDistribution(lengthHistogram)
    } else {
-     # for testing only
+      # for testing only
      plotRatioByAlleleCount(IndelSummaryByAC$AlleleCount, IndelSummaryByAC$n_insertions, IndelSummaryByAC$n_deletions, "Insertion to deletion ratio", 1)
    }
 }
