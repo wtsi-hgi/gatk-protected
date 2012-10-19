@@ -20,7 +20,6 @@ import io.Source
 import org.broadinstitute.sting.utils.NGSPlatform
 import collection.mutable
 import org.broadinstitute.sting.queue.extensions.picard._
-import org.broadinstitute.sting.queue.extensions.cancer.MuTect
 
 class CMIBAMProcessingPipeline extends QScript {
   qscript =>
@@ -60,20 +59,6 @@ class CMIBAMProcessingPipeline extends QScript {
   @Input(doc="Interval file with baits used in exome capture (used for QC metrics)", fullName="baits", shortName="baits", required=false)
   var baits: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list")
 
-
-  // todo hotfix: paste mutect parameters here
-  @Argument(doc="Run mutect calling in resulting bam", fullName = "doMutect", shortName = "doMutect", required=false)
-  var doMutect: Boolean = false
-
-  @Input(doc="COSMIC sites to use (must be in VCF format)", fullName="cosmic", shortName="C", required=false)
-  var cosmic: Seq[File] = Seq(new File("/refdata/hg19_cosmic_v54_120711.vcf"))
-
-  @Input(doc="The path to the binary of MuTect", fullName="mutect_jar", shortName="mj", required=false)
-  var mutectJar: File = new File("/opt/cmi-cancer/mutect/muTect.jar")
-
-  @Input(doc="Panel Of Normals or known artifact sites to use (must be in VCF format)", fullName="panel_of_normals", shortName="pon", required=false)
-  var pon: Seq[File] = Seq()
-
   /****************************************************************************
    * Output files, to be passed in by messaging service
    ****************************************************************************/
@@ -110,17 +95,6 @@ class CMIBAMProcessingPipeline extends QScript {
   @Output(doc="Processed single sample VCF index", fullName="singleSampleVCFIndex", shortName="ssvcfi", required=false)
   var singleSampleVCFIndex: File = _
 
-  // in case single sample calls are requested
-/*
-  @Output(doc="Processed single sample tumor point mutations", fullName="tumorPointMutationVCF", shortName="tvcf", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
-  var tumorPointMutationVCF: File = _
-
-  @Output(doc="Processed single sample tumor point mutation index", fullName="tumorPointMutationVCFIndex", shortName="tvcfi", required=false)
-  var tumorPointMutationVCFIndex: File = _
-
-  @Output(doc="Tumor raw coverage file", fullName="tumorRawCoverage", shortName="trc", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
-  var tumorRawCoverage: File = _
-   */
 
   /****************************************************************************
     * Hidden Parameters
@@ -246,27 +220,6 @@ class CMIBAMProcessingPipeline extends QScript {
         qscript.singleSampleVCFIndex = outVCF + ".idx"
       }
     }
-    // todo hotfix part 3: add cancer-specific calling also at the end
-    if (qscript.doMutect) {
-
-      val normalName = tumorInfo.filter( P => P._2 == 0).keysIterator.next()
-      val tumorName = tumorInfo.filter( P => P._2 == 1).keysIterator.next()
-
-      // todo hotfix: there is not a way right now to look up the BAM for a sample?
-      val normalBam = normalName + ".clean.dedup.recal.bam"
-      val tumorBam = tumorName + ".clean.dedup.recal.bam"
-//      val normalBam = qscript.unreducedNormalBAM
-//      val tumorBam = qscript.unreducedTumorBAM
-      val tumorFractionContamination:Float = 0.01f
-      val outPrefix = tumorName + "-vs-" + normalName
-      val rawMutations = outPrefix + ".call_stats.txt"
-      val rawVcf = outPrefix + ".vcf"
-      val rawCoverage = outPrefix + ".wig.txt"
-      print("MUTECT Tumor BAM is: " + tumorBam.getName)
-      add(mutect(tumorName, tumorBam, normalName, normalBam, tumorFractionContamination, rawMutations, rawVcf, rawCoverage))
-
-    }
-
   }
 
   /****************************************************************************
@@ -597,38 +550,6 @@ class CMIBAMProcessingPipeline extends QScript {
     this.listFile = outBAMList
     this.analysisName = outBAMList + ".bamList"
     this.jobName = outBAMList + ".bamList"
-  }
-
-  // todo hotfix - pasted from cancer pipeline
-
-  case class mutect (tumorName : String, tumorBam : File, normalName : String, normalBam : File, tumorFractionContamination : Float, outMutations : File,  outVcf : File, outCoverage : File) extends MuTect with CommandLineGATKArgs {
-    this.isIntermediate = false
-    this.scatterCount = 1
-    this.memoryLimit = 4
-    this.jarFile = qscript.mutectJar
-    this.intervals :+= qscript.targets
-
-    this.dbsnp = qscript.dbSNP
-    this.cosmic = qscript.cosmic
-    this.normal_panel = qscript.pon
-
-    this.only_passing_calls = true
-    this.enable_extended_output = true
-    this.downsample_to_coverage = 1000 // TODO: how deep should this be?
-    this.fraction_contamination = Some(tumorFractionContamination)
-
-    this.input_file :+= new TaggedFile(tumorBam, "tumor")
-    this.input_file :+= new TaggedFile(normalBam, "normal")
-
-    this.out = outMutations
-    this.coverage_file = outCoverage
-    this.vcf = outVcf
-
-
-    this.analysisName = tumorBam.toString + ".mutect"
-    this.jobName = this.analysisName
-
-    print ("MuTect CMD:" + this.commandLine)
   }
 
 }
