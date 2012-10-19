@@ -20,7 +20,6 @@ import io.Source
 import org.broadinstitute.sting.utils.NGSPlatform
 import collection.mutable
 import org.broadinstitute.sting.queue.extensions.picard._
-import org.broadinstitute.sting.queue.extensions.cancer.MuTect
 
 class CMIBAMProcessingPipeline extends QScript {
   qscript =>
@@ -60,34 +59,20 @@ class CMIBAMProcessingPipeline extends QScript {
   @Input(doc="Interval file with baits used in exome capture (used for QC metrics)", fullName="baits", shortName="baits", required=false)
   var baits: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list")
 
-
-  // todo hotfix: paste mutect parameters here
-  @Argument(doc="Run mutect calling in resulting bam", fullName = "doMutect", shortName = "doMutect", required=false)
-  var doMutect: Boolean = false
-
-  @Input(doc="COSMIC sites to use (must be in VCF format)", fullName="cosmic", shortName="C", required=false)
-  var cosmic: Seq[File] = Seq(new File("/refdata/hg19_cosmic_v54_120711.vcf"))
-
-  @Input(doc="The path to the binary of MuTect", fullName="mutect_jar", shortName="mj", required=false)
-  var mutectJar: File = new File("/opt/cmi-cancer/mutect/muTect.jar")
-
-  @Input(doc="Panel Of Normals or known artifact sites to use (must be in VCF format)", fullName="panel_of_normals", shortName="pon", required=false)
-  var pon: Seq[File] = Seq()
-
-  /****************************************************************************
+ /****************************************************************************
    * Output files, to be passed in by messaging service
    ****************************************************************************/
 
-  @Output(doc="Processed unreduced normal BAM", fullName="unreducedNormalBAM", shortName="unb", required=true)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
+  @Output(doc="Processed unreduced normal BAM", fullName="unreducedNormalBAM", shortName="unb", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
   var unreducedNormalBAM: File = _
 
-  @Output(doc="Processed reduced normal BAMs", fullName="reducedNormalBAM", shortName="rnb", required=true)
+  @Output(doc="Processed reduced normal BAMs", fullName="reducedNormalBAM", shortName="rnb", required=false)
   var reducedNormalBAM: File = _
 
-  @Output(doc="Processed unreduced normal BAM Index", fullName="unreducedNormalBAMIndex", shortName="unbi", required=true)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
+  @Output(doc="Processed unreduced normal BAM Index", fullName="unreducedNormalBAMIndex", shortName="unbi", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
   var unreducedNormalBAMIndex: File = _
 
-  @Output(doc="Processed reduced normal BAM Index", fullName="reducedNormalBAMIndex", shortName="rnbi", required=true)
+  @Output(doc="Processed reduced normal BAM Index", fullName="reducedNormalBAMIndex", shortName="rnbi", required=false)
   var reducedNormalBAMIndex: File = _
 
   @Output(doc="Processed unreduced tumor BAM", fullName="unreducedTumorBAM", shortName="utb", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
@@ -101,26 +86,13 @@ class CMIBAMProcessingPipeline extends QScript {
 
   @Output(doc="Processed reduced tumor BAM Index", fullName="reducedTumorBAMIndex", shortName="rtbi", required=false)
   var reducedTumorBAMIndex: File = _
-
-
+ 
   // in case single sample calls are requested
   @Output(doc="Processed single sample VCF", fullName="singleSampleVCF", shortName="ssvcf", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
   var singleSampleVCF: File = _
 
   @Output(doc="Processed single sample VCF index", fullName="singleSampleVCFIndex", shortName="ssvcfi", required=false)
   var singleSampleVCFIndex: File = _
-
-  // in case single sample calls are requested
-/*
-  @Output(doc="Processed single sample tumor point mutations", fullName="tumorPointMutationVCF", shortName="tvcf", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
-  var tumorPointMutationVCF: File = _
-
-  @Output(doc="Processed single sample tumor point mutation index", fullName="tumorPointMutationVCFIndex", shortName="tvcfi", required=false)
-  var tumorPointMutationVCFIndex: File = _
-
-  @Output(doc="Tumor raw coverage file", fullName="tumorRawCoverage", shortName="trc", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
-  var tumorRawCoverage: File = _
-   */
 
   /****************************************************************************
     * Hidden Parameters
@@ -258,18 +230,6 @@ class CMIBAMProcessingPipeline extends QScript {
         qscript.singleSampleVCF = outVCF
         qscript.singleSampleVCFIndex = outVCF + ".idx"
       }
-    }
-    // todo hotfix part 3: add cancer-specific calling also at the end
-    if (qscript.doMutect) {
-
-      val tumorFractionContamination:Float = 0.01f
-      val outPrefix = tumorName + "-vs-" + normalName
-      val rawMutations = outPrefix + ".call_stats.txt"
-      val rawVcf = outPrefix + ".vcf"
-      val rawCoverage = outPrefix + ".wig.txt"
-      print("MUTECT Tumor BAM is: " + tumorBam.getName)
-      add(mutect(tumorName, tumorBam, normalName, normalBam, tumorFractionContamination, rawMutations, rawVcf, rawCoverage))
-
     }
 
   }
@@ -484,7 +444,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.input :+= inBAM
     this.output = outBAM
     this.metrics = metricsFile
-    this.memoryLimit = 16
+    this.memoryLimit = 4
     this.analysisName = outBAM + ".dedup"
     this.jobName = outBAM + ".dedup"
     this.assumeSorted = Some(true)
@@ -602,38 +562,6 @@ class CMIBAMProcessingPipeline extends QScript {
     this.listFile = outBAMList
     this.analysisName = outBAMList + ".bamList"
     this.jobName = outBAMList + ".bamList"
-  }
-
-  // todo hotfix - pasted from cancer pipeline
-
-  case class mutect (tumorName : String, tumorBam : File, normalName : String, normalBam : File, tumorFractionContamination : Float, outMutations : File,  outVcf : File, outCoverage : File) extends MuTect with CommandLineGATKArgs {
-    this.isIntermediate = false
-    this.scatterCount = 1
-    this.memoryLimit = 4
-    this.jarFile = qscript.mutectJar
-    this.intervals :+= qscript.targets
-
-    this.dbsnp = qscript.dbSNP
-    this.cosmic = qscript.cosmic
-    this.normal_panel = qscript.pon
-
-    this.only_passing_calls = true
-    this.enable_extended_output = true
-    this.downsample_to_coverage = 1000 // TODO: how deep should this be?
-    this.fraction_contamination = Some(tumorFractionContamination)
-
-    this.input_file :+= new TaggedFile(tumorBam, "tumor")
-    this.input_file :+= new TaggedFile(normalBam, "normal")
-
-    this.out = outMutations
-    this.coverage_file = outCoverage
-    this.vcf = outVcf
-
-
-    this.analysisName = tumorBam.toString + ".mutect"
-    this.jobName = this.analysisName
-
-    print ("MuTect CMD:" + this.commandLine)
   }
 
 }
