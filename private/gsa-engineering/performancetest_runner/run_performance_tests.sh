@@ -87,7 +87,7 @@ java -Djava.io.tmpdir=${TEMP_DIR} \
 -S "${PERFORMANCE_TEST_QSCRIPT}" \
 -myJarFile dist/GenomeAnalysisTK.jar \
 -resources "${RESOURCES_DIR}" \
--iterations 3 \
+-iterations 1 \
 -qsub \
 -jobQueue "${JOB_QUEUE}" \
 -run \
