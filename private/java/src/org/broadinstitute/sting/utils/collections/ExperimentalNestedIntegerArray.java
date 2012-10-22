@@ -39,7 +39,7 @@ public class ExperimentalNestedIntegerArray<T> extends NestedIntegerArray<T> {
     }
 
     @Override
-    public void put(final T value, final int... keys) { // WARNING! value comes before the keys!
+    public boolean put(final T value, final int... keys) { // WARNING! value comes before the keys!
         if ( keys.length != numDimensions )
             throw new ReviewedStingException("Exactly " + numDimensions + " keys should be passed to this NestedIntegerArray but " + keys.length + " were provided");
 
@@ -71,5 +71,7 @@ public class ExperimentalNestedIntegerArray<T> extends NestedIntegerArray<T> {
         }
 
         myData[keys[numNestedDimensions]] = value;
+
+        return true;
     }
 }
