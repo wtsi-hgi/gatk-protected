@@ -5,7 +5,7 @@
  * Time: 12:04 PM
  */
 
-package org.broadinstitute.sting.queue.qscripts
+package org.broadinstitute.sting.queue.qscripts.DataProcessing
 
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
@@ -25,15 +25,15 @@ class CMIBAMProcessingPipeline extends QScript {
   qscript =>
 
   /*****************************************************************************
-    * Required Parameters
-    ****************************************************************************/
+   * Required Parameters
+   ****************************************************************************/
 
   @Input(doc="a table with all the necessary information to process the data", fullName="metadata", shortName="m", required=true)
   var metaData: File = _
 
   /********************************************************************************
-    * Additional Parameters that the pipeline should have pre-defined in the image
-    *******************************************************************************/
+   * Additional Parameters that the pipeline should have pre-defined in the image
+   *******************************************************************************/
 
   // TODO: The metadata file should be decomposed into separate lists. Think SelectVariant's --filter/--filterName pairings.
   @Input(doc="argument that allows Queue to see and download files", fullName="file1", required=false)
@@ -59,7 +59,7 @@ class CMIBAMProcessingPipeline extends QScript {
   @Input(doc="Interval file with baits used in exome capture (used for QC metrics)", fullName="baits", shortName="baits", required=false)
   var baits: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list")
 
- /****************************************************************************
+  /****************************************************************************
    * Output files, to be passed in by messaging service
    ****************************************************************************/
 
@@ -86,7 +86,7 @@ class CMIBAMProcessingPipeline extends QScript {
 
   @Output(doc="Processed reduced tumor BAM Index", fullName="reducedTumorBAMIndex", shortName="rtbi", required=false)
   var reducedTumorBAMIndex: File = _
- 
+
   // in case single sample calls are requested
   @Output(doc="Processed single sample VCF", fullName="singleSampleVCF", shortName="ssvcf", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
   var singleSampleVCF: File = _
@@ -95,15 +95,19 @@ class CMIBAMProcessingPipeline extends QScript {
   var singleSampleVCFIndex: File = _
 
   /****************************************************************************
-    * Hidden Parameters
-    ****************************************************************************/
+   * Hidden Parameters
+   ****************************************************************************/
   @Hidden
   @Argument(doc="Use BWASW instead of BWA aln", fullName="use_bwa_sw", shortName="bwasw", required=false)
   var useBWAsw: Boolean = false
 
   @Hidden
-  @Argument(doc="Number of threads BWA should use", fullName="bwa_threads", shortName="bt", required=false)
-  var bwaThreads: Int = 1
+  @Argument(doc="Collect Picard QC metrics", fullName="collectQC", shortName="qc", required=false)
+  var collectQCMetrics: Boolean = false
+
+  @Hidden
+  @Argument(doc="Number of threads jobs should use when possible", fullName="numThreads", shortName="nt", required=false)
+  var numThreads: Int = 1
 
   @Hidden
   @Argument(doc="Default memory limit per job", fullName="mem_limit", shortName="mem", required=false)
@@ -133,8 +137,8 @@ class CMIBAMProcessingPipeline extends QScript {
   val headerVersion: String = "#FILE1,FILE2,INDIVIDUAL,SAMPLE,LIBRARY,SEQUENCING,TUMOR,PLATFORM,PLATFORM_UNIT,CENTER,DESCRIPTION,DATE_SEQUENCED"
 
   /****************************************************************************
-    * Main script
-    ****************************************************************************/
+   * Main script
+   ****************************************************************************/
 
   def script() {
 
@@ -183,9 +187,10 @@ class CMIBAMProcessingPipeline extends QScript {
       add(joinBAMs(bams, sampleBAM))
     }
 
-    clean(allBAMs)
-
+    //clean(allBAMs)
+    print(allBAMs)
     for (bam <- allBAMs) {
+      clean(Seq(bam))                       // todo hotfix part 2, remove
       val cleanBAM      = swapExt(bam, ".bam", cleaningExtension)
       val dedupBAM      = swapExt(bam, ".bam", ".clean.dedup.bam")
       val recalBAM      = swapExt(bam, ".bam", ".clean.dedup.recal.bam")
@@ -196,32 +201,26 @@ class CMIBAMProcessingPipeline extends QScript {
       val outVCF        = swapExt(reducedBAM,".bam",".vcf")
 
       add(dedup(cleanBAM, dedupBAM, duplicateMetricsFile))
-      if (qscript.targets != null && qscript.baits != null) {
-        add(calculateHSMetrics(dedupBAM,swapExt(dedupBAM,".bam",".hs_metrics")))
-      }
+
       recalibrate(dedupBAM, preRecalFile, postRecalFile, recalBAM)
+
+      if ( qscript.collectQCMetrics)  {
+        if (qscript.targets != null && qscript.baits != null) {
+          add(calculateHSMetrics(recalBAM,swapExt(dedupBAM,".bam",".hs_metrics")))
+        }
+        // collect QC metrics based on full BAM
+        val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
+        val outMultipleMetrics = swapExt(recalBAM,".bam",".multipleMetrics")
+        add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
+        add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
+
+      }
+
+
       add(reduce(recalBAM, reducedBAM))
 
-      // collect QC metrics based on full BAM
-      val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
-      val outMultipleMetrics = swapExt(recalBAM,".bam",".multipleMetrics")
-      add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
-      add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
 
-      val normalName = tumorInfo.filter( P => P._2 == 0).keysIterator.next()
-      val tumorName = tumorInfo.filter( P => P._2 == 1).keysIterator.next()
 
-      // todo hotfix: there is not a way right now to look up the BAM for a sample?
-      val normalBam = normalName + ".clean.dedup.recal.bam"
-      val tumorBam = tumorName + ".clean.dedup.recal.bam"
-      qscript.unreducedNormalBAM = new File(normalBam)
-      qscript.unreducedTumorBAM = new File(tumorBam)
-      qscript.unreducedNormalBAMIndex = swapExt(qscript.unreducedNormalBAM,".bam",".bai")
-      qscript.unreducedTumorBAMIndex = swapExt(qscript.unreducedTumorBAMIndex,".bam",".bai")
-      qscript.reducedNormalBAM = swapExt(normalBam,".bam",".reduced.bam")
-      qscript.reducedTumorBAM = swapExt(tumorBam,".bam",".reduced.bam")
-      qscript.reducedNormalBAMIndex = swapExt(qscript.reducedNormalBAM,".bam",".bai")
-      qscript.reducedTumorBAMIndex = swapExt(qscript.reducedTumorBAMIndex,".bam",".bai")
 
       // add single sample vcf germline calling
       if (qscript.doSingleSampleCalling) {
@@ -231,28 +230,42 @@ class CMIBAMProcessingPipeline extends QScript {
         qscript.singleSampleVCFIndex = outVCF + ".idx"
       }
     }
+    // todo hotfix: there is not a way right now to look up the BAM for a sample?
+    /*    val normalName = tumorInfo.filter( P => P._2 == 0).keysIterator.next()
+        val tumorName = tumorInfo.filter( P => P._2 == 1).keysIterator.next()
+        val normalBam = normalName + ".clean.dedup.recal.bam"
+        val tumorBam = tumorName + ".clean.dedup.recal.bam"
+    */
+    qscript.unreducedNormalBAM = swapExt(allBAMs(1),".bam",".clean.dedup.recal.bam")
+    qscript.unreducedTumorBAM = swapExt(allBAMs(0),".bam",".clean.dedup.recal.bam")
+    qscript.unreducedNormalBAMIndex = swapExt(qscript.unreducedNormalBAM,".bam",".bai")
+    qscript.unreducedTumorBAMIndex = swapExt(qscript.unreducedTumorBAM,".bam",".bai")
+    qscript.reducedNormalBAM = swapExt(allBAMs(1),".bam",".clean.dedup.recal.reduced.bam")
+    qscript.reducedTumorBAM = swapExt(allBAMs(0),".bam",".clean.dedup.recal.reduced.bam")
+    qscript.reducedNormalBAMIndex = swapExt(qscript.reducedNormalBAM,".bam",".bai")
+    qscript.reducedTumorBAMIndex = swapExt(qscript.reducedTumorBAM,".bam",".bai")
 
   }
 
   /****************************************************************************
-    * Helper classes and methods
-    ****************************************************************************/
+   * Helper classes and methods
+   ****************************************************************************/
 
   private class MetaInfo (
-    val id: Int,
-    val file1: File,
-    val file2: File,
-    val individual: String,
-    val sample: String,
-    val library: String,
-    val sequencing: String,
-    val tumor: Int,
-    val platform: NGSPlatform,
-    val platformUnit: String,
-    val center: String,
-    val description: String,
-    val dateSequenced: String
-  ) {
+                           val id: Int,
+                           val file1: File,
+                           val file2: File,
+                           val individual: String,
+                           val sample: String,
+                           val library: String,
+                           val sequencing: String,
+                           val tumor: Int,
+                           val platform: NGSPlatform,
+                           val platformUnit: String,
+                           val center: String,
+                           val description: String,
+                           val dateSequenced: String
+                           ) {
     def this(idP: Int, headerArray: Array[String]) =
       this (
         idP,
@@ -294,10 +307,10 @@ class CMIBAMProcessingPipeline extends QScript {
 
     if (!metaInfo.file2.isEmpty) {
       add(bwa(" ", metaInfo.file2, saiFile2),
-          bwa_sam_pe(metaInfo.file1, metaInfo.file2, saiFile1, saiFile2, alnSAM, metaInfo.readGroupString))
+        bwa_sam_pe(metaInfo.file1, metaInfo.file2, saiFile1, saiFile2, alnSAM, metaInfo.readGroupString))
     }
     else {
-          add(bwa_sam_se(metaInfo.file1, saiFile1, alnSAM, metaInfo.readGroupString))
+      add(bwa_sam_se(metaInfo.file1, saiFile1, alnSAM, metaInfo.readGroupString))
     }
     add(sortSam(alnSAM, alnBAM, SortOrder.coordinate))
 
@@ -312,14 +325,14 @@ class CMIBAMProcessingPipeline extends QScript {
 
   def recalibrate(dedupBAM: File, preRecalFile: File, postRecalFile: File, recalBAM: File) {
     add(bqsr(dedupBAM, preRecalFile),
-        apply_bqsr(dedupBAM, preRecalFile, recalBAM),
-        bqsr(recalBAM, postRecalFile)) 
+      apply_bqsr(dedupBAM, preRecalFile, recalBAM),
+      bqsr(recalBAM, postRecalFile))
   }
 
 
   /****************************************************************************
-    * Classes (GATK Walkers)
-    ****************************************************************************/
+   * Classes (GATK Walkers)
+   ****************************************************************************/
 
 
 
@@ -395,6 +408,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.scatterCount = nContigs
     this.analysisName = outRecalFile + ".covariates"
     this.jobName = outRecalFile + ".covariates"
+    //this.nt = Some(qscript.numThreads) // todo: GATK has issues with parallelization here!
   }
 
   case class apply_bqsr (inBAM: File, inRecalFile: File, outBAM: File) extends PrintReads with CommandLineGATKArgs {
@@ -406,8 +420,9 @@ class CMIBAMProcessingPipeline extends QScript {
     this.isIntermediate = false
     this.analysisName = outBAM + ".recalibration"
     this.jobName = outBAM + ".recalibration"
+    this.nct = Some(qscript.numThreads)
   }
-  
+
   case class reduce (inBAM: File, outBAM: File) extends ReduceReads with CommandLineGATKArgs {
     this.input_file :+= inBAM
     this.out = outBAM
@@ -429,15 +444,15 @@ class CMIBAMProcessingPipeline extends QScript {
     this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.scatterCount = nContigs
 
-     // for now have the caller just traverse the whole genome even though it will waste 99.999% of its time
+    // for now have the caller just traverse the whole genome even though it will waste 99.999% of its time
     this.intervals :+= qscript.targets // TODO hotfix - just so we don't waste 50 hours to completion on a 10kb BAM
   }
 
 
 
   /****************************************************************************
-    * Classes (non-GATK programs)
-    ****************************************************************************/
+   * Classes (non-GATK programs)
+   ****************************************************************************/
 
 
   case class dedup (inBAM: File, outBAM: File, metricsFile: File) extends MarkDuplicates with ExternalCommonArgs {
@@ -451,6 +466,7 @@ class CMIBAMProcessingPipeline extends QScript {
   }
 
   case class calculateHSMetrics (inBAM:File, outFile: File) extends CalculateHsMetrics with ExternalCommonArgs {
+    @Output(doc="Metrics output", required=false) var ouths:File = outFile
     this.reference = qscript.reference
     this.input :+= inBAM
     this.output = outFile
@@ -463,19 +479,21 @@ class CMIBAMProcessingPipeline extends QScript {
   }
 
   case class calculateGCMetrics (inBAM:File, outFile: File) extends CollectGcBiasMetrics with ExternalCommonArgs {
+    @Output(doc="Metrics output", required=false) var outgc:File = outFile
     this.reference = qscript.reference
     this.input :+= inBAM
     this.output = outFile
-    this.analysisName = outFile + ".gcMetrics"
-    this.jobName = outFile + ".gcMetrics"
+    this.analysisName = inBAM + ".gcMetrics"
+    this.jobName = inBAM + ".gcMetrics"
   }
 
   case class calculateMultipleMetrics (inBAM:File, outFile: File) extends CollectMultipleMetrics with ExternalCommonArgs {
+    @Output(doc="Metrics output", required=false) var outmm:File = outFile
     this.reference = qscript.reference
     this.input :+= inBAM
     this.output = outFile
-    this.analysisName = outFile + ".metrics"
-    this.jobName = outFile + ".metrics"
+    this.analysisName = inBAM + ".multipleMetrics"
+    this.jobName = inBAM + ".multipleMetrics"
   }
 
   case class joinBAMs (inBAMs: Seq[File], outBAM: File) extends MergeSamFiles with ExternalCommonArgs {
@@ -543,16 +561,16 @@ class CMIBAMProcessingPipeline extends QScript {
   case class bwa_sw (inFastQ: File, outBAM: File) extends CommandLineFunction with ExternalCommonArgs {
     @Input(doc="fastq file to be aligned") var fq = inFastQ
     @Output(doc="output bam file") var bam = outBAM
-    def commandLine = bwaPath + " bwasw -t " + bwaThreads + " " + reference + " " + fq + " > " + bam
+    def commandLine = bwaPath + " bwasw -t " + numThreads + " " + reference + " " + fq + " > " + bam
     this.analysisName = outBAM + ".bwasw"
     this.jobName = outBAM + ".bwasw"
   }
-  
-  
+
+
   case class bwa (inputParms: String, inBAM: File, outSai: File) extends CommandLineFunction with ExternalCommonArgs {
     @Input(doc="bam file to be aligned") var bam = inBAM
     @Output(doc="output sai file") var sai = outSai
-    def commandLine = bwaPath + " aln -t " + bwaThreads + bwaParameters + reference + inputParms + bam + " > " + sai
+    def commandLine = bwaPath + " aln -t " + numThreads + bwaParameters + reference + inputParms + bam + " > " + sai
     this.analysisName = outSai + ".bwa_aln_se"
     this.jobName = outSai + ".bwa_aln_se"
   }
