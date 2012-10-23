@@ -24,6 +24,9 @@ class CalcDepthOfCoverage extends QScript {
   @Argument(shortName = "L", doc = "Intervals", required = false)
   var intervals: File = _
 
+  @Input(doc = "Expand the intervals by this number of bases (on each side)", shortName = "expandIntervals", required = false)
+  var expandIntervals = 0
+
   @Input(doc = "level of parallelism for BAM DoC.   By default is set to 0 [no scattering].", shortName = "scatter", required = false)
   var scatterCountInput = 0
 
@@ -99,9 +102,26 @@ class CalcDepthOfCoverage extends QScript {
       this.jobQueue = longJobQueue
   }
 
+  class extendFlanks(inIntervals: File, outIntervals: File) extends WriteFlankingIntervalsFunction {
+      this.inputIntervals = inIntervals
+      this.outputIntervals = outIntervals
+      this.flankSize = qscript.expandIntervals
+      this.reference = qscript.referenceFile
+  }
+
   def script = {
-    val prepTargets = new PrepareTargets(List(qscript.intervals), outputBase.getPath + PREPARED_TARGS_SUFFIX, xhmmExec, referenceFile)
-    add(prepTargets)
+    val prepTargetsInitial = new PrepareTargets(List(qscript.intervals), outputBase.getPath + PREPARED_TARGS_SUFFIX, xhmmExec, referenceFile)
+    add(prepTargetsInitial)
+
+    var prepTargets = prepTargetsInitial
+    if (qscript.intervals != null && qscript.expandIntervals > 0) {
+      val flankIntervalsFile = new File(outputBase.getPath + ".flank.interval_list")
+      val extendCommand = new extendFlanks(prepTargetsInitial.out, flankIntervalsFile)
+      add(extendCommand)
+
+      prepTargets = new PrepareTargets(List(qscript.intervals, extendCommand.outputIntervals), outputBase.getPath + ".withFlanking" + PREPARED_TARGS_SUFFIX, xhmmExec, referenceFile)
+      add(prepTargets)
+    }
 
     trait CommandLineGATKArgs extends CommandLineGATK {
       this.intervals :+= prepTargets.out
