@@ -9,7 +9,6 @@ package org.broadinstitute.sting.queue.qscripts
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
 
-import org.broadinstitute.sting.queue.util.QScriptUtils
 import org.broadinstitute.sting.commandline.Hidden
 import org.broadinstitute.sting.queue.extensions.cancer.MuTect
 
@@ -29,7 +28,7 @@ class CMICancerPipeline extends QScript {
   @Input(doc="The path to the indel filter script", fullName="indel_filter", shortName="if", required=true)
   var indelFilterPath: File = _
 
-  @Input(doc="The path to the germlin indel filter script", fullName="indel_germline_filter", shortName="igf", required=true)
+  @Input(doc="The path to the germline indel filter script", fullName="indel_germline_filter", shortName="igf", required=true)
   var indelGermlineFilterPath: File = _
 
   @Input(doc="The path to the indel caller refgene file", fullName="indel_refgene", shortName="ir", required=true)
@@ -44,8 +43,20 @@ class CMICancerPipeline extends QScript {
   /****************************************************************************
     * Required Parameters
     ****************************************************************************/
-  @Input(doc="a BAM list of one or more raw BAMs", fullName="bam_list", shortName="bl", required=true)
-  var bamList: File = _
+  @Input(doc="BAM file of data to be used for tumor", fullName = "tumor_bam", shortName = "tb", required=true)
+  var tumorBam: File = _
+
+  @Argument(doc="Tumor sample name", fullName = "tumor_name", shortName = "tn", required=true)
+  var tumorName: File = _
+
+  @Argument(doc="Tumor Fraction Contamination Estimate", fullName = "tumor_fraction_contamination", shortName = "tfc")
+  var tumorFractionContamination: Float = _
+
+  @Input(doc="BAM file of data to be used for normal", fullName = "normal_bam", shortName = "nb", required=true)
+  var normalBam: File = _
+
+  @Argument(doc="Normal sample name", fullName = "normal_name", shortName = "nn", required=true)
+  var normalName: File = _
 
   @Input(doc="Reference fasta file", fullName="reference", shortName="R", required=true)
   var reference: File = _
@@ -56,9 +67,14 @@ class CMICancerPipeline extends QScript {
   @Input(doc="Intervals to process", fullName="intervals", shortName="L", required=true)
   var intervals: Seq[File] = Seq()
 
-  @Input(doc="List of indices of tumor BAMs", fullName="tumor", shortName="t", required=true)
-  var tumorBamIndicies: Seq[Int] = _
+  /****************************************************************************
+    * Output Parameters Parameters
+    ****************************************************************************/
+  @Hidden @Output(fullName="out_vcf", shortName = "ov", doc="output somatic indel and point mutation VCF", required = false)
+  var outputVcf: File = _
 
+  @Hidden @Output(fullName="out_wig", shortName= "ow", doc="output somatic coverage WIG", required = false)
+  var outputWig: File = _
 
   /****************************************************************************
     * Optional Input Parameters
@@ -72,16 +88,15 @@ class CMICancerPipeline extends QScript {
   /****************************************************************************
     * Optional Input Parameters with sensible defaults
     ****************************************************************************/
-  @Input(doc="Base filter for SomaticIndelDetector", fullName="indel_base_filter", shortName = "ibf", required=false)
+  @Argument(doc="Base filter for SomaticIndelDetector", fullName="indel_base_filter", shortName = "ibf", required=false)
   var indelCallerBaseFilter: String = "T_COV<6||N_COV<4||(T_INDEL_F<=0.3&&T_CONS_CNT<7)||T_INDEL_CF<=0.7"
 
 
   /****************************************************************************
     * Hidden Parameters
     ****************************************************************************/
-  @Hidden
   @Argument(doc="How many ways to scatter/gather", fullName="scatter_gather", shortName="sg", required=false)
-  var nContigs: Int = 0
+  var scatterGather: Int = 0
 
   @Hidden
   @Argument(doc="Run the pipeline in test mode only", fullName = "test_mode", shortName = "test", required=false)
@@ -98,29 +113,20 @@ class CMICancerPipeline extends QScript {
     ****************************************************************************/
 
   def script() {
+    val outPrefix = tumorName + "-vs-" + normalName
 
-    val bams: Seq[File] = QScriptUtils.createSeqFromFile(bamList)
+    val mutationVcf = outPrefix + ".somatic.snv.vcf"
+    val indelVcf = outPrefix + ".somatic.indel.vcf"
+    outputWig = outPrefix + ".somatic.wig.txt"
+    outputVcf = outPrefix + ".somatic.vcf"
 
+    add(mutect(tumorName, tumorBam, normalName, normalBam, tumorFractionContamination, mutationVcf, outputWig))
 
-    // TODO: actually implement this!!  For now assume tumor is (0) and normal is (1);
-    val tumorBams: Seq[File] = Seq(bams(0))
-    val normalBams: Seq[File] = Seq(bams(1))
+    indels(tumorName, tumorBam, normalName, normalBam, indelVcf)
 
-    assert(bams.length <= 5, "Current implementation is limited to 5 bams. See source code for details on the n-way out indel cleaning procedure")
-
-    print("Indicies:" + tumorBamIndicies + "\n")
-    print("Tumor:" + tumorBams + "\n")
-    print("Normal:" + normalBams + "\n")
-
-    for (tumorBam <- tumorBams) {
-      for (normalBam <- normalBams) {
-        val tumorName = swapExt(tumorBams(0).getName, ".bam", "")
-        val normalName = swapExt(normalBams(0).getName, ".bam", "")
-
-        val outPrefix = tumorName + "-vs-" + normalName // TODO: use CMI ids here
-        cancer(tumorName, tumorBam, normalName, normalBam, 0.01f, outPrefix)
-      }
-    }
+    // todo: uncomment this once we have an indel VCF
+    //add(combine(Seq(mutationVcf, indelVcf), outputVcf))
+    add(combine(Seq(mutationVcf), outputVcf))
   }
 
 
@@ -143,22 +149,12 @@ class CMICancerPipeline extends QScript {
     this.reference_sequence = qscript.reference
   }
 
-  def cancer (tumorName : String, tumorBam : File, normalName : String, normalBam : File, tumorFractionContamination : Float, outPrefix : String) {
-    val rawMutations = outPrefix + ".call_stats.txt"
-    val rawVcf = outPrefix + ".vcf"
-    val rawCoverage = outPrefix + ".wig.txt"
-
-    add(mutect(tumorName, tumorBam, normalName, normalBam, tumorFractionContamination, rawMutations, rawVcf, rawCoverage))
-    indels(tumorName, tumorBam, normalName, normalBam, outPrefix)
-
-  }
-
-  def indels (tumorName : String, tumorBam : File, normalName : String, normalBam : File, outPrefix : String) {
-    val rawIndels = outPrefix + ".raw.indels.txt"
-    val nFilteredIndels = outPrefix + ".nfilter.indels.txt"
-    val ntFilteredIndels = outPrefix + ".nfilter.tfilter.indels.txt"
-    val ntgFilteredIndels = outPrefix + ".nfilter.tfilter.gfilter.indels.txt"
-    val mafliteIndels = outPrefix + ".filtered.maflite"
+  def indels (tumorName : String, tumorBam : File, normalName : String, normalBam : File, indelVcf : String) {
+    val rawIndels         = swapExt(indelVcf, ".vcf", ".raw.indels.txt")
+    val nFilteredIndels   = swapExt(indelVcf, ".vcf", ".nfilter.indels.txt")
+    val ntFilteredIndels  = swapExt(indelVcf, ".vcf", ".nfilter.tfilter.indels.txt")
+    val ntgFilteredIndels = swapExt(indelVcf, ".vcf", ".nfilter.tfilter.gfilter.indels.txt")
+    val mafliteIndels     = swapExt(indelVcf, ".vcf", ".filtered.maflite")
 
     add(callIndels(tumorBam, normalBam, rawIndels))
     add(filterIndelsNormal(rawIndels, nFilteredIndels))
@@ -168,8 +164,8 @@ class CMICancerPipeline extends QScript {
     add(convertIndelCallsToMaflite(tumorName, normalName, ntgFilteredIndels, mafliteIndels))
   }
 
-  case class mutect (tumorName : String, tumorBam : File, normalName : String, normalBam : File, tumorFractionContamination : Float, outMutations : File,  outVcf : File, outCoverage : File) extends MuTect with CommandLineGATKArgs {
-    this.scatterCount = 1
+  case class mutect (tumorName : String, tumorBam : File, normalName : String, normalBam : File, tumorFractionContamination : Float, outVcf : File, outCoverage : File) extends MuTect with CommandLineGATKArgs {
+    this.scatterCount = qscript.scatterGather
     this.memoryLimit = 4
     this.jarFile = qscript.mutectJar
     this.intervals = qscript.intervals
@@ -189,20 +185,21 @@ class CMICancerPipeline extends QScript {
     this.input_file :+= new TaggedFile(normalBam, "normal")
     this.normal_sample_name = normalName
 
-    this.out = outMutations
+    this.out = swapExt(outVcf, ".vcf", ".call_stats.txt")
+
     this.coverage_file = outCoverage
     this.vcf = outVcf
 
-
     this.analysisName = tumorBam.toString + ".mutect"
-    this.jobName = this.analysisName
 
     print ("MuTect CMD:" + this.commandLine)
   }
 
-  case class callIndels (tumorBam : File, normalBam : File, rawIndels : File) extends SomaticIndelDetector with CommandLineGATKArgs {
+  case class callIndels (tumorBam : File, normalBam : File, outIndels : File) extends SomaticIndelDetector with CommandLineGATKArgs {
+    @Output(doc="output in text format") var rawIndels = outIndels
     this.scatterCount = 1
     this.memoryLimit = 4
+    this.intervals = qscript.intervals
     this.jarFile = qscript.indelGenotyperJar
 
     val baseFilter = qscript.indelCallerBaseFilter
@@ -215,6 +212,11 @@ class CMICancerPipeline extends QScript {
     this.window_size = 400 // why?
     this.maxNumberOfReads = 8000 // why?
     this.filter = Seq(baseFilter)
+  }
+
+  case class combine(vcfs : Seq[File], outputVcf : File) extends CombineVariants with CommandLineGATKArgs {
+    this.variant = vcfs
+    this.out = outputVcf
   }
 
   /****************************************************************************
@@ -239,8 +241,7 @@ class CMICancerPipeline extends QScript {
       " --mode ANNOTATE " +
       " --output " + filteredIndelCalls
 
-      this.analysisName = outCalls + ".filterIndelsNormal"
-    this.jobName = this.analysisName
+    this.analysisName = outCalls + ".filterIndelsNormal"
   }
 
   case class filterIndelsTumor(originalIndelCalls : File, filteredIndelCalls : File) extends CommandLineFunction with ExternalCommonArgs {
@@ -261,7 +262,6 @@ class CMICancerPipeline extends QScript {
       " --output " + filteredIndelCalls
 
     this.analysisName = outCalls + ".filterIndelsTumor"
-    this.jobName = this.analysisName
   }
 
   case class filterIndelsGermline(originalIndelCalls : File, filteredIndelCalls : File) extends CommandLineFunction with ExternalCommonArgs {
@@ -277,7 +277,6 @@ class CMICancerPipeline extends QScript {
       " --output " + filteredIndelCalls
 
     this.analysisName = outCalls + ".filterIndelsGermline"
-    this.jobName = this.analysisName
   }
 
   case class convertIndelCallsToMaflite(tumorName : String, normalName : String, originalIndelCalls : File, maflite : File) extends CommandLineFunction with ExternalCommonArgs {
@@ -293,6 +292,5 @@ class CMICancerPipeline extends QScript {
       " tumor_f,t_ref_count,t_alt_count "
 
     this.analysisName = outCalls + ".convertIndelsToMaflite"
-    this.jobName = this.analysisName
   }
 }
