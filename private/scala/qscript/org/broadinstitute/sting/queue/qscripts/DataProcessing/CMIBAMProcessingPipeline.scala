@@ -54,7 +54,7 @@ class CMIBAMProcessingPipeline extends QScript {
   var indelSites: Seq[File] = Seq()
 
   @Input(doc="Interval file with targets used in exome capture (used for QC metrics)", fullName="targets", shortName="targets", required=false)
-  var targets: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
+  var targets: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
 
   @Input(doc="Interval file with baits used in exome capture (used for QC metrics)", fullName="baits", shortName="baits", required=false)
   var baits: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list")
@@ -124,6 +124,14 @@ class CMIBAMProcessingPipeline extends QScript {
   @Hidden
   @Argument(doc="Run the pipeline in test mode only", fullName = "test_mode", shortName = "test", required=false)
   var testMode: Boolean = false
+
+  @Hidden
+  @Argument(doc="Run the pipeline in quick mode only", fullName = "quick", shortName = "quick", required=false)
+  var quick: Boolean = false
+
+  @Hidden
+  @Argument(doc="Base path for FASTQs", fullName = "baseFastqPath", shortName = "baseFastqPath", required=false)
+  val baseFastqPath: String = ""
 
   @Hidden
   @Argument(doc="Run single sample germline calling in resulting bam", fullName = "doSingleSampleCalling", shortName = "call", required=false)
@@ -269,8 +277,8 @@ class CMIBAMProcessingPipeline extends QScript {
     def this(idP: Int, headerArray: Array[String]) =
       this (
         idP,
-        new File(headerArray(0)),
-        if (headerArray(1).isEmpty) {null} else {new File(headerArray(1))},
+        new File(qscript.baseFastqPath+headerArray(0)),
+        if (headerArray(1).isEmpty) {null} else {new File(qscript.baseFastqPath+headerArray(1))},
         headerArray(2),
         headerArray(3),
         headerArray(4),
@@ -298,9 +306,9 @@ class CMIBAMProcessingPipeline extends QScript {
    * @return an aligned bam file for the lane
    */
   def performAlignment(metaInfo: MetaInfo): File = {
-    val saiFile1: File = new File(metaInfo.file1 + ".1.sai")
-    val saiFile2: File = new File(metaInfo.file2 + ".2.sai")
-    val alnSAM: File   = new File(metaInfo.file1 + ".sam")
+    val saiFile1: File = new File(metaInfo.file1.getName + ".1.sai")
+    val saiFile2: File = new File(metaInfo.file2.getName + ".2.sai")
+    val alnSAM: File   = new File(metaInfo.file1.getName + ".sam")
     val alnBAM: File   = new File(metaInfo.bamFileName)
 
     add(bwa(" ", metaInfo.file1, saiFile1))
@@ -361,7 +369,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.scatterCount = nContigs
     this.analysisName = outIntervals + ".target"
     this.jobName = outIntervals + ".target"
-    this.intervals :+= qscript.targets // todo hotfix - only run in given targets, otherwise we're just wasting computation
+    this.intervals :+= qscript.targets
   }
 
   case class indel (inBAMs: Seq[File], tIntervals: File) extends IndelRealigner with CommandLineGATKArgs {
@@ -408,6 +416,8 @@ class CMIBAMProcessingPipeline extends QScript {
     this.scatterCount = nContigs
     this.analysisName = outRecalFile + ".covariates"
     this.jobName = outRecalFile + ".covariates"
+    if (qscript.quick) this.intervals :+= qscript.targets
+
     //this.nt = Some(qscript.numThreads) // todo: GATK has issues with parallelization here!
   }
 
@@ -421,6 +431,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.analysisName = outBAM + ".recalibration"
     this.jobName = outBAM + ".recalibration"
     this.nct = Some(qscript.numThreads)
+    if (qscript.quick) this.intervals :+= qscript.targets
   }
 
   case class reduce (inBAM: File, outBAM: File) extends ReduceReads with CommandLineGATKArgs {
@@ -429,7 +440,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.isIntermediate = false
     this.analysisName = outBAM + ".reduce"
     this.jobName = outBAM + ".reduce"
-    this.intervals :+= qscript.targets // TODO hotfix - just so we don't waste 50 hours to completion on a 10kb BAM
+    if (qscript.quick) this.intervals :+= qscript.targets
 
   }
 
@@ -439,13 +450,12 @@ class CMIBAMProcessingPipeline extends QScript {
     this.isIntermediate = false
     this.analysisName = outVCF + ".singleSampleCalling"
     this.jobName = outVCF + ".singleSampleCalling"
-    //this.dbsnp = qscript.dbSNP.
+    this.dbsnp = qscript.dbSNP(0)
     this.downsample_to_coverage = 600
     this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.scatterCount = nContigs
 
-    // for now have the caller just traverse the whole genome even though it will waste 99.999% of its time
-    this.intervals :+= qscript.targets // TODO hotfix - just so we don't waste 50 hours to completion on a 10kb BAM
+    this.intervals :+= qscript.targets
   }
 
 
@@ -467,6 +477,7 @@ class CMIBAMProcessingPipeline extends QScript {
 
   case class calculateHSMetrics (inBAM:File, outFile: File) extends CalculateHsMetrics with ExternalCommonArgs {
     @Output(doc="Metrics output", required=false) var ouths:File = outFile
+    this.isIntermediate = false
     this.reference = qscript.reference
     this.input :+= inBAM
     this.output = outFile
@@ -481,6 +492,7 @@ class CMIBAMProcessingPipeline extends QScript {
   case class calculateGCMetrics (inBAM:File, outFile: File) extends CollectGcBiasMetrics with ExternalCommonArgs {
     @Output(doc="Metrics output", required=false) var outgc:File = outFile
     this.reference = qscript.reference
+    this.isIntermediate = false
     this.input :+= inBAM
     this.output = outFile
     this.analysisName = inBAM + ".gcMetrics"
@@ -491,6 +503,7 @@ class CMIBAMProcessingPipeline extends QScript {
     @Output(doc="Metrics output", required=false) var outmm:File = outFile
     this.reference = qscript.reference
     this.input :+= inBAM
+    this.isIntermediate = false
     this.output = outFile
     this.analysisName = inBAM + ".multipleMetrics"
     this.jobName = inBAM + ".multipleMetrics"
