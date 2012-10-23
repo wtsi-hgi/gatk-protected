@@ -131,9 +131,6 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     @Argument(fullName="indels", shortName="indels", doc="Do indel evaluation", required=false)
     private boolean doIndels = false;
     
-    @Argument(fullName="noBanded", shortName="noBanded", doc="No Banded indel GL computation", required=false)
-    private boolean noBandedIndelGLs = false;
-
     //@Argument(fullName="standard_min_confidence_threshold_for_calling", shortName="stand_call_conf", doc="the minimum phred-scaled Qscore threshold to separate high confidence from low confidence calls", required=false)
     private double callConf = 0;
 
@@ -265,12 +262,11 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         // Adding the INDEL calling arguments for UG
         if (doIndels)  {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
-            uac.DONT_DO_BANDED_INDEL_COMPUTATION = noBandedIndelGLs;
-            indelEngine = new UnifiedGenotyperEngine(getToolkit(), uac, Logger.getLogger(UnifiedGenotyperEngine.class), null, null, samples,2*samples.size() );
+            indelEngine = new UnifiedGenotyperEngine(getToolkit(), uac, Logger.getLogger(UnifiedGenotyperEngine.class), null, null, samples, 2 * samples.size() );
         }
         else {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.SNP;
-            snpEngine = new UnifiedGenotyperEngine(getToolkit(), uac, Logger.getLogger(UnifiedGenotyperEngine.class), null, null, samples,2*samples.size() );
+            snpEngine = new UnifiedGenotyperEngine(getToolkit(), uac, Logger.getLogger(UnifiedGenotyperEngine.class), null, null, samples, 2 * samples.size() );
 
         }
     }

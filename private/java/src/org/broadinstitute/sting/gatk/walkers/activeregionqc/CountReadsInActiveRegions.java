@@ -21,7 +21,7 @@ import java.io.PrintStream;
 
 @ActiveRegionExtension(extension=50)
 public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInActiveRegions.Datum, GATKReport> {
-    @Output
+    @Output(doc = "File to which results should be written", required = true)
     PrintStream out;
 
     public static class Datum {
