@@ -54,10 +54,10 @@ class CMIBAMProcessingPipeline extends QScript {
   var indelSites: Seq[File] = Seq()
 
   @Input(doc="Interval file with targets used in exome capture (used for QC metrics)", fullName="targets", shortName="targets", required=false)
-  var targets: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
+  var targets: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_b37_decoy.targets.interval_list")
 
   @Input(doc="Interval file with baits used in exome capture (used for QC metrics)", fullName="baits", shortName="baits", required=false)
-  var baits: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.baits.interval_list")
+  var baits: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_b37_decoy.baits.interval_list")
 
   /****************************************************************************
    * Output files, to be passed in by messaging service
@@ -141,6 +141,10 @@ class CMIBAMProcessingPipeline extends QScript {
   @Argument(doc="BWA Parameteres", fullName = "bwa_parameters", shortName = "bp", required=false)
   val bwaParameters: String = " -q 5 -l 32 -k 2 -t 4 -o 1 "
 
+  @Hidden
+  @Argument(doc="Base path for Picard executables", fullName = "picardBase", shortName = "picardBase", required=false)
+  val picardBase: String = "/opt/cmi-gatk/dist/packages/Queue/"
+
   val cleaningExtension: String = ".clean.bam"
   val headerVersion: String = "#FILE1,FILE2,INDIVIDUAL,SAMPLE,LIBRARY,SEQUENCING,TUMOR,PLATFORM,PLATFORM_UNIT,CENTER,DESCRIPTION,DATE_SEQUENCED"
 
@@ -195,10 +199,10 @@ class CMIBAMProcessingPipeline extends QScript {
       add(joinBAMs(bams, sampleBAM))
     }
 
-    //clean(allBAMs)
+    clean(allBAMs)
     print(allBAMs)
     for (bam <- allBAMs) {
-      clean(Seq(bam))                       // todo hotfix part 2, remove
+//     clean(Seq(bam))                       // todo hotfix part 2, remove
       val cleanBAM      = swapExt(bam, ".bam", cleaningExtension)
       val dedupBAM      = swapExt(bam, ".bam", ".clean.dedup.bam")
       val recalBAM      = swapExt(bam, ".bam", ".clean.dedup.recal.bam")
@@ -485,6 +489,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.baits = qscript.baits
     this.analysisName = outFile + ".hsMetrics"
     this.jobName = outFile + ".hsMetrics"
+    this.jarFile = new File(qscript.picardBase + "CalculateHsMetrics.jar")
     // todo - do we want to compute per-read group HS metrics?
 
   }
@@ -497,6 +502,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.output = outFile
     this.analysisName = inBAM + ".gcMetrics"
     this.jobName = inBAM + ".gcMetrics"
+    this.jarFile = new File(qscript.picardBase + "CollectGcBiasMetrics.jar")
   }
 
   case class calculateMultipleMetrics (inBAM:File, outFile: File) extends CollectMultipleMetrics with ExternalCommonArgs {
@@ -507,6 +513,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.output = outFile
     this.analysisName = inBAM + ".multipleMetrics"
     this.jobName = inBAM + ".multipleMetrics"
+    this.jarFile = new File(qscript.picardBase + "CollectMultipleMetrics.jar")
   }
 
   case class joinBAMs (inBAMs: Seq[File], outBAM: File) extends MergeSamFiles with ExternalCommonArgs {
