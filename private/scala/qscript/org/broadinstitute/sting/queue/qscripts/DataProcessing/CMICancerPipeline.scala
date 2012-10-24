@@ -128,7 +128,7 @@ class CMICancerPipeline extends QScript {
     val indelVcf = outPrefix + ".somatic.indel.vcf"
     outputWig = outPrefix + ".somatic.wig.txt"
     outputVcf = outPrefix + ".somatic.vcf"
-    outputVcfIdx = outputPrefix + ".somatic.vcf.idx"
+    outputVcfIdx = outPrefix + ".somatic.vcf.idx"
 
     add(mutect(tumorName, tumorBam, normalName, normalBam, tumorFractionContamination, mutationVcf, outputWig))
 
