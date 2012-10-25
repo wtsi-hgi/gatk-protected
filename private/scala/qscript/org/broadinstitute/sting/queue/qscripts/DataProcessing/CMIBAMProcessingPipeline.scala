@@ -140,7 +140,7 @@ class CMIBAMProcessingPipeline extends QScript {
 
   @Hidden
   @Argument(doc="How many ways to scatter/gather", fullName="scatter_gather", shortName="sg", required=false)
-  var nContigs: Int = 0  // HOTFIX m1.large has 4 cores?
+  var nContigs: Int = 0
 
   @Hidden
   @Argument(doc="Define the default platform for Count Covariates -- useful for techdev purposes only.", fullName="default_platform", shortName="dp", required=false)
