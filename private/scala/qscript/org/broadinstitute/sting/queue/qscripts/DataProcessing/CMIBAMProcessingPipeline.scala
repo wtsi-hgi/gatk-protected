@@ -100,15 +100,15 @@ class CMIBAMProcessingPipeline extends QScript {
   var tumorMultipleMetrics: File = _
 
   // picard metrics outputs
-  @Output(doc="Processed reduced tumor BAM", fullName="normalHSMetrics", shortName="thsm", required=false)
+  @Output(doc="Processed reduced tumor BAM", fullName="normalHSMetrics", shortName="nhsm", required=false)
   var normalHSMetrics: File = _
 
   // picard metrics outputs
-  @Output(doc="Processed reduced tumor BAM", fullName="normalGCMetrics", shortName="tgcm", required=false)
+  @Output(doc="Processed reduced tumor BAM", fullName="normalGCMetrics", shortName="ngcm", required=false)
   var normalGCMetrics: File = _
 
   // picard metrics outputs
-  @Output(doc="Processed reduced tumor BAM", fullName="normalMultipleMetrics", shortName="tmm", required=false)
+  @Output(doc="Processed reduced tumor BAM", fullName="normalMultipleMetrics", shortName="nmm", required=false)
   var normalMultipleMetrics: File = _
 
 
