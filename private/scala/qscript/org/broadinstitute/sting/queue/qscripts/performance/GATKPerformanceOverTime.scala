@@ -181,7 +181,7 @@ class GATKPerformanceOverTime extends QScript {
           PR.jarFile = gatkJar
           PR
         }
-        addMultiThreadedTest(gatkName, Assessment.PRINT_READS_NT, makePrintReads)
+        addMultiThreadedTest(gatkName, Assessment.PRINT_READS_NT, makePrintReads, scaleMem = false)
       }
     }
   }
