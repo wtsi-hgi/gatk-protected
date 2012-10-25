@@ -6,6 +6,7 @@ import java.lang.Math
 import org.broadinstitute.sting.utils.PathUtils
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel
 import org.broadinstitute.sting.utils.baq.BAQ
+import org.broadinstitute.sting.commandline.ClassType
 
 class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "results", doc="results", required=false)
@@ -34,6 +35,7 @@ class GATKPerformanceOverTime extends QScript {
   var assessments: Set[Assessment.Assessment] = _
 
   @Argument(shortName = "ntTest", doc="For each value provided we will use -nt VALUE in the multi-threaded tests", required=false)
+  @ClassType(classOf[Int])
   val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24)
 
   @Argument(shortName = "steps", doc="steps", required=false)
