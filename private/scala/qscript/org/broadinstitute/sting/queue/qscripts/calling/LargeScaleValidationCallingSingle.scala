@@ -20,44 +20,44 @@ class LargeScaleValidationCallingSingle extends QScript {
   var gatkJar: File = _
 
   @Input(doc="intervals to process", shortName="intervals", required=false)
-  var intervals: String = ""
+  var intervals: File = _
 
-  @Input(doc="output path", shortName="outputDir", required=true)
-  var outputDir: String =  _
+  @Argument(doc="output path", shortName="outputDir", required=true)
+  var outputDir: String = _
 
   @Input(doc="input bAM list", shortName="bamList", required=true)
   var bamList: File = _
 
-  @Input(doc="base output filename", shortName="baseName", required=false)
+  @Argument(doc="base output filename", shortName="baseName", required=false)
   var baseName: String = ""
 
-  @Input(doc="scatterCount", shortName="sc", required=false)
+  @Argument(doc="scatterCount", shortName="sc", required=false)
   var variantCallerScatterCount: Int = 1
 
-  @Input(doc="chromosomes in pool", shortName="ploidy", required=false)
+  @Argument(doc="chromosomes in pool", shortName="ploidy", required=false)
   var ploidy: Int = 24
 
-  @Input(doc="doRef", shortName="doRef", required=false)
+  @Argument(doc="doRef", shortName="doRef", required=false)
   var doRefSample: Boolean = false
 
-  @Input(fullName="standard_min_confidence_threshold_for_emitting_and_calling", shortName="stand_conf", doc="The minimum phred-scaled confidence threshold at which variants should be emitted and called", required=false)
-  var stand_conf: Option[Double] = 30.0
+  @Argument(fullName="standard_min_confidence_threshold_for_emitting_and_calling", shortName="stand_conf", doc="The minimum phred-scaled confidence threshold at which variants should be emitted and called", required=false)
+  var stand_conf: Option[Double] = 10.0
 
-  @Input(doc="validation set", shortName="vs", required=true)
+  @Argument(doc="validation set", shortName="vs", required=true)
   var vs: String = _
 
 
-  private val tmpDir: File = new File("/broad/hptmp/farjoun/tmp/")
+  private val tmpDir: File = new File("/broad/hptmp/delangel/tmp/")
   private val reference: File = new File("/humgen/gsa-hpprojects/1kg/reference/human_g1k_v37.fasta")
   private val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/data/dbsnp_132_b37.vcf")
-
+  private val oneKGRelease: File = new File("/humgen/1kg/DCC/ftp/release/20110521/ALL.wgs.phase1_release_v3.20101123.snps_indels_sv.sites.vcf.gz")
   trait CommandLineGATKArgs extends CommandLineGATK {
     this.jarFile = qscript.gatkJar
     this.reference_sequence = qscript.reference
     this.memoryLimit = 2
     this.jobTempDir = qscript.tmpDir
     this.jobQueue = "gsa"
-    if (!qscript.intervals.isEmpty) this.intervalsString :+= qscript.intervals
+    if (!qscript.intervals.isEmpty) this.intervals :+= qscript.intervals
 
 
   }
@@ -71,10 +71,10 @@ class LargeScaleValidationCallingSingle extends QScript {
     if (qscript.doRefSample) {
       this.reference_sample_name = "NA12878"
     }
-    //      this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
+
     this.gt_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY
     this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_CONFIDENT_SITES
-    this.max_deletion_fraction=.1
+//    this.max_deletion_fraction=.1
 
     this.intervals :+= new File(allelesFile)
     if(this.intervals.length + this.intervalsString.length > 1) {
@@ -82,9 +82,8 @@ class LargeScaleValidationCallingSingle extends QScript {
       this.logger.info("Setting IntervalSetRule to INTERSECTION")
     }
 
-    //this.alleles = new File(allelesFile)
     this.ignoreLane = true
-    this.maxAltAlleles = Some(1)  // memory usage will overflow without this
+    this.maxAltAlleles = Some(3)  // memory usage will overflow without this
     this.dt = DownsampleType.NONE
 
     this.standard_min_confidence_threshold_for_emitting=stand_conf
@@ -99,6 +98,7 @@ class LargeScaleValidationCallingSingle extends QScript {
 
   class IndelPC( callName: String,  allelesFile: String) extends PPC(callName, allelesFile) {
     this.glm = GenotypeLikelihoodsCalculationModel.Model.INDEL
+    this.minIndelFrac = Some(0.01)
     this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.vcf")
   }
 
@@ -108,34 +108,40 @@ class LargeScaleValidationCallingSingle extends QScript {
   }
 
 
-  class Eval(evalVCF: File) extends VariantEval with CommandLineGATKArgs {
+  class Eval(evalVCF: File, compVCF: File) extends VariantEval with CommandLineGATKArgs {
     this.eval :+= evalVCF
     this.dbsnp = qscript.dbSNP
     this.doNotUseAllStandardModules = true
-    this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap", "IndelSummary")
+    this.evalModule = List("CountVariants", "CompOverlap", "ValidationReport")
     this.doNotUseAllStandardStratifications = true
-    this.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "TandemRepeat","Filter") //++ extraStrats
-    // this.num_threads = qscript.num_threads
-    // this.memoryLimit = 8
+    this.stratificationModule = Seq("EvalRod", "Filter") //++ extraStrats
     this.out = swapExt(evalVCF, ".vcf", ".eval")
+    this.ploidy = Some(qscript.ploidy)
+    this.numSamples = Some(92)
+    if (compVCF != null)
+      this.comp :+= compVCF
   }
 
   class Filt(inputVCF: File) extends VariantFiltration with CommandLineGATKArgs {
     this.V = inputVCF
-    this.filterExpression = Seq("DP<5000","REFDEPTH<500")
-    this.filterName = Seq("LowDepth","LowReferenceSampleDepth")
+    this.filterExpression = Seq("DP<5000")
+    this.filterName = Seq("LowDepth")
+    if (qscript.doRefSample) {
+      this.filterExpression :+= "REFDEPTH<500"
+      this.filterName :+= "LowReferenceSampleDepth"
+    }
     this.out = swapExt(inputVCF, ".vcf",".filtered.vcf")
   }
-  class SampleEval(evalVCF: File) extends Eval(evalVCF) {
+  class SampleEval(evalVCF: File, compVCF: File) extends Eval(evalVCF, compVCF) {
     this.stratificationModule :+= "Sample"
     // this.num_threads = qscript.num_threads
     // this.memoryLimit = 8
     this.out = swapExt(evalVCF, ".vcf", ".bySample.eval")
   }
 
-  class ACEval(evalVCF: File) extends Eval(evalVCF) {
+  class ACEval(evalVCF: File, compVCF: File) extends Eval(evalVCF, compVCF) {
     this.stratificationModule :+= "AlleleCount"
-    this.out = swapExt(evalVCF, ".vcf", ".byAC.eval")
+    this.out = swapExt(compVCF, ".vcf", ".byAC.eval")
   }
 
   def script = {
@@ -166,6 +172,13 @@ class LargeScaleValidationCallingSingle extends QScript {
     val filter = new Filt(genotyper.out)
     add(filter)
 
+    val ve = new Eval(filter.out, null)
+    add(ve)
+//    val veSample = new SampleEval(qscript.oneKGRelease, filter.out)
+//    add(veSample)
+
+    val veAC = new ACEval(qscript.oneKGRelease, filter.out)
+    add(veAC)
   }
 
 }
