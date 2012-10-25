@@ -43,6 +43,9 @@ class CMICancerPipeline extends QScript {
   @Input(doc="BAM file of data to be used for tumor", fullName = "tumor_bam", shortName = "tb", required=true)
   var tumorBam: File = _
 
+  @Input(doc="BAI file of data to be used for tumor", fullName = "tumor_bai", shortName = "tbi", required=false)
+  var tumorBai: File = _
+
   @Argument(doc="Tumor sample name", fullName = "tumor_name", shortName = "tn", required=true)
   var tumorName: String = _
 
@@ -51,6 +54,9 @@ class CMICancerPipeline extends QScript {
 
   @Input(doc="BAM file of data to be used for normal", fullName = "normal_bam", shortName = "nb", required=true)
   var normalBam: File = _
+
+  @Input(doc="BAI file of data to be used for normal", fullName = "normal_bai", shortName = "nbi", required=false)
+  var normalBai: File = _
 
   @Argument(doc="Normal sample name", fullName = "normal_name", shortName = "nn", required=true)
   var normalName: String = _
@@ -69,6 +75,9 @@ class CMICancerPipeline extends QScript {
     ****************************************************************************/
   @Hidden @Output(fullName="out_vcf", shortName = "ov", doc="output somatic indel and point mutation VCF", required = false)
   var outputVcf: File = _
+
+  @Hidden @Output(fullName="out_vcf_idx", shortName = "ovi", doc="output somatic indel and point mutation VCF idx", required = false)
+  var outputVcfIdx: File = _
 
   @Hidden @Output(fullName="out_wig", shortName= "ow", doc="output somatic coverage WIG", required = false)
   var outputWig: File = _
@@ -116,6 +125,7 @@ class CMICancerPipeline extends QScript {
     val indelVcf = outPrefix + ".somatic.indel.vcf"
     outputWig = outPrefix + ".somatic.wig.txt"
     outputVcf = outPrefix + ".somatic.vcf"
+    outputVcfIdx = outPrefix + ".somatic.vcf.idx"
 
     add(mutect(tumorName, tumorBam, normalName, normalBam, tumorFractionContamination, mutationVcf, outputWig))
 

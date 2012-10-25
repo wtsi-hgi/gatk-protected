@@ -87,6 +87,31 @@ class CMIBAMProcessingPipeline extends QScript {
   @Output(doc="Processed reduced tumor BAM Index", fullName="reducedTumorBAMIndex", shortName="rtbi", required=false)
   var reducedTumorBAMIndex: File = _
 
+  // picard metrics outputs
+  @Output(doc="Processed reduced tumor BAM", fullName="tumorHSMetrics", shortName="thsm", required=false)
+  var tumorHSMetrics: File = _
+
+  // picard metrics outputs
+  @Output(doc="Processed reduced tumor BAM", fullName="tumorGCMetrics", shortName="tgcm", required=false)
+  var tumorGCMetrics: File = _
+
+  // picard metrics outputs
+  @Output(doc="Processed reduced tumor BAM", fullName="tumorMultipleMetrics", shortName="tmm", required=false)
+  var tumorMultipleMetrics: File = _
+
+  // picard metrics outputs
+  @Output(doc="Processed reduced tumor BAM", fullName="normalHSMetrics", shortName="nhsm", required=false)
+  var normalHSMetrics: File = _
+
+  // picard metrics outputs
+  @Output(doc="Processed reduced tumor BAM", fullName="normalGCMetrics", shortName="ngcm", required=false)
+  var normalGCMetrics: File = _
+
+  // picard metrics outputs
+  @Output(doc="Processed reduced tumor BAM", fullName="normalMultipleMetrics", shortName="nmm", required=false)
+  var normalMultipleMetrics: File = _
+
+
   // in case single sample calls are requested
   @Output(doc="Processed single sample VCF", fullName="singleSampleVCF", shortName="ssvcf", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
   var singleSampleVCF: File = _
@@ -102,12 +127,12 @@ class CMIBAMProcessingPipeline extends QScript {
   var useBWAsw: Boolean = false
 
   @Hidden
-  @Argument(doc="Collect Picard QC metrics", fullName="collectQC", shortName="qc", required=false)
-  var collectQCMetrics: Boolean = false
+  @Argument(doc="Collect Picard QC metrics", fullName="skipQC", shortName="skipqc", required=false)
+  var skipQCMetrics: Boolean = false
 
   @Hidden
   @Argument(doc="Number of threads jobs should use when possible", fullName="numThreads", shortName="nt", required=false)
-  var numThreads: Int = 1
+  var numThreads: Int = 8
 
   @Hidden
   @Argument(doc="Default memory limit per job", fullName="mem_limit", shortName="mem", required=false)
@@ -139,11 +164,11 @@ class CMIBAMProcessingPipeline extends QScript {
 
   @Hidden
   @Argument(doc="BWA Parameteres", fullName = "bwa_parameters", shortName = "bp", required=false)
-  val bwaParameters: String = " -q 5 -l 32 -k 2 -t 4 -o 1 "
+  val bwaParameters: String = " -q 5 -l 32 -k 2 -o 1 "
 
   @Hidden
   @Argument(doc="Base path for Picard executables", fullName = "picardBase", shortName = "picardBase", required=false)
-  val picardBase: String = "/opt/cmi-gatk/dist/packages/Queue/"
+  val picardBase: String = "/opt/picard-metrics/"
 
   val cleaningExtension: String = ".clean.bam"
   val headerVersion: String = "#FILE1,FILE2,INDIVIDUAL,SAMPLE,LIBRARY,SEQUENCING,TUMOR,PLATFORM,PLATFORM_UNIT,CENTER,DESCRIPTION,DATE_SEQUENCED"
@@ -202,7 +227,6 @@ class CMIBAMProcessingPipeline extends QScript {
     clean(allBAMs)
     print(allBAMs)
     for (bam <- allBAMs) {
-//     clean(Seq(bam))                       // todo hotfix part 2, remove
       val cleanBAM      = swapExt(bam, ".bam", cleaningExtension)
       val dedupBAM      = swapExt(bam, ".bam", ".clean.dedup.bam")
       val recalBAM      = swapExt(bam, ".bam", ".clean.dedup.recal.bam")
@@ -216,9 +240,9 @@ class CMIBAMProcessingPipeline extends QScript {
 
       recalibrate(dedupBAM, preRecalFile, postRecalFile, recalBAM)
 
-      if ( qscript.collectQCMetrics)  {
+      if ( !qscript.skipQCMetrics)  {
         if (qscript.targets != null && qscript.baits != null) {
-          add(calculateHSMetrics(recalBAM,swapExt(dedupBAM,".bam",".hs_metrics")))
+          add(calculateHSMetrics(recalBAM,swapExt(recalBAM,".bam",".hs_metrics")))
         }
         // collect QC metrics based on full BAM
         val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
@@ -256,6 +280,15 @@ class CMIBAMProcessingPipeline extends QScript {
     qscript.reducedTumorBAM = swapExt(allBAMs(0),".bam",".clean.dedup.recal.reduced.bam")
     qscript.reducedNormalBAMIndex = swapExt(qscript.reducedNormalBAM,".bam",".bai")
     qscript.reducedTumorBAMIndex = swapExt(qscript.reducedTumorBAM,".bam",".bai")
+
+    qscript.normalHSMetrics = swapExt(allBAMs(1),".bam",".hs_metrics")
+    qscript.tumorHSMetrics = swapExt(allBAMs(0),".bam",".hs_metrics")
+
+    qscript.normalGCMetrics = swapExt(allBAMs(1),".bam",".gc_metrics")
+    qscript.tumorGCMetrics = swapExt(allBAMs(0),".bam",".gc_metrics")
+
+    qscript.normalMultipleMetrics = swapExt(allBAMs(1),".bam",".multipleMetrics")
+    qscript.tumorMultipleMetrics = swapExt(allBAMs(0),".bam",".multipleMetrics")
 
   }
 
