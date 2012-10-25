@@ -88,27 +88,27 @@ class CMIBAMProcessingPipeline extends QScript {
   var reducedTumorBAMIndex: File = _
 
   // picard metrics outputs
-  @Output(doc="Processed reduced tumor BAM", fullName="tumorHSMetrics", shortName="thsm", required=false)
+  @Output(doc="Tumor HS Metrics", fullName="tumorHSMetrics", shortName="thsm", required=false)
   var tumorHSMetrics: File = _
 
   // picard metrics outputs
-  @Output(doc="Processed reduced tumor BAM", fullName="tumorGCMetrics", shortName="tgcm", required=false)
+  @Output(doc="Tumor GC Metrics", fullName="tumorGCMetrics", shortName="tgcm", required=false)
   var tumorGCMetrics: File = _
 
   // picard metrics outputs
-  @Output(doc="Processed reduced tumor BAM", fullName="tumorMultipleMetrics", shortName="tmm", required=false)
+  @Output(doc="Tumor multiple Metrics", fullName="tumorMultipleMetrics", shortName="tmm", required=false)
   var tumorMultipleMetrics: File = _
 
   // picard metrics outputs
-  @Output(doc="Processed reduced tumor BAM", fullName="normalHSMetrics", shortName="thsm", required=false)
+  @Output(doc="Normal HS Metrics", fullName="normalHSMetrics", shortName="nhsm", required=false)
   var normalHSMetrics: File = _
 
   // picard metrics outputs
-  @Output(doc="Processed reduced tumor BAM", fullName="normalGCMetrics", shortName="tgcm", required=false)
+  @Output(doc="Normal GC Metrics", fullName="normalGCMetrics", shortName="ngcm", required=false)
   var normalGCMetrics: File = _
 
   // picard metrics outputs
-  @Output(doc="Processed reduced tumor BAM", fullName="normalMultipleMetrics", shortName="tmm", required=false)
+  @Output(doc="Normal multiple metrics", fullName="normalMultipleMetrics", shortName="nmm", required=false)
   var normalMultipleMetrics: File = _
 
 
@@ -132,7 +132,7 @@ class CMIBAMProcessingPipeline extends QScript {
 
   @Hidden
   @Argument(doc="Number of threads jobs should use when possible", fullName="numThreads", shortName="nt", required=false)
-  var numThreads: Int = 8
+  var numThreads: Int = 4 // HOTFIX m1.large has 4 cores?
 
   @Hidden
   @Argument(doc="Default memory limit per job", fullName="mem_limit", shortName="mem", required=false)
@@ -140,7 +140,7 @@ class CMIBAMProcessingPipeline extends QScript {
 
   @Hidden
   @Argument(doc="How many ways to scatter/gather", fullName="scatter_gather", shortName="sg", required=false)
-  var nContigs: Int = 0
+  var nContigs: Int = 0  // HOTFIX m1.large has 4 cores?
 
   @Hidden
   @Argument(doc="Define the default platform for Count Covariates -- useful for techdev purposes only.", fullName="default_platform", shortName="dp", required=false)
@@ -411,10 +411,21 @@ class CMIBAMProcessingPipeline extends QScript {
 
   case class indel (inBAMs: Seq[File], tIntervals: File) extends IndelRealigner with CommandLineGATKArgs {
     // TODO -- THIS IS A WORKAROUND FOR QUEUE'S LIMITATION OF TRACKING LISTS OF FILES (implementation limited to 5 files)
-    @Output(doc="first cleaned bam file", required=true) var out1: File = swapExt(inBAMs(0), ".bam", cleaningExtension)
-    @Output(doc="first cleaned bam file", required=true) var ind1: File = swapExt(out1, ".bam", ".bai")
-    @Output(doc="first cleaned bam file", required=false) var out2: File = if (inBAMs.length >= 2) {swapExt(inBAMs(1), ".bam", cleaningExtension)} else {null}
-    @Output(doc="first cleaned bam file", required=false) var ind2: File = if (inBAMs.length >= 2) {swapExt(out2, ".bam", ".bai")} else {null}
+    @Output(doc="first cleaned bam file", required=true)
+    @Gather(classOf[BamGatherFunction])
+    var out1: File = swapExt(inBAMs(0), ".bam", cleaningExtension)
+    @Output(doc="first cleaned bam file index", required=true)
+    @Gather(enabled=false)
+    var ind1: File = swapExt(out1, ".bam", ".bai")
+    @Output(doc="2nd cleaned bam file", required=false)
+    @Gather(classOf[BamGatherFunction])
+    var out2: File = if (inBAMs.length >= 2) {swapExt(inBAMs(1), ".bam", cleaningExtension)} else {null}
+    @Output(doc="2nd cleaned bam file index", required=false)
+    @Gather(enabled=false)
+    var ind2: File = if (inBAMs.length >= 2) {swapExt(out2, ".bam", ".bai")} else {null}
+
+
+
     @Output(doc="first cleaned bam file", required=false) var out3: File = if (inBAMs.length >= 3) {swapExt(inBAMs(2), ".bam", cleaningExtension)} else {null}
     @Output(doc="first cleaned bam file", required=false) var ind3: File = if (inBAMs.length >= 3) {swapExt(out3, ".bam", ".bai")} else {null}
     @Output(doc="first cleaned bam file", required=false) var out4: File = if (inBAMs.length >= 4) {swapExt(inBAMs(3), ".bam", cleaningExtension)} else {null}
