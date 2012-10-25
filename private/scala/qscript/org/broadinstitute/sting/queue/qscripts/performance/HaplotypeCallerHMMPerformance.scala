@@ -36,6 +36,12 @@ class HaplotypeCallerHMMPerformance extends QScript {
 
   val b37 = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/human_g1k_v37.fasta"
 
+  val BEFORE_JAR = new File("/humgen/gsa-hpprojects/dev/rpoplin/hmm_timing/before/dist/GenomeAnalysisTK.jar")
+  val AFTER_JAR = new File("/humgen/gsa-hpprojects/dev/rpoplin/hmm_timing/after/dist/GenomeAnalysisTK.jar")
+  val GATKs: Map[String, File] = Map(
+    "before" -> BEFORE_JAR,
+    "after" -> AFTER_JAR)
+
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO"
     this.reference_sequence = new File(b37)
@@ -44,22 +50,19 @@ class HaplotypeCallerHMMPerformance extends QScript {
 
   def script() {
     for ( iteration <- 0 until iterations ) {
-      for( sort: Boolean <- List(true, false)) {
-        for( optimized: Boolean <- List(true, false)) {
-          for( logless: Boolean <- if( optimized ) {List(true, false)} else {List(false)} ) {
-              enqueueHC(iteration, sort, optimized, logless)
-          }
-        }
+      for ( (gatkName, gatkJar) <- GATKs ) {
+          enqueueHC(iteration, gatkName, gatkJar)
       }
     }
   }
 
-  def enqueueHC( iteration: Int, sort: Boolean, optimized: Boolean, logless: Boolean ) {
+  def enqueueHC( iteration: Int, gatkName: String, gatkJar: File ) {
     trait VersionOverrides extends CommandLineGATK {
-      this.configureJobReport(Map( "iteration" -> iteration, "sortHaplotypes" -> sort, "optimizedPairHMM" -> optimized, "loglessHMM" -> logless ))
+      this.configureJobReport(Map( "iteration" -> iteration, "jar" -> gatkName ))
     }
 
     val hc = new HaplotypeCaller with UNIVERSAL_GATK_ARGS with VersionOverrides
+    hc.jarFile = gatkJar
     hc.intervals = interval
     hc.excludeIntervals = excludeIntervals
     hc.input_file :+= new File(INPUT_BAM_LIST)
@@ -68,25 +71,21 @@ class HaplotypeCallerHMMPerformance extends QScript {
     hc.stand_call_conf = 10.0
     hc.stand_emit_conf = 10.0
     hc.minPruning = 2
-    hc.sortHaplotypes = sort
-    hc.optimizedPairHMM = optimized
-    hc.loglessHMM = logless
     hc.max_alternate_alleles = maxAlt
     add(hc)
 
-    if( sort == false && optimized == false && logless == false ) {
-      val ug = new UnifiedGenotyper with UNIVERSAL_GATK_ARGS with VersionOverrides
-      ug.intervals = interval
-      ug.excludeIntervals = excludeIntervals
-      ug.input_file :+= new File(INPUT_BAM_LIST)
-      ug.o = new File("/dev/null")
-      ug.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
-      ug.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE
-      ug.analysisName = "UnifiedGenotyper"
-      ug.stand_call_conf = 8.0
-      ug.stand_emit_conf = 8.0
-      ug.max_alternate_alleles = maxAlt
-      add(ug)
-    }
+    val ug = new UnifiedGenotyper with UNIVERSAL_GATK_ARGS with VersionOverrides
+    ug.jarFile = gatkJar
+    ug.intervals = interval
+    ug.excludeIntervals = excludeIntervals
+    ug.input_file :+= new File(INPUT_BAM_LIST)
+    ug.o = new File("/dev/null")
+    ug.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    ug.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE
+    ug.analysisName = "UnifiedGenotyper"
+    ug.stand_call_conf = 8.0
+    ug.stand_emit_conf = 8.0
+    ug.max_alternate_alleles = maxAlt
+    add(ug)
   }
 }
