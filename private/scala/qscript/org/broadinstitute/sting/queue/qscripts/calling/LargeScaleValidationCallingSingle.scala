@@ -19,31 +19,31 @@ class LargeScaleValidationCallingSingle extends QScript {
   @Input(doc="path to GATK jar", shortName="gatk", required=true)
   var gatkJar: File = _
 
-  @Input(doc="intervals to process", shortName="intervals", required=false)
+  @Argument(doc="intervals to process", shortName="intervals", required=false)
   var intervals: String = ""
 
-  @Input(doc="output path", shortName="outputDir", required=true)
+  @Argument(doc="output path", shortName="outputDir", required=true)
   var outputDir: String =  _
 
-  @Input(doc="input bAM list", shortName="bamList", required=true)
+  @Input(doc="input BAM list", shortName="bamList", required=true)
   var bamList: File = _
 
-  @Input(doc="base output filename", shortName="baseName", required=false)
+  @Argument(doc="base output filename", shortName="baseName", required=false)
   var baseName: String = ""
 
-  @Input(doc="scatterCount", shortName="sc", required=false)
+  @Argument(doc="scatterCount", shortName="sc", required=false)
   var variantCallerScatterCount: Int = 1
 
-  @Input(doc="chromosomes in pool", shortName="ploidy", required=false)
+  @Argument(doc="chromosomes in pool", shortName="ploidy", required=false)
   var ploidy: Int = 24
 
-  @Input(doc="doRef", shortName="doRef", required=false)
+  @Argument(doc="doRef", shortName="doRef", required=false)
   var doRefSample: Boolean = false
 
-  @Input(fullName="standard_min_confidence_threshold_for_emitting_and_calling", shortName="stand_conf", doc="The minimum phred-scaled confidence threshold at which variants should be emitted and called", required=false)
-  var stand_conf: Option[Double] = 30.0
+  @Argument(fullName="standard_min_confidence_threshold_for_emitting_and_calling", shortName="stand_conf", doc="The minimum phred-scaled confidence threshold at which variants should be emitted and called", required=false)
+  var stand_conf: Double = 30.0
 
-  @Input(doc="validation set", shortName="vs", required=true)
+  @Argument(doc="validation set", shortName="vs", required=true)
   var vs: String = _
 
 
@@ -158,7 +158,7 @@ class LargeScaleValidationCallingSingle extends QScript {
       case "unifIndels" => new IndelPC("unifIndels","/humgen/gsa-hpprojects/dev/largeScaleValidation//outputVCFs/ALL.wgs.5000_validation_sites_Uniformly_distributed.indels.sites.vcf")
       case "afSNPs" => new SNPPC("afSNPs","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.8000_validation_sites_AF_distributed.snp.sites.vcf")
       case "unifSNPs" => new SNPPC("unifSNPs","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.8000_validation_sites_Uniformly_distributed.snp.sites.vcf")
-      case _=>{ this.logger.error("vs must be one of the allowed validation sites. no match found") ; throw new Error("blah") }
+      case _=>{ this.logger.error("vs must be one of the allowed validation sites. no match found for \"%s\"".format( qscript.vs)) ; throw new Error("Unknown Set") }
     }
     add(genotyper)
 
