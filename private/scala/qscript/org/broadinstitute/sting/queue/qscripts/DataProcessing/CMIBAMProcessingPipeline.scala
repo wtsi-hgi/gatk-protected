@@ -111,6 +111,11 @@ class CMIBAMProcessingPipeline extends QScript {
   @Output(doc="Normal multiple metrics", fullName="normalMultipleMetrics", shortName="nmm", required=false)
   var normalMultipleMetrics: File = _
 
+  @Output(doc="Normal duplicate metrics", fullName="normalDuplicateMetrics", shortName="ndm", required=false)
+  var normalDuplicateMetrics: File = _
+
+  @Output(doc="Tumos duplicate metrics", fullName="tumorDuplicateMetrics", shortName="tdm", required=false)
+  var tumorDuplicateMetrics: File = _
 
   // in case single sample calls are requested
   @Output(doc="Processed single sample VCF", fullName="singleSampleVCF", shortName="ssvcf", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
@@ -247,8 +252,9 @@ class CMIBAMProcessingPipeline extends QScript {
         // collect QC metrics based on full BAM
         val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
         val outMultipleMetrics = swapExt(recalBAM,".bam",".multipleMetrics")
-        add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
-        add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
+  // gdebug tmp hotfix - avoid failure in aws for now until R gets installed
+  //      add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
+  //      add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
 
       }
 
@@ -289,6 +295,9 @@ class CMIBAMProcessingPipeline extends QScript {
 
     qscript.normalMultipleMetrics = swapExt(allBAMs(1),".bam",".multipleMetrics")
     qscript.tumorMultipleMetrics = swapExt(allBAMs(0),".bam",".multipleMetrics")
+
+    qscript.normalDuplicateMetrics = swapExt(allBAMs(1),".bam",".duplicateMetrics")
+    qscript.tumorDuplicateMetrics = swapExt(allBAMs(0),".bam",".duplicateMetrics")
 
   }
 
@@ -617,7 +626,7 @@ class CMIBAMProcessingPipeline extends QScript {
     @Input(doc="bwa alignment index file for 2nd mating pair") var sai2 = inSai2
     @Output(doc="output aligned bam file") var alignedBam = outBAM
     def commandLine = bwaPath + " sampe " + reference + " " + sai1 + " " + sai2 + " " + first + " " + second + " -r \"" + readGroupString + "\" > " + alignedBam
-    this.memoryLimit = 1
+    this.memoryLimit = 4
     this.analysisName = outBAM + ".bwa_sam_pe"
     this.jobName = outBAM + ".bwa_sam_pe"
   }
