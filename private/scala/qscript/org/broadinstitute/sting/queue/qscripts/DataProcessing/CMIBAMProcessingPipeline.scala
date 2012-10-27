@@ -463,7 +463,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = inBAMs(0).toString + ".clean"
   }
 
-  case class bqsr (inBAM: File, outRecalFile: File) extends BaseRecalibrator with CommandLineGATKArgs {
+  case class bqsr (inBAM: File, outRecalFile: File) extends DelocalizedBaseRecalibrator with CommandLineGATKArgs {
     this.knownSites ++= qscript.dbSNP
     this.covariate ++= Seq("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
     this.input_file :+= inBAM
@@ -475,7 +475,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = outRecalFile + ".covariates"
     if (qscript.quick) this.intervals :+= qscript.targets
 
-    //this.nt = Some(qscript.numThreads) // todo: GATK has issues with parallelization here!
+    this.nct = Some(qscript.numThreads)
   }
 
   case class apply_bqsr (inBAM: File, inRecalFile: File, outBAM: File) extends PrintReads with CommandLineGATKArgs {
