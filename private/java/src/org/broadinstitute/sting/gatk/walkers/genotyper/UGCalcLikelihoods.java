@@ -91,7 +91,7 @@ public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> 
     }
 
     public VariantCallContext map(RefMetaDataTracker tracker, ReferenceContext refContext, AlignmentContext rawContext) {
-        final Map<String,PerReadAlleleLikelihoodMap> perReadAlleleLikelihoodMap = new HashMap<String,PerReadAlleleLikelihoodMap>();
+        final Map<String, org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap> perReadAlleleLikelihoodMap = new HashMap<String, org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap>();
         VariantContext call = UG_engine.calculateLikelihoods(tracker, refContext, rawContext, perReadAlleleLikelihoodMap);
         return call == null ? null : new VariantCallContext(call, true);
     }
