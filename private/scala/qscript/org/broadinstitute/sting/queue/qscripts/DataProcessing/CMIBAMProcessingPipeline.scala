@@ -252,9 +252,9 @@ class CMIBAMProcessingPipeline extends QScript {
         // collect QC metrics based on full BAM
         val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
         val outMultipleMetrics = swapExt(recalBAM,".bam",".multipleMetrics")
-  // gdebug tmp hotfix - avoid failure in aws for now until R gets installed
-  //      add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
-  //      add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
+
+        add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
+        add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
 
       }
 
@@ -463,7 +463,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = inBAMs(0).toString + ".clean"
   }
 
-  case class bqsr (inBAM: File, outRecalFile: File) extends DelocalizedBaseRecalibrator with CommandLineGATKArgs {
+  case class bqsr (inBAM: File, outRecalFile: File) extends /*DelocalizedBaseRecalibrator*/ BaseRecalibrator with CommandLineGATKArgs {
     this.knownSites ++= qscript.dbSNP
     this.covariate ++= Seq("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
     this.input_file :+= inBAM
@@ -475,7 +475,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = outRecalFile + ".covariates"
     if (qscript.quick) this.intervals :+= qscript.targets
 
-    this.nct = Some(qscript.numThreads)
+ //   this.nct = Some(qscript.numThreads)
   }
 
   case class apply_bqsr (inBAM: File, inRecalFile: File, outBAM: File) extends PrintReads with CommandLineGATKArgs {
