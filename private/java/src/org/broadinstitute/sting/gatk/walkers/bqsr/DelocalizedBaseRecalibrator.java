@@ -225,9 +225,9 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
      * For each read at this locus get the various covariate values and increment that location in the map based on
      * whether or not the base matches the reference at this particular location
      */
-    public Long map( final ReferenceContext ref, final GATKSAMRecord _read, final RefMetaDataTracker metaDataTracker ) {
+    public Long map( final ReferenceContext ref, final GATKSAMRecord originalRead, final RefMetaDataTracker metaDataTracker ) {
 
-        final GATKSAMRecord read = ReadClipper.hardClipAdaptorSequence(_read);
+        final GATKSAMRecord read = ReadClipper.hardClipAdaptorSequence(originalRead);
         if( read.isEmpty() ) { return 0L; } // the whole read was inside the adaptor so skip it
 
         RecalUtils.parsePlatformForRead(read, RAC);
@@ -235,7 +235,7 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
         read.setTemporaryAttribute(COVARS_ATTRIBUTE, RecalUtils.computeCovariates(read, requestedCovariates));
 
         final boolean[] skip = calculateSkipArray(read, metaDataTracker); // skip known sites of variation as well as low quality and non-regular bases
-        final int[] isSNP = calculateIsSNP(read, ref);
+        final int[] isSNP = calculateIsSNP(read, ref, originalRead);
         final int[] isInsertion = calculateIsIndel(read, EventType.BASE_INSERTION);
         final int[] isDeletion = calculateIsIndel(read, EventType.BASE_DELETION);
         final byte[] baqArray = calculateBAQArray(read);
@@ -277,9 +277,9 @@ public class DelocalizedBaseRecalibrator extends ReadWalker<Long, Long> implemen
     }
 
     // BUGBUG: can be merged with calculateIsIndel
-    protected static int[] calculateIsSNP( final GATKSAMRecord read, final ReferenceContext ref ) {
+    protected static int[] calculateIsSNP( final GATKSAMRecord read, final ReferenceContext ref, final GATKSAMRecord originalRead ) {
         final byte[] readBases = read.getReadBases();
-        final byte[] refBases = ref.getBases();
+        final byte[] refBases = Arrays.copyOfRange(ref.getBases(), read.getAlignmentStart() - originalRead.getAlignmentStart(), ref.getBases().length + read.getAlignmentEnd() - originalRead.getAlignmentEnd());
         final int[] snp = new int[readBases.length];
         int readPos = 0;
         int refPos = 0;
