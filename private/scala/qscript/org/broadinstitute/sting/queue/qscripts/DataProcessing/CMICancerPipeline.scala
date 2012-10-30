@@ -11,6 +11,8 @@ import org.broadinstitute.sting.queue.QScript
 
 import org.broadinstitute.sting.commandline.Hidden
 import org.broadinstitute.sting.queue.extensions.cancer.MuTect
+import org.broadinstitute.sting.queue.function.JavaCommandLineFunction
+import java.io.File
 
 class CMICancerPipeline extends QScript {
   qscript =>
@@ -283,6 +285,7 @@ class CMICancerPipeline extends QScript {
       SS_INDEL_NORMAL_FILTER +
       " --ref " + qscript.reference +
       " --sample " + sample +
+      " --gatk_cp " + JavaCommandLineFunction.currentClasspath.mkString(File.pathSeparator) +
       " --output " + filteredIndelCalls
 
     this.analysisName = outCalls + ".filterIndelsNormalVCF"
@@ -310,6 +313,7 @@ class CMICancerPipeline extends QScript {
       SS_INDEL_TUMOR_FILTER +
       " --ref " + qscript.reference +
       " --sample " + sample +
+      " --gatk_cp " + JavaCommandLineFunction.currentClasspath.mkString(File.pathSeparator) +
       " --output " + filteredIndelCalls
 
     this.analysisName = outCalls + ".filterIndelsTumorVCF"
