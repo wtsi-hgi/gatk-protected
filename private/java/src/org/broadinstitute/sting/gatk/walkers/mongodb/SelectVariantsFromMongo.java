@@ -464,7 +464,6 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             final UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
             UAC.GLmodel = GenotypeLikelihoodsCalculationModel.Model.BOTH;
             UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES;
-            UAC.NO_SLOD = true;
             UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
         }
 
@@ -821,7 +820,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
         // if we have fewer alternate alleles in the selected VC than in the original VC, we need to strip out the GL/PLs (because they are no longer accurate)
         if ( vc.getAlleles().size() != sub.getAlleles().size() )
-            newGC = VariantContextUtils.stripPLs(sub.getGenotypes());
+            newGC = VariantContextUtils.stripPLsAndAD(sub.getGenotypes());
 
         //Remove a fraction of the genotypes if needed
         if(fractionGenotypes>0){

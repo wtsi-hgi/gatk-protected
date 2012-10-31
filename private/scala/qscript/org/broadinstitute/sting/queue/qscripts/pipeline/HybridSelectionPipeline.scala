@@ -45,7 +45,7 @@ class HybridSelectionPipeline extends QScript {
   @Input(doc="GATK or Picard intervals file.", shortName="L", exclusiveOf="projectSampleTsv", required=false)
   var intervals: File = _
 
-  @Input(doc="Level of parallelism for UnifiedGenotyper. By default set to 20.", shortName="varScatter", required=false)
+  @Argument(doc="Level of parallelism for UnifiedGenotyper. By default set to 20.", shortName="varScatter", required=false)
   var variantCallerScatterCount = 20
 
   @Argument(doc="Pipeline memory limit. By default set to 2g.", shortName="pipeMemory", required=false)
@@ -131,7 +131,7 @@ class HybridSelectionPipeline extends QScript {
     if (useK1gExomes)
       call.input_file :+= k1gExomesBam
     call.dbsnp = dbsnp135
-    call.downsample_to_coverage = 600
+    call.downsample_to_coverage = 60
     call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     call.out = projectName + ".unfiltered.vcf"
     call.scatterCount = qscript.variantCallerScatterCount

@@ -15,12 +15,15 @@ setenv LSFILE $ROOT/files_$DATE.ls
 
 $BASE ls $LSFILE
 $BASE move $LSFILE progress_$DATE.log
+echo 'Done:', `date`
 
 echo "\n####################\nArchiving"
 python $GATK/private/python/analyzeRunReports.py archive $DIR -o $DIR.gz -D
+echo 'Done:', `date`
 
 echo "\n####################\nLoading to DB"
 python $GATK/private/python/analyzeRunReports.py loadToDB $DIR.gz
+echo 'Done:', `date`
 
 # if the dir is empty we proceed
 rmdir --ignore-fail-on-non-empty $DIR

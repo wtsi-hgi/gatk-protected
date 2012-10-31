@@ -116,7 +116,7 @@ plotMe <- function(eByComp, includeByReadGroup, title) {
   }
 }
   
-plotMe(digested$eByCompRG, F, "GLs within read groups")
+plotMe(digested$eByCompRG, T, "GLs within read groups")
 if ( doCompAll == 1 ) {
     plotMe(digested$eByCompAll, F, "GLs across read groups")
 }
