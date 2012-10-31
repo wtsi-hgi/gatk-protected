@@ -96,8 +96,17 @@ class CMIBAMProcessingPipeline extends QScript {
   var tumorGCMetrics: File = _
 
   // picard metrics outputs
-  @Output(doc="Tumor multiple Metrics", fullName="tumorMultipleMetrics", shortName="tmm", required=false)
-  var tumorMultipleMetrics: File = _
+  @Output(doc="Tumor alignment Metrics", fullName="tumorAlignmentMetrics", shortName="tam", required=false)
+  var tumorAlignmentMetrics: File = _
+
+  @Output(doc="Tumor insert size Metrics", fullName="tumorInsertMetrics", shortName="tim", required=false)
+  var tumorInsertSizeMetrics: File = _
+
+  @Output(doc="Tumor quality by cycle Metrics", fullName="tumorQualCMetrics", shortName="tqcm", required=false)
+  var tumorQualityByCycleMetrics: File = _
+
+  @Output(doc="Tumor alignment Metrics", fullName="tumorQualDMetrics", shortName="tqdm", required=false)
+  var tumorQualityDistributionMetrics: File = _
 
   // picard metrics outputs
   @Output(doc="Normal HS Metrics", fullName="normalHSMetrics", shortName="nhsm", required=false)
@@ -108,8 +117,18 @@ class CMIBAMProcessingPipeline extends QScript {
   var normalGCMetrics: File = _
 
   // picard metrics outputs
-  @Output(doc="Normal multiple metrics", fullName="normalMultipleMetrics", shortName="nmm", required=false)
-  var normalMultipleMetrics: File = _
+  @Output(doc="Normal alignment Metrics", fullName="normalAlignmentMetrics", shortName="nam", required=false)
+  var normalAlignmentMetrics: File = _
+
+  @Output(doc="Normal insert size Metrics", fullName="normalInsertMetrics", shortName="nim", required=false)
+  var normalInsertSizeMetrics: File = _
+
+  @Output(doc="Normal quality by cycle Metrics", fullName="normalQualCMetrics", shortName="nqcm", required=false)
+  var normalQualityByCycleMetrics: File = _
+
+  @Output(doc="Normal alignment Metrics", fullName="normalQualDMetrics", shortName="nqdm", required=false)
+  var normalQualityDistributionMetrics: File = _
+
 
   @Output(doc="Normal duplicate metrics", fullName="normalDuplicateMetrics", shortName="ndm", required=false)
   var normalDuplicateMetrics: File = _
@@ -141,7 +160,7 @@ class CMIBAMProcessingPipeline extends QScript {
 
   @Hidden
   @Argument(doc="Default memory limit per job", fullName="mem_limit", shortName="mem", required=false)
-  var memLimit: Int = 4
+  var memLimit: Int = 1
 
   @Hidden
   @Argument(doc="How many ways to scatter/gather", fullName="scatter_gather", shortName="sg", required=false)
@@ -166,6 +185,10 @@ class CMIBAMProcessingPipeline extends QScript {
   @Hidden
   @Argument(doc="Run single sample germline calling in resulting bam", fullName = "doSingleSampleCalling", shortName = "call", required=false)
   var doSingleSampleCalling: Boolean = false
+
+  @Hidden
+  @Argument(doc="Do post-recalibration to get BQSR statistics", fullName = "doPostRecal", shortName = "postRecal", required=false)
+  var doPostRecal: Boolean = false
 
   @Hidden
   @Argument(doc="BWA Parameteres", fullName = "bwa_parameters", shortName = "bp", required=false)
@@ -293,8 +316,17 @@ class CMIBAMProcessingPipeline extends QScript {
     qscript.normalGCMetrics = swapExt(allBAMs(1),".bam",".gc_metrics")
     qscript.tumorGCMetrics = swapExt(allBAMs(0),".bam",".gc_metrics")
 
-    qscript.normalMultipleMetrics = swapExt(allBAMs(1),".bam",".multipleMetrics")
-    qscript.tumorMultipleMetrics = swapExt(allBAMs(0),".bam",".multipleMetrics")
+    qscript.normalInsertSizeMetrics = swapExt(allBAMs(1),".bam",".multipleMetrics.insert_size_metrics")
+    qscript.tumorInsertSizeMetrics = swapExt(allBAMs(0),".bam",".multipleMetrics.insert_size_metrics")
+
+    qscript.normalAlignmentMetrics = swapExt(allBAMs(1),".bam",".multipleMetrics.alignment_summary_metrics")
+    qscript.tumorAlignmentMetrics = swapExt(allBAMs(0),".bam",".multipleMetrics.alignment_summary_metrics")
+
+    qscript.normalQualityByCycleMetrics = swapExt(allBAMs(1),".bam",".multipleMetrics.quality_by_cycle_metrics")
+    qscript.tumorQualityByCycleMetrics = swapExt(allBAMs(0),".bam",".multipleMetrics.quality_by_cycle_metrics")
+
+    qscript.normalQualityDistributionMetrics = swapExt(allBAMs(1),".bam",".multipleMetrics.quality_distribution_metrics")
+    qscript.tumorQualityDistributionMetrics = swapExt(allBAMs(0),".bam",".multipleMetrics.quality_distribution_metrics")
 
     qscript.normalDuplicateMetrics = swapExt(allBAMs(1),".bam",".duplicateMetrics")
     qscript.tumorDuplicateMetrics = swapExt(allBAMs(0),".bam",".duplicateMetrics")
@@ -379,8 +411,11 @@ class CMIBAMProcessingPipeline extends QScript {
 
   def recalibrate(dedupBAM: File, preRecalFile: File, postRecalFile: File, recalBAM: File) {
     add(bqsr(dedupBAM, preRecalFile),
-      apply_bqsr(dedupBAM, preRecalFile, recalBAM),
-      bqsr(recalBAM, postRecalFile))
+      apply_bqsr(dedupBAM, preRecalFile, recalBAM))
+
+    if (qscript.doPostRecal) {
+      add(bqsr(recalBAM, postRecalFile))
+    }
   }
 
 
@@ -526,7 +561,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.input :+= inBAM
     this.output = outBAM
     this.metrics = metricsFile
-    this.memoryLimit = 4
+    //this.memoryLimit = 4
     this.analysisName = outBAM + ".dedup"
     this.jobName = outBAM + ".dedup"
     this.assumeSorted = Some(true)
@@ -646,6 +681,8 @@ class CMIBAMProcessingPipeline extends QScript {
     def commandLine = bwaPath + " aln -t " + numThreads + bwaParameters + reference + inputParms + bam + " > " + sai
     this.analysisName = outSai + ".bwa_aln_se"
     this.jobName = outSai + ".bwa_aln_se"
+ //   this.nCoresRequest = Some(numThreads)
+    this.memoryLimit = Some(4)
   }
 
   case class writeList(inBAMs: Seq[File], outBAMList: File) extends ListWriterFunction {
