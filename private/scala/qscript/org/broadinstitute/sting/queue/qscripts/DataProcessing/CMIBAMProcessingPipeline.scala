@@ -87,6 +87,36 @@ class CMIBAMProcessingPipeline extends QScript {
   @Output(doc="Processed reduced tumor BAM Index", fullName="reducedTumorBAMIndex", shortName="rtbi", required=false)
   var reducedTumorBAMIndex: File = _
 
+  // picard metrics outputs
+  @Output(doc="Tumor HS Metrics", fullName="tumorHSMetrics", shortName="thsm", required=false)
+  var tumorHSMetrics: File = _
+
+  // picard metrics outputs
+  @Output(doc="Tumor GC Metrics", fullName="tumorGCMetrics", shortName="tgcm", required=false)
+  var tumorGCMetrics: File = _
+
+  // picard metrics outputs
+  @Output(doc="Tumor multiple Metrics", fullName="tumorMultipleMetrics", shortName="tmm", required=false)
+  var tumorMultipleMetrics: File = _
+
+  // picard metrics outputs
+  @Output(doc="Normal HS Metrics", fullName="normalHSMetrics", shortName="nhsm", required=false)
+  var normalHSMetrics: File = _
+
+  // picard metrics outputs
+  @Output(doc="Normal GC Metrics", fullName="normalGCMetrics", shortName="ngcm", required=false)
+  var normalGCMetrics: File = _
+
+  // picard metrics outputs
+  @Output(doc="Normal multiple metrics", fullName="normalMultipleMetrics", shortName="nmm", required=false)
+  var normalMultipleMetrics: File = _
+
+  @Output(doc="Normal duplicate metrics", fullName="normalDuplicateMetrics", shortName="ndm", required=false)
+  var normalDuplicateMetrics: File = _
+
+  @Output(doc="Tumos duplicate metrics", fullName="tumorDuplicateMetrics", shortName="tdm", required=false)
+  var tumorDuplicateMetrics: File = _
+
   // in case single sample calls are requested
   @Output(doc="Processed single sample VCF", fullName="singleSampleVCF", shortName="ssvcf", required=false)  // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
   var singleSampleVCF: File = _
@@ -102,12 +132,12 @@ class CMIBAMProcessingPipeline extends QScript {
   var useBWAsw: Boolean = false
 
   @Hidden
-  @Argument(doc="Collect Picard QC metrics", fullName="collectQC", shortName="qc", required=false)
-  var collectQCMetrics: Boolean = false
+  @Argument(doc="Collect Picard QC metrics", fullName="skipQC", shortName="skipqc", required=false)
+  var skipQCMetrics: Boolean = false
 
   @Hidden
   @Argument(doc="Number of threads jobs should use when possible", fullName="numThreads", shortName="nt", required=false)
-  var numThreads: Int = 1
+  var numThreads: Int = 4 // HOTFIX m1.large has 4 cores?
 
   @Hidden
   @Argument(doc="Default memory limit per job", fullName="mem_limit", shortName="mem", required=false)
@@ -139,11 +169,11 @@ class CMIBAMProcessingPipeline extends QScript {
 
   @Hidden
   @Argument(doc="BWA Parameteres", fullName = "bwa_parameters", shortName = "bp", required=false)
-  val bwaParameters: String = " -q 5 -l 32 -k 2 -t 4 -o 1 "
+  val bwaParameters: String = " -q 5 -l 32 -k 2 -o 1 "
 
   @Hidden
   @Argument(doc="Base path for Picard executables", fullName = "picardBase", shortName = "picardBase", required=false)
-  val picardBase: String = "/opt/cmi-gatk/dist/packages/Queue/"
+  val picardBase: String = "/opt/picard-metrics/"
 
   val cleaningExtension: String = ".clean.bam"
   val headerVersion: String = "#FILE1,FILE2,INDIVIDUAL,SAMPLE,LIBRARY,SEQUENCING,TUMOR,PLATFORM,PLATFORM_UNIT,CENTER,DESCRIPTION,DATE_SEQUENCED"
@@ -202,7 +232,6 @@ class CMIBAMProcessingPipeline extends QScript {
     clean(allBAMs)
     print(allBAMs)
     for (bam <- allBAMs) {
-//     clean(Seq(bam))                       // todo hotfix part 2, remove
       val cleanBAM      = swapExt(bam, ".bam", cleaningExtension)
       val dedupBAM      = swapExt(bam, ".bam", ".clean.dedup.bam")
       val recalBAM      = swapExt(bam, ".bam", ".clean.dedup.recal.bam")
@@ -216,13 +245,14 @@ class CMIBAMProcessingPipeline extends QScript {
 
       recalibrate(dedupBAM, preRecalFile, postRecalFile, recalBAM)
 
-      if ( qscript.collectQCMetrics)  {
+      if ( !qscript.skipQCMetrics)  {
         if (qscript.targets != null && qscript.baits != null) {
-          add(calculateHSMetrics(recalBAM,swapExt(dedupBAM,".bam",".hs_metrics")))
+          add(calculateHSMetrics(recalBAM,swapExt(recalBAM,".bam",".hs_metrics")))
         }
         // collect QC metrics based on full BAM
         val outGcBiasMetrics = swapExt(recalBAM,".bam",".gc_metrics")
         val outMultipleMetrics = swapExt(recalBAM,".bam",".multipleMetrics")
+
         add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
         add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
 
@@ -256,6 +286,18 @@ class CMIBAMProcessingPipeline extends QScript {
     qscript.reducedTumorBAM = swapExt(allBAMs(0),".bam",".clean.dedup.recal.reduced.bam")
     qscript.reducedNormalBAMIndex = swapExt(qscript.reducedNormalBAM,".bam",".bai")
     qscript.reducedTumorBAMIndex = swapExt(qscript.reducedTumorBAM,".bam",".bai")
+
+    qscript.normalHSMetrics = swapExt(allBAMs(1),".bam",".hs_metrics")
+    qscript.tumorHSMetrics = swapExt(allBAMs(0),".bam",".hs_metrics")
+
+    qscript.normalGCMetrics = swapExt(allBAMs(1),".bam",".gc_metrics")
+    qscript.tumorGCMetrics = swapExt(allBAMs(0),".bam",".gc_metrics")
+
+    qscript.normalMultipleMetrics = swapExt(allBAMs(1),".bam",".multipleMetrics")
+    qscript.tumorMultipleMetrics = swapExt(allBAMs(0),".bam",".multipleMetrics")
+
+    qscript.normalDuplicateMetrics = swapExt(allBAMs(1),".bam",".duplicateMetrics")
+    qscript.tumorDuplicateMetrics = swapExt(allBAMs(0),".bam",".duplicateMetrics")
 
   }
 
@@ -378,10 +420,21 @@ class CMIBAMProcessingPipeline extends QScript {
 
   case class indel (inBAMs: Seq[File], tIntervals: File) extends IndelRealigner with CommandLineGATKArgs {
     // TODO -- THIS IS A WORKAROUND FOR QUEUE'S LIMITATION OF TRACKING LISTS OF FILES (implementation limited to 5 files)
-    @Output(doc="first cleaned bam file", required=true) var out1: File = swapExt(inBAMs(0), ".bam", cleaningExtension)
-    @Output(doc="first cleaned bam file", required=true) var ind1: File = swapExt(out1, ".bam", ".bai")
-    @Output(doc="first cleaned bam file", required=false) var out2: File = if (inBAMs.length >= 2) {swapExt(inBAMs(1), ".bam", cleaningExtension)} else {null}
-    @Output(doc="first cleaned bam file", required=false) var ind2: File = if (inBAMs.length >= 2) {swapExt(out2, ".bam", ".bai")} else {null}
+    @Output(doc="first cleaned bam file", required=true)
+    @Gather(classOf[BamGatherFunction])
+    var out1: File = swapExt(inBAMs(0), ".bam", cleaningExtension)
+    @Output(doc="first cleaned bam file index", required=true)
+    @Gather(enabled=false)
+    var ind1: File = swapExt(out1, ".bam", ".bai")
+    @Output(doc="2nd cleaned bam file", required=false)
+    @Gather(classOf[BamGatherFunction])
+    var out2: File = if (inBAMs.length >= 2) {swapExt(inBAMs(1), ".bam", cleaningExtension)} else {null}
+    @Output(doc="2nd cleaned bam file index", required=false)
+    @Gather(enabled=false)
+    var ind2: File = if (inBAMs.length >= 2) {swapExt(out2, ".bam", ".bai")} else {null}
+
+
+
     @Output(doc="first cleaned bam file", required=false) var out3: File = if (inBAMs.length >= 3) {swapExt(inBAMs(2), ".bam", cleaningExtension)} else {null}
     @Output(doc="first cleaned bam file", required=false) var ind3: File = if (inBAMs.length >= 3) {swapExt(out3, ".bam", ".bai")} else {null}
     @Output(doc="first cleaned bam file", required=false) var out4: File = if (inBAMs.length >= 4) {swapExt(inBAMs(3), ".bam", cleaningExtension)} else {null}
@@ -410,7 +463,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = inBAMs(0).toString + ".clean"
   }
 
-  case class bqsr (inBAM: File, outRecalFile: File) extends BaseRecalibrator with CommandLineGATKArgs {
+  case class bqsr (inBAM: File, outRecalFile: File) extends /*DelocalizedBaseRecalibrator*/ BaseRecalibrator with CommandLineGATKArgs {
     this.knownSites ++= qscript.dbSNP
     this.covariate ++= Seq("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
     this.input_file :+= inBAM
@@ -422,7 +475,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = outRecalFile + ".covariates"
     if (qscript.quick) this.intervals :+= qscript.targets
 
-    //this.nt = Some(qscript.numThreads) // todo: GATK has issues with parallelization here!
+ //   this.nct = Some(qscript.numThreads)
   }
 
   case class apply_bqsr (inBAM: File, inRecalFile: File, outBAM: File) extends PrintReads with CommandLineGATKArgs {
@@ -573,7 +626,7 @@ class CMIBAMProcessingPipeline extends QScript {
     @Input(doc="bwa alignment index file for 2nd mating pair") var sai2 = inSai2
     @Output(doc="output aligned bam file") var alignedBam = outBAM
     def commandLine = bwaPath + " sampe " + reference + " " + sai1 + " " + sai2 + " " + first + " " + second + " -r \"" + readGroupString + "\" > " + alignedBam
-    this.memoryLimit = 1
+    this.memoryLimit = 4
     this.analysisName = outBAM + ".bwa_sam_pe"
     this.jobName = outBAM + ".bwa_sam_pe"
   }
