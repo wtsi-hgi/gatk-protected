@@ -29,7 +29,6 @@ import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.CommandLineProgram;
 import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.sting.utils.collections.ExperimentalNestedIntegerArray;
 import org.broadinstitute.sting.utils.collections.LoggingNestedIntegerArray;
 import org.broadinstitute.sting.utils.collections.LoggingNestedIntegerArray.NestedIntegerArrayOperation;
 import org.broadinstitute.sting.utils.collections.NestedIntegerArray;
@@ -49,9 +48,6 @@ import java.util.concurrent.TimeUnit;
  * Utility to profile the scalability by # of threads of the NestedIntegerArray data structure (specifically
  * a NestedIntegerArray of RecalDatum as used by the BQSR).
  *
- * Allows toggling between the original NestedIntegerArray implementation and an ExperimentalNestedIntegerArray
- * implementation via the --useExperimentalArrays option.
- *
  * Requires a log file generated from an actual BQSR run with the --recal_table_update_log option giving
  * the sequence of GET and PUT operations to perform on the data structure.
  *
@@ -69,9 +65,6 @@ public class ProfileNestedIntegerArray extends CommandLineProgram {
 
     @Argument(fullName = "threadPoolSize", shortName = "threadPoolSize", doc = "Size of the thread pool to use for this test", required = false)
     private int threadPoolSize = 1;
-
-    @Argument(fullName = "useExperimentalArrays", shortName = "useExperimentalArrays", doc = "Use the experimental NestedIntegerArray implementation?", required = false)
-    private boolean useExperimentalArrays = false;
 
     @Argument(fullName = "maxEnqueuedTasks", shortName = "maxEnqueuedTasks", doc = "Maximum number of tasks that can be submitted to the thread pool at once", required = false)
     private int maxEnqueuedTasks = 10000;
@@ -105,8 +98,8 @@ public class ProfileNestedIntegerArray extends CommandLineProgram {
         threadPoolSlot = new Semaphore(maxEnqueuedTasks);
 
         logger.info("Running test with settings:");
-        logger.info(String.format("operationLog=%s threadPoolSize=%d maxEnqueuedTasks=%d operationsPerThread=%d operationBufferSize=%d useExperimentalArrays=%b",
-                                  operationLog, threadPoolSize, maxEnqueuedTasks, operationsPerThread, operationBufferSize, useExperimentalArrays));
+        logger.info(String.format("operationLog=%s threadPoolSize=%d maxEnqueuedTasks=%d operationsPerThread=%d operationBufferSize=%d",
+                                  operationLog, threadPoolSize, maxEnqueuedTasks, operationsPerThread, operationBufferSize));
 
         SimpleTimer wallClockTimer = new SimpleTimer("wallClock");
         wallClockTimer.start();
@@ -139,8 +132,7 @@ public class ProfileNestedIntegerArray extends CommandLineProgram {
                 }
             }
 
-            arrays.put(arrayLabel, useExperimentalArrays ? new ExperimentalNestedIntegerArray<RecalDatum>(dimensions) :
-                                                           new NestedIntegerArray<RecalDatum>(dimensions));
+            arrays.put(arrayLabel, new NestedIntegerArray<RecalDatum>(dimensions));
 
             if ( debug ) {
                 logger.info(String.format("Created NestedIntegerArray %s with dimensions %s", arrayLabel, Arrays.toString(dimensions)));
