@@ -86,8 +86,8 @@ class LargeScaleValidationCallingSingle extends QScript {
     this.out = qscript.outputDir + "/"+qscript.baseName + "."+callName+"."+refStr+".vcf"
 
     this.gt_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY
-    //this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_CONFIDENT_SITES
-    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_CONFIDENT_SITES
+//    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
 
     this.intervals = Seq(intervalFile)
 
@@ -107,9 +107,11 @@ class LargeScaleValidationCallingSingle extends QScript {
   }
 
   class IndelPC(callName: String, intervalFile: File) extends PPC(callName, intervalFile) {
-    this.glm = GenotypeLikelihoodsCalculationModel.Model.INDEL
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.minIndelFrac = Some(0.01)
     this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.vcf")
+    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+
   }
 
 
