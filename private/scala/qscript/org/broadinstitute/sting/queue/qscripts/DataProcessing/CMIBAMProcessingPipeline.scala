@@ -532,6 +532,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.isIntermediate = false
     this.analysisName = outBAM + ".reduce"
     this.jobName = outBAM + ".reduce"
+    this.memoryLimit = Some(4)
     if (qscript.quick) this.intervals :+= qscript.targets
 
   }
@@ -681,7 +682,7 @@ class CMIBAMProcessingPipeline extends QScript {
     def commandLine = bwaPath + " aln -t " + numThreads + bwaParameters + reference + inputParms + bam + " > " + sai
     this.analysisName = outSai + ".bwa_aln_se"
     this.jobName = outSai + ".bwa_aln_se"
-    this.nCoresRequest = Some(numThreads)
+   // this.nCoresRequest = Some(numThreads)
     this.memoryLimit = Some(4)
   }
 
