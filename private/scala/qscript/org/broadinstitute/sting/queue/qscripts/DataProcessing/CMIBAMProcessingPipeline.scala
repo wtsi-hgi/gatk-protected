@@ -510,7 +510,7 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = outRecalFile + ".covariates"
     if (qscript.quick) this.intervals :+= qscript.targets
     this.memoryLimit = Some(4) // needs 4 GB to store big tables in memory
-    this.nct = Some(qscript.numThreads)
+    // this.nct = Some(qscript.numThreads)     // SGE won't like this
   }
 
   case class apply_bqsr (inBAM: File, inRecalFile: File, outBAM: File) extends PrintReads with CommandLineGATKArgs {
