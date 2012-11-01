@@ -498,19 +498,19 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = inBAMs(0).toString + ".clean"
   }
 
-  case class bqsr (inBAM: File, outRecalFile: File) extends /*DelocalizedBaseRecalibrator*/ BaseRecalibrator with CommandLineGATKArgs {
+  case class bqsr (inBAM: File, outRecalFile: File) extends BaseRecalibrator with CommandLineGATKArgs {
     this.knownSites ++= qscript.dbSNP
     this.covariate ++= Seq("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
     this.input_file :+= inBAM
     this.disable_indel_quals = true
     this.out = outRecalFile
     if (!defaultPlatform.isEmpty) this.default_platform = defaultPlatform
-    this.scatterCount = nContigs
+ //   this.scatterCount = nContigs    // not working in GATK
     this.analysisName = outRecalFile + ".covariates"
     this.jobName = outRecalFile + ".covariates"
     if (qscript.quick) this.intervals :+= qscript.targets
-
- //   this.nct = Some(qscript.numThreads)
+    this.memoryLimit = Some(4) // needs 4 GB to store big tables in memory
+    this.nct = Some(qscript.numThreads)
   }
 
   case class apply_bqsr (inBAM: File, inRecalFile: File, outBAM: File) extends PrintReads with CommandLineGATKArgs {
@@ -676,7 +676,7 @@ class CMIBAMProcessingPipeline extends QScript {
   }
 
 
-  case class bwa (inputParms: String, inBAM: File, outSai: File) extends CommandLineFunction with ExternalCommonArgs {
+  case class bwa (inputParms: String, inBAM: File, outSai: File) extends CommandLineFunction  {
     @Input(doc="bam file to be aligned") var bam = inBAM
     @Output(doc="output sai file") var sai = outSai
     def commandLine = bwaPath + " aln -t " + numThreads + bwaParameters + reference + inputParms + bam + " > " + sai
@@ -684,6 +684,8 @@ class CMIBAMProcessingPipeline extends QScript {
     this.jobName = outSai + ".bwa_aln_se"
    // this.nCoresRequest = Some(numThreads)
     this.memoryLimit = Some(4)
+    this.isIntermediate = true
+
   }
 
   case class writeList(inBAMs: Seq[File], outBAMList: File) extends ListWriterFunction {
