@@ -39,9 +39,9 @@ class HybridSelectionPipelineTest {
     dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.all.all", "nCalledLoci", 1483)
     dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.known.all", "nCalledLoci", 1210)
     dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.novel.all", "nCalledLoci", 273)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.all.all", "tiTvRatio", 3.55)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.all.all", "tiTvRatio", 3.56)
     dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.known.all", "tiTvRatio", 3.81)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.novel.all", "tiTvRatio", 2.65)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.novel.all", "tiTvRatio", 2.69)
 
     dataset
   }
