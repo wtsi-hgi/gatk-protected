@@ -22,15 +22,15 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import us.countmein.queueext._
 import org.apache.commons.io.FilenameUtils
 import org.broadinstitute.sting.pipeline.PicardAggregationUtils
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
 import org.broadinstitute.sting.queue.function.ListWriterFunction
-import org.broadinstitute.sting.queue.QScript
 import collection.JavaConversions._
 
-class CMIGermlineCallingPipeline extends QScript {
+class CMIGermlineCallingPipeline extends CmiScript {
   qscript =>
 
   private final val FILTER_VQSR = "VQSR"

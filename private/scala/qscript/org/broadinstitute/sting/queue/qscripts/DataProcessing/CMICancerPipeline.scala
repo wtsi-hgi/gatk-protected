@@ -6,15 +6,15 @@
 
 package org.broadinstitute.sting.queue.qscripts
 
+import us.countmein.queueext._
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
 
 import org.broadinstitute.sting.commandline.Hidden
 import org.broadinstitute.sting.queue.extensions.cancer.MuTect
 import org.broadinstitute.sting.queue.function.JavaCommandLineFunction
 import java.io.File
 
-class CMICancerPipeline extends QScript {
+class CMICancerPipeline extends CmiScript {
   qscript =>
 
 
