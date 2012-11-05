@@ -55,7 +55,7 @@ class HybridSelectionPipelineTest {
   final def convertDatasets: Array[Array[AnyRef]] =
     datasets.map(dataset => Array(dataset.asInstanceOf[AnyRef])).toArray
 
-  @Test(dataProvider="datasets")
+  @Test(dataProvider="datasets", timeOut=36000000)
   def testHybridSelectionPipeline(dataset: PipelineDataset) {
     val testName = "HybridSelectionPipeline-" + dataset.projectName
     val bamList = writeBamList(dataset.projectName + ".bam.list", dataset.bams)
