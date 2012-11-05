@@ -24,7 +24,7 @@ class PostCallingQC extends QScript {
   val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.vcf")
 
   @Argument(shortName = "goldStandardIndels", doc="Path to gold standard indels", required=false)
-  val goldStandardIndels: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/Mills_and_1000G_gold_standard.indels.b37.sites.vcf")
+  val goldStandardIndels: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/Mills_and_1000G_gold_standard.indels.b37.vcf")
 
   @Argument(shortName = "nt", doc="nt", required=false)
   val num_threads: Int = 1
