@@ -7,8 +7,8 @@
 
 package org.broadinstitute.sting.queue.qscripts.DataProcessing
 
+import us.countmein.queueext._
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel
 import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 
@@ -21,7 +21,7 @@ import org.broadinstitute.sting.utils.NGSPlatform
 import collection.mutable
 import org.broadinstitute.sting.queue.extensions.picard._
 
-class CMIBAMProcessingPipeline extends QScript {
+class CMIBAMProcessingPipeline extends CmiScript {
   qscript =>
 
   /*****************************************************************************
