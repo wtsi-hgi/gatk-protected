@@ -45,28 +45,28 @@ class CMICancerPipeline extends CmiScript {
   /****************************************************************************
     * Required Parameters
     ****************************************************************************/
-  @Argument(required = true, exclusiveOf = "tumorBam,tumorBai,tumorName,normalBam,normalBai,normalName")
+  @Argument(required = false, exclusiveOf = "tumorBam,tumorBai,tumorName,normalBam,normalBai,normalName")
   var individual: String = _
 
-  @Input(doc="BAM file of data to be used for tumor", fullName = "tumor_bam", shortName = "tb", required=true, exclusiveOf = "individual")
+  @Input(doc="BAM file of data to be used for tumor", fullName = "tumor_bam", shortName = "tb", required=false, exclusiveOf = "individual")
   var tumorBam: File = _
 
   @Input(doc="BAI file of data to be used for tumor", fullName = "tumor_bai", shortName = "tbi", required=false, exclusiveOf = "individual")
   var tumorBai: File = _
 
-  @Argument(doc="Tumor sample name", fullName = "tumor_name", shortName = "tn", required=true, exclusiveOf = "individual")
+  @Argument(doc="Tumor sample name", fullName = "tumor_name", shortName = "tn", required=false, exclusiveOf = "individual")
   var tumorName: String = _
 
   @Argument(doc="Tumor Fraction Contamination Estimate", fullName = "tumor_fraction_contamination", shortName = "tfc")
   var tumorFractionContamination: Float = _
 
-  @Input(doc="BAM file of data to be used for normal", fullName = "normal_bam", shortName = "nb", required=true, exclusiveOf = "individual")
+  @Input(doc="BAM file of data to be used for normal", fullName = "normal_bam", shortName = "nb", required=false, exclusiveOf = "individual")
   var normalBam: File = _
 
   @Input(doc="BAI file of data to be used for normal", fullName = "normal_bai", shortName = "nbi", required=false, exclusiveOf = "individual")
   var normalBai: File = _
 
-  @Argument(doc="Normal sample name", fullName = "normal_name", shortName = "nn", required=true, exclusiveOf = "individual")
+  @Argument(doc="Normal sample name", fullName = "normal_name", shortName = "nn", required=false, exclusiveOf = "individual")
   var normalName: String = _
 
   @Input(doc="Reference fasta file", fullName="reference", shortName="R", required=true)
@@ -146,14 +146,6 @@ class CMICancerPipeline extends CmiScript {
     ****************************************************************************/
 
   def script() {
-    val outPrefix = tumorName + "-vs-" + normalName
-
-    val mutationVcf = outPrefix + ".somatic.snv.vcf"
-    val indelVcf = outPrefix + ".somatic.indel.vcf"
-    outputWig = outPrefix + ".somatic.wig.txt"
-    outputVcf = outPrefix + ".somatic.vcf"
-    outputVcfIdx = outPrefix + ".somatic.vcf.idx"
-
     if (individual != null) {
       for (sample <- getIndividual(individual).sampleMetadatas) {
         if (sample.isTumor) {
@@ -165,6 +157,14 @@ class CMICancerPipeline extends CmiScript {
         }
       }
     }
+
+    val outPrefix = tumorName + "-vs-" + normalName
+
+    val mutationVcf = outPrefix + ".somatic.snv.vcf"
+    val indelVcf = outPrefix + ".somatic.indel.vcf"
+    outputWig = outPrefix + ".somatic.wig.txt"
+    outputVcf = outPrefix + ".somatic.vcf"
+    outputVcfIdx = outPrefix + ".somatic.vcf.idx"
 
     add(mutect(tumorName, tumorBam, normalName, normalBam, tumorFractionContamination, mutationVcf, outputWig))
 
