@@ -20,6 +20,7 @@ import org.broadinstitute.sting.utils.NGSPlatform
 import collection.mutable
 import org.broadinstitute.sting.queue.extensions.picard._
 import io.Source
+import java.util.Date
 
 class CMIBAMProcessingPipeline extends CmiScript {
   qscript =>
@@ -28,10 +29,10 @@ class CMIBAMProcessingPipeline extends CmiScript {
     * Required Parameters
     * ***************************************************************************/
 
-  @Input(doc = "a table with all the necessary information to process the data", fullName = "metadata", shortName = "m", required = true, exclusiveOf = "individual")
+  @Input(doc = "a table with all the necessary information to process the data", fullName = "metadata", shortName = "m", required = false, exclusiveOf = "individual")
   var metaData: File = _
 
-  @Argument(exclusiveOf = "metaData", required = true)
+  @Argument(exclusiveOf = "metaData", required = false)
   var individual: String = _
 
   //  @Input(doc="a table with all the necessary information to process the data", fullName="metadata", shortName="m", required=true)
@@ -389,7 +390,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
         "",
         sampleMetadata.center,
         "",
-        sampleMetadata.dateSequenced.toString
+        new Date(sampleMetadata.dateSequenced).toString
       )
     }
 
