@@ -772,7 +772,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.analysisName = outSai + ".bwa_aln_se"
     this.jobName = outSai + ".bwa_aln_se"
     // this.nCoresRequest = Some(numThreads)
-    this.memoryLimit = Some(4)
+    this.memoryLimit = Some(5)
     this.isIntermediate = true
 
   }
