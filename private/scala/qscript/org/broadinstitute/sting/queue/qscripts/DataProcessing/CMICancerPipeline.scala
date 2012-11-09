@@ -6,7 +6,6 @@
 
 package org.broadinstitute.sting.queue.qscripts
 
-import us.countmein.queueext._
 import org.broadinstitute.sting.queue.extensions.gatk._
 
 import org.broadinstitute.sting.commandline.Hidden
@@ -235,10 +234,7 @@ class CMICancerPipeline extends CmiScript {
     this.fraction_contamination = Some(tumorFractionContamination)
 
     this.input_file :+= new TaggedFile(tumorBam, "tumor")
-    this.tumor_sample_name = tumorName
-
     this.input_file :+= new TaggedFile(normalBam, "normal")
-    this.normal_sample_name = normalName
 
     this.out = swapExt(outVcf, ".vcf", ".call_stats.txt")
 
