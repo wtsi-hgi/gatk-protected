@@ -6,7 +6,7 @@ import org.broadinstitute.sting.BaseTest
 class IPFLibraryPipelineTest {
   val dir = "private/scala/qscript/org/broadinstitute/sting/queue/qscripts/inProcessFunctions/"
 
-  @Test
+  @Test(timeOut=36000000)
   def testVCFExtractSites {
     var testOut = "vcfes.vcf"
     val spec = new PipelineTestSpec
@@ -18,7 +18,7 @@ class IPFLibraryPipelineTest {
     PipelineTest.executeTest(spec)
   }
 
-  @Test
+  @Test(timeOut=36000000)
   def testVCFExtractSamples {
     var testOut = "vcf.extract.samples.vcf"
     val spec = new PipelineTestSpec
@@ -30,7 +30,7 @@ class IPFLibraryPipelineTest {
     spec.fileMD5s += testOut -> "180d5a2e7a1fbc5117de6705bde3a7c8"
   }
 
-  @Test
+  @Test(timeOut=36000000)
   def testVCFExtractIntervals {
     var testOut = "vcf.extract.intervals.list"
     val spec = new PipelineTestSpec
@@ -43,7 +43,7 @@ class IPFLibraryPipelineTest {
 
   }
 
-  @Test
+  @Test(timeOut=36000000)
   def testVCFSimpleMerge {
     var testOut = "vcf.simplemerge.vcf"
     val spec = new PipelineTestSpec
@@ -57,7 +57,7 @@ class IPFLibraryPipelineTest {
     spec.fileMD5s += testOut -> "c59b8de64ba787a2ca3a1734bdebf277"
   }
 
-  @Test
+  @Test(timeOut=36000000)
   def testSortByRef {
     var testOut = "vcf.refsorted.vcf"
     val spec = new PipelineTestSpec
