@@ -31,7 +31,6 @@ import net.sf.samtools.util.SortingCollection;
 import org.apache.log4j.BasicConfigurator;
 import org.broad.tribble.AsciiFeatureCodec;
 import org.broad.tribble.Feature;
-import org.broad.tribble.FeatureCodec;
 import org.broad.tribble.bed.BEDCodec;
 import org.broad.tribble.dbsnp.OldDbSNPCodec;
 import org.broad.tribble.gelitext.GeliTextCodec;
@@ -102,7 +101,7 @@ public class SortROD {
         }
         File featureFile = new File(inputArg);
         if (!featureFile.exists()) {
-            System.err.println("File " + featureFile.getAbsolutePath() + " doesnt' exist");
+            System.err.println("File " + featureFile.getAbsolutePath() + " doesn't exist");
             printUsage();
         }
 
