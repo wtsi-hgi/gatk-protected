@@ -13,7 +13,7 @@ import org.broadinstitute.sting.gatk.downsampling.DownsampleType
  * To change this template use File | Settings | File Templates.
  */
 
-class LargeScaleValidationCallingSingle extends QScript {
+class LargeScaleValidationCalling extends QScript {
   qscript =>
 
   @Input(doc="path to GATK jar", shortName="gatk", required=true)
@@ -56,6 +56,8 @@ class LargeScaleValidationCallingSingle extends QScript {
   private val reference: File = new File("/humgen/gsa-hpprojects/1kg/reference/human_g1k_v37.fasta")
   private val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/data/dbsnp_132_b37.vcf")
   private val oneKGRelease: File = new File("/humgen/1kg/DCC/ftp/release/20110521/ALL.wgs.phase1_release_v3.20101123.snps_indels_sv.sites.vcf.gz")
+
+  private val lofFile: File = new File("/humgen/gsa-hpprojects/dev/largeScaleValidation/inputSets/LOF.DanielMacArthur_20120910.sorted.fixed.vcf")
   trait CommandLineGATKArgs extends CommandLineGATK {
     this.jarFile = qscript.gatkJar
     this.reference_sequence = qscript.reference
@@ -87,7 +89,6 @@ class LargeScaleValidationCallingSingle extends QScript {
 
     this.gt_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY
     this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_CONFIDENT_SITES
-//    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
 
     this.intervals = Seq(intervalFile)
 
@@ -98,7 +99,6 @@ class LargeScaleValidationCallingSingle extends QScript {
     this.standard_min_confidence_threshold_for_emitting = Some(5.0)
     this.standard_min_confidence_threshold_for_calling= Some(30.0)
 
-
   }
   class SNPPC(callName: String, intervalFile: File) extends PPC(callName, intervalFile) {
     this.glm = GenotypeLikelihoodsCalculationModel.Model.SNP
@@ -107,7 +107,7 @@ class LargeScaleValidationCallingSingle extends QScript {
   }
 
   class IndelPC(callName: String, intervalFile: File) extends PPC(callName, intervalFile) {
-    this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.INDEL
     this.minIndelFrac = Some(0.01)
     this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.vcf")
     this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
@@ -158,14 +158,22 @@ class LargeScaleValidationCallingSingle extends QScript {
     this.V = inputVCF
     this.out = swapExt(inputVCF, ".vcf",".annotated.vcf")
     this.resource :+= qscript.originalSites
-    this.E = Seq("resource.oneKGAC","resource.set" )
+    this.E = Seq("resource.oneKGAC","resource.set","resource.ALT" )
+
+  }
+
+  class LOFAnnot(inputVCF: File) extends VariantAnnotator with CommandLineGATKArgs {
+    this.V = inputVCF
+    this.out = swapExt(inputVCF, ".vcf",".LOF.vcf")
+    this.resource :+= qscript.lofFile
+    this.E = Seq("resource.LOF" )
 
   }
 
   class VToT(inputVCF: File) extends VariantsToTable with CommandLineGATKArgs {
     this.V :+= inputVCF
     this.out = swapExt(inputVCF, ".vcf",".table")
-    this.F = Seq("CHROM","POS","REF","ALT","FILTER","AC","QUAL","resource.oneKGAC","resource.set","DP","TYPE","NCALLED")
+    this.F = Seq("CHROM","POS","REF","ALT","FILTER","AC","QUAL","resource.oneKGAC","resource.set","DP","TYPE","NCALLED","resource.ALT")
     this.allowMissingData = true
     this.showFiltered = true
 
@@ -197,8 +205,19 @@ class LargeScaleValidationCallingSingle extends QScript {
       val annot = new Annot(filt.out)
       annot.intervals :+= filt.out
       add(annot)
-      val vtot = new VToT(annot.out)
-      add(vtot)
+
+      if (job.callName.contains("LOF")) {
+        val lofAnnot = new LOFAnnot(annot.out)
+        lofAnnot.intervals :+= filt.out
+        add(lofAnnot)
+        val vtot = new VToT(lofAnnot.out)
+        vtot.F :+= "resource.LOF"
+        add(vtot)
+      }
+      else {
+        val vtot = new VToT(annot.out)
+        add(vtot)
+      }
     }
 
     /*
