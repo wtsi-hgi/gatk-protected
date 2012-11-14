@@ -45,7 +45,7 @@ public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInAc
         if( GenomeAnalysisEngine.getRandomGenerator().nextDouble() > 0.995 ) {
             coinFlip = !coinFlip;
         }
-        return new ActivityProfileResult( coinFlip ? 0.999 : 0.0 );
+        return new ActivityProfileResult( ref.getLocus(), coinFlip ? 0.999 : 0.0 );
     }
 
     @Override
