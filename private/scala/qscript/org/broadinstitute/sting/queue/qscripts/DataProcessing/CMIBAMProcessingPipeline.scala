@@ -338,8 +338,8 @@ class CMIBAMProcessingPipeline extends CmiScript {
     qscript.reducedNormalBAMIndex = swapExt(qscript.reducedNormalBAM, ".bam", ".bai")
     qscript.reducedTumorBAMIndex = swapExt(qscript.reducedTumorBAM, ".bam", ".bai")
 
-    qscript.normalHSMetrics = swapExt(allBAMs(1), ".bam", ".hs_metrics")
-    qscript.tumorHSMetrics = swapExt(allBAMs(0), ".bam", ".hs_metrics")
+    qscript.normalHSMetrics = swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.hs_metrics")
+    qscript.tumorHSMetrics = swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.hs_metrics")
 
     qscript.normalGCMetrics = swapExt(allBAMs(1), ".bam", ".gc_metrics")
     qscript.tumorGCMetrics = swapExt(allBAMs(0), ".bam", ".gc_metrics")
