@@ -42,6 +42,11 @@ class CMIBAMProcessingPipeline extends CmiScript {
     * Additional Parameters that the pipeline should have pre-defined in the image
     * ******************************************************************************/
 
+  @Input(doc="argument that allows Queue to see and download files", fullName="file1", required=false)
+  var file1: Seq[File] = Nil
+  @Input(doc="even more files that should be downloaded", fullName="file2", required=false)
+  var file2: Seq[File] = Nil
+
   @Input(doc = "Reference fasta file", fullName = "reference", shortName = "R", required = false)
   var reference: File = new File("/refdata/human_g1k_v37_decoy.fasta")
 
