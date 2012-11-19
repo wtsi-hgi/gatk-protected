@@ -234,6 +234,7 @@ generate_email_header()
 	# --- Email (all stdout will be the email)
 	# Generate header
 	cat <<-EOF
+	From: $committer
 	To: $recipients
 	Subject: ${emailprefix}$projectdesc $refname_type $short_refname ${change_type}d. $describe
 	Content-type:text/html
@@ -842,6 +843,7 @@ if [ -n "$1" -a -n "$2" -a -n "$3" ]; then
 else
 	while read oldrev newrev refname
 	do
+		committer=$(git log -1 --pretty=format:"%an <%ae>" $newrev)
 		prep_for_email $oldrev $newrev $refname || continue
 		generate_email $maxlines | send_mail
 	done
