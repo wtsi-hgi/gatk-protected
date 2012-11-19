@@ -22,15 +22,15 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import us.countmein.queueext._
 import org.apache.commons.io.FilenameUtils
 import org.broadinstitute.sting.pipeline.PicardAggregationUtils
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
 import org.broadinstitute.sting.queue.function.ListWriterFunction
-import org.broadinstitute.sting.queue.QScript
 import collection.JavaConversions._
 
-class CMIGermlineCallingPipeline extends QScript {
+class CMIGermlineCallingPipeline extends CmiScript {
   qscript =>
 
   private final val FILTER_VQSR = "VQSR"
@@ -43,10 +43,10 @@ class CMIGermlineCallingPipeline extends QScript {
   var previousBamList: File = _
 
   @Input(doc="GATK or Picard intervals file.", shortName="L",  required=true)
-  var intervals: File = _
+  var intervals: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
 
-  @Input(doc="Reference fasta file", fullName="reference", shortName="R", required=true)
-  var reference: File = _
+  @Input(doc="Reference fasta file", fullName="reference", shortName="R", required=false)
+  var reference: File = new File("/refdata/human_g1k_v37_decoy.fasta")
 
   @Input(doc="Level of parallelism for UnifiedGenotyper. By default set to 1.", shortName="varScatter", required=false)
   var variantCallerScatterCount = 1
@@ -67,7 +67,6 @@ class CMIGermlineCallingPipeline extends QScript {
   var expandIntervals = 50
 
   def script() {
-    val exomeIntervals = new File("/seq/references/HybSelOligos/whole_exome_agilent_1.1_refseq_plus_3_boosters/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list")
     val k1gTrainingHighQuality = resources + "phase1.wgs.projectConsensus.v2b.recal.highQuality.vcf"
     val k1gTrainingTerrible = resources + "phase1.wgs.projectConsensus.v2b.recal.terrible.vcf"
     val omni = resources + "1000G_omni2.5.b37.sites.vcf"

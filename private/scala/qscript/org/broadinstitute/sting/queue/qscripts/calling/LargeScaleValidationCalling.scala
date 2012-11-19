@@ -1,4 +1,4 @@
-package queue.qscripts.calling
+package org.broadinstitute.sting.queue.qscripts.calling
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
@@ -20,195 +20,214 @@ class LargeScaleValidationCalling extends QScript {
   var gatkJar: File = _
 
   @Input(doc="intervals to process", shortName="intervals", required=false)
-  var intervals: String = ""
+  var intervals: File = _
 
-  @Input(doc="output path", shortName="outputDir", required=true)
-  var outputDir: String =  _
+  @Argument(doc="output path", shortName="outputDir", required=true)
+  var outputDir: String = _
 
-  @Input(doc="input bAM list", shortName="bamList", required=true)
-  var bamList: File = _
-
-  @Input(doc="base output filename", shortName="baseName", required=false)
+  @Argument(doc="base output filename", shortName="baseName", required=false)
   var baseName: String = ""
 
-  @Input(doc="scatterCount", shortName="scatterCount", required=false)
+  @Argument(doc="scatterCount", shortName="sc", required=false)
   var variantCallerScatterCount: Int = 1
 
-  @Input(doc="chromosomes in pool", shortName="ploidy", required=false)
+  @Argument(doc="chromosomes in pool", shortName="ploidy", required=false)
   var ploidy: Int = 24
 
-  @Input(doc="doRef", shortName="doRef", required=false)
+  @Argument(doc="doRef", shortName="doRef", required=false)
   var doRefSample: Boolean = false
 
-  private val tmpDir: File = new File("/broad/hptmp/delangel/tmp/")
-  private val reference: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
-  private val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/data/dbsnp_132_b37.vcf")
+  //  @Argument(fullName="standard_min_confidence_threshold_for_emitting_and_calling", shortName="stand_conf", doc="The minimum phred-scaled confidence threshold at which variants should be emitted and called", required=false)
+  //  var stand_conf: Option[Double] = 10.0
 
+  @Argument(doc="doSingle", shortName="doSingle", required=false)
+  var doSingle: Boolean = false
+
+  @Argument(doc="validation set", shortName="vs", required=false)
+  var vs: String = _
+
+
+  val bamListRef: File = new File("/humgen/gsa-hpprojects/dev/largeScaleValidation/dataAnalysis/Pools.bam.list")
+  val bamListNoRef: File = new File("/humgen/gsa-hpprojects/dev/largeScaleValidation/dataAnalysis/Pools.noRef.bam.list")
+
+  val originalSites: File = new File("/humgen/gsa-hpprojects/dev/largeScaleValidation/ALL.wgs.allCombinedValidationSites.ACannotated.corr.sites.vcf")
+
+  private val tmpDir: File = new File("/broad/hptmp/delangel/tmp/")
+  private val reference: File = new File("/humgen/gsa-hpprojects/1kg/reference/human_g1k_v37.fasta")
+  private val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/data/dbsnp_132_b37.vcf")
+  private val oneKGRelease: File = new File("/humgen/1kg/DCC/ftp/release/20110521/ALL.wgs.phase1_release_v3.20101123.snps_indels_sv.sites.vcf.gz")
+
+  private val lofFile: File = new File("/humgen/gsa-hpprojects/dev/largeScaleValidation/inputSets/LOF.DanielMacArthur_20120910.sorted.fixed.vcf")
   trait CommandLineGATKArgs extends CommandLineGATK {
     this.jarFile = qscript.gatkJar
     this.reference_sequence = qscript.reference
     this.memoryLimit = 2
     this.jobTempDir = qscript.tmpDir
     this.jobQueue = "gsa"
-    this.intervalsString :+= qscript.intervals
+    //    if (!qscript.intervals.isEmpty) this.intervals :+= qscript.intervals
+
+
   }
-  class PPC(val callName: String, val allelesFile: String) extends UnifiedGenotyper with CommandLineGATKArgs {
+
+  class PPC(val callName: String, val intervalFile: File) extends UnifiedGenotyper with CommandLineGATKArgs {
     this.scatterCount = qscript.variantCallerScatterCount
-    this.input_file :+= qscript.bamList
     this.sample_ploidy = Some(qscript.ploidy)
     this.dbsnp = qscript.dbSNP
-    this.out = qscript.outputDir + "/"+qscript.baseName + "."+callName+".vcf"
-    if (qscript.doRefSample) {
+    var refStr:String = ""
+
+    if (doRefSample) {
       this.reference_sample_name = "NA12878"
+      this.input_file :+= qscript.bamListRef
+      refStr = "withRef"
     }
-    //      this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
-    this.gt_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
-    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
-    this.alleles = new File(allelesFile)
+    else {
+      this.input_file :+= qscript.bamListNoRef
+      refStr = "noRef"
+
+    }
+    this.out = qscript.outputDir + "/"+qscript.baseName + "."+callName+"."+refStr+".vcf"
+
+    this.gt_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY
+    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_CONFIDENT_SITES
+
+    this.intervals = Seq(intervalFile)
+
     this.ignoreLane = true
-    this.maxAltAlleles = Some(1)  // memory usage will overflow without this
+    this.maxAltAlleles = Some(3)  // memory usage will overflow without this
     this.dt = DownsampleType.NONE
 
+    this.standard_min_confidence_threshold_for_emitting = Some(5.0)
+    this.standard_min_confidence_threshold_for_calling= Some(30.0)
+
   }
-  class SNPPC(callName: String, allelesFile: String) extends PPC(callName, allelesFile) {
+  class SNPPC(callName: String, intervalFile: File) extends PPC(callName, intervalFile) {
     this.glm = GenotypeLikelihoodsCalculationModel.Model.SNP
     this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
+    this.max_deletion_fraction=.1
   }
 
-  class IndelPC( callName: String,  allelesFile: String) extends PPC(callName, allelesFile) {
+  class IndelPC(callName: String, intervalFile: File) extends PPC(callName, intervalFile) {
     this.glm = GenotypeLikelihoodsCalculationModel.Model.INDEL
+    this.minIndelFrac = Some(0.01)
     this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.vcf")
+    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+
   }
 
-  class BothPC( callName: String,  allelesFile: String) extends PPC(callName, allelesFile) {
-    this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
-    this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.snp_indel_combined.vcf")
-  }
 
-  class Eval(evalVCF: File) extends VariantEval with CommandLineGATKArgs {
+  class Eval(evalVCF: File, compVCF: File) extends VariantEval with CommandLineGATKArgs {
     this.eval :+= evalVCF
     this.dbsnp = qscript.dbSNP
     this.doNotUseAllStandardModules = true
-    this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap", "IndelSummary")
+    this.evalModule = List("CountVariants", "ValidationReport")
     this.doNotUseAllStandardStratifications = true
-    this.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "TandemRepeat","Filter") //++ extraStrats
-    // this.num_threads = qscript.num_threads
-    // this.memoryLimit = 8
+    this.stratificationModule = Seq("EvalRod", "Filter") //++ extraStrats
     this.out = swapExt(evalVCF, ".vcf", ".eval")
+    this.ploidy = Some(qscript.ploidy)
+    this.numSamples = Some(92)
+
+    if (compVCF != null) {
+      this.comp :+= compVCF
+      this.intervals = Seq(compVCF)
+    }
   }
 
   class Filt(inputVCF: File) extends VariantFiltration with CommandLineGATKArgs {
     this.V = inputVCF
-    this.filterExpression =Seq("DP<5000","REFDEPTH<500")
-    this.filterName = Seq("LowDepth","LowReferenceSampleDepth")
+    this.filterExpression = Seq("DP<5000")
+    this.filterName = Seq("LowDepth")
+    if (qscript.doRefSample) {
+      this.filterExpression :+= "REFDEPTH<500"
+      this.filterName :+= "LowReferenceSampleDepth"
+    }
     this.out = swapExt(inputVCF, ".vcf",".filtered.vcf")
   }
-  class SampleEval(evalVCF: File) extends Eval(evalVCF) {
+  class SampleEval(evalVCF: File, compVCF: File) extends Eval(evalVCF, compVCF) {
     this.stratificationModule :+= "Sample"
     // this.num_threads = qscript.num_threads
     // this.memoryLimit = 8
     this.out = swapExt(evalVCF, ".vcf", ".bySample.eval")
   }
 
-  class ACEval(evalVCF: File) extends Eval(evalVCF) {
+  class ACEval(evalVCF: File, compVCF: File) extends Eval(evalVCF, compVCF) {
     this.stratificationModule :+= "AlleleCount"
-    this.out = swapExt(evalVCF, ".vcf", ".byAC.eval")
+    this.out = swapExt(compVCF, ".vcf", ".byAC.eval")
+  }
+
+  class Annot(inputVCF: File) extends VariantAnnotator with CommandLineGATKArgs {
+    this.V = inputVCF
+    this.out = swapExt(inputVCF, ".vcf",".annotated.vcf")
+    this.resource :+= qscript.originalSites
+    this.E = Seq("resource.oneKGAC","resource.set","resource.ALT" )
+
+  }
+
+  class LOFAnnot(inputVCF: File) extends VariantAnnotator with CommandLineGATKArgs {
+    this.V = inputVCF
+    this.out = swapExt(inputVCF, ".vcf",".LOF.vcf")
+    this.resource :+= qscript.lofFile
+    this.E = Seq("resource.LOF" )
+
+  }
+
+  class VToT(inputVCF: File) extends VariantsToTable with CommandLineGATKArgs {
+    this.V :+= inputVCF
+    this.out = swapExt(inputVCF, ".vcf",".table")
+    this.F = Seq("CHROM","POS","REF","ALT","FILTER","AC","QUAL","resource.oneKGAC","resource.set","DP","TYPE","NCALLED","resource.ALT")
+    this.allowMissingData = true
+    this.showFiltered = true
+
   }
 
   def script = {
 
+    var jobList:Seq[PPC] = Seq()
 
 
-    val omnimono = new SNPPC("omniMono","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.1000_control_sites_OmniMono.SNP.sites.vcf")
-    val omnipoly = new SNPPC("omniPoly","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.1000_control_sites_OmniPoly.SNP.sites.vcf")
-    val exomechippoly = new SNPPC("exomeChip","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.1000_control_sites_ExomeChip.SNP.sites.vcf")
-    val millspoly = new IndelPC("millsPoly","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.1000_control_sites_MillsGenotypeInPhase1.INDEL.sites.vcf")
-    val multiAllelicIndels = new IndelPC("multiallelicIndels","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.2000_validation_sites_multiAllelicIndels.sites.vcf")
-    multiAllelicIndels.maxAltAlleles = Some(3)
-    val lostToImputation = new SNPPC("lostToImputation","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.2000_lost_to_Imputation.sites.vcf")
-    val multiAllelicSNPs = new SNPPC("multiAllelicSNPs","/humgen/gsa-hpprojects/dev/largeScaleValidation/inputSets/triallelics.EricBanks.vcf")
-    multiAllelicSNPs.maxAltAlleles = Some(3)
-    val lof = new BothPC("LOF","/humgen/gsa-hpprojects/dev/largeScaleValidation/inputSets/LOF.DanielMacArthur.vcf")
-    val afIndels = new IndelPC("afIndels","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.5000_validation_sites_AF_distributed.indels.sites.vcf")
-    val unifIndels = new IndelPC("unifIndels","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.5000_validation_sites_Uniformly_distributed.indels.sites.vcf")
-    val afSNPs = new SNPPC("afSNPs","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.8000_validation_sites_AF_distributed.snp.sites.vcf")
-    val unifSNPs = new SNPPC("unifSNPs","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.8000_validation_sites_Uniformly_distributed.snp.sites.vcf")
-    
-    add(omnimono)
-    add(omnipoly)
-    add(exomechippoly)
-    add(millspoly)
-    add(lof)
-    add(multiAllelicIndels)
-    add(lostToImputation)
-    add(multiAllelicSNPs)
-    add(afIndels)
-    add(unifIndels)
-    add(afSNPs)
-    add(unifSNPs)
+    //    if ()
+    jobList:+= (new SNPPC("omniMono","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.1000_control_sites_OmniMono.SNP.sites.interval_list"))
+    jobList:+= (new SNPPC("omniPoly","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.1000_control_sites_OmniPoly.SNP.sites.interval_list"))
+    jobList:+= (new SNPPC("exomeChip","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.1000_control_sites_ExomeChip.SNP.sites.interval_list"))
+    jobList:+= (new IndelPC("millsPoly","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.1000_control_sites_MillsGenotypeInPhase1.INDEL.sites.interval_list"))
+    jobList:+= (new SNPPC("lostToImputation","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.2000_lost_to_Imputation.sites.interval_list"))
+    //add(new SNPPC(("multiAllelicSNPs","/humgen/gsa-hpprojects/dev/largeScaleValidation/inputSets/triallelics.EricBanks.vcf")
+    jobList:+= (new SNPPC("LOFSNP","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/LOF.DanielMacArthur_20120910.sorted.fixed.snps.interval_list"))
+    jobList:+= (new IndelPC("LOFINDEL","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/LOF.DanielMacArthur_20120910.sorted.fixed.indels.interval_list"))
+    jobList:+= (new IndelPC("afIndels","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.5000_validation_sites_AF_distributed.indels.sites.interval_list"))
+    jobList:+= (new IndelPC("unifIndels","/humgen/gsa-hpprojects/dev/largeScaleValidation//outputVCFs/ALL.wgs.5000_validation_sites_Uniformly_distributed.indels.sites.interval_list"))
+    jobList:+= (new SNPPC("afSNPs","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.8000_validation_sites_AF_distributed.snp.sites.interval_list"))
+    jobList:+= (new SNPPC("unifSNPs","/humgen/gsa-hpprojects/dev/largeScaleValidation/outputVCFs/ALL.wgs.8000_validation_sites_Uniformly_distributed.snp.sites.interval_list"))
 
-    val omnimonoFilt = new Filt(omnimono.out)
-    add(omnimonoFilt)
-    val veOmniMono = new Eval(omnimonoFilt.out)
-    add(veOmniMono)
+    for (job <- jobList) {
+      add(job)
+      val filt = new Filt(job.out)
+      add(filt)
+      val annot = new Annot(filt.out)
+      annot.intervals :+= filt.out
+      add(annot)
 
-    val omnipolyFilt = new Filt(omnipoly.out)
-    add(omnipolyFilt)
-    val veOmniPoly = new Eval(omnipolyFilt.out)
-    add(veOmniPoly)
+      if (job.callName.contains("LOF")) {
+        val lofAnnot = new LOFAnnot(annot.out)
+        lofAnnot.intervals :+= filt.out
+        add(lofAnnot)
+        val vtot = new VToT(lofAnnot.out)
+        vtot.F :+= "resource.LOF"
+        add(vtot)
+      }
+      else {
+        val vtot = new VToT(annot.out)
+        add(vtot)
+      }
+    }
 
-    val exomechippolyFilt = new Filt(exomechippoly.out)
-    add(exomechippolyFilt)
-    val veExomeChip = new Eval(exomechippolyFilt.out)
-    add(veExomeChip)
+    /*
+// just to get raw counts of ref sites/variant sites on the whole baits
+val ve = new Eval(filter.out, null)
+add(ve)
 
-    val millspolyFilt = new Filt(millspoly.out)
-    add(millspolyFilt)
-    val vemillspoly = new Eval(millspolyFilt.out)
-    add(vemillspoly)
-
-    val lofFilt = new Filt(lof.out)
-    add(lofFilt)
-    val velof = new Eval(lofFilt.out)
-    add(velof)
-
-    val multiAllelicIndelsFilt = new Filt(multiAllelicIndels.out)
-    add(multiAllelicIndelsFilt)
-    val vemai = new Eval(multiAllelicIndelsFilt.out)
-    add(vemai)
-
-    val lostToImputationFilt = new Filt(lostToImputation.out)
-    add(lostToImputationFilt)
-    val velti = new Eval(lostToImputationFilt.out)
-    add(velti)
-
-    val multiAllelicSNPsFilt = new Filt(multiAllelicSNPs.out)
-    add(multiAllelicSNPsFilt)
-    val vemas = new Eval(multiAllelicSNPsFilt.out)
-    add(vemas)
-
-    val afIndelsFilt = new Filt(afIndels.out)
-    add(afIndelsFilt)
-    val veafi = new Eval(afIndelsFilt.out)
-    add(veafi)
-
-    val unifIndelsFilt = new Filt(unifIndels.out)
-    add(unifIndelsFilt)
-    val veufi = new Eval(unifIndelsFilt.out)
-    add(veufi)
-
-    val afSNPsFilt = new Filt(afSNPs.out)
-    add(afSNPsFilt)
-    val veafs = new Eval(afSNPsFilt.out)
-    add(veafs)
-
-    val unifSNPsFilt = new Filt(unifSNPs.out)
-    add(unifSNPsFilt)
-    val veufs = new Eval(unifSNPsFilt.out)
-    add(veufs)
-
-
-
+// per-AC validation just in called sites
+val veAC = new ACEval(qscript.oneKGRelease, filter.out)
+add(veAC)    */
   }
 
 }
