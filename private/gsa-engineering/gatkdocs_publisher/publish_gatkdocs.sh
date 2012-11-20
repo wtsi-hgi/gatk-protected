@@ -1,7 +1,7 @@
 #!/bin/bash
 
-IWWW_DIR="gsa-stage:/local/software/apache2/htdocs/gatk/gatkdocs_private"
-WWW_DIR="gsa-stage:/local/software/apache2/htdocs/gatk/gatkdocs"
+IWWW_DIR="gsa-web:/local/software/apache2/htdocs/gatkdocs_private"
+WWW_DIR="gsa-web:/local/software/apache2/htdocs/gatk/gatkdocs"
 STAGING_DIR="/local/gsa-engineering/gatkdocs_publisher/staging_area"
 BAMBOO_CLONE=`pwd`
 
@@ -13,18 +13,29 @@ fi
 
 REPOSITORY="$1"
 
-if [ "${REPOSITORY}" == "unstable" -o "${REPOSITORY}" == "stable" ]
+if [ "${REPOSITORY}" == "unstable" ] 
+then 
+	DESTINATION_DIR="${IWWW_DIR}"
+elif [ "${REPOSITORY}" == "release" ]
 then
-    DESTINATION_DIR="${IWWW_DIR}/${REPOSITORY}" 
-    GATKDOCS_INCLUDE_HIDDEN="-Dgatkdocs.include.hidden=true"
-elif [ "${REPOSITORY}" == "release" -o "${REPOSITORY}" == "literelease" ]
-then
-    DESTINATION_DIR="${WWW_DIR}/${REPOSITORY}"
-    GATKDOCS_INCLUDE_HIDDEN=""
+	DESTINATION_DIR="${WWW_DIR}"
 else
-    echo "$0: Invalid repository specified: ${REPOSITORY}"
-    exit 1
+	echo "No need to update gatkdocs for ${REPOSITORY} -- everything is fine"
+	exit 0
 fi
+
+#if [ "${REPOSITORY}" == "unstable" -o "${REPOSITORY}" == "stable" ]
+#then
+#    DESTINATION_DIR="${IWWW_DIR}/${REPOSITORY}" 
+#    GATKDOCS_INCLUDE_HIDDEN="-Dgatkdocs.include.hidden=true"
+#elif [ "${REPOSITORY}" == "release" -o "${REPOSITORY}" == "literelease" ]
+#then
+#    DESTINATION_DIR="${WWW_DIR}/${REPOSITORY}"
+#    GATKDOCS_INCLUDE_HIDDEN=""
+#else
+#    echo "$0: Invalid repository specified: ${REPOSITORY}"
+#    exit 1
+#fi
 
 STAGING_CLONE="${STAGING_DIR}/${REPOSITORY}"
 
@@ -65,28 +76,30 @@ then
     exit 1
 fi
 
-if [ ! -d "${DESTINATION_DIR}" ]
-then
-    mkdir "${DESTINATION_DIR}"
-fi
-
-if [ -d "${DESTINATION_DIR}_new" ] 
-then
-    rm -rf "${DESTINATION_DIR}_new"
-fi
-
-if [ -d "${DESTINATION_DIR}_old" ]
-then
-    rm -rf "${DESTINATION_DIR}_old"
-fi
+#if [ ! -d "${DESTINATION_DIR}" ]
+#then
+#    mkdir "${DESTINATION_DIR}"
+#fi
+#
+#if [ -d "${DESTINATION_DIR}_new" ] 
+#then
+#    rm -rf "${DESTINATION_DIR}_new"
+#fi
+#
+#if [ -d "${DESTINATION_DIR}_old" ]
+#then
+#    rm -rf "${DESTINATION_DIR}_old"
+#fi
 
 # Try to minimize the window of time in which the docs are unavailable
 # as we replace the old docs with the new docs:
 
-cp -r gatkdocs "${DESTINATION_DIR}_new" && \
-rsync "${DESTINATION_DIR}" "${DESTINATION_DIR}_old" && \
-rsync "${DESTINATION_DIR}_new" "${DESTINATION_DIR}" && \
-rm -rf "${DESTINATION_DIR}_old"
+#cp -r gatkdocs "${DESTINATION_DIR}_new" && \
+#rsync "${DESTINATION_DIR}" "${DESTINATION_DIR}_old" && \
+#rsync "${DESTINATION_DIR}_new" "${DESTINATION_DIR}" && \
+#rm -rf "${DESTINATION_DIR}_old"
+
+rsync -rvtz --delete gatkdocs/* ${DESTINATION_DIR} 
 
 if [ $? -ne 0 ]
 then
