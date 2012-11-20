@@ -18,16 +18,16 @@ class HaplotypeCallerValidation extends QScript {
   @Input(doc = "File mapping sample to BAM and SM tag in that BAM", shortName = "sample_bam_SM", required = true)
   var sample_bam_SM: File = _
 
-  @Argument(doc = "gatk jar file", shortName = "J", required = true)
+  @Input(doc = "gatk jar file", shortName = "J", required = true)
   var gatkJarFile: File = _
 
-  @Argument(shortName = "R", doc = "ref", required = true)
+  @Input(shortName = "R", doc = "ref", required = true)
   var referenceFile: File = _
 
-  @Input(doc = "level of parallelism.   By default is set to 0 [no scattering].", shortName = "scatter", required = false)
+  @Argument(doc = "level of parallelism.   By default is set to 0 [no scattering].", shortName = "scatter", required = false)
   var scatterCountInput = 0
 
-  @Input(doc = "Bases upstream and downstream to add when a single base locus is given", shortName = "extent", required = false)
+  @Argument(doc = "Bases upstream and downstream to add when a single base locus is given", shortName = "extent", required = false)
   var defaultExtent = 100
 
 
