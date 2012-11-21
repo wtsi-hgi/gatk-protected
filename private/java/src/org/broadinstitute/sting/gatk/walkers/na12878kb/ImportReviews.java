@@ -44,9 +44,6 @@ public class ImportReviews extends NA12878DBWalker {
         if ( tracker == null ) return 0;
 
         for ( VariantContext vc : tracker.getValues(variants, ref.getLocus()) ) {
-            if ( vc.hasGenotypes() )
-                throw new UserException.MalformedVCF("Reviewed VCF shouldn't have genotypes");
-
             if ( vc.filtersWereApplied() )
                 throw new UserException.MalformedVCF("Reviewed VCF shouldn't have filters applied");
 

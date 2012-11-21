@@ -45,25 +45,103 @@ public class MongoGenotype extends ReflectionDBObject {
         return new MongoGenotype(allele1, allele2).toGenotype(vc.getAlleles());
     }
 
+    /**
+     * For MongoDB set() building approach.  Not for public consumption
+     */
     public MongoGenotype() { }
 
+    /**
+     * Create a MongoGenotype from a VariantContext's list of alleles and a corresponding Genotype gt
+     *
+     * @param alleles list of alleles from VariantContext.getAlleles()
+     * @param gt the Genotype we will use as the basis for this MongoGenotype
+     */
     public MongoGenotype(final List<Allele> alleles, final Genotype gt) {
-        this.allele1 = alleles.indexOf(gt.getAllele(0));
-        this.allele2 = alleles.indexOf(gt.getAllele(1));
+        if ( gt.getPloidy() == 0 ) {
+            this.allele1 = this.allele2 = -1;
+        } else if ( gt.getPloidy() != 2 ) {
+            throw new IllegalArgumentException("Ploidy must be two for conversion to MongoGenotype " + gt);
+        } else {
+            this.allele1 = alleles.indexOf(gt.getAllele(0));
+            this.allele2 = alleles.indexOf(gt.getAllele(1));
+        }
         this.DP = gt.hasDP() ? gt.getDP() : -1;
         this.GQ = gt.hasGQ() ? gt.getGQ() : -1;
+        validate();
     }
 
+    /**
+     * Create a simple MongoGenotype with alleles allele1 and allele2
+     * @param allele1 the allele index of allele1
+     * @param allele2 the allele index of allele2
+     */
     public MongoGenotype(int allele1, int allele2) {
         this(allele1, allele2, -1, -1);
+        validate();
     }
 
+    /**
+     * Full constructor: create a MongoGenotype with alleles allele1 and allele2, genotype quality and depth
+     * @param allele1 the allele index of allele1
+     * @param allele2 the allele index of allele2
+     * @param GQ genotype quality, must be >= -1 (-1 means missing)
+     * @param DP depth of the sequencing data supporting this case, must be >= -1 (-1 means missing)
+     */
     public MongoGenotype(int allele1, int allele2, int GQ, int DP) {
         this.allele1 = allele1;
         this.allele2 = allele2;
         this.GQ = GQ;
         this.DP = DP;
     }
+
+    /**
+     * Convert this MongoGenotype to a VariantContext Genotype object
+     * @param alleles the list of alleles from the VariantContext.getAlleles()
+     * @return a Genotype corresponding to this MongoGenotype
+     */
+    public Genotype toGenotype(final List<Allele> alleles) {
+        final GenotypeBuilder gb = new GenotypeBuilder(SAMPLE_NAME);
+        gb.alleles(Arrays.asList(getAllele(alleles, allele1), getAllele(alleles, allele2)));
+        if ( DP != -1 ) gb.DP(DP);
+        if ( GQ != -1 ) gb.GQ(GQ);
+        return gb.make();
+    }
+
+    // -------------------------------------------------------------------------------------
+    //
+    // Polymorphic status information from this MongoDB
+    //
+    // -------------------------------------------------------------------------------------
+
+    public PolymorphicStatus getPolymorphicStatus() {
+        if ( isUnknown() ) return PolymorphicStatus.UNKNOWN;
+        if ( isPolymorphic() ) return PolymorphicStatus.POLYMORPHIC;
+        if ( isMonomorphic() ) return PolymorphicStatus.MONOMORPHIC;
+        if ( isDiscordant() ) return PolymorphicStatus.DISCORDANT;
+        throw new IllegalStateException("Expected polymorphic state " + this);
+    }
+
+    public boolean isUnknown() {
+        return allele1 == -1;
+    }
+
+    public boolean isPolymorphic() {
+        return (allele1 > 0 || allele2 > 0) && ! isDiscordant();
+    }
+
+    public boolean isMonomorphic() {
+        return allele1 == 0 && allele2 == 0;
+    }
+
+    public boolean isDiscordant() {
+        return GQ == DISCORDANT_GQ;
+    }
+
+    // -------------------------------------------------------------------------------------
+    //
+    // MongoDB getter / setters
+    //
+    // -------------------------------------------------------------------------------------
 
     public int getAllele1() {
         return allele1;
@@ -95,38 +173,6 @@ public class MongoGenotype extends ReflectionDBObject {
 
     public void setDP(int DP) {
         this.DP = DP;
-    }
-
-    public PolymorphicStatus getPolymorphicStatus() {
-        if ( isUnknown() ) return PolymorphicStatus.UNKNOWN;
-        if ( isPolymorphic() ) return PolymorphicStatus.POLYMORPHIC;
-        if ( isMonomorphic() ) return PolymorphicStatus.MONOMORPHIC;
-        if ( isDiscordant() ) return PolymorphicStatus.DISCORDANT;
-        throw new IllegalStateException("Expected polymorphic state " + this);
-    }
-
-    public boolean isUnknown() {
-        return allele1 == -1;
-    }
-
-    public boolean isPolymorphic() {
-        return (allele1 > 0 || allele2 > 0) && ! isDiscordant();
-    }
-
-    public boolean isMonomorphic() {
-        return allele1 == 0 && allele2 == 0;
-    }
-
-    public boolean isDiscordant() {
-        return GQ == DISCORDANT_GQ;
-    }
-
-    public Genotype toGenotype(final List<Allele> alleles) {
-        final GenotypeBuilder gb = new GenotypeBuilder(SAMPLE_NAME);
-        gb.alleles(Arrays.asList(getAllele(alleles, allele1), getAllele(alleles, allele2)));
-        if ( DP != -1 ) gb.DP(DP);
-        if ( GQ != -1 ) gb.GQ(GQ);
-        return gb.make();
     }
 
     private Allele getAllele(final List<Allele> alleles, final int i) {
