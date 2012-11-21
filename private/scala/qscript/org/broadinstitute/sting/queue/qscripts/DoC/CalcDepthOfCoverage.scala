@@ -41,7 +41,6 @@ class CalcDepthOfCoverage extends QScript {
   @Argument(doc = "How should overlapping reads from the same fragment be handled?", shortName = "countType", required = false)
   //
   // TODO: change this to be the default once UnifiedGenotyper output is annotated with *fragment-based depth* (and this is used for filtering):
-  // TODO: [AND we need reads to be ordered properly for FragmentUtils.create()]
   //var countType = CoverageUtils.CountPileupType.COUNT_FRAGMENTS_REQUIRE_SAME_BASE
   //
   var countType = CoverageUtils.CountPileupType.COUNT_READS
