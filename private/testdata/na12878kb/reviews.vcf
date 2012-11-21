@@ -7,7 +7,7 @@
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
 20	278687	.	CCGG	C	.	.	CallSetName=depristo;TruthStatus=TRUE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
 20	306733	.	G	A	607.77	.	CallSetName=depristo;TruthStatus=TRUE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
-20	590542	.	C	G	3077.77	.	CallSetName=depristo;TruthStatus=TRUE_POSITIVE;PolymorphicStatus=MONOMORPHIC;Date=0;PhredConfidence=10
+20	590542	.	C	G	3077.77	.	CallSetName=depristo;TruthStatus=TRUE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
 20	590543	.	G	C	3077.77	.	CallSetName=depristo;TruthStatus=TRUE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
 20	861913	.	A	C	180.77	.	CallSetName=depristo;TruthStatus=FALSE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
 20	1559328	.	T	C	1061.77	.	CallSetName=depristo;TruthStatus=FALSE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
@@ -95,6 +95,6 @@
 20	62322288	.	T	C	.	.	CallSetName=depristo;TruthStatus=TRUE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
 20	62328453	.	T	C	.	.	CallSetName=depristo;TruthStatus=TRUE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
 20	62328829	.	C	G	.	.	CallSetName=depristo;TruthStatus=TRUE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
-20	62332641	.	T	C	535.77	.	CallSetName=depristo;TruthStatus=FALSE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
+20	62332641	.	T	C	535.77	.	CallSetName=depristo;TruthStatus=TRUE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
 20	62560800	.	G	C	414.77	.	CallSetName=depristo;TruthStatus=FALSE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
 20	62597666	.	C	T	4787.77	.	CallSetName=depristo;TruthStatus=TRUE_POSITIVE;PolymorphicStatus=POLYMORPHIC;Date=0;PhredConfidence=10
