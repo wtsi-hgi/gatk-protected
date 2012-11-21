@@ -39,21 +39,11 @@ public class NA12878KnowledgeBase {
             MongoOptions options = new MongoOptions();
             //options.socketTimeout = 60000;
 
-            final String dbName = DB_NAME + (args.useTest ? "_test" : "");
-
+            String dbName = DB_NAME + args.dbToUse.getExtension();
             logger.info("Connecting to MongoDB host=" + dbHost + " port=" + DB_PORT + " name=" + dbName);
             ServerAddress address = new ServerAddress(dbHost, DB_PORT);
             mongo = new Mongo(address, options);
-            DB mongoDb = mongo.getDB(dbName);
-
-//            // Enable MongoDB logging in general
-//            System.setProperty("DEBUG.MONGO", "true");
-//
-//            // Enable DB operation tracing
-//            System.setProperty("DB.TRACE", "true");
-//
-//            Logger mongoLogger = Logger.getLogger( "com.mongodb" );
-//            mongoLogger.setLevel(org.apache.log4j.Level.DEBUG); // e.g. or Log.WARNING, etc.
+            final DB mongoDb = mongo.getDB(dbName);
 
             sites = mongoDb.getCollection(SITES_COLLECTION);
             sites.setObjectClass(MongoVariantContext.class);

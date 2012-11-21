@@ -10,9 +10,23 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Genotype consistent with Mongo
+ * Genotype consistent with MongoDB
  *
- * Is a very limited subset of the functionality of a full genotype
+ * Has a very limited subset of the functionality of a full Genotype object.
+ *
+ * Contains the following four fields:
+ *
+ * The genotype of NA12878 at this site, encoded as two ints, allele1 and allele2
+ * An optional GQ value (int) and an optional DP (int) value, both of which
+ * default to the value -1, meaning not present.
+ *
+ * Important information about the encoding:
+ *
+ * If allele1 and allele2 are -1, this means that the genotype is UNKNOWN (equivalent to the VCF encoding ./.)
+ * If allele1 and allele2 are 0 or 1, this implies that NA12878 has a known genotype corresponding to the
+ * VCF genotype encoding allele1/allele2.  So, if the site has ref/alt alleles and NA12878 is alt/alt here
+ * then allele1 and allele2 should both be equal to 1.
+ * If GQ == 0, then the genotype is considered discordant, but this should only be used by the consensus algorithm
  *
  * User: depristo
  * Date: 11/5/12
@@ -128,6 +142,16 @@ public class MongoGenotype extends ReflectionDBObject {
 
     private String option(final String prefix, int v) { return v == -1 ? "" : prefix + String.valueOf(v); }
     private String alleleString(int i) { return i == -1 ? "." : String.valueOf(i); }
+
+    protected String validate() {
+        if ( allele1 < -1 || allele1 > 1 ) return "allele1 " + allele1 + " not between -1 and 1";
+        else if ( allele2 < -1 || allele2 > 1 ) return "allele2 " + allele2 + " not between -1 and 1";
+        else if ( allele1 == -1 && allele2 != -1 ) return "Both allele1 and allele2 must be -1 if one is but saw " + allele1 + "/" + allele2;
+        else if ( allele2 == -1 && allele1 != -1 ) return "Both allele1 and allele2 must be -1 if one is but saw " + allele1 + "/" + allele2;
+        else if ( GQ < -1 ) return "GQ " + GQ + " < -1";
+        else if ( DP < -1 ) return "DP " + DP + " < -1";
+        return null;
+    }
 
     @Override
     public boolean equals(Object o) {

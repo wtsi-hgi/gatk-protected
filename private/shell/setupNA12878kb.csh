@@ -14,13 +14,19 @@ set args = " -useLocal"
 shift
 endif
 
+if ( $1 == "dev" ) then
+set args = " -dbToUse DEV"
+shift
+endif
+
+
 #set loc = 20:10,000,000-10,010,000
 #set loc = 20:1-30,000,000
-#set loc = 20:10,000,000-11,000,000
+set loc = 20:10,000,000-11,000,000
 #set loc = 20:1-10,009,259
 #set loc = 20:1-1,000,000
 #set loc = 20:10019093
-set loc = 20
+#set loc = 20
 
 set root = "java -Xmx2g -jar dist/GenomeAnalysisTK.jar -R $BUNDLE/b37/human_g1k_v37.fasta -L $loc $args"
 

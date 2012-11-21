@@ -38,8 +38,8 @@ public class NA12878KBUnitTestBase extends BaseTest {
     protected void setupBeforeMethod() {
         try {
             final NA12878DBArgumentCollection args = new NA12878DBArgumentCollection();
-            args.useLocal = true; // TODO -- update me
-            args.useTest = true;
+            //args.useLocal = true;
+            args.dbToUse = NA12878DBArgumentCollection.DBType.TEST;
             args.resetDB = true;
             db = new NA12878KnowledgeBase(parser, args);
             logger.info("Setting up DB connect" + db);
