@@ -7,4 +7,4 @@ if ( $1 == "local" ) then
    echo "local $address"
 endif
 
-~/bin/mongo/mongo ${address}:${port}/NA12878KnowledgeBase
+echo ~/bin/mongo/mongo ${address}:${port}/NA12878KnowledgeBase_production

@@ -14,6 +14,12 @@ set args = " -useLocal"
 shift
 endif
 
+if ( $1 == "dev" ) then
+set args = " -dbToUse DEV"
+shift
+endif
+
+
 #set loc = 20:10,000,000-10,010,000
 #set loc = 20:1-30,000,000
 #set loc = 20:10,000,000-11,000,000

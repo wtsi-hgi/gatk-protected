@@ -147,6 +147,7 @@ public class SiteIterator<T extends MongoVariantContext> extends PeekableIterato
     @Override
     public T next() {
         final T n = super.next();
+        n.validate(parser);
         final GenomeLoc nLoc = n.getLocation(parser);
         if ( lastLoc != null && nLoc.isBefore(lastLoc) )
             throw new IllegalStateException("Records appearing out of order.  Current location is " + nLoc + " but last location was " + lastLoc);
@@ -169,6 +170,6 @@ class RawSiteIterator<T extends MongoVariantContext> implements CloseableIterato
 
     @Override public void close() { cursor.close(); }
     @Override public boolean hasNext() { return cursor.hasNext(); }
-    @Override public T next() { return (T)cursor.next(); }
     @Override public void remove() { throw new UnsupportedOperationException(); }
+    @Override public T next() { return (T)cursor.next(); }
 }

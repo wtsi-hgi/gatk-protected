@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
 import com.mongodb.ReflectionDBObject;
+import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.Utils;
@@ -25,15 +26,67 @@ import java.util.*;
  * Date: 11/5/12
  * Time: 6:27 AM
  */
-public class MongoVariantContext extends ReflectionDBObject {
+public class MongoVariantContext extends ReflectionDBObject implements Cloneable {
+    /**
+     * A list of at least 1 String describing the call set (i.e., OMNIPoly or CEU_best_practices).
+     *
+     * May contains multiple strings if the site is present in multiple callsets in the consensus
+     */
     private List<String> supportingCallsets = new ArrayList<String>(1);
+
+    /**
+     * The chromosomal position of the site, following b37 conventions (i.e., chromosomes are named 1, 2, etc).
+     */
     private String chr;
+
+    /**
+     * The start and stop position of the site (exactly the VCF convention)
+     */
     private int start, stop;
+
+    /**
+     * Ref and alt alleles following the VCF convention.
+     *
+     * Must be in all caps
+     *
+     * For SNPs, ref is the base of the genome reference, and alt is the other allele, such as ref='A' and alt = 'C'
+     * For indels, ref contains at a minimum the base in the genome reference.  For deletions ref contains additionall
+     * the deleted reference bases, while alt is just the reference base again.  It's swapped for insertions.  For
+     * example, a 2 bp deletion looks like ref=ACT alt=A, while for the symmetric 2 bp insertion you see
+     * ref=A alt=ACT.
+     *
+     * Note that there can be only one alt allele per site.  VCF records with multiple alt alleles
+     * must be split into separate records.
+     */
     private String ref, alt;
-    private Date date;
+
+    /**
+     * The truth status of this site, can adopt the following values
+     *
+     * TRUE_POSITIVE -- a confirmed true positive call
+     * FALSE_POSITIVE -- a confirmed false positive call
+     * UNKNOWN -- nothing is known about the truth of this site
+     * SUSPECT -- a likely false positive, but we aren't sure (for reviews)
+     * DISCORDANT -- for the consensus only
+     */
     private TruthStatus mongoType;
-    private boolean reviewed;
+
+    /**
+     * The genotype of NA12878 at this site (see MongoGenotype for more information)
+     */
     private MongoGenotype gt;
+
+    /**
+     * The date this site was created.  Can be missing, in which case the date is assumed to be now
+     */
+    private Date date = new Date();
+
+    /**
+     * (Optional) reviewed status.  If true, indicates that this site represent information from a
+     * manual review of data, and will be interpreted as more informative than a non-reviewed site.
+     * If missing, assumed to *not* to be a reviewed site
+     */
+    private boolean reviewed = false;
 
     public MongoVariantContext() { }
 
@@ -115,6 +168,24 @@ public class MongoVariantContext extends ReflectionDBObject {
         this.gt = new MongoGenotype(vc.getAlleles(), gt);
     }
 
+    public MongoVariantContext(List<String> supportingCallsets, String chr, int start, int stop, String ref, String alt, TruthStatus mongoType, MongoGenotype gt, Date date, boolean reviewed) {
+        this.supportingCallsets = supportingCallsets;
+        this.chr = chr;
+        this.start = start;
+        this.stop = stop;
+        this.ref = ref;
+        this.alt = alt;
+        this.mongoType = mongoType;
+        this.gt = gt;
+        this.date = date;
+        this.reviewed = reviewed;
+    }
+
+    @Override
+    protected MongoVariantContext clone() throws CloneNotSupportedException {
+        return new MongoVariantContext(supportingCallsets, chr, start, stop, ref, alt, mongoType, gt, date, reviewed);
+    }
+
     private List<Allele> getAlleles() {
         return Arrays.asList(getRefAllele(), getAltAllele());
     }
@@ -137,8 +208,12 @@ public class MongoVariantContext extends ReflectionDBObject {
 
     @Override
     public String toString() {
-        return String.format("%s:%d-%d %s/%s %s/%s reviewed?=%b %s %s", getChr(), getStart(), getStop(), getRef(), getAlt(),
-                getType(), getPolymorphicStatus(), isReviewed(), Utils.join(",", getSupportingCallSets()), getGt());
+        try {
+            return String.format("%s:%d-%d %s/%s %s/%s reviewed?=%b %s %s", getChr(), getStart(), getStop(), getRef(), getAlt(),
+                    getType(), getPolymorphicStatus(), isReviewed(), Utils.join(",", getSupportingCallSets()), getGt());
+        } catch ( Exception e ) {
+            return String.format("%s at %s:%d [malformed]", supportingCallsets, chr, start);
+        }
     }
 
     public String getChr() {
@@ -189,6 +264,11 @@ public class MongoVariantContext extends ReflectionDBObject {
         this.alt = alt;
     }
 
+    /**
+     * Convert this MongoVariantContext into an honest-to-goodness VariantContext
+     *
+     * @return a validate VariantContext
+     */
     public VariantContext getVariantContext() {
         final VariantContextBuilder vcb = new VariantContextBuilder(getCallSetName(), chr, start, stop, getAlleles());
 
@@ -280,6 +360,14 @@ public class MongoVariantContext extends ReflectionDBObject {
     public boolean isDiscordant() { return getGt().isDiscordant(); }
     public boolean isUnknown() { return getGt().isUnknown(); }
 
+    /**
+     * Is this MongoVariantContext a match to VariantContext vc
+     *
+     * A match means that this and vc have the same location and same ref / alt alleles
+     *
+     * @param vc a non-null VariantContext vc
+     * @return true if this and vc match, false otherwise
+     */
     public boolean matches(final VariantContext vc) {
         return vc.isBiallelic() &&
                 getChr().equals(vc.getChr()) &&
@@ -324,5 +412,38 @@ public class MongoVariantContext extends ReflectionDBObject {
         result = 31 * result + (reviewed ? 1 : 0);
         result = 31 * result + (gt != null ? gt.hashCode() : 0);
         return result;
+    }
+
+    /**
+     * Make sure this MongoVariantContext is valid, throwing a MongoVariantContextException if not
+     *
+     * @throws MongoVariantContextException if this is malformed
+     * @param parser a GenomeLocParser so we know what contigs are allowed
+     */
+    protected void validate(final GenomeLocParser parser) {
+        if ( supportingCallsets == null || supportingCallsets.size() == 0 )
+            error("SupportingCallSets has a bad value %s", supportingCallsets);
+        if ( supportingCallsets.indexOf(null) != -1 )
+            error("SupportingCallSets contains a null element %s", supportingCallsets);
+        if ( start < 1 ) error("Start = %d < 1", start);
+        if ( start > stop ) error("Start %d > Stop %d", start, stop);
+        if ( chr == null ) error("Chr is null");
+        if ( ! parser.contigIsInDictionary(chr) ) error("Chr %s is not in the b37 dictionary", chr);
+        if ( ref == null || ref.equals("") ) error("ref allele is null or empty string");
+        if ( ! BaseUtils.isUpperCase(ref.getBytes()) ) error("ref allele must be all upper case but got " + ref);
+        if ( ! Allele.acceptableAlleleBases(ref) ) error("ref allele contains unacceptable bases " + ref);
+        if ( alt == null || alt.equals("") ) error("alt allele is null or empty string");
+        if ( ! BaseUtils.isUpperCase(alt.getBytes()) ) error("alt allele must be all upper case but got " + alt);
+        if ( ! Allele.acceptableAlleleBases(alt) ) error("alt allele contains unacceptable bases " + alt);
+        if ( gt == null ) error("gt is null");
+        final String gtBad = gt.validate();
+        if ( gtBad != null ) error("gt %s is bad: %s", gt, gtBad);
+    }
+
+    private void error(final String message, final Object ... values) {
+        throw new MongoVariantContextException(
+                String.format("MongoVariantContext is bad: reason = %s at context %s",
+                        String.format(message, values), this.toString()),
+                this);
     }
 }
