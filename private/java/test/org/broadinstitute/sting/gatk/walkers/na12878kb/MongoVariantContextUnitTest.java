@@ -1,5 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
+import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextTestProvider;
@@ -81,46 +83,53 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
     }
 
     final static MongoVariantContext good = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C", TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 0), new Date(), false);
-    private MongoVariantContext makeBad(final List<MongoVariantContext> bads) throws CloneNotSupportedException {
+    private static MongoVariantContext makeBad(final List<MongoVariantContext> bads) throws CloneNotSupportedException {
         final MongoVariantContext mvc = good.clone();
         bads.add(mvc);
         return mvc;
     }
 
+    public static List<MongoVariantContext> makeBadMVCs() {
+        try {
+            final List<MongoVariantContext> bads = new LinkedList<MongoVariantContext>();
+            makeBad(bads).setSupportingCallSets(new ArrayList<String>());
+            final ArrayList<String> l = new ArrayList<String>();
+            makeBad(bads).setSupportingCallSets(l);
+            final ArrayList<String> l2 = new ArrayList<String>();
+            l2.add(null);
+            makeBad(bads).setSupportingCallSets(l2);
+            makeBad(bads).setChr("chr20");
+            makeBad(bads).setChr("-1");
+            makeBad(bads).setChr(null);
+            makeBad(bads).setStart(-1);
+            makeBad(bads).setStop(-1);
+            makeBad(bads).setRef(null);
+            makeBad(bads).setRef("");
+            makeBad(bads).setRef("X");
+            makeBad(bads).setRef("a");
+            makeBad(bads).setAlt(null);
+            makeBad(bads).setAlt("");
+            makeBad(bads).setAlt("X");
+            makeBad(bads).setAlt("a");
+            makeBad(bads).setGt(new MongoGenotype(-1, -2));
+            makeBad(bads).setGt(new MongoGenotype(-2, -1));
+            makeBad(bads).setGt(new MongoGenotype(0, -1));
+            makeBad(bads).setGt(new MongoGenotype(-1, 0));
+            makeBad(bads).setGt(new MongoGenotype(2, 0));
+            makeBad(bads).setGt(new MongoGenotype(0, 2));
+            makeBad(bads).setGt(new MongoGenotype(0, 0, -1, -2));
+            makeBad(bads).setGt(new MongoGenotype(0, 0, -2, -1));
+            return bads;
+        } catch ( CloneNotSupportedException e ) {
+            throw new ReviewedStingException("Failed to make BADMVCs", e);
+        }
+    }
+
     @DataProvider(name = "BadMVCs")
-    public Object[][] makeBadMVCs() throws CloneNotSupportedException {
+    public Object[][] makeBadMVCsProvider() throws CloneNotSupportedException {
         List<Object[]> tests = new ArrayList<Object[]>();
 
-        final List<MongoVariantContext> bads = new LinkedList<MongoVariantContext>();
-        makeBad(bads).setSupportingCallSets(new ArrayList<String>());
-        final ArrayList<String> l = new ArrayList<String>();
-        makeBad(bads).setSupportingCallSets(l);
-        final ArrayList<String> l2 = new ArrayList<String>();
-        l2.add(null);
-        makeBad(bads).setSupportingCallSets(l2);
-        makeBad(bads).setChr("chr20");
-        makeBad(bads).setChr("-1");
-        makeBad(bads).setChr(null);
-        makeBad(bads).setStart(-1);
-        makeBad(bads).setStop(-1);
-        makeBad(bads).setRef(null);
-        makeBad(bads).setRef("");
-        makeBad(bads).setRef("X");
-        makeBad(bads).setRef("a");
-        makeBad(bads).setAlt(null);
-        makeBad(bads).setAlt("");
-        makeBad(bads).setAlt("X");
-        makeBad(bads).setAlt("a");
-        makeBad(bads).setGt(new MongoGenotype(-1, -2));
-        makeBad(bads).setGt(new MongoGenotype(-2, -1));
-        makeBad(bads).setGt(new MongoGenotype(0, -1));
-        makeBad(bads).setGt(new MongoGenotype(-1, 0));
-        makeBad(bads).setGt(new MongoGenotype(2, 0));
-        makeBad(bads).setGt(new MongoGenotype(0, 2));
-        makeBad(bads).setGt(new MongoGenotype(0, 0, -1, -2));
-        makeBad(bads).setGt(new MongoGenotype(0, 0, -2, -1));
-
-        for ( final MongoVariantContext bad : bads )
+        for ( final MongoVariantContext bad : makeBadMVCs() )
             tests.add(new Object[]{bad});
 
         return tests.toArray(new Object[][]{});

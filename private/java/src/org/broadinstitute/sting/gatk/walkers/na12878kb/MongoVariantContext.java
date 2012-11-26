@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
 import com.mongodb.ReflectionDBObject;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
@@ -417,7 +418,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
     /**
      * Make sure this MongoVariantContext is valid, throwing a MongoVariantContextException if not
      *
-     * @throws MongoVariantContextException if this is malformed
+     * @throws org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException if this is malformed
      * @param parser a GenomeLocParser so we know what contigs are allowed
      */
     protected void validate(final GenomeLocParser parser) {

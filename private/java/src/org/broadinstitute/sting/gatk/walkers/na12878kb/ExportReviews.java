@@ -29,16 +29,7 @@ public class ExportReviews extends NA12878DBWalker {
 
     @Override
     public void onTraversalDone(Integer result) {
-        for ( final MongoVariantContext vc : db.getCallsLinear(makeSiteSelector())) {
-            logger.info("Archiving review " + vc);
-            out.add(vc.getVariantContext());
-        }
-
+        db.writeReviews(out, super.makeSiteSelector());
         super.onTraversalDone(result);
-    }
-
-    @Override
-    public SiteSelector makeSiteSelector() {
-        return super.makeSiteSelector().onlyReviewed();
     }
 }

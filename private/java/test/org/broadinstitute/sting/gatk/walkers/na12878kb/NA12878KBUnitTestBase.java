@@ -42,7 +42,6 @@ public class NA12878KBUnitTestBase extends BaseTest {
             args.dbToUse = NA12878DBArgumentCollection.DBType.TEST;
             args.resetDB = true;
             db = new NA12878KnowledgeBase(parser, args);
-            logger.info("Setting up DB connect" + db);
         } catch ( Exception e ) {
             throw new SkipException("Failed to setup DB connection", e);
         }

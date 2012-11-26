@@ -5,6 +5,9 @@ import com.google.java.contract.Requires;
 import com.mongodb.DBCursor;
 import net.sf.picard.util.PeekableIterator;
 import net.sf.samtools.util.CloseableIterator;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordHandler;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordsThrowError;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 
@@ -22,6 +25,8 @@ import java.util.List;
 public class SiteIterator<T extends MongoVariantContext> extends PeekableIterator<T> implements Iterable<T>, CloseableIterator<T> {
     final GenomeLocParser parser;
 
+    InvalidRecordHandler<T> errorHandler;
+
     /** To ensure that records are coming in order */
     GenomeLoc lastLoc = null;
 
@@ -31,10 +36,26 @@ public class SiteIterator<T extends MongoVariantContext> extends PeekableIterato
      * @param cursor an initialized DBCursor pointing to data containing values of type T
      */
     public SiteIterator(GenomeLocParser parser, DBCursor cursor) {
+        this(parser, cursor, new InvalidRecordsThrowError<T>());
+    }
+
+    public SiteIterator(GenomeLocParser parser, DBCursor cursor, final InvalidRecordHandler errorHandler) {
         super(new RawSiteIterator<T>(cursor));
 
         if ( parser == null ) throw new IllegalArgumentException("Parser cannot be null");
         this.parser = parser;
+        setErrorHandler(errorHandler);
+    }
+
+    /**
+     * Provides this SiteIterator with an InvalidRecordHandler handler to deal with
+     * bad records encountered in the DB while iterating.
+     *
+     * @param errorHandler a non-null error handler
+     */
+    public void setErrorHandler(InvalidRecordHandler<T> errorHandler) {
+        if ( errorHandler == null ) throw new IllegalArgumentException("errorHandler cannot be null");
+        this.errorHandler = errorHandler;
     }
 
     /**
@@ -145,9 +166,28 @@ public class SiteIterator<T extends MongoVariantContext> extends PeekableIterato
     }
 
     @Override
+    public boolean hasNext() {
+        while ( super.hasNext() ) {
+            final T n = super.peek();
+            try {
+                n.validate(parser);
+                return true;
+            } catch (MongoVariantContextException e) {
+                handleError(n, e);
+                super.next();
+            }
+        }
+
+        return false;
+    }
+
+    private void handleError(final T record, final MongoVariantContextException e) {
+        errorHandler.handleFailedRecord(record, e);
+    }
+
+    @Override
     public T next() {
         final T n = super.next();
-        n.validate(parser);
         final GenomeLoc nLoc = n.getLocation(parser);
         if ( lastLoc != null && nLoc.isBefore(lastLoc) )
             throw new IllegalStateException("Records appearing out of order.  Current location is " + nLoc + " but last location was " + lastLoc);
@@ -161,15 +201,3 @@ public class SiteIterator<T extends MongoVariantContext> extends PeekableIterato
     }
 }
 
-class RawSiteIterator<T extends MongoVariantContext> implements CloseableIterator<T> {
-    final DBCursor cursor;
-
-    public RawSiteIterator(DBCursor cursor) {
-        this.cursor = cursor;
-    }
-
-    @Override public void close() { cursor.close(); }
-    @Override public boolean hasNext() { return cursor.hasNext(); }
-    @Override public void remove() { throw new UnsupportedOperationException(); }
-    @Override public T next() { return (T)cursor.next(); }
-}
