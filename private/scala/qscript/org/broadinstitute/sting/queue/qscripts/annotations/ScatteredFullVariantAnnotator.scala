@@ -77,7 +77,7 @@ class ScatteredFullVariantAnnotator extends QScript {
 
       if (qscript.downsample_to_coverage > 0) {
         this.downsample_to_coverage = qscript.downsample_to_coverage
-        this.downsampling_type = org.broadinstitute.sting.gatk.DownsampleType.BY_SAMPLE
+        this.downsampling_type = org.broadinstitute.sting.gatk.downsampling.DownsampleType.BY_SAMPLE
       }
     }
 
