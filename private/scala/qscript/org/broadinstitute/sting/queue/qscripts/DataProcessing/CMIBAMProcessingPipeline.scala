@@ -42,11 +42,6 @@ class CMIBAMProcessingPipeline extends CmiScript {
     * Additional Parameters that the pipeline should have pre-defined in the image
     * ******************************************************************************/
 
-  @Input(doc="argument that allows Queue to see and download files", fullName="file1", required=false)
-  var file1: Seq[File] = Nil
-  @Input(doc="even more files that should be downloaded", fullName="file2", required=false)
-  var file2: Seq[File] = Nil
-
   @Input(doc = "Reference fasta file", fullName = "reference", shortName = "R", required = false)
   var reference: File = new File("/refdata/human_g1k_v37_decoy.fasta")
 
@@ -338,23 +333,23 @@ class CMIBAMProcessingPipeline extends CmiScript {
     qscript.reducedNormalBAMIndex = swapExt(qscript.reducedNormalBAM, ".bam", ".bai")
     qscript.reducedTumorBAMIndex = swapExt(qscript.reducedTumorBAM, ".bam", ".bai")
 
-    qscript.normalHSMetrics = swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.hs_metrics")
-    qscript.tumorHSMetrics = swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.hs_metrics")
+    qscript.normalHSMetrics = swapExt(allBAMs(1), ".bam", ".hs_metrics")
+    qscript.tumorHSMetrics = swapExt(allBAMs(0), ".bam", ".hs_metrics")
 
-    qscript.normalGCMetrics = swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.gc_metrics")
-    qscript.tumorGCMetrics = swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.gc_metrics")
+    qscript.normalGCMetrics = swapExt(allBAMs(1), ".bam", ".gc_metrics")
+    qscript.tumorGCMetrics = swapExt(allBAMs(0), ".bam", ".gc_metrics")
 
-    qscript.normalInsertSizeMetrics = swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.multipleMetrics.insert_size_metrics")
-    qscript.tumorInsertSizeMetrics = swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.insert_size_metrics")
+    qscript.normalInsertSizeMetrics = swapExt(allBAMs(1), ".bam", ".multipleMetrics.insert_size_metrics")
+    qscript.tumorInsertSizeMetrics = swapExt(allBAMs(0), ".bam", ".multipleMetrics.insert_size_metrics")
 
-    qscript.normalAlignmentMetrics = swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.multipleMetrics.alignment_summary_metrics")
-    qscript.tumorAlignmentMetrics = swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.alignment_summary_metrics")
+    qscript.normalAlignmentMetrics = swapExt(allBAMs(1), ".bam", ".multipleMetrics.alignment_summary_metrics")
+    qscript.tumorAlignmentMetrics = swapExt(allBAMs(0), ".bam", ".multipleMetrics.alignment_summary_metrics")
 
-    qscript.normalQualityByCycleMetrics = swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.multipleMetrics.quality_by_cycle_metrics")
-    qscript.tumorQualityByCycleMetrics = swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_by_cycle_metrics")
+    qscript.normalQualityByCycleMetrics = swapExt(allBAMs(1), ".bam", ".multipleMetrics.quality_by_cycle_metrics")
+    qscript.tumorQualityByCycleMetrics = swapExt(allBAMs(0), ".bam", ".multipleMetrics.quality_by_cycle_metrics")
 
-    qscript.normalQualityDistributionMetrics = swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.multipleMetrics.quality_distribution_metrics")
-    qscript.tumorQualityDistributionMetrics = swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_distribution_metrics")
+    qscript.normalQualityDistributionMetrics = swapExt(allBAMs(1), ".bam", ".multipleMetrics.quality_distribution_metrics")
+    qscript.tumorQualityDistributionMetrics = swapExt(allBAMs(0), ".bam", ".multipleMetrics.quality_distribution_metrics")
 
     qscript.normalDuplicateMetrics = swapExt(allBAMs(1), ".bam", ".duplicateMetrics")
     qscript.tumorDuplicateMetrics = swapExt(allBAMs(0), ".bam", ".duplicateMetrics")
