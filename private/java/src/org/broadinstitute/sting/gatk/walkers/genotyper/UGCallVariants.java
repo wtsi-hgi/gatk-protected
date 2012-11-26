@@ -46,7 +46,7 @@ import java.util.*;
  * Run this as you would the UnifiedGenotyper, except that instead of '-I reads' it expects any number
  * of GL/PL-annotated VCFs bound to a name starting with 'variant'.
  */
-public class UGCallVariants extends RodWalker<VariantContext, Integer> {
+public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
 
     @ArgumentCollection
     private UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
@@ -80,59 +80,82 @@ public class UGCallVariants extends RodWalker<VariantContext, Integer> {
             headerInfo.addAll(VCFUtils.getHeaderFields(getToolkit(), allelesRods));
         }
 
-        UnifiedGenotyper.getHeaderInfo(UAC, null, null);
+        headerInfo.addAll(UnifiedGenotyper.getHeaderInfo(UAC, null, null));
 
         // initialize the header
         writer.writeHeader(new VCFHeader(headerInfo, samples));
     }
 
-    public VariantContext map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+    public List<VariantContext> map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
         if ( tracker == null )
             return null;
 
-        List<VariantContext> VCs = tracker.getValues(variants, context.getLocation());
+        List<VariantContext> retVC = new LinkedList<VariantContext>();
 
-        VariantContext mergedVC = mergeVCsWithGLs(VCs, tracker, context);
-        if ( mergedVC == null )
-            return null;
+        List<RefMetaDataTracker> useTrackers = new LinkedList<RefMetaDataTracker>();
+        // Allow for multiple records in variants, even at same locus:
+        if ( UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
+            for (VariantContext vc : tracker.getValues(variants, context.getLocation()))
+                useTrackers.add(new MatchFirstLocRefAltRefMetaDataTracker(tracker, vc));
+        }
+        else
+            useTrackers.add(tracker);
 
-        VariantContext mergedVCwithGT = UG_engine.calculateGenotypes(tracker, ref, context, mergedVC);
+        for (RefMetaDataTracker t : useTrackers) {
+            List<VariantContext> VCs = t.getValues(variants, context.getLocation());
 
-        if (mergedVCwithGT == null)
-            return null;
+            VariantContext mergedVC = mergeVCsWithGLs(VCs, t, context);
+            if (mergedVC == null)
+                continue;
 
-        // Add the filters and attributes from the mergedVC first (so they can be overriden as necessary by mergedVCwithGT):
-        Set<String> filters = new HashSet<String>();
-        Map<String, Object> attributes = new HashMap<String, Object>();
+            VariantContext mergedVCwithGT = UG_engine.calculateGenotypes(t, ref, context, mergedVC);
 
-        filters.addAll(mergedVC.getFilters());
-        attributes.putAll(mergedVC.getAttributes());
+            if (mergedVCwithGT == null)
+                continue;
 
-        filters.addAll(mergedVCwithGT.getFilters());
-        attributes.putAll(mergedVCwithGT.getAttributes());
+            // Add the filters and attributes from the mergedVC first (so they can be overriden as necessary by mergedVCwithGT):
+            VariantContextBuilder vcb = new VariantContextBuilder(mergedVCwithGT);
+            vcb.log10PError(mergedVC.getLog10PError());
 
-        return new VariantContextBuilder(mergedVCwithGT).filters(filters).attributes(attributes).make();
+            Set<String> filters = new HashSet<String>();
+            Map<String, Object> attributes = new HashMap<String, Object>();
+
+            filters.addAll(mergedVC.getFilters());
+            attributes.putAll(mergedVC.getAttributes());
+
+            // Only want filters from the original VCFs here, but not any new ones (e.g., LowQual):
+            /*
+            filters.addAll(mergedVCwithGT.getFilters());
+            */
+            attributes.putAll(mergedVCwithGT.getAttributes());
+
+            retVC.add(vcb.filters(filters).attributes(attributes).make());
+        }
+
+        return retVC;
     }
 
     public Integer reduceInit() { return 0; }
 
-    public Integer reduce(VariantContext value, Integer sum) {
+    public Integer reduce(List<VariantContext> value, Integer sum) {
         if ( value == null )
             return sum;
 
         try {
-            VariantContextBuilder builder = new VariantContextBuilder(value);
-            VariantContextUtils.calculateChromosomeCounts(builder, true);
-            writer.add(builder.make());
+            for (VariantContext vc : value) {
+                VariantContextBuilder builder = new VariantContextBuilder(vc);
+                VariantContextUtils.calculateChromosomeCounts(builder, true);
+                writer.add(builder.make());
+            }
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(e.getMessage());
         }
 
-        return sum + 1;
+        return sum + value.size();
     }
 
     public void onTraversalDone(Integer result) {
-        logger.info(String.format("Visited sites: %d", result));
+        logger.info(String.format("Visited variants: %d", result));
     }
 
     private VariantContext mergeVCsWithGLs(List<VariantContext> VCs, RefMetaDataTracker tracker, AlignmentContext context) {
@@ -152,6 +175,7 @@ public class UGCallVariants extends RodWalker<VariantContext, Integer> {
             VariantContext vc = VCs.get(0);
             throw new UserException("There is no ALT allele in any of the VCF records passed in at " + vc.getChr() + ":" + vc.getStart());
         }
+        VariantContextBuilder vcb = new VariantContextBuilder(variantVC);
 
         Set<String> filters = new HashSet<String>();
         Map<String, Object> attributes = new HashMap<String, Object>();
@@ -162,12 +186,16 @@ public class UGCallVariants extends RodWalker<VariantContext, Integer> {
             for (VariantContext alleleVC : allelesVCs) {
                 filters.addAll(alleleVC.getFilters());
                 attributes.putAll(alleleVC.getAttributes());
+
+                // Use the existing value as the quality score for the merged variant:
+                // TODO: currently, VariantContextUtils.simpleMerge "take the QUAL of the first VC with a non-MISSING qual for the combined value"
+                // TODO: we probably would want to take the minimum:
+                vcb.log10PError(alleleVC.getLog10PError());
             }
         }
         filters.addAll(variantVC.getFilters());
         attributes.putAll(variantVC.getAttributes());
 
-        VariantContextBuilder vcb = new VariantContextBuilder(variantVC);
         vcb.filters(filters);
         vcb.attributes(attributes);
 
