@@ -18,7 +18,9 @@ public class NA12878DBArgumentCollection {
         /** A persistent development database, for playing with the KB itself */
         DEV("_development"),
         /** For unit and integration tests, not persistent */
-        TEST("_test");
+        TEST("_test"),
+        /** default one */
+        DEFAULT("_NA");
 
         private String extension;
 
@@ -32,7 +34,7 @@ public class NA12878DBArgumentCollection {
     }
 
     @Argument(fullName = "dbToUse", shortName = "dbToUse", doc = "Which database should we connect to?", required=false)
-    protected DBType dbToUse = DBType.PRODUCTION;
+    protected DBType dbToUse = DBType.DEFAULT;
 
     @Argument(shortName = "reset", required=false)
     protected boolean resetDB = false;

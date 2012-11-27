@@ -17,6 +17,11 @@ public class UpdateConsensus extends NA12878DBWalker {
         db.clearConsensus();
     }
 
+    @Override
+    public NA12878DBArgumentCollection.DBType getDefaultDB() {
+        return NA12878DBArgumentCollection.DBType.DEV;
+    }
+
     @Override public boolean isDone() { return true; }
 
     public void onTraversalDone(Integer result) {

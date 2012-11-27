@@ -16,20 +16,21 @@ public class NA12878KnowledgeBaseServer extends NA12878DBWalker {
     @Argument(fullName = "updateFrequency", shortName = "updateFrequency", required=false)
     public int updateFrequency = 10000;
 
+    @Argument(fullName = "maxIterations", shortName = "maxIterations", required = false)
+    protected int maxIterations = Integer.MAX_VALUE;
+
     @Argument(fullName = "maxQueriesBeforeFullRebuild", shortName = "maxQueriesBeforeFullRebuild", required = false)
     public int maxQueriesBeforeFullRebuild = 100;
 
     @Output(fullName = "reviewsFile", shortName = "reviewsFile", required = true)
     public VariantContextWriter reviewsFile;
 
-    /** For testing only */
-    protected boolean breakLoop = false;
-    /** For testing only */
-    protected Object waitForMe = null;
-    /** For testing only */
-    protected int maxIterations = Integer.MAX_VALUE;
-
     @Override public boolean isDone() { return true; }
+
+    @Override
+    public NA12878DBArgumentCollection.DBType getDefaultDB() {
+        return NA12878DBArgumentCollection.DBType.PRODUCTION;
+    }
 
     public void onTraversalDone(Integer result) {
         final SimpleTimer timeSinceStart = new SimpleTimer().start();
@@ -44,8 +45,9 @@ public class NA12878KnowledgeBaseServer extends NA12878DBWalker {
 
         final NewlyAddedSites newlyAddedSites = new NewlyAddedSites(db);
         int nIterations = 0;
-        while ( timeSinceStart.getElapsedTimeNano() < maxTimeNano && ! breakLoop && nIterations++ < maxIterations ) {
+        while ( (timeSinceStart.getElapsedTimeNano() < maxTimeNano || maxTimeNano == -1) && nIterations++ < maxIterations ) {
             try {
+                logger.info("Running cycle " + nIterations);
                 pauseCycle();
                 final SiteSelector updatedSites = newlyAddedSites.getNewlyAddedLocations(getToolkit().getGenomeLocParser(), maxQueriesBeforeFullRebuild);
                 if ( updatedSites != null ) {
@@ -67,9 +69,7 @@ public class NA12878KnowledgeBaseServer extends NA12878DBWalker {
     }
 
     private void pauseCycle() throws InterruptedException {
-        if ( waitForMe != null )
-            waitForMe.wait();
-        else if ( updateFrequency > 0 )
+        if ( updateFrequency > 0 )
             Thread.sleep(updateFrequency);
     }
 }

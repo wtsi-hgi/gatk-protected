@@ -5,6 +5,10 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.Priority;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordsRemove;
 import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFStandardHeaderLines;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
@@ -289,17 +293,26 @@ public class NA12878KnowledgeBase {
      * Convenience function to write all reviewed MongoVariantContexts as VariantContext
      * from the sites collection to the VariantContextWriter outputStream
      *
-     * @param outputStream where the VariantContexts should be written
+     * @param writer where the VariantContexts should be written
      * @param selector the root SiteSelector that lets us know where we should be getting our records from
      * @return the number of reviews written to disk
      */
-    public int writeReviews(final VariantContextWriter outputStream, final SiteSelector selector) {
+    public int writeReviews(final VariantContextWriter writer, final SiteSelector selector) {
+        final Set<VCFHeaderLine> metadata = new HashSet<VCFHeaderLine>();
+
+        for ( final VCFHeaderLine line : MongoVariantContext.reviewHeaderLines() )
+            metadata.add(line);
+
+        VCFStandardHeaderLines.addStandardFormatLines(metadata, true, VCFConstants.GENOTYPE_KEY);
+
+        writer.writeHeader(new VCFHeader(metadata, Collections.singleton("NA12878")));
+
         selector.onlyReviewed();
         int counter = 0;
         for ( final MongoVariantContext vc : getCalls(selector)) {
             if ( logger.isDebugEnabled() )
                 logger.info("Archiving review " + vc);
-            outputStream.add(vc.getVariantContext());
+            writer.add(vc.getVariantContext());
             counter++;
         }
 

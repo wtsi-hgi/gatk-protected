@@ -14,25 +14,25 @@ set args = " -useLocal"
 shift
 endif
 
-if ( $1 == "dev" ) then
-set args = " -dbToUse DEV"
+if ( $1 == "production" ) then
+set args = "$args -dbToUse PRODUCTION"
 shift
 endif
 
 
 #set loc = 20:10,000,000-10,010,000
 #set loc = 20:1-30,000,000
-#set loc = 20:10,000,000-11,000,000
+set loc = 20:10,000,000-11,000,000
 #set loc = 20:1-10,009,259
 #set loc = 20:1-1,000,000
 #set loc = 20:10019093
-set loc = 20
+#set loc = 20
 
 set root = "java -Xmx2g -jar dist/GenomeAnalysisTK.jar -R $BUNDLE/b37/human_g1k_v37.fasta -L $loc $args"
 
 # import all callsets
 #   - must enumerate each call set individually from $source
-if ( $1 == 1 ) then
+if ( $1 != 1 ) then
 set import = "$root -T ImportCallset"
 $import -reset -callSetName Mills_1000G_GS_indels -assumedCallTruth UNKNOWN -howToTreatFilteredSites SKIP -howToTreatAC0 MARK_AS_NON_POLYMORPHIC -V $source/Mills_and_1000G_gold_standard.indels.b37.na12878.20.vcf
 $import -callSetName OMNI2.5Poly -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 MARK_AS_NON_POLYMORPHIC -V $source/Omni25_genotypes_2141_samples.b37.na12878.20.vcf

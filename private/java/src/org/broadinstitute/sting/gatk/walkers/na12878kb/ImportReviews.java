@@ -20,6 +20,11 @@ public class ImportReviews extends NA12878DBWalker {
     public RodBinding<VariantContext> variants;
 
     @Override
+    public NA12878DBArgumentCollection.DBType getDefaultDB() {
+        return NA12878DBArgumentCollection.DBType.DEV;
+    }
+
+    @Override
     public void initialize() {
         super.initialize();
 

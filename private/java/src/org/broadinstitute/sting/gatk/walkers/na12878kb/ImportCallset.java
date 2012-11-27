@@ -51,6 +51,11 @@ public class ImportCallset extends NA12878DBWalker {
 
     private CallSet callSet = null;
 
+    @Override
+    public NA12878DBArgumentCollection.DBType getDefaultDB() {
+        return NA12878DBArgumentCollection.DBType.DEV;
+    }
+
     public void initialize() {
         super.initialize();
 
