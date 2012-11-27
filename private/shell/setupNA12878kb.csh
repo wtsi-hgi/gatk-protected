@@ -22,11 +22,11 @@ endif
 
 #set loc = 20:10,000,000-10,010,000
 #set loc = 20:1-30,000,000
-set loc = 20:10,000,000-11,000,000
+#set loc = 20:10,000,000-11,000,000
 #set loc = 20:1-10,009,259
 #set loc = 20:1-1,000,000
 #set loc = 20:10019093
-#set loc = 20
+set loc = 20
 
 set root = "java -Xmx2g -jar dist/GenomeAnalysisTK.jar -R $BUNDLE/b37/human_g1k_v37.fasta -L $loc $args"
 
@@ -44,7 +44,8 @@ $import -callSetName GoldIndelGenotyped -assumedCallTruth TRUE_POSITIVE -howToTr
 endif
 
 # import reviews from private testdata
-foreach review (private/testdata/na12878kb/reviews.vcf)
+set reviewArchive = `ls -td /humgen/gsa-hpprojects/NA12878Collection/knowledgeBase/reviewsBackup/**`
+foreach review (private/testdata/na12878kb/reviews.vcf $reviewArchive)
 $root -T ImportReviews -V $review
 end
 
