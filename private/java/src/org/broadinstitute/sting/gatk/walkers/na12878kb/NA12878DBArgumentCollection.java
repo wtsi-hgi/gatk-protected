@@ -38,4 +38,10 @@ public class NA12878DBArgumentCollection {
 
     @Argument(shortName = "reset", required=false)
     protected boolean resetDB = false;
+
+    public NA12878DBArgumentCollection(){}
+
+    public NA12878DBArgumentCollection(boolean useLocal){
+        this.useLocal = useLocal;
+    }
 }
