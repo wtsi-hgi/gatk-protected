@@ -283,12 +283,8 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
      */
     public VariantContext getVariantContext() {
         final VariantContextBuilder vcb = new VariantContextBuilder(getCallSetName(), chr, start, stop, getAlleles());
-
-        if ( isReviewed() )
-            addReviewInfoFields(vcb);
-
+        addReviewInfoFields(vcb);
         vcb.genotypes(gt.toGenotype(getAlleles()));
-
         return vcb.make();
     }
 

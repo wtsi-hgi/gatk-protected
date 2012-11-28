@@ -285,25 +285,41 @@ public class NA12878KnowledgeBase {
      * @return the number of reviews written to disk
      */
     public int writeReviews(final VariantContextWriter writer, final SiteSelector selector) {
-        final Set<VCFHeaderLine> metadata = new HashSet<VCFHeaderLine>();
+        return writeSelectedSites(writer, selector.onlyReviewed());
+    }
 
-        for ( final VCFHeaderLine line : MongoVariantContext.reviewHeaderLines() )
-            metadata.add(line);
+    /**
+     * Write all selected sites from the knowledge base to the writer
+     *
+     * @param writer
+     * @param selector
+     * @return
+     */
+    public int writeSelectedSites(final VariantContextWriter writer, final SiteSelector selector) {
+        writer.writeHeader(makeStandardVCFHeader());
 
-        VCFStandardHeaderLines.addStandardFormatLines(metadata, true, VCFConstants.GENOTYPE_KEY);
-
-        writer.writeHeader(new VCFHeader(metadata, Collections.singleton("NA12878")));
-
-        selector.onlyReviewed();
         int counter = 0;
         for ( final MongoVariantContext vc : getCalls(selector)) {
-            if ( logger.isDebugEnabled() )
-                logger.info("Archiving review " + vc);
             writer.add(vc.getVariantContext());
             counter++;
         }
 
         return counter;
+    }
+
+    /**
+     * @return a VCF header containing all of the standard NA12878 knowledge base metadata (INFO and FORMAT) fields
+     */
+    public VCFHeader makeStandardVCFHeader() {
+        final Set<VCFHeaderLine> metadata = new HashSet<VCFHeaderLine>();
+
+        for ( final VCFHeaderLine line : MongoVariantContext.reviewHeaderLines() )
+            metadata.add(line);
+
+        VCFStandardHeaderLines.addStandardFormatLines(metadata, true,
+                VCFConstants.GENOTYPE_KEY, VCFConstants.DEPTH_KEY, VCFConstants.GENOTYPE_QUALITY_KEY);
+
+        return new VCFHeader(metadata, Collections.singleton("NA12878"));
     }
 
     @Override

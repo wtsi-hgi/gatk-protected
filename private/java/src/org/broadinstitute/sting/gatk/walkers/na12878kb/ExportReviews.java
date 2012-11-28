@@ -7,10 +7,6 @@ public class ExportReviews extends NA12878DBWalker {
     @Output
     public VariantContextWriter out;
 
-    public void initialize() {
-        super.initialize();
-    }
-
     @Override public boolean isDone() { return true; }
 
     @Override
