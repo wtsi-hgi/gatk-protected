@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
 import com.mongodb.ReflectionDBObject;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
@@ -106,47 +107,58 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
                                                 final String alt,
                                                 final Genotype gt,
                                                 final boolean isReviewed) {
+        return create(callSetName, chr, start, ref, alt, TruthStatus.TRUE_POSITIVE, gt, isReviewed);
+    }
+
+    protected static MongoVariantContext create(final String callSetName,
+                                                final String chr,
+                                                final int start,
+                                                final String ref,
+                                                final String alt,
+                                                final TruthStatus truthStatus,
+                                                final Genotype gt,
+                                                final boolean isReviewed) {
         final int stop = start + ref.length() - 1;
         final VariantContextBuilder vcb = new VariantContextBuilder(callSetName, chr, start, stop, Arrays.asList(Allele.create(ref, true), Allele.create(alt)));
-        return new MongoVariantContext(callSetName, vcb.make(), TruthStatus.TRUE_POSITIVE, new Date(), gt, isReviewed);
+        return new MongoVariantContext(callSetName, vcb.make(), truthStatus, new Date(), gt, isReviewed);
     }
 
     public static MongoVariantContext create(final List<String> supportingCallsets,
                                              final VariantContext vc,
-                                             final TruthStatus type,
+                                             final TruthStatus truthStatus,
                                              final Date date,
                                              final Genotype gt,
                                              final boolean isReviewed) {
-        return new MongoVariantContext(supportingCallsets, vc, type, date, gt, isReviewed);
+        return new MongoVariantContext(supportingCallsets, vc, truthStatus, date, gt, isReviewed);
     }
 
     public static MongoVariantContext create(final String callSetName,
                                              final VariantContext vc,
-                                             final TruthStatus type,
+                                             final TruthStatus truthStatus,
                                              final Genotype gt) {
-        return create(Arrays.asList(callSetName), vc, type, new Date(), gt, false);
+        return create(Arrays.asList(callSetName), vc, truthStatus, new Date(), gt, false);
     }
 
     public static MongoVariantContext createFromReview(final VariantContext vc) {
         final String callSet = parseReviewField(vc, "CallSetName");
-        final TruthStatus type = TruthStatus.valueOf(parseReviewField(vc, "TruthStatus"));
+        final TruthStatus truthStatus = TruthStatus.valueOf(parseReviewField(vc, "TruthStatus"));
         final Date date = new Date(Long.valueOf(parseReviewField(vc, "Date")));
         final Genotype gt = vc.hasGenotype("NA12878") ? vc.getGenotype("NA12878") : MongoGenotype.NO_CALL;
-        return new MongoVariantContext(callSet, vc, type, date, gt, true);
+        return new MongoVariantContext(callSet, vc, truthStatus, date, gt, true);
     }
 
     protected MongoVariantContext(final String callset,
                                   final VariantContext vc,
-                                  final TruthStatus type,
+                                  final TruthStatus truthStatus,
                                   final Date date,
                                   final Genotype gt,
                                   final boolean isReviewed) {
-        this(Arrays.asList(callset), vc, type, date, gt, isReviewed);
+        this(Arrays.asList(callset), vc, truthStatus, date, gt, isReviewed);
     }
 
     protected MongoVariantContext(final List<String> supportingCallsets,
                                   final VariantContext vc,
-                                  final TruthStatus type,
+                                  final TruthStatus truthStatus,
                                   final Date date,
                                   final Genotype gt,
                                   final boolean isReviewed) {
@@ -162,7 +174,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         this.stop = vc.getEnd();
         this.ref = vc.getReference().getDisplayString();
         this.alt = vc.getAlternateAllele(0).getDisplayString();
-        this.mongoType = type;
+        this.mongoType = truthStatus;
         this.date = date;
         this.reviewed = isReviewed;
         this.gt = new MongoGenotype(vc.getAlleles(), gt);
@@ -417,7 +429,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
     /**
      * Make sure this MongoVariantContext is valid, throwing a MongoVariantContextException if not
      *
-     * @throws MongoVariantContextException if this is malformed
+     * @throws org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException if this is malformed
      * @param parser a GenomeLocParser so we know what contigs are allowed
      */
     protected void validate(final GenomeLocParser parser) {

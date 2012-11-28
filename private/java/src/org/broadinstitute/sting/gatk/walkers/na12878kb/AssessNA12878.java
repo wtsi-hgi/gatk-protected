@@ -110,6 +110,11 @@ public class AssessNA12878 extends NA12878DBWalker {
     final Assessment SNPAssessments = new Assessment();
     final Assessment IndelAssessments = new Assessment();
 
+    @Override
+    public NA12878DBArgumentCollection.DBType getDefaultDB() {
+        return NA12878DBArgumentCollection.DBType.PRODUCTION;
+    }
+
     public void initialize() {
         super.initialize();
         consensusSiteIterator = db.getConsensusSites(makeSiteSelector());

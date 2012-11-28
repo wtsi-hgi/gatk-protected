@@ -30,6 +30,8 @@ class HaplotypeCallerValidation extends QScript {
   @Argument(doc = "Bases upstream and downstream to add when a single base locus is given", shortName = "extent", required = false)
   var defaultExtent = 100
 
+  @Argument(doc = "The minimum allowed pruning factor in HaplotypeCaller assembly graph", shortName = "minPruning", required = false)
+  var HC_minPruning = 4
 
   class BamSM(bamIn: File, SMin: String) {
     val bam = bamIn
@@ -43,9 +45,7 @@ class HaplotypeCallerValidation extends QScript {
       this.intervalsString = List(locus.toString)
       this.input_file = samples.reverse.map(s => {if (sampleToBamSM.contains(s)) sampleToBamSM(s).bam else throw new IllegalArgumentException("Sample " + s + " not found in " + sample_bam_SM)})
       this.out = name + ".HC.vcf"
-
-      // Get full haplotypes (at the expense of missing out on the lower frequency variants with lots of samples):
-      this.genotypeFullActiveRegion = true
+      this.minPruning = HC_minPruning
     }
 
     class UGrun(val name: String, val locus: GenomeLoc, val samples: List[String]) extends UnifiedGenotyper with CommandLineGATKArgs {
@@ -100,7 +100,7 @@ class HaplotypeCallerValidation extends QScript {
     this.jarFile = qscript.gatkJarFile
     this.reference_sequence = qscript.referenceFile
     this.scatterCount = scatterCountInput
-    this.memoryLimit = 2
+    this.memoryLimit = 1
     this.logging_level = "INFO"
   }
 

@@ -1,13 +1,13 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.errors;
 
+import org.broadinstitute.sting.gatk.walkers.na12878kb.MongoVariantContext;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 
 /**
- * Created with IntelliJ IDEA.
+ * Exception specific to MongoVariantContext formatting issues
  * User: depristo
  * Date: 11/21/12
  * Time: 9:45 AM
- * To change this template use File | Settings | File Templates.
  */
 public class MongoVariantContextException extends ReviewedStingException {
     final MongoVariantContext mongoVariantContext;

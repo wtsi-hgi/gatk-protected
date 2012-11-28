@@ -2,12 +2,19 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
 import com.mongodb.*;
 import org.apache.log4j.Logger;
+import org.apache.log4j.Priority;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordsRemove;
 import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
+import org.broadinstitute.sting.utils.codecs.vcf.VCFStandardHeaderLines;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
+import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 
 import java.net.UnknownHostException;
 import java.util.*;
@@ -26,6 +33,7 @@ public class NA12878KnowledgeBase {
     private final static String CONSENSUS_COLLECTION = "consensus";
 
     protected Mongo mongo;
+    protected DB mongoDb;
     protected DBCollection sites;
     protected DBCollection callSets;
     protected DBCollection consensusSites;
@@ -43,18 +51,19 @@ public class NA12878KnowledgeBase {
             logger.info("Connecting to MongoDB host=" + dbHost + " port=" + DB_PORT + " name=" + dbName);
             ServerAddress address = new ServerAddress(dbHost, DB_PORT);
             mongo = new Mongo(address, options);
-            final DB mongoDb = mongo.getDB(dbName);
+            mongoDb = mongo.getDB(dbName);
 
             sites = mongoDb.getCollection(SITES_COLLECTION);
             sites.setObjectClass(MongoVariantContext.class);
-            sites.ensureIndex(basicOrder());
+            sites.ensureIndex(sitesOrder());
+            sites.ensureIndex(essentialIndex());
 
             callSets = mongoDb.getCollection(CALLSETS_COLLECTION);
             callSets.setObjectClass(CallSet.class);
 
             consensusSites = mongoDb.getCollection(CONSENSUS_COLLECTION);
             consensusSites.setObjectClass(MongoVariantContext.class);
-            consensusSites.ensureIndex(basicOrder());
+            consensusSites.ensureIndex(sitesOrder());
             consensusSites.ensureIndex(essentialIndex());
 
             mongo.setWriteConcern(WriteConcern.SAFE);
@@ -101,8 +110,8 @@ public class NA12878KnowledgeBase {
     // working with CallSets
     // ---------------------------------------------------------------------
 
-    public void addCallset(final CallSet callSet) {
-        callSets.insert(callSet);
+    public WriteResult addCallset(final CallSet callSet) {
+        return callSets.insert(callSet);
     }
 
     public List<CallSet> getCallSets() {
@@ -124,8 +133,13 @@ public class NA12878KnowledgeBase {
     // Working with sites
     // ---------------------------------------------------------------------
 
-    public void addCall(final MongoVariantContext mvc) {
-        sites.insert(mvc);
+    public WriteResult addCall(final MongoVariantContext mvc) {
+        return sites.insert(mvc);
+    }
+
+    public void addCalls(final Collection<MongoVariantContext> mvcs) {
+        for ( final MongoVariantContext mvc : mvcs )
+            addCall(mvc);
     }
 
     private DBObject essentialIndex() {
@@ -135,14 +149,17 @@ public class NA12878KnowledgeBase {
         return sortOrder;
     }
 
-    private DBObject basicOrder() {
+    protected DBCollection getSitesCollection() {
+        return sites;
+    }
+
+    public DBObject sitesOrder() {
         final DBObject sortOrder = new BasicDBObject();
         sortOrder.put("Chr", 1);
         sortOrder.put("Start", 1);
-        // TODO -- won't work for sites with multiple values
-//        sortOrder.put("Stop", 1);
-//        sortOrder.put("Ref", 1);
-//        sortOrder.put("Alt", 1);
+        sortOrder.put("Stop", 1);
+        sortOrder.put("Ref", 1);
+        sortOrder.put("Alt", 1);
         return sortOrder;
     }
 
@@ -161,34 +178,40 @@ public class NA12878KnowledgeBase {
      * @return
      */
     public SiteIterator<MongoVariantContext> getCalls(final SiteSelector criteria) {
-        final DBObject sortOrder = basicOrder();
-        return new SiteIterator<MongoVariantContext>(parser, sites.find(criteria.toQuery()).sort(sortOrder));
-    }
-
-    public SiteIterator<MongoVariantContext> getCallsLinear(final SiteSelector criteria) {
-        return new SiteIterator<MongoVariantContext>(parser, sites.find(criteria.toQuery()).sort(basicOrder()));
+        final DBObject sortOrder = sitesOrder();
+        final DBCursor cursor = sites.find(criteria.toQuery()).sort(sortOrder);
+        final SiteIterator<MongoVariantContext> it = new SiteIterator<MongoVariantContext>(parser, cursor);
+        it.setErrorHandler(new InvalidRecordsRemove<MongoVariantContext>(sites));
+        return it;
     }
 
     /**
-     * Get the sites, if any, that overlap the interval specified as the loc
+     * Get the consensus sites, if any, that overlap the interval specified as the loc
      *
-     * @param criteria
+     * @param criteria a SiteSelector to select the consensus sites we are interested in
      * @return
      */
     public SiteIterator<MongoVariantContext> getConsensusSites(final SiteSelector criteria) {
-        //if ( debug ) logger.info("Consensus iterator cursor explain: " + consensusSites.find(criteria.toQuery()).sort(basicOrder()));
-        final DBCursor cursor = consensusSites.find(criteria.toQuery()).sort(basicOrder());
+        final DBCursor cursor = consensusSites.find(criteria.toQuery()).sort(sitesOrder());
         return new SiteIterator<MongoVariantContext>(parser, cursor);
     }
 
-    public void updateConsensus(final SiteSelector selector) {
+    public int updateConsensus(final SiteSelector selector) {
+        return updateConsensus(selector, Priority.DEBUG);
+    }
+
+    public int updateConsensus(final SiteSelector selector, final Priority logPriority) {
+        int nUpdated = 0;
         final SiteIterator<MongoVariantContext> siteIterator = getCalls(selector);
         while ( siteIterator.hasNext() ) {
             final Collection<MongoVariantContext> callsAtSite = siteIterator.getNextEquivalents();
             final MongoVariantContext consensus = makeConsensus(callsAtSite);
             addConsensus(consensus);
-            logger.info("Updating consensus at site " + consensus);
+            logger.log(logPriority, "Updating consensus at site " + consensus);
+            nUpdated++;
         }
+
+        return nUpdated;
     }
 
     private MongoVariantContext makeConsensus(final Collection<MongoVariantContext> individualCalls) {
@@ -262,7 +285,45 @@ public class NA12878KnowledgeBase {
         return status;
     }
 
-    private void addConsensus(final MongoVariantContext site) {
-        consensusSites.insert(site);
+    private WriteResult addConsensus(final MongoVariantContext site) {
+        return consensusSites.insert(site);
+    }
+
+    /**
+     * Convenience function to write all reviewed MongoVariantContexts as VariantContext
+     * from the sites collection to the VariantContextWriter outputStream
+     *
+     * @param writer where the VariantContexts should be written
+     * @param selector the root SiteSelector that lets us know where we should be getting our records from
+     * @return the number of reviews written to disk
+     */
+    public int writeReviews(final VariantContextWriter writer, final SiteSelector selector) {
+        final Set<VCFHeaderLine> metadata = new HashSet<VCFHeaderLine>();
+
+        for ( final VCFHeaderLine line : MongoVariantContext.reviewHeaderLines() )
+            metadata.add(line);
+
+        VCFStandardHeaderLines.addStandardFormatLines(metadata, true, VCFConstants.GENOTYPE_KEY);
+
+        writer.writeHeader(new VCFHeader(metadata, Collections.singleton("NA12878")));
+
+        selector.onlyReviewed();
+        int counter = 0;
+        for ( final MongoVariantContext vc : getCalls(selector)) {
+            if ( logger.isDebugEnabled() )
+                logger.info("Archiving review " + vc);
+            writer.add(vc.getVariantContext());
+            counter++;
+        }
+
+        return counter;
+    }
+
+    @Override
+    public String toString() {
+        return "NA12878KnowledgeBase{" +
+                "mongo=" + mongo +
+                ", mongoDb=" + mongoDb +
+                '}';
     }
 }

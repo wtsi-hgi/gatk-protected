@@ -1,5 +1,9 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
+import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordsLogError;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordsRemove;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordsThrowError;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -27,6 +31,7 @@ public class SiteIteratorUnitTest extends NA12878KBUnitTestBase {
         db.addCall(MongoVariantContext.create("y", "20", 5, "A", "C", false));
 
         it = db.getCalls();
+        it.setErrorHandler(new InvalidRecordsThrowError<MongoVariantContext>());
     }
 
     @AfterMethod
@@ -142,5 +147,57 @@ public class SiteIteratorUnitTest extends NA12878KBUnitTestBase {
         }
 
         Assert.assertFalse(it.hasNext());
+    }
+
+    @DataProvider(name = "BadMVCs")
+    public Object[][] makeBadMVCsProvider() throws CloneNotSupportedException {
+        List<Object[]> tests = new ArrayList<Object[]>();
+
+        for ( final MongoVariantContext bad : MongoVariantContextUnitTest.makeBadMVCs() )
+            tests.add(new Object[]{bad});
+
+        return tests.toArray(new Object[][]{});
+    }
+
+    @Test(dataProvider = "BadMVCs", expectedExceptions = MongoVariantContextException.class)
+    public void testIteratorWithBadMVCsErrors(final MongoVariantContext mvc) {
+        it.close();
+        db.addCall(mvc);
+        it = db.getCalls();
+        it.setErrorHandler(new InvalidRecordsThrowError<MongoVariantContext>());
+        it.toList();
+    }
+
+    @Test(dataProvider = "BadMVCs")
+    public void testIteratorWithBadMVCsLogError(final MongoVariantContext bad) {
+        final List<MongoVariantContext> expected = it.toList();
+        it.close();
+        db.addCall(bad);
+        it = db.getCalls();
+        final InvalidRecordsLogError<MongoVariantContext> handler = new InvalidRecordsLogError<MongoVariantContext>();
+        it.setErrorHandler(handler);
+        final List<MongoVariantContext> withoutBad = it.toList();
+        Assert.assertEquals(withoutBad, expected);
+        Assert.assertEquals(handler.getnBad(), 1);
+    }
+
+    @Test(dataProvider = "BadMVCs")
+    public void testIteratorWithBadMVCsRemoving(final MongoVariantContext bad) {
+        final List<MongoVariantContext> expected = it.toList();
+        it.close();
+        db.addCall(bad);
+        it = db.getCalls();
+        final InvalidRecordsRemove<MongoVariantContext> handler = new InvalidRecordsRemove<MongoVariantContext>(db.sites);
+        it.setErrorHandler(handler);
+        final List<MongoVariantContext> withoutBad = it.toList();
+        Assert.assertEquals(withoutBad, expected);
+        Assert.assertEquals(handler.getnBad(), 1);
+
+        // now that we've removed the record, we should be able to reread the db without protection and get the right answer
+        it = db.getCalls();
+        final InvalidRecordsThrowError<MongoVariantContext> errorThrower = new InvalidRecordsThrowError<MongoVariantContext>();
+        it.setErrorHandler(errorThrower);
+        final List<MongoVariantContext> withoutBadFilter = it.toList();
+        Assert.assertEquals(withoutBadFilter, expected);
     }
 }

@@ -12,8 +12,12 @@ public abstract class NA12878DBWalker extends RodWalker<Integer, Integer> {
 
     protected NA12878KnowledgeBase db;
 
+    public abstract NA12878DBArgumentCollection.DBType getDefaultDB();
+
     public void initialize() {
         logger.info("Connecting to DB");
+        if ( dbArgumentCollection.dbToUse == NA12878DBArgumentCollection.DBType.DEFAULT )
+            dbArgumentCollection.dbToUse = getDefaultDB();
         db = new NA12878KnowledgeBase(getToolkit().getGenomeLocParser(), dbArgumentCollection);
     }
 
