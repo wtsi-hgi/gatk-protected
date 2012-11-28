@@ -21,6 +21,7 @@ import collection.mutable
 import org.broadinstitute.sting.queue.extensions.picard._
 import io.Source
 import java.util.Date
+import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotyperEngine, GenotypeLikelihoodsCalculationModel}
 
 class CMIBAMProcessingPipeline extends CmiScript {
   qscript =>
@@ -64,6 +65,10 @@ class CMIBAMProcessingPipeline extends CmiScript {
 
   @Input(doc = "Interval file with baits used in exome capture (used for QC metrics)", fullName = "baits", shortName = "baits", required = false)
   var baits: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_b37_decoy.baits.interval_list")
+
+  @Input(doc = "File containing known sites and alleles to evaluate single-sample calls", fullName = "knownCalls", shortName = "knownCalls", required = false)
+  var knownSites: File = new File("/refdata/ALL.wgs.phase1_release_v3.20101123.snps_indels_sv.sites.vcf.gz")
+
 
   /** **************************************************************************
     * Output files, to be passed in by messaging service
@@ -629,6 +634,9 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.dbsnp = qscript.dbSNP(0)
     this.downsample_to_coverage = 600
     this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    this.genotyping_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
+    this.alleles = qscript.knownSites
     this.scatterCount = nContigs
 
     this.intervals :+= qscript.targets
