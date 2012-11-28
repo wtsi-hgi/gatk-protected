@@ -9,14 +9,12 @@ import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFStandardHeaderLines;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Allele;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 
-import java.net.UnknownHostException;
 import java.util.*;
 
 public class NA12878KnowledgeBase {
@@ -24,61 +22,50 @@ public class NA12878KnowledgeBase {
 
     private final static boolean debug = true;
 
-    private final static String DB_HOST = "couchdb.broadinstitute.org";
-    private final static String DB_HOST_LOCAL = "localhost";
-    private final static Integer DB_PORT = 43054;
-    private final static String DB_NAME = "NA12878KnowledgeBase";
-    private final static String SITES_COLLECTION = "sites";
-    private final static String CALLSETS_COLLECTION = "callsets";
-    private final static String CONSENSUS_COLLECTION = "consensus";
+//    private final static String DB_HOST = "couchdb.broadinstitute.org";
+//    private final static String DB_HOST_LOCAL = "localhost";
+//    private final static Integer DB_PORT = 43054;
+//    private final static String DB_NAME = "NA12878KnowledgeBase";
+//    private final static String SITES_COLLECTION = "sites";
+//    private final static String CALLSETS_COLLECTION = "callsets";
+//    private final static String CONSENSUS_COLLECTION = "consensus";
 
-    protected Mongo mongo;
-    protected DB mongoDb;
     protected DBCollection sites;
     protected DBCollection callSets;
     protected DBCollection consensusSites;
     protected GenomeLocParser parser;
 
+    private final MongoDBManager.Locator dblocator;
+
     public NA12878KnowledgeBase(final GenomeLocParser parser, final NA12878DBArgumentCollection args) {
-        try {
-            this.parser = parser;
-            final String dbHost = args.useLocal ? DB_HOST_LOCAL : DB_HOST;
+        this.parser = parser;
+        this.dblocator = args.getLocator();
 
-            MongoOptions options = new MongoOptions();
-            //options.socketTimeout = 60000;
+        MongoDBManager.DBWrapper dbWrapper = MongoDBManager.getDB(this.dblocator);
 
-            String dbName = DB_NAME + args.dbToUse.getExtension();
-            logger.info("Connecting to MongoDB host=" + dbHost + " port=" + DB_PORT + " name=" + dbName);
-            ServerAddress address = new ServerAddress(dbHost, DB_PORT);
-            mongo = new Mongo(address, options);
-            mongoDb = mongo.getDB(dbName);
+        sites = dbWrapper.getSites();
+        sites.setObjectClass(MongoVariantContext.class);
+        sites.ensureIndex(sitesOrder());
+        sites.ensureIndex(essentialIndex());
 
-            sites = mongoDb.getCollection(SITES_COLLECTION);
-            sites.setObjectClass(MongoVariantContext.class);
-            sites.ensureIndex(sitesOrder());
-            sites.ensureIndex(essentialIndex());
+        callSets = dbWrapper.getCallsets();
+        callSets.setObjectClass(CallSet.class);
 
-            callSets = mongoDb.getCollection(CALLSETS_COLLECTION);
-            callSets.setObjectClass(CallSet.class);
+        consensusSites = dbWrapper.getConsensus();
+        consensusSites.setObjectClass(MongoVariantContext.class);
+        consensusSites.ensureIndex(sitesOrder());
+        consensusSites.ensureIndex(essentialIndex());
 
-            consensusSites = mongoDb.getCollection(CONSENSUS_COLLECTION);
-            consensusSites.setObjectClass(MongoVariantContext.class);
-            consensusSites.ensureIndex(sitesOrder());
-            consensusSites.ensureIndex(essentialIndex());
+        dbWrapper.getMongo().setWriteConcern(WriteConcern.SAFE);
 
-            mongo.setWriteConcern(WriteConcern.SAFE);
-
-            if ( args.resetDB ) reset();
-        } catch (UnknownHostException e) {
-            throw new ReviewedStingException(e.getMessage(), e);
-        }
+        if ( args.resetDB ) reset();
     }
 
     /**
      * Close down the connections for this KnowledgeBase
      */
     public void close() {
-        mongo.close();
+        MongoDBManager.getDB(dblocator).close();
     }
 
     protected void printStatus() {
@@ -321,9 +308,7 @@ public class NA12878KnowledgeBase {
 
     @Override
     public String toString() {
-        return "NA12878KnowledgeBase{" +
-                "mongo=" + mongo +
-                ", mongoDb=" + mongoDb +
-                '}';
+        String msg = String.format("NA12878KnowledgeBase{db=%s, locator=%s}", dblocator.name, dblocator);
+        return msg;
     }
 }
