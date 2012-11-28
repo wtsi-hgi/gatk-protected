@@ -54,7 +54,8 @@ public class ExtractConsensusSites extends NA12878DBWalker {
         super.initialize();
 
         if ( variantType != null ) criteria.add(new ByType());
-        if ( excludeCallset != null || includeCallset != null ) criteria.add(new ByIncludeExclude());
+        if ( excludeCallset != null ) criteria.add(new ByExclude());
+        if ( includeCallset != null ) criteria.add(new ByInclude());
         if ( truthStatus != null ) criteria.add(new ByTruthStatus());
         if ( uniqueToOneCallset ) criteria.add(new ByUniqueToOneCallset());
         if ( genotypeType != null ) criteria.add(new ByGenotype());
@@ -100,11 +101,26 @@ public class ExtractConsensusSites extends NA12878DBWalker {
         }
     }
 
-    private class ByIncludeExclude extends ShouldBeReviewed {
+    private class ByInclude extends ShouldBeReviewed {
         @Override
         public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return (includeCallset != null && ! includeCallset.contains(mvc.getCallSetName())) ||
-                    (excludeCallset != null && excludeCallset.contains(mvc.getCallSetName()));
+            for ( final String callset : mvc.getSupportingCallSets() ) {
+                if ( includeCallset.contains(callset)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+    private class ByExclude extends ShouldBeReviewed {
+        @Override
+        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
+            for ( final String callset : mvc.getSupportingCallSets() ) {
+                if ( excludeCallset.contains(callset)) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
