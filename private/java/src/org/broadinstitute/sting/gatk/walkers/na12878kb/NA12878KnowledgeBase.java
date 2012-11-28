@@ -110,8 +110,8 @@ public class NA12878KnowledgeBase {
     // working with CallSets
     // ---------------------------------------------------------------------
 
-    public void addCallset(final CallSet callSet) {
-        callSets.insert(callSet);
+    public WriteResult addCallset(final CallSet callSet) {
+        return callSets.insert(callSet);
     }
 
     public List<CallSet> getCallSets() {
@@ -133,8 +133,8 @@ public class NA12878KnowledgeBase {
     // Working with sites
     // ---------------------------------------------------------------------
 
-    public void addCall(final MongoVariantContext mvc) {
-        sites.insert(mvc);
+    public WriteResult addCall(final MongoVariantContext mvc) {
+        return sites.insert(mvc);
     }
 
     public void addCalls(final Collection<MongoVariantContext> mvcs) {
@@ -285,8 +285,8 @@ public class NA12878KnowledgeBase {
         return status;
     }
 
-    private void addConsensus(final MongoVariantContext site) {
-        consensusSites.insert(site);
+    private WriteResult addConsensus(final MongoVariantContext site) {
+        return consensusSites.insert(site);
     }
 
     /**
