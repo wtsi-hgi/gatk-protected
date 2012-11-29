@@ -8,7 +8,7 @@ import org.testng.annotations.Test;
  * User: jacob
  * Date: 2012-Nov-27
  */
-public class NA12878DBArgumentCollectionTest extends BaseTest {
+public class NA12878DBArgumentCollectionUnitTest extends BaseTest {
 
     //We have two spec files saved. Test that we can read them, and
     //the fields are as expected
