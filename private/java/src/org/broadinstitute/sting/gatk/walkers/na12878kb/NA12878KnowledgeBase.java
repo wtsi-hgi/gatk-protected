@@ -173,22 +173,23 @@ public class NA12878KnowledgeBase {
         return new SiteIterator<MongoVariantContext>(parser, cursor);
     }
 
-    public int updateConsensus(final SiteSelector selector) {
+    public ConsensusSummarizer updateConsensus(final SiteSelector selector) {
         return updateConsensus(selector, Priority.DEBUG);
     }
 
-    public int updateConsensus(final SiteSelector selector, final Priority logPriority) {
-        int nUpdated = 0;
+    public ConsensusSummarizer updateConsensus(final SiteSelector selector, final Priority logPriority) {
+        final ConsensusSummarizer summary = new ConsensusSummarizer();
+
         final SiteIterator<MongoVariantContext> siteIterator = getCalls(selector);
         while ( siteIterator.hasNext() ) {
             final Collection<MongoVariantContext> callsAtSite = siteIterator.getNextEquivalents();
             final MongoVariantContext consensus = makeConsensus(callsAtSite);
             addConsensus(consensus);
             logger.log(logPriority, "Updating consensus at site " + consensus);
-            nUpdated++;
+            summary.add(consensus);
         }
 
-        return nUpdated;
+        return summary;
     }
 
     private MongoVariantContext makeConsensus(final Collection<MongoVariantContext> individualCalls) {
