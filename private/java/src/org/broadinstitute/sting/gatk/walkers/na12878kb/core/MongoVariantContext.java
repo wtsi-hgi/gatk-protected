@@ -1,7 +1,7 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.mongodb.ReflectionDBObject;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
@@ -300,7 +300,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         //vcb.attribute("PhredConfidence", getPhredConfidence());
     }
 
-    protected static Set<VCFHeaderLine> reviewHeaderLines() {
+    public static Set<VCFHeaderLine> reviewHeaderLines() {
         final Set<VCFHeaderLine> lines = new HashSet<VCFHeaderLine>();
 
         lines.add(new VCFInfoHeaderLine("CallSetName", 1, VCFHeaderLineType.String, "Name of the review"));
@@ -425,7 +425,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
     /**
      * Make sure this MongoVariantContext is valid, throwing a MongoVariantContextException if not
      *
-     * @throws org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException if this is malformed
+     * @throws org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException if this is malformed
      * @param parser a GenomeLocParser so we know what contigs are allowed
      */
     protected void validate(final GenomeLocParser parser) {

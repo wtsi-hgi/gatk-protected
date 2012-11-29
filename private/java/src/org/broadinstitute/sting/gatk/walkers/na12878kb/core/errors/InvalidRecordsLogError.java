@@ -1,7 +1,7 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb.errors;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors;
 
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.MongoVariantContext;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 
 /**
  * Handle invalid exceptions simply by logging (and ignoring) them

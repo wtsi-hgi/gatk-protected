@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.mongodb.ReflectionDBObject;
 import org.broadinstitute.sting.utils.Utils;

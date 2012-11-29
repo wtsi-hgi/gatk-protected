@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import org.apache.log4j.Logger;

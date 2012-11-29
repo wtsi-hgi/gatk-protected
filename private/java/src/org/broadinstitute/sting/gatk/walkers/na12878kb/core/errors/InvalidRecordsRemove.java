@@ -1,7 +1,7 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb.errors;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors;
 
 import com.mongodb.DBCollection;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.MongoVariantContext;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 
 /**
  * Handle errors by logging them and then removing them from the DBCollection itself

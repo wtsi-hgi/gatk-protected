@@ -2,6 +2,9 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
 import com.google.java.contract.Ensures;
 import org.broadinstitute.sting.gatk.report.GATKReport;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.PolymorphicStatus;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
 
 import java.util.Date;
 import java.util.EnumMap;

@@ -1,6 +1,6 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
-import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;

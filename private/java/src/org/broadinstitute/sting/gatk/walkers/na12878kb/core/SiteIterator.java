@@ -1,13 +1,13 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import com.mongodb.DBCursor;
 import net.sf.picard.util.PeekableIterator;
 import net.sf.samtools.util.CloseableIterator;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordHandler;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordsThrowError;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordHandler;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsThrowError;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 

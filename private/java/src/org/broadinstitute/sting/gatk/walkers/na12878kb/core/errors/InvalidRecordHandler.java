@@ -1,6 +1,6 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb.errors;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors;
 
-import org.broadinstitute.sting.gatk.walkers.na12878kb.MongoVariantContext;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 
 /**
  * Interface for classes that want to handle their own errors

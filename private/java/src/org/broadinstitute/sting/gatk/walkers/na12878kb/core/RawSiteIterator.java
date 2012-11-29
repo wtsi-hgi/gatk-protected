@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.mongodb.DBCursor;
 import net.sf.samtools.util.CloseableIterator;

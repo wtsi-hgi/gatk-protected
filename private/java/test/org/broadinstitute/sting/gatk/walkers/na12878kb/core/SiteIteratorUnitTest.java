@@ -1,9 +1,9 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
-import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordsLogError;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordsRemove;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.InvalidRecordsThrowError;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.errors.MongoVariantContextException;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsLogError;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsRemove;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsThrowError;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;

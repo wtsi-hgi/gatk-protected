@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.google.gson.Gson;
 import org.broadinstitute.sting.commandline.Argument;
@@ -69,10 +69,10 @@ public class NA12878DBArgumentCollection {
     }
 
     @Argument(fullName = "dbToUse", shortName = "dbToUse", doc = "Which database should we connect to?", required=false)
-    protected DBType dbToUse = DBType.DEFAULT;
+    public DBType dbToUse = DBType.DEFAULT;
 
     @Argument(shortName = "reset", required=false)
-    protected boolean resetDB = false;
+    public boolean resetDB = false;
 
     public NA12878DBArgumentCollection(){
         this(false);

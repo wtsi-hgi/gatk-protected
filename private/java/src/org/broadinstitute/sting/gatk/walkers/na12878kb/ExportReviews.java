@@ -1,6 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 
 public class ExportReviews extends NA12878DBWalker {
