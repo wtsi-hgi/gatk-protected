@@ -49,9 +49,9 @@ $import -callSetName 1000G_snpChip -assumedCallTruth TRUE_POSITIVE -howToTreatFi
 $import -callSetName AffyAxiom -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/Affymetrix_Axiom_DB_2010_v4_b37.na12878.20.vcf
 $import -callSetName 1000G_exomeIndels -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 MARK_AS_NON_POLYMORPHIC -V $source/exomeIndels.HC.GGA.MiSeq.chr20.raw.na12878.20.vcf
 $import -callSetName MiSeqLargeIndels -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/largeIndels.HC.GGA.MiSeq.chr20.raw.na12878.20.vcf
+$import -callSetName largeScaleValidationPools_POLY -assumedCallTruth UNKNOWN -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/largeScaleValidationSites_pools_run20121030EASFix.POLYMORPHIC.sites.na12878.20.vcf
+$import -callSetName largeScaleValidationPools_MONO -assumedCallTruth FALSE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/largeScaleValidationSites_pools_run20121030EASFix.MONOMORPHIC.sites.na12878.20.vcf
 #$import -callSetName largeScaleValidationNA12878 -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 SKIP -V $source/largeScaleValidation.HC.NA12878.chr20.recalibrated.na12878.20.vcf
-#$import -callSetName largeScaleValidationPools_POLY -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/largeScaleValidationSites_pools_run20121030EASFix.POLYMORPHIC.sites.na12878.20.vcf
-#$import -callSetName largeScaleValidationPools_MONO -assumedCallTruth FALSE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/largeScaleValidationSites_pools_run20121030EASFix.MONOMORPHIC.sites.na12878.20.vcf
 endif
 
 # import reviews from private testdata
