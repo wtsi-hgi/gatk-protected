@@ -20,13 +20,31 @@ public class NA12878DBArgumentCollection {
     @Argument(fullName = "useLocal", shortName = "useLocal", doc = "If true, the localhost MongoDB will be used; for testing only", required=false)
     protected boolean useLocal = false;
 
-    @Argument(fullName = "dbSpecPath", shortName = "dbSpecPath", doc = "Path to JSON file specifying database connection parameters", required=false)
-    protected String dbSpecPath = getDBSpecPath(useLocal);
-
-    private MongoDBManager.Locator locator;
+    /** Lazy loaded to work with GATK style argument value injection */
+    String dbSpecPath = null;
 
     public MongoDBManager.Locator getLocator(){
-        return locator;
+        if ( dbSpecPath == null )
+            dbSpecPath = getDBSpecPath(useLocal);
+        InputStream is = getClass().getResourceAsStream(dbSpecPath);
+        if(is == null){
+            try {
+                is = new FileInputStream(dbSpecPath);
+            } catch (FileNotFoundException e) {
+                throw new StingException("db spec path not found", e);
+            }
+        }
+
+        Reader reader = new InputStreamReader(is);
+        MongoDBManager.Locator tmpLocator = (new Gson()).fromJson(reader, MongoDBManager.Locator.class);
+        String dbName = tmpLocator.name + dbToUse.getExtension();
+        try {
+            reader.close();
+            return new MongoDBManager.Locator(tmpLocator.host, tmpLocator.port, dbName, tmpLocator.sitesCollection,
+                    tmpLocator.callsetsCollection, tmpLocator.consensusCollection);
+        } catch ( IOException e ) {
+            throw new RuntimeException("Failed to close json reader for " + dbSpecPath, e);
+        }
     }
 
     public enum DBType {
@@ -56,9 +74,6 @@ public class NA12878DBArgumentCollection {
     @Argument(shortName = "reset", required=false)
     protected boolean resetDB = false;
 
-    /**
-     * Calls {@link org.broadinstitute.sting.gatk.walkers.na12878kb.NA12878DBArgumentCollection#NA12878DBArgumentCollection(false)}
-     */
     public NA12878DBArgumentCollection(){
         this(false);
     }
@@ -74,8 +89,6 @@ public class NA12878DBArgumentCollection {
      */
     public NA12878DBArgumentCollection(boolean useLocal){
         this.useLocal = useLocal;
-        this.dbSpecPath = getDBSpecPath(useLocal);
-        initLocator(dbSpecPath);
     }
 
     /**
@@ -85,25 +98,5 @@ public class NA12878DBArgumentCollection {
      */
     public NA12878DBArgumentCollection(String dbSpecPath){
         this.dbSpecPath = dbSpecPath;
-        initLocator(dbSpecPath);
-
     }
-
-    private void initLocator(String dbSpecPath){
-        InputStream is = getClass().getResourceAsStream(dbSpecPath);
-        if(is == null){
-            try {
-                is = new FileInputStream(dbSpecPath);
-            } catch (FileNotFoundException e) {
-                throw new StingException("db spec path not found", e);
-            }
-        }
-
-        Reader reader = new InputStreamReader(is);
-        MongoDBManager.Locator tmpLocator = (new Gson()).fromJson(reader, MongoDBManager.Locator.class);
-        String dbName = tmpLocator.name + dbToUse.getExtension();
-        this.locator = new MongoDBManager.Locator(tmpLocator.host, tmpLocator.port, dbName, tmpLocator.sitesCollection,
-                tmpLocator.callsetsCollection, tmpLocator.consensusCollection);
-    }
-
 }

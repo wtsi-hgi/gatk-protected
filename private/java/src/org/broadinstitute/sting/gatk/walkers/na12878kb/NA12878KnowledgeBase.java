@@ -20,16 +20,6 @@ import java.util.*;
 public class NA12878KnowledgeBase {
     private final static Logger logger = Logger.getLogger(NA12878KnowledgeBase.class);
 
-    private final static boolean debug = true;
-
-//    private final static String DB_HOST = "couchdb.broadinstitute.org";
-//    private final static String DB_HOST_LOCAL = "localhost";
-//    private final static Integer DB_PORT = 43054;
-//    private final static String DB_NAME = "NA12878KnowledgeBase";
-//    private final static String SITES_COLLECTION = "sites";
-//    private final static String CALLSETS_COLLECTION = "callsets";
-//    private final static String CONSENSUS_COLLECTION = "consensus";
-
     protected DBCollection sites;
     protected DBCollection callSets;
     protected DBCollection consensusSites;
