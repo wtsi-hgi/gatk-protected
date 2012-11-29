@@ -3,6 +3,7 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb;
 import org.apache.log4j.Priority;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.ConsensusSummarizer;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NewlyAddedSites;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteSelector;

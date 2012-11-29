@@ -3,7 +3,6 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 import com.mongodb.*;
 import org.apache.log4j.Logger;
 import org.apache.log4j.Priority;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.ConsensusSummarizer;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsRemove;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;

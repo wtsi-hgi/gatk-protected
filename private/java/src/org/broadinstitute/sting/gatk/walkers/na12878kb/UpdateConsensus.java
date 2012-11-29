@@ -2,10 +2,7 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.CallSet;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteSelector;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.*;
 
 import java.io.PrintStream;
 import java.util.Collections;
