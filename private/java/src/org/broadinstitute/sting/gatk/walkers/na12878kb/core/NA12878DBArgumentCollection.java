@@ -94,9 +94,13 @@ public class NA12878DBArgumentCollection {
     /**
      * Uses the provided file to load database host/name/port/etc.
      * Must be appropriate JSON format
+     *
+     * This *forces* the dbToUse to be the production database
+     *
      * @param dbSpecPath
      */
     public NA12878DBArgumentCollection(String dbSpecPath){
         this.dbSpecPath = dbSpecPath;
+        this.dbToUse = DBType.PRODUCTION;
     }
 }

@@ -12,7 +12,7 @@ public class NA12878KBMain {
         final NA12878DBArgumentCollection dbArgumentCollection = new NA12878DBArgumentCollection();
         final NA12878KnowledgeBase db = new NA12878KnowledgeBase(parser, dbArgumentCollection);
 
-        System.out.printf("Printing consensuss%n");
+        System.out.printf("Printing consensus%n");
         int n = 0;
         for ( final MongoVariantContext mvc : db.getConsensusSites(new SiteSelector(parser))) {
             if ( n++ % 10 == 0 )
