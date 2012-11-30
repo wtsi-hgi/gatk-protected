@@ -30,7 +30,7 @@ import org.broadinstitute.sting.BaseTest
 
 class CMIBAMProcessingPipelineUnitTest {
 
-    @Test
+ //   @Test
     def testSimpleBAM {
       val projectName = "test1"
       val testOut = projectName + ".exampleBAM.bam.clean.dedup.recal.bam"

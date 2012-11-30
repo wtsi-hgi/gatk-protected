@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.queue.batchMerges.BatchMerging
+package org.broadinstitute.sting.queue.qscripts.BatchMerging
 
 import org.broadinstitute.sting.commandline.Hidden
 import org.broadinstitute.sting.queue.extensions.gatk._
@@ -9,23 +9,24 @@ import org.broadinstitute.sting.utils.text.XReadLines
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.gatk.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotyperEngine}
+import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 
 class BatchedCallUnionMerger extends QScript {
   batchMerge =>
 
-  @Argument(doc = "gatk jar file", shortName = "J", required = true)
+  @Input(doc = "gatk jar file", shortName = "J", required = true)
   var gatkJarFile: File = _
 
-  @Argument(shortName = "R", doc = "ref", required = true)
+  @Input(shortName = "R", doc = "ref", required = true)
   var referenceFile: File = _
 
-  @Argument(doc="VCF list",shortName="vcfs")
+  @Input(doc="VCF list",shortName="vcfs")
   var vcfList: File = _
 
   @Input(doc = "bam input, as .bam or as a list of files", shortName = "I", required = true)
   var bamList: File = _
 
-  @Argument(doc="batched output",shortName="o")
+  @Input(doc="batched output",shortName="o")
   var batchOut: File = _
 
   //@Argument(doc="read UG settings from header",shortName="ugh") var ugSettingsFromHeader : Boolean = false
@@ -44,7 +45,7 @@ class BatchedCallUnionMerger extends QScript {
   @Argument(fullName="annotate", shortName="annotate", doc="Annotate output VCF", required=false)
   var annotate: Boolean = false
 
-  @Input(doc = "level of parallelism. By default is set to 0 [no scattering].", shortName = "scatter", required = false)
+  @Argument(doc = "level of parallelism. By default is set to 0 [no scattering].", shortName = "scatter", required = false)
   var scatterCount = 0
 
   @Input(doc = "dbSNP annotations VCF file", fullName = "dbsnp", shortName = "D", required = false)
@@ -81,9 +82,9 @@ class BatchedCallUnionMerger extends QScript {
       this.jarFile = batchMerge.gatkJarFile
       this.scatterCount = 10
       this.memoryLimit = 4
-      this.filteredrecordsmergetype = VariantContextUtils.FilteredRecordMergeType.KEEP_UNCONDITIONAL;
-      this.multipleAllelesMergeType = VariantContextUtils.MultipleAllelesMergeType.MIX_TYPES;
-      this.setKey = "set";
+      this.filteredrecordsmergetype = VariantContextUtils.FilteredRecordMergeType.KEEP_UNCONDITIONAL
+      this.multipleallelesmergetype = VariantContextUtils.MultipleAllelesMergeType.BY_TYPE
+      this.setKey = "set"
     }
 
     var combine : CombineVariants = new CombineVariants with CombineVariantsArgs
@@ -119,7 +120,7 @@ class BatchedCallUnionMerger extends QScript {
 
       if (batchMerge.downsample_to_coverage > 0) {
         this.downsample_to_coverage = batchMerge.downsample_to_coverage
-        this.downsampling_type = org.broadinstitute.sting.gatk.DownsampleType.BY_SAMPLE
+        this.downsampling_type = DownsampleType.BY_SAMPLE
       }
 
       this.genotype_likelihoods_model = GenotypeLikelihoodsCalculationModel.Model.BOTH;
@@ -145,7 +146,7 @@ class BatchedCallUnionMerger extends QScript {
 
       if (batchMerge.downsample_to_coverage > 0) {
         this.downsample_to_coverage = batchMerge.downsample_to_coverage
-        this.downsampling_type = org.broadinstitute.sting.gatk.DownsampleType.BY_SAMPLE
+        this.downsampling_type = DownsampleType.BY_SAMPLE
       }
 
       this.genotype_likelihoods_model = GenotypeLikelihoodsCalculationModel.Model.BOTH;
@@ -156,6 +157,8 @@ class BatchedCallUnionMerger extends QScript {
     }
 
     var callVariants : UGCallVariants = new UGCallVariants with CallVariantsArgs
+    callVariants.isIntermediate = true
+
     callVariants.variant ++= calcs.map( a => new TaggedFile(a.out, "VCF,custom=variant" + a.out.getName.replace(".vcf","")) )
     callVariants.alleles = new TaggedFile(combine.out, "VCF")
 
@@ -193,7 +196,7 @@ class BatchedCallUnionMerger extends QScript {
 
         if (batchMerge.downsample_to_coverage > 0) {
           this.downsample_to_coverage = batchMerge.downsample_to_coverage
-          this.downsampling_type = org.broadinstitute.sting.gatk.DownsampleType.BY_SAMPLE
+          this.downsampling_type = DownsampleType.BY_SAMPLE
         }
       }
       

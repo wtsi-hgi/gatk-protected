@@ -43,10 +43,7 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 
 /**
@@ -59,7 +56,7 @@ import java.util.Set;
 @Reference(window=@Window(start=-200,stop=200))
 @By(DataSource.REFERENCE)
 @Downsample(by=DownsampleType.BY_SAMPLE, toCoverage=250)
-public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> implements TreeReducible<Integer> {
+public class UGCalcLikelihoods extends LocusWalker<List<VariantCallContext>, Integer> implements TreeReducible<Integer> {
 
     @ArgumentCollection private UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
 
@@ -90,10 +87,26 @@ public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> 
         writer.writeHeader(new VCFHeader(headerInfo, samples)) ;
     }
 
-    public VariantCallContext map(RefMetaDataTracker tracker, ReferenceContext refContext, AlignmentContext rawContext) {
-        final Map<String, org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap> perReadAlleleLikelihoodMap = new HashMap<String, org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap>();
-        VariantContext call = UG_engine.calculateLikelihoods(tracker, refContext, rawContext, perReadAlleleLikelihoodMap);
-        return call == null ? null : new VariantCallContext(call, true);
+    public List<VariantCallContext> map(RefMetaDataTracker tracker, ReferenceContext refContext, AlignmentContext rawContext) {
+        List<VariantCallContext> vccList = new LinkedList<VariantCallContext>();
+
+        List<RefMetaDataTracker> useTrackers = new LinkedList<RefMetaDataTracker>();
+        // Allow for multiple records in UAC.alleles, even at same locus:
+        if ( UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
+            for (VariantContext vc : tracker.getValues(UAC.alleles, rawContext.getLocation()))
+                useTrackers.add(new MatchFirstLocRefAltRefMetaDataTracker(tracker, vc));
+        }
+        else
+            useTrackers.add(tracker);
+
+        for (RefMetaDataTracker t : useTrackers) {
+            final Map<String, org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap> perReadAlleleLikelihoodMap = new HashMap<String, org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap>();
+            VariantContext call = UG_engine.calculateLikelihoods(t, refContext, rawContext, perReadAlleleLikelihoodMap);
+            if (call != null)
+                vccList.add(new VariantCallContext(call, true));
+        }
+
+        return vccList;
     }
 
     public Integer reduceInit() { return 0; }
@@ -102,20 +115,21 @@ public class UGCalcLikelihoods extends LocusWalker<VariantCallContext, Integer> 
         return lhs + rhs;
     }
 
-    public Integer reduce(VariantCallContext value, Integer sum) {
+    public Integer reduce(List<VariantCallContext> value, Integer sum) {
         if ( value == null )
             return sum;
 
         try {
-            writer.add(value);
+            for (VariantCallContext vcc : value)
+                writer.add(vcc);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(e.getMessage());
         }
 
-        return sum + 1;
+        return sum + value.size();
     }
 
     public void onTraversalDone(Integer sum) {
-        logger.info(String.format("Visited bases: %d", sum));
+        logger.info(String.format("Visited variants: %d", sum));
     }
 }
