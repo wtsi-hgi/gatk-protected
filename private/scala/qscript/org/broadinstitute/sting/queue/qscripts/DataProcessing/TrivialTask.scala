@@ -21,7 +21,7 @@ class TrivialTask extends CmiScript {
   //var testOutput: File = _
 
   def script() {
-    testOutput = new File("hello.txt")
+    val testOutput = new File("hello.txt")
     val writer = new PrintWriter(testOutput)
     writer.println("hello world!")
     writer.close()
