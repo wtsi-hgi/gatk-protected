@@ -179,7 +179,8 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         this.reviewed = isReviewed;
         this.gt = new MongoGenotype(vc.getAlleles(), gt);
 
-        validate(null);
+        //TODO Once the public gatk includes BaseUtils.isUpperCase, we can enable this
+        //validate(null);
     }
 
     protected MongoVariantContext(List<String> supportingCallsets, String chr, int start, int stop, String ref, String alt, TruthStatus mongoType, MongoGenotype gt, Date date, boolean reviewed) {
