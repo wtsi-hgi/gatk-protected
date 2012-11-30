@@ -178,9 +178,11 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         this.date = date;
         this.reviewed = isReviewed;
         this.gt = new MongoGenotype(vc.getAlleles(), gt);
+
+        validate(null);
     }
 
-    public MongoVariantContext(List<String> supportingCallsets, String chr, int start, int stop, String ref, String alt, TruthStatus mongoType, MongoGenotype gt, Date date, boolean reviewed) {
+    protected MongoVariantContext(List<String> supportingCallsets, String chr, int start, int stop, String ref, String alt, TruthStatus mongoType, MongoGenotype gt, Date date, boolean reviewed) {
         this.supportingCallsets = supportingCallsets;
         this.chr = chr;
         this.start = start;
@@ -426,7 +428,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
      * Make sure this MongoVariantContext is valid, throwing a MongoVariantContextException if not
      *
      * @throws org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException if this is malformed
-     * @param parser a GenomeLocParser so we know what contigs are allowed
+     * @param parser a GenomeLocParser so we know what contigs are allowed, can be null
      */
     protected void validate(final GenomeLocParser parser) {
         if ( supportingCallsets == null || supportingCallsets.size() == 0 )
@@ -436,7 +438,8 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         if ( start < 1 ) error("Start = %d < 1", start);
         if ( start > stop ) error("Start %d > Stop %d", start, stop);
         if ( chr == null ) error("Chr is null");
-        if ( ! parser.contigIsInDictionary(chr) ) error("Chr %s is not in the b37 dictionary", chr);
+        if ( parser != null && ! parser.contigIsInDictionary(chr) ) error("Chr %s is not in the b37 dictionary", chr);
+        if ( parser == null && chr.toLowerCase().startsWith("chr") ) error("MongoVariantContext %s uses the UCSC convention -- must use the b37 convention (i.e., 1 not chr1)", chr);
         if ( ref == null || ref.equals("") ) error("ref allele is null or empty string");
         if ( ! BaseUtils.isUpperCase(ref.getBytes()) ) error("ref allele must be all upper case but got " + ref);
         if ( ! Allele.acceptableAlleleBases(ref) ) error("ref allele contains unacceptable bases " + ref);
