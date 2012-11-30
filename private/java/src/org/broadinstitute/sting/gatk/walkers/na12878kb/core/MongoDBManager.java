@@ -95,5 +95,13 @@ final public class MongoDBManager {
             this.consensusCollection = consensusCollection;
         }
 
+        @Override
+        public String toString() {
+            return "Locator{" +
+                    "host='" + host + '\'' +
+                    ", port=" + port +
+                    ", name='" + name + '\'' +
+                    '}';
+        }
     }
 }

@@ -315,7 +315,7 @@ public class NA12878KnowledgeBase {
 
     @Override
     public String toString() {
-        String msg = String.format("NA12878KnowledgeBase{db=%s, locator=%s}", dblocator.name, dblocator);
+        String msg = String.format("NA12878KnowledgeBase{%s}", dblocator);
         return msg;
     }
 }
