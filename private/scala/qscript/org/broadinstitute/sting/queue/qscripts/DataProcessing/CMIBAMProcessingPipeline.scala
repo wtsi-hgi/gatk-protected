@@ -643,6 +643,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.analysisName = outBAM + ".dedup"
     this.jobName = outBAM + ".dedup"
     this.assumeSorted = Some(true)
+    this.isIntermediate = false
   }
 
   case class calculateHSMetrics(inBAM: File, outFile: File) extends CalculateHsMetrics with ExternalCommonArgs {

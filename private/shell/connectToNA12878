@@ -1,0 +1,10 @@
+#!/bin/tcsh
+
+set address = couchdb.broadinstitute.org
+set port = 43054
+if ( $1 == "local" ) then
+   set address = localhost
+   echo "local $address"
+endif
+
+echo ~/bin/mongo/mongo ${address}:${port}/NA12878KnowledgeBase_production
