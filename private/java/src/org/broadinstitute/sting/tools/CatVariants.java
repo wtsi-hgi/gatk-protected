@@ -17,12 +17,10 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.writer.Options;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriterFactory;
+import scala.concurrent.LinkedListQueueCreator;
 
 import java.io.*;
-import java.util.Comparator;
-import java.util.EnumSet;
-import java.util.Iterator;
-import java.util.PriorityQueue;
+import java.util.*;
 
 
 /**
@@ -41,8 +39,16 @@ public class CatVariants {
         BasicConfigurator.configure();
         logger.setLevel(Level.INFO);
 
-        if (args.length != 3 )
+        if (args.length < 3 )
             printUsage();
+        boolean sorted = false;
+        if (args.length == 4){
+            if (args[3].equals("sorted"))
+                sorted = true;
+            else
+                printUsage();
+        }
+
 
         String refarg = args[0];
         if ( ! refarg.endsWith(".fasta")) {
@@ -62,9 +68,17 @@ public class CatVariants {
             printUsage();
         }
 
-        Comparator<Pair<Integer,FeatureReader<VariantContext>>> comparator = new PositionComparator();
-        PriorityQueue<Pair<Integer,FeatureReader<VariantContext>>> queue =
-                new PriorityQueue<Pair<Integer,FeatureReader<VariantContext>>>(2000, comparator);
+       // Comparator<Pair<Integer,FeatureReader<VariantContext>>> comparator = new PositionComparator();
+        Comparator<Pair<Integer,String>> newComparator = new NewPositionComparator();
+
+
+        //PriorityQueue<Pair<Integer,FeatureReader<VariantContext>>> queue =
+        //        new PriorityQueue<Pair<Integer,FeatureReader<VariantContext>>>(2000, comparator);
+        Queue<Pair<Integer,String>> priorityQueue;
+        if(sorted)
+            priorityQueue = new LinkedList<Pair<Integer,String>>();
+        else
+            priorityQueue = new PriorityQueue<Pair<Integer,String>>(10000, newComparator);
 
         try{
             FileInputStream fstream = new FileInputStream(inputFileName);
@@ -77,24 +91,31 @@ public class CatVariants {
                     System.err.println("File " + fileName + " should be <name>.vcf or <name>.bcf");
                     printUsage();
                 }
-                File featureFile = new File(fileName);
-                if (!featureFile.exists()) {
-                    System.err.println("File " + featureFile.getAbsolutePath() + " doesn't exist");
+                if (sorted){
+                    priorityQueue.add(new Pair<Integer, String>(0,fileName));
                 }
-                FeatureReader<VariantContext> reader;
-                boolean useVCF = (fileName.endsWith(".vcf") || fileName.endsWith(".VCF"));
-                if(useVCF)
-                    reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new VCFCodec(), false);
-                else
-                    reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new BCF2Codec(), false);
-                Iterator<VariantContext> it = reader.iterator();
-                if(!it.hasNext()){
-                    System.err.println("File " + fileName + " is empty. This file will be ignored");
-                    continue;
+                else{
+                    File featureFile = new File(fileName);
+                    if (!featureFile.exists()) {
+                        System.err.println("File " + featureFile.getAbsolutePath() + " doesn't exist");
+                    }
+                    FeatureReader<VariantContext> reader;
+                    boolean useVCF = (fileName.endsWith(".vcf") || fileName.endsWith(".VCF"));
+                    if(useVCF)
+                        reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new VCFCodec(), false);
+                    else
+                        reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new BCF2Codec(), false);
+                    Iterator<VariantContext> it = reader.iterator();
+                    if(!it.hasNext()){
+                        System.err.println("File " + fileName + " is empty. This file will be ignored");
+                        continue;
+                    }
+                    VariantContext vc = it.next();
+                    int firstPosition = vc.getStart();
+                    reader.close();
+                    //queue.add(new Pair<Integer, FeatureReader<VariantContext>>(firstPosition,reader));
+                    priorityQueue.add(new Pair<Integer, String>(firstPosition,fileName));
                 }
-                VariantContext vc = it.next();
-                int firstPosition = vc.getStart();
-                queue.add(new Pair<Integer, FeatureReader<VariantContext>>(firstPosition,reader));
 
             }
             in.close();
@@ -120,9 +141,22 @@ public class CatVariants {
 
             boolean firstFile = true;
             int count =0;
-            while(!queue.isEmpty()){
+            //while(!queue.isEmpty()){
+            while(!priorityQueue.isEmpty() ){
                 count++;
-                FeatureReader<VariantContext> reader = queue.remove().getSecond();
+                //FeatureReader<VariantContext> reader = queue.remove().getSecond();
+                String fileName = priorityQueue.remove().getSecond();
+                File featureFile = new File(fileName);
+                if (!featureFile.exists()) {
+                    System.err.println("File " + featureFile.getAbsolutePath() + " doesn't exist");
+                }
+                FeatureReader<VariantContext> reader;
+                boolean useVCF = (fileName.endsWith(".vcf") || fileName.endsWith(".VCF"));
+                if(useVCF)
+                    reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new VCFCodec(), false);
+                else
+                    reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new BCF2Codec(), false);
+
                 if(count%10 ==0)
                     System.out.print(count);
                 else
@@ -159,11 +193,12 @@ public class CatVariants {
      * print usage information
      */
     public static void printUsage() {
-        System.err.println("Usage: java -cp dist/GenomeAnalysisTK.jar org.broadinstitute.sting.tools.AppendVariants <reference> <file with list of VCF or BCF files> <outputFile>");
+        System.err.println("Usage: java -cp dist/GenomeAnalysisTK.jar org.broadinstitute.sting.tools.AppendVariants <reference> <file with list of VCF or BCF files> <outputFile> [sorted (optional)]");
         System.err.println("    the list file must end with .list");
         System.err.println("    Where the files in the list can be of type: VCF (ends in .vcf or .VCF)");
         System.err.println("                                                BCF2 (ends in .bcf or .BCF)");
         System.err.println("    Output file must be vcf or bcf file (.vcf or .bcf)");
+        System.err.println("    if the input files are already sorted, the last argument can indicate that");
 
 
         /**
@@ -209,6 +244,17 @@ public class CatVariants {
 
         @Override
         public int compare(Pair<Integer,FeatureReader<VariantContext>> p1, Pair<Integer,FeatureReader<VariantContext>> p2) {
+            int startPositionP1 = p1.getFirst();
+            int startPositionP2 = p2.getFirst();
+            if (startPositionP1  == startPositionP2)
+                return 0;
+            return startPositionP1 < startPositionP2 ? -1 : 1 ;
+        }
+    }
+    static class NewPositionComparator implements Comparator<Pair<Integer,String>> {
+
+        @Override
+        public int compare(Pair<Integer,String> p1, Pair<Integer,String> p2) {
             int startPositionP1 = p1.getFirst();
             int startPositionP2 = p2.getFirst();
             if (startPositionP1  == startPositionP2)
