@@ -194,6 +194,9 @@ public class SiteIterator<T extends MongoVariantContext> extends PeekableIterato
         if ( lastLoc != null && nLoc.isBefore(lastLoc) )
             throw new IllegalStateException("Records appearing out of order.  Current location is " + nLoc + " but last location was " + lastLoc);
         lastLoc = nLoc;
+
+        // skip duplicates
+        while ( hasNext() && n.isDuplicate(peek()) ) next();
         return n;
     }
 

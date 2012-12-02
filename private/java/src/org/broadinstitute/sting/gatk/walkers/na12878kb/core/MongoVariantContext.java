@@ -183,14 +183,14 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         //validate(null);
     }
 
-    protected MongoVariantContext(List<String> supportingCallsets, String chr, int start, int stop, String ref, String alt, TruthStatus mongoType, MongoGenotype gt, Date date, boolean reviewed) {
+    protected MongoVariantContext(List<String> supportingCallsets, String chr, int start, int stop, String ref, String alt, TruthStatus truthStatus, MongoGenotype gt, Date date, boolean reviewed) {
         this.supportingCallsets = supportingCallsets;
         this.chr = chr;
         this.start = start;
         this.stop = stop;
         this.ref = ref;
         this.alt = alt;
-        this.mongoType = mongoType;
+        this.mongoType = truthStatus;
         this.gt = gt;
         this.date = date;
         this.reviewed = reviewed;
@@ -293,6 +293,10 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
 
     public TruthStatus getType() {
         return mongoType;
+    }
+
+    public void setTruth(TruthStatus status) {
+        this.mongoType = status;
     }
 
     protected void addReviewInfoFields(final VariantContextBuilder vcb) {
@@ -406,6 +410,33 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         if (ref != null ? !ref.equals(that.ref) : that.ref != null) return false;
         if (supportingCallsets != null ? !supportingCallsets.equals(that.supportingCallsets) : that.supportingCallsets != null)
             return false;
+
+        return true;
+    }
+
+    /**
+     * Is this and that duplicate entries?
+     *
+     * Duplicate entry contain all of the same essential information but may different in the time
+     * they were added.  Sometimes multiple entries are added (for example, clicked save review twice in
+     * IGV.  Such identical records have all the same field values but the date may be different.
+     *
+     * @param that another fully filled in MongoVariantContext to test for duplicate
+     * @return true if this and that are duplicates, false otherwise
+     */
+    public boolean isDuplicate(final MongoVariantContext that) {
+        if ( that == null ) throw new IllegalArgumentException("that cannot be null");
+
+        if (reviewed != that.reviewed) return false;
+        if (start != that.start) return false;
+        if (stop != that.stop) return false;
+        if (!ref.equals(that.ref)) return false;
+        if (!alt.equals(that.alt)) return false;
+        if (!chr.equals(that.chr)) return false;
+        // ignores date if (date != null ? !date.equals(that.date) : that.date != null) return false;
+        if (!gt.equals(that.gt)) return false;
+        if (mongoType != that.mongoType) return false;
+        if (!supportingCallsets.equals(that.supportingCallsets)) return false;
 
         return true;
     }

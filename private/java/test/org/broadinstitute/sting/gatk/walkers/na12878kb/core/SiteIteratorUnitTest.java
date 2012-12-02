@@ -30,6 +30,9 @@ public class SiteIteratorUnitTest extends NA12878KBUnitTestBase {
         db.addCall(MongoVariantContext.create("y", "20", 4, "A", "C", false));
         db.addCall(MongoVariantContext.create("y", "20", 5, "A", "C", false));
 
+        // adding duplicate record to ensure that dups are filtered out on the fly
+        db.addCall(MongoVariantContext.create("y", "20", 4, "A", "C", false));
+
         it = db.getCalls();
         it.setErrorHandler(new InvalidRecordsThrowError<MongoVariantContext>());
     }
