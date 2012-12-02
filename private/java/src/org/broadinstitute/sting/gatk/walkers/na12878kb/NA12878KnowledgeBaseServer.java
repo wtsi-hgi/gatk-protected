@@ -51,7 +51,7 @@ public class NA12878KnowledgeBaseServer extends NA12878DBWalker {
         int nIterations = 0;
         while ( (timeSinceStart.getElapsedTimeNano() < maxTimeNano || maxTimeNano == -1) && nIterations++ < maxIterations ) {
             try {
-                logger.info("Running cycle " + nIterations);
+                logger.debug("Running cycle " + nIterations);
                 pauseCycle();
                 final SiteSelector updatedSites = newlyAddedSites.getNewlyAddedLocations(getToolkit().getGenomeLocParser(), maxQueriesBeforeFullRebuild);
                 if ( updatedSites != null ) {
