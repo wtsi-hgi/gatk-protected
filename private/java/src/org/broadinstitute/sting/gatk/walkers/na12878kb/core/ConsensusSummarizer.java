@@ -16,6 +16,8 @@ import java.util.Map;
  * Time: 9:04 AM
  */
 public class ConsensusSummarizer {
+    private final static String CONSENSUS = "Consensus";
+
     /**
      * Collects information about a specific callset
      */
@@ -48,7 +50,7 @@ public class ConsensusSummarizer {
          */
         final void update(final MongoVariantContext mvc) {
             if ( mvc == null ) throw new IllegalArgumentException("mvc cannot be null");
-            if ( ! mvc.getSupportingCallSets().contains(callSetName) )
+            if ( ! mvc.getSupportingCallSets().contains(callSetName) && ! callSetName.equals(CONSENSUS) )
                 throw new IllegalArgumentException("Trying to include MVC from the wrong callset " + mvc + " into summary for " + callSetName);
 
             countsByTruth.put(mvc.getType(), countsByTruth.get(mvc.getType()) + 1);
@@ -200,6 +202,8 @@ public class ConsensusSummarizer {
             final CallSetSummary summary = getSummary(callset);
             summary.update(consensus);
         }
+
+        getSummary(CONSENSUS).update(consensus);
     }
 
     /**
