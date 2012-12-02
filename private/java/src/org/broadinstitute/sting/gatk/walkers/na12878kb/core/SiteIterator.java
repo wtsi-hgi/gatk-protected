@@ -61,7 +61,9 @@ public class SiteIterator<T extends MongoVariantContext> extends PeekableIterato
     /**
      * Get all of the upcoming T that occur before the contig / start position of loc
      *
-     * End of loc is ignored, and must be == start
+     * End of loc is ignored, and must be == start.  Note that by ignoring the start location,
+     * we are getting all records with start position < loc.start, including any indels that
+     * may span up to (and over) start loc.
      *
      * @param loc the genome loc containing the requested contig and start (stop is ignored)
      * @return a list of all of the records < loc
@@ -75,7 +77,7 @@ public class SiteIterator<T extends MongoVariantContext> extends PeekableIterato
         while ( hasNext() ) {
             final T n = peek();
             final GenomeLoc nLoc = n.getLocation(parser);
-            if ( nLoc.isBefore(loc) )
+            if ( nLoc.startsBefore(loc) )
                 l.add(next());
             else
                 break;
