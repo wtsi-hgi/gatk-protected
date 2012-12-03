@@ -6,8 +6,6 @@ import org.broadinstitute.sting.utils.variantcontext.Genotype;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextTestProvider;
 import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -41,17 +39,7 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
         return tests.toArray(new Object[][]{});
     }
 
-    @BeforeMethod
-    public void setup() {
-        setupBeforeMethod();
-    }
-
-    @AfterMethod
-    public void teardown() {
-        teardownMethod();
-    }
-
-    @Test(dataProvider = "TestVCProvider")
+    @Test(enabled = true, dataProvider = "TestVCProvider")
     public void testVCToMVC(final VariantContext vc) {
         final MongoVariantContext mvc = MongoVariantContext.create("x", vc, TruthStatus.UNKNOWN, MongoGenotype.NO_CALL);
         Assert.assertTrue(mvc.isSingleCallset());
@@ -64,7 +52,7 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
         Assert.assertEquals(mvc.getAltAllele(), vc.getAlternateAllele(0));
     }
 
-    @Test(dataProvider = "TestVCProvider")
+    @Test(enabled = true, dataProvider = "TestVCProvider")
     public void testMVCMatching(final VariantContext vc) {
         final MongoVariantContext mvc = MongoVariantContext.create("x", vc, TruthStatus.UNKNOWN, MongoGenotype.NO_CALL);
         for ( final VariantContext vc2 : testVCs ) {
@@ -73,13 +61,15 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
         }
     }
 
-    @Test(dataProvider = "MVCBasicTest")
+    @Test(enabled = true, dataProvider = "MVCBasicTest")
     public void testMVCBasic(final VariantContext originalVC, final MongoVariantContext mvc) {
+        setupBeforeMethod();
         db.addCall(mvc);
         final MongoVariantContext fromDB = readOneMVCFromDB();
 
         Assert.assertEquals(fromDB, mvc, "Input MongoVariantContext not the same as the one read from DB");
         VariantContextTestProvider.assertEquals(fromDB.getVariantContext(), mvc.getVariantContext());
+        teardownMethod();
     }
 
     final static MongoVariantContext good = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C", TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 0), new Date(), false);
@@ -140,4 +130,60 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
         mvc.validate(parser);
     }
 
+    final static MongoVariantContext DUP = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C", TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), false);
+    private static MongoVariantContext makeNoDup(final List<MongoVariantContext> nonDups) throws CloneNotSupportedException {
+        final MongoVariantContext mvc = DUP.clone();
+        nonDups.add(mvc);
+        return mvc;
+    }
+
+    @DataProvider(name = "Duplicates")
+    public Object[][] makeDuplicates() throws CloneNotSupportedException {
+        List<Object[]> tests = new ArrayList<Object[]>();
+
+        final List<MongoVariantContext> nonDups = new LinkedList<MongoVariantContext>();
+        makeNoDup(nonDups).setSupportingCallSets(Arrays.asList("x", "y"));
+        makeNoDup(nonDups).setSupportingCallSets(Arrays.asList("y"));
+        makeNoDup(nonDups).setChr("21");
+        makeNoDup(nonDups).setStart(2);
+        makeNoDup(nonDups).setStop(2);
+        makeNoDup(nonDups).setAlt("G");
+        makeNoDup(nonDups).setTruth(TruthStatus.FALSE_POSITIVE);
+        makeNoDup(nonDups).setReviewed(true);
+        makeNoDup(nonDups).setGt(new MongoGenotype(0, 0));
+        makeNoDup(nonDups).setGt(new MongoGenotype(1, 0));
+        makeNoDup(nonDups).setGt(new MongoGenotype(1, 1));
+        makeNoDup(nonDups).setGt(new MongoGenotype(-1, -1));
+        makeNoDup(nonDups).setGt(new MongoGenotype(0, 0, 1, -1));
+        makeNoDup(nonDups).setGt(new MongoGenotype(0, 0, -1, 1));
+
+        tests.add(new Object[]{DUP, DUP, true});
+
+        final MongoVariantContext mvc1 = DUP.clone();
+        tests.add(new Object[]{DUP, mvc1, true});
+
+        final MongoVariantContext mvc2 = DUP.clone();
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(mvc2.getDate());
+        mvc2.setDate(cal.getTime());
+        tests.add(new Object[]{DUP, mvc2, true});
+
+        final MongoVariantContext mvc3 = DUP.clone();
+        Calendar cal2 = Calendar.getInstance();
+        cal2.setTime(mvc3.getDate());
+        cal2.add(Calendar.HOUR, 1);
+        mvc3.setDate(cal2.getTime());
+        tests.add(new Object[]{DUP, mvc3, true});
+
+        for ( final MongoVariantContext nondup : nonDups )
+            tests.add(new Object[]{DUP, nondup, false});
+
+
+        return tests.toArray(new Object[][]{});
+    }
+
+    @Test(dataProvider = "Duplicates")
+    public void testDuplicates(final MongoVariantContext mvc1, final MongoVariantContext mvc2, final boolean isDup) {
+        Assert.assertEquals(mvc1.isDuplicate(mvc2), isDup, "MVCs " + mvc1 + " is dup of " + mvc2 + " returned expected value");
+    }
 }
