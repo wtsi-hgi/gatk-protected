@@ -1,44 +1,23 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
 import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 
 public class ExportReviews extends NA12878DBWalker {
     @Output
     public VariantContextWriter out;
 
-    public void initialize() {
-        super.initialize();
-
-        final VCFHeader header = new VCFHeader();
-
-        for ( final CallSet callSet : db.getCallSets() ) {
-            if ( callSet.isReviewer() )
-                header.addMetaDataLine(callSet.asVCFHeaderLine());
-        }
-
-        for ( final VCFHeaderLine line : MongoVariantContext.reviewHeaderLines() )
-            header.addMetaDataLine(line);
-
-        out.writeHeader(header);
-    }
-
     @Override public boolean isDone() { return true; }
 
     @Override
     public void onTraversalDone(Integer result) {
-        for ( final MongoVariantContext vc : db.getCallsLinear(makeSiteSelector())) {
-            logger.info("Archiving review " + vc);
-            out.add(vc.getVariantContext());
-        }
-
+        db.writeReviews(out, super.makeSiteSelector());
         super.onTraversalDone(result);
     }
 
     @Override
-    public SiteSelector makeSiteSelector() {
-        return super.makeSiteSelector().onlyReviewed();
+    public NA12878DBArgumentCollection.DBType getDefaultDB() {
+        return NA12878DBArgumentCollection.DBType.PRODUCTION;
     }
 }

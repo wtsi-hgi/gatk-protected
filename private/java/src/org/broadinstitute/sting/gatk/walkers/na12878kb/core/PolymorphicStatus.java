@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 /**
  * Is the site polymorphic in NA12878, monomorphic, or simply unknown?

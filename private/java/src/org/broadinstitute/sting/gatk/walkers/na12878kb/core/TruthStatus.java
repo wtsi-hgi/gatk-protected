@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 /**
  * Super-high level variant call status: true positive, false positive, or unknown
