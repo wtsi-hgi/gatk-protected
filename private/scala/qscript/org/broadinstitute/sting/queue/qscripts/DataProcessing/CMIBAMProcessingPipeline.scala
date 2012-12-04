@@ -22,6 +22,7 @@ import org.broadinstitute.sting.queue.extensions.picard._
 import io.Source
 import java.util.Date
 import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotyperEngine, GenotypeLikelihoodsCalculationModel}
+import org.broadinstitute.sting.utils.exceptions.UserException
 
 class CMIBAMProcessingPipeline extends CmiScript {
   qscript =>
@@ -275,8 +276,35 @@ class CMIBAMProcessingPipeline extends CmiScript {
       } else {
         tumorInfo.put(meta.sample, meta.tumor)
       }
-    }
+     }
     // todo -- add optional bam de-multiplexing and re-multiplexing pipeline
+
+
+    var normalBAMs = Seq[File]()
+    var tumorBAMs  = Seq[File]()
+
+    for ((sample, status) <- tumorInfo) {
+      val sampleBAM = new File(sample + ".bam")
+      if (status) // tumor
+        tumorBAMs :+= sampleBAM
+      else  // normal
+        normalBAMs :+= sampleBAM
+
+    }
+
+    val hasTumorBAMs = (!tumorBAMs.isEmpty)
+    val hasNormalBAMs = (!normalBAMs.isEmpty)
+
+
+    //println(tumorBAMs)
+    //println(normalBAMs)
+    if (tumorBAMs.size > 1) {
+      throw new UserException("Bad inputs to processing pipeline. Only one tumor sample currently supported")
+    }
+    if (normalBAMs.size > 1) {
+      throw new UserException("Bad inputs to processing pipeline. Only one normal sample currently supported")
+
+    }
 
     var allBAMs = Seq[File]()
     for ((sample, bams) <- samples) {
@@ -286,7 +314,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     }
 
     clean(allBAMs)
-    print(allBAMs)
+
     for (bam <- allBAMs) {
       val cleanBAM = swapExt(bam, ".bam", cleaningExtension)
       val dedupBAM = swapExt(bam, ".bam", ".clean.dedup.bam")
@@ -335,38 +363,38 @@ class CMIBAMProcessingPipeline extends CmiScript {
         val tumorBam = tumorName + ".clean.dedup.recal.bam"
     */
 
-    addRemoteOutput(individual, "unreducedNormalBAM", swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.bam"))
-    addRemoteOutput(individual, "unreducedTumorBAM", swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.bam"))
-    addRemoteOutput(individual, "unreducedNormalBAMIndex", swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.bai"))
-    addRemoteOutput(individual, "unreducedTumorBAMIndex", swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.bai"))
-    addRemoteOutput(individual, "reducedNormalBAM", swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.reduced.bam"))
-    addRemoteOutput(individual, "reducedTumorBAM", swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.reduced.bam"))
-    addRemoteOutput(individual, "reducedNormalBAMIndex", swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.reduced.bai"))
-    addRemoteOutput(individual, "reducedTumorBAMIndex", swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.reduced.bai"))
+  //  print(allBAMs)
+    if (hasNormalBAMs) {
+      addRemoteOutput(individual, "unreducedNormalBAM", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.bam"))
+      addRemoteOutput(individual, "unreducedNormalBAMIndex", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.bai"))
+      addRemoteOutput(individual, "reducedNormalBAM", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.reduced.bam"))
+      addRemoteOutput(individual, "reducedNormalBAMIndex", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.reduced.bai"))
+      addRemoteOutput(individual, "normalHSMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.hs_metrics"))
+      addRemoteOutput(individual, "normalGCMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.gc_metrics"))
+      addRemoteOutput(individual, "normalInsertSizeMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.insert_size_metrics"))
+      addRemoteOutput(individual, "normalAlignmentMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.alignment_summary_metrics"))
+      addRemoteOutput(individual, "normalQualityByCycleMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_by_cycle_metrics"))
+      addRemoteOutput(individual, "normalQualityDistributionMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_distribution_metrics"))
+      addRemoteOutput(individual, "normalQualityDistributionMetrics", swapExt(normalBAMs(0), ".bam", ".multipleMetrics.quality_distribution_metrics"))
+      addRemoteOutput(individual, "normalDuplicateMetrics", swapExt(normalBAMs(0), ".bam", ".duplicateMetrics"))
 
-    addRemoteOutput(individual, "normalHSMetrics", swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.hs_metrics"))
-    addRemoteOutput(individual, "tumorHSMetrics", swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.hs_metrics"))
+    }
 
-    addRemoteOutput(individual, "normalGCMetrics", swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.gc_metrics"))
-    addRemoteOutput(individual, "tumorGCMetrics", swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.gc_metrics"))
+    if (hasTumorBAMs) {
+      addRemoteOutput(individual, "unreducedTumorBAM", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.bam"))
+      addRemoteOutput(individual, "unreducedTumorBAMIndex", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.bai"))
+      addRemoteOutput(individual, "reducedTumorBAM", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.reduced.bam"))
+      addRemoteOutput(individual, "reducedTumorBAMIndex", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.reduced.bai"))
+      addRemoteOutput(individual, "tumorHSMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.hs_metrics"))
+      addRemoteOutput(individual, "tumorGCMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.gc_metrics"))
+      addRemoteOutput(individual, "tumorInsertSizeMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.insert_size_metrics"))
+      addRemoteOutput(individual, "tumorAlignmentMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.alignment_summary_metrics"))
+      addRemoteOutput(individual, "tumorQualityByCycleMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_by_cycle_metrics"))
+      addRemoteOutput(individual, "tumorQualityDistributionMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_distribution_metrics"))
+      addRemoteOutput(individual, "tumorQualityDistributionMetrics", swapExt(tumorBAMs(0), ".bam", ".multipleMetrics.quality_distribution_metrics"))
+      addRemoteOutput(individual, "tumorDuplicateMetrics", swapExt(tumorBAMs(0), ".bam", ".duplicateMetrics"))
 
-    addRemoteOutput(individual, "normalInsertSizeMetrics", swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.multipleMetrics.insert_size_metrics"))
-    addRemoteOutput(individual, "tumorInsertSizeMetrics", swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.insert_size_metrics"))
-
-    addRemoteOutput(individual, "normalAlignmentMetrics", swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.multipleMetrics.alignment_summary_metrics"))
-    addRemoteOutput(individual, "tumorAlignmentMetrics", swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.alignment_summary_metrics"))
-
-    addRemoteOutput(individual, "normalQualityByCycleMetrics", swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.multipleMetrics.quality_by_cycle_metrics"))
-    addRemoteOutput(individual, "tumorQualityByCycleMetrics", swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_by_cycle_metrics"))
-
-    addRemoteOutput(individual, "normalQualityDistributionMetrics", swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.multipleMetrics.quality_distribution_metrics"))
-    addRemoteOutput(individual, "tumorQualityDistributionMetrics", swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_distribution_metrics"))
-
-    addRemoteOutput(individual, "normalQualityDistributionMetrics", swapExt(allBAMs(1), ".bam", ".multipleMetrics.quality_distribution_metrics"))
-    addRemoteOutput(individual, "tumorQualityDistributionMetrics", swapExt(allBAMs(0), ".bam", ".multipleMetrics.quality_distribution_metrics"))
-
-    addRemoteOutput(individual, "normalDuplicateMetrics", swapExt(allBAMs(1), ".bam", ".duplicateMetrics"))
-    addRemoteOutput(individual, "tumorDuplicateMetrics", swapExt(allBAMs(0), ".bam", ".duplicateMetrics"))
+    }
 
   }
 
