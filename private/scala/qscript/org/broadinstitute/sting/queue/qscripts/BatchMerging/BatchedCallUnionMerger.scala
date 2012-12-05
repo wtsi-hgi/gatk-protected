@@ -51,9 +51,6 @@ class BatchedCallUnionMerger extends QScript {
   @Input(doc = "dbSNP annotations VCF file", fullName = "dbsnp", shortName = "D", required = false)
   var dbsnp: File = _
 
-  @Output(doc = "Memory limit", fullName = "memoryLimit", shortName = "m", required = false)
-  var memoryLimit = 3
-
   @Argument(fullName="annotation", shortName="A", doc="One or more specific annotations to apply to variant calls", required=false)
   var annotation: List[String] = Nil
 
@@ -65,6 +62,18 @@ class BatchedCallUnionMerger extends QScript {
 
   @Argument(fullName="requireExplicitAnnotations", shortName="requireExplicitAnnotations", doc="SUPPRESS the default option of using all annotations", required=false)
   var requireExplicitAnnotations: Boolean = false
+
+  @Argument(doc = "UnifiedGenotyper memory limit", fullName = "UG_memoryLimit", shortName = "UG_memoryLimit", required = false)
+  var UG_memoryLimit = 16
+
+  @Argument(doc = "VariantAnnotator memory limit", fullName = "VA_memoryLimit", shortName = "VA_memoryLimit", required = false)
+  var VA_memoryLimit = 3
+
+  @Argument(doc = "Job queue to run UnifiedGenotyper", fullName = "UG_jobQueue", shortName = "UG_jobQueue", required = false)
+  var UG_jobQueue: String = ""
+
+  @Argument(doc = "Job queue to run VariantAnnotator", fullName = "VA_jobQueue", shortName = "VA_jobQueue", required = false)
+  var VA_jobQueue: String = ""
 
   def script = {
 
@@ -152,8 +161,11 @@ class BatchedCallUnionMerger extends QScript {
       this.genotype_likelihoods_model = GenotypeLikelihoodsCalculationModel.Model.BOTH;
 
       // The memory-intensive part is limited by the number of ALT alleles:
-      this.memoryLimit = 16
+      this.memoryLimit = batchMerge.UG_memoryLimit
       this.max_alternate_alleles = 3
+
+      if (batchMerge.UG_jobQueue != "")
+	this.jobQueue = batchMerge.UG_jobQueue
     }
 
     var callVariants : UGCallVariants = new UGCallVariants with CallVariantsArgs
@@ -163,25 +175,27 @@ class BatchedCallUnionMerger extends QScript {
     callVariants.alleles = new TaggedFile(combine.out, "VCF")
 
     callVariants.out = batchOut
-    if (batchMerge.annotate) {
+    if (batchMerge.annotate)
       callVariants.out = new File("unannotated." + batchOut.getName)
-    }
 
     add(callVariants)
 
     if (batchMerge.annotate) {
-      trait CommandLineGATKArgs extends CommandLineGATK {
+      trait AnnotateVariantArgs extends CommandLineGATK {
         this.intervals :+= extractIntervals.listOut
 
         this.jarFile = batchMerge.gatkJarFile
         this.reference_sequence = batchMerge.referenceFile
         this.input_file = List(batchMerge.bamList)
 
-        this.memoryLimit = batchMerge.memoryLimit
+        this.memoryLimit = batchMerge.VA_memoryLimit
         this.logging_level = "INFO"
+
+        if (batchMerge.VA_jobQueue != "")
+	  this.jobQueue = batchMerge.VA_jobQueue
       }
 
-      class ScatteredFullVariantAnnotator(inputParam: File) extends org.broadinstitute.sting.queue.extensions.gatk.VariantAnnotator with CommandLineGATKArgs {
+      class ScatteredFullVariantAnnotator(inputParam: File) extends org.broadinstitute.sting.queue.extensions.gatk.VariantAnnotator with AnnotateVariantArgs {
         this.scatterCount = batchMerge.scatterCount
         this.variant = inputParam
 
