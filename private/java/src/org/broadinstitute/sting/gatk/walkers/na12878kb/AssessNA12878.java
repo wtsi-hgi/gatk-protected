@@ -1,10 +1,16 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
+import net.sf.samtools.SAMFileReader;
+import net.sf.samtools.SAMRecord;
+import net.sf.samtools.SAMRecordIterator;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteIterator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.codecs.vcf.*;
@@ -12,6 +18,7 @@ import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 
+import java.io.File;
 import java.io.PrintStream;
 import java.util.*;
 
@@ -45,6 +52,9 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Input(fullName="variant", shortName = "V", doc="Input VCF file", required=false)
     public RodBinding<VariantContext> variants;
 
+    @Input(fullName="BAM", shortName = "BAM", doc="Input BAM file.  If provided, we will differentiate false negative sites into those truly missed and those without coverage", required=false)
+    public File BAM = null;
+
     @Output(doc="Summary GATKReport will be written here")
     public PrintStream out;
 
@@ -54,13 +64,25 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Output(fullName = "badSites", shortName = "badSites", doc="VCF file containing information on FP/FNs in the input callset")
     public VariantContextWriter badSites;
 
-    @Input(fullName="maxToWrite", shortName = "maxToWrite", doc="Max. number of bad sites to write out", required=false)
+    @Argument(fullName="maxToWrite", shortName = "maxToWrite", doc="Max. number of bad sites to write out", required=false)
     public int maxToWrite = 10000;
+
+    @Argument(fullName="minDepthForLowCoverage", shortName = "minDepthForLowCoverage", doc="A false negative will be flagged as due to low coverage if the (optional) BAM is provided and the coverage overlapping the site is less than this value", required=false)
+    public int minDepthForLowCoverage = 5;
+
+    @Argument(fullName="typesToInclude", shortName = "typesToInclude", doc="Should we analyze SNPs, INDELs, or both?", required=false)
+    public TypesToInclude typesToInclude = TypesToInclude.BOTH;
+
+    public enum TypesToInclude {
+        SNPS,
+        INDELS,
+        BOTH
+    }
 
     /**
      * Useful when some state isn't interesting as a bad site but is extremely prevalent in the input callset
      */
-    @Input(fullName="AssessmentsToExclude", shortName = "AssessmentsToExclude", doc="If provided, we will prevent any of these states from being written out to the badSites VCF.", required=false)
+    @Argument(fullName="AssessmentsToExclude", shortName = "AssessmentsToExclude", doc="If provided, we will prevent any of these states from being written out to the badSites VCF.", required=false)
     public Set<AssessmentType> AssessmentsToExclude = EnumSet.noneOf(AssessmentType.class);
 
     @Hidden
@@ -70,13 +92,14 @@ public class AssessNA12878 extends NA12878DBWalker {
     SiteIterator<MongoVariantContext> consensusSiteIterator;
     int nWritten = 0;
 
-    private enum AssessmentType {
+    public enum AssessmentType {
         TRUE_POSITIVE(false),
         CORRECTLY_FILTERED(false),
         REASONABLE_FILTERS_WOULD_FILTER_FP_SITE(false),
         FALSE_POSITIVE_SITE_IS_FP(true),
         FALSE_POSITIVE_MONO_IN_NA12878(true),
         FALSE_NEGATIVE_CALLED_BUT_FILTERED(true),
+        FALSE_NEGATIVE_NOT_CALLED_BUT_LOW_COVERAGE(false),
         FALSE_NEGATIVE_NOT_CALLED_AT_ALL(true),
         CALLED_IN_DB_UNKNOWN_STATUS(true),
         CALLED_NOT_IN_DB_AT_ALL(true),
@@ -109,6 +132,7 @@ public class AssessNA12878 extends NA12878DBWalker {
 
     final Assessment SNPAssessments = new Assessment();
     final Assessment IndelAssessments = new Assessment();
+    SAMFileReader bamReader = null;
 
     @Override
     public NA12878DBArgumentCollection.DBType getDefaultDB() {
@@ -125,6 +149,10 @@ public class AssessNA12878 extends NA12878DBWalker {
         lines.add(new VCFHeaderLine("CallSetBeingEvaluated", variants.getSource()));
         lines.addAll(MongoVariantContext.reviewHeaderLines());
         badSites.writeHeader(new VCFHeader(lines, Collections.singleton("NA12878")));
+
+        if ( BAM != null ) {
+            bamReader = new SAMFileReader(BAM);
+        }
     }
 
     @Override
@@ -168,8 +196,29 @@ public class AssessNA12878 extends NA12878DBWalker {
         }
     }
 
+    /**
+     * Should we include the variant vc in our assessment?
+     *
+     * @param vc a VariantContext to potentially include
+     * @return true if VC should be included, false otherwise
+     */
+    private boolean includeVariant(final VariantContext vc) {
+        switch ( typesToInclude ) {
+            case BOTH: return true;
+            case SNPS: return vc.isSNP();
+            case INDELS: return ! vc.isSNP();
+            default:
+                throw new IllegalStateException("Unexpected enum " + typesToInclude);
+        }
+    }
+
+
     private void accessSite(final VariantContext call, final MongoVariantContext consensusSite) {
         final VariantContext vc = call != null ? call : consensusSite.getVariantContext();
+
+        if ( ! includeVariant(vc) )
+            return;
+
         final AssessmentType type = figureOutAssessmentType(call, consensusSite);
         final Assessment assessment = vc.isSNP() ? SNPAssessments : IndelAssessments;
         assessment.inc(type);
@@ -210,10 +259,37 @@ public class AssessNA12878 extends NA12878DBWalker {
             } else {
                 return AssessmentType.NOT_RELEVANT;
             }
+        } else if ( consensusTP ) {
+            if ( BAM != null ) {
+                return sufficientDepthToCall(consensusSite)
+                        ? AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL
+                        : AssessmentType.FALSE_NEGATIVE_NOT_CALLED_BUT_LOW_COVERAGE;
+            } else {
+                return AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL;
+            }
         } else {
-            // maybe false negative
-            return consensusTP ? AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL : AssessmentType.NOT_RELEVANT;
+            return AssessmentType.NOT_RELEVANT;
         }
+    }
+
+    /**
+     * If a BAM is provided, assess whether's there's sufficient coverage to call the site
+     *
+     * @param falseNegative a site that was missed in the call set
+     * @return true if there's enough coverage at the site in the BAM to likely make a call
+     */
+    private boolean sufficientDepthToCall(final MongoVariantContext falseNegative) {
+        final SAMRecordIterator it = bamReader.queryOverlapping(falseNegative.getChr(), falseNegative.getStart(), falseNegative.getStart());
+
+        int depth = 0;
+        while ( it.hasNext() && depth < minDepthForLowCoverage ) {
+            final SAMRecord read = it.next();
+            // TODO -- filter for MAPQ?
+            depth++;
+        }
+        it.close();
+
+        return depth >= minDepthForLowCoverage;
     }
 
     /**

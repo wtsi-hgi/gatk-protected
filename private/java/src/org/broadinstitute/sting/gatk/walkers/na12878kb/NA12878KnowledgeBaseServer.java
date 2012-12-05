@@ -3,6 +3,10 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb;
 import org.apache.log4j.Priority;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.ConsensusSummarizer;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NewlyAddedSites;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteSelector;
 import org.broadinstitute.sting.utils.SimpleTimer;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 
@@ -39,8 +43,8 @@ public class NA12878KnowledgeBaseServer extends NA12878DBWalker {
         if ( ! dontRebuildConsensus ) {
             logger.info("Rebuilding consensus from scratch...");
             db.clearConsensus();
-            final int nUpdated = db.updateConsensus(super.makeSiteSelector());
-            logger.info("Updated " + nUpdated + " consensus records");
+            final ConsensusSummarizer summary = db.updateConsensus(super.makeSiteSelector());
+            logger.info("Updated " + summary.getnSites() + " consensus records");
         }
 
         final NewlyAddedSites newlyAddedSites = new NewlyAddedSites(db);
@@ -52,7 +56,7 @@ public class NA12878KnowledgeBaseServer extends NA12878DBWalker {
                 final SiteSelector updatedSites = newlyAddedSites.getNewlyAddedLocations(getToolkit().getGenomeLocParser(), maxQueriesBeforeFullRebuild);
                 if ( updatedSites != null ) {
                     logger.info("Updating sites " + updatedSites + "...");
-                    final int nUpdated = db.updateConsensus(updatedSites, Priority.INFO);
+                    final int nUpdated = db.updateConsensus(updatedSites, Priority.INFO).getnSites();
                     logger.info("Updated " + nUpdated + " sites");
                 }
             } catch ( InterruptedException e ) {

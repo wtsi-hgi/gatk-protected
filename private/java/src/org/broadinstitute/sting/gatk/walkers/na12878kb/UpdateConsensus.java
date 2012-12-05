@@ -1,7 +1,10 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.*;
 
+import java.io.PrintStream;
 import java.util.Collections;
 import java.util.Set;
 
@@ -11,6 +14,9 @@ public class UpdateConsensus extends NA12878DBWalker {
 
     @Argument(required=false)
     public Set<TruthStatus> selectTypes = Collections.emptySet();
+
+    @Output(doc="Output summary here")
+    public PrintStream out;
 
     public void initialize() {
         super.initialize();
@@ -25,8 +31,8 @@ public class UpdateConsensus extends NA12878DBWalker {
     @Override public boolean isDone() { return true; }
 
     public void onTraversalDone(Integer result) {
-        db.updateConsensus(makeSiteSelector());
-
+        final ConsensusSummarizer summary = db.updateConsensus(makeSiteSelector());
+        summary.summaryGATKReport(false).print(out);
         super.onTraversalDone(result);
     }
 

@@ -1,0 +1,328 @@
+##fileformat=VCFv4.1
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=CallSetName,Number=1,Type=String,Description="Name of the review">
+##INFO=<ID=Date,Number=1,Type=String,Description="Date/time as a long of this review">
+##INFO=<ID=PhredConfidence,Number=1,Type=Integer,Description="Phred-scaled confidence in this review">
+##INFO=<ID=PolymorphicStatus,Number=1,Type=String,Description="Is this call polymorphic in NA12878">
+##INFO=<ID=TruthStatus,Number=1,Type=String,Description="What is the truth state of this call">
+##contig=<ID=1,length=249250621,assembly=b37>
+##contig=<ID=2,length=243199373,assembly=b37>
+##contig=<ID=3,length=198022430,assembly=b37>
+##contig=<ID=4,length=191154276,assembly=b37>
+##contig=<ID=5,length=180915260,assembly=b37>
+##contig=<ID=6,length=171115067,assembly=b37>
+##contig=<ID=7,length=159138663,assembly=b37>
+##contig=<ID=8,length=146364022,assembly=b37>
+##contig=<ID=9,length=141213431,assembly=b37>
+##contig=<ID=10,length=135534747,assembly=b37>
+##contig=<ID=11,length=135006516,assembly=b37>
+##contig=<ID=12,length=133851895,assembly=b37>
+##contig=<ID=13,length=115169878,assembly=b37>
+##contig=<ID=14,length=107349540,assembly=b37>
+##contig=<ID=15,length=102531392,assembly=b37>
+##contig=<ID=16,length=90354753,assembly=b37>
+##contig=<ID=17,length=81195210,assembly=b37>
+##contig=<ID=18,length=78077248,assembly=b37>
+##contig=<ID=19,length=59128983,assembly=b37>
+##contig=<ID=20,length=63025520,assembly=b37>
+##contig=<ID=21,length=48129895,assembly=b37>
+##contig=<ID=22,length=51304566,assembly=b37>
+##contig=<ID=X,length=155270560,assembly=b37>
+##contig=<ID=Y,length=59373566,assembly=b37>
+##contig=<ID=MT,length=16569,assembly=b37>
+##contig=<ID=GL000207.1,length=4262,assembly=b37>
+##contig=<ID=GL000226.1,length=15008,assembly=b37>
+##contig=<ID=GL000229.1,length=19913,assembly=b37>
+##contig=<ID=GL000231.1,length=27386,assembly=b37>
+##contig=<ID=GL000210.1,length=27682,assembly=b37>
+##contig=<ID=GL000239.1,length=33824,assembly=b37>
+##contig=<ID=GL000235.1,length=34474,assembly=b37>
+##contig=<ID=GL000201.1,length=36148,assembly=b37>
+##contig=<ID=GL000247.1,length=36422,assembly=b37>
+##contig=<ID=GL000245.1,length=36651,assembly=b37>
+##contig=<ID=GL000197.1,length=37175,assembly=b37>
+##contig=<ID=GL000203.1,length=37498,assembly=b37>
+##contig=<ID=GL000246.1,length=38154,assembly=b37>
+##contig=<ID=GL000249.1,length=38502,assembly=b37>
+##contig=<ID=GL000196.1,length=38914,assembly=b37>
+##contig=<ID=GL000248.1,length=39786,assembly=b37>
+##contig=<ID=GL000244.1,length=39929,assembly=b37>
+##contig=<ID=GL000238.1,length=39939,assembly=b37>
+##contig=<ID=GL000202.1,length=40103,assembly=b37>
+##contig=<ID=GL000234.1,length=40531,assembly=b37>
+##contig=<ID=GL000232.1,length=40652,assembly=b37>
+##contig=<ID=GL000206.1,length=41001,assembly=b37>
+##contig=<ID=GL000240.1,length=41933,assembly=b37>
+##contig=<ID=GL000236.1,length=41934,assembly=b37>
+##contig=<ID=GL000241.1,length=42152,assembly=b37>
+##contig=<ID=GL000243.1,length=43341,assembly=b37>
+##contig=<ID=GL000242.1,length=43523,assembly=b37>
+##contig=<ID=GL000230.1,length=43691,assembly=b37>
+##contig=<ID=GL000237.1,length=45867,assembly=b37>
+##contig=<ID=GL000233.1,length=45941,assembly=b37>
+##contig=<ID=GL000204.1,length=81310,assembly=b37>
+##contig=<ID=GL000198.1,length=90085,assembly=b37>
+##contig=<ID=GL000208.1,length=92689,assembly=b37>
+##contig=<ID=GL000191.1,length=106433,assembly=b37>
+##contig=<ID=GL000227.1,length=128374,assembly=b37>
+##contig=<ID=GL000228.1,length=129120,assembly=b37>
+##contig=<ID=GL000214.1,length=137718,assembly=b37>
+##contig=<ID=GL000221.1,length=155397,assembly=b37>
+##contig=<ID=GL000209.1,length=159169,assembly=b37>
+##contig=<ID=GL000218.1,length=161147,assembly=b37>
+##contig=<ID=GL000220.1,length=161802,assembly=b37>
+##contig=<ID=GL000213.1,length=164239,assembly=b37>
+##contig=<ID=GL000211.1,length=166566,assembly=b37>
+##contig=<ID=GL000199.1,length=169874,assembly=b37>
+##contig=<ID=GL000217.1,length=172149,assembly=b37>
+##contig=<ID=GL000216.1,length=172294,assembly=b37>
+##contig=<ID=GL000215.1,length=172545,assembly=b37>
+##contig=<ID=GL000205.1,length=174588,assembly=b37>
+##contig=<ID=GL000219.1,length=179198,assembly=b37>
+##contig=<ID=GL000224.1,length=179693,assembly=b37>
+##contig=<ID=GL000223.1,length=180455,assembly=b37>
+##contig=<ID=GL000195.1,length=182896,assembly=b37>
+##contig=<ID=GL000212.1,length=186858,assembly=b37>
+##contig=<ID=GL000222.1,length=186861,assembly=b37>
+##contig=<ID=GL000200.1,length=187035,assembly=b37>
+##contig=<ID=GL000193.1,length=189789,assembly=b37>
+##contig=<ID=GL000194.1,length=191469,assembly=b37>
+##contig=<ID=GL000225.1,length=211173,assembly=b37>
+##contig=<ID=GL000192.1,length=547496,assembly=b37>
+##reference=file:///humgen/gsa-hpprojects/GATK/bundle/current/b37/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA12878
+20	10000694	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10001019	.	T	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10002458	.	G	GTTT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10002470	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10008921	.	C	CA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10008950	.	AACACACACACACA	AC	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10008951	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10008963	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10009844	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/0
+20	10009871	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/0
+20	10009875	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/0
+20	10009879	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/0
+20	10009883	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/0
+20	10012384	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10012387	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10012498	.	C	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/0
+20	10012518	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/0
+20	10012570	.	G	GCA	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10012572	.	GT	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10012636	.	G	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/0
+20	10030452	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10031256	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10040812	.	AT	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10041703	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10055467	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10068158	.	GTGTATATATATA	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10068172	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10070936	.	T	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10070938	.	G	GA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10087820	.	C	CAG	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10088730	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10088736	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10088747	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10088799	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10088968	.	C	CAAA	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10088980	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10088985	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10093568	.	GT	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10095432	.	GTGATGATGA	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10096899	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10096905	.	TA	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10096933	.	G	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10096958	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10098218	.	G	GTT	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10098219	.	TATATATA	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10098237	.	A	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10098265	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10098492	.	A	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10098786	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10098945	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10098945	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099029	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099034	.	C	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099044	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099046	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099055	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099079	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099111	.	T	TTTTGTTTG	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099140	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099190	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099220	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099250	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099535	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099565	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099755	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10099832	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10101674	.	TTGTG	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10101674	.	T	TTGTGTG	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10130722	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10132340	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10134410	.	AAAAGAAAG	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=UNKNOWN	GT	0/1
+20	10155038	.	A	AT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10155043	.	C	CT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10163182	.	TA	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10180886	.	GA	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10187086	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10187114	.	CAACCTCATTCTTTTGCAAATG	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10197959	.	A	ATGTGTG	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10204941	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/0
+20	10245566	.	C	CT	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10250971	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10288905	.	A	AT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10288926	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10304643	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10304694	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10306274	.	C	CA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10307712	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10307737	.	A	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10328011	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10328015	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10332227	.	C	CT	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10334664	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10337073	.	TT	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10339220	.	C	CA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10339220	.	C	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10363599	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10363607	.	G	GA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10371081	.	C	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10371096	.	T	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10373086	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10376455	.	T	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=UNKNOWN	GT	1/1
+20	10381071	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10407677	.	GACACACACACAC	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10409486	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10412175	.	A	AAAACC	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10420794	.	TA	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10420795	.	A	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10431563	.	G	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10431628	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10431646	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10431727	.	T	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10433322	.	A	AT	.	.	CallSetName=ebanks;Date=0;TruthStatus=UNKNOWN	GT	0/0
+20	10433324	.	A	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=UNKNOWN	GT	0/0
+20	10433326	.	A	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=UNKNOWN	GT	0/0
+20	10433382	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=UNKNOWN	GT	0/0
+20	10433391	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=UNKNOWN	GT	0/0
+20	10433955	.	C	CGTGTGTGTGTAT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10433966	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	10452882	.	C	CT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10456789	.	AC	GCTG	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10456789	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10456790	.	C	CTG	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10458546	.	CTT	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10458766	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10459994	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10460003	.	T	TTTTC	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10460284	.	A	AC	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	1/1
+20	10460290	.	C	CCG	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	1/1
+20	10470841	.	TTC	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10470841	.	C	CT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10471752	.	A	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10474507	.	C	CTTT	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10495727	.	C	CT	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10495750	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10497032	.	T	TCAATGTTGAC	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10497033	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10497034	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10497042	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10497044	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10497079	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10497118	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10499005	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10499052	.	T	TTTCTTTCC	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10499197	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	1/1
+20	10518939	.	A	AC	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10518941	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10539007	.	AAAAC	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10539011	.	C	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10561147	.	C	CT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10606681	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10606838	.	A	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10612963	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10624924	.	TCA	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10624926	.	A	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10624928	.	A	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10634258	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10637998	.	T	TAAA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10637998	.	T	TAA	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10645021	.	A	AACACAC	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10645021	.	A	AACAC	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10680386	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10684106	.	CCTTTCTTTCTTT	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10684265	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10690934	.	C	CA	.	.	CallSetName=ebanks;Date=0;TruthStatus=UNKNOWN	GT	0/1
+20	10698409	.	C	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10700153	.	TAC	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10725976	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10726051	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10728870	.	C	CA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10728874	.	C	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	1/1
+20	10731722	.	AAAAC	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10741447	.	C	CT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10743496	.	G	GTA	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10743498	.	GTG	ATATATATATATA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10743500	.	G	GTA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10757486	.	T	TCACACACACA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10757486	.	T	TACA	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10769255	.	A	ATGTG	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10775324	.	T	TACACAC	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10829665	.	CA	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10833879	.	CT	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10844252	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10844254	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10854539	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10854546	.	C	CTA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10863781	.	CAT	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10870932	.	CA	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10870958	.	G	GA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10875660	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10875661	.	T	TA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10880233	.	C	CTTTT	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10880235	.	T	TTTTC	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10895031	.	G	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10895035	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10895040	.	T	TCTCTCTCTCTCTCTCTCTC	.	.	CallSetName=ebanks;Date=0;TruthStatus=UNKNOWN	GT	0/1
+20	10907416	.	G	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10907643	.	G	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10907660	.	C	CAAAA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10907668	.	A	AAGAAGAAGAAGAAGAAGAAG	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10907671	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10907674	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10927502	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10938347	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10940908	.	A	AT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10940934	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10958481	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10958486	.	T	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10958493	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10958499	.	T	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10958500	.	T	TA	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10958505	.	ATAAT	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10958514	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10958520	.	T	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10958526	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10958550	.	T	TTA	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10958552	.	A	ATG	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10958598	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10959169	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10959197	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10959200	.	G	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10959450	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10959451	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10968586	.	C	CTG	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10968618	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10971329	.	T	TAC	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10977912	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10977947	.	G	GTATTTATTTATT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10984349	.	T	TTCC	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10984359	.	T	TC	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10984360	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10990141	.	T	TCCCACCGAGGTGGTGAATGTCTTGAC	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10991686	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
+20	10999048	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10999056	.	TTTTC	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10999066	.	C	CT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
