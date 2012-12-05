@@ -45,12 +45,12 @@ import java.util.*;
  */
 public class AssessNA12878 extends NA12878DBWalker {
     /**
-     * Variants from this VCF file are used by this tool as input.
-     * The file must at least contain the standard VCF header lines, but
+     * Variants from these VCF files are used by this tool as input.
+     * The files must at least contain the standard VCF header lines, but
      * can be empty (i.e., no variants are contained in the file).
      */
-    @Input(fullName="variant", shortName = "V", doc="Input VCF file", required=false)
-    public RodBinding<VariantContext> variants;
+    @Input(fullName="variant", shortName = "V", doc="Input VCF file", required=true)
+    public List<RodBinding<VariantContext>> variants;
 
     @Input(fullName="BAM", shortName = "BAM", doc="Input BAM file.  If provided, we will differentiate false negative sites into those truly missed and those without coverage", required=false)
     public File BAM = null;
@@ -61,8 +61,8 @@ public class AssessNA12878 extends NA12878DBWalker {
     /**
      * A VCF file containing bad sites (FN/FP) in the input callset w.r.t. the current NA12878 knowledge base
      */
-    @Output(fullName = "badSites", shortName = "badSites", doc="VCF file containing information on FP/FNs in the input callset")
-    public VariantContextWriter badSites;
+    @Output(fullName = "badSites", shortName = "badSites", doc="VCF file containing information on FP/FNs in the input callset", required=false)
+    public VariantContextWriter badSites = null;
 
     @Argument(fullName="maxToWrite", shortName = "maxToWrite", doc="Max. number of bad sites to write out", required=false)
     public int maxToWrite = 10000;
@@ -90,6 +90,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     protected boolean debug = false;
 
     SiteIterator<MongoVariantContext> consensusSiteIterator;
+    boolean captureBadSites = true;
     int nWritten = 0;
 
     public enum AssessmentType {
@@ -128,10 +129,18 @@ public class AssessNA12878 extends NA12878DBWalker {
         public final int get(final AssessmentType type) {
             return counts.get(type);
         }
+
+        public List<Integer> getCounts() {
+            final List<Integer> returnList = new ArrayList<Integer>();
+            for( final AssessmentType type : AssessmentType.values() ) {
+                returnList.add(get(type));
+            }
+            return returnList;
+        }
     }
 
-    final Assessment SNPAssessments = new Assessment();
-    final Assessment IndelAssessments = new Assessment();
+    final Map<String,Assessment> SNPAssessments = new HashMap<String,Assessment>();
+    final Map<String,Assessment> IndelAssessments = new HashMap<String,Assessment>();
     SAMFileReader bamReader = null;
 
     @Override
@@ -142,13 +151,15 @@ public class AssessNA12878 extends NA12878DBWalker {
     public void initialize() {
         super.initialize();
         consensusSiteIterator = db.getConsensusSites(makeSiteSelector());
+        captureBadSites = badSites != null;
 
-        final Set<VCFHeaderLine> lines = VCFUtils.getHeaderFields(getToolkit());
-        lines.add(new VCFInfoHeaderLine("WHY", 1, VCFHeaderLineType.String, "Why was the site considered bad"));
-        lines.add(new VCFInfoHeaderLine("SupportingCallsets", 1, VCFHeaderLineType.String, "Callsets supporting the consensus, where available"));
-        lines.add(new VCFHeaderLine("CallSetBeingEvaluated", variants.getSource()));
-        lines.addAll(MongoVariantContext.reviewHeaderLines());
-        badSites.writeHeader(new VCFHeader(lines, Collections.singleton("NA12878")));
+        if( captureBadSites ) {
+            final Set<VCFHeaderLine> lines = VCFUtils.getHeaderFields(getToolkit());
+            lines.add(new VCFInfoHeaderLine("WHY", 1, VCFHeaderLineType.String, "Why was the site considered bad"));
+            lines.add(new VCFInfoHeaderLine("SupportingCallsets", 1, VCFHeaderLineType.String, "Callsets supporting the consensus, where available"));
+            lines.addAll(MongoVariantContext.reviewHeaderLines());
+            badSites.writeHeader(new VCFHeader(lines, Collections.singleton("NA12878")));
+        }
 
         if ( BAM != null ) {
             bamReader = new SAMFileReader(BAM);
@@ -163,7 +174,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         includeMissingCalls(consensusSiteIterator, context.getLocation());
         final List<MongoVariantContext> consensusSites = consensusSiteIterator.getSitesAtLocation(context.getLocation());
 
-        for ( VariantContext vcRaw : tracker.getValues(variants, ref.getLocus()) ) {
+        for ( final VariantContext vcRaw : tracker.getValues(variants, ref.getLocus()) ) {
             final VariantContext vc = vcRaw.subContextFromSample("NA12878");
 
             if ( ! vc.isBiallelic() ) {
@@ -220,10 +231,15 @@ public class AssessNA12878 extends NA12878DBWalker {
             return;
 
         final AssessmentType type = figureOutAssessmentType(call, consensusSite);
-        final Assessment assessment = vc.isSNP() ? SNPAssessments : IndelAssessments;
+        final Map<String,Assessment> assessmentMap = vc.isSNP() ? SNPAssessments : IndelAssessments;
+        Assessment assessment = assessmentMap.get(vc.getSource());
+        if(assessment == null) {
+            assessment = new Assessment();
+            assessmentMap.put(vc.getSource(),assessment);
+        }
         assessment.inc(type);
 
-        if ( type.interesting && ! AssessmentsToExclude.contains(type) && nWritten++ < maxToWrite) {
+        if ( captureBadSites && type.interesting && ! AssessmentsToExclude.contains(type) && nWritten++ < maxToWrite) {
             final VariantContextBuilder builder = new VariantContextBuilder(vc);
             if ( consensusSite != null )
                 builder.attribute("SupportingCallsets", Utils.join(",", consensusSite.getSupportingCallSets()));
@@ -329,19 +345,45 @@ public class AssessNA12878 extends NA12878DBWalker {
         super.onTraversalDone(result);
         includeMissingCalls(consensusSiteIterator.toList());
 
-        final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of " + variants.getSource(),
-                "VariantType", "AssessmentType", "Count");
+        if( variants.size() == 1 ) {
+            final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets",
+                    "Name", "VariantType", "AssessmentType", "Count");
+            for( final RodBinding rod : variants ) {
+                // snps
+                for ( final AssessmentType type : AssessmentType.values() ) {
+                    report.addRow(rod.getName(), "SNP", type, SNPAssessments.get(rod.getName()).get(type));
+                }
 
-        // snps
-        for ( final AssessmentType type : AssessmentType.values() ) {
-            report.addRow("SNP", type, SNPAssessments.get(type));
+                // indels
+                for ( final AssessmentType type : AssessmentType.values() ) {
+                    report.addRow(rod.getName(), "Indel", type, IndelAssessments.get(rod.getName()).get(type));
+                }
+            }
+            report.print(out);
+        } else {
+            final List<String> columns = new ArrayList<String>();
+            columns.add("Name");
+            columns.add("VariantType");
+            for( final AssessmentType type : AssessmentType.values() ) {
+                columns.add(type.toString());
+            }
+            final GATKReport report = GATKReport.newSimpleReport("NA12878Assessment", columns);
+            for( final RodBinding rod : variants ) {
+                // snps
+                final List<Object> row = new ArrayList<Object>();
+                row.add(rod.getName());
+                row.add("SNP");
+                row.addAll(SNPAssessments.get(rod.getName()).getCounts());
+                report.addRowList(row);
+
+                // indels
+                row.clear();
+                row.add(rod.getName());
+                row.add("indel");
+                row.addAll(IndelAssessments.get(rod.getName()).getCounts());
+                report.addRowList(row);
+            }
+            report.print(out);
         }
-
-        // indels
-        for ( final AssessmentType type : AssessmentType.values() ) {
-            report.addRow("Indel", type, IndelAssessments.get(type));
-        }
-
-        report.print(out);
     }
 }
