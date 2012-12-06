@@ -167,7 +167,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
   var skipQCMetrics: Boolean = false
 
   @Hidden
-  @Argument(doc = "Number of threads jobs should use when possible", fullName = "numThreads", shortName = "nt", required = false)
+  @Argument(doc = "Number of threads jobs should use when possible", fullName = "numThreads", shortName = "nct", required = false)
   var numThreads: Int = 4 // HOTFIX m1.large has 4 cores?
 
   @Hidden
@@ -630,7 +630,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.jobName = outRecalFile + ".covariates"
     if (qscript.quick) this.intervals :+= qscript.targets
     this.memoryLimit = Some(4) // needs 4 GB to store big tables in memory
-    // this.nct = Some(qscript.numThreads)     // SGE won't like this
+    this.nct = Some(qscript.numThreads)
   }
 
   case class apply_bqsr(inBAM: File, inRecalFile: File, outBAM: File) extends PrintReads with CommandLineGATKArgs {
@@ -642,7 +642,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.isIntermediate = false
     this.analysisName = outBAM + ".recalibration"
     this.jobName = outBAM + ".recalibration"
-    //  this.nct = Some(qscript.numThreads)
+      this.nct = Some(qscript.numThreads)
     if (qscript.quick) this.intervals :+= qscript.targets
   }
 
@@ -817,7 +817,6 @@ class CMIBAMProcessingPipeline extends CmiScript {
 
     this.analysisName = outSai + ".bwa_aln_se"
     this.jobName = outSai + ".bwa_aln_se"
-    // this.nCoresRequest = Some(numThreads)
     this.memoryLimit = Some(5)
     this.isIntermediate = true
 
