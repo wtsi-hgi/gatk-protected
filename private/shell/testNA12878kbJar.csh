@@ -1,0 +1,1 @@
+java -cp dist/na12878kb.jar:dist/picard-1.67.1197.jar:dist/picard-private-parts-2375.jar:dist/log4j-1.2.16.jar:dist/mongo-java-driver-2.7.3.jar:dist/gson-2.2.2.jar:dist/vcf.jar:dist/tribble-119.jar org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878KBMain /humgen/gsa-hpprojects/GATK/bundle/current/b37/human_g1k_v37.fasta

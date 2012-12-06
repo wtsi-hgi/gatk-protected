@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import net.sf.picard.reference.IndexedFastaSequenceFile;
 import org.apache.log4j.Logger;
@@ -42,7 +42,6 @@ public class NA12878KBUnitTestBase extends BaseTest {
             args.dbToUse = NA12878DBArgumentCollection.DBType.TEST;
             args.resetDB = true;
             db = new NA12878KnowledgeBase(parser, args);
-            logger.info("Setting up DB connect" + db);
         } catch ( Exception e ) {
             throw new SkipException("Failed to setup DB connection", e);
         }

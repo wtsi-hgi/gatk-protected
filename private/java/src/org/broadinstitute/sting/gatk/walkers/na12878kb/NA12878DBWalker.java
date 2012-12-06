@@ -5,6 +5,9 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878KnowledgeBase;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteSelector;
 
 public abstract class NA12878DBWalker extends RodWalker<Integer, Integer> {
     @ArgumentCollection
@@ -12,8 +15,12 @@ public abstract class NA12878DBWalker extends RodWalker<Integer, Integer> {
 
     protected NA12878KnowledgeBase db;
 
+    public abstract NA12878DBArgumentCollection.DBType getDefaultDB();
+
     public void initialize() {
         logger.info("Connecting to DB");
+        if ( dbArgumentCollection.dbToUse == NA12878DBArgumentCollection.DBType.DEFAULT )
+            dbArgumentCollection.dbToUse = getDefaultDB();
         db = new NA12878KnowledgeBase(getToolkit().getGenomeLocParser(), dbArgumentCollection);
     }
 

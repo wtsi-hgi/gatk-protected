@@ -1,6 +1,7 @@
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.mongodb.ReflectionDBObject;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
@@ -106,47 +107,58 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
                                                 final String alt,
                                                 final Genotype gt,
                                                 final boolean isReviewed) {
+        return create(callSetName, chr, start, ref, alt, TruthStatus.TRUE_POSITIVE, gt, isReviewed);
+    }
+
+    protected static MongoVariantContext create(final String callSetName,
+                                                final String chr,
+                                                final int start,
+                                                final String ref,
+                                                final String alt,
+                                                final TruthStatus truthStatus,
+                                                final Genotype gt,
+                                                final boolean isReviewed) {
         final int stop = start + ref.length() - 1;
         final VariantContextBuilder vcb = new VariantContextBuilder(callSetName, chr, start, stop, Arrays.asList(Allele.create(ref, true), Allele.create(alt)));
-        return new MongoVariantContext(callSetName, vcb.make(), TruthStatus.TRUE_POSITIVE, new Date(), gt, isReviewed);
+        return new MongoVariantContext(callSetName, vcb.make(), truthStatus, new Date(), gt, isReviewed);
     }
 
     public static MongoVariantContext create(final List<String> supportingCallsets,
                                              final VariantContext vc,
-                                             final TruthStatus type,
+                                             final TruthStatus truthStatus,
                                              final Date date,
                                              final Genotype gt,
                                              final boolean isReviewed) {
-        return new MongoVariantContext(supportingCallsets, vc, type, date, gt, isReviewed);
+        return new MongoVariantContext(supportingCallsets, vc, truthStatus, date, gt, isReviewed);
     }
 
     public static MongoVariantContext create(final String callSetName,
                                              final VariantContext vc,
-                                             final TruthStatus type,
+                                             final TruthStatus truthStatus,
                                              final Genotype gt) {
-        return create(Arrays.asList(callSetName), vc, type, new Date(), gt, false);
+        return create(Arrays.asList(callSetName), vc, truthStatus, new Date(), gt, false);
     }
 
     public static MongoVariantContext createFromReview(final VariantContext vc) {
         final String callSet = parseReviewField(vc, "CallSetName");
-        final TruthStatus type = TruthStatus.valueOf(parseReviewField(vc, "TruthStatus"));
+        final TruthStatus truthStatus = TruthStatus.valueOf(parseReviewField(vc, "TruthStatus"));
         final Date date = new Date(Long.valueOf(parseReviewField(vc, "Date")));
         final Genotype gt = vc.hasGenotype("NA12878") ? vc.getGenotype("NA12878") : MongoGenotype.NO_CALL;
-        return new MongoVariantContext(callSet, vc, type, date, gt, true);
+        return new MongoVariantContext(callSet, vc, truthStatus, date, gt, true);
     }
 
     protected MongoVariantContext(final String callset,
                                   final VariantContext vc,
-                                  final TruthStatus type,
+                                  final TruthStatus truthStatus,
                                   final Date date,
                                   final Genotype gt,
                                   final boolean isReviewed) {
-        this(Arrays.asList(callset), vc, type, date, gt, isReviewed);
+        this(Arrays.asList(callset), vc, truthStatus, date, gt, isReviewed);
     }
 
     protected MongoVariantContext(final List<String> supportingCallsets,
                                   final VariantContext vc,
-                                  final TruthStatus type,
+                                  final TruthStatus truthStatus,
                                   final Date date,
                                   final Genotype gt,
                                   final boolean isReviewed) {
@@ -162,20 +174,23 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         this.stop = vc.getEnd();
         this.ref = vc.getReference().getDisplayString();
         this.alt = vc.getAlternateAllele(0).getDisplayString();
-        this.mongoType = type;
+        this.mongoType = truthStatus;
         this.date = date;
         this.reviewed = isReviewed;
         this.gt = new MongoGenotype(vc.getAlleles(), gt);
+
+        //TODO Once the public gatk includes BaseUtils.isUpperCase, we can enable this
+        //validate(null);
     }
 
-    public MongoVariantContext(List<String> supportingCallsets, String chr, int start, int stop, String ref, String alt, TruthStatus mongoType, MongoGenotype gt, Date date, boolean reviewed) {
+    protected MongoVariantContext(List<String> supportingCallsets, String chr, int start, int stop, String ref, String alt, TruthStatus truthStatus, MongoGenotype gt, Date date, boolean reviewed) {
         this.supportingCallsets = supportingCallsets;
         this.chr = chr;
         this.start = start;
         this.stop = stop;
         this.ref = ref;
         this.alt = alt;
-        this.mongoType = mongoType;
+        this.mongoType = truthStatus;
         this.gt = gt;
         this.date = date;
         this.reviewed = reviewed;
@@ -271,17 +286,17 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
      */
     public VariantContext getVariantContext() {
         final VariantContextBuilder vcb = new VariantContextBuilder(getCallSetName(), chr, start, stop, getAlleles());
-
-        if ( isReviewed() )
-            addReviewInfoFields(vcb);
-
+        addReviewInfoFields(vcb);
         vcb.genotypes(gt.toGenotype(getAlleles()));
-
         return vcb.make();
     }
 
     public TruthStatus getType() {
         return mongoType;
+    }
+
+    public void setTruth(TruthStatus status) {
+        this.mongoType = status;
     }
 
     protected void addReviewInfoFields(final VariantContextBuilder vcb) {
@@ -292,7 +307,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         //vcb.attribute("PhredConfidence", getPhredConfidence());
     }
 
-    protected static Set<VCFHeaderLine> reviewHeaderLines() {
+    public static Set<VCFHeaderLine> reviewHeaderLines() {
         final Set<VCFHeaderLine> lines = new HashSet<VCFHeaderLine>();
 
         lines.add(new VCFInfoHeaderLine("CallSetName", 1, VCFHeaderLineType.String, "Name of the review"));
@@ -399,6 +414,33 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         return true;
     }
 
+    /**
+     * Is this and that duplicate entries?
+     *
+     * Duplicate entry contain all of the same essential information but may different in the time
+     * they were added.  Sometimes multiple entries are added (for example, clicked save review twice in
+     * IGV.  Such identical records have all the same field values but the date may be different.
+     *
+     * @param that another fully filled in MongoVariantContext to test for duplicate
+     * @return true if this and that are duplicates, false otherwise
+     */
+    public boolean isDuplicate(final MongoVariantContext that) {
+        if ( that == null ) throw new IllegalArgumentException("that cannot be null");
+
+        if (reviewed != that.reviewed) return false;
+        if (start != that.start) return false;
+        if (stop != that.stop) return false;
+        if (!ref.equals(that.ref)) return false;
+        if (!alt.equals(that.alt)) return false;
+        if (!chr.equals(that.chr)) return false;
+        // ignores date if (date != null ? !date.equals(that.date) : that.date != null) return false;
+        if (!gt.equals(that.gt)) return false;
+        if (mongoType != that.mongoType) return false;
+        if (!supportingCallsets.equals(that.supportingCallsets)) return false;
+
+        return true;
+    }
+
     @Override
     public int hashCode() {
         int result = supportingCallsets != null ? supportingCallsets.hashCode() : 0;
@@ -417,8 +459,8 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
     /**
      * Make sure this MongoVariantContext is valid, throwing a MongoVariantContextException if not
      *
-     * @throws MongoVariantContextException if this is malformed
-     * @param parser a GenomeLocParser so we know what contigs are allowed
+     * @throws org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException if this is malformed
+     * @param parser a GenomeLocParser so we know what contigs are allowed, can be null
      */
     protected void validate(final GenomeLocParser parser) {
         if ( supportingCallsets == null || supportingCallsets.size() == 0 )
@@ -428,7 +470,8 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         if ( start < 1 ) error("Start = %d < 1", start);
         if ( start > stop ) error("Start %d > Stop %d", start, stop);
         if ( chr == null ) error("Chr is null");
-        if ( ! parser.contigIsInDictionary(chr) ) error("Chr %s is not in the b37 dictionary", chr);
+        if ( parser != null && ! parser.contigIsInDictionary(chr) ) error("Chr %s is not in the b37 dictionary", chr);
+        if ( parser == null && chr.toLowerCase().startsWith("chr") ) error("MongoVariantContext %s uses the UCSC convention -- must use the b37 convention (i.e., 1 not chr1)", chr);
         if ( ref == null || ref.equals("") ) error("ref allele is null or empty string");
         if ( ! BaseUtils.isUpperCase(ref.getBytes()) ) error("ref allele must be all upper case but got " + ref);
         if ( ! Allele.acceptableAlleleBases(ref) ) error("ref allele contains unacceptable bases " + ref);
