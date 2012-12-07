@@ -174,16 +174,24 @@ public class AssessNA12878 extends NA12878DBWalker {
         includeMissingCalls(consensusSiteIterator, context.getLocation());
         final List<MongoVariantContext> consensusSites = consensusSiteIterator.getSitesAtLocation(context.getLocation());
 
-        for ( final VariantContext vcRaw : tracker.getValues(variants, ref.getLocus()) ) {
-            final VariantContext vc = vcRaw.subContextFromSample("NA12878");
+        for ( final RodBinding<VariantContext> rod : variants ) {
+            if( tracker.getValues(rod, ref.getLocus()).size() == 0 ) {
+                // missed consensus site(s)
+                for ( final MongoVariantContext site : consensusSites ) {
+                    accessSite(rod.getName(), null, site);
+                }
+            } else {
+                for( final VariantContext vcRaw : tracker.getValues(rod, ref.getLocus()) ) {
+                    final VariantContext vc = vcRaw.subContextFromSample("NA12878");
 
-            if ( ! vc.isBiallelic() ) {
-                logger.info("Skipping unsupported multi-allelic variant " + vc);
-                continue;
+                    if ( ! vc.isBiallelic() ) {
+                        logger.info("Skipping unsupported multi-allelic variant " + vc);
+                        continue;
+                    }
+
+                    accessSite(rod.getName(), vc, findMatching(vc, consensusSites)); // BUGBUG: Should this be called for not only the matching consensusSite but for all consensusSites?
+                }
             }
-
-            final MongoVariantContext matchedConsensus = findMatching(vc, consensusSites);
-            accessSite(vc, matchedConsensus);
         }
 
         return 1;
@@ -203,7 +211,9 @@ public class AssessNA12878 extends NA12878DBWalker {
     private void includeMissingCalls(final List<MongoVariantContext> missedSites) {
         for ( final MongoVariantContext missedSite : missedSites ) {
             logger.info("Missed site " + missedSite);
-            accessSite(null, missedSite);
+            for ( final RodBinding<VariantContext> rod : variants ) {
+                accessSite(rod.getName(), null, missedSite);
+            }
         }
     }
 
@@ -224,7 +234,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     }
 
 
-    private void accessSite(final VariantContext call, final MongoVariantContext consensusSite) {
+    private void accessSite(final String rodName, final VariantContext call, final MongoVariantContext consensusSite) {
         final VariantContext vc = call != null ? call : consensusSite.getVariantContext();
 
         if ( ! includeVariant(vc) )
@@ -232,10 +242,10 @@ public class AssessNA12878 extends NA12878DBWalker {
 
         final AssessmentType type = figureOutAssessmentType(call, consensusSite);
         final Map<String,Assessment> assessmentMap = vc.isSNP() ? SNPAssessments : IndelAssessments;
-        Assessment assessment = assessmentMap.get(vc.getSource());
+        Assessment assessment = assessmentMap.get(rodName);
         if(assessment == null) {
             assessment = new Assessment();
-            assessmentMap.put(vc.getSource(),assessment);
+            assessmentMap.put(rodName, assessment);
         }
         assessment.inc(type);
 
@@ -245,9 +255,8 @@ public class AssessNA12878 extends NA12878DBWalker {
                 builder.attribute("SupportingCallsets", Utils.join(",", consensusSite.getSupportingCallSets()));
             builder.attribute("WHY", type.toString());
             badSites.add(builder.make());
+            logger.info("Accessed site " + call + " consensus " + consensusSite);
         }
-
-        logger.info("Accessed site " + call + " consensus " + consensusSite);
     }
 
     private AssessmentType figureOutAssessmentType(final VariantContext call, final MongoVariantContext consensusSite) {
@@ -275,7 +284,7 @@ public class AssessNA12878 extends NA12878DBWalker {
             } else {
                 return AssessmentType.NOT_RELEVANT;
             }
-        } else if ( consensusTP ) {
+        } else if ( consensusTP ) { // call == null
             if ( BAM != null ) {
                 return sufficientDepthToCall(consensusSite)
                         ? AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL
@@ -289,7 +298,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     }
 
     /**
-     * If a BAM is provided, assess whether's there's sufficient coverage to call the site
+     * If a BAM is provided, assess whether there's sufficient coverage to call the site
      *
      * @param falseNegative a site that was missed in the call set
      * @return true if there's enough coverage at the site in the BAM to likely make a call
