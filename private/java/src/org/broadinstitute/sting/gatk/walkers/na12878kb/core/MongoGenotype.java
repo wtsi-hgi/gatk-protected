@@ -46,6 +46,15 @@ public class MongoGenotype extends ReflectionDBObject {
     }
 
     /**
+     * Create a discordant Genotype based on input genotype g
+     * @param g a genotype to make a discordant version of
+     * @return a discordant version of g
+     */
+    public static Genotype createDiscordant(final Genotype g) {
+        return new GenotypeBuilder(g.getSampleName(), g.getAlleles()).GQ(DISCORDANT_GQ).make();
+    }
+
+    /**
      * For MongoDB set() building approach.  Not for public consumption
      */
     public MongoGenotype() { }
@@ -182,7 +191,7 @@ public class MongoGenotype extends ReflectionDBObject {
     @Override
     public String toString() {
         return alleleString(allele1) + "/" + alleleString(allele2) +
-                option(", GQ=", GQ) +
+                (isDiscordant() ? " DISCORDANT" : option(", GQ=", GQ)) +
                 option(", DP=", DP);
     }
 

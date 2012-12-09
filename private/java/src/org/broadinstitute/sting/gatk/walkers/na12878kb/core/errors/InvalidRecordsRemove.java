@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors;
 
+import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 
@@ -24,6 +25,7 @@ public class InvalidRecordsRemove<T extends MongoVariantContext> extends Invalid
     public void handleFailedRecord(T record, MongoVariantContextException e) {
         super.handleFailedRecord(record, e);
         logger.warn("Removing invalid record " + record + " from " + source);
-        source.remove(record); // TODO -- should we check that this is actually deleted?
+        // TODO -- should we check that this is actually deleted?
+        source.remove(new BasicDBObject("_id", record.get_id()));
     }
 }
