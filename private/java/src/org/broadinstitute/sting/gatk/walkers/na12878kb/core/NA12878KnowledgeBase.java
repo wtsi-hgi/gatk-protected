@@ -1,5 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
+import com.google.java.contract.Requires;
 import com.mongodb.*;
 import org.apache.log4j.Logger;
 import org.apache.log4j.Priority;
@@ -192,50 +193,87 @@ public class NA12878KnowledgeBase {
         return summary;
     }
 
-    private MongoVariantContext makeConsensus(final Collection<MongoVariantContext> individualCalls) {
+    private MongoVariantContext makeConsensus(final Collection<MongoVariantContext> allSupportingCalls) {
         final List<String> supportingCallSets = new LinkedList<String>();
-        final VariantContext first = individualCalls.iterator().next().getVariantContext();
+        final Collection<MongoVariantContext> callsForConsensus = selectCallsForConsensus(allSupportingCalls);
+        final boolean isReviewed = isReviewed(callsForConsensus);
+        final VariantContext first = callsForConsensus.iterator().next().getVariantContext();
 
         final VariantContextBuilder builder = new VariantContextBuilder();
         builder.chr(first.getChr()).start(first.getStart()).stop(first.getEnd());
 
-        final boolean isReviewed = isReviewed(individualCalls);
         final Set<Allele> alleles = new LinkedHashSet<Allele>();
-        for ( final MongoVariantContext vc : individualCalls ) {
+        for ( final MongoVariantContext vc : allSupportingCalls ) {
             alleles.addAll(vc.getVariantContext().getAlleles());
             supportingCallSets.addAll(vc.getSupportingCallSets());
         }
         builder.alleles(alleles);
 
-        final TruthStatus type = determineTruth(individualCalls);
-        final PolymorphicStatus status = determinePolymorphicStatus(individualCalls);
-        final Genotype gt = consensusGT(type, status, new LinkedList<Allele>(alleles), individualCalls);
+        final TruthStatus type = determineTruth(callsForConsensus);
+        final PolymorphicStatus status = determinePolymorphicStatus(callsForConsensus);
+        final Genotype gt = consensusGT(type, status, new LinkedList<Allele>(alleles), callsForConsensus);
 
         return MongoVariantContext.create(supportingCallSets, builder.make(), type, new Date(), gt, isReviewed);
     }
 
+    /**
+     * Is at least one call in individualCalls a reviewed call?
+     * @param individualCalls a collection of calls to consider
+     * @return true if at least one call in individualCalls is a review, false otherwise
+     */
+    @Requires("individualCalls != null")
     private boolean isReviewed(final Collection<MongoVariantContext> individualCalls) {
-        boolean hasReview = false;
         for ( final MongoVariantContext vc : individualCalls )
-            hasReview = hasReview || vc.isReviewed();
-        return hasReview;
+            if ( vc.isReviewed() )
+                return true;
+        return false;
     }
 
-    private Genotype consensusGT(final TruthStatus truthStatus,
-                                 final PolymorphicStatus polyStatus,
-                                 final List<Allele> alleles,
-                                 final Collection<MongoVariantContext> individualCalls) {
+    private Collection<MongoVariantContext> selectCallsForConsensus(final Collection<MongoVariantContext> individualCalls) {
+        final List<MongoVariantContext> reviewed = new LinkedList<MongoVariantContext>();
+
+        for ( final MongoVariantContext vc : individualCalls )
+            if ( vc.isReviewed() ) reviewed.add(vc);
+        return reviewed.isEmpty() ? individualCalls : reviewed;
+    }
+
+    /**
+     * Create a consensus genotype appropriate for a site backed by individualCalls with given
+     * truthStatus and polyStatus
+     *
+     * @param truthStatus the determined truth status for this site
+     * @param polyStatus the determined polymorphic status of this site // TODO -- why is this necessary?
+     * @param alleles the list of alleles segregating at this site
+     * @param individualCalls the individual call sets we should use to make the consensus gt
+     * @return a Genotype appropriate for this consensus site
+     */
+    protected Genotype consensusGT(final TruthStatus truthStatus,
+                                   final PolymorphicStatus polyStatus,
+                                   final List<Allele> alleles,
+                                   final Collection<MongoVariantContext> individualCalls) {
         if ( ! truthStatus.isTruePositive() ) {
             return MongoGenotype.NO_CALL;
         } else if ( polyStatus.isDiscordant() || polyStatus.isUnknown() ) {
             return MongoGenotype.NO_CALL;
         } else {
+            Genotype g = MongoGenotype.NO_CALL;
+
             // we are a TP, we need to compute the consensus genotype
             for ( final MongoVariantContext mvc : individualCalls ) {
-                return mvc.getGt().toGenotype(alleles); // TODO -- fix me
+                final Genotype mvcG = mvc.getGt().toGenotype(alleles);
+                if ( g.isNoCall() )
+                    g = mvcG;
+                else if ( mvcG.isNoCall() )
+                    ; // keep g
+                else if ( g.isMixed() || ! g.isAvailable() )
+                    throw new IllegalStateException("Unexpected genotype in mongo db " + g + " at " + individualCalls);
+                else if ( g.getType() != mvcG.getType() )
+                    return MongoGenotype.createDiscordant(mvcG);
+                else
+                    ; // TODO -- should try to capture more DP and GQ
             }
 
-            return MongoGenotype.NO_CALL;
+            return g;
         }
     }
 
