@@ -8,16 +8,18 @@ import org.broad.tribble.AbstractFeatureReader;
 import org.broad.tribble.AsciiFeatureCodec;
 import org.broad.tribble.CloseableTribbleIterator;
 import org.broad.tribble.FeatureReader;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.CommandLineProgram;
 import org.broadinstitute.sting.utils.codecs.bcf2.BCF2Codec;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
 import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variantcontext.VariantContext;
 import org.broadinstitute.sting.utils.variantcontext.writer.Options;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriterFactory;
-import scala.concurrent.LinkedListQueueCreator;
 
 import java.io.*;
 import java.util.*;
@@ -30,46 +32,49 @@ import java.util.*;
  * Time: 7:49 AM
  * To change this template use File | Settings | File Templates.
  */
-public class CatVariants {
+public class CatVariants extends CommandLineProgram {
     // setup the logging system, used by some codecs
     private static org.apache.log4j.Logger logger = org.apache.log4j.Logger.getRootLogger();
 
+    @Argument(fullName = "reference", shortName = "R", doc = "genome reference file <name>.fasta", required = true)
+    private String refarg = null;
 
-    public static void main(String[] args){
+    @Argument(fullName = "inputFileName", shortName = "input", doc = "input file name <name>.list", required = true)
+    private String inputFileName = null;
+
+    @Argument(fullName = "outputName", shortName = "out", doc = "output file name <name>.vcf or <name>.bcf", required = true)
+    private String outputName = null;
+
+    @Argument(fullName = "emailAddress", shortName = "e", doc = "The user email address for which to generate a GATK key", required = true)
+    private Boolean sorted = false;
+
+    @Argument(fullName = "help", shortName = "help", doc = "print this hlp info", required = false)
+    private Boolean help = false;
+
+    protected int execute() throws Exception {
+        if(help){
+            printUsage();
+            return 0;
+        }
+
         BasicConfigurator.configure();
         logger.setLevel(Level.INFO);
 
-        if (args.length < 3 )
-            printUsage();
-        boolean sorted = false;
-        if (args.length == 4){
-            if (args[3].equals("sorted"))
-                sorted = true;
-            else
-                printUsage();
-        }
-
-
-        String refarg = args[0];
         if ( ! refarg.endsWith(".fasta")) {
-            System.err.println("Reference file name must end with .fasta");
-            System.exit(1);
+            throw new UserException("Reference file "+refarg+"name must end with .fasta");
         }
 
         File refFile = new File(refarg);
         if ( ! refFile.exists() ) {
-            System.err.println("Reference file "+refarg+" does not exist");
-            System.exit(1);
+            throw new UserException(String.format("Reference file %s does not exist", refFile.getAbsolutePath()));
         }
 
-        String inputFileName = args[1];
         if (!inputFileName.endsWith(".list")){
-            System.err.println("Input File " + inputFileName + " should be <name>.list");
-            printUsage();
+            throw new UserException(String.format("Input File %s should be <name>.list",inputFileName));
         }
 
-       // Comparator<Pair<Integer,FeatureReader<VariantContext>>> comparator = new PositionComparator();
-        Comparator<Pair<Integer,String>> newComparator = new NewPositionComparator();
+        // Comparator<Pair<Integer,FeatureReader<VariantContext>>> comparator = new PositionComparator();
+        Comparator<Pair<Integer,String>> newComparator = new PositionComparator();
 
 
         //PriorityQueue<Pair<Integer,FeatureReader<VariantContext>>> queue =
@@ -80,75 +85,24 @@ public class CatVariants {
         else
             priorityQueue = new PriorityQueue<Pair<Integer,String>>(10000, newComparator);
 
-        try{
-            FileInputStream fstream = new FileInputStream(inputFileName);
-            DataInputStream in = new DataInputStream(fstream);
-            BufferedReader br = new BufferedReader(new InputStreamReader(in));
-            String fileName;
-            while ((fileName = br.readLine()) != null)   {
 
-                if (!(fileName.endsWith(".vcf") || fileName.endsWith(".VCF") || fileName.endsWith(".bcf") || fileName.endsWith(".BCF"))){
-                    System.err.println("File " + fileName + " should be <name>.vcf or <name>.bcf");
-                    printUsage();
-                }
-                if (sorted){
-                    priorityQueue.add(new Pair<Integer, String>(0,fileName));
-                }
-                else{
-                    File featureFile = new File(fileName);
-                    if (!featureFile.exists()) {
-                        System.err.println("File " + featureFile.getAbsolutePath() + " doesn't exist");
-                    }
-                    FeatureReader<VariantContext> reader;
-                    boolean useVCF = (fileName.endsWith(".vcf") || fileName.endsWith(".VCF"));
-                    if(useVCF)
-                        reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new VCFCodec(), false);
-                    else
-                        reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new BCF2Codec(), false);
-                    Iterator<VariantContext> it = reader.iterator();
-                    if(!it.hasNext()){
-                        System.err.println("File " + fileName + " is empty. This file will be ignored");
-                        continue;
-                    }
-                    VariantContext vc = it.next();
-                    int firstPosition = vc.getStart();
-                    reader.close();
-                    //queue.add(new Pair<Integer, FeatureReader<VariantContext>>(firstPosition,reader));
-                    priorityQueue.add(new Pair<Integer, String>(firstPosition,fileName));
-                }
+        FileInputStream fstream = new FileInputStream(inputFileName);
+        DataInputStream in = new DataInputStream(fstream);
+        BufferedReader br = new BufferedReader(new InputStreamReader(in));
+        String fileName;
+        while ((fileName = br.readLine()) != null)   {
 
+            if (!(fileName.endsWith(".vcf") || fileName.endsWith(".VCF") || fileName.endsWith(".bcf") || fileName.endsWith(".BCF"))){
+                System.err.println("File " + fileName + " should be <name>.vcf or <name>.bcf");
+                printUsage();
             }
-            in.close();
-        }catch (Exception e){
-            System.err.println("Error: " + e.getMessage());
-            printUsage();
-        }
-
-        String outputName = args[2];
-        if (!(outputName.endsWith(".vcf") || outputName.endsWith(".VCF"))){
-            System.err.println("Output File " + outputName + " should be <name>.vcf");
-            printUsage();
-        }
-        ReferenceSequenceFile ref = ReferenceSequenceFileFactory.getReferenceSequenceFile(refFile);
-        final File combinedFile = new File(outputName);
-
-        int counter = 0;
-        final int MAX_RECORDS = 10;
-        try {
-            FileOutputStream outputStream = new FileOutputStream(combinedFile);
-            EnumSet<Options> options = EnumSet.of(Options.INDEX_ON_THE_FLY);
-            final VariantContextWriter outputWriter = VariantContextWriterFactory.create(combinedFile, outputStream, ref.getSequenceDictionary(), options);
-
-            boolean firstFile = true;
-            int count =0;
-            //while(!queue.isEmpty()){
-            while(!priorityQueue.isEmpty() ){
-                count++;
-                //FeatureReader<VariantContext> reader = queue.remove().getSecond();
-                String fileName = priorityQueue.remove().getSecond();
+            if (sorted){
+                priorityQueue.add(new Pair<Integer, String>(0,fileName));
+            }
+            else{
                 File featureFile = new File(fileName);
                 if (!featureFile.exists()) {
-                    System.err.println("File " + featureFile.getAbsolutePath() + " doesn't exist");
+                    throw new UserException(String.format("File %s doesn't exist",featureFile.getAbsolutePath()));
                 }
                 FeatureReader<VariantContext> reader;
                 boolean useVCF = (fileName.endsWith(".vcf") || fileName.endsWith(".VCF"));
@@ -156,36 +110,93 @@ public class CatVariants {
                     reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new VCFCodec(), false);
                 else
                     reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new BCF2Codec(), false);
-
-                if(count%10 ==0)
-                    System.out.print(count);
-                else
-                    System.out.print(".");
-                if (firstFile){
-                    VCFHeader header = (VCFHeader)reader.getHeader();
-                    outputWriter.writeHeader(header);
-                    firstFile = false;
-                }
-
                 Iterator<VariantContext> it = reader.iterator();
-
-                while (it.hasNext()){
-                    VariantContext vc = it.next();
-                    outputWriter.add(vc);
-                    counter++;
+                if(!it.hasNext()){
+                    System.err.println(String.format("File %s is empty. This file will be ignored",featureFile.getAbsolutePath()));
+                    continue;
                 }
-
+                VariantContext vc = it.next();
+                int firstPosition = vc.getStart();
                 reader.close();
-
+                //queue.add(new Pair<Integer, FeatureReader<VariantContext>>(firstPosition,reader));
+                priorityQueue.add(new Pair<Integer, String>(firstPosition,fileName));
             }
-            System.out.println();
 
-            outputStream.close();
-            outputWriter.close();
+        }
+        in.close();
 
 
+        if (!(outputName.endsWith(".vcf") || outputName.endsWith(".VCF"))){
+            throw new UserException(String.format("Output File ", outputName, " should be <name>.vcf"));
+        }
+        ReferenceSequenceFile ref = ReferenceSequenceFileFactory.getReferenceSequenceFile(refFile);
+        final File combinedFile = new File(outputName);
+
+        FileOutputStream outputStream = new FileOutputStream(combinedFile);
+        EnumSet<Options> options = EnumSet.of(Options.INDEX_ON_THE_FLY);
+        final VariantContextWriter outputWriter = VariantContextWriterFactory.create(combinedFile, outputStream, ref.getSequenceDictionary(), options);
+
+        boolean firstFile = true;
+        int count =0;
+        //while(!queue.isEmpty()){
+        while(!priorityQueue.isEmpty() ){
+            count++;
+            //FeatureReader<VariantContext> reader = queue.remove().getSecond();
+            fileName = priorityQueue.remove().getSecond();
+            File featureFile = new File(fileName);
+            if (!featureFile.exists()) {
+                throw new UserException(String.format("File ", featureFile.getAbsolutePath(), " doesn't exist"));
+            }
+            FeatureReader<VariantContext> reader;
+            boolean useVCF = (fileName.endsWith(".vcf") || fileName.endsWith(".VCF"));
+            if(useVCF)
+                reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new VCFCodec(), false);
+            else
+                reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new BCF2Codec(), false);
+
+            if(count%10 ==0)
+                System.out.print(count);
+            else
+                System.out.print(".");
+            if (firstFile){
+                VCFHeader header = (VCFHeader)reader.getHeader();
+                outputWriter.writeHeader(header);
+                firstFile = false;
+            }
+
+            Iterator<VariantContext> it = reader.iterator();
+
+            while (it.hasNext()){
+                VariantContext vc = it.next();
+                outputWriter.add(vc);
+            }
+
+            reader.close();
+
+        }
+        System.out.println();
+
+        outputStream.close();
+        outputWriter.close();
+
+
+
+
+
+        return 0;
+    }
+
+
+    public static void main(String[] args){
+        try {
+            CatVariants instance = new CatVariants();
+            start(instance, args);
+            System.exit(CommandLineProgram.result);
+        } catch ( UserException e ) {
+            printUsage();
+            exitSystemWithUserError(e);
         } catch ( Exception e ) {
-            throw new RuntimeException(e);
+            exitSystemWithError(e);
         }
     }
 
@@ -240,18 +251,7 @@ public class CatVariants {
         //itor.close();
     }
 
-    static class PositionComparator implements Comparator<Pair<Integer,FeatureReader<VariantContext>>> {
-
-        @Override
-        public int compare(Pair<Integer,FeatureReader<VariantContext>> p1, Pair<Integer,FeatureReader<VariantContext>> p2) {
-            int startPositionP1 = p1.getFirst();
-            int startPositionP2 = p2.getFirst();
-            if (startPositionP1  == startPositionP2)
-                return 0;
-            return startPositionP1 < startPositionP2 ? -1 : 1 ;
-        }
-    }
-    static class NewPositionComparator implements Comparator<Pair<Integer,String>> {
+    static class PositionComparator implements Comparator<Pair<Integer,String>> {
 
         @Override
         public int compare(Pair<Integer,String> p1, Pair<Integer,String> p2) {
