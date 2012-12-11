@@ -59,7 +59,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     public PrintStream out;
 
     /**
-     * A VCF file containing bad sites (FN/FP) in the input callset w.r.t. the current NA12878 knowledge base
+     * An output VCF file containing the bad sites (FN/FP) that were found in the input callset w.r.t. the current NA12878 knowledge base
      */
     @Output(fullName = "badSites", shortName = "badSites", doc="VCF file containing information on FP/FNs in the input callset", required=false)
     public VariantContextWriter badSites = null;
@@ -96,6 +96,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     public enum AssessmentType {
         TRUE_POSITIVE(false),
         CORRECTLY_FILTERED(false),
+        CORRECTLY_UNCALLED(false),
         REASONABLE_FILTERS_WOULD_FILTER_FP_SITE(false),
         FALSE_POSITIVE_SITE_IS_FP(true),
         FALSE_POSITIVE_MONO_IN_NA12878(true),
@@ -233,7 +234,6 @@ public class AssessNA12878 extends NA12878DBWalker {
         }
     }
 
-
     private void accessSite(final String rodName, final VariantContext call, final MongoVariantContext consensusSite) {
         final VariantContext vc = call != null ? call : consensusSite.getVariantContext();
 
@@ -292,6 +292,8 @@ public class AssessNA12878 extends NA12878DBWalker {
             } else {
                 return AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL;
             }
+        } else if (consensusFP ) { // call == null
+            return AssessmentType.CORRECTLY_UNCALLED;
         } else {
             return AssessmentType.NOT_RELEVANT;
         }
