@@ -23,6 +23,7 @@ import io.Source
 import java.util.Date
 import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotyperEngine, GenotypeLikelihoodsCalculationModel}
 import org.broadinstitute.sting.utils.exceptions.UserException
+import java.io.File
 
 class CMIBAMProcessingPipeline extends CmiScript {
   qscript =>
@@ -69,6 +70,15 @@ class CMIBAMProcessingPipeline extends CmiScript {
 
   @Input(doc = "File containing known sites and alleles to evaluate single-sample calls", fullName = "knownCalls", shortName = "knownCalls", required = false)
   var knownSites: File = new File("/refdata/ALL.wgs.phase1_release_v3.20101123.snps_indels_sv.sites.vcf.gz")
+
+  @Argument(doc = "Command line to invoke ContEst", fullName = "contestBin", shortName = "contestBin", required = false)
+  val contestBin = "java -Djava.io.tmpdir=/local/tmp -Xmx1g -jar /opt/ContEst/ContEst-1.0.2.jar -S /opt/ContEst/ContaminationPipeline.scala "
+
+  @Input(doc = "Interval list of SNP6 sites used by ContEst", fullName = "contestArrayIntervals", shortName = "contestArrayIntervals", required = false)
+  val contestArrayIntervals: File = new File("/refdata/SNP6.hg19.interval_list")
+
+  @Input(doc = "Interval list of SNP6 site HapMap Population Frequencies", fullName = "contestPopFrequencies", shortName = "contestPopFrequencies", required = false)
+  val contestPopFrequencies:  File = new File("/refdata/hg19_population_stratified_af_hapmap_3.3.fixed.vcf")
 
 
   /** **************************************************************************
@@ -363,6 +373,12 @@ class CMIBAMProcessingPipeline extends CmiScript {
         val tumorBam = tumorName + ".clean.dedup.recal.bam"
     */
 
+    // this would be cleaner when the aforementioned is resolved
+    val normalBam = swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.bam")
+    val tumorBam = swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.bam")
+    add(contest(tumorBam, normalBam))
+    add(contest(normalBam, normalBam))
+
   //  print(allBAMs)
     if (hasNormalBAMs) {
       addRemoteOutput(individual, "unreducedNormalBAM", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.bam"))
@@ -377,7 +393,8 @@ class CMIBAMProcessingPipeline extends CmiScript {
       addRemoteOutput(individual, "normalQualityDistributionMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_distribution_metrics"))
       addRemoteOutput(individual, "normalQualityDistributionMetrics", swapExt(normalBAMs(0), ".bam", ".multipleMetrics.quality_distribution_metrics"))
       addRemoteOutput(individual, "normalDuplicateMetrics", swapExt(normalBAMs(0), ".bam", ".duplicateMetrics"))
-
+      addRemoteOutput(individual, "normalContEstMetrics", swapExt(normalBAMs(0), ".bam", ".contamination.txt"))
+      addRemoteOutput(individual, "normalContEstValue", swapExt(normalBAMs(0), ".bam", ".contamination.txt.firehose"))
     }
 
     if (hasTumorBAMs) {
@@ -393,7 +410,8 @@ class CMIBAMProcessingPipeline extends CmiScript {
       addRemoteOutput(individual, "tumorQualityDistributionMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_distribution_metrics"))
       addRemoteOutput(individual, "tumorQualityDistributionMetrics", swapExt(tumorBAMs(0), ".bam", ".multipleMetrics.quality_distribution_metrics"))
       addRemoteOutput(individual, "tumorDuplicateMetrics", swapExt(tumorBAMs(0), ".bam", ".duplicateMetrics"))
-
+      addRemoteOutput(individual, "tumorContEstMetrics", swapExt(tumorBAMs(0), ".bam", ".contamination.txt"))
+      addRemoteOutput(individual, "tumorContEstValue", swapExt(tumorBAMs(0), ".bam", ".contamination.txt.firehose"))
     }
 
   }
@@ -828,6 +846,26 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.analysisName = outBAMList + ".bamList"
     this.jobName = outBAMList + ".bamList"
   }
+
+  case class contest(inBAM: File, inNormalBam: File) extends CommandLineFunction {
+    @Input(doc = "bam file for contamination estimation") var bam = inBAM
+    @Input(doc = "bam file for genotype bootstrap") var normalBam = inNormalBam
+    @Output(doc = "output contamination file") var outContam = swapExt(bam, ".bam", ".contamination.txt")
+    @Output(doc = "output contamination file single value") var outContamValue = swapExt(bam, ".bam", ".contamination.txt.firehose")
+
+    def commandLine =
+      contestBin + " -reference " + reference + " -interval " + targets +
+      " -array none -faf true " +
+      " -bam " + bam + " -nbam " + normalBam +
+      " -array_interval " + contestArrayIntervals +
+      " -pop " + contestPopFrequencies +
+      " -out " + outContam +
+      " -run"
+
+    this.analysisName = outContam + ".ContEst"
+    this.memoryLimit = Some(2)
+  }
+
 
 }
 
