@@ -52,6 +52,44 @@ public class FindMinimumCallableCoverage extends RodWalker<Integer, Integer> {
     private double callConf = 0.0;
     private long mapCounter = 1;
 
+    public int binarySearch(int left, int right, RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context, VariantContext.Type variantType) {
+        int result;
+        if (left < right) {
+            int coverage = (int) Math.floor((left+right)/2);
+            if (canCall(tracker, ref, context, variantType, coverage)) {
+                result = binarySearch(left, coverage-1, tracker, ref, context, variantType);
+            }
+            else {
+                result = binarySearch(coverage+1, right, tracker, ref, context, variantType);
+            }
+        }
+        else if (left > right) {
+            result = left;
+        }
+        else {
+            result =  canCall(tracker, ref, context, variantType, left) ? left : left+1;
+        }
+        return result;
+    }
+
+    public boolean canCall(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context, VariantContext.Type variantType, int downsampleTo) {
+        AlignmentContext dsContext;
+        if (downsampleTo < context.getBasePileup().depthOfCoverage()) {
+            dsContext = new AlignmentContext(context.getLocation(), context.getBasePileup().copy(), context.getSkippedBases(), context.hasPileupBeenDownsampled());
+            dsContext.downsampleToCoverage(downsampleTo);
+        }
+        else {
+            dsContext = context;             // avoids unnecessary downsampling
+        }
+
+        final List<VariantCallContext> callList = variantType == VariantContext.Type.SNP ?
+                snpEngine.calculateLikelihoodsAndGenotypes(tracker, ref, dsContext) :
+                indelEngine.calculateLikelihoodsAndGenotypes(tracker, ref, dsContext);
+        final VariantCallContext call = callList.isEmpty() ? null : callList.get(0);
+
+        return (call != null && call.isCalledAlt(callConf) && call.getType() == variantType);
+    }
+
     @Override
     public void initialize() {
         super.initialize();
@@ -80,41 +118,31 @@ public class FindMinimumCallableCoverage extends RodWalker<Integer, Integer> {
         eventInfo.variantType = vcComp.isSNP() ? VariantContext.Type.SNP : VariantContext.Type.INDEL;
         eventInfo.genotypeType = vcComp.getGenotype(0).getType();   // assumes single sample analysis
 
+        int originalCoverage = context.getBasePileup().depthOfCoverage();
         boolean wasCalledOnce = false;
         int sum = 0;
+        int result = 0;
 
-        if (debugLevel > 0) System.out.print(mapCounter++ + ": ");
+        if (debugLevel > 0) System.out.print(mapCounter++ + "(" + context.getLocation() + "): ");
 
-        for (int i=0; i<bootstrapIterations; i++) {
-            int coverage = context.getBasePileup().depthOfCoverage();
-            final AlignmentContext copyOfContext = new AlignmentContext(context.getLocation(), context.getBasePileup().copy(), context.getSkippedBases(), context.hasPileupBeenDownsampled());
-            while (coverage > 0) {
-                final List<VariantCallContext> callList = vcComp.isSNP() ?
-                        snpEngine.calculateLikelihoodsAndGenotypes(tracker, ref, copyOfContext) :
-                        indelEngine.calculateLikelihoodsAndGenotypes(tracker, ref, copyOfContext);
-                final VariantCallContext call = callList.isEmpty() ? null : callList.get(0);
-                if (call != null && call.isCalledAlt(callConf) && call.getType() == eventInfo.variantType) {
-                    copyOfContext.downsampleToCoverage(--coverage);
-                    wasCalledOnce = true;
-                }
-                else {
-                    if (wasCalledOnce) {
-                        sum += coverage+1;
-                        if (debugLevel > 0) System.out.print(coverage+1 + ", ");
-                    }
-                    break;
-                }
+        if (canCall(tracker, ref, context, eventInfo.variantType, originalCoverage)) {
+
+
+            for (int i=0; i<bootstrapIterations; i++) {
+                int minCoverage = binarySearch(0, originalCoverage, tracker, ref, context, eventInfo.variantType);
+                sum += minCoverage;
+                if (debugLevel > 0) System.out.print(minCoverage + ", ");
             }
-        }
-        if (wasCalledOnce) {
+
             eventInfo.coverageNeededToCall = sum/bootstrapIterations;
             eventInfo.emit();
             if (debugLevel > 0) System.out.print("[" + eventInfo.coverageNeededToCall + "]");
+            result = 1;
+
+            if (debugLevel > 0) System.out.println();
         }
-        if (debugLevel > 0) System.out.println();
+        return result;
 
-
-        return wasCalledOnce ? 0 : 1;
     }
 
     @Override
