@@ -634,6 +634,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.scatterCount = nContigs
     this.analysisName = inBAMs(0).toString + "clean"
     this.jobName = inBAMs(0).toString + ".clean"
+    this.compress = Some(0) // no compression to save time
   }
 
   case class bqsr(inBAM: File, outRecalFile: File) extends BaseRecalibrator with CommandLineGATKArgs {
