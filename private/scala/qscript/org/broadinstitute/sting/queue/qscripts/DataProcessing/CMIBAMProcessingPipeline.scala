@@ -656,11 +656,11 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.BQSR = inRecalFile
     this.baq = CalculationMode.CALCULATE_AS_NECESSARY
     this.out = outBAM
-    this.scatterCount = nContigs
+    // this.scatterCount = nContigs         // no need to scatter if nct enabled
     this.isIntermediate = false
     this.analysisName = outBAM + ".recalibration"
     this.jobName = outBAM + ".recalibration"
-      this.nct = Some(qscript.numThreads)
+    this.nct = Some(qscript.numThreads)
     if (qscript.quick) this.intervals :+= qscript.targets
   }
 
