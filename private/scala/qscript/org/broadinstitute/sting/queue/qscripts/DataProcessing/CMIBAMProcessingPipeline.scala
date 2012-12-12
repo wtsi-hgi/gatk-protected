@@ -752,6 +752,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.output = outBAM
     this.analysisName = outBAM + ".joinBAMs"
     this.jobName = outBAM + ".joinBAMs"
+    this.compressionLevel = Some(0)
   }
 
   case class sortSam(inSam: File, outBAM: File, sortOrderP: SortOrder) extends SortSam with ExternalCommonArgs {
@@ -760,6 +761,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.sortOrder = sortOrderP
     this.analysisName = outBAM + ".sortSam"
     this.jobName = outBAM + ".sortSam"
+    this.compressionLevel = Some(0)
   }
 
   case class validate(inBAM: File, outLog: File) extends ValidateSamFile with ExternalCommonArgs {
