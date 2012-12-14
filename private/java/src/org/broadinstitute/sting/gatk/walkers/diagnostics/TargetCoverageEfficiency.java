@@ -83,7 +83,7 @@ public class TargetCoverageEfficiency extends LocusWalker<Long, ArrayList<Long>>
     GATKReportTable reportTable;
 
     public void initialize () {
-        reportTable = new GATKReportTable("TargetCoverageEfficiency", "A table with the values per interval for: target coverage, average interval coverage and the ratio between the two.", 4, true);
+        reportTable = new GATKReportTable("TargetCoverageEfficiency", "A table with the values per interval for: target coverage, average interval coverage and the ratio between the two.", 4, true, false);
         reportTable.addColumn("Interval");
         reportTable.addColumn("Target");
         reportTable.addColumn("Average");
