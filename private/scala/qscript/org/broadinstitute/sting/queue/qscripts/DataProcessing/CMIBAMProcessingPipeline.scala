@@ -21,6 +21,9 @@ import collection.mutable
 import org.broadinstitute.sting.queue.extensions.picard._
 import io.Source
 import java.util.Date
+import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotyperEngine, GenotypeLikelihoodsCalculationModel}
+import org.broadinstitute.sting.utils.exceptions.UserException
+import java.io.File
 
 class CMIBAMProcessingPipeline extends CmiScript {
   qscript =>
@@ -42,6 +45,11 @@ class CMIBAMProcessingPipeline extends CmiScript {
     * Additional Parameters that the pipeline should have pre-defined in the image
     * ******************************************************************************/
 
+  @Input(doc="argument that allows Queue to see and download files", fullName="file1", required=false)
+  var file1: Seq[File] = Nil
+  @Input(doc="even more files that should be downloaded", fullName="file2", required=false)
+  var file2: Seq[File] = Nil
+
   @Input(doc = "Reference fasta file", fullName = "reference", shortName = "R", required = false)
   var reference: File = new File("/refdata/human_g1k_v37_decoy.fasta")
 
@@ -60,89 +68,102 @@ class CMIBAMProcessingPipeline extends CmiScript {
   @Input(doc = "Interval file with baits used in exome capture (used for QC metrics)", fullName = "baits", shortName = "baits", required = false)
   var baits: File = new File("/refdata/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_b37_decoy.baits.interval_list")
 
+  @Input(doc = "File containing known sites and alleles to evaluate single-sample calls", fullName = "knownCalls", shortName = "knownCalls", required = false)
+  var knownSites: File = new File("/refdata/ALL.wgs.phase1_release_v3.20101123.snps_indels_sv.sites.vcf.gz")
+
+  @Argument(doc = "Command line to invoke ContEst", fullName = "contestBin", shortName = "contestBin", required = false)
+  val contestBin = "java -Djava.io.tmpdir=/local/tmp -Xmx1g -jar /opt/ContEst/ContEst-1.0.2.jar -S /opt/ContEst/ContaminationPipeline.scala "
+
+  @Input(doc = "Interval list of SNP6 sites used by ContEst", fullName = "contestArrayIntervals", shortName = "contestArrayIntervals", required = false)
+  val contestArrayIntervals: File = new File("/refdata/SNP6.hg19.interval_list")
+
+  @Input(doc = "Interval list of SNP6 site HapMap Population Frequencies", fullName = "contestPopFrequencies", shortName = "contestPopFrequencies", required = false)
+  val contestPopFrequencies:  File = new File("/refdata/hg19_population_stratified_af_hapmap_3.3.fixed.vcf")
+
+
   /** **************************************************************************
     * Output files, to be passed in by messaging service
     * ***************************************************************************/
 
-  @Output(doc = "Processed unreduced normal BAM", fullName = "unreducedNormalBAM", shortName = "unb", required = false) // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
-  var unreducedNormalBAM: File = _
+  //@Output(doc = "Processed unreduced normal BAM", fullName = "unreducedNormalBAM", shortName = "unb", required = false) // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
+  //var unreducedNormalBAM: File = _
 
-  @Output(doc = "Processed reduced normal BAMs", fullName = "reducedNormalBAM", shortName = "rnb", required = false)
-  var reducedNormalBAM: File = _
+  //@Output(doc = "Processed reduced normal BAMs", fullName = "reducedNormalBAM", shortName = "rnb", required = false)
+  //var reducedNormalBAM: File = _
 
-  @Output(doc = "Processed unreduced normal BAM Index", fullName = "unreducedNormalBAMIndex", shortName = "unbi", required = false) // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
-  var unreducedNormalBAMIndex: File = _
+  //@Output(doc = "Processed unreduced normal BAM Index", fullName = "unreducedNormalBAMIndex", shortName = "unbi", required = false) // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
+  //var unreducedNormalBAMIndex: File = _
 
-  @Output(doc = "Processed reduced normal BAM Index", fullName = "reducedNormalBAMIndex", shortName = "rnbi", required = false)
-  var reducedNormalBAMIndex: File = _
+  //@Output(doc = "Processed reduced normal BAM Index", fullName = "reducedNormalBAMIndex", shortName = "rnbi", required = false)
+  //var reducedNormalBAMIndex: File = _
 
-  @Output(doc = "Processed unreduced tumor BAM", fullName = "unreducedTumorBAM", shortName = "utb", required = false) // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
-  var unreducedTumorBAM: File = _
+  //@Output(doc = "Processed unreduced tumor BAM", fullName = "unreducedTumorBAM", shortName = "utb", required = false) // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
+  //var unreducedTumorBAM: File = _
 
-  @Output(doc = "Processed reduced tumor BAM", fullName = "reducedTumorBAM", shortName = "rtb", required = false)
-  var reducedTumorBAM: File = _
+  //@Output(doc = "Processed reduced tumor BAM", fullName = "reducedTumorBAM", shortName = "rtb", required = false)
+  //var reducedTumorBAM: File = _
 
-  @Output(doc = "Processed unreduced tumor BAM Index", fullName = "unreducedTumorBAMIndex", shortName = "utbi", required = false) // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
-  var unreducedTumorBAMIndex: File = _
+  //@Output(doc = "Processed unreduced tumor BAM Index", fullName = "unreducedTumorBAMIndex", shortName = "utbi", required = false) // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
+  //var unreducedTumorBAMIndex: File = _
 
-  @Output(doc = "Processed reduced tumor BAM Index", fullName = "reducedTumorBAMIndex", shortName = "rtbi", required = false)
-  var reducedTumorBAMIndex: File = _
+  //@Output(doc = "Processed reduced tumor BAM Index", fullName = "reducedTumorBAMIndex", shortName = "rtbi", required = false)
+  //var reducedTumorBAMIndex: File = _
 
-  // picard metrics outputs
-  @Output(doc = "Tumor HS Metrics", fullName = "tumorHSMetrics", shortName = "thsm", required = false)
-  var tumorHSMetrics: File = _
+  //// picard metrics outputs
+  //@Output(doc = "Tumor HS Metrics", fullName = "tumorHSMetrics", shortName = "thsm", required = false)
+  //var tumorHSMetrics: File = _
 
-  // picard metrics outputs
-  @Output(doc = "Tumor GC Metrics", fullName = "tumorGCMetrics", shortName = "tgcm", required = false)
-  var tumorGCMetrics: File = _
+  //// picard metrics outputs
+  //@Output(doc = "Tumor GC Metrics", fullName = "tumorGCMetrics", shortName = "tgcm", required = false)
+  //var tumorGCMetrics: File = _
 
-  // picard metrics outputs
-  @Output(doc = "Tumor alignment Metrics", fullName = "tumorAlignmentMetrics", shortName = "tam", required = false)
-  var tumorAlignmentMetrics: File = _
+  //// picard metrics outputs
+  //@Output(doc = "Tumor alignment Metrics", fullName = "tumorAlignmentMetrics", shortName = "tam", required = false)
+  //var tumorAlignmentMetrics: File = _
 
-  @Output(doc = "Tumor insert size Metrics", fullName = "tumorInsertMetrics", shortName = "tim", required = false)
-  var tumorInsertSizeMetrics: File = _
+  //@Output(doc = "Tumor insert size Metrics", fullName = "tumorInsertMetrics", shortName = "tim", required = false)
+  //var tumorInsertSizeMetrics: File = _
 
-  @Output(doc = "Tumor quality by cycle Metrics", fullName = "tumorQualCMetrics", shortName = "tqcm", required = false)
-  var tumorQualityByCycleMetrics: File = _
+  //@Output(doc = "Tumor quality by cycle Metrics", fullName = "tumorQualCMetrics", shortName = "tqcm", required = false)
+  //var tumorQualityByCycleMetrics: File = _
 
-  @Output(doc = "Tumor alignment Metrics", fullName = "tumorQualDMetrics", shortName = "tqdm", required = false)
-  var tumorQualityDistributionMetrics: File = _
+  //@Output(doc = "Tumor alignment Metrics", fullName = "tumorQualDMetrics", shortName = "tqdm", required = false)
+  //var tumorQualityDistributionMetrics: File = _
 
-  // picard metrics outputs
-  @Output(doc = "Normal HS Metrics", fullName = "normalHSMetrics", shortName = "nhsm", required = false)
-  var normalHSMetrics: File = _
+  //// picard metrics outputs
+  //@Output(doc = "Normal HS Metrics", fullName = "normalHSMetrics", shortName = "nhsm", required = false)
+  //var normalHSMetrics: File = _
 
-  // picard metrics outputs
-  @Output(doc = "Normal GC Metrics", fullName = "normalGCMetrics", shortName = "ngcm", required = false)
-  var normalGCMetrics: File = _
+  //// picard metrics outputs
+  //@Output(doc = "Normal GC Metrics", fullName = "normalGCMetrics", shortName = "ngcm", required = false)
+  //var normalGCMetrics: File = _
 
-  // picard metrics outputs
-  @Output(doc = "Normal alignment Metrics", fullName = "normalAlignmentMetrics", shortName = "nam", required = false)
-  var normalAlignmentMetrics: File = _
+  //// picard metrics outputs
+  //@Output(doc = "Normal alignment Metrics", fullName = "normalAlignmentMetrics", shortName = "nam", required = false)
+  //var normalAlignmentMetrics: File = _
 
-  @Output(doc = "Normal insert size Metrics", fullName = "normalInsertMetrics", shortName = "nim", required = false)
-  var normalInsertSizeMetrics: File = _
+  //@Output(doc = "Normal insert size Metrics", fullName = "normalInsertMetrics", shortName = "nim", required = false)
+  //var normalInsertSizeMetrics: File = _
 
-  @Output(doc = "Normal quality by cycle Metrics", fullName = "normalQualCMetrics", shortName = "nqcm", required = false)
-  var normalQualityByCycleMetrics: File = _
+  //@Output(doc = "Normal quality by cycle Metrics", fullName = "normalQualCMetrics", shortName = "nqcm", required = false)
+  //var normalQualityByCycleMetrics: File = _
 
-  @Output(doc = "Normal alignment Metrics", fullName = "normalQualDMetrics", shortName = "nqdm", required = false)
-  var normalQualityDistributionMetrics: File = _
+  //@Output(doc = "Normal alignment Metrics", fullName = "normalQualDMetrics", shortName = "nqdm", required = false)
+  //var normalQualityDistributionMetrics: File = _
 
 
-  @Output(doc = "Normal duplicate metrics", fullName = "normalDuplicateMetrics", shortName = "ndm", required = false)
-  var normalDuplicateMetrics: File = _
+  //@Output(doc = "Normal duplicate metrics", fullName = "normalDuplicateMetrics", shortName = "ndm", required = false)
+  //var normalDuplicateMetrics: File = _
 
-  @Output(doc = "Tumos duplicate metrics", fullName = "tumorDuplicateMetrics", shortName = "tdm", required = false)
-  var tumorDuplicateMetrics: File = _
+  //@Output(doc = "Tumos duplicate metrics", fullName = "tumorDuplicateMetrics", shortName = "tdm", required = false)
+  //var tumorDuplicateMetrics: File = _
 
-  // in case single sample calls are requested
-  @Output(doc = "Processed single sample VCF", fullName = "singleSampleVCF", shortName = "ssvcf", required = false) // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
-  var singleSampleVCF: File = _
+  //// in case single sample calls are requested
+  //@Output(doc = "Processed single sample VCF", fullName = "singleSampleVCF", shortName = "ssvcf", required = false) // Using full name, so json field is mixed case "unfilteredVcf" or "uv"
+  //var singleSampleVCF: File = _
 
-  @Output(doc = "Processed single sample VCF index", fullName = "singleSampleVCFIndex", shortName = "ssvcfi", required = false)
-  var singleSampleVCFIndex: File = _
+  //@Output(doc = "Processed single sample VCF index", fullName = "singleSampleVCFIndex", shortName = "ssvcfi", required = false)
+  //var singleSampleVCFIndex: File = _
 
   /** **************************************************************************
     * Hidden Parameters
@@ -156,7 +177,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
   var skipQCMetrics: Boolean = false
 
   @Hidden
-  @Argument(doc = "Number of threads jobs should use when possible", fullName = "numThreads", shortName = "nt", required = false)
+  @Argument(doc = "Number of threads jobs should use when possible", fullName = "numThreads", shortName = "nct", required = false)
   var numThreads: Int = 4 // HOTFIX m1.large has 4 cores?
 
   @Hidden
@@ -265,8 +286,35 @@ class CMIBAMProcessingPipeline extends CmiScript {
       } else {
         tumorInfo.put(meta.sample, meta.tumor)
       }
-    }
+     }
     // todo -- add optional bam de-multiplexing and re-multiplexing pipeline
+
+
+    var normalBAMs = Seq[File]()
+    var tumorBAMs  = Seq[File]()
+
+    for ((sample, status) <- tumorInfo) {
+      val sampleBAM = new File(sample + ".bam")
+      if (status) // tumor
+        tumorBAMs :+= sampleBAM
+      else  // normal
+        normalBAMs :+= sampleBAM
+
+    }
+
+    val hasTumorBAMs = (!tumorBAMs.isEmpty)
+    val hasNormalBAMs = (!normalBAMs.isEmpty)
+
+
+    //println(tumorBAMs)
+    //println(normalBAMs)
+    if (tumorBAMs.size > 1) {
+      throw new UserException("Bad inputs to processing pipeline. Only one tumor sample currently supported")
+    }
+    if (normalBAMs.size > 1) {
+      throw new UserException("Bad inputs to processing pipeline. Only one normal sample currently supported")
+
+    }
 
     var allBAMs = Seq[File]()
     for ((sample, bams) <- samples) {
@@ -276,7 +324,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     }
 
     clean(allBAMs)
-    print(allBAMs)
+
     for (bam <- allBAMs) {
       val cleanBAM = swapExt(bam, ".bam", cleaningExtension)
       val dedupBAM = swapExt(bam, ".bam", ".clean.dedup.bam")
@@ -314,8 +362,8 @@ class CMIBAMProcessingPipeline extends CmiScript {
       if (qscript.doSingleSampleCalling) {
         add(call(reducedBAM, outVCF))
         // report output parameters
-        qscript.singleSampleVCF = outVCF
-        qscript.singleSampleVCFIndex = outVCF + ".idx"
+        addRemoteOutput(individual, "singleSampleVCF", outVCF)
+        addRemoteOutput(individual, "singleSampleVCFIndex", outVCF + ".idx")
       }
     }
     // todo hotfix: there is not a way right now to look up the BAM for a sample?
@@ -324,35 +372,45 @@ class CMIBAMProcessingPipeline extends CmiScript {
         val normalBam = normalName + ".clean.dedup.recal.bam"
         val tumorBam = tumorName + ".clean.dedup.recal.bam"
     */
-    qscript.unreducedNormalBAM = swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.bam")
-    qscript.unreducedTumorBAM = swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.bam")
-    qscript.unreducedNormalBAMIndex = swapExt(qscript.unreducedNormalBAM, ".bam", ".bai")
-    qscript.unreducedTumorBAMIndex = swapExt(qscript.unreducedTumorBAM, ".bam", ".bai")
-    qscript.reducedNormalBAM = swapExt(allBAMs(1), ".bam", ".clean.dedup.recal.reduced.bam")
-    qscript.reducedTumorBAM = swapExt(allBAMs(0), ".bam", ".clean.dedup.recal.reduced.bam")
-    qscript.reducedNormalBAMIndex = swapExt(qscript.reducedNormalBAM, ".bam", ".bai")
-    qscript.reducedTumorBAMIndex = swapExt(qscript.reducedTumorBAM, ".bam", ".bai")
 
-    qscript.normalHSMetrics = swapExt(allBAMs(1), ".bam", ".hs_metrics")
-    qscript.tumorHSMetrics = swapExt(allBAMs(0), ".bam", ".hs_metrics")
+    // this would be cleaner when the aforementioned is resolved
+    val normalBam = swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.bam")
+    val tumorBam = swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.bam")
+    add(contest(tumorBam, normalBam))
+    add(contest(normalBam, normalBam))
 
-    qscript.normalGCMetrics = swapExt(allBAMs(1), ".bam", ".gc_metrics")
-    qscript.tumorGCMetrics = swapExt(allBAMs(0), ".bam", ".gc_metrics")
+  //  print(allBAMs)
+    if (hasNormalBAMs) {
+      addRemoteOutput(individual, "unreducedNormalBAM", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.bam"))
+      addRemoteOutput(individual, "unreducedNormalBAMIndex", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.bai"))
+      addRemoteOutput(individual, "reducedNormalBAM", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.reduced.bam"))
+      addRemoteOutput(individual, "reducedNormalBAMIndex", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.reduced.bai"))
+      addRemoteOutput(individual, "normalHSMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.hs_metrics"))
+      addRemoteOutput(individual, "normalGCMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.gc_metrics"))
+      addRemoteOutput(individual, "normalInsertSizeMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.insert_size_metrics"))
+      addRemoteOutput(individual, "normalAlignmentMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.alignment_summary_metrics"))
+      addRemoteOutput(individual, "normalQualityByCycleMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_by_cycle_metrics"))
+      addRemoteOutput(individual, "normalQualityDistributionMetrics", swapExt(normalBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_distribution_metrics"))
+      addRemoteOutput(individual, "normalDuplicateMetrics", swapExt(normalBAMs(0), ".bam", ".duplicateMetrics"))
+      addRemoteOutput(individual, "normalContEstMetrics", swapExt(normalBAMs(0), ".bam", ".contamination.txt"))
+      addRemoteOutput(individual, "normalContEstValue", swapExt(normalBAMs(0), ".bam", ".contamination.txt.firehose"))
+    }
 
-    qscript.normalInsertSizeMetrics = swapExt(allBAMs(1), ".bam", ".multipleMetrics.insert_size_metrics")
-    qscript.tumorInsertSizeMetrics = swapExt(allBAMs(0), ".bam", ".multipleMetrics.insert_size_metrics")
-
-    qscript.normalAlignmentMetrics = swapExt(allBAMs(1), ".bam", ".multipleMetrics.alignment_summary_metrics")
-    qscript.tumorAlignmentMetrics = swapExt(allBAMs(0), ".bam", ".multipleMetrics.alignment_summary_metrics")
-
-    qscript.normalQualityByCycleMetrics = swapExt(allBAMs(1), ".bam", ".multipleMetrics.quality_by_cycle_metrics")
-    qscript.tumorQualityByCycleMetrics = swapExt(allBAMs(0), ".bam", ".multipleMetrics.quality_by_cycle_metrics")
-
-    qscript.normalQualityDistributionMetrics = swapExt(allBAMs(1), ".bam", ".multipleMetrics.quality_distribution_metrics")
-    qscript.tumorQualityDistributionMetrics = swapExt(allBAMs(0), ".bam", ".multipleMetrics.quality_distribution_metrics")
-
-    qscript.normalDuplicateMetrics = swapExt(allBAMs(1), ".bam", ".duplicateMetrics")
-    qscript.tumorDuplicateMetrics = swapExt(allBAMs(0), ".bam", ".duplicateMetrics")
+    if (hasTumorBAMs) {
+      addRemoteOutput(individual, "unreducedTumorBAM", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.bam"))
+      addRemoteOutput(individual, "unreducedTumorBAMIndex", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.bai"))
+      addRemoteOutput(individual, "reducedTumorBAM", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.reduced.bam"))
+      addRemoteOutput(individual, "reducedTumorBAMIndex", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.reduced.bai"))
+      addRemoteOutput(individual, "tumorHSMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.hs_metrics"))
+      addRemoteOutput(individual, "tumorGCMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.gc_metrics"))
+      addRemoteOutput(individual, "tumorInsertSizeMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.insert_size_metrics"))
+      addRemoteOutput(individual, "tumorAlignmentMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.alignment_summary_metrics"))
+      addRemoteOutput(individual, "tumorQualityByCycleMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_by_cycle_metrics"))
+      addRemoteOutput(individual, "tumorQualityDistributionMetrics", swapExt(tumorBAMs(0), ".bam", ".clean.dedup.recal.multipleMetrics.quality_distribution_metrics"))
+      addRemoteOutput(individual, "tumorDuplicateMetrics", swapExt(tumorBAMs(0), ".bam", ".duplicateMetrics"))
+      addRemoteOutput(individual, "tumorContEstMetrics", swapExt(tumorBAMs(0), ".bam", ".contamination.txt"))
+      addRemoteOutput(individual, "tumorContEstValue", swapExt(tumorBAMs(0), ".bam", ".contamination.txt.firehose"))
+    }
 
   }
 
@@ -574,6 +632,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.scatterCount = nContigs
     this.analysisName = inBAMs(0).toString + "clean"
     this.jobName = inBAMs(0).toString + ".clean"
+    this.compress = Some(0) // no compression to save time
   }
 
   case class bqsr(inBAM: File, outRecalFile: File) extends BaseRecalibrator with CommandLineGATKArgs {
@@ -588,7 +647,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.jobName = outRecalFile + ".covariates"
     if (qscript.quick) this.intervals :+= qscript.targets
     this.memoryLimit = Some(4) // needs 4 GB to store big tables in memory
-    // this.nct = Some(qscript.numThreads)     // SGE won't like this
+    this.nct = Some(qscript.numThreads)
   }
 
   case class apply_bqsr(inBAM: File, inRecalFile: File, outBAM: File) extends PrintReads with CommandLineGATKArgs {
@@ -596,11 +655,11 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.BQSR = inRecalFile
     this.baq = CalculationMode.CALCULATE_AS_NECESSARY
     this.out = outBAM
-    this.scatterCount = nContigs
+    // this.scatterCount = nContigs         // no need to scatter if nct enabled
     this.isIntermediate = false
     this.analysisName = outBAM + ".recalibration"
     this.jobName = outBAM + ".recalibration"
-    //  this.nct = Some(qscript.numThreads)
+    this.nct = Some(qscript.numThreads)
     if (qscript.quick) this.intervals :+= qscript.targets
   }
 
@@ -624,6 +683,9 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.dbsnp = qscript.dbSNP(0)
     this.downsample_to_coverage = 600
     this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    this.genotyping_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
+    this.alleles = qscript.knownSites
     this.scatterCount = nContigs
 
     this.intervals :+= qscript.targets
@@ -688,6 +750,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.output = outBAM
     this.analysisName = outBAM + ".joinBAMs"
     this.jobName = outBAM + ".joinBAMs"
+    this.compressionLevel = Some(0)
   }
 
   case class sortSam(inSam: File, outBAM: File, sortOrderP: SortOrder) extends SortSam with ExternalCommonArgs {
@@ -696,6 +759,7 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.sortOrder = sortOrderP
     this.analysisName = outBAM + ".sortSam"
     this.jobName = outBAM + ".sortSam"
+    this.compressionLevel = Some(0)
   }
 
   case class validate(inBAM: File, outLog: File) extends ValidateSamFile with ExternalCommonArgs {
@@ -772,7 +836,6 @@ class CMIBAMProcessingPipeline extends CmiScript {
 
     this.analysisName = outSai + ".bwa_aln_se"
     this.jobName = outSai + ".bwa_aln_se"
-    // this.nCoresRequest = Some(numThreads)
     this.memoryLimit = Some(5)
     this.isIntermediate = true
 
@@ -784,6 +847,26 @@ class CMIBAMProcessingPipeline extends CmiScript {
     this.analysisName = outBAMList + ".bamList"
     this.jobName = outBAMList + ".bamList"
   }
+
+  case class contest(inBAM: File, inNormalBam: File) extends CommandLineFunction {
+    @Input(doc = "bam file for contamination estimation") var bam = inBAM
+    @Input(doc = "bam file for genotype bootstrap") var normalBam = inNormalBam
+    @Output(doc = "output contamination file") var outContam = swapExt(bam, ".bam", ".contamination.txt")
+    @Output(doc = "output contamination file single value") var outContamValue = swapExt(bam, ".bam", ".contamination.txt.firehose")
+
+    def commandLine =
+      contestBin + " -reference " + reference + " -interval " + targets +
+      " -array none -faf true " +
+      " -bam " + bam + " -nbam " + normalBam +
+      " -array_interval " + contestArrayIntervals +
+      " -pop " + contestPopFrequencies +
+      " -out " + outContam +
+      " -run"
+
+    this.analysisName = outContam + ".ContEst"
+    this.memoryLimit = Some(2)
+  }
+
 
 }
 

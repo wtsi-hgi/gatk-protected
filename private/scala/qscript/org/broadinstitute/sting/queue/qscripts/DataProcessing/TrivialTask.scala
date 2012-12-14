@@ -14,18 +14,17 @@ import java.io.{PrintWriter, File}
 class TrivialTask extends CmiScript {
   qscript =>
 
-
   /****************************************************************************
     * Output Parameters Parameters
     ****************************************************************************/
-  @Hidden @Output(fullName="test_output", shortName = "to", doc="test output file", required = false)
-  var testOutput: File = _
+  //@Hidden @Output(fullName="test_output", shortName = "to", doc="test output file", required = false)
+  //var testOutput: File = _
 
   def script() {
-    testOutput = new File("hello.txt")
+    val testOutput = new File("hello.txt")
     val writer = new PrintWriter(testOutput)
     writer.println("hello world!")
     writer.close()
+    addRemoteOutput("http://example", "testOutput", testOutput)
   }
-
 }
