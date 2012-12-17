@@ -115,6 +115,22 @@ public class NA12878KnowledgeBase {
         return sites.insert(mvc);
     }
 
+    public List<WriteResult> removeCall(final MongoVariantContext mvc){
+        Set<String> matchKeys = new HashSet<String>(mvc.keySet());
+        matchKeys.remove("Date");
+        matchKeys.remove("_id");
+        DBObject matchObject = new BasicDBObject();
+        for(String key: matchKeys){
+            matchObject.put(key, mvc.get(key));
+        }
+        DBCursor cursor = sites.find(matchObject);
+        List<WriteResult> results = new ArrayList<WriteResult>(cursor.size());
+        for(DBObject next: cursor){
+            results.add(sites.remove(next));
+        }
+        return results;
+    }
+
     public void addCalls(final Collection<MongoVariantContext> mvcs) {
         for ( final MongoVariantContext mvc : mvcs )
             addCall(mvc);
