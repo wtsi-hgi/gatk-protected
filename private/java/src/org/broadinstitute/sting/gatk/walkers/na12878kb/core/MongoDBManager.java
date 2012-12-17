@@ -39,6 +39,7 @@ final public class MongoDBManager {
 
     public static class DBWrapper{
         protected Mongo mongo;
+        protected DB mongoDB;
         protected DBCollection sites;
         protected DBCollection callsets;
         protected DBCollection consensus;
@@ -63,11 +64,15 @@ final public class MongoDBManager {
             mongo.close();
         }
 
+        protected void delete() {
+            mongoDB.dropDatabase();
+        }
+
         private DBWrapper(Locator locator) {
             try {
                 logger.info("Connecting to MongoDB host=" + locator.host + " port=" + locator.port + " name=" + locator.name);
                 mongo = new Mongo(locator.host, locator.port);
-                DB mongoDB = mongo.getDB(locator.name);
+                mongoDB = mongo.getDB(locator.name);
                 sites = mongoDB.getCollection(locator.sitesCollection);
                 callsets = mongoDB.getCollection(locator.callsetsCollection);
                 consensus = mongoDB.getCollection(locator.consensusCollection);
