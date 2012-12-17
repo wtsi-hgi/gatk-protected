@@ -1,0 +1,8 @@
+{
+    "host" : "couchdb.broadinstitute.org",
+    "port" : 43054,
+    "name" : "NA12878KnowledgeBase",
+    "sitesCollection" : "sites",
+    "callsetsCollection" : "callsets",
+    "consensusCollection" : "consensus"
+}

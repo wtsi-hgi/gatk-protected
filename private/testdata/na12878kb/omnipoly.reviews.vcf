@@ -1,0 +1,78 @@
+##fileformat=VCFv4.1
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (reads with MQ=255 or with bad mates are filtered)">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=CallSetName,Number=1,Type=String,Description="Name of the review">
+##INFO=<ID=Date,Number=1,Type=String,Description="Date/time as a long of this review">
+##INFO=<ID=PhredConfidence,Number=1,Type=Integer,Description="Phred-scaled confidence in this review">
+##INFO=<ID=PolymorphicStatus,Number=1,Type=String,Description="Is this call polymorphic in NA12878">
+##INFO=<ID=TruthStatus,Number=1,Type=String,Description="What is the truth state of this call">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA12878
+20	387376	.	A	G	.	.	CallSetName=depristo;Date=1354262431820;TruthStatus=FALSE_POSITIVE	GT	./.
+20	842913	.	T	A	.	.	CallSetName=depristo;Date=1354262433215;TruthStatus=SUSPECT	GT	./.
+20	2524550	.	T	A	.	.	CallSetName=depristo;Date=1354262436039;TruthStatus=FALSE_POSITIVE	GT	./.
+20	2674174	.	A	G	.	.	CallSetName=depristo;Date=1354262436320;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	2703988	.	A	T	.	.	CallSetName=depristo;Date=1354262436358;TruthStatus=TRUE_POSITIVE	GT	1/0
+20	3529268	.	G	A	.	.	CallSetName=depristo;Date=1354262437592;TruthStatus=FALSE_POSITIVE	GT	./.
+20	4583697	.	G	A	.	.	CallSetName=depristo;Date=1354262439148;TruthStatus=FALSE_POSITIVE	GT	./.
+20	4977356	.	C	A	.	.	CallSetName=depristo;Date=1354262439752;TruthStatus=SUSPECT	GT	./.
+20	5126469	.	T	G	.	.	CallSetName=depristo;Date=1354262439932;TruthStatus=FALSE_POSITIVE	GT	./.
+20	5879995	.	G	T	.	.	CallSetName=depristo;Date=1354262441128;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	5943001	.	T	A	.	.	CallSetName=depristo;Date=1354262441235;TruthStatus=FALSE_POSITIVE	GT	./.
+20	7442005	.	T	C	.	.	CallSetName=depristo;Date=1354262443383;TruthStatus=FALSE_POSITIVE	GT	./.
+20	9226397	.	C	T	.	.	CallSetName=depristo;Date=1354262445426;TruthStatus=FALSE_POSITIVE	GT	./.
+20	9288143	.	C	T	.	.	CallSetName=depristo;Date=1354262445479;TruthStatus=SUSPECT	GT	./.
+20	13783329	.	A	G	.	.	CallSetName=depristo;Date=1354262450977;TruthStatus=FALSE_POSITIVE	GT	./.
+20	14203460	.	A	G	.	.	CallSetName=depristo;Date=1354262451361;TruthStatus=FALSE_POSITIVE	GT	./.
+20	14279227	.	A	G	.	.	CallSetName=depristo;Date=1354262451446;TruthStatus=FALSE_POSITIVE	GT	./.
+20	14610617	.	C	T	.	.	CallSetName=depristo;Date=1354262451789;TruthStatus=FALSE_POSITIVE	GT	./.
+20	15557210	.	C	T	.	.	CallSetName=depristo;Date=1354262452860;TruthStatus=FALSE_POSITIVE	GT	./.
+20	16254733	.	C	A	.	.	CallSetName=depristo;Date=1354262454014;TruthStatus=FALSE_POSITIVE	GT	./.
+20	16275024	.	T	C	.	.	CallSetName=depristo;Date=1354262454048;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	16652322	.	C	A	.	.	CallSetName=depristo;Date=1354262454476;TruthStatus=TRUE_POSITIVE	GT	1/0
+20	16699914	.	A	G	.	.	CallSetName=depristo;Date=1354262454542;TruthStatus=FALSE_POSITIVE	GT	./.
+20	21026580	.	G	A	.	.	CallSetName=depristo;Date=1354262459712;TruthStatus=FALSE_POSITIVE	GT	./.
+20	21502778	.	G	T	.	.	CallSetName=depristo;Date=1354262460068;TruthStatus=TRUE_POSITIVE	GT	1/0
+20	22509393	.	A	C	.	.	CallSetName=depristo;Date=1354262460995;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	22519010	.	T	C	.	.	CallSetName=depristo;Date=1354262461010;TruthStatus=SUSPECT	GT	./.
+20	24459133	.	G	T	.	.	CallSetName=depristo;Date=1354262463618;TruthStatus=TRUE_POSITIVE	GT	1/0
+20	26189400	.	T	G	.	.	CallSetName=depristo;Date=1354262467995;TruthStatus=FALSE_POSITIVE	GT	./.
+20	29599067	.	T	C	.	.	CallSetName=depristo;Date=1354262471238;TruthStatus=FALSE_POSITIVE	GT	./.
+20	29634624	.	C	T	.	.	CallSetName=depristo;Date=1354262471905;TruthStatus=SUSPECT	GT	./.
+20	33756830	.	A	C	.	.	CallSetName=depristo;Date=1354262475669;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	35153658	.	C	A	.	.	CallSetName=depristo;Date=1354262476425;TruthStatus=SUSPECT	GT	./.
+20	36101706	.	A	G	.	.	CallSetName=depristo;Date=1354262477133;TruthStatus=FALSE_POSITIVE	GT	./.
+20	36496696	.	T	C	.	.	CallSetName=depristo;Date=1354262477519;TruthStatus=FALSE_POSITIVE	GT	./.
+20	36668650	.	T	C	.	.	CallSetName=depristo;Date=1354262477667;TruthStatus=FALSE_POSITIVE	GT	./.
+20	38163159	.	T	G	.	.	CallSetName=depristo;Date=1354262479318;TruthStatus=FALSE_POSITIVE	GT	./.
+20	38792223	.	T	C	.	.	CallSetName=depristo;Date=1354262479969;TruthStatus=FALSE_POSITIVE	GT	./.
+20	40974260	.	A	G	.	.	CallSetName=depristo;Date=1354262481599;TruthStatus=FALSE_POSITIVE	GT	./.
+20	41055468	.	T	C	.	.	CallSetName=depristo;Date=1354262481707;TruthStatus=SUSPECT	GT	./.
+20	41358634	.	T	A	.	.	CallSetName=depristo;Date=1354262482072;TruthStatus=FALSE_POSITIVE	GT	./.
+20	41968676	.	T	C	.	.	CallSetName=depristo;Date=1354262482453;TruthStatus=FALSE_POSITIVE	GT	./.
+20	42085505	.	T	C	.	.	CallSetName=depristo;Date=1354262482935;TruthStatus=FALSE_POSITIVE	GT	./.
+20	43041131	.	G	A	.	.	CallSetName=depristo;Date=1354262483937;TruthStatus=TRUE_POSITIVE	GT	1/0
+20	43108051	.	T	C	.	.	CallSetName=depristo;Date=1354262483988;TruthStatus=FALSE_POSITIVE	GT	./.
+20	45908883	.	A	G	.	.	CallSetName=depristo;Date=1354262486659;TruthStatus=FALSE_POSITIVE	GT	./.
+20	46827536	.	G	A	.	.	CallSetName=depristo;Date=1354262488025;TruthStatus=FALSE_POSITIVE	GT	./.
+20	47295017	.	A	G	.	.	CallSetName=depristo;Date=1354262488751;TruthStatus=FALSE_POSITIVE	GT	./.
+20	47810511	.	A	G	.	.	CallSetName=depristo;Date=1354262489266;TruthStatus=FALSE_POSITIVE	GT	./.
+20	48424929	.	A	G	.	.	CallSetName=depristo;Date=1354262489925;TruthStatus=FALSE_POSITIVE	GT	./.
+20	48517539	.	A	G	.	.	CallSetName=depristo;Date=1354262490028;TruthStatus=FALSE_POSITIVE	GT	./.
+20	48698563	.	G	A	.	.	CallSetName=depristo;Date=1354262490303;TruthStatus=FALSE_POSITIVE	GT	./.
+20	50284727	.	A	C	.	.	CallSetName=depristo;Date=1354262492175;TruthStatus=FALSE_POSITIVE	GT	./.
+20	51908987	.	T	A	.	.	CallSetName=depristo;Date=1354262494128;TruthStatus=FALSE_POSITIVE	GT	./.
+20	52421497	.	G	T	.	.	CallSetName=depristo;Date=1354262494816;TruthStatus=TRUE_POSITIVE	GT	1/0
+20	53146092	.	A	C	.	.	CallSetName=depristo;Date=1354262496201;TruthStatus=FALSE_POSITIVE	GT	./.
+20	53783006	.	A	T	.	.	CallSetName=depristo;Date=1354262496994;TruthStatus=SUSPECT	GT	./.
+20	54262660	.	A	G	.	.	CallSetName=depristo;Date=1354262497626;TruthStatus=SUSPECT	GT	./.
+20	55473343	.	T	C	.	.	CallSetName=depristo;Date=1354262498980;TruthStatus=SUSPECT	GT	./.
+20	56513293	.	G	C	.	.	CallSetName=depristo;Date=1354262500494;TruthStatus=FALSE_POSITIVE	GT	./.
+20	57092130	.	G	A	.	.	CallSetName=depristo;Date=1354262501188;TruthStatus=SUSPECT	GT	./.
+20	57138021	.	C	T	.	.	CallSetName=depristo;Date=1354262501238;TruthStatus=FALSE_POSITIVE	GT	./.
+20	57138714	.	A	G	.	.	CallSetName=depristo;Date=1354262501239;TruthStatus=FALSE_POSITIVE	GT	./.
+20	57345225	.	T	C	.	.	CallSetName=depristo;Date=1354262501476;TruthStatus=SUSPECT	GT	./.
+20	59349776	.	C	T	.	.	CallSetName=depristo;Date=1354262503824;TruthStatus=TRUE_POSITIVE	GT	1/0
+20	59827909	.	A	C	.	.	CallSetName=depristo;Date=1354262504466;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	62337324	.	C	T	.	.	CallSetName=depristo;Date=1354262508299;TruthStatus=FALSE_POSITIVE	GT	./.
+20	62413449	.	A	G	.	.	CallSetName=depristo;Date=1354262508450;TruthStatus=FALSE_POSITIVE	GT	./.

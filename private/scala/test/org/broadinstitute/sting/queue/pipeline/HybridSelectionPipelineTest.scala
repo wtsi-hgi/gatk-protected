@@ -41,7 +41,7 @@ class HybridSelectionPipelineTest {
     dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.novel.all", "nCalledLoci", 273)
     dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.all.all", "tiTvRatio", 3.56)
     dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.known.all", "tiTvRatio", 3.81)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.novel.all", "tiTvRatio", 2.69)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.novel.all", "tiTvRatio", 2.65)
 
     dataset
   }
@@ -55,7 +55,7 @@ class HybridSelectionPipelineTest {
   final def convertDatasets: Array[Array[AnyRef]] =
     datasets.map(dataset => Array(dataset.asInstanceOf[AnyRef])).toArray
 
-  @Test(dataProvider="datasets")
+  @Test(dataProvider="datasets", timeOut=36000000)
   def testHybridSelectionPipeline(dataset: PipelineDataset) {
     val testName = "HybridSelectionPipeline-" + dataset.projectName
     val bamList = writeBamList(dataset.projectName + ".bam.list", dataset.bams)

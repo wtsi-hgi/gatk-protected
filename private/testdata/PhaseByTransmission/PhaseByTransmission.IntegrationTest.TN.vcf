@@ -1,5 +1,6 @@
 ##fileformat=VCFv4.0
 ##PhaseByTransmissionUnitTest="This file contains only genotypes of high quality and no mendelian violation in the input data. The output data should phase the trio and pair except for the Het/Het/Het case and leave the unrelated individual untouched. Please note that this file is entirely synthetic and does not represent true SNPs or genotypes observed."
+##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
 ##FORMAT=<ID=GQ,Number=1,Type=Float,Description="Genotype Quality">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=PL,Number=3,Type=Float,Description="Normalized, Phred-scaled likelihoods for AA,AB,BB genotypes where A=ref and B=alt; not applicable if site is not biallelic">
@@ -7,7 +8,7 @@
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	TRIO_MOTHER	TRIO_FATHER	TRIO_CHILD	PAIR_FATHER	PAIR_CHILD	UNRELATED_INDIVIDUAL_CONTROL
 1	10109	.	A	T	99	PASS	TestDescription=HomRef/HomRef/HomRef	GT:GQ:PL	0/0:50:0,50,200	0/0:50:0,50,200	0/0:50:0,50,200	0/0:50:0,50,200	0/0:50:0,50,200	0/0:50:0,50,200	
 1	10147	.	C	A	99	PASS	TestDescription=HomRef/Het/HomRef	GT:GQ:PL	0/0:50:0,50,200	0/1:50:50,0,200	0/0:50:0,50,200	0/0:50:0,50,200	0/0:50:0,50,200	0/0:50:0,50,200	
-1	10150	.	C	T	99	PASS	TestDescription=HomRef/Het/Het	GT:GQ:PL	0/0:50:0,50,200	0/1:50:50,0,200	0/1:50:50,0,200	0/0:50:0,50,200	0/1:50:50,0,200	0/0:50:0,50,200
+1	10150	.	C	T	99	PASS	TestDescription=HomRef/Het/Het	GT:AD:GQ:PL	0/0:50,0:50:0,50,200	0/1:30,20:50:50,0,200	0/1:30,20:50:50,0,200	0/0:50,0:50:0,50,200	0/1:30,20:50:50,0,200	0/0:50,0:50:0,50,200
 1	10177	.	A	C	99	PASS	TestDescription=HomRef/HomAlt/Het	GT:GQ:PL	0/0:50:0,50,200	1/1:50:200,50,0	0/1:50:50,0,200	0/0:50:0,50,200	0/1:50:50,0,200	0/0:50:0,50,200
 1	10180	.	T	C	99	PASS	TestDescription=Het/HomRef/HomRef	GT:GQ:PL	0/1:50:50,0,200	0/0:50:0,50,200	0/0:50:0,50,200	0/1:50:50,0,200	0/0:50:0,50,200	0/1:50:50,0,200
 1	10234	.	C	T	99	PASS	TestDescription=Het/HomRef/Het	GT:GQ:PL	0/1:50:50,0,200	0/0:50:0,50,200	0/1:50:50,0,200	0/1:50:50,0,200	0/1:50:50,0,200	0/1:50:50,0,200
