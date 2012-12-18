@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.utils.variantcontext.v13;
+package org.broadinstitute.variant.variantcontext.v13;
 
 import org.apache.log4j.Logger;
 import org.broad.tribble.Feature;

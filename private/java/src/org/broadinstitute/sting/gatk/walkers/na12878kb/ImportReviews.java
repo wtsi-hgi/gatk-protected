@@ -8,10 +8,10 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.CallSet;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 public class ImportReviews extends NA12878DBWalker {
     /**
@@ -31,7 +31,7 @@ public class ImportReviews extends NA12878DBWalker {
     public void initialize() {
         super.initialize();
 
-        for ( final VCFHeaderLine line : VCFUtils.getHeaderFields(getToolkit()) ) {
+        for ( final VCFHeaderLine line : GATKVCFUtils.getHeaderFields(getToolkit()) ) {
             if ( CallSet.isVCFHeaderLine(line) )
                 ensureCallset(new CallSet(line));
         }

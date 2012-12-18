@@ -35,10 +35,11 @@ import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.variantcontext.*;
 
 import java.util.*;
 
@@ -80,7 +81,7 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
         List<String> rodNames = new ArrayList<String>();
         rodNames.add(variantCollection.variants.getName());
 
-        Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
+        Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
         Set<String> vcfSamples = SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE);
 
         // set up tumor and normal samples
@@ -93,7 +94,7 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
         logger.info("Tumor  sample: " + tumorSample);
 
         Set<VCFHeaderLine> headerLines = new HashSet<VCFHeaderLine>();
-        headerLines.addAll(VCFUtils.getHeaderFields(this.getToolkit()));
+        headerLines.addAll(GATKVCFUtils.getHeaderFields(this.getToolkit()));
         headerLines.add(new VCFInfoHeaderLine(VCFConstants.SOMATIC_KEY, 0, VCFHeaderLineType.Flag, "Is this a confidently called somatic mutation"));
         headerLines.add(new VCFInfoHeaderLine(SOMATIC_LOD_TAG_NAME, 1, VCFHeaderLineType.Float, "log10 probability that the site is a somatic mutation"));
         headerLines.add(new VCFInfoHeaderLine(SOMATIC_AC_TAG_NAME, 1, VCFHeaderLineType.Integer, "Allele count of samples with somatic event"));

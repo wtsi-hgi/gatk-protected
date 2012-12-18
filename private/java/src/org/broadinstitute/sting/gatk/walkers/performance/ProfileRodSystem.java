@@ -45,16 +45,16 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.tracks.RMDTrackBuilder;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.sting.utils.codecs.bcf2.BCF2Codec;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
+import org.broadinstitute.variant.bcf2.BCF2Codec;
+import org.broadinstitute.variant.vcf.VCFCodec;
+import org.broadinstitute.variant.vcf.VCFConstants;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.writer.Options;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriterFactory;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.writer.Options;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriterFactory;
 
 import java.io.*;
 import java.util.*;
@@ -179,7 +179,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             FileOutputStream outputStream = new FileOutputStream(bcf2File);
             EnumSet<Options> options = EnumSet.of(Options.FORCE_BCF, Options.INDEX_ON_THE_FLY);
             final VariantContextWriter bcf2Writer = VariantContextWriterFactory.create(bcf2File, outputStream, getToolkit().getReferenceDataSource().getReference().getSequenceDictionary(), options);
-            VCFHeader header = VCFUtils.withUpdatedContigs((VCFHeader)reader.getHeader(), getToolkit());
+            VCFHeader header = GATKVCFUtils.withUpdatedContigs((VCFHeader) reader.getHeader(), getToolkit());
             bcf2Writer.writeHeader(header);
 
             final List<VariantContext> vcs = new ArrayList<VariantContext>();

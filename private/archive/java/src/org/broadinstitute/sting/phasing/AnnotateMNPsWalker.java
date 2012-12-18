@@ -33,16 +33,18 @@ import org.broadinstitute.sting.gatk.refdata.ReferenceOrderedDatum;
 import org.broadinstitute.sting.gatk.refdata.features.annotator.AnnotatorInputTableFeature;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.*;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
+import org.broadinstitute.variant.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.util.*;
 
-import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFromRods;
+import static org.broadinstitute.sting.utils.variant.GATKVCFUtils.getVCFHeadersFromRods;
 
 
 /**
@@ -115,7 +117,7 @@ public class AnnotateMNPsWalker extends RodWalker<Integer, Integer> {
 
         // setup the header fields:
         Set<VCFHeaderLine> hInfo = new HashSet<VCFHeaderLine>();
-        hInfo.addAll(VCFUtils.getHeaderFields(getToolkit()));
+        hInfo.addAll(GATKVCFUtils.getHeaderFields(getToolkit()));
         hInfo.add(new VCFHeaderLine("reference", getToolkit().getArguments().referenceFile.getName()));
 
         Map<String, VCFHeader> rodNameToHeader = getVCFHeadersFromRods(getToolkit(), Arrays.asList(rodName));
@@ -147,7 +149,7 @@ public class AnnotateMNPsWalker extends RodWalker<Integer, Integer> {
         clearOldLocusFeatures(curLocus);
 
         for (VariantContext vc : tracker.getValues(VariantContext.class, rodName)) {
-            GenomeLoc vcLoc = VariantContextUtils.getLocation(locParser, vc);
+            GenomeLoc vcLoc = GATKVariantContextUtils.getLocation(locParser, vc);
             boolean atStartOfVc = curLocus.getStart() == vcLoc.getStart();
             boolean atEndOfVc = curLocus.getStart() == vcLoc.getStop();
 

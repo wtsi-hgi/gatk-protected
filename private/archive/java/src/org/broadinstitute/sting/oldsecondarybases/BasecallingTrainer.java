@@ -6,7 +6,7 @@ import net.sf.samtools.util.CloseableIterator;
 import net.sf.picard.reference.ReferenceSequenceFile;
 import net.sf.picard.reference.ReferenceSequenceFileFactory;
 import net.sf.picard.reference.ReferenceSequence;
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.StingException;
 
 import java.io.File;

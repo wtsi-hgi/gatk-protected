@@ -3,7 +3,7 @@ package org.broadinstitute.sting.gatk.walkers.mongodb;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 /**
  * Created with IntelliJ IDEA.

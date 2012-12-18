@@ -2,19 +2,19 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.mongodb.ReflectionDBObject;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLineType;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFInfoHeaderLine;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.variant.vcf.VCFHeaderLineType;
+import org.broadinstitute.variant.vcf.VCFInfoHeaderLine;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 
 import java.util.*;
 

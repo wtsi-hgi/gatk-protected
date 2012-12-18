@@ -25,10 +25,10 @@
 package org.broadinstitute.sting.utils.gcf;
 
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.variant.vcf.VCFCodec;
+import org.broadinstitute.variant.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.Allele;
 
 import java.io.*;
 import java.util.*;

@@ -2,7 +2,7 @@ package org.broadinstitute.sting.gatk.walkers.phasing.Haplotypes;
 
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.Genotype;
 
 import java.io.PrintStream;
 

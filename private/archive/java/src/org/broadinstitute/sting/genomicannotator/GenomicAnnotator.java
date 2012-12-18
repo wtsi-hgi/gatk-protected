@@ -37,12 +37,12 @@ import org.broadinstitute.sting.gatk.refdata.features.annotator.AnnotatorInputTa
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.annotator.VariantAnnotatorEngine;
 import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.io.File;
 import java.io.IOException;
@@ -207,7 +207,7 @@ public class GenomicAnnotator extends RodWalker<Integer, Integer> implements Tre
 
         // set up the header fields
         Set<VCFHeaderLine> hInfo = new HashSet<VCFHeaderLine>();
-        hInfo.addAll(VCFUtils.getHeaderFields(getToolkit(), Arrays.asList("variant")));
+        hInfo.addAll(GATKVCFUtils.getHeaderFields(getToolkit(), Arrays.asList("variant")));
         hInfo.addAll(engine.getVCFAnnotationDescriptions());
 
         Set<String> rodName = new HashSet<String>();

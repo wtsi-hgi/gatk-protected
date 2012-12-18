@@ -3,16 +3,9 @@ package org.broadinstitute.sting.gatk.walkers.misc;
 import org.broadinstitute.sting.alignment.Alignment;
 import org.broadinstitute.sting.alignment.bwa.c.BWACAligner;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintStream;
 import java.util.*;
 
 /**

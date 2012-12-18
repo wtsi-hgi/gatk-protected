@@ -27,6 +27,7 @@ package org.broadinstitute.sting.utils;
 
 import org.broadinstitute.sting.utils.collections.PrimitivePair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.variant.utils.BaseUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;

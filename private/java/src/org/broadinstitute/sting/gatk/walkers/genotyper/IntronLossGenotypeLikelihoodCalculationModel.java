@@ -11,6 +11,7 @@ import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.variant.utils.BaseUtils;
 
 import java.util.*;
 
@@ -160,7 +161,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
             if ( elem.getOperator().equals(CigarOperator.M) ) {
                 for ( int ct = elem.getLength(); ct > 0; ct-- ) {
                     int pos = b + offset;
-                    if (pos >= exonBases.length || BaseUtils.basesAreEqual(readBases[b],exonBases[pos])) {
+                    if (pos >= exonBases.length || BaseUtils.basesAreEqual(readBases[b], exonBases[pos])) {
                         // bases match, don't do anything
                     } else {
                         // read clipped at Q15, with e/3 this goes to Q12

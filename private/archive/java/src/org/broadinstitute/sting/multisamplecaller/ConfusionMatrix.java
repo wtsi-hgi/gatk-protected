@@ -4,7 +4,7 @@ import java.lang.*;
 import java.util.*;
 import java.io.*;
 
-import org.broadinstitute.sting.utils.*;
+import org.broadinstitute.variant.utils.BaseUtils;
 
 public class ConfusionMatrix
 {

@@ -5,10 +5,10 @@ import org.apache.log4j.Logger;
 import org.broadinstitute.sting.BaseTest;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.testng.Assert;
 import org.testng.SkipException;
 import org.testng.annotations.AfterSuite;
@@ -31,7 +31,7 @@ public class NA12878KBUnitTestBase extends BaseTest {
 
     static {
         try {
-            testVCs = Collections.unmodifiableList(VCFUtils.readVCF(testVCF).getSecond());
+            testVCs = Collections.unmodifiableList(GATKVCFUtils.readVCF(testVCF).getSecond());
             final IndexedFastaSequenceFile fasta = new IndexedFastaSequenceFile(new File(b37KGReference));
             parser = new GenomeLocParser(fasta.getSequenceDictionary());
         } catch ( IOException e ) {

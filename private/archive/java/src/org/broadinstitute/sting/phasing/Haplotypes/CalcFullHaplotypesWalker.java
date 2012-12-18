@@ -36,14 +36,14 @@ import org.broadinstitute.sting.gatk.walkers.Allows;
 import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeader;
 
 import java.io.PrintStream;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFromRods;
+import static org.broadinstitute.sting.utils.variant.GATKVCFUtils.getVCFHeadersFromRods;
 
 /**
  * Walks along all variant ROD loci and uses the phase information to divide up the genome into phased segments.

@@ -39,11 +39,13 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MendelianViolation;
 import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.vcf.*;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.*;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -375,7 +377,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         // Get list of samples to include in the output
         List<String> rodNames = Arrays.asList(variantCollection.variants.getName());
 
-        Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
+        Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
         TreeSet<String> vcfSamples = new TreeSet<String>(SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE));
 
         Collection<String> samplesFromFile = SampleUtils.getSamplesFromFiles(sampleFiles);
@@ -464,7 +466,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             final UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
             UAC.GLmodel = GenotypeLikelihoodsCalculationModel.Model.BOTH;
             UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES;
-            UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
+            UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, GATKVariantContextUtils.DEFAULT_PLOIDY);
         }
 
         /** load in the IDs file to a hashset for matching */
@@ -655,13 +657,13 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             // iterate over the types so that it's deterministic
             for (VariantContext.Type type : VariantContext.Type.values()) {
                 if (VCsByType.containsKey(type))
-                    mergedVCs.add(VariantContextUtils.simpleMerge(getToolkit().getGenomeLocParser(), VCsByType.get(type),
+                    mergedVCs.add(VariantContextUtils.simpleMerge(VCsByType.get(type),
                             priority, filteredRecordsMergeType, genotypeMergeOption, true, printComplexMerges,
                             SET_KEY, filteredAreUncalled, MERGE_INFO_WITH_MAX_AC));
             }
         }
         else if (multipleAllelesMergeType == VariantContextUtils.MultipleAllelesMergeType.MIX_TYPES) {
-            mergedVCs.add(VariantContextUtils.simpleMerge(getToolkit().getGenomeLocParser(), vcs,
+            mergedVCs.add(VariantContextUtils.simpleMerge(vcs,
                     priority, filteredRecordsMergeType, genotypeMergeOption, true, printComplexMerges,
                     SET_KEY, filteredAreUncalled, MERGE_INFO_WITH_MAX_AC));
         }

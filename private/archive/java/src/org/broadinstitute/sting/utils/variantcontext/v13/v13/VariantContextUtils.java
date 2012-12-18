@@ -21,7 +21,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.variantcontext.v13;
+package org.broadinstitute.variant.variantcontext.v13;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
@@ -32,7 +32,7 @@ import org.apache.commons.jexl2.JexlEngine;
 import org.apache.log4j.Logger;
 import org.broad.tribble.util.popgen.HardyWeinbergCalculation;
 import org.broadinstitute.sting.gatk.walkers.phasing.ReadBackedPhasing;
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.Utils;

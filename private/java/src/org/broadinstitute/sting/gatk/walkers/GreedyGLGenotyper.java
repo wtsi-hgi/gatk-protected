@@ -11,14 +11,16 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
-import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.variant.variantcontext.GenotypesContext;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.variantcontext.VariantContextUtils;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.vcf.VCFUtils;
 
 import java.util.*;
 
@@ -41,7 +43,7 @@ public class GreedyGLGenotyper extends RodWalker<Integer, Integer>  implements T
         engine = new UnifiedGenotyperEngine(this.getToolkit(), new UnifiedArgumentCollection()); // dummy
         Set<String> rodNames = SampleUtils.getRodNamesWithVCFHeader(getToolkit(), null);
 
-        Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
+        Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
         TreeSet<String> vcfSamples = new TreeSet<String>(SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE));
         Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), logger);
 
@@ -63,7 +65,7 @@ public class GreedyGLGenotyper extends RodWalker<Integer, Integer>  implements T
             if (excludeMultiallelics && !vc.isBiallelic())
                 continue;
 
-            GenotypesContext genotypes = VariantContextUtils.assignDiploidGenotypes(vc);
+            GenotypesContext genotypes = GATKVariantContextUtils.assignDiploidGenotypes(vc);
 
             // finish constructing the resulting VC
             GenomeLoc loc = getToolkit().getGenomeLocParser().createGenomeLoc(vc);

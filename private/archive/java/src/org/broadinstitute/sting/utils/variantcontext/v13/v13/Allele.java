@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.utils.variantcontext.v13;
+package org.broadinstitute.variant.variantcontext.v13;
 
 import java.util.ArrayList;
 import java.util.Arrays;

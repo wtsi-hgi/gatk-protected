@@ -6,9 +6,9 @@ import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.PolymorphicStatus;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeType;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.variantcontext.GenotypeType;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 
 import java.util.LinkedList;
 import java.util.List;

@@ -22,9 +22,10 @@ import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
 import org.broadinstitute.sting.utils.codecs.table.TableFeature;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.vcf.VCFConstants;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -32,9 +33,9 @@ import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.text.XReadLines;
-import org.broadinstitute.sting.utils.variantcontext.*;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriterFactory;
+import org.broadinstitute.variant.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriterFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -345,7 +346,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             alleles.add(Allele.create(hypothesis.toString()));
             vcb.alleles(alleles);
             VariantContext asCon = vcb.make();
-            GenotypesContext genAssigned = VariantContextUtils.assignDiploidGenotypes(asCon);
+            GenotypesContext genAssigned = GATKVariantContextUtils.assignDiploidGenotypes(asCon);
             vcb.genotypes(genAssigned);
 
             final AFCalc AFCalculator = AFCalcFactory.createAFCalc(samples.size());
