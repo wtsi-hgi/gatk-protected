@@ -138,13 +138,13 @@ class HybridSelectionPipeline extends QScript {
     add(call)
 
     val selectSNPs = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
-    selectSNPs.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.SNP
+    selectSNPs.selectType :+= org.broadinstitute.variant.variantcontext.VariantContext.Type.SNP
     selectSNPs.variant = call.out
     selectSNPs.out = projectName + ".snps.unfiltered.vcf"
     add(selectSNPs)
 
     val selectIndels = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
-    selectIndels.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.INDEL
+    selectIndels.selectType :+= org.broadinstitute.variant.variantcontext.VariantContext.Type.INDEL
     selectIndels.variant = call.out
     selectIndels.out = projectName + ".indels.unfiltered.vcf"
     add(selectIndels)
@@ -210,7 +210,7 @@ class HybridSelectionPipeline extends QScript {
     val combineSNPsIndels = new CombineVariants with CommandLineGATKArgs with ExpandedIntervals
     combineSNPsIndels.variant :+= TaggedFile(filterIndels.out, "indels")
     combineSNPsIndels.variant :+= TaggedFile(filteredSNPsVcf, "snps")
-    combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.variant.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     combineSNPsIndels.assumeIdenticalSamples = true
     combineSNPsIndels.out = projectName + ".unannotated.vcf"
     add(combineSNPsIndels)
