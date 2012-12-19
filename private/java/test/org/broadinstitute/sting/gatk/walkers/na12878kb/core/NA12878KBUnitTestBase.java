@@ -54,8 +54,10 @@ public class NA12878KBUnitTestBase extends BaseTest {
 
     @AfterSuite
     protected void teardownMethod() {
-        if ( db != null )
+        if ( db != null ) {
+            db.delete();
             db.close();
+        }
     }
 
     @DataProvider(name = "TestVCProvider")

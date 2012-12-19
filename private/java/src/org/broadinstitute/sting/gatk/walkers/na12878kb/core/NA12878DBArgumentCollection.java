@@ -2,6 +2,7 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.google.gson.Gson;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 
 import java.io.*;
@@ -64,7 +65,10 @@ public class NA12878DBArgumentCollection {
         }
 
         public String getExtension() {
-            return extension;
+            // If using a test database, make an over-the-top effort to avoid naming collisions with
+            // concurrently-running instances of the test suite
+            return extension.equals("_test") ? String.format("%s_%d_%d", extension, System.currentTimeMillis(), GenomeAnalysisEngine.getRandomGenerator().nextInt()) :
+                                               extension;
         }
     }
 

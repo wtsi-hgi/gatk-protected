@@ -59,6 +59,10 @@ public class NA12878KnowledgeBase {
         MongoDBManager.getDB(dblocator).close();
     }
 
+    public void delete() {
+        MongoDBManager.getDB(dblocator).delete();
+    }
+
     protected void printStatus() {
         printCollectionStatus("sites", sites);
         printCollectionStatus("callsets", callSets);
