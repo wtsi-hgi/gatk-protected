@@ -17,7 +17,7 @@ class BQSRPerformanceOverTime extends QScript {
 
   @Argument(shortName = "ntTest", doc="For each value provided we will use -nt VALUE in the multi-threaded tests", required=false)
   @ClassType(classOf[Int])
-  val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8, 10, 12)
+  val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8)
 
   val MY_TAG = "GATKPerformanceOverTime"
   val RECAL_BAM_FILENAME = "CEUTrio.HiSeq.WGS.b37_decoy.NA12878.clean.dedup.recal.20GAV.8.bam"
@@ -42,7 +42,7 @@ class BQSRPerformanceOverTime extends QScript {
 
   def script() {
     // iterate over GATK's and data sets
-    for ( iteration <- 0 until iterations ) {
+    for ( iteration <- 0 until (iterations-1) ) {
       for ( (gatkName, gatkJar) <- GATKs ) {
 
         def makeBQSR(): BaseRecalibrator = {
