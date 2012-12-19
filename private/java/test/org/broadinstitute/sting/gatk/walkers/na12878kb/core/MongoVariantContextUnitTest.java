@@ -1,10 +1,12 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
+import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextTestProvider;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextTestProvider;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -39,6 +41,14 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
         return tests.toArray(new Object[][]{});
     }
 
+    @DataProvider(name = "TestVCProvider")
+    public Object[][] testVCProvider() {
+        List<Object[]> tests = new ArrayList<Object[]>();
+        for ( final VariantContext vc : testVCs )
+            tests.add(new Object[]{vc});
+        return tests.toArray(new Object[][]{});
+    }
+
     @Test(enabled = true, dataProvider = "TestVCProvider")
     public void testVCToMVC(final VariantContext vc) {
         final MongoVariantContext mvc = MongoVariantContext.create("x", vc, TruthStatus.UNKNOWN, MongoGenotype.NO_CALL);
@@ -63,13 +73,26 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
 
     @Test(enabled = true, dataProvider = "MVCBasicTest")
     public void testMVCBasic(final VariantContext originalVC, final MongoVariantContext mvc) {
-        setupBeforeMethod();
-        db.addCall(mvc);
-        final MongoVariantContext fromDB = readOneMVCFromDB();
+        try {
+            setupBeforeMethod();
+            db.addCall(mvc);
+            final MongoVariantContext fromDB = readOneMVCFromDB();
 
-        Assert.assertEquals(fromDB, mvc, "Input MongoVariantContext not the same as the one read from DB");
-        VariantContextTestProvider.assertEquals(fromDB.getVariantContext(), mvc.getVariantContext());
-        teardownMethod();
+            Assert.assertEquals(fromDB, mvc, "Input MongoVariantContext not the same as the one read from DB");
+            VariantContextTestProvider.assertEquals(fromDB.getVariantContext(), mvc.getVariantContext());
+        }
+        finally {
+            teardownMethod();
+        }
+    }
+
+    final MongoVariantContext readOneMVCFromDB() {
+        final SiteIterator<MongoVariantContext> it = db.getCalls();
+        Assert.assertTrue(it.hasNext(), "Expected at least 1 call in the db");
+        final MongoVariantContext mvc = it.next();
+        Assert.assertFalse(it.hasNext(), "Only expected 1 call in the db but saw > 1");
+        it.close();
+        return mvc;
     }
 
     final static MongoVariantContext good = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C", TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 0), new Date(), false);
@@ -185,5 +208,76 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
     @Test(dataProvider = "Duplicates")
     public void testDuplicates(final MongoVariantContext mvc1, final MongoVariantContext mvc2, final boolean isDup) {
         Assert.assertEquals(mvc1.isDuplicate(mvc2), isDup, "MVCs " + mvc1 + " is dup of " + mvc2 + " returned expected value");
+    }
+
+    @DataProvider(name = "TestConsensusGT")
+    public Object[][] makeTestConsensusGT() {
+        List<Object[]> tests = new ArrayList<Object[]>();
+
+        final List<Allele> alleles = Arrays.asList(Allele.create("A", true), Allele.create("C"));
+
+        final MongoVariantContext tpHet = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C",
+                TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), false);
+
+        final MongoVariantContext tpNoCall = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C",
+                TruthStatus.TRUE_POSITIVE, new MongoGenotype(-1, -1), new Date(), false);
+
+        final MongoVariantContext tpHet2 = new MongoVariantContext(Arrays.asList("y"), "20", 1, 1, "A", "C",
+                TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), false);
+
+        final MongoVariantContext tpHetReviewed = new MongoVariantContext(Arrays.asList("z"), "20", 1, 1, "A", "C",
+                TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), true);
+
+        final MongoVariantContext tpHomVar = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C",
+                TruthStatus.TRUE_POSITIVE, new MongoGenotype(1, 1), new Date(), false);
+
+        final MongoVariantContext fpHet = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C",
+                TruthStatus.FALSE_POSITIVE, new MongoGenotype(0, 1), new Date(), false);
+
+        final Genotype hetGT = tpHet.getGt().toGenotype(alleles);
+
+        for ( final List<MongoVariantContext> l : Utils.makePermutations(Arrays.asList(tpHet, tpHet2, tpHomVar, fpHet), 2, false) ) {
+            // false positive -> gt is no call
+            tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, l, MongoGenotype.NO_CALL});
+        }
+
+        for ( final MongoVariantContext o : Arrays.asList(tpHet, tpHet2, tpHomVar, tpHetReviewed) ) {
+            final List<MongoVariantContext> l = Arrays.asList(o, tpNoCall);
+            tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, l, o.getGt().toGenotype(alleles)});
+            final List<MongoVariantContext> lrev = Arrays.asList(tpNoCall, o);
+            tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, lrev, o.getGt().toGenotype(alleles)});
+        }
+
+        // hets are combined correctly
+        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, Arrays.asList(tpHet, tpHet2), hetGT});
+
+        // het + hom-var -> discordant
+        final Genotype discordant = MongoGenotype.createDiscordant(hetGT);
+        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, Arrays.asList(tpHet, tpHomVar), discordant});
+
+        return tests.toArray(new Object[][]{});
+    }
+
+    @Test(dataProvider = "TestConsensusGT")
+    final void testConsensusGT(final TruthStatus truthStatus,
+                               final Collection<MongoVariantContext> individualCalls,
+                               final Genotype expectedGT) {
+        try {
+            setupBeforeMethod();
+
+            final List<Allele> alleles = Arrays.asList(Allele.create("A", true), Allele.create("C"));
+            final Genotype actualGT = db.consensusGT(truthStatus, PolymorphicStatus.POLYMORPHIC, alleles, individualCalls);
+
+            if ( expectedGT.getGQ() == MongoGenotype.DISCORDANT_GQ )
+                Assert.assertEquals(actualGT.getGQ(), MongoGenotype.DISCORDANT_GQ, "Expected GT was discordant but didn't get a discordant result");
+            else
+                Assert.assertEquals(
+                        new MongoGenotype(alleles, actualGT),
+                        new MongoGenotype(alleles, expectedGT),
+                        "Failed to create expected consensus GT");
+        }
+        finally {
+            teardownMethod();
+        }
     }
 }

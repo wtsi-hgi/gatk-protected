@@ -1,7 +1,7 @@
 package org.broadinstitute.sting.piecemealannotator;
 
 import net.sf.samtools.*;
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.cmdLine.Argument;
 import org.broadinstitute.sting.utils.cmdLine.CommandLineProgram;

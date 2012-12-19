@@ -27,9 +27,9 @@ package org.broadinstitute.sting.utils.codecs;
 
 import org.broad.tribble.AsciiFeatureCodec;
 import org.broad.tribble.readers.LineReader;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 
 import java.io.IOException;
 import java.util.HashMap;

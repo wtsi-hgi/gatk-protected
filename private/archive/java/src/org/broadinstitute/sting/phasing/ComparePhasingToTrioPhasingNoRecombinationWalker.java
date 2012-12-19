@@ -36,18 +36,19 @@ import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.GenotypePhasingEvaluator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.variant.vcf.VCFWriter;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.*;
 
 import java.io.PrintStream;
 import java.util.*;
 
-import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFromRods;
+import static org.broadinstitute.sting.utils.variant.GATKVCFUtils.getVCFHeadersFromRods;
 
 /**
  * Walks along all variant ROD loci and compares the phasing between RBP and trio phasing.
@@ -108,7 +109,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
 
         // setup the header fields:
         Set<VCFHeaderLine> hInfo = new HashSet<VCFHeaderLine>();
-        hInfo.addAll(VCFUtils.getHeaderFields(getToolkit()));
+        hInfo.addAll(GATKVCFUtils.getHeaderFields(getToolkit()));
         hInfo.add(new VCFHeaderLine("reference", getToolkit().getArguments().referenceFile.getName()));
 
         Map<String, VCFHeader> rodNameToHeader = getVCFHeadersFromRods(getToolkit(), Arrays.asList(phasing.getName()));
@@ -267,7 +268,7 @@ public class ComparePhasingToTrioPhasingNoRecombinationWalker extends RodWalker<
                         else if (prevOtherAlleles.contains(prevAllele))
                             prevAlleleToParent.put(prevAllele, prevOtherIndex);
                         else {
-                            logger.warn("CANNOT trio phase, due to inconsistent inheritance of alleles at: " + VariantContextUtils.getLocation(getToolkit().getGenomeLocParser(), prevTrioVc));
+                            logger.warn("CANNOT trio phase, due to inconsistent inheritance of alleles at: " + GATKVariantContextUtils.getLocation(getToolkit().getGenomeLocParser(), prevTrioVc));
                             phased = false;
                             break;
                         }

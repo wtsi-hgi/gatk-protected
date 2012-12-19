@@ -2,7 +2,7 @@ package org.broadinstitute.sting.utils.codecs;
 
 import org.broad.tribble.*;
 import org.broad.tribble.exception.CodecLineParsingException;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.*;
 
 import java.util.*;
 

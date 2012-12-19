@@ -24,7 +24,7 @@
 
 package org.broadinstitute.sting.utils.gcf;
 
-import org.broadinstitute.sting.utils.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.Allele;
 
 import java.util.HashMap;
 import java.util.Map;

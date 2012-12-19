@@ -9,16 +9,15 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.variantcontext.*;
 
-import java.security.cert.CertificateNotYetValidException;
 import java.util.*;
 
-import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.variant.vcf.*;
 
 /**
  * Created by IntelliJ IDEA.
@@ -46,7 +45,7 @@ public class UGBoundAF extends RodWalker<VariantContext,Integer> {
         Set<VCFHeaderLine> allHeaderLines = new HashSet<VCFHeaderLine>(1024);
         for ( RodBinding<VariantContext> v : variants ) {
             String trackName = v.getName();
-            Map<String, VCFHeader> vcfHeaders = VCFUtils.getVCFHeadersFromRods(getToolkit(), Arrays.asList(trackName));
+            Map<String, VCFHeader> vcfHeaders = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), Arrays.asList(trackName));
             Set<VCFHeaderLine> headerLines = new HashSet<VCFHeaderLine>(vcfHeaders.get(trackName).getMetaData());
         }
         allHeaderLines.add(new VCFInfoHeaderLine("AFB",2,VCFHeaderLineType.Float,"The 95% bounds on the allele "+

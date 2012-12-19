@@ -10,9 +10,10 @@ import org.broadinstitute.sting.gatk.refdata.features.table.TableFeature
 import org.broadinstitute.sting.gatk.refdata.features.refseq.RefSeqFeature
 import org.broadinstitute.sting.gatk.walkers.{TreeReducible, RefWalker}
 import org.broadinstitute.sting.commandline.{Output, Argument}
-import org.broadinstitute.sting.utils.{BaseUtils, GenomeLoc}
+import org.broadinstitute.sting.utils.{GenomeLoc}
 import collection.mutable.{ListBuffer, HashSet}
 import java.lang.Math
+import org.broadinstitute.variant.utils.BaseUtils
 
 class IntervalAnnotationWalker extends RefWalker[AnnotationMetaData,List[IntervalInfoBuilder]] {
   @Argument(doc="Min proportion of bases overlapping between an interval of interest and an annotation interval for annotation to occur",shortName="mpb")

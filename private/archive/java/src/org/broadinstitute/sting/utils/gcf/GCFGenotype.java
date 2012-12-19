@@ -24,8 +24,8 @@
 
 package org.broadinstitute.sting.utils.gcf;
 
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.Genotype;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;

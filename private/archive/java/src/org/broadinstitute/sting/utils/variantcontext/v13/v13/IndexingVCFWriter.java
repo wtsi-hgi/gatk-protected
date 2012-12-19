@@ -22,13 +22,12 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.variantcontext.v13;
+package org.broadinstitute.variant.variantcontext.v13;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import net.sf.samtools.SAMSequenceDictionary;
 import org.broad.tribble.Tribble;
-import org.broad.tribble.TribbleException;
 import org.broad.tribble.index.DynamicIndexCreator;
 import org.broad.tribble.index.Index;
 import org.broad.tribble.index.IndexFactory;

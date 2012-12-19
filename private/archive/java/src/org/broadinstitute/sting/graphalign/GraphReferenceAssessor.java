@@ -25,7 +25,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.graphalign;
 
-import org.broadinstitute.sting.gatk.refdata.*;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.utils.*;
@@ -36,6 +35,7 @@ import java.util.*;
 import java.io.*;
 
 import net.sf.samtools.SAMRecord;
+import org.broadinstitute.variant.utils.BaseUtils;
 
 /**
  * A completely experimental read walker that consumes a graphical reference emitted by GraphReferenceBuilder as a
@@ -95,7 +95,7 @@ public class GraphReferenceAssessor extends ReadWalker<Integer, Integer> {
         for ( int i = 0; i < length; i++ ) {
             byte rawRefBase = ref[i + refOffset];
             byte rawReadBase = bases[i + basesOffset];
-            int fragBase = BaseUtils.simpleBaseToBaseIndex((char)rawRefBase);
+            int fragBase = BaseUtils.simpleBaseToBaseIndex((char) rawRefBase);
             int readBase = BaseUtils.simpleBaseToBaseIndex((char)rawReadBase);
 
             boolean mmP = fragBase != -1 && readBase != -1 && fragBase != readBase;

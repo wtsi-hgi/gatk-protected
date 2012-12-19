@@ -8,9 +8,10 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.vcf.*;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.variantcontext.*;
 
 import java.util.*;
 
@@ -43,7 +44,7 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
         for ( RodBinding<VariantContext> vcrb : variants ) {
             rodNames.add(vcrb.getName());
         }
-        Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
+        Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
         Set<String> samples = new HashSet<String>(3200);
         boolean init = false;
         for ( Map.Entry<String,VCFHeader> header : vcfRods.entrySet() ) {

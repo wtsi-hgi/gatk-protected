@@ -1,7 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.recalibration;
 
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.recalibration.BaseRecalibration;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.HashMap;

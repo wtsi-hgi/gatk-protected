@@ -37,6 +37,7 @@ import org.broadinstitute.sting.gatk.refdata.utils.helpers.DbSNPHelper;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.variant.utils.BaseUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -351,7 +352,7 @@ public class MultiSampleCaller extends LocusWalker<MultiSampleCaller.MultiSample
 		context = filter_each_read(context);
 
 		if (ref.getBaseAsChar() == 'N') { return null; }
-		if (BaseUtils.simpleBaseToBaseIndex(ref.getBase()) == -1) { return null; }
+		if ( BaseUtils.simpleBaseToBaseIndex(ref.getBase()) == -1) { return null; }
 		if (context.getReads().size() <= 0) { return null; }
         if (context.getReads().size() >= 10000) { return null; }     // to deal with big piles -- totally arbitrary threshold
 

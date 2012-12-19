@@ -9,9 +9,9 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -82,7 +82,7 @@ public class CompareRBPAndBeagleHaplotypes extends RodWalker<Integer, Integer> {
             for (VariantContext vc : rbpHaplotype) {
                 if (vc.getGenotype(sample).hasExtendedAttribute("PQ")) {
                     if (start == null) {
-                        start = VariantContextUtils.getLocation(this.getToolkit().getGenomeLocParser(), vc);
+                        start = GATKVariantContextUtils.getLocation(this.getToolkit().getGenomeLocParser(), vc);
 
                     }
                     double PQ = vc.getGenotype(sample).getAttributeAsDouble("PQ", -1);

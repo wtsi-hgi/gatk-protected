@@ -1,6 +1,6 @@
 package org.broadinstitute.sting.gatk.walkers.recalibration;
 
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.QualityUtils;
 
 import java.util.List;

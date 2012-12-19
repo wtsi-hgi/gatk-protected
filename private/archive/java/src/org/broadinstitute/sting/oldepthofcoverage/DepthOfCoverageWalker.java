@@ -32,6 +32,7 @@ import org.broadinstitute.sting.utils.cmdLine.Argument;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.pileup.*;
 import net.sf.samtools.SAMReadGroupRecord;
+import org.broadinstitute.variant.utils.BaseUtils;
 
 import java.util.*;
 

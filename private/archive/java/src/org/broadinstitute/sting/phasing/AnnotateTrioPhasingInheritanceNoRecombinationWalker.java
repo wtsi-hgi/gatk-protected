@@ -35,14 +35,16 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.*;
 
 import java.util.*;
 
-import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFromRods;
+import static org.broadinstitute.sting.utils.variant.GATKVCFUtils.getVCFHeadersFromRods;
 
 /**
  * Walks along all variant ROD loci and annotates inherited alleles .
@@ -103,9 +105,9 @@ public class AnnotateTrioPhasingInheritanceNoRecombinationWalker extends RodWalk
 
         // setup the header fields:
         Set<VCFHeaderLine> hInfo = new HashSet<VCFHeaderLine>();
-        hInfo.addAll(VCFUtils.getHeaderFields(getToolkit()));
+        hInfo.addAll(GATKVCFUtils.getHeaderFields(getToolkit()));
         hInfo.add(new VCFHeaderLine("reference", getToolkit().getArguments().referenceFile.getName()));
-        hInfo.addAll(VCFUtils.getHeaderFields(this.getToolkit()));
+        hInfo.addAll(GATKVCFUtils.getHeaderFields(this.getToolkit()));
 
         hInfo.add(new VCFFormatHeaderLine(INHERITANCE_KEY, 1, VCFHeaderLineType.String, "Source of inherited allele"));
 
@@ -171,7 +173,7 @@ public class AnnotateTrioPhasingInheritanceNoRecombinationWalker extends RodWalk
                         alleleSources[ind] = getParentTitle(other.getSampleName());
                     }
                     else {
-                        logger.warn("CANNOT trio phase, due to de novo appearance of alleles at: " + VariantContextUtils.getLocation(getToolkit().getGenomeLocParser(), trioVc));
+                        logger.warn("CANNOT trio phase, due to de novo appearance of alleles at: " + GATKVariantContextUtils.getLocation(getToolkit().getGenomeLocParser(), trioVc));
                         alleleSources = null;
                         break;
                     }

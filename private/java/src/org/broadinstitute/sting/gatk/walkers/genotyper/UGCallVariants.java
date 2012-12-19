@@ -33,10 +33,12 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.vcf.*;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.*;
 
 import java.util.*;
 
@@ -69,7 +71,7 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
             trackNames.add(rb.getName());
         Set<String> samples = SampleUtils.getSampleListWithVCFHeader(getToolkit(), trackNames);
 
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
+        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, GATKVariantContextUtils.DEFAULT_PLOIDY);
 
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
 
@@ -77,7 +79,7 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
         if (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES) {
             LinkedList<String> allelesRods = new LinkedList<String>();
             allelesRods.add(UAC.alleles.getName());
-            headerInfo.addAll(VCFUtils.getHeaderFields(getToolkit(), allelesRods));
+            headerInfo.addAll(GATKVCFUtils.getHeaderFields(getToolkit(), allelesRods));
         }
 
         headerInfo.addAll(UnifiedGenotyper.getHeaderInfo(UAC, null, null));
