@@ -43,7 +43,7 @@ $import -callSetName HapMap3.3 -assumedCallTruth TRUE_POSITIVE -howToTreatFilter
 $import -callSetName GoldIndelGenotyped -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 MARK_AS_NON_POLYMORPHIC -V $source/NA12878.indel.filtered.truth.na12878.20.vcf
 $import -callSetName 1000G_250sites_indelValidation_POLY -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/1000G.250sites.indelValidation.polymorphic.alleles.na12878.20.vcf
 $import -callSetName 1000G_250sites_indelValidation_MONO -assumedCallTruth FALSE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/1000G.250sites.indelValidation.monomorphic.alleles.na12878.20.vcf
-$import -callSetName 1000G_exomeChip -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/1000G.exomechip.20121009.snps_only.genotypes.na12878.20.vcf
+#$import -callSetName 1000G_exomeChip -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/1000G.exomechip.20121009.snps_only.genotypes.na12878.20.vcf
 $import -callSetName 1000G_variousValidations -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/1000G.validationExperiments.polymorphic.b37.na12878.20.vcf
 $import -callSetName 1000G_snpChip -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/1000Genome.chip.b37.filtered.na12878.20.vcf
 $import -callSetName AffyAxiom -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/Affymetrix_Axiom_DB_2010_v4_b37.na12878.20.vcf
