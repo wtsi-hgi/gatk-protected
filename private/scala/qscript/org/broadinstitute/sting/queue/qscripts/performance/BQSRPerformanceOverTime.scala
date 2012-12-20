@@ -76,14 +76,11 @@ class BQSRPerformanceOverTime extends QScript {
     if ( ntTests.size >= 1 ) {
       for ( nt <- ntTests ) {
         if ( nt <= maxNT ) {
-          for ( useNT <- List(true, false) ) {
             val cmd = makeCommand()
-//            Console.print(cmd)
-            cmd.nct = nt
-            cmd.addJobReportBinding("nct", nt)
-            cmd.analysisName = cmd.analysisName + ".nct"
-            add(cmd)
-          }
+          cmd.nct = nt
+          cmd.addJobReportBinding("nct", nt)
+          cmd.analysisName = cmd.analysisName + ".nct"
+          add(cmd)
         }
       }
     }
