@@ -18,12 +18,15 @@ class BQSRPerformanceOverTime extends QScript {
   @Argument(shortName = "onlyBQSR", doc="Only do BQSR, not print reads as well", required=false)
   val onlyBQSR : Boolean = false
 
+  @Argument(shortName = "longRun", doc="Run for 5x the normal time", required=false)
+  val longRun : Boolean = false
+
   @Argument(shortName = "iterations", doc="it", required=false)
   val iterations: Int = 3
 
   @Argument(shortName = "ntTest", doc="For each value provided we will use -nt VALUE in the multi-threaded tests", required=false)
   @ClassType(classOf[Int])
-  val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8)
+  val ntTests: List[Int] = List(1, 2, 4, 8, 12)
 
   val MY_TAG = "GATKPerformanceOverTime"
   val RECAL_BAM_FILENAME = "CEUTrio.HiSeq.WGS.b37_decoy.NA12878.clean.dedup.recal.20GAV.8.bam"
@@ -43,7 +46,7 @@ class BQSRPerformanceOverTime extends QScript {
     this.logging_level = "INFO"
     this.reference_sequence = makeResource(b37_FILENAME)
     this.memoryLimit = 8
-    this.intervalsString = List("1")
+    this.intervalsString = if ( longRun ) List("1", "2", "3", "4", "5", "6") else List("1")
   }
 
   def script() {
