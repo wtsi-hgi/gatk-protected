@@ -12,6 +12,12 @@ class BQSRPerformanceOverTime extends QScript {
   @Argument(shortName = "myJarFile", doc="Path to the current GATK jar file", required=true)
   val myJarFile: File = null
 
+  @Argument(shortName = "onlyCurrent", doc="Only do the current version of the GATK", required=false)
+  val onlyCurrent: Boolean = false
+
+  @Argument(shortName = "onlyBQSR", doc="Only do BQSR, not print reads as well", required=false)
+  val onlyBQSR : Boolean = false
+
   @Argument(shortName = "iterations", doc="it", required=false)
   val iterations: Int = 3
 
@@ -41,31 +47,42 @@ class BQSRPerformanceOverTime extends QScript {
   }
 
   def script() {
+    val RECAL_BAMS: Map[String, File] = Map(
+      "WGS.20GAV" -> makeResource(RECAL_BAM_FILENAME),
+      "WEx.HiSeq.1_readGroup" -> new File("/humgen/gsa-hpprojects/NA12878Collection/bams/CEUTrio.HiSeq.WEx.b37.NA12878.clean.dedup.recal.bam"),
+      "WEx.MiSeq.16.readGroup" -> new File("/seq/picard_aggregation/C862/NA12878/current/NA12878.bam")
+    )
+
     // iterate over GATK's and data sets
-    for ( iteration <- 0 until (iterations-1) ) {
+    for ( iteration <- 1 to iterations ) {
       for ( (gatkName, gatkJar) <- GATKs ) {
+        if ( ! onlyCurrent || gatkName.contains("cur") ) {
+          for ( (recalName, recalFile) <- RECAL_BAMS ) {
+            def makeBQSR(): BaseRecalibrator = {
+              val BQSR = new BaseRecalibrator() with UNIVERSAL_GATK_ARGS
+              BQSR.knownSites :+= makeResource(dbSNP_FILENAME)
+              BQSR.input_file :+= recalFile
+              BQSR.out = new File("/dev/null")
+              BQSR.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> "BQSR", "data" -> recalName))
+              BQSR.jarFile = gatkJar
+              BQSR
+            }
+            addMultiThreadedTest(gatkName, makeBQSR)
+          }
 
-        def makeBQSR(): BaseRecalibrator = {
-          val BQSR = new BaseRecalibrator() with UNIVERSAL_GATK_ARGS
-          BQSR.knownSites :+= makeResource(dbSNP_FILENAME)
-          BQSR.input_file :+= makeResource(RECAL_BAM_FILENAME)
-          BQSR.out = new File("/dev/null")
-          BQSR.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> "BQSR"))
-          BQSR.jarFile = gatkJar
-          BQSR
+          if ( ! onlyBQSR ) {
+            def makePrintReads(): PrintReads = {
+              val PR = new PrintReads with UNIVERSAL_GATK_ARGS
+              PR.input_file :+= makeResource(RECAL_BAM_FILENAME)
+              PR.out = new File("/dev/null")
+              PR.BQSR = makeResource(RECAL_GATKREPORT_FILENAME)
+              PR.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> "PrintReads", "data" -> "WGS.20GAV"))
+              PR.jarFile = gatkJar
+              PR
+            }
+            addMultiThreadedTest(gatkName, makePrintReads)
+          }
         }
-        addMultiThreadedTest(gatkName, makeBQSR)
-
-        def makePrintReads(): PrintReads = {
-          val PR = new PrintReads with UNIVERSAL_GATK_ARGS
-          PR.input_file :+= makeResource(RECAL_BAM_FILENAME)
-          PR.out = new File("/dev/null")
-          PR.BQSR = makeResource(RECAL_GATKREPORT_FILENAME)
-          PR.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> "PrintReads"))
-          PR.jarFile = gatkJar
-          PR
-        }
-        addMultiThreadedTest(gatkName, makePrintReads)
       }
     }
   }
@@ -76,7 +93,7 @@ class BQSRPerformanceOverTime extends QScript {
     if ( ntTests.size >= 1 ) {
       for ( nt <- ntTests ) {
         if ( nt <= maxNT ) {
-            val cmd = makeCommand()
+          val cmd = makeCommand()
           cmd.nct = nt
           cmd.addJobReportBinding("nct", nt)
           cmd.analysisName = cmd.analysisName + ".nct"
