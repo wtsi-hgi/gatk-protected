@@ -6,6 +6,7 @@ import org.broadinstitute.sting.gatk.refdata.rodDbSNP;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.sting.utils.genotype.*;
+import org.broadinstitute.variant.utils.BaseUtils;
 
 import java.util.*;
 

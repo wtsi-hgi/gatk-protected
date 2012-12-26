@@ -39,11 +39,11 @@ import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.PartitionBy;
 import org.broadinstitute.sting.gatk.walkers.PartitionType;
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -150,7 +150,7 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
             }
         }
 
-        reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", 4 + rgGroups.size(), true);        //Sets up our report table columns (by Read Groups + GCcontent)
+        reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", 4 + rgGroups.size(), true, false);        //Sets up our report table columns (by Read Groups + GCcontent)
         reportTable.addColumn(columnInterval);
         reportTable.addColumn(columnGC);
         reportTable.addColumn(columnIntervalSize);

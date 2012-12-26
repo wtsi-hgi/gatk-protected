@@ -2,7 +2,6 @@ package org.broadinstitute.sting.piecemealannotator;
 
 import net.sf.samtools.*;
 import org.broadinstitute.sting.secondarybase.*;
-import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.Pair;
 import org.broadinstitute.sting.utils.StingException;
 import org.broadinstitute.sting.utils.containers.BoundedScoringSet;
@@ -12,8 +11,6 @@ import org.broadinstitute.sting.utils.cmdLine.CommandLineProgram;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

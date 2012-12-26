@@ -8,13 +8,13 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
-import org.broadinstitute.sting.utils.variantcontext.*;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -71,7 +71,7 @@ public class MillsGenotypeDecoder extends RodWalker<Integer, Integer> {
                         }
                     }
                     final Set<VCFHeaderLine> hInfo = new HashSet<VCFHeaderLine>();
-                    hInfo.addAll(VCFUtils.getHeaderFields(getToolkit()));
+                    hInfo.addAll(GATKVCFUtils.getHeaderFields(getToolkit()));
 
                     vcfWriter.writeHeader(new VCFHeader(hInfo, samples));
 

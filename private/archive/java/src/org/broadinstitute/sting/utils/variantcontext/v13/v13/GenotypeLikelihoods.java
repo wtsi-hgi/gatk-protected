@@ -22,7 +22,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.variantcontext.v13;
+package org.broadinstitute.variant.variantcontext.v13;
 
 import org.broad.tribble.TribbleException;
 import org.broadinstitute.sting.utils.MathUtils;

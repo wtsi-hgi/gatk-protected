@@ -2,9 +2,11 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.google.gson.Gson;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 
 import java.io.*;
+import java.util.Random;
 
 /**
  * Standard arguments for interacting with the NA12878 DB
@@ -59,12 +61,18 @@ public class NA12878DBArgumentCollection {
 
         private String extension;
 
+        // Don't use the GATK fixed random seed -- we want to avoid namespace collisions between multiple GATK instances
+        private static final Random rand = new Random();
+
         private DBType(String extension) {
             this.extension = extension;
         }
 
         public String getExtension() {
-            return extension;
+            // If using a test database, make an over-the-top effort to avoid naming collisions with
+            // concurrently-running instances of the test suite
+            return extension.equals("_test") ? String.format("%s_%d_%d", extension, System.currentTimeMillis(), rand.nextInt()) :
+                                               extension;
         }
     }
 

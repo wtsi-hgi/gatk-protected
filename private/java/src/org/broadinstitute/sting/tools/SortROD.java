@@ -41,7 +41,7 @@ import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.codecs.CGVarCodec;
 import org.broadinstitute.sting.utils.codecs.SoapSNPCodec;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
+import org.broadinstitute.variant.vcf.VCFCodec;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 
 import java.io.*;

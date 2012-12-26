@@ -1,8 +1,8 @@
 package org.broadinstitute.sting.gatk.walkers.analyzeannotations;
 
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 
 import java.io.File;

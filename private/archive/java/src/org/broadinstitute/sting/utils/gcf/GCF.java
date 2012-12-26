@@ -24,10 +24,9 @@
 
 package org.broadinstitute.sting.utils.gcf;
 
-import org.broadinstitute.sting.utils.codecs.vcf.StandardVCFWriter;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.variant.vcf.StandardVCFWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.*;
 
 import java.io.*;
 import java.util.*;

@@ -28,12 +28,11 @@ package org.broadinstitute.sting.walkers;
 import net.sf.samtools.SAMRecord;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.walkers.DuplicateWalker;
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Pair;
 import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.cmdLine.Argument;
-import org.broadinstitute.sting.utils.duplicates.DupUtils;
 import org.broadinstitute.sting.utils.duplicates.DuplicateComp;
 
 import java.io.PrintStream;

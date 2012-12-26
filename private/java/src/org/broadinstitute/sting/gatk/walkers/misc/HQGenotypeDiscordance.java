@@ -3,18 +3,16 @@ package org.broadinstitute.sting.gatk.walkers.misc;
 import com.google.common.base.Function;
 import com.google.common.collect.Collections2;
 import org.broadinstitute.sting.commandline.*;
-import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypesContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextUtils;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -41,7 +39,7 @@ public class HQGenotypeDiscordance extends RodWalker<Integer,Long> {
     private Set<String> sampleOverlap;
 
     public void initialize() {
-        Map<String, VCFHeader> vcfRods = VCFUtils.getVCFHeadersFromRods(getToolkit());
+        Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit());
         sampleOverlap = SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.PRIORITIZE);
     }
 

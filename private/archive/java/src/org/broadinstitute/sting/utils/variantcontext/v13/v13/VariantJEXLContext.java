@@ -21,7 +21,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.variantcontext.v13;
+package org.broadinstitute.variant.variantcontext.v13;
 
 import org.apache.commons.jexl2.JexlContext;
 import org.apache.commons.jexl2.MapContext;

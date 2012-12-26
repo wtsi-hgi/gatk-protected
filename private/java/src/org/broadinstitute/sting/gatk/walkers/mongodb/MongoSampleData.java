@@ -1,7 +1,7 @@
 package org.broadinstitute.sting.gatk.walkers.mongodb;
 
 import com.mongodb.*;
-import org.broadinstitute.sting.utils.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.*;
 
 import java.util.*;
 

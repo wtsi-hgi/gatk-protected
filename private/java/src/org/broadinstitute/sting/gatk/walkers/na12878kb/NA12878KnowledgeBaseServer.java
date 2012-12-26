@@ -8,7 +8,7 @@ import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCol
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NewlyAddedSites;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteSelector;
 import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 
 /**
  * Run a server process that continually watches the NA12878 db and updates consensus as needed

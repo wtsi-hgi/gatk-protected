@@ -25,25 +25,20 @@
 
 package org.broadinstitute.sting.gatk.walkers.variantrecalibrator3.variantrecalibration;
 
-import ca.mcgill.mcb.pcingola.collections.ArrayUtil;
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibrator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
+import org.broadinstitute.variant.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.collections.ExpandingArrayList;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintStream;
 import java.util.*;
 
 /**

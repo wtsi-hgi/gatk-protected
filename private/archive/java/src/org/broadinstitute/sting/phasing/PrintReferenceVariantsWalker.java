@@ -32,11 +32,12 @@ import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeCollection;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.vcf.*;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.GenotypeCollection;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.util.*;
 
@@ -65,7 +66,7 @@ public class PrintReferenceVariantsWalker extends LocusWalker<Integer, Integer> 
     private void initializeVcfWriter() {
         // setup the header fields:
         Set<VCFHeaderLine> hInfo = new HashSet<VCFHeaderLine>();
-        hInfo.addAll(VCFUtils.getHeaderFields(getToolkit()));
+        hInfo.addAll(GATKVCFUtils.getHeaderFields(getToolkit()));
         hInfo.add(new VCFHeaderLine("reference", REF_FILE_NAME));
 
         Set<String> samples = new TreeSet<String>();

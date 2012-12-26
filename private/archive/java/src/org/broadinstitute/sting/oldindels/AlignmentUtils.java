@@ -7,6 +7,7 @@ import net.sf.samtools.CigarElement;
 import net.sf.picard.reference.ReferenceSequence;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.utils.pileup.*;
+import org.broadinstitute.variant.utils.BaseUtils;
 
 
 /**

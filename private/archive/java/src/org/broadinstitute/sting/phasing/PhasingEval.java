@@ -35,9 +35,9 @@ import org.broadinstitute.sting.gatk.walkers.Requires;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -79,7 +79,7 @@ public class PhasingEval extends RodWalker<Integer, Integer> {
     List<PhasingByAC> phasingByACs = new ArrayList<PhasingByAC>();
 
     public void initialize() {
-        Set<String> samples = SampleUtils.getSampleList(VCFUtils.getVCFHeadersFromRods(getToolkit()));
+        Set<String> samples = SampleUtils.getSampleList(GATKVCFUtils.getVCFHeadersFromRods(getToolkit()));
         int AN = 2 * samples.size();
         for (int i = 0; i <= AN; i++) {
             phasingByACs.add(new PhasingByAC(i, AN));

@@ -11,8 +11,8 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeType;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.GenotypeType;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.io.PrintStream;
 import java.util.List;

@@ -15,9 +15,9 @@ import org.broadinstitute.sting.utils.codecs.table.TableFeature;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.GenotypeType;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.GenotypeType;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.io.File;
 import java.io.FileNotFoundException;

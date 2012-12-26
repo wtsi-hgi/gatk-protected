@@ -25,11 +25,11 @@
 package org.broadinstitute.sting.utils.gcf;
 
 import net.sf.samtools.SAMSequenceDictionary;
-import org.broadinstitute.sting.utils.codecs.vcf.IndexingVCFWriter;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.IndexingVCFWriter;
+import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.io.*;
 

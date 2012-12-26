@@ -33,12 +33,12 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileupImpl;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.io.PrintStream;
 import java.util.ArrayList;

@@ -8,18 +8,16 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
-import org.broadinstitute.sting.gatk.walkers.varianteval.util.EvaluationContext;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFInfoHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
-import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFInfoHeaderLine;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 
 import java.io.File;
 import java.io.IOException;
@@ -234,7 +232,7 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
     }
 
     private TranscriptInfoParser initializeTranscriptParser() {
-        VCFHeader header = VCFUtils.getVCFHeadersFromRods(getToolkit(), Arrays.asList(eval)).get(eval.getName());
+        VCFHeader header = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), Arrays.asList(eval)).get(eval.getName());
         VCFInfoHeaderLine csqFormat = header.getInfoHeaderLine("CSQ");
         Map<String,VCFInfoHeaderLine> additionalFormats = new HashMap<String,VCFInfoHeaderLine>(additionalKeys.size());
         for ( String k : additionalKeys ) {

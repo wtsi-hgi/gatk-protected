@@ -32,15 +32,15 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFUtils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFWriter;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.variant.vcf.VCFWriter;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.util.*;
 
-import static org.broadinstitute.sting.utils.codecs.vcf.VCFUtils.getVCFHeadersFromRods;
+import static org.broadinstitute.sting.utils.variant.GATKVCFUtils.getVCFHeadersFromRods;
 
 
 /**
@@ -73,7 +73,7 @@ public class MergeMNPsWalker extends RodWalker<Integer, Integer> {
 
         // setup the header fields:
         Set<VCFHeaderLine> hInfo = new HashSet<VCFHeaderLine>();
-        hInfo.addAll(VCFUtils.getHeaderFields(getToolkit()));
+        hInfo.addAll(GATKVCFUtils.getHeaderFields(getToolkit()));
         hInfo.add(new VCFHeaderLine("reference", getToolkit().getArguments().referenceFile.getName()));
 
         Map<String, VCFHeader> rodNameToHeader = getVCFHeadersFromRods(getToolkit(), Arrays.asList(variants.getName()));

@@ -5,6 +5,7 @@ import net.sf.samtools.util.CloseableIterator;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.cmdLine.Argument;
 import org.broadinstitute.sting.utils.cmdLine.CommandLineProgram;
+import org.broadinstitute.variant.utils.BaseUtils;
 
 import java.io.File;
 import java.io.IOException;

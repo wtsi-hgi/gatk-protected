@@ -35,7 +35,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFCodec;
+import org.broadinstitute.variant.vcf.VCFCodec;
 import org.broad.tribble.Feature;
 import org.broad.tribble.FeatureCodec;
 

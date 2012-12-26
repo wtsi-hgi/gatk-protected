@@ -37,7 +37,7 @@ import org.broadinstitute.sting.gatk.walkers.Window;
 import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.io.PrintStream;
 import java.util.*;

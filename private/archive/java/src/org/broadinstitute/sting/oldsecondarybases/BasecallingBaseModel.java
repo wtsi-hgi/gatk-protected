@@ -5,7 +5,7 @@ import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.colt.matrix.linalg.Algebra;
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
 
 import java.io.File;

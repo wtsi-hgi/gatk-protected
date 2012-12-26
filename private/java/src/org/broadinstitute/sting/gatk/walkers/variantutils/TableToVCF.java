@@ -12,14 +12,14 @@ import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.Window;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 
 import java.util.*;
 

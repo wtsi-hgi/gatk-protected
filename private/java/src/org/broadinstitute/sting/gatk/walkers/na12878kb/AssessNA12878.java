@@ -13,10 +13,11 @@ import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCol
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteIterator;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.codecs.vcf.*;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.vcf.*;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 
 import java.io.File;
 import java.io.PrintStream;
@@ -155,7 +156,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         captureBadSites = badSites != null;
 
         if( captureBadSites ) {
-            final Set<VCFHeaderLine> lines = VCFUtils.getHeaderFields(getToolkit());
+            final Set<VCFHeaderLine> lines = GATKVCFUtils.getHeaderFields(getToolkit());
             lines.add(new VCFInfoHeaderLine("WHY", 1, VCFHeaderLineType.String, "Why was the site considered bad"));
             lines.add(new VCFInfoHeaderLine("SupportingCallsets", 1, VCFHeaderLineType.String, "Callsets supporting the consensus, where available"));
             lines.addAll(MongoVariantContext.reviewHeaderLines());

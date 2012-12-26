@@ -25,10 +25,10 @@
 package org.broadinstitute.sting.utils.codecs;
 
 import org.broad.tribble.AsciiFeatureCodec;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.vcf.VCFConstants;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 
 import java.util.HashMap;
 import java.util.HashSet;

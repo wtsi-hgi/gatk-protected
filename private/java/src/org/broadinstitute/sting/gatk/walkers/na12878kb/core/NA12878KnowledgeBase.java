@@ -6,15 +6,15 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.Priority;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsRemove;
 import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.codecs.vcf.VCFStandardHeaderLines;
-import org.broadinstitute.sting.utils.variantcontext.Allele;
-import org.broadinstitute.sting.utils.variantcontext.Genotype;
-import org.broadinstitute.sting.utils.variantcontext.VariantContext;
-import org.broadinstitute.sting.utils.variantcontext.VariantContextBuilder;
-import org.broadinstitute.sting.utils.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.vcf.VCFConstants;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.variant.vcf.VCFStandardHeaderLines;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 
 import java.util.*;
 
@@ -57,6 +57,10 @@ public class NA12878KnowledgeBase {
      */
     public void close() {
         MongoDBManager.getDB(dblocator).close();
+    }
+
+    public void delete() {
+        MongoDBManager.getDB(dblocator).delete();
     }
 
     protected void printStatus() {
@@ -113,6 +117,22 @@ public class NA12878KnowledgeBase {
 
     public WriteResult addCall(final MongoVariantContext mvc) {
         return sites.insert(mvc);
+    }
+
+    public List<WriteResult> removeCall(final MongoVariantContext mvc){
+        Set<String> matchKeys = new HashSet<String>(mvc.keySet());
+        matchKeys.remove("Date");
+        matchKeys.remove("_id");
+        DBObject matchObject = new BasicDBObject();
+        for(String key: matchKeys){
+            matchObject.put(key, mvc.get(key));
+        }
+        DBCursor cursor = sites.find(matchObject);
+        List<WriteResult> results = new ArrayList<WriteResult>(cursor.size());
+        for(DBObject next: cursor){
+            results.add(sites.remove(next));
+        }
+        return results;
     }
 
     public void addCalls(final Collection<MongoVariantContext> mvcs) {
