@@ -48,9 +48,6 @@ public class CatVariants extends CommandLineProgram {
     @Argument(fullName = "emailAddress", shortName = "e", doc = "The user email address for which to generate a GATK key", required = true)
     private Boolean sorted = false;
 
-    @Argument(fullName = "help", shortName = "help", doc = "print this hlp info", required = false)
-    private Boolean help = false;
-
     protected int execute() throws Exception {
         if(help){
             printUsage();
