@@ -333,16 +333,6 @@ class GATKPerformanceOverTime extends QScript {
   }
 
   /**
-   * Walk over the GATK released directories to find the most recent JAR files corresponding
-   * to the version prefix.  For example, providing input "GenomeAnalysisTK-1.2" will
-   * return the full path to the most recent GenomeAnalysisTK.jar in the GATK_RELEASE_DIR
-   * in directories that match GATK_RELEASE_DIR/GenomeAnalysisTK-1.2*
-   */
-  def findMostRecentGATKVersion(version: String): File = {
-    PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, version)
-  }
-
-  /**
    * This is a total abuse of the Queue system.  Override the command line function and remove the
    * -o /dev/null argument which isn't present in BQSR v1.  Otherwise this system magically
    * @param v2
