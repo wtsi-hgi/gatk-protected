@@ -23,10 +23,13 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils;
+package org.broadinstitute.sting.gatk.walkers.andrey.tools;
 
 import net.sf.samtools.*;
 import org.broadinstitute.sting.gatk.iterators.PushbackIterator;
+import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
