@@ -150,7 +150,7 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
             }
         }
 
-        reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", 4 + rgGroups.size(), true, false);        //Sets up our report table columns (by Read Groups + GCcontent)
+        reportTable = new GATKReportTable("CoverageByRG", "A table with the coverage per interval for each read group", 4 + rgGroups.size(), GATKReportTable.TableSortingWay.SORT_BY_ROW);        //Sets up our report table columns (by Read Groups + GCcontent)
         reportTable.addColumn(columnInterval);
         reportTable.addColumn(columnGC);
         reportTable.addColumn(columnIntervalSize);
