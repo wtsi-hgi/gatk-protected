@@ -53,6 +53,44 @@ def grmCalculationUnitTest():
 def localCorrectionUnitTest():
  testCorrectionSansRegression()
  testRegressionCorrection()
+ testEdgeCaseRegression()
+ largeScaleIntegrityTest()
+
+def largeScaleIntegrityTest():
+ """ Moving from python to c-bindings creates potential problems with memory issues. Doing lots of regressions
+     to test for memory integrity will be useful.
+ """
+ print("Running large-scale memory integrity test.")
+ tolerance = 1e-3
+ nTestFiles = 1
+ nRunsPerFile = 8
+ expectedCoeff = [
+   [2.77075768,0.53143971,-0.72988373,-0.26440337,-0.89550549,-1.87032901,0.63513517,-0.78523482,-0.69541818,0.32939047,0.13667907,0.59443712,
+    0.63398860,-0.68335889,0.54900151,-0.55853686,0.49036169,-0.35506985,0.56495774,-0.39632489,-0.53151681,-0.48094469,0.03851889,-0.62350338,7.14666839]
+   ]
+ for fileNo in range(nTestFiles):
+  predict = numpy.matrix(list(map(lambda x: list(map(lambda y: float(y),x.strip().split("\t"))),open("test/linLargeScaleP%d.txt" % (fileNo+1)).readlines())))
+  response = numpy.array(list(map(lambda x: float(x.strip()),open("test/linLargeScaleR%d.txt" % (fileNo+1)).readlines())))
+  for runNo in range(nRunsPerFile):
+   result = linear.GLM.Logistic.Fit.newton(response,predict,2)
+   coef = result.coefficients
+   for i in range(len(coef)):
+    if ( abs(coef[i]-expectedCoeff[fileNo][i]) > tolerance ):
+     print("Error in run number %d of test %d. Expected: %e   Observed:  %e" % (1+runNo,1+fileNo,coef[i],expectedCoeff[fileNo][i]))
+
+def testEdgeCaseRegression():
+ """ Tests some edge cases of regressions that have been found during normal operation of the code.
+     These cases tend to yield problems even when the data is exported and the model run in R.
+ """
+ resp1 = numpy.array(list(map(lambda x: float(x),open("test/resp_break.tsv").readline().strip().split("\t"))))
+ pred1 = numpy.matrix(list(map(lambda x: list(map(lambda y: float(y),x.strip().split("\t"))),open("test/pred_break.tsv").readlines())))
+ result1 = linear.GLM.Logistic.Fit.newton(resp1,pred1,2)
+ if ( abs(result1.residuals[0] - 1.000507 ) < 1e-5 ):
+  raise TestException("Bad residual. Expected: %e, observed: %e" % (1.000507,result1.residuals[0]))
+ if ( abs(result1.residuals[211] - (-0.427816)) < 1e-5 ):
+  raise TestException("Bad residual. Expected: %e, observed: %e" % (-0.427816,result1.residuals[211]))
+ if ( abs(result1.residuals[2099] - (-0.7618973)) < 1e-5 ):
+  raise TestException("Bad residual. Expected: %e, observed: %e" % (-0.7618973,result1.residuals[2099]))
 
 def testRegressionCorrection():
  """ Tests the accuracy of getCorrectedDosages method. Expected values established by performing appropriate calculation in R. Note that
@@ -292,6 +330,18 @@ def singleVariantAccumulationTest():
 def testBedReading():
  singleVariantBedTest()
  multiVariantBedTest()
+ optimizedBedTest()
+
+def optimizedBedTest():
+ args = provider.getArgs(0,"./test/1000G_subset.chr20.79234")
+ reader = PlinkReader.SiteOptimizedPlinkBinaryReader(args.bedBase)
+ if ( not reader.numGenotypesPerMajor == 12 ):
+   raise TestException("Mismatching samples. Expected: %d, observed: %d" %(12,reader.numGenotypesPerMajor))
+ genotypeDosages = calculateGRM.getNextVariantOptimized(reader,args)
+ reader2 = PlinkReader.getReader(args.bedBase)
+ dosages2 = calculateGRM.getNextVariant(reader2,args)
+ if ( str(genotypeDosages) != str(dosages2) ):
+   raise TestException("Mismatching dosage items. Expected: %s, observed: %s" % (str(genotypeDosages),str(dosages2)))
 
 def singleVariantBedTest():
  args = provider.getArgs(0,"./test/1000G_subset.chr20.79234")

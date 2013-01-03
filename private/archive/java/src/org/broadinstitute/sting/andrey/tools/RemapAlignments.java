@@ -23,7 +23,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.tools;
+package org.broadinstitute.sting.gatk.walkers.andrey.tools;
 
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
@@ -33,7 +33,6 @@ import net.sf.samtools.*;
 import net.sf.samtools.SAMFileHeader.SortOrder;
 import net.sf.samtools.SAMFileReader.ValidationStringency;
 import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.GenomicMap;
 import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 
 import java.io.File;

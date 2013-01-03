@@ -23,7 +23,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package org.broadinstitute.sting.utils.collections;
+package org.broadinstitute.sting.gatk.walkers.andrey.somaticindeldetector;
 
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 
@@ -61,7 +61,7 @@ import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
  * @author asivache
  *
  */
-public class CircularArray <T> {
+class CircularArray <T> {
 	
 
 	private Object[] data ;
