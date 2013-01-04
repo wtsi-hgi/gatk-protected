@@ -3,10 +3,16 @@ package org.broadinstitute.sting.gatk.traversals;
 import com.google.java.contract.PreconditionError;
 import net.sf.samtools.*;
 import org.broadinstitute.sting.commandline.Tags;
+import org.broadinstitute.sting.gatk.arguments.GATKArgumentCollection;
+import org.broadinstitute.sting.gatk.datasources.providers.ActiveRegionShardDataProvider;
+import org.broadinstitute.sting.gatk.datasources.providers.LocusShardDataProvider;
+import org.broadinstitute.sting.gatk.datasources.providers.ReadShardDataProvider;
+import org.broadinstitute.sting.gatk.datasources.providers.ShardDataProvider;
 import org.broadinstitute.sting.gatk.datasources.reads.*;
 import org.broadinstitute.sting.gatk.resourcemanagement.ThreadAllocation;
 import org.broadinstitute.sting.utils.GenomeLocSortedSet;
 import org.broadinstitute.sting.utils.activeregion.ActiveRegionReadState;
+import org.broadinstitute.sting.utils.activeregion.ExperimentalActiveRegionShardType;
 import org.broadinstitute.sting.utils.interval.IntervalMergingRule;
 import org.broadinstitute.sting.utils.interval.IntervalUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
@@ -15,7 +21,6 @@ import org.broadinstitute.sting.BaseTest;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.datasources.providers.LocusShardDataProvider;
 import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
 import org.broadinstitute.sting.gatk.executive.WindowMaker;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -28,6 +33,7 @@ import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.sam.ArtificialSAMUtils;
 import org.broadinstitute.sting.utils.sam.ReadUtils;
 import org.testng.Assert;
+import org.testng.TestException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -95,7 +101,9 @@ public class TraverseActiveRegionsUnitTest extends BaseTest {
         }
     }
 
-    private final TraverseActiveRegions<Integer, Integer> t = new TraverseActiveRegions<Integer, Integer>();
+    private final TraverseActiveRegions<Integer, Integer> traverse = new TraverseActiveRegions<Integer, Integer>();
+    private final ExperimentalReadShardTraverseActiveRegions<Integer, Integer> readShardTraverse = new ExperimentalReadShardTraverseActiveRegions<Integer, Integer>();
+    private final ExperimentalActiveRegionShardTraverseActiveRegions<Integer, Integer> activeRegionShardTraverse = new ExperimentalActiveRegionShardTraverseActiveRegions<Integer, Integer>();
 
     private IndexedFastaSequenceFile reference;
     private SAMSequenceDictionary dictionary;
@@ -105,6 +113,8 @@ public class TraverseActiveRegionsUnitTest extends BaseTest {
 
     private static final String testBAM = "TraverseActiveRegionsUnitTest.bam";
     private static final String testBAI = "TraverseActiveRegionsUnitTest.bai";
+
+    private static final ExperimentalActiveRegionShardType shardType = ExperimentalActiveRegionShardType.LOCUSSHARD;
 
     @BeforeClass
     private void init() throws FileNotFoundException {
@@ -173,8 +183,8 @@ public class TraverseActiveRegionsUnitTest extends BaseTest {
 
     private List<GenomeLoc> getIsActiveIntervals(DummyActiveRegionWalker walker, List<GenomeLoc> intervals) {
         List<GenomeLoc> activeIntervals = new ArrayList<GenomeLoc>();
-        for (LocusShardDataProvider dataProvider : createDataProviders(intervals, testBAM)) {
-            t.traverse(walker, dataProvider, 0);
+        for (ShardDataProvider dataProvider : createDataProviders(intervals, testBAM)) {
+            traverse(walker, dataProvider, 0);
             activeIntervals.addAll(walker.isActiveCalls);
         }
 
@@ -411,10 +421,10 @@ public class TraverseActiveRegionsUnitTest extends BaseTest {
     }
 
     private Map<GenomeLoc, ActiveRegion> getActiveRegions(DummyActiveRegionWalker walker, List<GenomeLoc> intervals) {
-        for (LocusShardDataProvider dataProvider : createDataProviders(intervals, testBAM))
-            t.traverse(walker, dataProvider, 0);
+        for (ShardDataProvider dataProvider : createDataProviders(intervals, testBAM))
+            traverse(walker, dataProvider, 0);
 
-        t.endTraversal(walker, 0);
+        endTraversal(walker, 0);
 
         return walker.mappedActiveRegions;
     }
@@ -475,10 +485,12 @@ public class TraverseActiveRegionsUnitTest extends BaseTest {
         return record;
     }
 
-    private List<LocusShardDataProvider> createDataProviders(List<GenomeLoc> intervals, String bamFile) {
+    private List<ShardDataProvider> createDataProviders(List<GenomeLoc> intervals, String bamFile) {
         GenomeAnalysisEngine engine = new GenomeAnalysisEngine();
         engine.setGenomeLocParser(genomeLocParser);
-        t.initialize(engine);
+        GATKArgumentCollection arguments = new GATKArgumentCollection();
+        arguments.activeRegionShardType = shardType;     // make explicit
+        engine.setArguments(arguments);
 
         Collection<SAMReaderID> samFiles = new ArrayList<SAMReaderID>();
         SAMReaderID readerID = new SAMReaderID(new File(bamFile), new Tags());
@@ -486,13 +498,65 @@ public class TraverseActiveRegionsUnitTest extends BaseTest {
 
         SAMDataSource dataSource = new SAMDataSource(samFiles, new ThreadAllocation(), null, genomeLocParser);
 
-        List<LocusShardDataProvider> providers = new ArrayList<LocusShardDataProvider>();
-        for (Shard shard : dataSource.createShardIteratorOverIntervals(new GenomeLocSortedSet(genomeLocParser, intervals), new LocusShardBalancer())) {
-            for (WindowMaker.WindowMakerIterator window : new WindowMaker(shard, genomeLocParser, dataSource.seek(shard), shard.getGenomeLocs())) {
-                providers.add(new LocusShardDataProvider(shard, shard.getReadProperties(), genomeLocParser, window.getLocus(), window, reference, new ArrayList<ReferenceOrderedDataSource>()));
-            }
+        List<ShardDataProvider> providers = new ArrayList<ShardDataProvider>();
+
+        switch (shardType) {
+            case LOCUSSHARD:
+                traverse.initialize(engine);
+                for (Shard shard : dataSource.createShardIteratorOverIntervals(new GenomeLocSortedSet(genomeLocParser, intervals), new LocusShardBalancer())) {
+                    for (WindowMaker.WindowMakerIterator window : new WindowMaker(shard, genomeLocParser, dataSource.seek(shard), shard.getGenomeLocs())) {
+                        providers.add(new LocusShardDataProvider(shard, shard.getReadProperties(), genomeLocParser, window.getLocus(), window, reference, new ArrayList<ReferenceOrderedDataSource>()));
+                    }
+                }
+                break;
+            case READSHARD:
+                readShardTraverse.initialize(engine);
+                for (Shard shard : dataSource.createShardIteratorOverIntervals(new GenomeLocSortedSet(genomeLocParser, intervals), new ReadShardBalancer())) {
+                    providers.add(new ReadShardDataProvider(shard, genomeLocParser, shard.iterator(), reference, new ArrayList<ReferenceOrderedDataSource>()));
+                }
+                break;
+            case ACTIVEREGIONSHARD:
+                activeRegionShardTraverse.initialize(engine);
+                for (Shard shard : dataSource.createShardIteratorOverIntervals(new GenomeLocSortedSet(genomeLocParser, intervals), new ActiveRegionShardBalancer())) {
+                    for (WindowMaker.WindowMakerIterator window : new WindowMaker(shard, genomeLocParser, dataSource.seek(shard), shard.getGenomeLocs())) {
+                        providers.add(new ActiveRegionShardDataProvider(shard, shard.getReadProperties(), genomeLocParser, shard.iterator(), window.getLocus(), window, reference, new ArrayList<ReferenceOrderedDataSource>()));
+                    }
+                }
+                break;
+            default: throw new TestException("Invalid shard type");
         }
 
         return providers;
     }
+
+    private void traverse(DummyActiveRegionWalker walker, ShardDataProvider dataProvider, int i) {
+        switch (shardType) {
+            case LOCUSSHARD:
+                traverse.traverse(walker, (LocusShardDataProvider) dataProvider, i);
+                break;
+            case READSHARD:
+                readShardTraverse.traverse(walker, (ReadShardDataProvider) dataProvider, i);
+                break;
+            case ACTIVEREGIONSHARD:
+                activeRegionShardTraverse.traverse(walker, (ActiveRegionShardDataProvider) dataProvider, i);
+                break;
+            default: throw new TestException("Invalid shard type");
+        }
+    }
+
+    private void endTraversal(DummyActiveRegionWalker walker, int i) {
+        switch (shardType) {
+            case LOCUSSHARD:
+                traverse.endTraversal(walker, i);
+                break;
+            case READSHARD:
+                readShardTraverse.endTraversal(walker, i);
+                break;
+            case ACTIVEREGIONSHARD:
+                activeRegionShardTraverse.endTraversal(walker, i);
+                break;
+            default: throw new TestException("Invalid shard type");
+        }
+    }
+
 }
