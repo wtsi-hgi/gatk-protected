@@ -323,11 +323,12 @@ public class ProfileNestedIntegerArray extends CommandLineProgram {
 
         private RecalDatum parseRecalDatumString( String recalDatumString ) {
             String[] tokens = recalDatumString.split(",", -1);
-            double numObservations, numMismatches;
+            double numMismatches;
+            long numObservations;
             byte quality;
 
             try {
-                numObservations = Double.parseDouble(tokens[0]);
+                numObservations = (long)Double.parseDouble(tokens[0]);
                 numMismatches = Double.parseDouble(tokens[1]);
                 quality = (byte)Math.round(Double.parseDouble(tokens[2]));   // using empirical quality as substitute for reported quality for profiling purposes
             }

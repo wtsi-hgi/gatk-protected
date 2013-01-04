@@ -137,7 +137,7 @@ public class AdaptiveContext {
             RecalDatumNode<ContextDatum> parent = contextToNodes.get(parentContext);
             if ( parent == null ) {
                 // haven't yet found parent, so make one, and enqueue it for processing
-                parent = new RecalDatumNode<ContextDatum>(new ContextDatum(parentContext, 0, 0));
+                parent = new RecalDatumNode<ContextDatum>(new ContextDatum(parentContext, 0, 0.0));
                 contextToNodes.put(parentContext, parent);
 
                 if ( ! parent.getRecalDatum().isRootContext() )
