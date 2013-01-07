@@ -157,7 +157,7 @@ class BQSR( bam: File, recal: File ) extends BaseRecalibrator with BaseBQSR{
 class RecalBAM( bam: File, recal: File ) extends PrintReads with BaseBQSR{
 
   this.input_file :+= bam
-	this.out = qscript.outputDir + ge
+	this.out = qscript.outputDir + recal +".out"
 	this.BQSR = recal
 	this.memoryLimit = 6
 	this.qq = 0
@@ -340,7 +340,7 @@ class CutBoth(inputVCF: File) extends applyVQSRBase with HaplotypeCallerArgument
 class CombineSNPsIndels(name:String) extends CombineVariants with BaseCommandArguments {
     this.variant :+= TaggedFile(new File(qscript.outputDir + name + "indel.recalibrated.filtered.vcf"), "indels")
     this.variant :+= TaggedFile(new File(qscript.outputDir + name + "snp.recalibrated.filtered.vcf"), "snps")
-    this.filteredrecordsmergetype = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    this.filteredrecordsmergetype = org.broadinstitute.variant.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     this.assumeIdenticalSamples = true
     this.out = qscript.outputDir + name +  "both.recalibrated.filtered.vcf"
 }

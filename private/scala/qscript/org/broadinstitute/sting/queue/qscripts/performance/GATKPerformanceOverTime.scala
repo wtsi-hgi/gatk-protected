@@ -36,7 +36,7 @@ class GATKPerformanceOverTime extends QScript {
 
   @Argument(shortName = "ntTest", doc="For each value provided we will use -nt VALUE in the multi-threaded tests", required=false)
   @ClassType(classOf[Int])
-  val ntTests: List[Int] = List(1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24)
+  val ntTests: List[Int] = List(1, 2, 3, 4, 8, 12, 16)
 
   @Argument(shortName = "steps", doc="steps", required=false)
   val steps: Int = 10
@@ -46,7 +46,6 @@ class GATKPerformanceOverTime extends QScript {
 
   val singleTestsPerIteration = 3
 
-  val MY_TAG = "GATKPerformanceOverTime"
   val RECAL_BAM_FILENAME = "CEUTrio.HiSeq.WGS.b37_decoy.NA12878.clean.dedup.recal.20GAV.8.bam"
   val RECAL_GATKREPORT_FILENAME = "CEUTrio.HiSeq.WGS.b37_decoy.NA12878.clean.dedup.recal.20GAV.8.grp"
   val dbSNP_FILENAME = "dbsnp_132.b37.vcf"
@@ -87,7 +86,8 @@ class GATKPerformanceOverTime extends QScript {
   val GATK_RELEASE_DIR = new File("/humgen/gsa-hpprojects/GATK/bin/")
   val GATKs: Map[String, File] = Map(
     "v2.cur" -> myJarFile, // TODO -- how do I get this value?
-    "v1.6" -> findMostRecentGATKVersion("1.6"))
+    "v2.0" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "2.0"),
+    "v1.6" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "1.6"))
 
   object Assessment extends Enumeration {
     type Assessment = Value
@@ -320,8 +320,6 @@ class GATKPerformanceOverTime extends QScript {
   }
 
   def addGATKCommand(gatkCmd: CommandLineGATK) {
-    if ( gatkCmd.jarFile == null || ! gatkCmd.jarFile.getAbsolutePath.matches(".*-1.[0-9]*-.*") )
-      gatkCmd.tag = MY_TAG
     add(gatkCmd)
   }
 

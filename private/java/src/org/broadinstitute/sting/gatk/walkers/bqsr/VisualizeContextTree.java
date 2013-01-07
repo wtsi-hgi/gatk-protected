@@ -199,7 +199,7 @@ public class VisualizeContextTree extends RefWalker<Integer, Integer> {
                 final String context = (String)optionalCovariates.get(rowKey, "CovariateValue");
                 final long observations = (Long)optionalCovariates.get(rowKey, "Observations");
                 final long errors = (Long)optionalCovariates.get(rowKey, "Errors");
-                toKeep.add( new ContextDatum(context, observations, errors) );
+                toKeep.add( new ContextDatum(context, (int)observations, (double)errors) );
             }
         }
 
