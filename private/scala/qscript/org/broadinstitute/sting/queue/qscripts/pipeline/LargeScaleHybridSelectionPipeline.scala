@@ -57,6 +57,7 @@ class LargeScaleHybridSelectionPipeline extends QScript {
     val dbsnp137 = resources + "dbsnp_137.b37.vcf"
     val goldStandardIndels = resources + "Mills_and_1000G_gold_standard.indels.b37.vcf"
     val intervalsFile = resources + "gencode.v12_broad.agilent_merged.interval_list"
+    val standardBroadIntervals = resources + "whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list"
 
     require(bamList != null && bamList.getName.endsWith(".reduced.bam.list"), "-I/--bamList must be specified as <projectName>.reduced.bam.list")
     val projectName = bamList.getName.stripSuffix(".reduced.bam.list")
@@ -97,6 +98,8 @@ class LargeScaleHybridSelectionPipeline extends QScript {
 
     var bamGroupNumber = 0
     var mergeBamLists = Seq.empty[File]
+
+    val annotate = false
 
     for (bamGroup <- bamGroups) {
       val mergeBamList = new ListWriterFunction
@@ -157,14 +160,14 @@ class LargeScaleHybridSelectionPipeline extends QScript {
 
 
         val selectSNPs = new SelectVariants with ChromosomeIntervals
-        selectSNPs.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.SNP
+        selectSNPs.selectType :+= org.broadinstitute.variant.variantcontext.VariantContext.Type.SNP
         selectSNPs.variant = call.out
         selectSNPs.out = chrDir + chrBase  + ".snps.unfiltered." + outputFormat
         selectSNPs.nt = 16
         add(selectSNPs)
 
         val selectIndels = new SelectVariants with ChromosomeIntervals
-        selectIndels.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.INDEL
+        selectIndels.selectType :+= org.broadinstitute.variant.variantcontext.VariantContext.Type.INDEL
         selectIndels.variant = call.out
         selectIndels.out = chrDir + chrBase + ".indels.unfiltered." + outputFormat
         selectSNPs.nt = 16
@@ -191,44 +194,63 @@ class LargeScaleHybridSelectionPipeline extends QScript {
           applyIndelModel.nt = 16
           add(applyIndelModel)
 
-          val annotateSNPs = new VariantAnnotator with ChromosomeIntervals
-          annotateSNPs.variant = selectSNPs.out
-          annotateSNPs.snpEffFile = snpEffOutput
-          annotateSNPs.annotation :+= "SnpEff"
-          annotateSNPs.out = chrDir + chrBase + ".snps." + outputFormat
-          add(annotateSNPs)
 
-          val annotateIndels = new VariantAnnotator with ChromosomeIntervals
-          annotateIndels.variant = selectIndels.out
-          annotateIndels.snpEffFile = snpEffOutput
-          annotateIndels.annotation :+= "SnpEff"
-          annotateIndels.out = chrDir + chrBase + ".indels." + outputFormat
-          add(annotateIndels)
+          if (annotate){
+            val annotateSNPs = new VariantAnnotator with ChromosomeIntervals
+            annotateSNPs.variant = applySNPModel.out
+            annotateSNPs.snpEffFile = snpEffOutput
+            annotateSNPs.annotation :+= "SnpEff"
+            annotateSNPs.out = chrDir + chrBase + ".snps." + outputFormat
+            add(annotateSNPs)
 
-          if (outputFormat != "vcf") {
-            val bcfToVcfSNPs = new SelectVariants with ChromosomeIntervals
-            bcfToVcfSNPs.variant = annotateSNPs.out
-            bcfToVcfSNPs.out = chrDir + chrBase + ".SNPs.vcf"
-            add(bcfToVcfSNPs)
+            val annotateIndels = new VariantAnnotator with ChromosomeIntervals
+            annotateIndels.variant = applyIndelModel.out
+            annotateIndels.snpEffFile = snpEffOutput
+            annotateIndels.annotation :+= "SnpEff"
+            annotateIndels.out = chrDir + chrBase + ".indels." + outputFormat
+            add(annotateIndels)
 
-            val bcfToVcfIndels = new SelectVariants with ChromosomeIntervals
-            bcfToVcfIndels.variant = annotateIndels.out
-            bcfToVcfIndels.out = chrDir + chrBase + ".indels.vcf"
-            add(bcfToVcfIndels)
+            if (outputFormat != "vcf") {
+              val bcfToVcfSNPs = new SelectVariants with ChromosomeIntervals
+              bcfToVcfSNPs.variant = annotateSNPs.out
+              bcfToVcfSNPs.out = chrDir + chrBase + ".SNPs.vcf"
+              add(bcfToVcfSNPs)
+
+              val bcfToVcfIndels = new SelectVariants with ChromosomeIntervals
+              bcfToVcfIndels.variant = annotateIndels.out
+              bcfToVcfIndels.out = chrDir + chrBase + ".indels.vcf"
+              add(bcfToVcfIndels)
+            }
+            evalInputs = Seq(annotateSNPs.out, annotateIndels.out)
+            annotatedSNPs :+= annotateIndels.out
+            annotatedIndels :+= annotateIndels.out
+          }
+          else{
+            if (outputFormat != "vcf") {
+              val bcfToVcfSNPs = new SelectVariants with ChromosomeIntervals
+              bcfToVcfSNPs.variant = applySNPModel.out
+              bcfToVcfSNPs.out = chrDir + chrBase + ".SNPs.recalibrated.vcf"
+              add(bcfToVcfSNPs)
+
+              val bcfToVcfIndels = new SelectVariants with ChromosomeIntervals
+              bcfToVcfIndels.variant = applyIndelModel.out
+              bcfToVcfIndels.out = chrDir + chrBase + ".indels.recalibrated.vcf"
+              add(bcfToVcfIndels)
+            }
           }
 
           unfilteredSNPs :+= selectSNPs.out
           unfilteredIndels :+= selectIndels.out
           recalibratedSNPs :+= applySNPModel.out
           recalibratedIndels :+= applyIndelModel.out
-          annotatedSNPs :+= annotateIndels.out
-          annotatedIndels :+= annotateIndels.out
 
           if (chr == "20") {
-            evalInputs = Seq(annotateSNPs.out, annotateIndels.out)
+            if (!annotate)
+              evalInputs = Seq(applySNPModel.out, applyIndelModel.out)
 
             def newVariantEval = {
               val eval = new VariantEval with CommandLineGATKArgs
+              eval.intervals = Seq(standardBroadIntervals)
               eval.eval = evalInputs
               eval.mergeEvals = true
               eval.dbsnp = dbsnp129
@@ -311,30 +333,37 @@ class LargeScaleHybridSelectionPipeline extends QScript {
       buildIndelModel.memoryLimit = VQSRMemoryLimit
       add(buildIndelModel)
 
-      val combineSNPsIndels = new CombineVariants with CommandLineGATKArgs with ExpandedIntervals
-      combineSNPsIndels.variant ++= recalibratedSNPs
-      combineSNPsIndels.variant ++= recalibratedIndels
-      combineSNPsIndels.sites_only = true
-      combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
-      combineSNPsIndels.assumeIdenticalSamples = true
-      combineSNPsIndels.out = unannotatedSitesOnly
-      add(combineSNPsIndels)
 
-      // Create a sites only VCF for snpEff
+      if (annotate){
+        val combineSNPsIndels = new CombineVariants with CommandLineGATKArgs with ExpandedIntervals
+        combineSNPsIndels.variant ++= recalibratedSNPs
+        combineSNPsIndels.variant ++= recalibratedIndels
+        combineSNPsIndels.sites_only = true
+        combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.variant.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+        combineSNPsIndels.assumeIdenticalSamples = true
+        combineSNPsIndels.out = unannotatedSitesOnly
+        add(combineSNPsIndels)
 
-      val snpEff = new SnpEff
-      snpEff.inVcf = combineSNPsIndels.out   //same as unannotatedSitesOnly
-      snpEff.config = "/humgen/gsa-pipeline/resources/snpEff/v2_0_5/snpEff.config"
-      snpEff.genomeVersion = "GRCh37.64"
-      snpEff.onlyCoding = true
-      snpEff.outVcf = snpEffOutput
-      snpEff.memoryLimit = pipelineMemoryLimit
-      add(snpEff)
+        // Create a sites only VCF for snpEff
 
-      evalInputs = annotatedIndels ++ annotatedSNPs
+        val snpEff = new SnpEff
+        snpEff.inVcf = combineSNPsIndels.out   //same as unannotatedSitesOnly
+        snpEff.config = "/humgen/gsa-pipeline/resources/snpEff/v2_0_5/snpEff.config"
+        snpEff.genomeVersion = "GRCh37.64"
+        snpEff.onlyCoding = true
+        snpEff.outVcf = snpEffOutput
+        snpEff.memoryLimit = pipelineMemoryLimit
+        add(snpEff)
+
+        evalInputs = annotatedIndels ++ annotatedSNPs
+      }
+
+      if (!annotate)
+        evalInputs = recalibratedSNPs ++ recalibratedIndels
 
       def newVariantEval = {
         val eval = new VariantEval with CommandLineGATKArgs
+        eval.intervals = Seq(standardBroadIntervals)
         eval.eval = evalInputs
         eval.mergeEvals = true
         eval.dbsnp = dbsnp129
