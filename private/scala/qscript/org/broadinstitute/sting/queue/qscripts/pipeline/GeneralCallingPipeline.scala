@@ -157,7 +157,7 @@ class BQSR( bam: File, recal: File ) extends BaseRecalibrator with BaseBQSR{
 class RecalBAM( bam: File, recal: File ) extends PrintReads with BaseBQSR{
 
   this.input_file :+= bam
-	this.out = qscript.outputDir + swapExt(bam, ".bam", ".subset.recal.bam")
+	this.out = qscript.outputDir + ge
 	this.BQSR = recal
 	this.memoryLimit = 6
 	this.qq = 0

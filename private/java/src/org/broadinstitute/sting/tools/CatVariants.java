@@ -5,16 +5,15 @@ import net.sf.picard.reference.ReferenceSequenceFileFactory;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
 import org.broad.tribble.AbstractFeatureReader;
-import org.broad.tribble.AsciiFeatureCodec;
-import org.broad.tribble.CloseableTribbleIterator;
 import org.broad.tribble.FeatureReader;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
+import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.commandline.CommandLineProgram;
 import org.broadinstitute.variant.bcf2.BCF2Codec;
 import org.broadinstitute.variant.vcf.VCFCodec;
 import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.broadinstitute.variant.variantcontext.writer.Options;
@@ -26,112 +25,115 @@ import java.util.*;
 
 
 /**
- * Created with IntelliJ IDEA.
- * User: ami
- * Date: 11/1/12
- * Time: 7:49 AM
- * To change this template use File | Settings | File Templates.
+ *
+ * Usage: java -cp dist/GenomeAnalysisTK.jar org.broadinstitute.sting.tools.AppendVariants <reference> <input VCF or BCF files> <outputFile> [sorted (optional)]");
+ * The input files can be of type: VCF (ends in .vcf or .VCF)");
+ *                                 BCF2 (ends in .bcf or .BCF)");
+ * Output file must be vcf or bcf file (.vcf or .bcf)");
+ * If the input files are already sorted, the last argument can indicate that");
  */
 public class CatVariants extends CommandLineProgram {
     // setup the logging system, used by some codecs
     private static org.apache.log4j.Logger logger = org.apache.log4j.Logger.getRootLogger();
 
-    @Argument(fullName = "reference", shortName = "R", doc = "genome reference file <name>.fasta", required = true)
-    private String refarg = null;
+    @Input(fullName = "reference", shortName = "R", doc = "genome reference file <name>.fasta", required = true)
+    private File refFile = null;
 
-    @Argument(fullName = "inputFileName", shortName = "input", doc = "input file name <name>.list", required = true)
-    private String inputFileName = null;
+    @Input(fullName="variant", shortName="V", doc="Input VCF file/s named <name>.vcf or <name>.bcf", required = true)
+    private List<File> variant = null;
 
-    @Argument(fullName = "outputName", shortName = "out", doc = "output file name <name>.vcf or <name>.bcf", required = true)
-    private String outputName = null;
+    @Output(fullName = "outputFile", shortName = "out", doc = "output file name <name>.vcf or <name>.bcf", required = true)
+    private File outputFile = null;
 
-    @Argument(fullName = "emailAddress", shortName = "e", doc = "The user email address for which to generate a GATK key", required = true)
-    private Boolean sorted = false;
+    @Argument(fullName = "assumeSorted", shortName = "assumeSorted", doc = "assumeSorted should be true if he input files are already sorted (based on the position of the variants", required = false)
+    private Boolean assumeSorted = false;
 
+    /*
+     * print usage information
+     */
+    private static void printUsage() {
+        System.err.println("Usage: java -cp dist/GenomeAnalysisTK.jar org.broadinstitute.sting.tools.AppendVariants <reference> <input VCF or BCF files> <outputFile> [sorted (optional)]");
+        System.err.println("    The input files can be of type: VCF (ends in .vcf or .VCF)");
+        System.err.println("                                    BCF2 (ends in .bcf or .BCF)");
+        System.err.println("    Output file must be vcf or bcf file (.vcf or .bcf)");
+        System.err.println("    if the input files are already sorted, the last argument can indicate that");
+    }
+
+    @Override
     protected int execute() throws Exception {
-        if(help){
-            printUsage();
-            return 0;
-        }
+        //if(help){
+        //    printUsage();
+        //    return 1;
+        //}
 
         BasicConfigurator.configure();
         logger.setLevel(Level.INFO);
 
-        if ( ! refarg.endsWith(".fasta")) {
-            throw new UserException("Reference file "+refarg+"name must end with .fasta");
+        if ( ! refFile.getName().endsWith(".fasta")) {
+            throw new UserException("Reference file "+refFile+"name must end with .fasta");
         }
 
-        File refFile = new File(refarg);
         if ( ! refFile.exists() ) {
             throw new UserException(String.format("Reference file %s does not exist", refFile.getAbsolutePath()));
         }
 
-        if (!inputFileName.endsWith(".list")){
-            throw new UserException(String.format("Input File %s should be <name>.list",inputFileName));
-        }
-
         // Comparator<Pair<Integer,FeatureReader<VariantContext>>> comparator = new PositionComparator();
-        Comparator<Pair<Integer,String>> newComparator = new PositionComparator();
+        Comparator<Pair<Integer,File>> positionComparator = new PositionComparator();
 
 
         //PriorityQueue<Pair<Integer,FeatureReader<VariantContext>>> queue =
         //        new PriorityQueue<Pair<Integer,FeatureReader<VariantContext>>>(2000, comparator);
-        Queue<Pair<Integer,String>> priorityQueue;
-        if(sorted)
-            priorityQueue = new LinkedList<Pair<Integer,String>>();
+        Queue<Pair<Integer,File>> priorityQueue;
+        if(assumeSorted)
+            priorityQueue = new LinkedList<Pair<Integer,File>>();
         else
-            priorityQueue = new PriorityQueue<Pair<Integer,String>>(10000, newComparator);
+            priorityQueue = new PriorityQueue<Pair<Integer,File>>(10000, positionComparator);
 
-
-        FileInputStream fstream = new FileInputStream(inputFileName);
-        DataInputStream in = new DataInputStream(fstream);
-        BufferedReader br = new BufferedReader(new InputStreamReader(in));
-        String fileName;
-        while ((fileName = br.readLine()) != null)   {
-
-            if (!(fileName.endsWith(".vcf") || fileName.endsWith(".VCF") || fileName.endsWith(".bcf") || fileName.endsWith(".BCF"))){
-                System.err.println("File " + fileName + " should be <name>.vcf or <name>.bcf");
+        Iterator<File> files = variant.iterator();
+        File file;
+        while (files.hasNext())   {
+            file = files.next();
+            if (!(file.getName().endsWith(".vcf") || file.getName().endsWith(".VCF") || file.getName().endsWith(".bcf") || file.getName().endsWith(".BCF"))){
+                System.err.println("File " + file.getAbsolutePath() + " should be <name>.vcf or <name>.bcf");
                 printUsage();
+                return 1;
             }
-            if (sorted){
-                priorityQueue.add(new Pair<Integer, String>(0,fileName));
+            if (assumeSorted){
+                priorityQueue.add(new Pair<Integer, File>(0,file));
             }
             else{
-                File featureFile = new File(fileName);
-                if (!featureFile.exists()) {
-                    throw new UserException(String.format("File %s doesn't exist",featureFile.getAbsolutePath()));
+                if (!file.exists()) {
+                    throw new UserException(String.format("File %s doesn't exist",file.getAbsolutePath()));
                 }
                 FeatureReader<VariantContext> reader;
-                boolean useVCF = (fileName.endsWith(".vcf") || fileName.endsWith(".VCF"));
+                boolean useVCF = (file.getName().endsWith(".vcf") || file.getName().endsWith(".VCF"));
                 if(useVCF)
-                    reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new VCFCodec(), false);
+                    reader = AbstractFeatureReader.getFeatureReader(file.getAbsolutePath(), new VCFCodec(), false);
                 else
-                    reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new BCF2Codec(), false);
+                    reader = AbstractFeatureReader.getFeatureReader(file.getAbsolutePath(), new BCF2Codec(), false);
                 Iterator<VariantContext> it = reader.iterator();
                 if(!it.hasNext()){
-                    System.err.println(String.format("File %s is empty. This file will be ignored",featureFile.getAbsolutePath()));
+                    System.err.println(String.format("File %s is empty. This file will be ignored",file.getAbsolutePath()));
                     continue;
                 }
                 VariantContext vc = it.next();
                 int firstPosition = vc.getStart();
                 reader.close();
                 //queue.add(new Pair<Integer, FeatureReader<VariantContext>>(firstPosition,reader));
-                priorityQueue.add(new Pair<Integer, String>(firstPosition,fileName));
+                priorityQueue.add(new Pair<Integer, File>(firstPosition,file));
             }
 
         }
-        in.close();
 
-
-        if (!(outputName.endsWith(".vcf") || outputName.endsWith(".VCF"))){
-            throw new UserException(String.format("Output File ", outputName, " should be <name>.vcf"));
+        if (!(outputFile.getName().endsWith(".vcf") || outputFile.getName().endsWith(".VCF"))){
+            throw new UserException(String.format("Output file %s should be <name>.vcf", outputFile));
         }
         ReferenceSequenceFile ref = ReferenceSequenceFileFactory.getReferenceSequenceFile(refFile);
-        final File combinedFile = new File(outputName);
 
-        FileOutputStream outputStream = new FileOutputStream(combinedFile);
+
+        FileOutputStream outputStream = new FileOutputStream(outputFile);
         EnumSet<Options> options = EnumSet.of(Options.INDEX_ON_THE_FLY);
-        final VariantContextWriter outputWriter = VariantContextWriterFactory.create(combinedFile, outputStream, ref.getSequenceDictionary(), options);
+        final VariantContextWriter outputWriter = VariantContextWriterFactory.create(outputFile, outputStream, ref.getSequenceDictionary(), options);
 
         boolean firstFile = true;
         int count =0;
@@ -139,17 +141,16 @@ public class CatVariants extends CommandLineProgram {
         while(!priorityQueue.isEmpty() ){
             count++;
             //FeatureReader<VariantContext> reader = queue.remove().getSecond();
-            fileName = priorityQueue.remove().getSecond();
-            File featureFile = new File(fileName);
-            if (!featureFile.exists()) {
-                throw new UserException(String.format("File ", featureFile.getAbsolutePath(), " doesn't exist"));
+            file = priorityQueue.remove().getSecond();
+            if (!file.exists()) {
+                throw new UserException(String.format("File %s doesn't exist",file.getAbsolutePath()));
             }
             FeatureReader<VariantContext> reader;
-            boolean useVCF = (fileName.endsWith(".vcf") || fileName.endsWith(".VCF"));
+            boolean useVCF = (file.getName().endsWith(".vcf") || file.getName().endsWith(".VCF"));
             if(useVCF)
-                reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new VCFCodec(), false);
+                reader = AbstractFeatureReader.getFeatureReader(file.getAbsolutePath(), new VCFCodec(), false);
             else
-                reader = AbstractFeatureReader.getFeatureReader(featureFile.getAbsolutePath(), new BCF2Codec(), false);
+                reader = AbstractFeatureReader.getFeatureReader(file.getAbsolutePath(), new BCF2Codec(), false);
 
             if(count%10 ==0)
                 System.out.print(count);
@@ -176,10 +177,6 @@ public class CatVariants extends CommandLineProgram {
         outputStream.close();
         outputWriter.close();
 
-
-
-
-
         return 0;
     }
 
@@ -197,61 +194,10 @@ public class CatVariants extends CommandLineProgram {
         }
     }
 
-    /**
-     * print usage information
-     */
-    public static void printUsage() {
-        System.err.println("Usage: java -cp dist/GenomeAnalysisTK.jar org.broadinstitute.sting.tools.AppendVariants <reference> <file with list of VCF or BCF files> <outputFile> [sorted (optional)]");
-        System.err.println("    the list file must end with .list");
-        System.err.println("    Where the files in the list can be of type: VCF (ends in .vcf or .VCF)");
-        System.err.println("                                                BCF2 (ends in .bcf or .BCF)");
-        System.err.println("    Output file must be vcf or bcf file (.vcf or .bcf)");
-        System.err.println("    if the input files are already sorted, the last argument can indicate that");
-
-
-        /**
-         * you could add others here; also look in the GATK code-base for an example of a dynamic way
-         * to load Tribble codecs.
-         */
-        System.exit(1);
-    }
-
-    public static AsciiFeatureCodec getFeatureCodec(File featureFile, String variantType) {
-        // quickly determine the codec type
-        if ( variantType != null ) {
-            if (variantType.equals("vcf") ) return new VCFCodec();
-            throw new StingException("Explicitly specified rod type "+variantType+" is not recognized");
-        }
-        if ( featureFile.getName().endsWith(".vcf") || featureFile.getName().endsWith(".VCF") )
-            return new VCFCodec();
-        // if ( featureFile.getName().endsWith(".bcf") || featureFile.getName().endsWith(".BCF") )
-       //     return new BCF2Codec();
-        throw new IllegalArgumentException("Unable to determine correct file type based on the file name, for file -> " + featureFile);
-    }
-
-    private void readBCF2(File source) throws IOException {
-        logger.info("Reading BCF2 from " + source);
-
-        BCF2Codec codec = new BCF2Codec();
-        AbstractFeatureReader<VariantContext> featureReader = AbstractFeatureReader.getFeatureReader(source.getAbsolutePath(), codec, false);
-
-        int counter = 0;
-        featureReader.getHeader();
-
-        CloseableTribbleIterator<VariantContext> itor = featureReader.iterator();
-
-        //while (itor.hasNext() && (counter++ < MAX_RECORDS || MAX_RECORDS == -1)) {
-        //    itor.next();
-        //}
-
-        // Not so Closeable...
-        //itor.close();
-    }
-
-    static class PositionComparator implements Comparator<Pair<Integer,String>> {
+    private static class PositionComparator implements Comparator<Pair<Integer,File>> {
 
         @Override
-        public int compare(Pair<Integer,String> p1, Pair<Integer,String> p2) {
+        public int compare(Pair<Integer,File> p1, Pair<Integer,File> p2) {
             int startPositionP1 = p1.getFirst();
             int startPositionP2 = p2.getFirst();
             if (startPositionP1  == startPositionP2)
