@@ -44,7 +44,7 @@ distributeGraphRows <- function(graphs, heights = c()) {
 
 distributeLogGraph <- function(graph, xName) {
   continuousGraph <- graph + scale_x_continuous(xName)
-  logGraph <- graph + scale_x_log10(xName) + opts(title="")
+  logGraph <- graph + scale_x_log10(xName) + ggtitle("")
   distributeGraphRows(list(continuousGraph, logGraph))
 }
 
@@ -96,7 +96,7 @@ plotCmdByX <- function(report, X, includeFacet = F, groupBy = "gatk", logUnit = 
   p = p + geom_smooth(method="lm", se=FALSE, formula = y ~ ns(x,2))
   
   p = p + xlab(paste(units, X)) + ylab(paste(units, "Runtime", RUNTIME_UNITS))
-  p = p + opts(title=report$analysisName)
+  p = p + ggtitle(report$analysisName)
   p = p + geom_boxplot(aes(group=interaction(X, groups)))
   p
 }
@@ -106,12 +106,12 @@ plotNormalizedByNSamples <- function(report) {
   norm = ddply(report, .(nSamples, assessment), transform, normRuntime = runtime / mean(runtime))
   p = ggplot(data=norm, aes(x=nSamples, y=normRuntime, group=gatk, color=gatk))
   p = p + facet_grid(. ~ assessment, scales="free")
-  p = p + geom_boxplot(aes(group=interaction(nSamples, gatk)), outlier.colour="blue")
+  #p = p + geom_boxplot(aes(group=interaction(nSamples, gatk)), outlier.colour="blue")
   #p = p + geom_jitter()
-  #p = p + geom_point()
+  p = p + geom_point()
   p = p + geom_smooth(se=FALSE)
   p = p + scale_x_log10()# + scale_y_log10()
-  p = p + opts(title=paste("Runtime per nSamples relative to nSamples mean value", report$analysisName))
+  p = p + ggtitle(paste("Runtime per nSamples relative to nSamples mean value", report$analysisName))
   print(p)
 }
 
@@ -122,7 +122,7 @@ plotByGATKVersion <- function(report) {
   p = p + geom_jitter()
   #p = p + scale_x_log10()# + scale_y_log10()
   p = p + xlab("GATK version") + ylab(paste("Runtime", RUNTIME_UNITS))
-  p = p + opts(title=paste("Runtime", report$analysisName))
+  p = p + ggtitle(paste("Runtime", report$analysisName))
   print(p)
 }
 
@@ -186,7 +186,7 @@ for ( ntReport in ntReports ) {
     report = allReports[[ntReport]]
     for ( assess in getAssessments(report) ) {
       p = plotByNT(report[report$assessment == assess,])
-      p = p + opts(title=paste(ntReport, " performance as a function of nt for ", assess))
+      p = p + ggtitle(paste(ntReport, " performance as a function of nt for ", assess))
       print(p)
     }
   }

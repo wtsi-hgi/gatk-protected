@@ -10,7 +10,7 @@ public final class ContextDatum extends RecalDatum {
     public final static String ROOT_CONTEXT = "";
     public final String context;
 
-    public ContextDatum(final String context, final double observations, final double errors) {
+    public ContextDatum(final String context, final long observations, final double errors) {
         super(observations, errors, (byte)30); // TODO -- should use default value?
         this.context = context;
     }

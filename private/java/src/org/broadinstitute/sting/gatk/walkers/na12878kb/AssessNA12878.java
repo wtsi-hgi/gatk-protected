@@ -59,6 +59,9 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Output(doc="Summary GATKReport will be written here")
     public PrintStream out;
 
+    @Argument(fullName="excludeCallset", shortName = "excludeCallset", doc="Don't count calls that come from only these excluded callsets", required=false)
+    public Set<String> excludeCallset = null;
+
     /**
      * An output VCF file containing the bad sites (FN/FP) that were found in the input callset w.r.t. the current NA12878 knowledge base
      */
@@ -236,6 +239,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     }
 
     private void accessSite(final String rodName, final VariantContext call, final MongoVariantContext consensusSite) {
+
         final VariantContext vc = call != null ? call : consensusSite.getVariantContext();
 
         if ( ! includeVariant(vc) )
@@ -261,8 +265,8 @@ public class AssessNA12878 extends NA12878DBWalker {
     }
 
     private AssessmentType figureOutAssessmentType(final VariantContext call, final MongoVariantContext consensusSite) {
-        final boolean consensusTP = consensusSite != null && consensusSite.getType().isTruePositive() && consensusSite.getPolymorphicStatus().isPolymorphic();
-        final boolean consensusFP = consensusSite != null && consensusSite.getType().isFalsePositive();
+        final boolean consensusTP = consensusSite != null && !isExcluded(consensusSite) && consensusSite.getType().isTruePositive() && consensusSite.getPolymorphicStatus().isPolymorphic();
+        final boolean consensusFP = consensusSite != null && !isExcluded(consensusSite) && consensusSite.getType().isFalsePositive();
 
         if ( call != null ) {
             if ( consensusTP ) {
@@ -298,6 +302,10 @@ public class AssessNA12878 extends NA12878DBWalker {
         } else {
             return AssessmentType.NOT_RELEVANT;
         }
+    }
+
+    private boolean isExcluded( final MongoVariantContext consensusSite ) {
+        return excludeCallset.containsAll(consensusSite.getSupportingCallSets());
     }
 
     /**
