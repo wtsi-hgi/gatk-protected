@@ -62,6 +62,7 @@ class HCPerformance extends QScript {
     ("CountReads", makeCountReads),
     ("CountLoci", makeCountLoci),
     ("CountReads.ART", makeCountReadsART),
+    ("UG", makeUG),
     ("HC.justProfile.noDS", makeHC(ds = false,  justProfile = true)),
     ("HC.justProfile",      makeHC(ds = true,   justProfile = true)),
     ("HC.noDS",             makeHC(ds = false,  justProfile = false)),
@@ -74,6 +75,12 @@ class HCPerformance extends QScript {
 
   def makeCountLoci(): CommandLineGATK = {
     new CountLoci() with UNIVERSAL_GATK_ARGS
+  }
+
+  def makeUG(): CommandLineGATK = {
+    val UG = new UnifiedGenotyper() with UNIVERSAL_GATK_ARGS
+    UG.out = new File("/dev/null")
+    UG
   }
 
   def makeCountReads(): CommandLineGATK = {
