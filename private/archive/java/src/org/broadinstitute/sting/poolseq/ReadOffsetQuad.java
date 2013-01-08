@@ -48,8 +48,9 @@ package org.broadinstitute.sting.gatk.walkers.poolseq;
 
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.variant.utils.Pair;
 import net.sf.samtools.SAMRecord;
+
 import java.util.List;
 import java.util.ArrayList;
 
