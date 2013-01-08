@@ -8,6 +8,7 @@ import org.broadinstitute.sting.utils.{GenomeLoc, GenomeLocParser}
 import org.broadinstitute.sting.gatk.datasources.reference.ReferenceDataSource
 import org.broadinstitute.sting.queue.function.QFunction
 import scala.math._
+import java.io.File
 
 class HaplotypeCallerValidation extends QScript {
   qscript =>
@@ -33,6 +34,9 @@ class HaplotypeCallerValidation extends QScript {
   @Argument(doc = "The minimum allowed pruning factor in HaplotypeCaller assembly graph", shortName = "minPruning", required = false)
   var HC_minPruning = 4
 
+  @Input(doc = "ped file for phasing-by-transmission", shortName = "pedFile", required = false)
+  var pedFile: File = ""
+
   class BamSM(bamIn: File, SMin: String) {
     val bam = bamIn
     val SM = SMin
@@ -57,9 +61,8 @@ class HaplotypeCallerValidation extends QScript {
       this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     }
 
-    def createRuns(runsFile: File) : List[QFunction] = {
+    def createRuns(runsFile: File) = {
       var locParser = new GenomeLocParser(new ReferenceDataSource(referenceFile).getReference)
-      var runs = List[QFunction]()
 
       var elems = asScalaIterator(new XReadLines(runsFile))
       while (elems.hasNext) {
@@ -85,15 +88,38 @@ class HaplotypeCallerValidation extends QScript {
           locus = locParser.setStop(locus, min(locParser.getContigInfo(locus.getContig).getSequenceLength, locus.getStop + extent))
         }
 
-        runs ::= new HCrun(name, locus, samples)
-        runs ::= new UGrun(name, locus, samples)
-      }
+        val ugRun = new UGrun(name, locus, samples)
+        add(ugRun)
 
-      return runs
+        add(new HCrun(name, locus, samples))
+
+        var prevRun: CommandLineGATK = ugRun
+        var prevOut: File = ugRun.out
+        if (pedFile != "") {
+          val pbtRun = new PhaseByTransmission with CommandLineGATKArgs
+          pbtRun.variant = ugRun.out
+          pbtRun.intervalsString = ugRun.intervalsString
+          pbtRun.FatherAlleleFirst = true
+          pbtRun.ped = List(pedFile)
+          pbtRun.pedigreeValidationType = org.broadinstitute.sting.gatk.samples.PedigreeValidationType.STRICT
+          pbtRun.out = swapExt(ugRun.out, ".vcf", "+PBT.vcf")
+          pbtRun.MendelianViolationsFile = swapExt(ugRun.out, ".vcf", "+PBT.violations.txt")
+          add(pbtRun)
+
+          prevRun = pbtRun
+          prevOut = pbtRun.out
+        }
+
+        val rbpRun = new ReadBackedPhasing with CommandLineGATKArgs
+        rbpRun.input_file = ugRun.input_file
+        rbpRun.variant = prevOut
+        rbpRun.intervalsString = prevRun.intervalsString
+        rbpRun.out = swapExt(prevOut, ".vcf", "+RBP.vcf")
+        add(rbpRun)
+      }
     }
 
-    val runs = createRuns(runsFile)
-    addAll(runs)
+    createRuns(runsFile)
   }
 
   trait CommandLineGATKArgs extends CommandLineGATK with ScatterGatherableFunction {

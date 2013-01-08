@@ -165,7 +165,7 @@ class BatchedCallUnionMerger extends QScript {
       this.max_alternate_alleles = 3
 
       if (batchMerge.UG_jobQueue != "")
-	this.jobQueue = batchMerge.UG_jobQueue
+        this.jobQueue = batchMerge.UG_jobQueue
     }
 
     var callVariants : UGCallVariants = new UGCallVariants with CallVariantsArgs
@@ -192,7 +192,7 @@ class BatchedCallUnionMerger extends QScript {
         this.logging_level = "INFO"
 
         if (batchMerge.VA_jobQueue != "")
-	  this.jobQueue = batchMerge.VA_jobQueue
+          this.jobQueue = batchMerge.VA_jobQueue
       }
 
       class ScatteredFullVariantAnnotator(inputParam: File) extends org.broadinstitute.sting.queue.extensions.gatk.VariantAnnotator with AnnotateVariantArgs {
@@ -213,7 +213,7 @@ class BatchedCallUnionMerger extends QScript {
           this.downsampling_type = DownsampleType.BY_SAMPLE
         }
       }
-      
+
       var annotateVariants = new ScatteredFullVariantAnnotator(callVariants.out)
       add(annotateVariants)
     }
