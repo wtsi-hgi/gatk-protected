@@ -48,11 +48,13 @@ package org.broadinstitute.sting.utils;
 
 import com.google.caliper.Param;
 import com.google.caliper.SimpleBenchmark;
-import com.google.caliper.runner.CaliperMain;
 import org.broad.tribble.readers.AsciiLineReader;
 import org.broad.tribble.readers.PositionalBufferedStream;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 
 /**
  * Caliper microbenchmark of reading lines from a VCF file
@@ -129,6 +131,6 @@ public class ReadlineBenchmark extends SimpleBenchmark {
     }
 
     public static void main(String[] args) {
-        CaliperMain.main(ReadlineBenchmark.class, args);
+        com.google.caliper.Runner.main(ReadlineBenchmark.class, args);
     }
 }
