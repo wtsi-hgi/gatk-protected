@@ -305,7 +305,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     }
 
     private boolean isExcluded( final MongoVariantContext consensusSite ) {
-        return excludeCallset.containsAll(consensusSite.getSupportingCallSets());
+        return excludeCallset != null && excludeCallset.containsAll(consensusSite.getSupportingCallSets());
     }
 
     /**
