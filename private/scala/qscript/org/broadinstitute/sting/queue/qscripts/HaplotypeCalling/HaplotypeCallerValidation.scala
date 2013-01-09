@@ -37,6 +37,15 @@ class HaplotypeCallerValidation extends QScript {
   @Input(doc = "ped file for phasing-by-transmission", shortName = "pedFile", required = false)
   var pedFile: File = ""
 
+  @Argument(doc = "Read-backed phasing minimum phasing quality threshold", shortName = "RBP_PQ_thresh", required = false)
+  var RBP_PQ_thresh = 20.0
+
+  @Argument(doc = "Read-backed phasing genomic caching window size (bp)", shortName = "RBP_cacheWindowSize", required = false)
+  var RBP_cacheWindowSize = 20000
+
+  @Argument(doc = "Read-backed phasing genomic caching window size (num het sites)", shortName = "RBP_maxPhaseSites", required = false)
+  var RBP_maxPhaseSites = 10
+
   class BamSM(bamIn: File, SMin: String) {
     val bam = bamIn
     val SM = SMin
@@ -114,6 +123,9 @@ class HaplotypeCallerValidation extends QScript {
         rbpRun.input_file = ugRun.input_file
         rbpRun.variant = prevOut
         rbpRun.intervalsString = prevRun.intervalsString
+        rbpRun.phaseQualityThresh = RBP_PQ_thresh
+        rbpRun.cacheWindowSize = RBP_cacheWindowSize
+        rbpRun.maxPhaseSites = RBP_maxPhaseSites
         rbpRun.out = swapExt(prevOut, ".vcf", "+RBP.vcf")
         add(rbpRun)
       }
