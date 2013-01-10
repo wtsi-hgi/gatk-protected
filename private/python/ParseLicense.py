@@ -12,7 +12,7 @@ for line in licenseFile.readlines():
 skipLicense = True
 for line in sys.stdin:
 #    sys.stderr.write("line: " + line)
-    if line.startswith("package"):
+    if skipLicense and line.startswith("package"):
         sys.stdout.write("*/\n\n")
         skipLicense = False
     elif skipLicense and lineIsNotCommentedOut(line):
