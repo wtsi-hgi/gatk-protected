@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.queue.qscripts
+package org.broadinstitute.sting.queue.qscripts.calling
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._

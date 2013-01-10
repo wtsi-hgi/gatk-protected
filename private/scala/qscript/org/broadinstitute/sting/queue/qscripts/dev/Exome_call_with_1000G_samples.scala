@@ -1,4 +1,4 @@
-package org.broadinstitute.sting.queue.qscripts
+package org.broadinstitute.sting.queue.qscripts.dev
 
 import org.broadinstitute.sting.commandline.Hidden
 import org.broadinstitute.sting.queue.extensions.gatk._
@@ -16,7 +16,7 @@ import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
   // produce Kiran's Venn plots based on comparison between new VCF and gold standard produced VCF
 
 
-class ExomeCallWith1000GSamples extends QScript {
+class Exome_call_with_1000G_samples extends QScript {
   qscript =>
 
   @Argument(shortName="gatk", doc="gatk jar file", required=true)

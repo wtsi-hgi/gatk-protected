@@ -8,6 +8,7 @@
  * @since 2/2/12
  */
 
+package org.broadinstitute.sting.queue.qscripts.qc
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._

@@ -1,3 +1,5 @@
+package org.broadinstitute.sting.queue.qscripts.dev
+
 import org.broadinstitute.sting.queue.extensions.gatk.BaseRecalibrator
 import org.broadinstitute.sting.queue.extensions.gatk.HaplotypeCaller
 import org.broadinstitute.sting.queue.extensions.gatk.DelocalizedBaseRecalibrator
@@ -7,7 +9,7 @@ import org.broadinstitute.sting.queue.util.QScriptUtils
 import org.broadinstitute.sting.gatk.filters.SingleReadGroupFilter
 import org.broadinstitute.sting.queue.extensions.gatk.SingleReadGroup
 
-class BQSR extends QScript {
+class delocalizedBQSR_comparison_experiment extends QScript {
 
   @Argument(shortName = "i",  required=false, doc = "Intervals file")              var intervalsFile: List[File] = Nil
   @Argument(shortName = "ai",  required=false, doc = "aIntervals file")              var aintervalsFile: List[File] = Nil
@@ -19,18 +21,18 @@ class BQSR extends QScript {
   def script() {
 
     for( readGroup: String <- List("20FUK.1","20FUK.6","20FUK.7","20GAV.3","20GAV.5","20GAV.8") ) {
-    for( contextSize: Int <- List(7)) {
-    for( delocalized: Int <- List(0, 1) ) {
+      for( contextSize: Int <- List(7)) {
+        for( delocalized: Int <- List(0, 1) ) {
 
-      if( delocalized == 0 ) { 
-      add(MappingBQSR(readGroup, contextSize, delocalized))    
-} else {
-      add(DelocalizedBQSR(readGroup, contextSize, delocalized))    
-}
-      add(HC(readGroup, contextSize, delocalized))
+          if( delocalized == 0 ) {
+            add(MappingBQSR(readGroup, contextSize, delocalized))
+          } else {
+            add(DelocalizedBQSR(readGroup, contextSize, delocalized))
+          }
+          add(HC(readGroup, contextSize, delocalized))
 
-    }
-    }
+        }
+      }
     }
   }
 

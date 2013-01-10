@@ -1,3 +1,5 @@
+package org.broadinstitute.sting.queue.qscripts.calling
+
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.gatk.TaggedFile._
 import org.broadinstitute.sting.queue.{QException, QScript}

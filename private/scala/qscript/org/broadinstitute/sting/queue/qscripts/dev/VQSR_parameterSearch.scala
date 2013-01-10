@@ -1,3 +1,5 @@
+package org.broadinstitute.sting.queue.qscripts.dev
+
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.samtools.SamtoolsIndexFunction
 import org.broadinstitute.sting.queue.QScript

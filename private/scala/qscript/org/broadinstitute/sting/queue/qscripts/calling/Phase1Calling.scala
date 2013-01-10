@@ -1,3 +1,5 @@
+package org.broadinstitute.sting.queue.qscripts.calling
+
 import net.sf.picard.reference.FastaSequenceFile
 import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 import org.broadinstitute.sting.pipeline.Pipeline

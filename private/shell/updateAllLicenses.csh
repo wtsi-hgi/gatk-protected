@@ -15,12 +15,23 @@ echo "Updating all files in the GATK with the new licenses";
 echo '- Run with "-debug" flag to list all the files being updated';
 echo "";
 
-echo "Processing private directory..."
+echo "Processing java private directory..."
 find ../../private/java   -name "*.java" -exec updateLicenseForFile.csh {} ../../licensing/private_license.txt $1 \;   ;
 
-echo "Processing public directory..."
+echo "Processing java public directory..."
 find ../../public/java    -name "*.java" -exec updateLicenseForFile.csh {} ../../licensing/public_license.txt $1 \;    ;
 
-echo "Processing protected directory..."
+echo "Processing java protected directory..."
 find ../../protected/java -name "*.java" -exec updateLicenseForFile.csh {} ../../licensing/protected_license.txt $1 \; ;
+
+
+
+echo "Processing scala private directory..."
+find ../../private/scala   -name "*.scala" -exec updateLicenseForFile.csh {} ../../licensing/private_license.txt $1 \;   ;
+
+echo "Processing scala public directory..."
+find ../../public/scala    -name "*.scala" -exec updateLicenseForFile.csh {} ../../licensing/public_license.txt $1 \;    ;
+
+echo "Processing scala protected directory..."
+find ../../protected/scala -name "*.scala" -exec updateLicenseForFile.csh {} ../../licensing/protected_license.txt $1 \; ;
 

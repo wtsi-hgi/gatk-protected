@@ -1,3 +1,5 @@
+package org.broadinstitute.sting.queue.qscripts.calling
+
 import org.broadinstitute.sting.queue.extensions.gatk.BaseRecalibrator
 import org.broadinstitute.sting.queue.extensions.gatk.HaplotypeCaller
 import org.broadinstitute.sting.queue.extensions.gatk.DelocalizedBaseRecalibrator
