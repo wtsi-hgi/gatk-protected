@@ -42,3 +42,75 @@
 *  7.5 Amendment and Waiver; Entire Agreement. This Agreement may be amended, supplemented, or otherwise modified only by means of a written instrument signed by all parties. Any waiver of any rights or failure to act in a specific instance shall relate only to such instance and shall not be construed as an agreement to waive any rights or fail to act in any other instance, whether or not similar. This Agreement constitutes the entire agreement among the parties with respect to its subject matter and supersedes prior agreements or understandings between the parties relating to its subject matter. 
 *  7.6 Binding Effect; Headings. This Agreement shall be binding upon and inure to the benefit of the parties and their respective permitted successors and assigns. All headings are for convenience only and shall not affect the meaning of any provision of this Agreement.
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
+*/
+
+package org.broadinstitute.sting.queue.qscripts.pipeline
+
+import net.sf.picard.io.IoUtil
+import org.broadinstitute.sting.pipeline.{PicardSample, PicardAggregationUtils}
+import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.sting.queue.function._
+import org.broadinstitute.sting.queue.QScript
+
+class ReduceReadsScript extends QScript {
+  @Input(doc="Tab separated squid projects and samples.", shortName="tsv", exclusiveOf="bamList", required=false)
+  var projectSampleTsv: File = _
+
+  @Input(doc="BAM list files.", shortName="I", required=false)
+  var externalBamList: File = _
+
+  @Argument(doc="Subdirectory to store the reduced bams. By default set to 'reduced'.", shortName="bamDir", required=false)
+  var bamDir = "reducedBAMs/"
+
+  @Argument(doc="Reduce reads memory limit.", shortName="rrMem", required=false)
+  var reduceReadsMemoryLimit = 4
+
+  def script() {
+
+    val reference = "/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta"
+    val intervals = "/humgen/gsa-firehose2/ReduceReads_v2_JointCalling/gencode.v12_broad.agilent_merged.interval_list"
+
+    var bams: Seq[Tuple2[File, File]] = Nil
+
+    if (externalBamList != null) {
+      for (originalBam: File <- io.Source.fromFile(externalBamList).getLines().toSeq.map(new File(_))) {
+        val reducedBam: File = new File(new File(bamDir, "external"), swapExt(originalBam, ".bam", ".reduced.bam").getName)
+        bams :+= Tuple2(originalBam, reducedBam)
+      }
+    }
+
+    if (projectSampleTsv != null) {
+      val picardSamples = PicardAggregationUtils.parseSamples(projectSampleTsv, false)
+
+      for (picardSample: PicardSample <- picardSamples) {
+        try {
+          val picardIntervals = PicardAggregationUtils.readAnalysisIntervals(Seq(picardSample))
+          require(reference == picardIntervals.getReference, "Unexpected reference: " + picardIntervals.getReference)
+
+          val originalBam: File = PicardAggregationUtils.getSampleBam(picardSample.getProject, picardSample.getSample, picardSample.getVersion)
+          val reducedBam: File = new File(bamDir, "%1$s/%2$s/v%3$d/%2$s.reduced.bam".format(
+            IoUtil.makeFileNameSafe(picardSample.getProject),
+            IoUtil.makeFileNameSafe(picardSample.getSample),
+            picardSample.getVersion))
+
+          //Use the hardcoded intervals instead of the Picard specified intervals
+          bams :+= Tuple2(originalBam, reducedBam)
+        } catch {
+          case e =>
+            println("Skipping: " + picardSample + ": " + e.getMessage());
+        }
+      }
+    }
+
+    for ((originalBam, reducedBam) <- bams) {
+      val reduce = new ReduceReads with BadMate with RetryMemoryLimit
+      reduce.memoryLimit = reduceReadsMemoryLimit
+      reduce.reference_sequence = reference
+      reduce.input_file = Seq(originalBam)
+      reduce.intervals = Seq(new File(intervals))
+      reduce.interval_padding = 50
+      reduce.out = reducedBam
+      add(reduce)
+    }
+  }
+}

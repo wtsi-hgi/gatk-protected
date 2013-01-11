@@ -42,3 +42,34 @@
 *  7.5 Amendment and Waiver; Entire Agreement. This Agreement may be amended, supplemented, or otherwise modified only by means of a written instrument signed by all parties. Any waiver of any rights or failure to act in a specific instance shall relate only to such instance and shall not be construed as an agreement to waive any rights or fail to act in any other instance, whether or not similar. This Agreement constitutes the entire agreement among the parties with respect to its subject matter and supersedes prior agreements or understandings between the parties relating to its subject matter. 
 *  7.6 Binding Effect; Headings. This Agreement shall be binding upon and inure to the benefit of the parties and their respective permitted successors and assigns. All headings are for convenience only and shall not affect the meaning of any provision of this Agreement.
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
+*/
+
+package org.broadinstitute.sting.queue.qscripts.bqsr
+
+import org.broadinstitute.sting.queue.extensions.gatk.PrintReads
+import org.broadinstitute.sting.queue.QScript
+
+class Recal extends QScript {
+
+  @Input(shortName = "recal", required=true, doc = "recalibration file")  var recalFile: File = _
+  @Input(shortName = "b", required=true,  doc = "List of BAM files")      var bamList: List[File] = _
+  @Input(shortName = "i", required=false, doc = "Intervals file")         var intervalsFile: List[File] = Nil
+  @Input(shortName = "r", required=false, doc = "Reference sequence")     var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
+  @Output(shortName = "o", required=true,  doc = "output file name")      var output: File = _
+  @Argument(shortName = "s", required=false, doc = "scatter/gather")      var scatterCount: Int = 200
+  @Argument(shortName = "m", required=false, doc = "memory limit")        var memLimit: Int = 4
+  @Argument(shortName = "qq", required=false, doc = "quantization lvls")  var nLevels: Int = -1
+
+
+  def script {
+    val walker = new PrintReads();
+    walker.reference_sequence = referenceFile
+    walker.intervalsString = intervalsFile
+    walker.out = output
+    walker.input_file = bamList
+    walker.memoryLimit = memLimit
+    walker.qq = nLevels
+    walker.scatterCount = scatterCount
+    add(walker)
+  }
+}

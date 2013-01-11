@@ -42,3 +42,81 @@
 *  7.5 Amendment and Waiver; Entire Agreement. This Agreement may be amended, supplemented, or otherwise modified only by means of a written instrument signed by all parties. Any waiver of any rights or failure to act in a specific instance shall relate only to such instance and shall not be construed as an agreement to waive any rights or fail to act in any other instance, whether or not similar. This Agreement constitutes the entire agreement among the parties with respect to its subject matter and supersedes prior agreements or understandings between the parties relating to its subject matter. 
 *  7.6 Binding Effect; Headings. This Agreement shall be binding upon and inure to the benefit of the parties and their respective permitted successors and assigns. All headings are for convenience only and shall not affect the meaning of any provision of this Agreement.
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
+*/
+
+package org.broadinstitute.sting.queue.qscripts.mongodb
+
+/**
+ * Created with IntelliJ IDEA.
+ * User: thibault
+ * Date: 6/27/12
+ * Time: 3:00 PM
+ * To change this template use File | Settings | File Templates.
+ */
+import org.broadinstitute.sting.gatk.arguments.ValidationExclusion
+import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.sting.utils.interval.IntervalSetRule
+
+/**
+ * Tests MongoDB by running SelectVariantsFromMongo in parallel
+ * This edition uses intervals and scatter/gather to split up the processing
+ */
+class MongoDBIntersection extends QScript {
+  // Create an alias 'qscript' to be able to access variables
+  qscript =>
+
+
+  // Required arguments.  All initialized to empty values.
+
+  @Input(doc="The reference file for the bam files.", shortName="R")
+  var referenceFile: File = _ // _ is scala shorthand for null
+
+  @Input(doc="VCF file for locations.", shortName="V")
+  var vcfFile: File = _
+
+  @Input(doc="Samples file.", shortName="sf", required=false)
+  var samplesFile: File = _
+
+  @Input(doc="Intervals file.", shortName="L", required=true)
+  var intervalsFile: File = _
+
+  @Input(doc="Number of clients.", shortName="c")
+  var numClients: Int = _
+
+  def script() {
+    val selectVariants = new SelectVariantsFromMongo
+
+    selectVariants.unsafe = ValidationExclusion.TYPE.LENIENT_VCF_PROCESSING
+    selectVariants.reference_sequence = referenceFile
+    selectVariants.variant = vcfFile
+
+    val intersection = true
+
+    if (samplesFile != null ) {
+      selectVariants.sf :+= samplesFile
+      if (intersection) {
+        selectVariants.out = swapExt(qscript.samplesFile, "samples", "%d_intersection.vcf".format(numClients))
+      }
+      else {
+        selectVariants.out = swapExt(qscript.samplesFile, "samples", "%d.vcf".format(numClients))
+      }
+    }
+    else {
+      selectVariants.no_samples = true
+      selectVariants.out = "no_samples.vcf"
+    }
+
+    selectVariants.intervals :+= intervalsFile
+
+    if (intersection) {
+      selectVariants.intervals :+= "/home/unix/thibault/scratch/intervals/whole_exome_agilent_1.1_refseq_plus_3_boosters.Homo_sapiens_assembly19.targets.interval_list"
+      selectVariants.isr = IntervalSetRule.INTERSECTION
+    }
+
+    selectVariants.memoryLimit = 4
+    selectVariants.scatterCount = numClients
+
+    add(selectVariants)
+  }
+}
