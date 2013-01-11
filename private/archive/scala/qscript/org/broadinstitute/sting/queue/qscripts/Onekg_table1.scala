@@ -1,3 +1,5 @@
+package org.broadinstitute.sting.queue.qscripts
+
 import org.broadinstitute.sting.gatk.contexts.variantcontext.VariantContextUtils.{GenotypeMergeType, VariantMergeType}
 import org.broadinstitute.sting.utils.report.VE2ReportFactory.VE2TemplateType
 import org.broadinstitute.sting.queue.extensions.gatk._

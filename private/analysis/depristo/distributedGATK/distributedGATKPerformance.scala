@@ -1,9 +1,11 @@
+package org.broadinstitute.sting.queue.qscripts.variantQC
+
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.samtools.SamtoolsIndexFunction
 import org.broadinstitute.sting.queue.QScript
 import org.apache.commons.io.FilenameUtils;
 
-class DistributedGATKPerformance extends QScript {
+class distributedGATKPerformance extends QScript {
   qscript =>
 
   @Argument(shortName="gatk", doc="gatk jar file", required=true)
