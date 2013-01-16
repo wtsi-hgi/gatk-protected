@@ -144,14 +144,9 @@ public class BaitRedesignUtils {
         int gc = 0;
         for ( byte b : seq ) {
             switch (b) {
-                case BaseUtils.C:
+                case 'C':
+                case 'G':
                     ++gc;
-                    ++tot;
-                    break;
-                case BaseUtils.G:
-                    ++gc;
-                    ++tot;
-                    break;
                 default:
                     ++tot;
             }
