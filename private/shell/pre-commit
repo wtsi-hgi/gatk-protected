@@ -1,16 +1,16 @@
 #!/bin/tcsh
 
 foreach file (`git diff-index --name-only HEAD`)
+    echo -n "checking license on $file... "
 	if ($file:e == "java" || $file:e == "scala") then
-	set isPrivate = `echo "$file" | sed -n '/private/p'`;
-	set isProtected = `echo "$file" | sed -n '/protected/p'`;
-	set isPublic = `echo "$file" | sed -n '/public/p'`;
-		if ($isPrivate != "") then
-			private/shell/updateLicenseForFile.csh $file licensing/private_license.txt
-		else if ($isProtected != "") then
-			private/shell/updateLicenseForFile.csh $file licensing/protected_license.txt
-		else if ($isPublic != "") then
-			private/shell/updateLicenseForFile.csh $file licensing/public_license.txt
-		endif
+        private/shell/updateLicenseForFile.csh $file;
+        set result = $status
+        if ($result != 0) then
+            exit $result
+        else
+            echo "OK"
+        endif
+	else
+	    echo "doesn't need a license (not java or scala)";
 	endif
 end

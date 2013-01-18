@@ -16,22 +16,22 @@ echo '- Run with "-debug" flag to list all the files being updated';
 echo "";
 
 echo "Processing java private directory..."
-find private   -name "*.java" -exec private/shell/updateLicenseForFile.csh {} licensing/private_license.txt $1 \;   ;
+find private   -name "*.java" -exec private/shell/updateLicenseForFile.csh {} $1 \;   ;
 
 echo "Processing java public directory..."
-find public    -name "*.java" -exec private/shell/updateLicenseForFile.csh {} licensing/public_license.txt $1 \;    ;
+find public    -name "*.java" -exec private/shell/updateLicenseForFile.csh {} $1 \;    ;
 
 echo "Processing java protected directory..."
-find protected -name "*.java" -exec private/shell/updateLicenseForFile.csh {} licensing/protected_license.txt $1 \; ;
+find protected -name "*.java" -exec private/shell/updateLicenseForFile.csh {} $1 \; ;
 
 
 
 echo "Processing scala private directory..."
-find private    -name "*.scala" -exec private/shell/updateLicenseForFile.csh {} licensing/private_license.txt $1 \;   ;
+find private    -name "*.scala" -exec private/shell/updateLicenseForFile.csh {} $1 \;   ;
 
 echo "Processing scala public directory..."
-find public     -name "*.scala" -exec private/shell/updateLicenseForFile.csh {} licensing/public_license.txt $1 \;    ;
+find public     -name "*.scala" -exec private/shell/updateLicenseForFile.csh {} $1 \;    ;
 
 echo "Processing scala protected directory..."
-find protected  -name "*.scala" -exec private/shell/updateLicenseForFile.csh {} licensing/protected_license.txt $1 \; ;
+find protected  -name "*.scala" -exec private/shell/updateLicenseForFile.csh {} $1 \; ;
 
