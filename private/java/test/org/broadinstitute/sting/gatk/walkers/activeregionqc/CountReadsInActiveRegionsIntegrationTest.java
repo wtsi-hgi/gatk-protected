@@ -60,7 +60,7 @@ public class CountReadsInActiveRegionsIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 "-T CountReadsInActiveRegions -R " + b37KGReference + " -I " + b37GoodNA12878BAM + " -L 20:10,000,000-10,200,000 -o %s",
                 1,
-                Arrays.asList("7573fc314382748d0a478d892ce9c749"));
+                Arrays.asList("87af878883f17e27a57daf320deaf944"));
         executeTest("CountReadsInActiveRegions:", spec);
     }
 }
