@@ -24,4 +24,4 @@ else
     exit 1;
 endif
 
-private/python/ParseLicense.py $1 $licenseFile > $1.newlicense && mv $1.newlicense $1
+private/python/UpdateLicense.py $1 $licenseFile > $1.newlicense && mv $1.newlicense $1
