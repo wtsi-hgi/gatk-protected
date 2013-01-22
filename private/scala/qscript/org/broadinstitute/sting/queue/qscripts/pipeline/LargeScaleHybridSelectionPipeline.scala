@@ -246,7 +246,7 @@ class LargeScaleHybridSelectionPipeline extends QScript {
               add(bcfToVcfIndels)
             }
             evalInputs = Seq(annotateSNPs.out, annotateIndels.out)
-            annotatedSNPs :+= annotateIndels.out
+            annotatedSNPs :+= annotateSNPs.out
             annotatedIndels :+= annotateIndels.out
           }
           else{
