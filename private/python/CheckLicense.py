@@ -45,7 +45,7 @@ for filename in sys.stdin.readlines():
     sourceFile = open(filename.strip())
     source = extractLicenseFromSource(sourceFile)
     if license != source:
-        logging.error("Wrong license for file " + sys.argv[i])
+        logging.error("Wrong license for file " + filename)
         exitStatus = 1
 
 exit(exitStatus)
