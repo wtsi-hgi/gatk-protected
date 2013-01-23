@@ -41,11 +41,11 @@ def extractLicense(file):
 licenseFile = open(sys.argv[1])
 license = extractLicense(licenseFile)
 exitStatus = 0
-for i in range(2,len(sys.argv)):
-    sourceFile = open(sys.argv[i])
+for filename in sys.stdin.readlines():
+    sourceFile = open(filename.strip())
     source = extractLicenseFromSource(sourceFile)
     if license != source:
-        logging.error("Wrong license for file " + sys.argv[i])
+        logging.error("Wrong license for file " + filename)
         exitStatus = 1
 
 exit(exitStatus)

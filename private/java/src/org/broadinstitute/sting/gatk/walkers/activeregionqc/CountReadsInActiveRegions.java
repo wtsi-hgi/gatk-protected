@@ -55,7 +55,7 @@ import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.walkers.ActiveRegionExtension;
 import org.broadinstitute.sting.gatk.walkers.ActiveRegionWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.activeregion.ActivityProfileResult;
+import org.broadinstitute.sting.utils.activeregion.ActivityProfileState;
 
 import java.io.PrintStream;
 
@@ -87,11 +87,11 @@ public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInAc
     boolean coinFlip = false;
 
     @Override
-    public ActivityProfileResult isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
+    public ActivityProfileState isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
         if( GenomeAnalysisEngine.getRandomGenerator().nextDouble() > 0.995 ) {
             coinFlip = !coinFlip;
         }
-        return new ActivityProfileResult( ref.getLocus(), coinFlip ? 0.999 : 0.0 );
+        return new ActivityProfileState( ref.getLocus(), coinFlip ? 0.999 : 0.0 );
     }
 
     @Override
