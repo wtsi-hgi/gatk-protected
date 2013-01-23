@@ -12,10 +12,30 @@
 echo "";
 echo "Checking all licenses in the GATK.. ";
 
-find private   -name "*.java"  | xargs python private/python/CheckLicense.py licensing/private_license.txt   && \
-find public    -name "*.java"  | xargs python private/python/CheckLicense.py licensing/public_license.txt    && \
-find protected -name "*.java"  | xargs python private/python/CheckLicense.py licensing/protected_license.txt && \
-find private   -name "*.scala" | xargs python private/python/CheckLicense.py licensing/private_license.txt   && \
-find public    -name "*.scala" | xargs python private/python/CheckLicense.py licensing/public_license.txt    && \
+find private   -name "*.java"  | xargs python private/python/CheckLicense.py licensing/private_license.txt   
+if ($status != "0") then
+	exit(1)
+endif
+
+find public    -name "*.java"  | xargs python private/python/CheckLicense.py licensing/public_license.txt    
+if ($status != "0") then
+	exit(1)
+endif
+
+find protected -name "*.java"  | xargs python private/python/CheckLicense.py licensing/protected_license.txt 
+if ($status != "0") then
+	exit(1)
+endif
+
+find private   -name "*.scala" | xargs python private/python/CheckLicense.py licensing/private_license.txt   
+if ($status != "0") then
+	exit(1)
+endif
+
+find public    -name "*.scala" | xargs python private/python/CheckLicense.py licensing/public_license.txt    
+if ($status != "0") then
+	exit(1)
+endif
+
 find protected -name "*.scala" | xargs python private/python/CheckLicense.py licensing/protected_license.txt;
 
