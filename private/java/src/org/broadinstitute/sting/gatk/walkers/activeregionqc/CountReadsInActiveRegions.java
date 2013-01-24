@@ -52,7 +52,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.walkers.ActiveRegionExtension;
+import org.broadinstitute.sting.gatk.walkers.ActiveRegionTraversalParameters;
 import org.broadinstitute.sting.gatk.walkers.ActiveRegionWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.activeregion.ActivityProfileState;
@@ -65,7 +65,7 @@ import java.io.PrintStream;
  * Date: 12/8/11
  */
 
-@ActiveRegionExtension(extension=50)
+@ActiveRegionTraversalParameters(extension=50)
 public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInActiveRegions.Datum, GATKReport> {
     @Output(doc = "File to which results should be written", required = true)
     PrintStream out;
