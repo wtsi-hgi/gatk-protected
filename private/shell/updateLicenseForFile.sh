@@ -25,7 +25,7 @@ elif [[ $isPublic != "" ]]
 then
     licenseFile=licensing/public_license.txt;
 else
-    echo "is not in public, private or protected and is a source file. Please place it in the appropriate directory so we can choose the appropriate license";
+    echo "$1 is not in public, private or protected and is a source file. Please place it in the appropriate directory so we can choose the appropriate license";
     exit 1;
 fi
 
