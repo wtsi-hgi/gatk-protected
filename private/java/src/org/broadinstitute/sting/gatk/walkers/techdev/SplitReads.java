@@ -12,6 +12,8 @@ import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import java.util.LinkedList;
 
 /**
+ * Splits and chops reads to simulate a sequencing of smaller read lengths.
+ *
  * User: carneiro
  * Date: 1/23/13
  * Time: 6:10 PM
