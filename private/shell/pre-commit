@@ -1,16 +1,19 @@
-#!/bin/tcsh
+#!/bin/zsh
 
-foreach file (`git diff-index --name-only HEAD`)
-    echo -n "checking license on $file... "
-	if ($file:e == "java" || $file:e == "scala") then
-        private/shell/updateLicenseForFile.csh $file;
-        set result = $status
-        if ($result != 0) then
-            exit $result
+for file in `git diff-index --name-only HEAD`
+do
+    echo -n "checking license on $file... ";
+	if [[ "${file##*.}" == "java"  ||  "${file##*.}" == "scala" ]]
+	then
+        private/shell/updateLicenseForFile.sh $file;
+        result=$?;
+        if [[ $result != 0 ]]
+        then
+            exit $result;
         else
-            echo "OK"
-        endif
+            echo "OK";
+        fi
 	else
 	    echo "doesn't need a license (not java or scala)";
-	endif
-end
+	fi
+done
