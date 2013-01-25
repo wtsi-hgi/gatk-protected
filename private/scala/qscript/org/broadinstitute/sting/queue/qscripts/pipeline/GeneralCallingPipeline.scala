@@ -52,8 +52,8 @@ import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
 import org.broadinstitute.sting.queue.extensions.gatk.BaseRecalibrator
 import org.broadinstitute.sting.queue.extensions.gatk.PrintReads
 import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.queue.function.{RetryMemoryLimit, ListWriterFunction}
 import org.broadinstitute.sting.queue.function._
+import org.broadinstitute.sting.commandline
 
 
 class GeneralCallingPipeline extends QScript {
@@ -68,7 +68,7 @@ class GeneralCallingPipeline extends QScript {
   var bamFile: File = _
 
   @Argument(shortName="V", doc="The pipeline version", required=true)
-  var pipelineVersion: Int = 1
+  var pipelineVersion: Int = _
 
   @Argument(shortName="mode", doc="the class of variation to model: SNP, INDEL, BOTH", required=true)
   var mode: String = _
@@ -78,14 +78,14 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName = "RPath", doc="RPath", required=false)
   var RPath: File = new File("../R")
 
-  @Argument(shortName="scatterCount", doc="set the number of the scattered jobs", required=false)
+  @Argument(shortName="sc", doc="set the number of the scattered jobs", required=false)
   var scatterCount: Int = 0
 
   @Argument(shortName="outputDir", doc="output directory", required=false)
   var outputDir: String = "./tmp"
 
-  @Input(shortName="L", doc="An optional file with a list of intervals to proccess.",  required=false)
-  var intervals: File = _
+  @Argument(shortName="L", doc="An optional file with a list of intervals to proccess.",  required=false)
+  var intervals: String = ""
 
   @Argument(shortName="filter", doc="A optional list of filter names.", required=false)
   var filterNames: List[String] = Nil // Nil is an empty List, versus null which means a non-existent List.
@@ -99,7 +99,7 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName="filterExpression", doc="An optional list of filter expressions.", required=false)
   var filterExpressions: List[String] = Nil
 
-  @Argument(shortName="sample", doc="Samples to include in Variant Eval", required=false)
+  @Argument(shortName="samples", doc="Samples to include in Variant Eval", required=false)
   var samples: List[String] = Nil
 
   @Argument(shortName="deletions", doc="Maximum deletion fraction allowed at a site to call a genotype.", required=false)
@@ -109,12 +109,12 @@ class GeneralCallingPipeline extends QScript {
   var excludeIntervals: List[File] = Nil
 
   @Input(shortName="ped", fullName="pedigree", doc="PED file of the family", required=false)
-  var ped: File = _
+  var ped: File = "/broad/hptmp/ami/tmp/CEUTrio.ped"
 
-  @Argument(doc="Subdirectory to store the reduced bams. By default set to 'reduced'.", shortName="bamDir", required=false)
-  var bamDir = "reducedBAMs/"
+  @Argument(shortName="bamDir", doc="Subdirectory to store the reduced bams. By default set to 'reduced'.", required=false)
+  var mergeBamDir = "reducedBAMs/"
 
-  @Argument(doc="Reduce reads memory limit.", shortName="rrMem", required=false)
+  @Argument(shortName="rrMem", doc="Reduce reads memory limit.",  required=false)
   var reduceReadsMemoryLimit = 4
 
   /************* invlude/exclude steps of the pipeline ***********************/
@@ -129,22 +129,25 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName="useBQSR.2.0", doc="turn on a first step of using 2.0 BQSR on the input bam file", required=false)
   var useBQSR2: Boolean = false
 
-  @Argument(shortName="usePhaseBT", doc="apply phaseByTrasmission on the output vcf", required=false)
-  var usePhaseBT: Boolean = false
+  @Argument(shortName="PBT", doc="apply phaseByTrasmission on the output vcf", required=false)
+  var usePhaseByTransmission: Boolean = false
 
-  @Argument(shortName="createEvalSummaryReport", doc="create a pdf file with eval summery tables of the output vcf", required=false)
+  @Argument(shortName="RBP", doc="apply readBackPhasing on the output vcf", required=false)
+  var useReadBackPhasing: Boolean = false
+
+  @Argument(shortName="summaryReport", doc="create a pdf file with eval summery tables of the output vcf", required=false)
   var createEvalSummaryReport: Boolean = false
 
-  @Argument(shortName="createFullPostQCReport", doc="create a pdf file with full QC eval report of the output vcf", required=false)
+  @Argument(shortName="fullReport", doc="create a pdf file with full QC eval report of the output vcf", required=false)
   var createFullPostQCReport: Boolean = false
 
-  @Argument(shortName="CallReduceReads", doc="produces reduce reads bam files", required=false)
+  @Argument(shortName="RR", doc="produces reduce reads bam files", required=false)
   var CallReduceReads: Boolean = false
 
 
 
-  val dbSNP_135 = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_135.b37.vcf"  // Best Practices v4
-  val hapmap = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/hapmap_3.3.b37.sites.vcf"                       // Best Practices v4
+  val dbSNP_135 = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.vcf"  // Best Practices v4
+  val hapmap = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/hapmap_3.3.b37.vcf"                       // Best Practices v4
   val omni_b37 = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Omni2.5_chip/Omni25_sites_2141_samples.b37.vcf"    // Best Practices v4
   val training_1000G = "/humgen/1kg/processing/official_release/phase1/projectConsensus/phase1.wgs.projectConsensus.v2b.recal.highQuality.vcf"  // from the MethodDevelopmentCallingPipeline scala script
   val projectConsensus_1000G = "/humgen/1kg/processing/official_release/phase1/projectConsensus/ALL.wgs.projectConsensus_v2b.20101123.snps.sites.vcf"  // from the MethodDevelopmentCallingPipeline scala script
@@ -156,17 +159,17 @@ class GeneralCallingPipeline extends QScript {
 
 
   val queueLogDir = ".qlog/"
-  val noET_key = "/humgen/gsa-hpprojects/GATK/data/gatk_user_keys/gsamembers_broadinstitute.org.key"                // TODO: remove before we make it public!!!!
+  val noET_key = "/humgen/gsa-hpprojects/GATK/data/gatk_user_keys/gsamembers_broadinstitute.org.key"
 
-
-trait BaseCommandArguments extends CommandLineGATK {
+trait BaseCommandArguments extends CommandLineGATK with RetryMemoryLimit {
     this.logging_level = "INFO"
-    phone_home = GATKRunReport.PhoneHomeOption.NO_ET   // TODO: remove before we make it public!!!!
-    gatk_key = noET_key                                // TODO: remove before we make it public!!!!
+    phone_home = GATKRunReport.PhoneHomeOption.NO_ET
+    gatk_key = noET_key
     this.jobQueue = "gsa"
 
     this.reference_sequence = qscript.referenceFile
-    this.intervals = if (qscript.intervals == null) Nil else List(qscript.intervals)
+    this.intervalsString :+= qscript.intervals
+    //this.intervals = if (qscript.intervals == null) Nil else List(qscript.intervals)
     this.excludeIntervals = qscript.excludeIntervals
     this.memoryLimit = 2
 
@@ -471,14 +474,25 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
   this.jobName = queueLogDir + "CEUTrio.phaseBT"
 }
 
+  //------------------------------------------------------------------------------------ //
+  //                      8) ReadBackPhasing                                             //
+  //------------------------------------------------------------------------------------ //
+  class RBP(inputVCF: File, inputBamFile: File) extends ReadBackedPhasing with BaseCommandArguments {
+    this.input_file :+= inputBamFile
+    this.variant = inputVCF
+    this.respectPhaseInInput = true
+    this.out = qscript.outputDir + swapExt(variant,"vcf","RBphased.vcf")
+    this.jobName = queueLogDir + "CEUTrio.RBphasing"
+  }
+
 
     /****************************************************************************************
     *                script                                                                 *
     *****************************************************************************************/
 
  def script() {
-    var inputBamFile = qscript.bamFile //todo make sure it work both for bam file and bam list file
-    var name = "noName"_
+    var inputBamFile = qscript.bamFile
+    var name = "noName"
     if(inputBamFile.getName.endsWith(".bam.list")){
       name = inputBamFile.getName.stripSuffix(".bam.list")
     }
@@ -506,11 +520,11 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
   }
 
   if (CallReduceReads){
-      var bams: Seq[Tuple2[File, File]] = Nil
+      var bams: Seq[(File, File)] = Nil
       var reducedBams = Seq.empty[File]
       if (inputBamFile != null) {
           for (originalBam: File <- io.Source.fromFile(inputBamFile).getLines().toSeq.map(new File(_))) {
-            val reducedBam: File = new File(new File(bamDir, "external"), swapExt(originalBam, ".bam", ".reduced.bam").getName)
+            val reducedBam: File = new File(new File(mergeBamDir, "external"), swapExt(originalBam, ".bam", ".reduced.bam").getName)
             bams :+= Tuple2(originalBam, reducedBam)
           }
         }
@@ -545,6 +559,7 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
 		val snpRecalibrator = new snpRecal(name)
 		val snpApplyVQSR = new applySnpVQSR(name)
 		val evaluateSnp = new snpEvaluation(name)
+    val phaseBT = new PBT(snpApplyVQSR.out)
  
 		if (! doNotCall){
       add (UGgenotyper)
@@ -561,7 +576,8 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
       val qc = new QCSummaryRScript(evalVCF, bySample.out)
       add(qc)
     }
-    if(usePhaseBT){add(new PBT(snpApplyVQSR.out)) }
+    if (usePhaseByTransmission) {add(phaseBT)}
+    if (useReadBackPhasing) {add(new RBP(phaseBT.out,inputBamFile))}
 	}
 
 	if (mode == "INDEL"){
@@ -569,6 +585,7 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
 		val indelRecalibrator = new indelRecal(name)
 		val indelApplyVQSR = new applyIndelVQSR(name)
 		val evaluateIndel = new indelEvaluation(name)
+    val phaseBT = new PBT(indelApplyVQSR.out)
 
     if (! doNotCall){
       add (UGgenotyper)
@@ -587,7 +604,8 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
       add(qc)
     }
 
-    if(usePhaseBT){add(new PBT(indelApplyVQSR.out)) }
+    if (usePhaseByTransmission){add(phaseBT)}
+    if (useReadBackPhasing){add(new RBP(phaseBT.out,inputBamFile))}
 	}
 
   // currently running separate runs for SNPs and INDELS
@@ -599,6 +617,7 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
 		val indelRecalibrator = new indelRecal(name)
 		val indelApplyVQSR = new applyIndelVQSR(name)
 	  val combineSNPsIndels = new CombineSNPsIndels(name)
+    val phaseBT = new PBT(combineSNPsIndels.out)
 
     if (! doNotCall){
       add (snpUGgenotyper)
@@ -636,7 +655,9 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
     }
 
 
-    if(usePhaseBT){add(new PBT(combineSNPsIndels.out)) }
+    if (usePhaseByTransmission){add(phaseBT) }
+    if (useReadBackPhasing){add(new RBP(phaseBT.out,inputBamFile))}
+
 	}
  }
 
@@ -677,7 +698,8 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
         add(qc)
       }
     }
-    if(usePhaseBT){add(new PBT(HCApplyVQSR.out)) }
+    if(usePhaseByTransmission){add(new PBT(HCApplyVQSR.out)) }
+
 
  }
 }
