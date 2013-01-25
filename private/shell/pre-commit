@@ -1,16 +1,3 @@
-#!/bin/tcsh
+#!/bin/zsh
 
-foreach file (`git diff-index --name-only HEAD`)
-	if ($file:e == "java" || $file:e == "scala") then
-	set isPrivate = `echo "$file" | sed -n '/private/p'`;
-	set isProtected = `echo "$file" | sed -n '/protected/p'`;
-	set isPublic = `echo "$file" | sed -n '/public/p'`;
-		if ($isPrivate != "") then
-			private/shell/updateLicenseForFile.csh $file licensing/private_license.txt
-		else if ($isProtected != "") then
-			private/shell/updateLicenseForFile.csh $file licensing/protected_license.txt
-		else if ($isPublic != "") then
-			private/shell/updateLicenseForFile.csh $file licensing/public_license.txt
-		endif
-	endif
-end
+git diff-index --name-only HEAD | python private/python/UpdateLicense.py

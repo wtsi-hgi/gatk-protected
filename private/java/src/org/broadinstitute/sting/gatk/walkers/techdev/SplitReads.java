@@ -44,96 +44,104 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.variantutils;
+package org.broadinstitute.sting.gatk.walkers.techdev;
 
-import org.broadinstitute.sting.WalkerTest;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.testng.annotations.Test;
+import net.sf.samtools.SAMFileWriter;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.ReadWalker;
+import org.broadinstitute.sting.utils.clipping.ReadClipper;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
-import java.util.Arrays;
+import java.util.LinkedList;
 
-public class GenotypeConcordanceIntegrationTest extends WalkerTest {
+/**
+ * Splits and chops reads to simulate a sequencing of smaller read lengths.
+ *
+ * User: carneiro
+ * Date: 1/23/13
+ * Time: 6:10 PM
+ */
 
-    protected static final String emptyMd5 = "d41d8cd98f00b204e9800998ecf8427e";
+public class SplitReads extends ReadWalker<Integer, Integer> {
+    @Argument (shortName = "split", required = false, doc = "how many times to split the read (and all subsequent reads) -- Warning: this option overrides chop")
+    private int splits = 0;
 
-    public static String baseTestString(String eval, String comp) {
-        return "-T GenotypeConcordance -R " + b37KGReference + " --eval " + validationDataLocation + eval + " --comp " + validationDataLocation + comp + " -o %s";
+    @Argument (shortName = "chop", required = false, doc = "chops the read at the given index. Negative values means no chopping")
+    private int chopIndex = -1;
+
+    @Output(doc = "output bam file")
+    SAMFileWriter out;
+
+    @Override
+    public Integer map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
+        LinkedList<GATKSAMRecord> reads = splitRead(read, splits, chopIndex);
+        for (GATKSAMRecord splitRead : reads)
+                out.addAlignment(splitRead);
+        return reads.size();
     }
 
-    @Test
-    public void testIndelConcordance() {
-        WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString("NA12878.Jan2013.haplotypeCaller.subset.indels.vcf", "NA12878.Jan2013.bestPractices.subset.indels.vcf"),
-                0,
-                Arrays.asList("0f29a0c6dc44066228c8cb204fd53ec0")
-        );
-
-        executeTest("test indel concordance", spec);
-    }
-    
-    @Test
-    public void testNonoverlapingSamples() {
-        WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString("GenotypeConcordanceNonOverlapTest_Eval.vcf", "GenotypeConcordanceNonOverlapTest_Comp.vcf"),
-                0,
-                Arrays.asList("fc725022d47b4b5f8a6ef87f0f1ffe89")
-        );
-
-        executeTest("test non-overlapping samples", spec);
+    @Override
+    public Integer reduceInit() {
+        return 0;
     }
 
-    @Test
-    public void testNonoverlappingSamplesMoltenized() {
-        WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString("GenotypeConcordanceNonOverlapTest_Eval.vcf", "GenotypeConcordanceNonOverlapTest_Comp.vcf") + " -moltenize",
-                0,
-                Arrays.asList("370141088362d0ab7054be5249c49c11")
-        );
-
-        executeTest("Test moltenized output",spec);
+    @Override
+    public Integer reduce(Integer value, Integer sum) {
+        return sum + value;
     }
 
-    @Test
-    public void testMultipleRecordsPerSite() {
-        WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString("GenotypeConcordance.multipleRecordsTest1.eval.vcf","GenotypeConcordance.multipleRecordsTest1.comp.vcf"),
-                0,
-                Arrays.asList("352d59c4ac0cee5eb8ddbc9404b19ce9")
-        );
+    protected static LinkedList<GATKSAMRecord> splitRead(GATKSAMRecord read, int splits, int chopIndex) {
+        LinkedList<GATKSAMRecord> reads = new LinkedList<GATKSAMRecord>();
+        if (splits > 0) {
+            reads.add(read);
+            reads = splitReads(reads, splits);
 
-        executeTest("test multiple records per site",spec);
+            // fix mate alignment start information
+            final int originalAlignmentStart = read.getAlignmentStart();
+            for (GATKSAMRecord splitRead : reads) {
+                splitRead.setMateAlignmentStart(splitRead.getMateAlignmentStart() + splitRead.getAlignmentStart() - originalAlignmentStart);
+            }
+        } else if (chopIndex >= 0 ) {
+            if (chopIndex < read.getReadLength()) {
+                reads.add(ReadClipper.hardClipByReadCoordinates(read, chopIndex, read.getReadLength() - 1));
+            }
+        } else {
+            reads.add(read);
+        }
+        return reads;
     }
 
-    @Test
-    public void testGQFilteringEval() {
-        WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString("genotypeConcordanceFilterTest.vcf","genotypeConcordanceFilterTest.vcf") + " -gfe 'GQ<30'",
-                0,
-                Arrays.asList("b7b495ccfa6d50a6be3e095d3f6d3c52")
-        );
+    private static LinkedList<GATKSAMRecord> splitReads(LinkedList<GATKSAMRecord> reads, int splits) {
+        LinkedList<GATKSAMRecord> result = reads;
+        if (splits > 0) {
+            result = splitReads(reads, splits-1);
+            LinkedList<GATKSAMRecord> tempResult = new LinkedList<GATKSAMRecord>();
+            for (GATKSAMRecord read : result) {
+                tempResult.addAll(0, splitRead(read));
+            }
+            result = tempResult;
+        }
 
-        executeTest("Test filtering on the EVAL rod",spec);
+        return result;
     }
 
-    @Test
-    public void testFloatFilteringComp() {
-        WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString("genotypeConcordanceFilterTest.vcf","genotypeConcordanceFilterTest.vcf") + " -gfc 'LX<0.50'",
-                0,
-                Arrays.asList("6406b16cde7960b8943edf594303afd6")
-        );
-
-        executeTest("Test filtering on the COMP rod", spec);
-    }
-
-    @Test
-    public void testCombinedFilters() {
-        WalkerTestSpec spec = new WalkerTestSpec(
-                baseTestString("genotypeConcordanceFilterTest.vcf","genotypeConcordanceFilterTest.vcf") + " -gfc 'LX<0.52' -gfe 'DP<5' -gfe 'GQ<37'",
-                0,
-                Arrays.asList("26ffd06215b6177acce0ea9f35d73d31")
-        );
-
-        executeTest("Test filtering on both rods",spec);
+    private static LinkedList<GATKSAMRecord> splitRead(GATKSAMRecord read) {
+        LinkedList<GATKSAMRecord> result = new LinkedList<GATKSAMRecord>();
+        int readLength = read.getReadLength();
+        if (readLength == 1) {
+            result.addFirst(read);
+        } else {
+            int splitPoint = readLength / 2;
+            GATKSAMRecord splitLeft = ReadClipper.hardClipByReadCoordinates(read, 0, splitPoint-1);
+            GATKSAMRecord splitRight = ReadClipper.hardClipByReadCoordinates(read, splitPoint, readLength - 1);
+            splitLeft.setReadName(splitLeft.getReadName() + "L");
+            splitRight.setReadName(splitRight.getReadName() + "R");
+            result.addFirst(splitLeft);
+            result.addFirst(splitRight);
+        }
+        return result;
     }
 }

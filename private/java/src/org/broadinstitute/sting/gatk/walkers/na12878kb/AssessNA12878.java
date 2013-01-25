@@ -417,12 +417,16 @@ public class AssessNA12878 extends NA12878DBWalker {
             for( final RodBinding rod : variants ) {
                 // snps
                 for ( final AssessmentType type : AssessmentType.values() ) {
-                    report.addRow(rod.getName(), "SNP", type, SNPAssessments.get(rod.getName()).get(type));
+                    final Assessment assessment = SNPAssessments.get(rod.getName());
+                    if ( assessment != null )
+                        report.addRow(rod.getName(), "SNP", type, assessment.get(type));
                 }
 
                 // indels
                 for ( final AssessmentType type : AssessmentType.values() ) {
-                    report.addRow(rod.getName(), "Indel", type, IndelAssessments.get(rod.getName()).get(type));
+                    final Assessment assessment = IndelAssessments.get(rod.getName());
+                    if ( assessment != null )
+                        report.addRow(rod.getName(), "Indel", type, assessment.get(type));
                 }
             }
             report.print(out);
@@ -435,19 +439,24 @@ public class AssessNA12878 extends NA12878DBWalker {
             }
             final GATKReport report = GATKReport.newSimpleReport("NA12878Assessment", columns);
             for( final RodBinding rod : variants ) {
-                // snps
                 final List<Object> row = new ArrayList<Object>();
-                row.add(rod.getName());
-                row.add("SNP");
-                row.addAll(SNPAssessments.get(rod.getName()).getCounts());
-                report.addRowList(row);
+
+                // snps
+                if ( SNPAssessments.containsKey(rod.getName()) ) {
+                    row.add(rod.getName());
+                    row.add("SNP");
+                    row.addAll(SNPAssessments.get(rod.getName()).getCounts());
+                    report.addRowList(row);
+                    row.clear();
+                }
 
                 // indels
-                row.clear();
-                row.add(rod.getName());
-                row.add("indel");
-                row.addAll(IndelAssessments.get(rod.getName()).getCounts());
-                report.addRowList(row);
+                if ( IndelAssessments.containsKey(rod.getName()) ) {
+                    row.add(rod.getName());
+                    row.add("indel");
+                    row.addAll(IndelAssessments.get(rod.getName()).getCounts());
+                    report.addRowList(row);
+                }
             }
             report.print(out);
         }
