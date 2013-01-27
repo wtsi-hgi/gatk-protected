@@ -106,7 +106,11 @@ public class SplitReads extends ReadWalker<Integer, Integer> {
             }
         } else if (chopIndex >= 0 ) {
             if (chopIndex < read.getReadLength()) {
-                reads.add(ReadClipper.hardClipByReadCoordinates(read, chopIndex, read.getReadLength() - 1));
+                if (read.getReadNegativeStrandFlag()) {
+                    reads.add(ReadClipper.hardClipByReadCoordinates(read, 0, read.getReadLength() - chopIndex - 1));
+                } else {
+                    reads.add(ReadClipper.hardClipByReadCoordinates(read, chopIndex, read.getReadLength() - 1));
+                }
             }
         } else {
             reads.add(read);
