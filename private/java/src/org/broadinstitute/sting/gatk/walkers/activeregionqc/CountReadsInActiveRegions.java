@@ -96,7 +96,7 @@ public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInAc
 
     @Override
     public Datum map( final org.broadinstitute.sting.utils.activeregion.ActiveRegion activeRegion, final RefMetaDataTracker tracker ) {
-        return new Datum(activeRegion.getLocation(), activeRegion.getExtendedLoc(), activeRegion.isActive, activeRegion.size());
+        return new Datum(activeRegion.getLocation(), activeRegion.getExtendedLoc(), activeRegion.isActive(), activeRegion.size());
     }
 
     @Override
