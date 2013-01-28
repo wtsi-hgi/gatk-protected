@@ -94,19 +94,13 @@ public class SplitReadsUnitTest {
 
     private void chopRead(GATKSAMRecord read) {
         final int l = read.getReadLength();
-        for (int i = 1; i < l; i += 10) {
+        for (int i = 1; i <= l; i += 10) {
             LinkedList<GATKSAMRecord> result = SplitReads.splitOrChopRead(read, 0, i);
             Assert.assertEquals(result.size(), 1);
             GATKSAMRecord choppedRead = result.getFirst();
             Assert.assertEquals(choppedRead.getReadLength(), i);
             assertBases(choppedRead.getReadBases(), read.getReadBases(), read.getReadNegativeStrandFlag() ? l-i : 0);
         }
-        LinkedList<GATKSAMRecord> result = SplitReads.splitOrChopRead(read, 0, 499);
-        Assert.assertTrue(result.isEmpty());
-
-        result = SplitReads.splitOrChopRead(read, 0, 500);
-        Assert.assertTrue(result.isEmpty());
-
     }
 
     private void assertReadSplit(GATKSAMRecord read, int nSplits) {
