@@ -94,7 +94,7 @@ public class SplitReadsUnitTest {
 
     private void chopRead(GATKSAMRecord read) {
         final int l = read.getReadLength();
-        for (int i = 0; i < l; i += 10) {
+        for (int i = 1; i < l; i += 10) {
             LinkedList<GATKSAMRecord> result = SplitReads.splitOrChopRead(read, 0, i);
             Assert.assertEquals(result.size(), 1);
             GATKSAMRecord choppedRead = result.getFirst();
