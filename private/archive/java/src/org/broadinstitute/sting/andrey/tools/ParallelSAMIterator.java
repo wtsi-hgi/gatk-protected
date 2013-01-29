@@ -50,7 +50,7 @@ import net.sf.samtools.SAMFileReader;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.CloseableIterator;
 import org.broadinstitute.sting.gatk.iterators.PushbackIterator;
-import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.variant.utils.Pair;
 
 import java.util.ArrayList;
 import java.util.List;

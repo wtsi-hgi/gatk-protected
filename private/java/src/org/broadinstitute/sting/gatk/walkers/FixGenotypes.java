@@ -84,11 +84,11 @@ public class FixGenotypes extends RodWalker<Integer, Integer> {
 
         Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
         TreeSet<String> vcfSamples = new TreeSet<String>(SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE));
-        Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), logger);
+        Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), true);
 
-         vcfWriter.writeHeader(new VCFHeader(headerLines, vcfSamples));
-
+        vcfWriter.writeHeader(new VCFHeader(headerLines, vcfSamples));
     }
+
     public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
          if ( tracker == null )
              return 0;

@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.poolseq;
 
-import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.variant.utils.Pair;
 
 /**
  * Created by IntelliJ IDEA.

@@ -109,7 +109,7 @@ public class FixAllelesByConcordance extends RodWalker<Integer,Integer> {
                 samples.retainAll(new HashSet<String>((header.getValue().getGenotypeSamples())));
             }
         }
-        Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), logger);
+        Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), true);
         out.writeHeader(new VCFHeader(headerLines,samples));
     }
 

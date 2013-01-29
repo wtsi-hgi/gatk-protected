@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 # This script will CHECK all files in the GATK for the license information
 # it is meant to be run by bamboo as a sanity check that our repo contains the
@@ -9,38 +9,12 @@
 # author: Mauricio Carneiro
 # date: 1/9/13
 
-echo "";
 echo "Checking all licenses in the GATK.. ";
 
-find private   -name "*.java"  |  python private/python/CheckLicense.py licensing/private_license.txt   
-if [ "$?" -ne "0" ] 
-then
-	exit 1
-fi
-
-find public    -name "*.java"  |  python private/python/CheckLicense.py licensing/public_license.txt    
-if [ "$?" -ne "0" ] 
-then
-	exit 1
-fi
-
-find protected -name "*.java"  |  python private/python/CheckLicense.py licensing/protected_license.txt 
-if [ "$?" -ne "0" ] 
-then
-	exit 1
-fi
-
-find private   -name "*.scala" |  python private/python/CheckLicense.py licensing/private_license.txt   
-if [ "$?" -ne "0" ] 
-then
-	exit 1
-fi
-
-find public    -name "*.scala" |  python private/python/CheckLicense.py licensing/public_license.txt    
-if [ "$?" -ne "0" ] 
-then
-	exit 1
-fi
-
-find protected -name "*.scala" |  python private/python/CheckLicense.py licensing/protected_license.txt;
+ls public/**/*.java     | python private/python/licensing/CheckLicense.py
+ls protected/**/*.java  | python private/python/licensing/CheckLicense.py
+ls private/**/*.java    | python private/python/licensing/CheckLicense.py
+ls public/**/*.scala    | python private/python/licensing/CheckLicense.py
+ls protected/**/*.scala | python private/python/licensing/CheckLicense.py
+ls private/**/*.scala   | python private/python/licensing/CheckLicense.py
 

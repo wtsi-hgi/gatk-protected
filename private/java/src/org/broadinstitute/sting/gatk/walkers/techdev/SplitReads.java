@@ -46,13 +46,15 @@
 
 package org.broadinstitute.sting.gatk.walkers.techdev;
 
-import net.sf.samtools.SAMFileWriter;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.io.FastqFileWriter;
+import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
 import org.broadinstitute.sting.utils.clipping.ReadClipper;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
 import java.util.LinkedList;
@@ -66,20 +68,39 @@ import java.util.LinkedList;
  */
 
 public class SplitReads extends ReadWalker<Integer, Integer> {
-    @Argument (shortName = "split", required = false, doc = "how many times to split the read (and all subsequent reads) -- Warning: this option overrides chop")
+    @Argument (shortName = "split", required = false, doc = "how many times to split the read (and all subsequent reads) -- Warning: this option overrides chop. 0 means TypeNotPresentException chopping")
     private int splits = 0;
 
-    @Argument (shortName = "chop", required = false, doc = "chops the read at the given index. Negative values means no chopping")
-    private int chopIndex = -1;
+    @Argument (shortName = "chop", required = false, doc = "chops the read to the given size. 0 means no chopping")
+    private int chop = 0;
 
     @Output(doc = "output bam file")
-    SAMFileWriter out;
+    String outputName;
+
+
+    FastqFileWriter firstPair;
+    FastqFileWriter secondPair;
+
+    @Override
+    public void initialize() {
+        firstPair  = new FastqFileWriter(outputName + ".1" + ".fastq");
+        secondPair = new FastqFileWriter(outputName + ".2" + ".fastq");
+    }
 
     @Override
     public Integer map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
-        LinkedList<GATKSAMRecord> reads = splitRead(read, splits, chopIndex);
-        for (GATKSAMRecord splitRead : reads)
-                out.addAlignment(splitRead);
+        read.simplify();
+        LinkedList<GATKSAMRecord> reads = splitOrChopRead(read, splits, chop);
+//        System.out.println("READ: " + read.getReferenceName() + ":" + read.getAlignmentStart() + " " + read.getReadLength() + " " + read.getCigarString());
+        for (GATKSAMRecord splitRead : reads) {
+//            System.out.println("SPLI: " + splitRead.getReferenceName() + ":" + splitRead.getAlignmentStart() + " " + splitRead.getReadLength() + " " + splitRead.getCigarString());
+            if (read.getFirstOfPairFlag()) {
+                firstPair.addAlignment(splitRead);
+            } else {
+                secondPair.addAlignment(splitRead);
+            }
+        }
+//        System.out.println("");
         return reads.size();
     }
 
@@ -93,7 +114,13 @@ public class SplitReads extends ReadWalker<Integer, Integer> {
         return sum + value;
     }
 
-    protected static LinkedList<GATKSAMRecord> splitRead(GATKSAMRecord read, int splits, int chopIndex) {
+    @Override
+    public void onTraversalDone(Integer result) {
+        firstPair.close();
+        secondPair.close();
+    }
+
+    protected static LinkedList<GATKSAMRecord> splitOrChopRead(GATKSAMRecord read, int splits, int chop) {
         LinkedList<GATKSAMRecord> reads = new LinkedList<GATKSAMRecord>();
         if (splits > 0) {
             reads.add(read);
@@ -104,12 +131,19 @@ public class SplitReads extends ReadWalker<Integer, Integer> {
             for (GATKSAMRecord splitRead : reads) {
                 splitRead.setMateAlignmentStart(splitRead.getMateAlignmentStart() + splitRead.getAlignmentStart() - originalAlignmentStart);
             }
-        } else if (chopIndex >= 0 ) {
-            if (chopIndex < read.getReadLength()) {
-                reads.add(ReadClipper.hardClipByReadCoordinates(read, chopIndex, read.getReadLength() - 1));
+        } else if (chop > 0 ) {
+            chop = Math.min(chop, read.getReadLength()); // if the read is smaller than the requested read length, don't clip.
+            if (chop < read.getReadLength()) {
+                if (read.getReadNegativeStrandFlag()) { // chopping on the negative strand
+                    reads.add(ReadClipper.hardClipByReadCoordinates(read, 0, read.getReadLength() - 1 - chop));
+                } else { // chopping on the positive strand
+                    reads.add(ReadClipper.hardClipByReadCoordinates(read, chop, read.getReadLength() - 1));
+                }
+            } else {  // we want more bases than the read can give us, or exactly the size of the read, so no chopping.
+                reads.add(read);
             }
-        } else {
-            reads.add(read);
+        } else {  // neither chop or split, did you really want to run this program?
+            throw new ReviewedStingException("You sure you don't want to split or chop? Run PrintReads instead!");
         }
         return reads;
     }

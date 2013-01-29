@@ -46,17 +46,12 @@
 
 package org.broadinstitute.sting.gatk.walkers.techdev;
 
-import net.sf.samtools.Cigar;
-import net.sf.samtools.CigarElement;
-import net.sf.samtools.CigarOperator;
-import org.broadinstitute.sting.utils.sam.ArtificialSAMUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 
 /**
  * User: carneiro
@@ -68,7 +63,7 @@ public class SplitReadsUnitTest {
 
     @Test (enabled = true)
     public void splitMultipleTimes() {
-        GATKSAMRecord read = createRandomRead(4096);
+        GATKSAMRecord read = GATKSAMRecord.createRandomRead(4096);
         for (int splits = 10; splits > 0; splits--) {
             assertReadSplit(read, splits);
         }
@@ -76,30 +71,40 @@ public class SplitReadsUnitTest {
 
     @Test (enabled = true)
     public void splitWithOddLengths() {
-        GATKSAMRecord read = createRandomRead(5439);
+        GATKSAMRecord read = GATKSAMRecord.createRandomRead(5439);
         for (int splits = 10; splits > 0; splits--) {
             assertReadSplit(read, splits);
         }
     }
 
     @Test (enabled = true)
-    public void chopRead() {
+    public void chopForwardRead() {
         final int readLength = 500;
-        GATKSAMRecord read = createRandomRead(readLength);
-        for (int i = 0; i < readLength; i += 10) {
-            LinkedList<GATKSAMRecord> result = SplitReads.splitRead(read, 0, i);
+        GATKSAMRecord read = GATKSAMRecord.createRandomRead(readLength);
+        chopRead(read);
+    }
+
+    @Test (enabled = true)
+    public void chopReverseRead() {
+        final int readLength = 500;
+        GATKSAMRecord read = GATKSAMRecord.createRandomRead(readLength);
+        read.setReadNegativeStrandFlag(true);
+        chopRead(read);
+    }
+
+    private void chopRead(GATKSAMRecord read) {
+        final int l = read.getReadLength();
+        for (int i = 1; i <= l; i += 10) {
+            LinkedList<GATKSAMRecord> result = SplitReads.splitOrChopRead(read, 0, i);
             Assert.assertEquals(result.size(), 1);
             GATKSAMRecord choppedRead = result.getFirst();
             Assert.assertEquals(choppedRead.getReadLength(), i);
-            assertBases(choppedRead.getReadBases(), read.getReadBases(), 0);
+            assertBases(choppedRead.getReadBases(), read.getReadBases(), read.getReadNegativeStrandFlag() ? l-i : 0);
         }
-        LinkedList<GATKSAMRecord> result = SplitReads.splitRead(read, 0, 500);
-        Assert.assertTrue(result.isEmpty());
-
     }
 
     private void assertReadSplit(GATKSAMRecord read, int nSplits) {
-        final LinkedList<GATKSAMRecord> splittedReads = SplitReads.splitRead(read, nSplits, -1);
+        final LinkedList<GATKSAMRecord> splittedReads = SplitReads.splitOrChopRead(read, nSplits, -1);
 
         final int originalLength = read.getReadLength();
 
@@ -129,10 +134,4 @@ public class SplitReadsUnitTest {
         }
     }
 
-    private static GATKSAMRecord createRandomRead(int length) {
-        List<CigarElement> cigarElements = new LinkedList<CigarElement>();
-        cigarElements.add(new CigarElement(length, CigarOperator.M));
-        Cigar cigar = new Cigar(cigarElements);
-        return ArtificialSAMUtils.createArtificialRead(cigar);
-    }
 }

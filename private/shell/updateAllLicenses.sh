@@ -9,5 +9,9 @@
 # author: Mauricio Carneiro
 # date: 1/9/13
 
-ls private/**/*.java  | private/python/UpdateLicense.py
-ls private/**/*.scala | private/python/UpdateLicense.py
+ls -1 public/**/*.java     | python private/python/licensing/UpdateLicense.py
+ls -1 protected/**/*.java  | python private/python/licensing/UpdateLicense.py
+ls -1 private/**/*.java    | python private/python/licensing/UpdateLicense.py
+ls -1 public/**/*.scala    | python private/python/licensing/UpdateLicense.py
+ls -1 protected/**/*.scala | python private/python/licensing/UpdateLicense.py
+ls -1 private/**/*.scala   | python private/python/licensing/UpdateLicense.py

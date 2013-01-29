@@ -103,7 +103,7 @@ public class MultiplyLikelihoods extends RodWalker<Integer,Integer> {
         }
         sampleIntersection = new HashSet<String>(samples);
 
-        Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), logger);
+        Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), true);
         out.writeHeader(new VCFHeader(headerLines,samples));
 
         double p1 =-((double) chipQual)/10;
