@@ -50,6 +50,7 @@ import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
 import org.broadinstitute.sting.queue.function._
 import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 
 class LargeScaleHybridSelectionPipeline extends QScript {
   qscript =>

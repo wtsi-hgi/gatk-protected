@@ -54,6 +54,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SampleUtils;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
 import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.variant.vcf.VCFHeaderLine;
 import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
@@ -61,7 +62,6 @@ import org.broadinstitute.variant.vcf.VCFWriter;
 import org.broadinstitute.variant.variantcontext.Allele;
 import org.broadinstitute.variant.variantcontext.Genotype;
 import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.VariantContextUtils;
 
 import java.util.*;
 
@@ -88,7 +88,7 @@ public class MergeAndMatchHaplotypes extends RodWalker<Integer, Integer> {
         rodNames.add(pbtTrack.getName());
 
         Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
-        Set<String> vcfSamples = SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE);
+        Set<String> vcfSamples = SampleUtils.getSampleList(vcfRods, GATKVariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE);
         Set<VCFHeaderLine> headerLines = new HashSet<VCFHeaderLine>();
         headerLines.addAll(GATKVCFUtils.getHeaderFields(this.getToolkit()));
 

@@ -58,7 +58,7 @@ import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.Window;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.variant.utils.Pair;
+import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.variant.vcf.VCFHeaderLine;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;

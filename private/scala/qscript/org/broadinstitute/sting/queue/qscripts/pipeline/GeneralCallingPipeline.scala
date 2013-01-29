@@ -54,6 +54,7 @@ import org.broadinstitute.sting.queue.extensions.gatk.PrintReads
 import org.broadinstitute.sting.queue.util.QScriptUtils
 import org.broadinstitute.sting.queue.function._
 import org.broadinstitute.sting.commandline
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 
 
 class GeneralCallingPipeline extends QScript {

@@ -53,6 +53,7 @@ import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
 import org.broadinstitute.sting.queue.function.ListWriterFunction
 import org.broadinstitute.sting.queue.QScript
 import collection.JavaConversions._
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 
 class HybridSelectionPipeline extends QScript {
   qscript =>

@@ -49,7 +49,6 @@ package org.broadinstitute.sting.gatk.walkers.simulatereads;
 import cern.jet.random.Poisson;
 import cern.jet.random.engine.MersenneTwister;
 import net.sf.samtools.SAMFileHeader;
-import net.sf.samtools.SAMFileWriter;
 import net.sf.samtools.SAMProgramRecord;
 import net.sf.samtools.SAMReadGroupRecord;
 import org.broadinstitute.sting.commandline.Argument;
@@ -68,7 +67,7 @@ import org.broadinstitute.sting.utils.text.TextFormattingUtils;
 import org.broadinstitute.variant.utils.BaseUtils;
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
-import org.broadinstitute.variant.utils.Pair;
+import org.broadinstitute.sting.utils.collections.Pair;
 
 import java.util.*;
 
