@@ -64,14 +64,12 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.R.RScriptExecutor;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.variantcontext.*;
 import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.io.Resource;
-import org.broadinstitute.variant.variantcontext.Genotype;
-import org.broadinstitute.variant.variantcontext.GenotypeLikelihoods;
-import org.broadinstitute.variant.variantcontext.GenotypeType;
-import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -151,7 +149,10 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     
     @Argument(fullName="indels", shortName="indels", doc="Do indel evaluation", required=false)
     private boolean doIndels = false;
-    
+
+    @Argument(fullName="repeats", shortName="repeats", doc="Do indel evaluation", required=false)
+    private boolean doRepeats = false;
+
     //@Argument(fullName="standard_min_confidence_threshold_for_calling", shortName="stand_call_conf", doc="the minimum phred-scaled Qscore threshold to separate high confidence from low confidence calls", required=false)
     private double callConf = 0;
 
@@ -160,7 +161,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
     PrintStream moltenDataset;
     Set<String> samples;
-    final String SCRIPT_FILE = "CalibrateGenotypeLikelihoods.R";
+    String SCRIPT_FILE = "CalibrateGenotypeLikelihoods.R";
 
     /**
      * Trivial wrapper class.  Data is a collection of Datum.
@@ -187,6 +188,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         final String ref, alt;
         final VariantContext.Type siteType;
         final GenotypeType genotypeType;
+        final boolean isRepeat;
 
         @Override
         public int compareTo(Datum o) {
@@ -195,7 +197,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             return bySample != 0 ? bySample : byRG;
         }
 
-        public Datum(final GenomeLoc loc, String ref, String alt, String sample, String rgID, GenotypeLikelihoods pl, VariantContext.Type siteType, GenotypeType genotypeType) {
+        public Datum(final GenomeLoc loc, String ref, String alt, String sample, String rgID, GenotypeLikelihoods pl, VariantContext.Type siteType, GenotypeType genotypeType, boolean isrep) {
             this.loc = loc;
             this.ref = ref;
             this.alt = alt;
@@ -204,6 +206,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             this.pl = pl;
             this.siteType = siteType;
             this.genotypeType = genotypeType;
+            this.isRepeat = isrep;
         }
     }
 
@@ -291,6 +294,9 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             snpEngine = new UnifiedGenotyperEngine(getToolkit(), uac, Logger.getLogger(UnifiedGenotyperEngine.class), null, null, samples, 2 * samples.size() );
 
         }
+
+        if (doRepeats)
+            SCRIPT_FILE = "CalibrateGenotypeLikelihoodsByRepeat.R";
     }
 
     //---------------------------------------------------------------------------------------------------------------
@@ -357,6 +363,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         // print the header
         final List<String> pGNames = Arrays.asList("QofAAGivenD", "QofABGivenD", "QofBBGivenD");
         final List<String> fields = Arrays.asList("sample", "rg", "loc", "ref", "alt", "siteType", "pls", "comp", "pGGivenDType", "pGGivenD", "pDGivenG");
+        if (doRepeats)
+            fields.add("isRepeat");
         moltenDataset.println(Utils.join("\t", fields));
 
         // determine the priors by counting all of the events we've seen in comp
@@ -379,9 +387,15 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
                 final int qDGivenG = QualityUtils.probToQual(pOfDGivenG[i], QualityUtils.ERROR_RATE_OF_MAX_QUAL_SCORE);
                 final int qGGivenD = QualityUtils.probToQual(pOfGGivenD[i], QualityUtils.ERROR_RATE_OF_MAX_QUAL_SCORE);
                 if ( qGGivenD > 1 ) { // tons of 1s, and not interesting
-                    moltenDataset.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d%n",
+                    if (doRepeats)
+                    moltenDataset.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%b%n",
                             d.sample, d.rgID, d.loc, d.ref, d.alt, d.siteType, d.pl.getAsString(), d.genotypeType.toString(),
-                            pGNames.get(i), qGGivenD, qDGivenG);
+                            pGNames.get(i), qGGivenD, qDGivenG, d.isRepeat);
+                    else
+                        moltenDataset.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d%n",
+                                d.sample, d.rgID, d.loc, d.ref, d.alt, d.siteType, d.pl.getAsString(), d.genotypeType.toString(),
+                                pGNames.get(i), qGGivenD, qDGivenG);
+
                 }
             }
         }
@@ -391,6 +405,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         executor.addScript(new Resource(SCRIPT_FILE, CalibrateGenotypeLikelihoods.class));
         executor.addArgs(moltenDatasetFileName.getAbsolutePath());
         executor.addArgs( externalLikelihoods.isEmpty() ? 1 : 0 ); // only plot the "ALL" read group if running without external likelihood files
+        if (doRepeats)
+            executor.addArgs(1); // stratify by repeat class if in indel mode
         logger.info("Generating plots...");
         executor.exec();
     }
@@ -440,18 +456,20 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     }
 
     private final void addValue( final Data data, final VariantContext vcComp, final ReferenceContext ref, final String sample,
-                                 final String rgID, final Genotype calledGT, final Genotype compGT ) {
+                                 final String rgID, final Genotype calledGT, final Genotype compGT) {
         String refs, alts;
+        boolean isRepeat = false;
         if (vcComp.isIndel()) {
-            refs = ((char)ref.getBase()) + vcComp.getReference().getDisplayString();
-            alts = ((char)ref.getBase()) + vcComp.getAlternateAllele(0).getDisplayString();
+            refs = vcComp.getReference().getDisplayString();
+            alts = vcComp.getAlternateAllele(0).getDisplayString();
+            isRepeat = (VariantContextUtils.isTandemRepeat(vcComp, ref.getForwardBases()));
         } else {
             refs = vcComp.getReference().getBaseString();
             alts = vcComp.getAlternateAllele(0).getBaseString();
         }
         final GenomeLoc loc = getToolkit().getGenomeLocParser().createGenomeLoc(vcComp);
         final Datum d = new Datum(loc, refs, alts, sample, rgID, calledGT.getLikelihoods(),
-                vcComp.getType(), compGT.getType());
+                vcComp.getType(), compGT.getType(), isRepeat);
         data.values.add(d);
     }
 

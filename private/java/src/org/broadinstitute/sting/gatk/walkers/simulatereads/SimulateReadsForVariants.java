@@ -52,7 +52,9 @@ import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMProgramRecord;
 import net.sf.samtools.SAMReadGroupRecord;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
@@ -60,12 +62,12 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RefWalker;
 import org.broadinstitute.sting.gatk.walkers.Reference;
 import org.broadinstitute.sting.gatk.walkers.Window;
+import org.broadinstitute.sting.gatk.walkers.annotator.ChromosomeCountConstants;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
 import org.broadinstitute.variant.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.variant.vcf.VCFConstants;
-import org.broadinstitute.variant.vcf.VCFHeader;
-import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.variant.vcf.*;
 import org.broadinstitute.variant.variantcontext.*;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -80,7 +82,7 @@ import java.util.*;
 /**
  * Generates simulated reads for variants
  */
-@Reference(window=@Window(start=-20,stop=20))
+@Reference(window=@Window(start=-200,stop=200))
 public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
     @Argument(fullName = "vcf", shortName = "vcf", doc="Variants underlying the reads",required=true)
     protected VariantContextWriter variantsWriter;
@@ -195,6 +197,21 @@ public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
         // todo -- fill out header
         Set<VCFHeaderLine> headerLines = new HashSet<VCFHeaderLine>();
         headerLines.add(new VCFHeaderLine("source", "SimulateReadsForVariants"));
+        VCFStandardHeaderLines.addStandardInfoLines(headerLines, true,
+                VCFConstants.DOWNSAMPLED_KEY,
+                VCFConstants.MLE_ALLELE_COUNT_KEY,
+                VCFConstants.MLE_ALLELE_FREQUENCY_KEY);
+
+        // FORMAT fields
+        VCFStandardHeaderLines.addStandardFormatLines(headerLines, true,
+                VCFConstants.GENOTYPE_KEY,
+                VCFConstants.GENOTYPE_QUALITY_KEY,
+                VCFConstants.DEPTH_KEY,
+                VCFConstants.GENOTYPE_PL_KEY);
+        headerLines.addAll(Arrays.asList(ChromosomeCountConstants.descriptions));
+        headerLines.add(new VCFInfoHeaderLine("Q", 1, VCFHeaderLineType.Integer, "Q"));
+        headerLines.add(new VCFInfoHeaderLine("MODE", 1, VCFHeaderLineType.Integer, "Mode"));
+
         variantsWriter.writeHeader(new VCFHeader(headerLines, new HashSet<String>(sampleNames)));
 
         // initialize BAM headers
@@ -293,7 +310,7 @@ public class SimulateReadsForVariants extends RefWalker<Integer, Integer> {
 
         Map<String, Object> attributes = new LinkedHashMap<String, Object>();
         attributes.put(VCFConstants.ALLELE_COUNT_KEY, AC);
-        attributes.put(VCFConstants.SAMPLE_NUMBER_KEY, nSamples);
+    //    attributes.put(VCFConstants.SAMPLE_NUMBER_KEY, nSamples);
         attributes.put(VCFConstants.ALLELE_NUMBER_KEY, 2 * nSamples);
         attributes.put("Q", params.readQuals[0]);
         attributes.put("MODE", params.mode);
