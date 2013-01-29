@@ -1,14 +1,13 @@
 import sys
+import os
 import logging
 import LicenseUtils
 
 logging.basicConfig(format="[UpdateLicense]: %(message)s", level = logging.INFO)
-#for i in range(1, len(sys.argv)):
-#    filename = sys.argv[i].strip()
 for filename in sys.stdin.readlines():
     filename = filename.strip()
 
-    if LicenseUtils.isSourceFile(filename):
+    if LicenseUtils.isSourceFile(filename) and os.path.exists(filename):
         licenseFile = open(LicenseUtils.getAppropriateLicense(filename))
         sourceFile = open(filename)
         updatedSource = "/*\n"
