@@ -15,5 +15,5 @@ for filename in sys.stdin.readlines():
         source = LicenseUtils.extractLicenseFromSource(sourceFile)
         if license != source:
             logging.info("Wrong license for file " + filename)
-            exitStatus = 1
+            exitStatus = -1
 exit(exitStatus)
