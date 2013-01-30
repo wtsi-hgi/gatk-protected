@@ -50,8 +50,8 @@ import net.sf.picard.reference.IndexedFastaSequenceFile;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.BaseTest;
 import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
 import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.vcf.VCFUtils;
 import org.testng.SkipException;
 
 import java.io.File;
@@ -69,7 +69,7 @@ public class NA12878KBUnitTestBase extends BaseTest {
 
     static {
         try {
-            testVCs = Collections.unmodifiableList(VCFUtils.readVCF(testVCF).getSecond());
+            testVCs = Collections.unmodifiableList(GATKVCFUtils.readVCF(testVCF).getSecond());
             final IndexedFastaSequenceFile fasta = new IndexedFastaSequenceFile(new File(b37KGReference));
             parser = new GenomeLocParser(fasta.getSequenceDictionary());
         } catch ( IOException e ) {

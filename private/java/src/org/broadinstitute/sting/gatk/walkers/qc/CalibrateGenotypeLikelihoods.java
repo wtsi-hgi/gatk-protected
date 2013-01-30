@@ -462,7 +462,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         if (vcComp.isIndel()) {
             refs = vcComp.getReference().getDisplayString();
             alts = vcComp.getAlternateAllele(0).getDisplayString();
-            isRepeat = (VariantContextUtils.isTandemRepeat(vcComp, ref.getForwardBases()));
+            isRepeat = (GATKVariantContextUtils.isTandemRepeat(vcComp, ref.getForwardBases()));
         } else {
             refs = vcComp.getReference().getBaseString();
             alts = vcComp.getAlternateAllele(0).getBaseString();

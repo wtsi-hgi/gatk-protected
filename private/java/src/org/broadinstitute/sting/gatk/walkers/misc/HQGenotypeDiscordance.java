@@ -55,10 +55,10 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
 import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.variant.variantcontext.Genotype;
 import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.VariantContextUtils;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -86,7 +86,7 @@ public class HQGenotypeDiscordance extends RodWalker<Integer,Long> {
 
     public void initialize() {
         Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit());
-        sampleOverlap = SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.PRIORITIZE);
+        sampleOverlap = SampleUtils.getSampleList(vcfRods, GATKVariantContextUtils.GenotypeMergeType.PRIORITIZE);
     }
 
     public Long reduceInit() {

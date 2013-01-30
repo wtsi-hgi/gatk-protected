@@ -62,6 +62,7 @@ import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MendelianViolation;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
 import org.broadinstitute.variant.vcf.*;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -399,7 +400,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         List<String> rodNames = Arrays.asList(variantCollection.variants.getName());
 
         Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
-        TreeSet<String> vcfSamples = new TreeSet<String>(SampleUtils.getSampleList(vcfRods, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE));
+        TreeSet<String> vcfSamples = new TreeSet<String>(SampleUtils.getSampleList(vcfRods, GATKVariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE));
 
         Collection<String> samplesFromFile = SampleUtils.getSamplesFromFiles(sampleFiles);
         Collection<String> samplesFromExpressions = SampleUtils.matchSamplesExpressions(vcfSamples, sampleExpressions);
@@ -487,7 +488,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             final UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
             UAC.GLmodel = GenotypeLikelihoodsCalculationModel.Model.BOTH;
             UAC.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES;
-            UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, VariantContextUtils.DEFAULT_PLOIDY);
+            UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, GATKVariantContextUtils.DEFAULT_PLOIDY);
         }
 
         /** load in the IDs file to a hashset for matching */
@@ -650,17 +651,17 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         List<VariantContext> mergedVCs = new ArrayList<VariantContext>();
 
         //defaults from CombineVariants
-        VariantContextUtils.MultipleAllelesMergeType multipleAllelesMergeType = VariantContextUtils.MultipleAllelesMergeType.BY_TYPE;
+        GATKVariantContextUtils.MultipleAllelesMergeType multipleAllelesMergeType = GATKVariantContextUtils.MultipleAllelesMergeType.BY_TYPE;
         List<String> priority = new ArrayList<String>();
         priority.add("input");
-        VariantContextUtils.FilteredRecordMergeType filteredRecordsMergeType = VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED;
-        VariantContextUtils.GenotypeMergeType genotypeMergeOption = VariantContextUtils.GenotypeMergeType.PRIORITIZE;
+        GATKVariantContextUtils.FilteredRecordMergeType filteredRecordsMergeType = GATKVariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED;
+        GATKVariantContextUtils.GenotypeMergeType genotypeMergeOption = GATKVariantContextUtils.GenotypeMergeType.PRIORITIZE;
         boolean printComplexMerges = false;
         String SET_KEY = "set";
         boolean filteredAreUncalled = false;
         boolean MERGE_INFO_WITH_MAX_AC = false;
 
-        if (multipleAllelesMergeType == VariantContextUtils.MultipleAllelesMergeType.BY_TYPE) {
+        if (multipleAllelesMergeType == GATKVariantContextUtils.MultipleAllelesMergeType.BY_TYPE) {
             Map<VariantContext.Type, List<VariantContext>> VCsByType = VariantContextUtils.separateVariantContextsByType(vcs);
 
             // TODO -- clean this up in a refactoring
@@ -678,13 +679,13 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             // iterate over the types so that it's deterministic
             for (VariantContext.Type type : VariantContext.Type.values()) {
                 if (VCsByType.containsKey(type))
-                    mergedVCs.add(VariantContextUtils.simpleMerge(VCsByType.get(type),
+                    mergedVCs.add(GATKVariantContextUtils.simpleMerge(VCsByType.get(type),
                             priority, filteredRecordsMergeType, genotypeMergeOption, true, printComplexMerges,
                             SET_KEY, filteredAreUncalled, MERGE_INFO_WITH_MAX_AC));
             }
         }
-        else if (multipleAllelesMergeType == VariantContextUtils.MultipleAllelesMergeType.MIX_TYPES) {
-            mergedVCs.add(VariantContextUtils.simpleMerge(vcs,
+        else if (multipleAllelesMergeType == GATKVariantContextUtils.MultipleAllelesMergeType.MIX_TYPES) {
+            mergedVCs.add(GATKVariantContextUtils.simpleMerge(vcs,
                     priority, filteredRecordsMergeType, genotypeMergeOption, true, printComplexMerges,
                     SET_KEY, filteredAreUncalled, MERGE_INFO_WITH_MAX_AC));
         }
@@ -843,7 +844,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
         // if we have fewer alternate alleles in the selected VC than in the original VC, we need to strip out the GL/PLs (because they are no longer accurate)
         if ( vc.getAlleles().size() != sub.getAlleles().size() )
-            newGC = VariantContextUtils.stripPLsAndAD(sub.getGenotypes());
+            newGC = GATKVariantContextUtils.stripPLsAndAD(sub.getGenotypes());
 
         //Remove a fraction of the genotypes if needed
         if(fractionGenotypes>0){

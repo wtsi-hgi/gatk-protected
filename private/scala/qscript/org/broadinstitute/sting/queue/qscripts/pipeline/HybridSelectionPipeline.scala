@@ -53,6 +53,7 @@ import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
 import org.broadinstitute.sting.queue.function.ListWriterFunction
 import org.broadinstitute.sting.queue.QScript
 import collection.JavaConversions._
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 
 class HybridSelectionPipeline extends QScript {
   qscript =>
@@ -234,7 +235,7 @@ class HybridSelectionPipeline extends QScript {
     val combineSNPsIndels = new CombineVariants with CommandLineGATKArgs with ExpandedIntervals
     combineSNPsIndels.variant :+= TaggedFile(filterIndels.out, "indels")
     combineSNPsIndels.variant :+= TaggedFile(filteredSNPsVcf, "snps")
-    combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.variant.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    combineSNPsIndels.filteredrecordsmergetype = FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     combineSNPsIndels.assumeIdenticalSamples = true
     combineSNPsIndels.out = projectName + ".unannotated.vcf"
     add(combineSNPsIndels)

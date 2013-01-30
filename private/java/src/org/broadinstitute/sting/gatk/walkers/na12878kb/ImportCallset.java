@@ -54,6 +54,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
 import org.broadinstitute.variant.variantcontext.*;
 
 import java.util.Arrays;
@@ -140,7 +141,7 @@ public class ImportCallset extends NA12878DBWalker {
                 continue;
             }
 
-            final List<VariantContext> biallelics = VariantContextUtils.splitVariantContextToBiallelics(vc);
+            final List<VariantContext> biallelics = GATKVariantContextUtils.splitVariantContextToBiallelics(vc);
             final boolean isMultiAllelic = biallelics.size() > 1;
             if ( isMultiAllelic )
                 logger.info("Splitting original multi-allelic " + vc);
