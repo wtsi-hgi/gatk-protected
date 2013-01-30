@@ -662,7 +662,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         boolean MERGE_INFO_WITH_MAX_AC = false;
 
         if (multipleAllelesMergeType == GATKVariantContextUtils.MultipleAllelesMergeType.BY_TYPE) {
-            Map<VariantContext.Type, List<VariantContext>> VCsByType = VariantContextUtils.separateVariantContextsByType(vcs);
+            Map<VariantContext.Type, List<VariantContext>> VCsByType = GATKVariantContextUtils.separateVariantContextsByType(vcs);
 
             // TODO -- clean this up in a refactoring
             // merge NO_VARIATION into another type of variant (based on the ordering in VariantContext.Type)
