@@ -235,7 +235,7 @@ class HybridSelectionPipeline extends QScript {
     val combineSNPsIndels = new CombineVariants with CommandLineGATKArgs with ExpandedIntervals
     combineSNPsIndels.variant :+= TaggedFile(filterIndels.out, "indels")
     combineSNPsIndels.variant :+= TaggedFile(filteredSNPsVcf, "snps")
-    combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.variant.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    combineSNPsIndels.filteredrecordsmergetype = FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     combineSNPsIndels.assumeIdenticalSamples = true
     combineSNPsIndels.out = projectName + ".unannotated.vcf"
     add(combineSNPsIndels)
