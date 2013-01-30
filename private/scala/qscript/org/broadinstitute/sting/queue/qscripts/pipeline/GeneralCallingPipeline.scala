@@ -53,7 +53,6 @@ import org.broadinstitute.sting.queue.extensions.gatk.BaseRecalibrator
 import org.broadinstitute.sting.queue.extensions.gatk.PrintReads
 import org.broadinstitute.sting.queue.util.QScriptUtils
 import org.broadinstitute.sting.queue.function._
-import org.broadinstitute.sting.commandline
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 
 
@@ -117,6 +116,9 @@ class GeneralCallingPipeline extends QScript {
 
   @Argument(shortName="rrMem", doc="Reduce reads memory limit.",  required=false)
   var reduceReadsMemoryLimit = 4
+
+  @Argument(shortName="callingMem", doc="calling (UG/HC) memory limit.",  required=false)
+  var callingMemoryLimit = 6
 
   /************* invlude/exclude steps of the pipeline ***********************/
 
@@ -224,6 +226,7 @@ class UGBase extends UnifiedGenotyper with BaseCommandArguments {
     this.stand_call_conf = 30.0
     this.stand_emit_conf = 30.0
     this.D = new File(dbSNP_135)
+    this.memoryLimit = qscript.callingMemoryLimit
 }
 
   // 1a.) Call SNPs with UG
@@ -243,7 +246,6 @@ class UGBase extends UnifiedGenotyper with BaseCommandArguments {
   // 1b.) Call Indels with UG
   class indelCaller(name: String, inputBamFile: File) extends UGBase with BaseCommandArguments {
     this.input_file :+= inputBamFile
-    this.memoryLimit = 6
     this.out = qscript.outputDir + name + "indel.unfiltered.vcf"
     this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
     this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
@@ -262,7 +264,6 @@ class HCBase(name:String, inputHCFile: File) extends HaplotypeCaller with Haplot
     this.stand_emit_conf = 10.0
     this.minPruning = 2
     this.javaGCThreads = 4
-    this.memoryLimit = 8 //4	
 }
  
 
@@ -390,7 +391,7 @@ class CutBoth(inputVCF: File) extends applyVQSRBase with HaplotypeCallerArgument
 class CombineSNPsIndels(name:String) extends CombineVariants with BaseCommandArguments {
     this.variant :+= TaggedFile(new File(qscript.outputDir + name + "indel.recalibrated.filtered.vcf"), "indels")
     this.variant :+= TaggedFile(new File(qscript.outputDir + name + "snp.recalibrated.filtered.vcf"), "snps")
-    this.filteredrecordsmergetype = org.broadinstitute.variant.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    this.filteredrecordsmergetype = FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     this.assumeIdenticalSamples = true
     this.out = qscript.outputDir + name +  "both.recalibrated.filtered.vcf"
 }
@@ -669,6 +670,7 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
 		val HC_vcfFile = HCgenotyper.out
 		val HCRecalibrator = new RecalBoth(HC_vcfFile)
 		val HCApplyVQSR = new CutBoth(HC_vcfFile)
+    val phaseBT = new PBT(HCApplyVQSR.out)
 
     if (! doNotCall){
       add (HCgenotyper)
@@ -699,7 +701,8 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
         add(qc)
       }
     }
-    if(usePhaseByTransmission){add(new PBT(HCApplyVQSR.out)) }
+    if (usePhaseByTransmission){add(phaseBT) }
+    if (useReadBackPhasing){add(new RBP(phaseBT.out,inputBamFile))}
 
 
  }
