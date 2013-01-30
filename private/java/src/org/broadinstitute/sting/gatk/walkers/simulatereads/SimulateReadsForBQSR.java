@@ -64,7 +64,7 @@ import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.text.TextFormattingUtils;
-import org.broadinstitute.variant.utils.BaseUtils;
+import org.broadinstitute.sting.utils.BaseUtils;
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import org.broadinstitute.sting.utils.collections.Pair;

@@ -49,7 +49,7 @@ package org.broadinstitute.sting.gatk.walkers.misc;
 import org.broadinstitute.sting.alignment.Alignment;
 import org.broadinstitute.sting.alignment.bwa.c.BWACAligner;
 import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.variant.utils.BaseUtils;
+import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 
 import java.util.*;
