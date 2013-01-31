@@ -63,8 +63,8 @@ import java.util.Set;
 public class PicardAggregationUtils {
     private static final Logger log = Logger.getLogger(PicardAggregationUtils.class);
 
-    private static final PicardAggregationFsUtil aggregationFsUtil = new PicardAggregationFsUtil();
-    public static final String PICARD_AGGREGATION_DIR = aggregationFsUtil.AGGREGATION_DIRECTORY.getAbsolutePath() + "/";
+    public static final String PICARD_AGGREGATION_DIR = "/seq/picard_aggregation/";
+    private static final PicardAggregationFsUtil aggregationFsUtil = new PicardAggregationFsUtil(new File(PICARD_AGGREGATION_DIR));
 
     public static List<PicardSample> parseSamples(File tsv) {
         return parseSamples(tsv, true);
