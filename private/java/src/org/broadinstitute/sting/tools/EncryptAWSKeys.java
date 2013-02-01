@@ -71,7 +71,7 @@ import java.util.Arrays;
  *
  * in the following directory:
  *
- * public/java/src/org/broadinstitute/sting/gatk/phonehome/
+ * public/java/src/org/broadinstitute/sting/gatk/phonehome/resources
  *
  * Usage:
  *
@@ -87,7 +87,7 @@ public class EncryptAWSKeys extends CommandLineProgram {
     private String awsSecretKey;
 
     @Argument(fullName = "path", shortName = "path", doc = "The default path for the files", required = false)
-    private String outputDirectory = "public/java/src/org/broadinstitute/sting/gatk/phonehome/";
+    private String outputDirectory = "public/java/src/org/broadinstitute/sting/gatk/phonehome/resources/";
 
     public static final String ACCESS_KEY_FILENAME = "GATK_AWS_access.key";
     public static final String SECRET_KEY_FILENAME = "GATK_AWS_secret.key";
