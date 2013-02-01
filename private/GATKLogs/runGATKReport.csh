@@ -16,10 +16,10 @@ rm -f $REPORT_TXT
 cd $DIR
 
 echo "\n####################\nArchiving recently submitted jobs" >> $REPORT_TXT
-python $GATK/python/analyzeRunReports.py archive $DIR/submitted -o $ARCHIVE.gz -D >> $REPORT_TXT
+python $GATK/GATKLogs/analyzeRunReports.py archive $DIR/submitted -o $ARCHIVE.gz -D >> $REPORT_TXT
 
 echo "\n####################\nLoading to DB" >> $REPORT_TXT
-python $GATK/python/analyzeRunReports.py loadToDB $ARCHIVE.gz >> $REPORT_TXT
+python $GATK/GATKLogs/analyzeRunReports.py loadToDB $ARCHIVE.gz >> $REPORT_TXT
 
 cat $REPORT_TXT
 

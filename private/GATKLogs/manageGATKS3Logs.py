@@ -196,7 +196,7 @@ if __name__ == "__main__":
                         type='string', default='.',
                         help="Path to write local logs to")
     parser.add_option("-s", "--s3cmd", dest="S3CMD",
-                        type='string', default="/Users/depristo/Desktop/broadLocal/s3/s3cmd-1.0.1/s3cmd",
+                        type='string', default="/Users/depristo/Desktop/broadLocal/s3cmd-1.1.0-beta3/s3cmd",
                         help="Path to s3cmd executable")
     parser.add_option("-g", "--groupSize", dest="GROUP_SIZE",
                         type='int', default=100,

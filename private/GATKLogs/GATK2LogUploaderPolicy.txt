@@ -6,7 +6,7 @@
         "s3:PutObject"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:s3:::IGV_crowdsourcing/*"
+      "Resource": "arn:aws:s3:::GATK_Run_Reports*/*"
     }
   ]
 }

@@ -10,7 +10,7 @@ setenv DIR $ROOT/archive/$DATE
 #
 # manageGATKS3Logs.py copied from GATK repository, do not modify it here
 #
-setenv BASE "python $GATK/private/python/manageGATKS3Logs.py -b GATK_Run_Reports -s $ROOT/s3cmd-1.0.0/s3cmd -d $DIR -p 10 -g 100"
+setenv BASE "python $GATK/private/GATKLogs/manageGATKS3Logs.py -b GATK_Run_Reports -s $ROOT/s3cmd-1.0.0/s3cmd -d $DIR -p 10 -g 100"
 setenv LSFILE $ROOT/files_$DATE.ls
 
 $BASE ls $LSFILE
@@ -18,11 +18,11 @@ $BASE move $LSFILE progress_$DATE.log
 echo 'Done:', `date`
 
 echo "\n####################\nArchiving"
-python $GATK/private/python/analyzeRunReports.py archive $DIR -o $DIR.gz -D
+python $GATK/private/GATKLogs/analyzeRunReports.py archive $DIR -o $DIR.gz -D
 echo 'Done:', `date`
 
 echo "\n####################\nLoading to DB"
-python $GATK/private/python/analyzeRunReports.py loadToDB $DIR.gz
+python $GATK/private/GATKLogs/analyzeRunReports.py loadToDB $DIR.gz
 echo 'Done:', `date`
 
 # if the dir is empty we proceed
