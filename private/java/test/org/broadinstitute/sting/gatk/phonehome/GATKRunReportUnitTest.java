@@ -58,8 +58,11 @@ import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.jets3t.service.S3Service;
+import org.jets3t.service.S3ServiceException;
+import org.jets3t.service.ServiceException;
 import org.jets3t.service.model.S3Object;
 import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -71,6 +74,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public class GATKRunReportUnitTest extends BaseTest {
+    private final static boolean DEBUG = false;
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
@@ -80,18 +84,31 @@ public class GATKRunReportUnitTest extends BaseTest {
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
 
-    @Test
+    private Walker walker;
+    private Exception exception;
+    private GenomeAnalysisEngine engine;
+
+
+    @BeforeClass
+    public void setup() {
+        walker = new CountReads();
+        exception = new IllegalArgumentException("javaException");
+        engine = new GenomeAnalysisEngine();
+        engine.setArguments(new GATKArgumentCollection());
+    }
+
+    @Test(enabled = ! DEBUG)
     public void testAWSKeysAreValid() {
         // throws an exception if they aren't
         GATKRunReport.checkAWSAreValid();
     }
 
-    @Test
+    @Test(enabled = ! DEBUG)
     public void testAccessKey() throws Exception {
         testAWSKey(GATKRunReport.getAWSUploadAccessKey(), GATKRunReport.AWS_ACCESS_KEY_MD5);
     }
 
-    @Test
+    @Test(enabled = ! DEBUG)
     public void testSecretKey() throws Exception {
         testAWSKey(GATKRunReport.getAWSUploadSecretKey(), GATKRunReport.AWS_SECRET_KEY_MD5);
     }
@@ -128,7 +145,7 @@ public class GATKRunReportUnitTest extends BaseTest {
         return tests.toArray(new Object[][]{});
     }
 
-    @Test(enabled = true, dataProvider = "GATKReportCreationTest")
+    @Test(enabled = !DEBUG, dataProvider = "GATKReportCreationTest")
     public void testGATKReportCreationReadingAndWriting(final Walker walker, final Exception exception, final GenomeAnalysisEngine engine) throws Exception {
         final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD);
         final ByteArrayOutputStream captureStream = new ByteArrayOutputStream();
@@ -164,14 +181,9 @@ public class GATKRunReportUnitTest extends BaseTest {
 
     // Will fail with timeout if AWS time out isn't working
     // Will fail with exception if AWS doesn't protect itself from errors
-    @Test(dataProvider = "GATKAWSReportMode", timeOut = 60 * 1000)
+    @Test(enabled = ! DEBUG, dataProvider = "GATKAWSReportMode", timeOut = 60 * 1000)
     public void testAWS(final GATKRunReport.AWSMode awsMode) {
         logger.warn("Starting testAWS mode=" + awsMode);
-        final Walker walker = new CountReads();
-        final Exception exception = new IllegalArgumentException("javaException");
-        final GenomeAnalysisEngine engine = new GenomeAnalysisEngine();
-        engine.setArguments(new GATKArgumentCollection());
-
         final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD);
         report.sendAWSToTestBucket();
         report.setAwsMode(awsMode);
@@ -215,13 +227,8 @@ public class GATKRunReportUnitTest extends BaseTest {
         return tests.toArray(new Object[][]{});
     }
 
-    @Test(dataProvider = "PostReportByType", timeOut = 60 * 1000)
+    @Test(enabled = ! DEBUG, dataProvider = "PostReportByType", timeOut = 60 * 1000)
     public void testPostReportByType(final GATKRunReport.PhoneHomeOption type) {
-        final Walker walker = new CountReads();
-        final Exception exception = new IllegalArgumentException("javaException");
-        final GenomeAnalysisEngine engine = new GenomeAnalysisEngine();
-        engine.setArguments(new GATKArgumentCollection());
-
         final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD);
         Assert.assertFalse(report.exceptionOccurredDuringPost(), "An exception occurred during posting the report");
         final boolean succeeded = report.postReport(type);
@@ -245,6 +252,51 @@ public class GATKRunReportUnitTest extends BaseTest {
                     Assert.fail("Failed delete GATK report " + report.getReportFileName() + " with exception " + e);
                 }
             }
+        }
+    }
+
+    public interface S3Op {
+        public void apply() throws ServiceException;
+    }
+
+    // Will fail with timeout if AWS time out isn't working
+    // Will fail with exception if AWS doesn't protect itself from errors
+    @Test(timeOut = 30 * 1000)
+    public void testAWSPublicKeyHasAccessControls() throws Exception {
+        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD);
+        report.sendAWSToTestBucket();
+        final S3Object s3Object = report.postReportToAWSS3();
+        Assert.assertNotNull(s3Object, "Upload to AWS failed, s3Object was null. error was " + report.formatError());
+
+        // create a service with the public key, and make sure it cannot list or delete
+        final S3Service s3Service = GATKRunReport.initializeAWSService(GATKRunReport.getAWSUploadAccessKey(), GATKRunReport.getAWSUploadSecretKey());
+        assertOperationNotAllowed("listAllBuckets", new S3Op() {
+            @Override
+            public void apply() throws S3ServiceException {
+                s3Service.listAllBuckets();
+            }
+        });
+        assertOperationNotAllowed("listBucket", new S3Op() {
+            @Override
+            public void apply() throws S3ServiceException { s3Service.listObjects(report.getS3ReportBucket()); }
+        });
+        assertOperationNotAllowed("createBucket", new S3Op() {
+            @Override
+            public void apply() throws S3ServiceException { s3Service.createBucket("ShouldNotCreate"); }
+        });
+        assertOperationNotAllowed("deleteObject", new S3Op() {
+            @Override
+            public void apply() throws ServiceException { s3Service.deleteObject(report.getS3ReportBucket(), report.getReportFileName()); }
+        });
+    }
+
+    private void assertOperationNotAllowed(final String name, final S3Op op) {
+        try {
+            op.apply();
+            // only gets here if the operation was successful
+            Assert.fail("Operation " + name + " ran successfully but we expected to it fail");
+        } catch ( ServiceException e ) {
+            Assert.assertEquals(e.getErrorCode(), "AccessDenied");
         }
     }
 }
