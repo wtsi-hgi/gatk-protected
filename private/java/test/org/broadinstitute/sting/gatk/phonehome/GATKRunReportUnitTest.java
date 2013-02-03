@@ -134,6 +134,9 @@ public class GATKRunReportUnitTest extends BaseTest {
         final ByteArrayOutputStream captureStream = new ByteArrayOutputStream();
         final boolean succeeded = report.postReportToStream(captureStream);
         Assert.assertTrue(succeeded, "Failed to write report to stream");
+        Assert.assertFalse(report.exceptionOccurredDuringPost(), "Post succeeded but report says it failed");
+        Assert.assertNull(report.getErrorMessage(), "Post succeeded but there was an error message");
+        Assert.assertNull(report.getErrorThrown(), "Post succeeded but there was an error message");
         final InputStream readStream = new ByteArrayInputStream(captureStream.toByteArray());
 
         GATKRunReport deserialized = null;
@@ -163,6 +166,7 @@ public class GATKRunReportUnitTest extends BaseTest {
     // Will fail with exception if AWS doesn't protect itself from errors
     @Test(dataProvider = "GATKAWSReportMode", timeOut = 60 * 1000)
     public void testAWS(final GATKRunReport.AWSMode awsMode) {
+        logger.warn("Starting testAWS mode=" + awsMode);
         final Walker walker = new CountReads();
         final Exception exception = new IllegalArgumentException("javaException");
         final GenomeAnalysisEngine engine = new GenomeAnalysisEngine();
@@ -174,7 +178,10 @@ public class GATKRunReportUnitTest extends BaseTest {
         final S3Object s3Object = report.postReportToAWSS3();
 
         if ( awsMode == GATKRunReport.AWSMode.NORMAL ) {
-            Assert.assertNotNull(s3Object, "Upload to AWS failed, s3Object was null");
+            Assert.assertNotNull(s3Object, "Upload to AWS failed, s3Object was null. error was " + report.formatError());
+            Assert.assertFalse(report.exceptionOccurredDuringPost(), "The upload should have succeeded but the report says it didn't.  Error was " + report.formatError());
+            Assert.assertNull(report.getErrorMessage(), "Report succeeded but an error message was found");
+            Assert.assertNull(report.getErrorThrown(), "Report succeeded but an thrown error was found");
             try {
                 final GATKRunReport deserialized = GATKRunReport.deserializeReport(downloaderAccessKey, downloaderSecretKey, report.getS3ReportBucket(), s3Object);
                 Assert.assertEquals(report, deserialized);
@@ -183,7 +190,11 @@ public class GATKRunReportUnitTest extends BaseTest {
                 Assert.fail("Failed to read, deserialize, or delete GATK report " + s3Object.getName() + " with exception " + e);
             }
         } else {
-            Assert.assertNull(s3Object, "AWS upload should have failed for mode " + awsMode + " but got non-null s3 object back " + s3Object);
+            Assert.assertNull(s3Object, "AWS upload should have failed for mode " + awsMode + " but got non-null s3 object back " + s3Object + " error was " + report.formatError());
+            Assert.assertTrue(report.exceptionOccurredDuringPost(), "S3 object was null but the report says that the upload succeeded");
+            Assert.assertNotNull(report.getErrorMessage(), "Report succeeded but an error message wasn't found");
+            if ( awsMode == GATKRunReport.AWSMode.FAIL_WITH_EXCEPTION )
+                Assert.assertNotNull(report.getErrorThrown());
         }
     }
 
@@ -212,6 +223,7 @@ public class GATKRunReportUnitTest extends BaseTest {
         engine.setArguments(new GATKArgumentCollection());
 
         final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD);
+        Assert.assertFalse(report.exceptionOccurredDuringPost(), "An exception occurred during posting the report");
         final boolean succeeded = report.postReport(type);
 
         if ( type == GATKRunReport.PhoneHomeOption.NO_ET )
