@@ -1,0 +1,19 @@
+#!/bin/bash
+
+
+git diff-index --name-only HEAD | python private/python/licensing/CheckLicense.py
+
+if [[ $? != "0" ]]
+then
+    git diff-index --name-only HEAD | python private/python/licensing/UpdateLicense.py
+    echo ""
+    git diff-index --name-only HEAD | python private/python/licensing/CheckLicense.py
+
+    if [[ $? == "0" ]]
+    then
+        echo "Updated all licenses appropriately, now you're free to commit"
+    else
+        echo "Could not update licenses appropriately, please check the error messages above and revise your commit"
+    fi
+    exit 1
+fi

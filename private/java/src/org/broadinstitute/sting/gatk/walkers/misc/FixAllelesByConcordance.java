@@ -56,7 +56,8 @@ import org.broadinstitute.sting.gatk.walkers.By;
 import org.broadinstitute.sting.gatk.walkers.DataSource;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
-import org.broadinstitute.variant.utils.BaseUtils;
+import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
 import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.variant.vcf.VCFHeaderLine;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
@@ -109,7 +110,7 @@ public class FixAllelesByConcordance extends RodWalker<Integer,Integer> {
                 samples.retainAll(new HashSet<String>((header.getValue().getGenotypeSamples())));
             }
         }
-        Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), logger);
+        Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), true);
         out.writeHeader(new VCFHeader(headerLines,samples));
     }
 
@@ -129,7 +130,7 @@ public class FixAllelesByConcordance extends RodWalker<Integer,Integer> {
 
         VariantContext chipContext = tracker.getFirstValue(chip);
         if ( BaseUtils.basesAreEqual(chipContext.getReference().getBases()[0], ref.getBase()) ) {
-            if ( VariantContextUtils.isTransversion(chipContext) ) {
+            if ( GATKVariantContextUtils.isTransversion(chipContext) ) {
                 out.add(chipContext);
             } else {
                 VariantContext revC = possiblyReverseComplement(chipContext, ref, tracker);
@@ -145,7 +146,7 @@ public class FixAllelesByConcordance extends RodWalker<Integer,Integer> {
             }
         } else {
             VariantContext chipFlip = flipRefAndAlt(chipContext,ref);
-            if ( VariantContextUtils.isTransversion(chipFlip) ) {
+            if ( GATKVariantContextUtils.isTransversion(chipFlip) ) {
                 out.add(chipFlip);
             } else {
                 VariantContext revC = possiblyReverseComplement(chipFlip, ref, tracker);

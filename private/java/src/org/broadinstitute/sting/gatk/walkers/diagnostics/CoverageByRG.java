@@ -61,7 +61,7 @@ import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.PartitionBy;
 import org.broadinstitute.sting.gatk.walkers.PartitionType;
-import org.broadinstitute.variant.utils.BaseUtils;
+import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
@@ -196,7 +196,7 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
         output.put(columnVariants, (variantContext == null) ? 0L : 1L);
 
         byte base = ref.getBase();                                             // Update site GC content for interval
-        output.put(columnGC, (base == BaseUtils.G || base == BaseUtils.C) ? 1L : 0L);
+        output.put(columnGC, (base == BaseUtils.Base.G.base || base == BaseUtils.Base.C.base) ? 1L : 0L);
 
         ReadBackedPileup pileup = context.getBasePileup();                     // Update site pileup for all groups of read groups 
         for (HashSet<String> rgSet : readGroupIds) {

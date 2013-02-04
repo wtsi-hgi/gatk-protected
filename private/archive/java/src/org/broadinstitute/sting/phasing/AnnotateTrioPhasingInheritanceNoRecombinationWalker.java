@@ -107,7 +107,7 @@ public class AnnotateTrioPhasingInheritanceNoRecombinationWalker extends RodWalk
         SAMPLE_NAME_CHILD = pieces[2];
 
         Map<String, VCFHeader> rodNameToHeader = getVCFHeadersFromRods(getToolkit(), Arrays.asList(trio.getName()));
-        Set<String> vcfSamples = SampleUtils.getSampleList(rodNameToHeader, VariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE);
+        Set<String> vcfSamples = SampleUtils.getSampleList(rodNameToHeader, GATKVariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE);
 
         if (vcfSamples.size() != 3) {
             throw new UserException("File to annotate with trio phasing contains more than three samples.  This walker only" +
