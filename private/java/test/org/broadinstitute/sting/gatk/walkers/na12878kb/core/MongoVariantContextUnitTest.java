@@ -52,7 +52,6 @@ import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.variant.variantcontext.Allele;
 import org.broadinstitute.variant.variantcontext.Genotype;
 import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.VariantContextTestProvider;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -125,7 +124,7 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
             final MongoVariantContext fromDB = readOneMVCFromDB();
 
             Assert.assertEquals(fromDB, mvc, "Input MongoVariantContext not the same as the one read from DB");
-            VariantContextTestProvider.assertEquals(fromDB.getVariantContext(), mvc.getVariantContext());
+            assertVariantContextsAreEqual(fromDB.getVariantContext(), mvc.getVariantContext());
         }
         finally {
             teardownMethod();
