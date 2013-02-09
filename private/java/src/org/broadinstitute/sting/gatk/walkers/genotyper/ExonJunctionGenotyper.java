@@ -309,7 +309,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                     try {
                         quals[idx++] = Byte.parseByte(histEntry);
                     } catch( NumberFormatException e) {
-                        quals[idx-1] = QualityUtils.probToQual(Double.parseDouble(histEntry));
+                        quals[idx-1] = QualityUtils.trueProbToQual(Double.parseDouble(histEntry));
                     }
                 }
 
@@ -333,7 +333,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
                     if ( insertSize < rgHist.length ) {
                         val = Integer.parseInt( (String) reportTable.get(row,reportColumn.getColumnName()));
                     }
-                    rgHist[row] = QualityUtils.probToQual( 1.0-( ( (double) val )/sum ), Math.pow(10,-25.4) );
+                    rgHist[row] = QualityUtils.errorProbToQual((((double) val) / sum), QualityUtils.MAX_SAM_QUAL_SCORE);
                 }
 
                 insertQualsByRG.put(reportColumn.getColumnName(),rgHist);

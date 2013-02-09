@@ -56,13 +56,17 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.QualityUtils;
 import org.broadinstitute.sting.utils.SampleUtils;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
-import org.broadinstitute.variant.vcf.*;
-import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.variantcontext.VariantContextUtils;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
-import org.broadinstitute.variant.variantcontext.*;
+import org.broadinstitute.variant.vcf.*;
 
 import java.util.*;
 
@@ -191,8 +195,8 @@ public class AssignSomaticStatus extends RodWalker<Integer, Integer> implements 
         double log10pRefInNormals = log10pRefInSamples(vc, normalSample);
 
         // priors
-        double log10pSomaticPrior = MathUtils.phredScaleToLog10Probability(somaticPriorQ);
-        double log10pNotSomaticPrior = Math.log10(1 - MathUtils.phredScaleToProbability(somaticPriorQ));
+        double log10pSomaticPrior = QualityUtils.qualToErrorProbLog10(somaticPriorQ);
+        double log10pNotSomaticPrior = Math.log10(1 - QualityUtils.qualToErrorProb(somaticPriorQ));
 
         double log10pNotSomaticGermline = log10pNonRefInNormals + log10pNonRefInTumors;
         double log10pNotSomaticNoVariant = log10pRefInNormals + log10pRefInTumors;
