@@ -44,165 +44,81 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.diagnostics;
+package org.broadinstitute.sting.utils;
 
+import net.sf.picard.reference.IndexedFastaSequenceFile;
+import net.sf.samtools.SAMSequenceDictionary;
 import net.sf.samtools.SAMSequenceRecord;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
-import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
-import org.broadinstitute.sting.gatk.filters.NotPrimaryAlignmentFilter;
-import org.broadinstitute.sting.gatk.filters.UnmappedReadFilter;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.ReadFilters;
-import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.utils.ContigComparator;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
+import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
-import java.io.PrintStream;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.*;
 
-/**
- * A read walker for contig statistics.
- *
- *  <p>
- *     ContigStats generates basic read mapping statistics per contig. It provides a table with the number of reads mapping to each contig,
- *     the enrichment of each contig and the expected values for each contig.
- *  </p>
- *
- *
- * <h2>Input</h2>
- *  <p>
- *      One or more bam files to read the reads from. All bam files will be merged and treated like one input. If you want to compare different bam files, run them separately.
- *  </p>
- *
- * <h2>Output</h2>
- *  <p>
- *      A table containing the following metrics for each contig:
- *      <ul>
- *          <li>Number of reads.</li>
- *          <li>Expected number of reads given the size of the dataset.</li>
- *          <li>Contig enrichment -- <i>how much sequencing yielded reads mapped to this contig</i>.</li>
- *          <li>Expected contig enrichment given the size of the dataset.</li>
- *      </ul>
- *  </p>
- *
- *  <p>
- *      Expected numbers are proportional to the size of the dataset and the size of each contig assuming untargetted sequencing.
- *  </p>
- *
- * <h2>Examples</h2>
- *  <pre>
- *    java
- *      -jar GenomeAnalysisTK.jar
- *      -T ContigStats
- *      -I mySequences.bam
- *      -R myReference.fasta
- *      -o mySequences.stats
- *  </pre>
- *
- * @author Mauricio Carneiro
- * @since 7/23/11
- */
+public class ContigComparatorUnitTest extends BaseTest {
+    SAMSequenceDictionary dictForFails;
 
-@ReadFilters({UnmappedReadFilter.class,NotPrimaryAlignmentFilter.class,DuplicateReadFilter.class,FailsVendorQualityCheckFilter.class})
-public class ContigStats extends ReadWalker<GATKSAMRecord, ContigStats.ContigStatistics> {
-
-    @Output(required = false)
-    PrintStream out = System.out;
-
-    protected class ContigStatistics {
-        Map<String, Long> contigCount;
-        long totalReads;
-
-        public ContigStatistics() {
-            this.contigCount = new HashMap<String, Long>();
-            this.totalReads = 0;
-        }
-
-        public Map<String, Long> getContigStat() {
-            return contigCount;
-        }
-
-        public Long getTotalReads() {
-            return totalReads;
-        }
-
-        public Long getReadsAtContig(String contig) {
-            return contigCount.get(contig);
-        }
-
-        public double getPercentReadsAtContig(String contig) {
-            return (double) contigCount.get(contig) / totalReads;
-        }
-
-        public void addReadToContig(String contig) {
-            Long count = 1L;
-            if (contigCount.containsKey(contig))
-                count += contigCount.get(contig);
-            contigCount.put(contig, count);
-            totalReads++;
-        }
-
-        public Long getExpectedReadsAtContig (String contig) {
-            int contigLength = getToolkit().getSAMFileHeader().getSequenceDictionary().getSequence(contig).getSequenceLength();
-            long totalLength = 0;
-            for (SAMSequenceRecord c : getToolkit().getSAMFileHeader().getSequenceDictionary().getSequences())
-                totalLength += c.getSequenceLength();
-            double contigProportion = (double) contigLength/totalLength;
-            return Math.round(contigProportion * totalReads);
-        }
-
-        public double getExpectedPercetReadsAtContig(String contig) {
-            return (double) getExpectedReadsAtContig(contig)/totalReads;
-        }
-
-        public String getContigStats (String contig) {
-            return contig + "\t" +
-                    getToolkit().getSAMFileHeader().getSequenceDictionary().getSequence(contig).getSequenceLength() + "\t" +
-                    getReadsAtContig(contig) + "\t" +
-                    getExpectedReadsAtContig(contig) + "\t" +
-                    String.format("%.3f", getPercentReadsAtContig(contig)) + "\t" +
-                    String.format("%.3f", getExpectedPercetReadsAtContig(contig)) + "\n";
-        }
-
-        public String toString() {
-            String result = "contig" + "\t" + "size" + "\t" + "reads" + "\t" + "exp_reads" + "\t" + "enrichment" +"\t" + "exp_enrichment\n";
-
-            // create a sorted set for the contigs to always be output in the same order (using Contig Comparator for ordering)
-            SortedSet<String> contigs = new TreeSet<String>(new ContigComparator(getToolkit().getMasterSequenceDictionary()));
-            contigs.addAll(contigCount.keySet());
-
-            for (String contig : contigs)
-                result += getContigStats(contig);
-            return result;
-        }
+    @BeforeClass
+    public void setup() throws FileNotFoundException {
+        // sequence
+        final IndexedFastaSequenceFile seq = new CachingIndexedFastaSequenceFile(new File(b37KGReference));
+        final GenomeLocParser genomeLocParser = new GenomeLocParser(seq);
+        dictForFails = genomeLocParser.getContigs();
     }
 
-    @Override
-    public void initialize() {
+    @DataProvider(name = "MyDataProvider")
+    public Object[][] makeMyDataProvider() throws Exception {
+        List<Object[]> tests = new ArrayList<Object[]>();
+
+        for ( final String ref : Arrays.asList(b37KGReference, hg18Reference) ) {
+            final IndexedFastaSequenceFile seq = new CachingIndexedFastaSequenceFile(new File(ref));
+            final GenomeLocParser genomeLocParser = new GenomeLocParser(seq);
+            final SAMSequenceDictionary dict = genomeLocParser.getContigs();
+
+            for ( final SAMSequenceRecord rec1 : dict.getSequences() ) {
+                for ( final SAMSequenceRecord rec2 : dict.getSequences() ) {
+                    final int expected = Integer.valueOf(rec1.getSequenceIndex()).compareTo(rec2.getSequenceIndex());
+                    tests.add(new Object[]{dict, rec1.getSequenceName(), rec2.getSequenceName(), expected});
+                }
+            }
+        }
+
+        return tests.toArray(new Object[][]{});
     }
 
-    @Override
-    public GATKSAMRecord map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
-        return read;
+    @Test(dataProvider = "MyDataProvider")
+    public void testMyData(final SAMSequenceDictionary dict, final String contig1, final String contig2, final int expected) {
+        final ContigComparator comparator = new ContigComparator(dict);
+        final int actual = comparator.compare(contig1, contig2);
+        if ( expected == 0 )
+            Assert.assertEquals(actual, expected, "Failed comparison of equals contigs");
+        else if ( expected < 0 )
+            Assert.assertTrue(actual < 0, "Failed comparison of contigs where expected < 0 ");
+        else
+            Assert.assertTrue(actual > 0, "Failed comparison of contigs where expected > 0 ");
     }
 
-    @Override
-    public ContigStatistics reduceInit() {
-        return new ContigStatistics();
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testBadCallWithUnknownContig1() {
+        final ContigComparator comparator = new ContigComparator(dictForFails);
+        final int actual = comparator.compare("1", "chr1");
     }
 
-    public ContigStatistics reduce(GATKSAMRecord read, ContigStatistics stats) {
-        stats.addReadToContig(read.getReferenceName());
-        return stats;
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testBadCallWithUnknownContig2() {
+        final ContigComparator comparator = new ContigComparator(dictForFails);
+        final int actual = comparator.compare("chr1", "1");
     }
 
-    @Override
-    public void onTraversalDone(ContigStatistics result) {
-        out.println(result);
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testBadCallWithNullContig() {
+        final ContigComparator comparator = new ContigComparator(dictForFails);
+        final int actual = comparator.compare(null, "chr1");
     }
+
 }
