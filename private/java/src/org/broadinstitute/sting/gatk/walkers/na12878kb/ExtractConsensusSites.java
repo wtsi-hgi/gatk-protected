@@ -56,6 +56,7 @@ import org.broadinstitute.variant.variantcontext.GenotypeType;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -93,6 +94,12 @@ public class ExtractConsensusSites extends NA12878DBWalker {
     @Argument(fullName="uniqueToOneCallset", shortName = "uniqueToOneCallset", doc="", required=false)
     public boolean uniqueToOneCallset = false;
 
+    /**
+     * Excludes all variants that are only supported by the given callsets
+     */
+    @Argument(fullName ="excludeUniqueToCallsets", shortName = "eus", doc= "Excludes all variants that are only supported by the given callsets ", required=false)
+    public HashSet<String> excludeUniqueToCallsets = new HashSet<String>();
+
     private abstract class ShouldBeReviewed {
         public abstract boolean exclude(final MongoVariantContext mvc, final VariantContext vc);
     }
@@ -110,6 +117,7 @@ public class ExtractConsensusSites extends NA12878DBWalker {
         if ( uniqueToOneCallset ) criteria.add(new ByUniqueToOneCallset());
         if ( genotypeType != null ) criteria.add(new ByGenotype());
         if ( polymorphicStatus != null ) criteria.add(new ByPolymorphicStatus());
+        if ( !excludeUniqueToCallsets.isEmpty() ) criteria.add(new ByExcludeUniqueToCallsets());
 
         out.writeHeader(db.makeStandardVCFHeader());
     }
@@ -201,5 +209,20 @@ public class ExtractConsensusSites extends NA12878DBWalker {
             return mvc.getPolymorphicStatus() != polymorphicStatus;
         }
     }
+
+    /**
+     * Excludes all variants that are only supported by some or all the callsets
+     * listed in "excludeUniqueToCallsets"
+     */
+    private class ByExcludeUniqueToCallsets extends ShouldBeReviewed {
+        @Override
+        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
+            List<String> supportingCallsets = mvc.getSupportingCallSets();
+            return excludeUniqueToCallsets.size() >= supportingCallsets.size() &&
+                   excludeUniqueToCallsets.containsAll(supportingCallsets);
+        }
+    }
+
+
 
 }
