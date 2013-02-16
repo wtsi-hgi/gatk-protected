@@ -44,43 +44,62 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.duplicates;
+package org.broadinstitute.sting.gatk.walkers.genotyper;
 
-import org.broadinstitute.sting.WalkerTest;
+
+// the imports for unit testing.
+
+
+import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
+import org.broadinstitute.sting.gatk.arguments.GATKArgumentCollection;
+import org.broadinstitute.sting.utils.MathUtils;
+import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
-public class DuplicatesWalkersIntegrationTest extends WalkerTest {
-    public void testCounter(String name, String args, String md5) {
-        WalkerTestSpec spec = new WalkerTestSpec(
-                "-T CountDuplicates" +
-                        " -R " + hg18Reference +
-                        " -I /humgen/gsa-hpprojects/GATK/data/Validation_Data/TCGA-06-0188.aligned.duplicates_marked.bam" +
-                        " -o %s -rbs 10000 " + args,
-                1, // just one output file
-                Arrays.asList("tmp"),
-                Arrays.asList(md5));
-        List<File> result = executeTest(name, spec).getFirst();
+public class UnifiedGenotyperEngineUnitTest extends BaseTest {
+    private final static double TOLERANCE = 1e-5;
+    private UnifiedGenotyperEngine ugEngine;
+
+    @BeforeClass
+    public void setUp() throws Exception {
+        final GenomeAnalysisEngine engine = new GenomeAnalysisEngine();
+        engine.setArguments(new GATKArgumentCollection());
+        final UnifiedArgumentCollection args = new UnifiedArgumentCollection();
+        final Set<String> fakeSamples = Collections.singleton("fake");
+        ugEngine = new UnifiedGenotyperEngine(engine, fakeSamples, args);
     }
 
-    @Test public void testChr110Mb() { testCounter("testChr1-10mb", "-L chr1:1-10,000,000 --quietLocus", "d3c329a634904d95c4b180d0d63eadfc"); }
-    @Test public void testIntervalVerbose() { testCounter("testIntervalVerbose", "-L chr1:6,527,154-6,528,292", "5fbb930020df6ca7d0f724524fc43b3e"); }
-
-    public void testCombiner(String name, String args, String md51, String md52) {
-        WalkerTestSpec spec = new WalkerTestSpec(
-                "-T CombineDuplicates" +
-                        " -R " + hg18Reference +
-                        " -I /humgen/gsa-hpprojects/GATK/data/Validation_Data/TCGA-06-0188.aligned.duplicates_marked.bam" +
-                        " -o %s --outputBAM %s -rbs 10000 " + args,
-                2, // just one output file
-                Arrays.asList("tmp", "bam"),
-                Arrays.asList(md51, md52));
-        List<File> result = executeTest(name, spec).getFirst();
+    private UnifiedGenotyperEngine getEngine() {
+        return ugEngine;
     }
 
-    @Test public void testIntervalCombine() { testCombiner("testIntervalCombine", "-L chr1:6,527,154-6,528,292 -maxQ 50", "d41d8cd98f00b204e9800998ecf8427e", "e61cc6d530f929ca8260e8b6f602e512"); }
-    @Test public void testIntervalCombineQ60() { testCombiner("testIntervalCombine", "-L chr1:6,527,154-6,528,292 -maxQ 60", "d41d8cd98f00b204e9800998ecf8427e", "92f71678bdcaf04dff7467e1aaa533fb"); }
+    @DataProvider(name = "ReferenceQualityCalculation")
+    public Object[][] makeReferenceQualityCalculation() {
+        List<Object[]> tests = new ArrayList<Object[]>();
+
+        // this functionality can be adapted to provide input data for whatever you might want in your data
+        final double p = Math.log10(0.5);
+        for ( final double theta : Arrays.asList(0.1, 0.01, 0.001) ) {
+            for ( final int depth : Arrays.asList(0, 1, 2, 10, 100, 1000, 10000) ) {
+                final double log10PofNonRef = Math.log10(theta / 2.0) + MathUtils.log10BinomialProbability(depth, 0, p);
+                final double log10POfRef = MathUtils.log10OneMinusX(Math.pow(10.0, log10PofNonRef));
+                tests.add(new Object[]{depth, theta, log10POfRef});
+            }
+        }
+
+        return tests.toArray(new Object[][]{});
+    }
+
+    @Test(dataProvider = "ReferenceQualityCalculation")
+    public void testReferenceQualityCalculation(final int depth, final double theta, final double expected) {
+        final double ref = getEngine().estimateLog10ReferenceConfidenceForOneSample(depth, theta);
+        Assert.assertTrue(MathUtils.goodLog10Probability(ref), "Reference calculation wasn't a well formed log10 prob " + ref);
+        Assert.assertEquals(ref, expected, TOLERANCE, "Failed reference confidence for single sample");
+    }
 }

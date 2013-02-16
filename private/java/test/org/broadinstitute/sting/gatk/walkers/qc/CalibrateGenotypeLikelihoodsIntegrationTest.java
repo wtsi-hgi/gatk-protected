@@ -55,15 +55,15 @@ import java.util.Arrays;
  * Tests ReadGroupProperties
  */
 public class CalibrateGenotypeLikelihoodsIntegrationTest extends WalkerTest {
-    @Test
+    @Test(timeOut = 10 * 1000 * 60)
     public void basicTest() {
         WalkerTestSpec spec = new WalkerTestSpec(
                 "-T CalibrateGenotypeLikelihoods -R " + b37KGReference +
                         " -I " + b37GoodNA12878BAM +
                         " -alleles " + b37_NA12878_OMNI +
-                        " -nt 4 -L 20:10,000,000-15,000,000 -o %s",
+                        " -nt 4 -L 20:10,000,000-11,000,000 -o %s",
                 1,
-                Arrays.asList("2aa88c4ab6ce982a52ec191d0937bb69"));
+                Arrays.asList("74a2fb5f6c40d1d16c82f4f3d597e899"));
         executeTest("CalibrateGenotypeLikelihoods:", spec);
     }
 
@@ -74,9 +74,9 @@ public class CalibrateGenotypeLikelihoodsIntegrationTest extends WalkerTest {
                         " --externalLikelihoods:testRG " + privateTestDir + "NA12878.hg19.example1.vcf" +
                         " --externalLikelihoods:testRG2 " + privateTestDir + "NA12878.hg19.example1.vcf" +
                         " -alleles " + b37_NA12878_OMNI +
-                        " -L 20:10,000,000-15,000,000 -o %s",
+                        " -L 20:10,000,000-11,000,000 -o %s",
                 1,
-                Arrays.asList("1e93bc5aaea0d01694abe6c7491f011f"));
+                Arrays.asList("59960ef17b0efb844724eb36ebbc770a"));
         executeTest("CalibrateGenotypeLikelihoods:", spec);
     }
 }

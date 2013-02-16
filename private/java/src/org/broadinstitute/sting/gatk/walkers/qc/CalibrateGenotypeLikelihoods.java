@@ -384,8 +384,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             final double[] pOfDGivenG = MathUtils.normalizeFromLog10(log10pDGivenG, false);
             final double[] pOfGGivenD = MathUtils.normalizeFromLog10(log10pGGivenD, false);
             for ( int i = 0; i < pGNames.size(); i++ ) {
-                final int qDGivenG = QualityUtils.probToQual(pOfDGivenG[i], QualityUtils.ERROR_RATE_OF_MAX_QUAL_SCORE);
-                final int qGGivenD = QualityUtils.probToQual(pOfGGivenD[i], QualityUtils.ERROR_RATE_OF_MAX_QUAL_SCORE);
+                final int qDGivenG = QualityUtils.trueProbToQual(pOfDGivenG[i]);
+                final int qGGivenD = QualityUtils.trueProbToQual(pOfGGivenD[i]);
                 if ( qGGivenD > 1 ) { // tons of 1s, and not interesting
                     if (doRepeats)
                     moltenDataset.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%b%n",

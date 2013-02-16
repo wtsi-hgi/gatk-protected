@@ -110,7 +110,7 @@ public class QuantizeQuals extends ReadWalker<SAMRecord, SAMFileWriter> {
     private PrintStream reportOut = null;
 
     @Argument(fullName = "maxQualToInclude", shortName = "maxQualToInclude", doc="Only quality scores <= this value are considered for remapping", required = false)
-    private int MAX_QUAL_TO_INCLUDE = QualityUtils.MAX_QUAL_SCORE;
+    private int MAX_QUAL_TO_INCLUDE = QualityUtils.MAX_SAM_QUAL_SCORE;
 
     private QualQuantizer quantizer;
 
