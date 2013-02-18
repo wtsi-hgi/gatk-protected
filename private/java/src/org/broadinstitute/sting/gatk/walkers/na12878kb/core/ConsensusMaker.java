@@ -46,36 +46,179 @@
 
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
-import org.broadinstitute.sting.BaseTest;
-import org.testng.Assert;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import com.google.java.contract.Ensures;
+import com.google.java.contract.Requires;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-public class TruthStatusUnitTest extends BaseTest {
-    @DataProvider(name = "TSTest")
-    public Object[][] makeGLsWithNonInformative() {
-        List<Object[]> tests = new ArrayList<Object[]>();
+/**
+ * Create a consensus MongoVariantContext from one or more supporting call sets
+ *
+ * User: depristo
+ * Date: 2/18/13
+ * Time: 2:55 PM
+ */
+public class ConsensusMaker {
+    public MongoVariantContext make(final Collection<MongoVariantContext> allSupportingCalls) {
+        final LinkedHashSet<String> supportingCallSets = new LinkedHashSet<String>();
+        final Collection<MongoVariantContext> callsForConsensus = selectCallsForConsensus(allSupportingCalls);
+        final boolean isReviewed = isReviewed(callsForConsensus);
+        final VariantContext first = callsForConsensus.iterator().next().getVariantContext();
 
-        for ( final TruthStatus x : TruthStatus.values() )
-            tests.add(new Object[]{x, TruthStatus.UNKNOWN, x});
+        final VariantContextBuilder builder = new VariantContextBuilder();
+        builder.chr(first.getChr()).start(first.getStart()).stop(first.getEnd());
 
-        for ( final TruthStatus x : TruthStatus.values() )
-            tests.add(new Object[]{x, x, x});
+        final Set<Allele> alleles = new LinkedHashSet<Allele>();
+        // iteration is over allSupportingCalls so we get the names all correct
+        for ( final MongoVariantContext vc : allSupportingCalls ) {
+            alleles.addAll(vc.getVariantContext().getAlleles());
+            supportingCallSets.addAll(vc.getSupportingCallSets());
+        }
+        builder.alleles(alleles);
 
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, TruthStatus.TRUE_POSITIVE, TruthStatus.DISCORDANT});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, TruthStatus.FALSE_POSITIVE, TruthStatus.DISCORDANT});
+        final TruthStatus type = determineTruth(callsForConsensus);
+        final PolymorphicStatus status = determinePolymorphicStatus(callsForConsensus);
+        final Genotype gt = consensusGT(type, status, new LinkedList<Allele>(alleles), callsForConsensus);
 
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, TruthStatus.SUSPECT, TruthStatus.FALSE_POSITIVE});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, TruthStatus.SUSPECT, TruthStatus.SUSPECT});
-
-        return tests.toArray(new Object[][]{});
+        return MongoVariantContext.create(new LinkedList<String>(supportingCallSets), builder.make(), type, new Date(), gt, isReviewed);
     }
 
-    @Test(dataProvider = "TSTest")
-    public void testMakeConsensus(final TruthStatus ps1, final TruthStatus ps2, final TruthStatus expected) {
-        Assert.assertEquals(ps1.makeConsensus(ps2), expected, "Truth status consensus of " + ps1 + " + " + ps2 + " was not expected " + expected);
+    /**
+     * Is at least one call in individualCalls a reviewed call?
+     * @param individualCalls a collection of calls to consider
+     * @return true if at least one call in individualCalls is a review, false otherwise
+     */
+    @Requires("individualCalls != null")
+    protected boolean isReviewed(final Collection<MongoVariantContext> individualCalls) {
+        for ( final MongoVariantContext vc : individualCalls )
+            if ( vc.isReviewed() )
+                return true;
+        return false;
+    }
+
+    /**
+     * Get the calls from individualCalls that should be used to create the consensus
+     *
+     * Potentially selects a subset of the calls to actually build the consensus.  The subset
+     * can be based on only those with reviews, only the most recent from each call sets, or
+     * other criteria that increase the quality of the consensus
+     *
+     * @param individualCalls a non-empty collection of calls
+     * @return a non-empty subset of individualCalls
+     */
+    @Requires("individualCalls != null && ! individualCalls.isEmpty()")
+    @Ensures("! result.isEmpty()")
+    protected Collection<MongoVariantContext> selectCallsForConsensus(final Collection<MongoVariantContext> individualCalls) {
+        final List<MongoVariantContext> reviewed = new LinkedList<MongoVariantContext>();
+
+        for ( final MongoVariantContext vc : mostRecentCalls(individualCalls) )
+            if ( vc.isReviewed() ) reviewed.add(vc);
+
+        return reviewed.isEmpty() ? individualCalls : reviewed;
+    }
+
+    /**
+     * Get the most recent call for each call set in individualCalls
+     *
+     * @param individualCalls a collection of calls
+     * @return a subset of individualCalls
+     */
+    @Requires("individualCalls != null")
+    @Ensures("result != null")
+    protected List<MongoVariantContext> mostRecentCalls(final Collection<MongoVariantContext> individualCalls) {
+        final Map<String, List<MongoVariantContext>> byCallSet = new LinkedHashMap<String, List<MongoVariantContext>>();
+
+        for ( final MongoVariantContext vc : individualCalls ) {
+            if ( vc.getSupportingCallSets().size() != 1 )
+                throw new IllegalArgumentException("Expected exactly one supporting call set but got " + vc.getSupportingCallSets());
+
+            List<MongoVariantContext> calls = byCallSet.get(vc.getCallSetName());
+            if ( calls == null ) {
+                calls = new ArrayList<MongoVariantContext>();
+                byCallSet.put(vc.getCallSetName(), calls);
+            }
+            calls.add(vc);
+        }
+
+        final List<MongoVariantContext> uniques = new LinkedList<MongoVariantContext>();
+        for ( final List<MongoVariantContext> callsFor1Callset : byCallSet.values() ) {
+            Collections.sort(callsFor1Callset, new Comparator<MongoVariantContext>() {
+                @Override
+                public int compare(MongoVariantContext o1, MongoVariantContext o2) {
+                    return -1 * o1.getDate().compareTo(o2.getDate());
+                }
+            });
+            uniques.add(callsFor1Callset.get(0));
+        }
+
+        return uniques;
+    }
+
+    /**
+     * Create a consensus genotype appropriate for a site backed by individualCalls with given
+     * truthStatus and polyStatus
+     *
+     * @param truthStatus the determined truth status for this site
+     * @param polyStatus the determined polymorphic status of this site // TODO -- why is this necessary?
+     * @param alleles the list of alleles segregating at this site
+     * @param individualCalls the individual call sets we should use to make the consensus gt
+     * @return a Genotype appropriate for this consensus site
+     */
+    protected Genotype consensusGT(final TruthStatus truthStatus,
+                                   final PolymorphicStatus polyStatus,
+                                   final List<Allele> alleles,
+                                   final Collection<MongoVariantContext> individualCalls) {
+        if ( ! truthStatus.isTruePositive() ) {
+            return MongoGenotype.NO_CALL;
+        } else if ( polyStatus.isDiscordant() || polyStatus.isUnknown() ) {
+            return MongoGenotype.NO_CALL;
+        } else {
+            Genotype g = MongoGenotype.NO_CALL;
+
+            // we are a TP, we need to compute the consensus genotype
+            for ( final MongoVariantContext mvc : individualCalls ) {
+                final Genotype mvcG = mvc.getGt().toGenotype(alleles);
+                if ( g.isNoCall() )
+                    g = mvcG;
+                else if ( mvcG.isNoCall() )
+                    ; // keep g
+                else if ( g.isMixed() || ! g.isAvailable() )
+                    throw new IllegalStateException("Unexpected genotype in mongo db " + g + " at " + individualCalls);
+                else if ( g.getType() != mvcG.getType() )
+                    return MongoGenotype.createDiscordant(mvcG);
+                else
+                    ; // TODO -- should try to capture more DP and GQ
+            }
+
+            return g;
+        }
+    }
+
+    private TruthStatus determineTruth(final Collection<MongoVariantContext> individualCalls) {
+        final boolean hasReview = isReviewed(individualCalls);
+        TruthStatus type = TruthStatus.UNKNOWN;
+        for ( final MongoVariantContext vc : individualCalls ) {
+            if ( ! hasReview || vc.isReviewed() )
+                // if we have some reviews, only include those, otherwise use everything
+                type = type.makeConsensus(vc.getType());
+        }
+
+        return type;
+    }
+
+    private PolymorphicStatus determinePolymorphicStatus(final Collection<MongoVariantContext> individualCalls) {
+        final boolean hasReview = isReviewed(individualCalls);
+        PolymorphicStatus status = PolymorphicStatus.UNKNOWN;
+        for ( final MongoVariantContext vc : individualCalls ) {
+            if ( ! hasReview || vc.isReviewed() )
+                // if we have some reviews, only include those, otherwise use everything
+                status = status.makeConsensus(vc.getPolymorphicStatus());
+        }
+
+        return status;
     }
 }

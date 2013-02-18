@@ -46,7 +46,6 @@
 
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
-import com.google.java.contract.Requires;
 import com.mongodb.*;
 import org.apache.log4j.Logger;
 import org.apache.log4j.Priority;
@@ -56,10 +55,6 @@ import org.broadinstitute.variant.vcf.VCFConstants;
 import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.variant.vcf.VCFHeaderLine;
 import org.broadinstitute.variant.vcf.VCFStandardHeaderLines;
-import org.broadinstitute.variant.variantcontext.Allele;
-import org.broadinstitute.variant.variantcontext.Genotype;
-import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 
 import java.util.*;
@@ -250,8 +245,8 @@ public class NA12878KnowledgeBase {
         final SiteIterator<MongoVariantContext> siteIterator = getCalls(selector);
         while ( siteIterator.hasNext() ) {
             final Collection<MongoVariantContext> callsAtSite = siteIterator.getNextEquivalents();
-            final MongoVariantContext consensus = makeConsensus(callsAtSite);
-            addConsensus(consensus);
+            final MongoVariantContext consensus = new ConsensusMaker().make(callsAtSite);
+            updateConsensusInDB(consensus);
             logger.log(logPriority, "Updating consensus at site " + consensus);
             summary.add(consensus);
         }
@@ -259,116 +254,32 @@ public class NA12878KnowledgeBase {
         return summary;
     }
 
-    private MongoVariantContext makeConsensus(final Collection<MongoVariantContext> allSupportingCalls) {
-        final List<String> supportingCallSets = new LinkedList<String>();
-        final Collection<MongoVariantContext> callsForConsensus = selectCallsForConsensus(allSupportingCalls);
-        final boolean isReviewed = isReviewed(callsForConsensus);
-        final VariantContext first = callsForConsensus.iterator().next().getVariantContext();
-
-        final VariantContextBuilder builder = new VariantContextBuilder();
-        builder.chr(first.getChr()).start(first.getStart()).stop(first.getEnd());
-
-        final Set<Allele> alleles = new LinkedHashSet<Allele>();
-        for ( final MongoVariantContext vc : allSupportingCalls ) {
-            alleles.addAll(vc.getVariantContext().getAlleles());
-            supportingCallSets.addAll(vc.getSupportingCallSets());
-        }
-        builder.alleles(alleles);
-
-        final TruthStatus type = determineTruth(callsForConsensus);
-        final PolymorphicStatus status = determinePolymorphicStatus(callsForConsensus);
-        final Genotype gt = consensusGT(type, status, new LinkedList<Allele>(alleles), callsForConsensus);
-
-        return MongoVariantContext.create(supportingCallSets, builder.make(), type, new Date(), gt, isReviewed);
-    }
-
     /**
-     * Is at least one call in individualCalls a reviewed call?
-     * @param individualCalls a collection of calls to consider
-     * @return true if at least one call in individualCalls is a review, false otherwise
-     */
-    @Requires("individualCalls != null")
-    private boolean isReviewed(final Collection<MongoVariantContext> individualCalls) {
-        for ( final MongoVariantContext vc : individualCalls )
-            if ( vc.isReviewed() )
-                return true;
-        return false;
-    }
-
-    private Collection<MongoVariantContext> selectCallsForConsensus(final Collection<MongoVariantContext> individualCalls) {
-        final List<MongoVariantContext> reviewed = new LinkedList<MongoVariantContext>();
-
-        for ( final MongoVariantContext vc : individualCalls )
-            if ( vc.isReviewed() ) reviewed.add(vc);
-        return reviewed.isEmpty() ? individualCalls : reviewed;
-    }
-
-    /**
-     * Create a consensus genotype appropriate for a site backed by individualCalls with given
-     * truthStatus and polyStatus
+     * Updates consensus DB collection to include (or update) site
      *
-     * @param truthStatus the determined truth status for this site
-     * @param polyStatus the determined polymorphic status of this site // TODO -- why is this necessary?
-     * @param alleles the list of alleles segregating at this site
-     * @param individualCalls the individual call sets we should use to make the consensus gt
-     * @return a Genotype appropriate for this consensus site
+     * If site already exists in the consensus, it's old entry and site is updated.  If it's not
+     * present, then site is simply inserted
+     *
+     * @param site a non-null site to update in the consensus
+     * @return the result of the insert operation on the DB
      */
-    protected Genotype consensusGT(final TruthStatus truthStatus,
-                                   final PolymorphicStatus polyStatus,
-                                   final List<Allele> alleles,
-                                   final Collection<MongoVariantContext> individualCalls) {
-        if ( ! truthStatus.isTruePositive() ) {
-            return MongoGenotype.NO_CALL;
-        } else if ( polyStatus.isDiscordant() || polyStatus.isUnknown() ) {
-            return MongoGenotype.NO_CALL;
-        } else {
-            Genotype g = MongoGenotype.NO_CALL;
-
-            // we are a TP, we need to compute the consensus genotype
-            for ( final MongoVariantContext mvc : individualCalls ) {
-                final Genotype mvcG = mvc.getGt().toGenotype(alleles);
-                if ( g.isNoCall() )
-                    g = mvcG;
-                else if ( mvcG.isNoCall() )
-                    ; // keep g
-                else if ( g.isMixed() || ! g.isAvailable() )
-                    throw new IllegalStateException("Unexpected genotype in mongo db " + g + " at " + individualCalls);
-                else if ( g.getType() != mvcG.getType() )
-                    return MongoGenotype.createDiscordant(mvcG);
-                else
-                    ; // TODO -- should try to capture more DP and GQ
-            }
-
-            return g;
-        }
-    }
-
-    private TruthStatus determineTruth(final Collection<MongoVariantContext> individualCalls) {
-        final boolean hasReview = isReviewed(individualCalls);
-        TruthStatus type = TruthStatus.UNKNOWN;
-        for ( final MongoVariantContext vc : individualCalls ) {
-            if ( ! hasReview || vc.isReviewed() )
-                // if we have some reviews, only include those, otherwise use everything
-                type = type.makeConsensus(vc.getType());
-        }
-
-        return type;
-    }
-
-    private PolymorphicStatus determinePolymorphicStatus(final Collection<MongoVariantContext> individualCalls) {
-        final boolean hasReview = isReviewed(individualCalls);
-        PolymorphicStatus status = PolymorphicStatus.UNKNOWN;
-        for ( final MongoVariantContext vc : individualCalls ) {
-            if ( ! hasReview || vc.isReviewed() )
-                // if we have some reviews, only include those, otherwise use everything
-                status = status.makeConsensus(vc.getPolymorphicStatus());
-        }
-
-        return status;
-    }
-
-    private WriteResult addConsensus(final MongoVariantContext site) {
+    private WriteResult updateConsensusInDB(final MongoVariantContext site) {
+        // remove existing entry, if one exists
+        consensusSites.remove(consensusSiteQuery(site));
+        // add the site to the consensus
         return consensusSites.insert(site);
+    }
+
+    private static DBObject consensusSiteQuery(final MongoVariantContext site) {
+        final List<DBObject> conditions = new LinkedList<DBObject>();
+        conditions.add(new BasicDBObject("Chr", site.getChr()));
+        conditions.add(new BasicDBObject("Start", site.getStart()));
+        conditions.add(new BasicDBObject("Stop", site.getStop()));
+        conditions.add(new BasicDBObject("Ref", site.getRef()));
+        conditions.add(new BasicDBObject("Alt", site.getAlt()));
+        final DBObject query = new BasicDBObject("$and", conditions);
+        if ( logger.isDebugEnabled() ) logger.debug("Query " + query);
+        return query;
     }
 
     /**
