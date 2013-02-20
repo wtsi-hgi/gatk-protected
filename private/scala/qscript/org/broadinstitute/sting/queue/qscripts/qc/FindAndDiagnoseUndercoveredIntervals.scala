@@ -44,73 +44,76 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.diagnostics.targets;
+package org.broadinstitute.sting.queue.qscripts.qc
 
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.CommandLineGATK;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.ActiveRegionTraversalParameters;
-import org.broadinstitute.sting.gatk.walkers.ActiveRegionWalker;
-import org.broadinstitute.sting.gatk.walkers.PartitionBy;
-import org.broadinstitute.sting.gatk.walkers.PartitionType;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.activeregion.ActivityProfileState;
-import org.broadinstitute.sting.utils.help.DocumentedGATKFeature;
-import org.broadinstitute.sting.utils.help.HelpConstants;
+import org.broadinstitute.sting.queue.extensions.gatk.{DiagnoseTargets, FindCoveredIntervals}
+import org.broadinstitute.sting.queue.QScript
 
-import java.io.PrintStream;
+/**
+ * User: carneiro
+ * Date: 2/19/13
+ * Time: 4:29 PM
+ */
 
-@DocumentedGATKFeature( groupName = HelpConstants.DOCS_CAT_QC, extraDocs = {CommandLineGATK.class} )
-@PartitionBy(PartitionType.CONTIG)
-@ActiveRegionTraversalParameters(extension = 0, maxRegion = 50000)
-public class FindCoveredIntervals extends ActiveRegionWalker<GenomeLoc, Long> {
-    @Output(required = true)
-    private PrintStream out;
+class FindAndDiagnoseUndercoveredIntervals extends QScript {
+  @Argument(shortName="old", doc="input bams", required=true)
+  var oldBAMs: List[File] = _
 
-    @Argument(fullName = "uncovered", shortName = "u", required = false, doc = "output intervals that fail the coverage threshold instead")
-    private boolean outputUncovered = false;
+  @Argument(shortName="new", doc="input bams", required=true)
+  var newBAMs: List[File] = _
 
-    @Argument(fullName = "coverage_threshold", shortName = "cov", doc = "The minimum allowable coverage to be considered covered", required = false)
-    private int coverageThreshold = 20;
+  @Argument(shortName="R", doc="reference", required=false)
+  var reference = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
 
-    @Override
-    // Look to see if the region has sufficient coverage
-    public ActivityProfileState isActive(final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
+  @Argument(shortName="t", doc="coverage threshold to be considered good coverage", required=false)
+  var threshold = 20
 
-        int depth = ThresHolder.DEFAULTS.getFilteredCoverage(context.getBasePileup());
+  @Argument(shortName="u", doc="uncovered intervals list", required=false)
+  var uncovered: File = _
 
-        // note the linear probability scale
-        return new ActivityProfileState(ref.getLocus(), Math.min(depth / coverageThreshold, 1));
+  @Argument(shortName="c", doc="covered to threshold intervals list", required=false)
+  var uncoveredToThreshold: File = _
 
+  @Argument(shortName = "sc", doc = "Scatter count", required = false)
+  var threads: Int = 50
+
+  def script = {
+
+    if (uncovered == null ) {
+      uncovered =  swapExt(oldBAMs(0), ".bam", ".coveredTo1.intervals")
+      add(FindCoverage(threshold, uncovered))
+    }
+    if (uncoveredToThreshold == null ) {
+      uncoveredToThreshold = swapExt(oldBAMs(0), ".bam", ".coveredTo." + threshold + ".intervals")
+      add(FindCoverage(1, uncoveredToThreshold))
     }
 
-    @Override
-    public GenomeLoc map(final org.broadinstitute.sting.utils.activeregion.ActiveRegion activeRegion, final RefMetaDataTracker tracker) {
-        if ((!outputUncovered && activeRegion.isActive()) || (outputUncovered && !activeRegion.isActive()))
-            return activeRegion.getLocation();
-
-        return null;
+    val allBAMs = newBAMs ++ oldBAMs
+    for (bam <- allBAMs) {
+      val diagnoseUncoveredToThreshold = swapExt(bam, ".bam", ".coveredTo." + threshold + ".vcf")
+      add(Diagnose(bam, uncoveredToThreshold, diagnoseUncoveredToThreshold))
     }
 
-    @Override
-    public Long reduceInit() {
-        return 0L;
-    }
+  }
 
-    @Override
-    public Long reduce(final GenomeLoc value, Long reduce) {
-        if (value != null) {
-            out.println(value.toString());
-            reduce++;
-        }
-        return reduce;
-    }
+  case class FindCoverage(coverage: Int, output: File) extends FindCoveredIntervals {
+    this.reference_sequence = reference
+    this.memoryLimit = 8
+    this.scatterCount = threads
+    this.input_file = oldBAMs
+    this.intervalsString :+= "20"
+    this.cov = coverage
+    this.uncovered = true
+    this.out = output
+  }
 
-    @Override
-    public void onTraversalDone(Long reduce) {
-        logger.info(String.format("Found %d intervals", reduce));
-    }
+  case class Diagnose(bam: File, interval: File, output: File) extends DiagnoseTargets() {
+    this.reference_sequence = reference
+    this.memoryLimit = 8
+    this.scatterCount = threads
+    this.input_file :+= bam
+    this.intervals :+= interval
+    this.out = output
+  }
+
 }

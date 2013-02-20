@@ -29,7 +29,7 @@ qplot(qqplot(bin, x)
 
 qplot(NormalizedCumulativeCoverage, CumSum, data=d, geom="line", group=Sample, color=Sample, 
       xlim = c(0,0.15),
-      main = "cumulative sum of loci coverage in PCR-Free samples (BWA short reads)",
+      main = "cumulative sum of loci coverage in PCR-Free samples",
       xlab = "normalized coverage ratio of a locus",
       ylab = "normalized cumulative sum of loci covered")
 
