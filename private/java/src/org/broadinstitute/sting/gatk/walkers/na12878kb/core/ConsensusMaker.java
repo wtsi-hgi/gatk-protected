@@ -63,19 +63,40 @@ import java.util.*;
  * Time: 2:55 PM
  */
 public class ConsensusMaker {
-    public MongoVariantContext make(final Collection<MongoVariantContext> allSupportingCalls) {
+    /**
+     * Key interface: create a consensus based on joining the evidence from allSupportingCalls
+     *
+     * Looks at the supporting calls, and creates a consensus that reflects the TP/FP etc status
+     * of each and the genotypes.  Weighs the result heavily (potentially entirely) on supporting
+     * calls tagged as reviews.  The resulting consensus is at the same site as allSupportingCalls
+     * and same alleles, and the supporting call set field will reflect the information in allSupportingCalls.
+     *
+     * Supports having multiple equivalent supporting calls (two depristo records, for instance); it
+     * will use the most recent result.
+     *
+     * @param allSupportingCalls a non-null, non-empty collection of supporting calls
+     * @return a non-null MongoVariantContext consensus
+     */
+    public MongoVariantContext makeConsensus(final Collection<MongoVariantContext> allSupportingCalls) {
+        if ( allSupportingCalls == null || allSupportingCalls.isEmpty())
+            throw new IllegalArgumentException("allSupportingCalls must be non-null, not empty collection");
+
+        // make sure the input MVCs can be safely combined into a consensus
+        final MongoVariantContext firstMVC = allSupportingCalls.iterator().next();
+        for ( final MongoVariantContext mvc : allSupportingCalls )
+            ensureSafeToCombineInConsensus(firstMVC, mvc);
+
         final LinkedHashSet<String> supportingCallSets = new LinkedHashSet<String>();
         final Collection<MongoVariantContext> callsForConsensus = selectCallsForConsensus(allSupportingCalls);
         final boolean isReviewed = isReviewed(callsForConsensus);
-        final VariantContext first = callsForConsensus.iterator().next().getVariantContext();
 
         final VariantContextBuilder builder = new VariantContextBuilder();
+        final VariantContext first = firstMVC.getVariantContext();
         builder.chr(first.getChr()).start(first.getStart()).stop(first.getEnd());
 
-        final Set<Allele> alleles = new LinkedHashSet<Allele>();
+        final List<Allele> alleles = first.getAlleles();
         // iteration is over allSupportingCalls so we get the names all correct
         for ( final MongoVariantContext vc : allSupportingCalls ) {
-            alleles.addAll(vc.getVariantContext().getAlleles());
             supportingCallSets.addAll(vc.getSupportingCallSets());
         }
         builder.alleles(alleles);
@@ -85,6 +106,26 @@ public class ConsensusMaker {
         final Genotype gt = consensusGT(type, status, new LinkedList<Allele>(alleles), callsForConsensus);
 
         return MongoVariantContext.create(new LinkedList<String>(supportingCallSets), builder.make(), type, new Date(), gt, isReviewed);
+    }
+
+    /**
+     * Make sure the canon and test can be combined in a consensus
+     * @param canon the first to test
+     * @param test the second to test
+     * @throws IllegalArgumentException if canon and test aren't safe to merge
+     */
+    private void ensureSafeToCombineInConsensus(final MongoVariantContext canon, final MongoVariantContext test) {
+        if ( ! canon.getChr().equals(test.getChr()) )
+            throw new IllegalArgumentException("Tried to make consensus from non-equivalent supporting calls (not equal chromosomes): " + canon + " vs " + test);
+
+        if ( canon.getStart() != test.getStart() )
+            throw new IllegalArgumentException("Tried to make consensus from non-equivalent supporting calls (not equal start): " + canon + " vs " + test);
+
+        if ( canon.getStop() != test.getStop() )
+            throw new IllegalArgumentException("Tried to make consensus from non-equivalent supporting calls (not equal end): " + canon + " vs " + test);
+
+        if ( ! canon.getRefAllele().equals(test.getRefAllele()) || ! canon.getAltAllele().equals(test.getAltAllele()))
+            throw new IllegalArgumentException("Tried to make consensus from non-equivalent supporting calls (not equal alleles): " + canon + " vs " + test);
     }
 
     /**

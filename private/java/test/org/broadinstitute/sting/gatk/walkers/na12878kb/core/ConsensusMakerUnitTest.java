@@ -127,7 +127,7 @@ public class ConsensusMakerUnitTest extends BaseTest {
 
     @Test(dataProvider = "MakerData")
     public void testMake(final TruthStatus expectedTruth, final MongoGenotype expectedGT, final boolean expectedReviewed, final List<MongoVariantContext> supporting) throws Exception {
-        final MongoVariantContext consensus = maker.make(supporting);
+        final MongoVariantContext consensus = maker.makeConsensus(supporting);
         Assert.assertEquals(consensus.getType(), expectedTruth);
         Assert.assertEquals(consensus.isReviewed(), expectedReviewed, "isReviewed failed");
         Assert.assertEquals(consensus.getGt(), expectedGT);

@@ -245,7 +245,7 @@ public class NA12878KnowledgeBase {
         final SiteIterator<MongoVariantContext> siteIterator = getCalls(selector);
         while ( siteIterator.hasNext() ) {
             final Collection<MongoVariantContext> callsAtSite = siteIterator.getNextEquivalents();
-            final MongoVariantContext consensus = new ConsensusMaker().make(callsAtSite);
+            final MongoVariantContext consensus = new ConsensusMaker().makeConsensus(callsAtSite);
             updateConsensusInDB(consensus);
             logger.log(logPriority, "Updating consensus at site " + consensus);
             summary.add(consensus);
