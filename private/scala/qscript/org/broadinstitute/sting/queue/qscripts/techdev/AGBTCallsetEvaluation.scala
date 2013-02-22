@@ -44,185 +44,85 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.queue.qscripts.techdev
 
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.PolymorphicStatus;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
-import org.broadinstitute.variant.variantcontext.GenotypeType;
-import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.sting.queue.QScript
 
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+class AGBTCallsetEvaluation extends QScript {
+  qscript =>
 
-/**
- * Extract a VCF from the NA12878 Knowledge Base meeting criteria
- *
- * See @link http://gatkforums.broadinstitute.org/discussion/1848/using-the-na12878-knowledge-base for more information
- */
-public class ExtractConsensusSites extends NA12878DBWalker {
-    @Output
-    public VariantContextWriter out;
+  @Argument(shortName="I", doc="bam file", required=true)
+  var bam: List[File] = _
+  @Argument(shortName="b", doc="bam file", required=false)
+  var bqsrFile: List[File] = null
+  @Argument(shortName="sg", doc="scatter count", required=false)
+  var scatter: Int = 200
 
-    @Argument(fullName="maxSites", shortName = "maxSites", doc="Max. number of bad sites to write out", required=false)
-    public int maxSites = 10000;
+  var ref = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
+  var interval = "20"
 
-    @Argument(fullName="variantType", shortName = "variantType", doc="", required=false)
-    public VariantContext.Type variantType = null;
+  trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
+    memoryLimit = 4
+    this.reference_sequence = ref
+    this.intervalsString :+= interval
+  }
 
-    @Argument(fullName="includeCallset", shortName = "includeCallset", doc="", required=false)
-    public Set<String> includeCallset = null;
-
-    @Argument(fullName="excludeCallset", shortName = "excludeCallset", doc="", required=false)
-    public Set<String> excludeCallset = null;
-
-    @Argument(fullName="truthStatus", shortName = "truthStatus", doc="", required=false)
-    public TruthStatus truthStatus = null;
-
-    @Argument(fullName="polymorphicStatus", shortName = "polymorphicStatus", doc="", required=false)
-    public PolymorphicStatus polymorphicStatus = null;
-
-    @Argument(fullName="genotype", shortName = "genotype", doc="", required=false)
-    public GenotypeType genotypeType = null;
-
-    @Argument(fullName="uniqueToOneCallset", shortName = "uniqueToOneCallset", doc="", required=false)
-    public boolean uniqueToOneCallset = false;
-
-    /**
-     * Excludes all variants that are only supported by the given callsets
-     */
-    @Argument(fullName ="excludeUniqueToCallsets", shortName = "eus", doc= "Excludes all variants that are only supported by the given callsets ", required=false)
-    public HashSet<String> excludeUniqueToCallsets = new HashSet<String>();
-
-    private abstract class ShouldBeReviewed {
-        public abstract boolean exclude(final MongoVariantContext mvc, final VariantContext vc);
+  def script = {
+    for (i <- 0 to bam.size - 1) {
+        call(bam(i),
+             if (bqsrFile == null) {null} else {bqsrFile(i)} )
     }
+  }
 
-    private List<ShouldBeReviewed> criteria = new LinkedList<ShouldBeReviewed>();
+  def call(dataset: File, bqsrFile: File) {
+    val hcOQVCF =    swapExt(dataset, ".bam", ".hc.nobqsr.vcf")
+    val hcRecalVCF = swapExt(dataset, ".bam", ".hc.bqsr.vcf")
+    val ugOQVCF =    swapExt(dataset, ".bam", ".ug.nobqsr.vcf")
+    val ugRecalVCF = swapExt(dataset, ".bam", ".ug.bqsr.vcf")
+    val doBQSR = true
 
-    @Override
-    public void initialize() {
-        super.initialize();
+    add(hc(dataset, !doBQSR, null,     hcOQVCF),
+        hc(dataset, doBQSR,  bqsrFile, hcRecalVCF),
+        ug(dataset, !doBQSR, ugOQVCF),
+        ug(dataset, doBQSR,  ugRecalVCF),
+        assess(dataset, hcOQVCF,    swapExt(hcOQVCF, ".vcf", ".grp"),    swapExt(hcOQVCF, ".vcf", ".badsites.vcf")),
+        assess(dataset, hcRecalVCF, swapExt(hcRecalVCF, ".vcf", ".grp"), swapExt(hcRecalVCF, ".vcf", ".badsites.vcf")),
+        assess(dataset, ugOQVCF,    swapExt(ugOQVCF, ".vcf", ".grp"),    swapExt(ugOQVCF, ".vcf", ".badsites.vcf")),
+        assess(dataset, ugRecalVCF, swapExt(ugRecalVCF, ".vcf", ".grp"), swapExt(ugRecalVCF, ".vcf", ".badsites.vcf")))
+  }
 
-        if ( variantType != null ) criteria.add(new ByType());
-        if ( excludeCallset != null ) criteria.add(new ByExclude());
-        if ( includeCallset != null ) criteria.add(new ByInclude());
-        if ( truthStatus != null ) criteria.add(new ByTruthStatus());
-        if ( uniqueToOneCallset ) criteria.add(new ByUniqueToOneCallset());
-        if ( genotypeType != null ) criteria.add(new ByGenotype());
-        if ( polymorphicStatus != null ) criteria.add(new ByPolymorphicStatus());
-        if ( !excludeUniqueToCallsets.isEmpty() ) criteria.add(new ByExcludeUniqueToCallsets());
-
-        out.writeHeader(db.makeStandardVCFHeader());
+  private case class hc (dataset:File, bqsr:Boolean, bqsrFile:File, output: File) extends HaplotypeCaller with UNIVERSAL_GATK_ARGS {
+    this.input_file :+= dataset
+    this.out = output
+    this.scatterCount = qscript.scatter
+    if (bqsr == false) {
+      this.useOriginalQualities = true
+      this.disable_indel_quals = true
+    } else if (bqsrFile != null) {
+      this.BQSR = bqsrFile
     }
+    this.analysisName = "HaplotypeCaller"
+  }
 
-    @Override public boolean isDone() { return true; }
-
-    @Override
-    public void onTraversalDone(Integer result) {
-        int nWritten = 0;
-        for ( final MongoVariantContext mvc : db.getConsensusSites(makeSiteSelector())) {
-            final VariantContext vc = mvc.getVariantContext();
-            if ( shouldBeReviewed(mvc, vc) ) {
-                out.add(vc);
-                if ( nWritten++ > maxSites)
-                    break;
-            }
-        }
-
-        super.onTraversalDone(result);
+  private case class ug(dataset:File, bqsr: Boolean, output: File) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
+    this.scatterCount = qscript.scatter / 2
+    this.input_file :+= dataset
+    this.out = output
+    this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.max_deletion_fraction = 0.5
+    if (bqsr == false) {
+      this.useOriginalQualities = true
     }
+    this.analysisName = "UnifiedGenotyper"
+  }
 
-    private boolean shouldBeReviewed(final MongoVariantContext mvc, final VariantContext vc) {
-        for ( final ShouldBeReviewed shouldBeReviewed : criteria )
-            if ( shouldBeReviewed.exclude(mvc, vc) )
-                return false;
-
-        return true;
-    }
-
-    @Override
-    public NA12878DBArgumentCollection.DBType getDefaultDB() {
-        return NA12878DBArgumentCollection.DBType.PRODUCTION;
-    }
-
-    private class ByType extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return vc.getType() != variantType;
-        }
-    }
-
-    private class ByInclude extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            for ( final String callset : mvc.getSupportingCallSets() ) {
-                if ( includeCallset.contains(callset)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    }
-    private class ByExclude extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            for ( final String callset : mvc.getSupportingCallSets() ) {
-                if ( excludeCallset.contains(callset)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
-
-    private class ByUniqueToOneCallset extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return mvc.getSupportingCallSets().size() != 1;
-        }
-    }
-
-    private class ByGenotype extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return vc.getGenotype("NA12878").getType() != genotypeType;
-        }
-    }
-
-    private class ByTruthStatus extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return mvc.getType() != truthStatus;
-        }
-    }
-
-    private class ByPolymorphicStatus extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return mvc.getPolymorphicStatus() != polymorphicStatus;
-        }
-    }
-
-    /**
-     * Excludes all variants that are only supported by some or all the callsets
-     * listed in "excludeUniqueToCallsets"
-     */
-    private class ByExcludeUniqueToCallsets extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            List<String> supportingCallsets = mvc.getSupportingCallSets();
-            return excludeUniqueToCallsets.size() >= supportingCallsets.size() &&
-                   excludeUniqueToCallsets.containsAll(supportingCallsets);
-        }
-    }
-
-
+  private case class assess(dataset: File, callset: File, report: File, sites: File) extends AssessNA12878 with UNIVERSAL_GATK_ARGS {
+    this.BAM = dataset
+    this.variant :+= callset
+    this.out = report
+    this.badSites = sites
+    this.analysisName = "AssessNA12878"
+  }
 
 }

@@ -44,185 +44,76 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.queue.qscripts.qc
 
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.PolymorphicStatus;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
-import org.broadinstitute.variant.variantcontext.GenotypeType;
-import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
-
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+import org.broadinstitute.sting.queue.extensions.gatk.{DiagnoseTargets, FindCoveredIntervals}
+import org.broadinstitute.sting.queue.QScript
 
 /**
- * Extract a VCF from the NA12878 Knowledge Base meeting criteria
- *
- * See @link http://gatkforums.broadinstitute.org/discussion/1848/using-the-na12878-knowledge-base for more information
+ * User: carneiro
+ * Date: 2/19/13
+ * Time: 4:29 PM
  */
-public class ExtractConsensusSites extends NA12878DBWalker {
-    @Output
-    public VariantContextWriter out;
 
-    @Argument(fullName="maxSites", shortName = "maxSites", doc="Max. number of bad sites to write out", required=false)
-    public int maxSites = 10000;
+class FindAndDiagnoseUndercoveredIntervals extends QScript {
+  @Argument(shortName="old", doc="input bams", required=true)
+  var oldBAMs: List[File] = _
 
-    @Argument(fullName="variantType", shortName = "variantType", doc="", required=false)
-    public VariantContext.Type variantType = null;
+  @Argument(shortName="new", doc="input bams", required=true)
+  var newBAMs: List[File] = _
 
-    @Argument(fullName="includeCallset", shortName = "includeCallset", doc="", required=false)
-    public Set<String> includeCallset = null;
+  @Argument(shortName="R", doc="reference", required=false)
+  var reference = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
 
-    @Argument(fullName="excludeCallset", shortName = "excludeCallset", doc="", required=false)
-    public Set<String> excludeCallset = null;
+  @Argument(shortName="t", doc="coverage threshold to be considered good coverage", required=false)
+  var threshold = 20
 
-    @Argument(fullName="truthStatus", shortName = "truthStatus", doc="", required=false)
-    public TruthStatus truthStatus = null;
+  @Argument(shortName="u", doc="uncovered intervals list", required=false)
+  var uncovered: File = _
 
-    @Argument(fullName="polymorphicStatus", shortName = "polymorphicStatus", doc="", required=false)
-    public PolymorphicStatus polymorphicStatus = null;
+  @Argument(shortName="c", doc="covered to threshold intervals list", required=false)
+  var uncoveredToThreshold: File = _
 
-    @Argument(fullName="genotype", shortName = "genotype", doc="", required=false)
-    public GenotypeType genotypeType = null;
+  @Argument(shortName = "sc", doc = "Scatter count", required = false)
+  var threads: Int = 50
 
-    @Argument(fullName="uniqueToOneCallset", shortName = "uniqueToOneCallset", doc="", required=false)
-    public boolean uniqueToOneCallset = false;
+  def script = {
 
-    /**
-     * Excludes all variants that are only supported by the given callsets
-     */
-    @Argument(fullName ="excludeUniqueToCallsets", shortName = "eus", doc= "Excludes all variants that are only supported by the given callsets ", required=false)
-    public HashSet<String> excludeUniqueToCallsets = new HashSet<String>();
-
-    private abstract class ShouldBeReviewed {
-        public abstract boolean exclude(final MongoVariantContext mvc, final VariantContext vc);
+    if (uncovered == null ) {
+      uncovered =  swapExt(oldBAMs(0), ".bam", ".coveredTo1.intervals")
+      add(FindCoverage(threshold, uncovered))
+    }
+    if (uncoveredToThreshold == null ) {
+      uncoveredToThreshold = swapExt(oldBAMs(0), ".bam", ".coveredTo." + threshold + ".intervals")
+      add(FindCoverage(1, uncoveredToThreshold))
     }
 
-    private List<ShouldBeReviewed> criteria = new LinkedList<ShouldBeReviewed>();
-
-    @Override
-    public void initialize() {
-        super.initialize();
-
-        if ( variantType != null ) criteria.add(new ByType());
-        if ( excludeCallset != null ) criteria.add(new ByExclude());
-        if ( includeCallset != null ) criteria.add(new ByInclude());
-        if ( truthStatus != null ) criteria.add(new ByTruthStatus());
-        if ( uniqueToOneCallset ) criteria.add(new ByUniqueToOneCallset());
-        if ( genotypeType != null ) criteria.add(new ByGenotype());
-        if ( polymorphicStatus != null ) criteria.add(new ByPolymorphicStatus());
-        if ( !excludeUniqueToCallsets.isEmpty() ) criteria.add(new ByExcludeUniqueToCallsets());
-
-        out.writeHeader(db.makeStandardVCFHeader());
+    val allBAMs = newBAMs ++ oldBAMs
+    for (bam <- allBAMs) {
+      val diagnoseUncoveredToThreshold = swapExt(bam, ".bam", ".coveredTo." + threshold + ".vcf")
+      add(Diagnose(bam, uncoveredToThreshold, diagnoseUncoveredToThreshold))
     }
 
-    @Override public boolean isDone() { return true; }
+  }
 
-    @Override
-    public void onTraversalDone(Integer result) {
-        int nWritten = 0;
-        for ( final MongoVariantContext mvc : db.getConsensusSites(makeSiteSelector())) {
-            final VariantContext vc = mvc.getVariantContext();
-            if ( shouldBeReviewed(mvc, vc) ) {
-                out.add(vc);
-                if ( nWritten++ > maxSites)
-                    break;
-            }
-        }
+  case class FindCoverage(coverage: Int, output: File) extends FindCoveredIntervals {
+    this.reference_sequence = reference
+    this.memoryLimit = 8
+    this.scatterCount = threads
+    this.input_file = oldBAMs
+    this.intervalsString :+= "20"
+    this.cov = coverage
+    this.uncovered = true
+    this.out = output
+  }
 
-        super.onTraversalDone(result);
-    }
-
-    private boolean shouldBeReviewed(final MongoVariantContext mvc, final VariantContext vc) {
-        for ( final ShouldBeReviewed shouldBeReviewed : criteria )
-            if ( shouldBeReviewed.exclude(mvc, vc) )
-                return false;
-
-        return true;
-    }
-
-    @Override
-    public NA12878DBArgumentCollection.DBType getDefaultDB() {
-        return NA12878DBArgumentCollection.DBType.PRODUCTION;
-    }
-
-    private class ByType extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return vc.getType() != variantType;
-        }
-    }
-
-    private class ByInclude extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            for ( final String callset : mvc.getSupportingCallSets() ) {
-                if ( includeCallset.contains(callset)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    }
-    private class ByExclude extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            for ( final String callset : mvc.getSupportingCallSets() ) {
-                if ( excludeCallset.contains(callset)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
-
-    private class ByUniqueToOneCallset extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return mvc.getSupportingCallSets().size() != 1;
-        }
-    }
-
-    private class ByGenotype extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return vc.getGenotype("NA12878").getType() != genotypeType;
-        }
-    }
-
-    private class ByTruthStatus extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return mvc.getType() != truthStatus;
-        }
-    }
-
-    private class ByPolymorphicStatus extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return mvc.getPolymorphicStatus() != polymorphicStatus;
-        }
-    }
-
-    /**
-     * Excludes all variants that are only supported by some or all the callsets
-     * listed in "excludeUniqueToCallsets"
-     */
-    private class ByExcludeUniqueToCallsets extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            List<String> supportingCallsets = mvc.getSupportingCallSets();
-            return excludeUniqueToCallsets.size() >= supportingCallsets.size() &&
-                   excludeUniqueToCallsets.containsAll(supportingCallsets);
-        }
-    }
-
-
+  case class Diagnose(bam: File, interval: File, output: File) extends DiagnoseTargets() {
+    this.reference_sequence = reference
+    this.memoryLimit = 8
+    this.scatterCount = threads
+    this.input_file :+= bam
+    this.intervals :+= interval
+    this.out = output
+  }
 
 }

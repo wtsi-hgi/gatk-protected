@@ -44,185 +44,139 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.qc
 
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.PolymorphicStatus;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
-import org.broadinstitute.variant.variantcontext.GenotypeType;
-import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
-
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
-
-/**
- * Extract a VCF from the NA12878 Knowledge Base meeting criteria
- *
- * See @link http://gatkforums.broadinstitute.org/discussion/1848/using-the-na12878-knowledge-base for more information
- */
-public class ExtractConsensusSites extends NA12878DBWalker {
-    @Output
-    public VariantContextWriter out;
-
-    @Argument(fullName="maxSites", shortName = "maxSites", doc="Max. number of bad sites to write out", required=false)
-    public int maxSites = 10000;
-
-    @Argument(fullName="variantType", shortName = "variantType", doc="", required=false)
-    public VariantContext.Type variantType = null;
-
-    @Argument(fullName="includeCallset", shortName = "includeCallset", doc="", required=false)
-    public Set<String> includeCallset = null;
-
-    @Argument(fullName="excludeCallset", shortName = "excludeCallset", doc="", required=false)
-    public Set<String> excludeCallset = null;
-
-    @Argument(fullName="truthStatus", shortName = "truthStatus", doc="", required=false)
-    public TruthStatus truthStatus = null;
-
-    @Argument(fullName="polymorphicStatus", shortName = "polymorphicStatus", doc="", required=false)
-    public PolymorphicStatus polymorphicStatus = null;
-
-    @Argument(fullName="genotype", shortName = "genotype", doc="", required=false)
-    public GenotypeType genotypeType = null;
-
-    @Argument(fullName="uniqueToOneCallset", shortName = "uniqueToOneCallset", doc="", required=false)
-    public boolean uniqueToOneCallset = false;
-
-    /**
-     * Excludes all variants that are only supported by the given callsets
-     */
-    @Argument(fullName ="excludeUniqueToCallsets", shortName = "eus", doc= "Excludes all variants that are only supported by the given callsets ", required=false)
-    public HashSet<String> excludeUniqueToCallsets = new HashSet<String>();
-
-    private abstract class ShouldBeReviewed {
-        public abstract boolean exclude(final MongoVariantContext mvc, final VariantContext vc);
-    }
-
-    private List<ShouldBeReviewed> criteria = new LinkedList<ShouldBeReviewed>();
-
-    @Override
-    public void initialize() {
-        super.initialize();
-
-        if ( variantType != null ) criteria.add(new ByType());
-        if ( excludeCallset != null ) criteria.add(new ByExclude());
-        if ( includeCallset != null ) criteria.add(new ByInclude());
-        if ( truthStatus != null ) criteria.add(new ByTruthStatus());
-        if ( uniqueToOneCallset ) criteria.add(new ByUniqueToOneCallset());
-        if ( genotypeType != null ) criteria.add(new ByGenotype());
-        if ( polymorphicStatus != null ) criteria.add(new ByPolymorphicStatus());
-        if ( !excludeUniqueToCallsets.isEmpty() ) criteria.add(new ByExcludeUniqueToCallsets());
-
-        out.writeHeader(db.makeStandardVCFHeader());
-    }
-
-    @Override public boolean isDone() { return true; }
-
-    @Override
-    public void onTraversalDone(Integer result) {
-        int nWritten = 0;
-        for ( final MongoVariantContext mvc : db.getConsensusSites(makeSiteSelector())) {
-            final VariantContext vc = mvc.getVariantContext();
-            if ( shouldBeReviewed(mvc, vc) ) {
-                out.add(vc);
-                if ( nWritten++ > maxSites)
-                    break;
-            }
-        }
-
-        super.onTraversalDone(result);
-    }
-
-    private boolean shouldBeReviewed(final MongoVariantContext mvc, final VariantContext vc) {
-        for ( final ShouldBeReviewed shouldBeReviewed : criteria )
-            if ( shouldBeReviewed.exclude(mvc, vc) )
-                return false;
-
-        return true;
-    }
-
-    @Override
-    public NA12878DBArgumentCollection.DBType getDefaultDB() {
-        return NA12878DBArgumentCollection.DBType.PRODUCTION;
-    }
-
-    private class ByType extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return vc.getType() != variantType;
-        }
-    }
-
-    private class ByInclude extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            for ( final String callset : mvc.getSupportingCallSets() ) {
-                if ( includeCallset.contains(callset)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    }
-    private class ByExclude extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            for ( final String callset : mvc.getSupportingCallSets() ) {
-                if ( excludeCallset.contains(callset)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
-
-    private class ByUniqueToOneCallset extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return mvc.getSupportingCallSets().size() != 1;
-        }
-    }
-
-    private class ByGenotype extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return vc.getGenotype("NA12878").getType() != genotypeType;
-        }
-    }
-
-    private class ByTruthStatus extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return mvc.getType() != truthStatus;
-        }
-    }
-
-    private class ByPolymorphicStatus extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            return mvc.getPolymorphicStatus() != polymorphicStatus;
-        }
-    }
-
-    /**
-     * Excludes all variants that are only supported by some or all the callsets
-     * listed in "excludeUniqueToCallsets"
-     */
-    private class ByExcludeUniqueToCallsets extends ShouldBeReviewed {
-        @Override
-        public boolean exclude(MongoVariantContext mvc, VariantContext vc) {
-            List<String> supportingCallsets = mvc.getSupportingCallSets();
-            return excludeUniqueToCallsets.size() >= supportingCallsets.size() &&
-                   excludeUniqueToCallsets.containsAll(supportingCallsets);
-        }
-    }
+import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.sting.queue.extensions.picard._
+import org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel
+import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 
 
+import org.broadinstitute.sting.queue.util.QScriptUtils
+import org.broadinstitute.sting.commandline.Hidden
 
+class QuickProcessingPipeline extends QScript {
+  qscript =>
+
+
+  @Input(doc="input BAM file - or list of BAM files", fullName="input", shortName="i", required=true)
+  var input: File = _
+
+  @Input(doc="Reference fasta file", fullName="reference", shortName="R", required=false)
+  var reference = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
+
+  @Input(doc="dbsnp ROD to use (must be in VCF format)", fullName="dbsnp", shortName="D", required=false)
+  var dbSNP = Seq(new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.vcf"))
+
+  @Hidden
+  @Argument(doc="only process the minimum possible to get an analizable bam", shortName="fly", required=false)
+  var flyThrough = false
+
+  @Hidden
+  @Argument(doc="How many ways to scatter/gather", fullName="scatter_gather", shortName="sg", required=false)
+  var nContigs: Int = -1
+
+  @Hidden
+  @Argument(doc="Define the default platform for Count Covariates -- useful for techdev purposes only.", fullName="default_platform", shortName="dp", required=false)
+  var defaultPlatform: String = ""
+
+
+  val cleaningModel: ConsensusDeterminationModel = ConsensusDeterminationModel.USE_READS
+
+
+  def script() {
+    // BAM files generated by the pipeline
+    val bam        = qscript.input
+    val dedupedBam = swapExt(       bam, ".bam", ".dedup.bam")
+    val cleanedBam = swapExt(dedupedBam, ".bam", ".clean.bam")
+    val recalBam   = swapExt(cleanedBam, ".bam", ".recal.bam")
+
+    // Accessory files
+    val targetIntervals = swapExt(bam, ".bam", ".intervals")
+    val metricsFile     = swapExt(bam, ".bam", ".metrics")
+    val recalFile       = swapExt(bam, ".bam", ".grp")
+
+    // keep a record of the number of contigs in the first bam file in the list
+    if (nContigs < 0)
+      nContigs = QScriptUtils.getNumberOfContigs(bam)
+
+    add(dedup(bam, dedupedBam, metricsFile),
+        target(Seq(dedupedBam), targetIntervals),
+        clean(Seq(dedupedBam), targetIntervals, cleanedBam),
+        bqsr(cleanedBam, recalFile),
+        printreads(cleanedBam, recalFile, recalBam))
+  }
+
+  /****************************************************************************
+    * Classes (GATK Walkers)
+    ****************************************************************************/
+
+  // General arguments to non-GATK tools
+  trait ExternalCommonArgs extends CommandLineFunction {
+    this.memoryLimit = 4
+    this.isIntermediate = true
+  }
+
+  // General arguments to GATK walkers
+  trait CommandLineGATKArgs extends CommandLineGATK with ExternalCommonArgs {
+    this.reference_sequence = qscript.reference
+  }
+
+  trait SAMargs extends PicardBamFunction with ExternalCommonArgs {
+    this.maxRecordsInRam = 100000
+  }
+
+  case class target (inBams: Seq[File], outIntervals: File) extends RealignerTargetCreator with CommandLineGATKArgs {
+    this.input_file = inBams
+    this.out = outIntervals
+    this.mismatchFraction = 0.0
+    this.known ++= qscript.dbSNP
+    if (qscript.flyThrough) {this.intervalsString :+= "20"}
+    this.scatterCount = nContigs
+    this.analysisName = "RealignTargetCreator"
+  }
+
+  case class clean (inBams: Seq[File], tIntervals: File, outBam: File) extends IndelRealigner with CommandLineGATKArgs {
+    this.input_file = inBams
+    this.targetIntervals = tIntervals
+    this.out = outBam
+    this.known ++= qscript.dbSNP
+    this.consensusDeterminationModel = qscript.cleaningModel
+    this.compress = 0
+    this.read_filter :+= "BadCigar"
+    if (qscript.flyThrough) {this.intervalsString :+= "20"}
+    this.scatterCount = nContigs
+    this.analysisName = "IndelRealigner"
+  }
+
+  case class bqsr (inBam: File, outRecalFile: File) extends BaseRecalibrator with CommandLineGATKArgs {
+    this.knownSites ++= qscript.dbSNP
+    this.covariate ++= Seq("ReadGroupCovariate", "QualityScoreCovariate", "CycleCovariate", "ContextCovariate")
+    this.input_file :+= inBam
+    this.out = outRecalFile
+    if (!defaultPlatform.isEmpty) this.default_platform = defaultPlatform
+    if (qscript.flyThrough) {this.intervalsString :+= "20"}
+    this.scatterCount = nContigs
+    this.analysisName = "BQSR"
+  }
+
+  case class printreads (inBam: File, inRecalFile: File, outBam: File) extends PrintReads with CommandLineGATKArgs {
+    this.input_file :+= inBam
+    this.BQSR = inRecalFile
+    this.baq = CalculationMode.CALCULATE_AS_NECESSARY
+    this.out = outBam
+    if (qscript.flyThrough) {this.intervalsString :+= "20"}
+    this.scatterCount = nContigs
+    this.isIntermediate = false
+    this.analysisName = "PrintReads"
+  }
+
+  case class dedup (inBam: File, outBam: File, metricsFile: File) extends MarkDuplicates with ExternalCommonArgs {
+    this.input :+= inBam
+    this.output = outBam
+    this.metrics = metricsFile
+    this.memoryLimit = 16
+    this.analysisName = "MarkDuplicates"
+  }
 }
