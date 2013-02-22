@@ -44,38 +44,102 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
-import org.broadinstitute.sting.BaseTest;
-import org.testng.Assert;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+/**
+ * Types of assessments for the KB.
+ *
+ * Includes things like true positives, false negatives, false positives, etc.  Cut up a bit more
+ * finely than just those, though.
+ *
+ * User: depristo
+ * Date: 2/19/13
+ * Time: 8:34 PM
+ */
+public enum AssessmentType {
+    // TODO -- add simple assessment types
 
-import java.util.ArrayList;
-import java.util.List;
+    /**
+     * A true positive site that was unfiltered, wouldn't be filtered, and was called
+     */
+    TRUE_POSITIVE(false),
 
-public class TruthStatusUnitTest extends BaseTest {
-    @DataProvider(name = "TSTest")
-    public Object[][] makeGLsWithNonInformative() {
-        List<Object[]> tests = new ArrayList<Object[]>();
+    /**
+     * A FP in KB that was filtered in the call set
+     */
+    CORRECTLY_FILTERED(false),
 
-        for ( final TruthStatus x : TruthStatus.values() )
-            tests.add(new Object[]{x, TruthStatus.UNKNOWN, x});
+    /**
+     * A FP in KB that wasn't called at all in the call set
+     */
+    CORRECTLY_UNCALLED(false),
 
-        for ( final TruthStatus x : TruthStatus.values() )
-            tests.add(new Object[]{x, x, x});
+    /**
+     * FP site called and unfiltered in callset but with VC annotations that would likely filter it away
+     */
+    REASONABLE_FILTERS_WOULD_FILTER_FP_SITE(false),
 
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, TruthStatus.TRUE_POSITIVE, TruthStatus.DISCORDANT});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, TruthStatus.FALSE_POSITIVE, TruthStatus.DISCORDANT});
+    /**
+     * A unfiltered call in the callset that wouldn't likely be filtered due to annotations and is a FP in KB
+     */
+    FALSE_POSITIVE_SITE_IS_FP(true),
 
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, TruthStatus.SUSPECT, TruthStatus.FALSE_POSITIVE});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, TruthStatus.SUSPECT, TruthStatus.SUSPECT});
+    /**
+     * Called polymorphic in NA12878 in the callset but the site is TP but monomorphic in NA12878 in the KB
+     */
+    FALSE_POSITIVE_MONO_IN_NA12878(true),
 
-        return tests.toArray(new Object[][]{});
+    /**
+     * A TP in the KB but the site was filtered in the callset
+     */
+    FALSE_NEGATIVE_CALLED_BUT_FILTERED(true),
+
+//    /**
+//     * A TP in the KB, called in the callset and unfiltered but VC has annotations that would likely cause it to be filtered out
+//     */
+//    FALSE_NEGATIVE_CALLED_BUT_WOULD_BE_FILTERED(true),
+
+    /**
+     * A TP in the KB, and not called at all in the callset, but a BAM was provided and there wasn't enough data to call the
+     * site in the BAM
+     */
+    FALSE_NEGATIVE_NOT_CALLED_BUT_LOW_COVERAGE(false),
+
+    /**
+     * A TP in the KB but not called at all in the callset
+     */
+    FALSE_NEGATIVE_NOT_CALLED_AT_ALL(true),
+
+    /**
+     * Unfiltered call in the callset with a match in the KB but the KB record is tagged as UNKNOWN
+     */
+    CALLED_IN_DB_UNKNOWN_STATUS(true),
+
+    /**
+     * An unfiltered call in the callset that has no matching record at all in the KB
+     */
+    CALLED_NOT_IN_DB_AT_ALL(true),
+
+    /**
+     * Catch all class for sites that (1) are in the callset but filtered and have no record in the KB or
+     * (2) SUSPECT, MONO, UNKNOWN status in the KB that aren't called in the call set
+     */
+    NOT_RELEVANT(false);
+
+    private final boolean interesting;
+
+    /**
+     * Is this site interesting to emit for later analysis?
+     *
+     * A TP, for example, isn't interesting, but a FP is, as would a FN be.
+     *
+     * @return true if interesting to think about
+     */
+    public boolean isInteresting() {
+        return interesting;
     }
 
-    @Test(dataProvider = "TSTest")
-    public void testMakeConsensus(final TruthStatus ps1, final TruthStatus ps2, final TruthStatus expected) {
-        Assert.assertEquals(ps1.makeConsensus(ps2), expected, "Truth status consensus of " + ps1 + " + " + ps2 + " was not expected " + expected);
+    AssessmentType(boolean interesting) {
+        this.interesting = interesting;
     }
 }

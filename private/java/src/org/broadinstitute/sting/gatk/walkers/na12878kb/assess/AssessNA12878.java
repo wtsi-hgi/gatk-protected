@@ -44,26 +44,25 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
 import net.sf.samtools.SAMFileReader;
-import net.sf.samtools.SAMRecord;
-import net.sf.samtools.SAMRecordIterator;
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.NA12878DBWalker;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteIterator;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
-import org.broadinstitute.variant.vcf.*;
 import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.variant.vcf.VCFHeaderLineType;
+import org.broadinstitute.variant.vcf.VCFInfoHeaderLine;
 
 import java.io.File;
 import java.io.PrintStream;
@@ -106,7 +105,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     public PrintStream out;
 
     @Argument(fullName="excludeCallset", shortName = "excludeCallset", doc="Don't count calls that come from only these excluded callsets", required=false)
-    public Set<String> excludeCallset = null;
+    public Set<String> excludeCallset = new HashSet<String>();
 
     /**
      * An output VCF file containing the bad sites (FN/FP) that were found in the input callset w.r.t. the current NA12878 knowledge base
@@ -141,58 +140,10 @@ public class AssessNA12878 extends NA12878DBWalker {
 
     SiteIterator<MongoVariantContext> consensusSiteIterator;
     boolean captureBadSites = true;
-    int nWritten = 0;
 
-    public enum AssessmentType {
-        TRUE_POSITIVE(false),
-        CORRECTLY_FILTERED(false),
-        CORRECTLY_UNCALLED(false),
-        REASONABLE_FILTERS_WOULD_FILTER_FP_SITE(false),
-        FALSE_POSITIVE_SITE_IS_FP(true),
-        FALSE_POSITIVE_MONO_IN_NA12878(true),
-        FALSE_NEGATIVE_CALLED_BUT_FILTERED(true),
-        FALSE_NEGATIVE_NOT_CALLED_BUT_LOW_COVERAGE(false),
-        FALSE_NEGATIVE_NOT_CALLED_AT_ALL(true),
-        CALLED_IN_DB_UNKNOWN_STATUS(true),
-        CALLED_NOT_IN_DB_AT_ALL(true),
-        NOT_RELEVANT(false);
-
-        private final boolean interesting;
-
-        private AssessmentType(boolean interesting) {
-            this.interesting = interesting;
-        }
-    }
-
-    private class Assessment {
-        final EnumMap<AssessmentType, Integer> counts;
-
-        public Assessment() {
-            counts = new EnumMap<AssessmentType, Integer>(AssessmentType.class);
-            for ( final AssessmentType type : AssessmentType.values() )
-                counts.put(type, 0);
-        }
-
-        public final void inc(final AssessmentType type) {
-            counts.put(type, counts.get(type) + 1);
-        }
-
-        public final int get(final AssessmentType type) {
-            return counts.get(type);
-        }
-
-        public List<Integer> getCounts() {
-            final List<Integer> returnList = new ArrayList<Integer>();
-            for( final AssessmentType type : AssessmentType.values() ) {
-                returnList.add(get(type));
-            }
-            return returnList;
-        }
-    }
-
-    final Map<String,Assessment> SNPAssessments = new HashMap<String,Assessment>();
-    final Map<String,Assessment> IndelAssessments = new HashMap<String,Assessment>();
+    final Map<String,Assessor> assessors = new HashMap<String,Assessor>();
     SAMFileReader bamReader = null;
+    BadSitesWriter badSitesWriter;
 
     @Override
     public NA12878DBArgumentCollection.DBType getDefaultDB() {
@@ -213,7 +164,16 @@ public class AssessNA12878 extends NA12878DBWalker {
         }
 
         if ( BAM != null ) {
-            bamReader = new SAMFileReader(BAM);
+            bamReader = Assessor.makeSAMFileReaderForDoCInBAM(BAM);
+        }
+
+        badSitesWriter = new BadSitesWriter(maxToWrite, captureBadSites, AssessmentsToExclude, badSites);
+
+        // set up assessors for each rod binding
+        for ( final RodBinding<VariantContext> rod : variants ) {
+            final String rodName = rod.getName();
+            final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, badSitesWriter, bamReader, minDepthForLowCoverage);
+            assessors.put(rodName, assessor);
         }
     }
 
@@ -222,188 +182,35 @@ public class AssessNA12878 extends NA12878DBWalker {
         if ( tracker == null ) return 0;
 
         if ( debug ) logger.info("Processing " + context.getLocation());
-        includeMissingCalls(consensusSiteIterator, context.getLocation());
+        includeMissingCalls(consensusSiteIterator.getSitesBefore(context.getLocation()));
         final List<MongoVariantContext> consensusSites = consensusSiteIterator.getSitesAtLocation(context.getLocation());
 
         for ( final RodBinding<VariantContext> rod : variants ) {
-            if( tracker.getValues(rod, ref.getLocus()).size() == 0 ) {
-                // missed consensus site(s)
-                for ( final MongoVariantContext site : consensusSites ) {
-                    accessSite(rod.getName(), null, site);
-                }
-            } else {
-                for( final VariantContext vcRaw : tracker.getValues(rod, ref.getLocus()) ) {
-                    final VariantContext vc = vcRaw.subContextFromSample("NA12878");
-
-                    if ( ! vc.isBiallelic() ) {
-                        logger.info("Skipping unsupported multi-allelic variant " + vc);
-                        continue;
-                    }
-
-                    accessSite(rod.getName(), vc, findMatching(vc, consensusSites)); // BUGBUG: Should this be called for not only the matching consensusSite but for all consensusSites?
-                }
-            }
+            final Assessor assessor = getAccessor(rod.getName());
+            final List<VariantContext> vcs = tracker.getValues(rod, ref.getLocus());
+            assessor.accessSite(vcs, consensusSites);
         }
 
         return 1;
     }
 
-    final MongoVariantContext findMatching(final VariantContext vc, final Collection<MongoVariantContext> consensusSites ) {
-        for ( final MongoVariantContext site : consensusSites )
-            if ( site.matches(vc) )
-                return site;
-        return null;
-    }
-
-    private void includeMissingCalls(final SiteIterator<MongoVariantContext> siteIterator, final GenomeLoc loc) {
-        includeMissingCalls(siteIterator.getSitesBefore(loc));
-    }
-
     private void includeMissingCalls(final List<MongoVariantContext> missedSites) {
-        for ( final MongoVariantContext missedSite : missedSites ) {
-            logger.info("Missed site " + missedSite);
-            for ( final RodBinding<VariantContext> rod : variants ) {
-                accessSite(rod.getName(), null, missedSite);
-            }
+        final List<VariantContext> noCalls = Collections.emptyList();
+
+        for ( final RodBinding<VariantContext> rod : variants ) {
+            getAccessor(rod.getName()).accessSite(noCalls, missedSites);
         }
     }
 
-    /**
-     * Should we include the variant vc in our assessment?
-     *
-     * @param vc a VariantContext to potentially include
-     * @return true if VC should be included, false otherwise
-     */
-    private boolean includeVariant(final VariantContext vc) {
-        switch ( typesToInclude ) {
-            case BOTH: return true;
-            case SNPS: return vc.isSNP();
-            case INDELS: return ! vc.isSNP();
-            default:
-                throw new IllegalStateException("Unexpected enum " + typesToInclude);
-        }
+    private Assessor getAccessor(final String rodName) {
+        return assessors.get(rodName);
     }
 
-    private void accessSite(final String rodName, final VariantContext call, final MongoVariantContext consensusSite) {
-
-        final VariantContext vc = call != null ? call : consensusSite.getVariantContext();
-
-        if ( ! includeVariant(vc) )
-            return;
-
-        final AssessmentType type = figureOutAssessmentType(call, consensusSite);
-        final Map<String,Assessment> assessmentMap = vc.isSNP() ? SNPAssessments : IndelAssessments;
-        Assessment assessment = assessmentMap.get(rodName);
-        if(assessment == null) {
-            assessment = new Assessment();
-            assessmentMap.put(rodName, assessment);
-        }
-        assessment.inc(type);
-
-        if ( captureBadSites && type.interesting && ! AssessmentsToExclude.contains(type) && nWritten++ < maxToWrite) {
-            final VariantContextBuilder builder = new VariantContextBuilder(vc);
-            if ( consensusSite != null )
-                builder.attribute("SupportingCallsets", Utils.join(",", consensusSite.getSupportingCallSets()));
-            builder.attribute("WHY", type.toString());
-            badSites.add(builder.make());
-            logger.info("Accessed site " + call + " consensus " + consensusSite);
-        }
-    }
-
-    private AssessmentType figureOutAssessmentType(final VariantContext call, final MongoVariantContext consensusSite) {
-        final boolean consensusTP = consensusSite != null && !isExcluded(consensusSite) && consensusSite.getType().isTruePositive() && consensusSite.getPolymorphicStatus().isPolymorphic();
-        final boolean consensusFP = consensusSite != null && !isExcluded(consensusSite) && consensusSite.getType().isFalsePositive();
-
-        if ( call != null ) {
-            if ( consensusTP ) {
-                return call.isFiltered()
-                        ? AssessmentType.FALSE_NEGATIVE_CALLED_BUT_FILTERED
-                        : AssessmentType.TRUE_POSITIVE;
-            } else if (consensusSite != null && consensusSite.getType().isTruePositive() && consensusSite.getPolymorphicStatus().isMonomorphic() ) {
-                return AssessmentType.FALSE_POSITIVE_MONO_IN_NA12878;
-            } else if ( consensusFP ) {
-                if ( call.isFiltered() )
-                    return AssessmentType.CORRECTLY_FILTERED;
-                else if ( likelyWouldBeFiltered(call) )
-                    return AssessmentType.REASONABLE_FILTERS_WOULD_FILTER_FP_SITE;
-                else
-                    return AssessmentType.FALSE_POSITIVE_SITE_IS_FP;
-            } else if ( consensusSite != null && consensusSite.getType().isUnknown() ) {
-                return AssessmentType.CALLED_IN_DB_UNKNOWN_STATUS;
-            } else if ( consensusSite == null && call.isNotFiltered() ) {
-                return AssessmentType.CALLED_NOT_IN_DB_AT_ALL;
-            } else {
-                return AssessmentType.NOT_RELEVANT;
-            }
-        } else if ( consensusTP ) { // call == null
-            if ( BAM != null ) {
-                return sufficientDepthToCall(consensusSite)
-                        ? AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL
-                        : AssessmentType.FALSE_NEGATIVE_NOT_CALLED_BUT_LOW_COVERAGE;
-            } else {
-                return AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL;
-            }
-        } else if (consensusFP ) { // call == null
-            return AssessmentType.CORRECTLY_UNCALLED;
-        } else {
-            return AssessmentType.NOT_RELEVANT;
-        }
-    }
-
-    private boolean isExcluded( final MongoVariantContext consensusSite ) {
-        return excludeCallset != null && excludeCallset.containsAll(consensusSite.getSupportingCallSets());
-    }
-
-    /**
-     * If a BAM is provided, assess whether there's sufficient coverage to call the site
-     *
-     * @param falseNegative a site that was missed in the call set
-     * @return true if there's enough coverage at the site in the BAM to likely make a call
-     */
-    private boolean sufficientDepthToCall(final MongoVariantContext falseNegative) {
-        final SAMRecordIterator it = bamReader.queryOverlapping(falseNegative.getChr(), falseNegative.getStart(), falseNegative.getStart());
-
-        int depth = 0;
-        while ( it.hasNext() && depth < minDepthForLowCoverage ) {
-            final SAMRecord read = it.next();
-            // TODO -- filter for MAPQ?
-            depth++;
-        }
-        it.close();
-
-        return depth >= minDepthForLowCoverage;
-    }
-
-    /**
-     * Returns true is a simple set of reasonable filters would likely remove it
-     *
-     * For SNPs:
-     * QD < 2.0
-     * MQ < 40.0
-     * FS > 60.0
-     * HaplotypeScore > 13.0
-     * MQRankSum < -12.5
-     * ReadPosRankSum < -8.0
-     *
-     * For indels:
-     *
-     * QD < 2.0
-     * ReadPosRankSum < -20.0
-     * InbreedingCoeff < -0.8
-     * FS > 200.0
-     *
-     * @param vc
-     * @return
-     */
-    public boolean likelyWouldBeFiltered(final VariantContext vc) {
-        final double FS = vc.getAttributeAsDouble("FS", 0.0);
-        final double QD = vc.getAttributeAsDouble("QD", 20.0);
-        final double MQ = vc.getAttributeAsDouble("MQ", 50.0);
-
-        if ( vc.isSNP() ) {
-            return FS > 60 || QD < 2 || MQ < 40;
-        } else {
-            return FS > 200 || QD < 2;
+    private Assessment getAssessment(final String rodName, final TypesToInclude type) {
+        switch ( type ) {
+            case SNPS: return getAccessor(rodName).getSNPAssessment();
+            case INDELS: return getAccessor(rodName).getIndelAssessment();
+            default: throw new IllegalArgumentException("Unexpected type " + type);
         }
     }
 
@@ -411,22 +218,15 @@ public class AssessNA12878 extends NA12878DBWalker {
         super.onTraversalDone(result);
         includeMissingCalls(consensusSiteIterator.toList());
 
-        if( variants.size() == 1 ) {
+        if ( variants.size() == 1 ) {
             final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets",
                     "Name", "VariantType", "AssessmentType", "Count");
             for( final RodBinding rod : variants ) {
-                // snps
-                for ( final AssessmentType type : AssessmentType.values() ) {
-                    final Assessment assessment = SNPAssessments.get(rod.getName());
-                    if ( assessment != null )
-                        report.addRow(rod.getName(), "SNP", type, assessment.get(type));
-                }
-
-                // indels
-                for ( final AssessmentType type : AssessmentType.values() ) {
-                    final Assessment assessment = IndelAssessments.get(rod.getName());
-                    if ( assessment != null )
-                        report.addRow(rod.getName(), "Indel", type, assessment.get(type));
+                for ( final TypesToInclude variantType : Arrays.asList(TypesToInclude.SNPS, TypesToInclude.INDELS) ) {
+                    for ( final AssessmentType type : AssessmentType.values() ) {
+                        final Assessment assessment = getAssessment(rod.getName(), variantType);
+                        report.addRow(rod.getName(), variantType.toString(), type, assessment.get(type));
+                    }
                 }
             }
             report.print(out);
@@ -438,26 +238,18 @@ public class AssessNA12878 extends NA12878DBWalker {
                 columns.add(type.toString());
             }
             final GATKReport report = GATKReport.newSimpleReport("NA12878Assessment", columns);
+
             for( final RodBinding rod : variants ) {
                 final List<Object> row = new ArrayList<Object>();
-
-                // snps
-                if ( SNPAssessments.containsKey(rod.getName()) ) {
+                for ( final TypesToInclude variantType : Arrays.asList(TypesToInclude.SNPS, TypesToInclude.INDELS) ) {
                     row.add(rod.getName());
-                    row.add("SNP");
-                    row.addAll(SNPAssessments.get(rod.getName()).getCounts());
+                    row.add(variantType.toString());
+                    row.addAll(getAssessment(rod.getName(), variantType).getCounts());
                     report.addRowList(row);
                     row.clear();
                 }
-
-                // indels
-                if ( IndelAssessments.containsKey(rod.getName()) ) {
-                    row.add(rod.getName());
-                    row.add("indel");
-                    row.addAll(IndelAssessments.get(rod.getName()).getCounts());
-                    report.addRowList(row);
-                }
             }
+
             report.print(out);
         }
     }

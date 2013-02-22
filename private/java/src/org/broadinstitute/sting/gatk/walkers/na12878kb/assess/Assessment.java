@@ -44,38 +44,125 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
-import org.broadinstitute.sting.BaseTest;
-import org.testng.Assert;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import com.google.java.contract.Ensures;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 
-public class TruthStatusUnitTest extends BaseTest {
-    @DataProvider(name = "TSTest")
-    public Object[][] makeGLsWithNonInformative() {
-        List<Object[]> tests = new ArrayList<Object[]>();
+/**
+ * Keeps track of observations for each AssessmentType
+ *
+ * User: depristo
+ * Date: 2/19/13
+ * Time: 8:35 PM
+ */
+class Assessment {
+    final EnumMap<AssessmentType, Integer> counts;
 
-        for ( final TruthStatus x : TruthStatus.values() )
-            tests.add(new Object[]{x, TruthStatus.UNKNOWN, x});
-
-        for ( final TruthStatus x : TruthStatus.values() )
-            tests.add(new Object[]{x, x, x});
-
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, TruthStatus.TRUE_POSITIVE, TruthStatus.DISCORDANT});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, TruthStatus.FALSE_POSITIVE, TruthStatus.DISCORDANT});
-
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, TruthStatus.SUSPECT, TruthStatus.FALSE_POSITIVE});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, TruthStatus.SUSPECT, TruthStatus.SUSPECT});
-
-        return tests.toArray(new Object[][]{});
+    /**
+     * Create a new Assessment, initialized to 0 count per AssessmentType
+     */
+    public Assessment() {
+        counts = new EnumMap<AssessmentType, Integer>(AssessmentType.class);
+        for ( final AssessmentType type : AssessmentType.values() )
+            counts.put(type, 0);
     }
 
-    @Test(dataProvider = "TSTest")
-    public void testMakeConsensus(final TruthStatus ps1, final TruthStatus ps2, final TruthStatus expected) {
-        Assert.assertEquals(ps1.makeConsensus(ps2), expected, "Truth status consensus of " + ps1 + " + " + ps2 + " was not expected " + expected);
+    /**
+     * Create an assessment initialized to having +1 count for each value provided
+     * @param initialValues a vararg of types to increment
+     */
+    protected Assessment(final AssessmentType ... initialValues) {
+        this();
+        for ( final AssessmentType initial : initialValues )
+            inc(initial);
+    }
+
+    /**
+     * Count one more observation for assessment type
+     *
+     * @param type non-null type
+     */
+    public final void inc(final AssessmentType type) {
+        if ( type == null ) throw new IllegalArgumentException("type cannot be null");
+        counts.put(type, counts.get(type) + 1);
+    }
+
+    /**
+     * Get the count for type
+     *
+     * @param type non-null type
+     * @return positive integer
+     */
+    public final int get(final AssessmentType type) {
+        if ( type == null ) throw new IllegalArgumentException("type cannot be null");
+        return counts.get(type);
+    }
+
+    /**
+     * Get the counts for each Assessment in enum order
+     *
+     * @return a non-null list
+     */
+    @Ensures({"result != null", "result.size() == AssessmentType.values().length"})
+    public List<Integer> getCounts() {
+        final List<Integer> returnList = new ArrayList<Integer>();
+        for( final AssessmentType type : AssessmentType.values() ) {
+            returnList.add(get(type));
+        }
+        return returnList;
+    }
+
+    /**
+     * Add all of the counts in toAdd to this Assessment
+     *
+     * @param toAdd
+     */
+    public void merge(final Assessment toAdd) {
+        if ( toAdd == null ) throw new IllegalArgumentException("toAdd cannot be null");
+        for ( final EnumMap.Entry<AssessmentType, Integer> count : toAdd.counts.entrySet() )
+            counts.put(count.getKey(), get(count.getKey()) + count.getValue());
+    }
+
+    /**
+     * Add all of the count in toAdd to this Assessment, returning a newly allocated assessment containing this + toAdd
+     * @param toAdd a non-null value to add
+     * @return a newly allocated assessment == this + toAdd
+     */
+    public Assessment add(final Assessment toAdd) {
+        final Assessment copy = new Assessment();
+        copy.merge(this);
+        copy.merge(toAdd);
+        return copy;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder b = new StringBuilder("Assessment{");
+        for ( final EnumMap.Entry<AssessmentType, Integer> count : counts.entrySet() )
+            if ( count.getValue() > 0 )
+                b.append(" " + count.getKey() + "=" + count.getValue());
+        b.append("}");
+        return b.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Assessment that = (Assessment) o;
+
+        if (!counts.equals(that.counts)) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return counts.hashCode();
     }
 }

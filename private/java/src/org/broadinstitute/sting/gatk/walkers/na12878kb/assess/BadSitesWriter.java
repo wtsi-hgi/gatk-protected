@@ -44,38 +44,77 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
-import org.broadinstitute.sting.BaseTest;
-import org.testng.Assert;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.apache.log4j.Logger;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
+import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.EnumSet;
+import java.util.Set;
 
-public class TruthStatusUnitTest extends BaseTest {
-    @DataProvider(name = "TSTest")
-    public Object[][] makeGLsWithNonInformative() {
-        List<Object[]> tests = new ArrayList<Object[]>();
+/**
+ * Write bad KB sites to a VCF
+ *
+ * User: depristo
+ * Date: 2/19/13
+ * Time: 10:13 PM
+ */
+class BadSitesWriter {
+    private final static Logger logger = Logger.getLogger(BadSitesWriter.class);
+    protected final static String SUPPORTING_CALLSET_KEY = "SupportingCallsets";
+    protected final static String WHY_KEY = "WHY";
 
-        for ( final TruthStatus x : TruthStatus.values() )
-            tests.add(new Object[]{x, TruthStatus.UNKNOWN, x});
+    private final VariantContextWriter badSites;
+    private final Set<AssessmentType> assessmentsToExclude;
+    private final boolean captureBadSites;
+    private final int maxToWrite;
 
-        for ( final TruthStatus x : TruthStatus.values() )
-            tests.add(new Object[]{x, x, x});
+    public final static BadSitesWriter NOOP_WRITER = new BadSitesWriter(Integer.MAX_VALUE, false, EnumSet.noneOf(AssessmentType.class), null);
 
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, TruthStatus.TRUE_POSITIVE, TruthStatus.DISCORDANT});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, TruthStatus.FALSE_POSITIVE, TruthStatus.DISCORDANT});
+    int nWritten = 0;
 
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, TruthStatus.SUSPECT, TruthStatus.FALSE_POSITIVE});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, TruthStatus.SUSPECT, TruthStatus.SUSPECT});
+    /**
+     * Create a new BadSitesWriter
+     *
+     * @param maxToWrite the maximum number of records to write
+     * @param captureBadSites should we even write out bad sites at all?
+     * @param assessmentsToExclude don't include assessments in this set, even if they would normally be emitted
+     * @param writer the underlying VCWriter we'll use to emit bad sites.  Can be null if captureBadSites is false
+     */
+    public BadSitesWriter(int maxToWrite, boolean captureBadSites, Set<AssessmentType> assessmentsToExclude, VariantContextWriter writer) {
+        if ( assessmentsToExclude == null ) throw new IllegalArgumentException("assessmentsToExclude cannot be null");
+        if ( writer == null && captureBadSites ) throw new IllegalArgumentException("writer cannot be null when captureBadSites is true");
 
-        return tests.toArray(new Object[][]{});
+        this.maxToWrite = maxToWrite;
+        this.captureBadSites = captureBadSites;
+        this.assessmentsToExclude = assessmentsToExclude;
+        this.badSites = writer;
     }
 
-    @Test(dataProvider = "TSTest")
-    public void testMakeConsensus(final TruthStatus ps1, final TruthStatus ps2, final TruthStatus expected) {
-        Assert.assertEquals(ps1.makeConsensus(ps2), expected, "Truth status consensus of " + ps1 + " + " + ps2 + " was not expected " + expected);
+    /**
+     * Notify this writer of the pair of equivalent sites vc and consensusSite with determined assessment type type
+     *
+     * @param type a non-null type of the equivalence of vc and consensusSite
+     * @param vc a non-null VC containing the information about this site.  This VC cannot be null, and so the client
+     *           of this function needs to be smart in constructing the necessary VC
+     * @param consensusSite a potentially null consensusSite.  If not null, can be used to get information about
+     *                      the support for the consensus in the KB
+     */
+    public void notifyOfSite(final AssessmentType type, final VariantContext vc, final MongoVariantContext consensusSite) {
+        if ( type == null ) throw new IllegalArgumentException("type cannot be null");
+        if ( vc == null ) throw new IllegalArgumentException("vc cannot be null");
+
+        if ( captureBadSites && type.isInteresting() && ! assessmentsToExclude.contains(type) && nWritten++ < maxToWrite) {
+            final VariantContextBuilder builder = new VariantContextBuilder(vc);
+            if ( consensusSite != null )
+                builder.attribute(SUPPORTING_CALLSET_KEY, consensusSite.getCallSetName());
+            builder.attribute(WHY_KEY, type.toString());
+            badSites.add(builder.make());
+            logger.info("Accessed site " + vc + " consensus " + consensusSite);
+        }
     }
 }

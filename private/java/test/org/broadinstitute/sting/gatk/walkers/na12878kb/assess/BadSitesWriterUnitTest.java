@@ -44,38 +44,92 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
 import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.vcf.VCFHeader;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-public class TruthStatusUnitTest extends BaseTest {
-    @DataProvider(name = "TSTest")
-    public Object[][] makeGLsWithNonInformative() {
+public class BadSitesWriterUnitTest extends BaseTest {
+    private class CountingWriter implements VariantContextWriter {
+        int count = 0;
+        VariantContext lastVC = null;
+
+        @Override public void writeHeader(VCFHeader vcfHeader) { }
+        @Override public void close() { }
+        @Override
+        public void add(VariantContext variantContext) {
+            Assert.assertNotNull(variantContext);
+            count++;
+            lastVC = variantContext;
+        }
+    }
+
+    @DataProvider(name = "MyDataProvider")
+    public Object[][] makeMyDataProvider() {
         List<Object[]> tests = new ArrayList<Object[]>();
 
-        for ( final TruthStatus x : TruthStatus.values() )
-            tests.add(new Object[]{x, TruthStatus.UNKNOWN, x});
+        final VariantContext vc = GATKVariantContextUtils.makeFromAlleles("vcf", "20", 10, Arrays.asList("A", "C"));
+        final Genotype het = GenotypeBuilder.create("NA12878", vc.getAlleles());
+        final MongoVariantContext mvc = MongoVariantContext.create(Arrays.asList("foo", "bar"), vc, TruthStatus.TRUE_POSITIVE, new Date(), het, true);
 
-        for ( final TruthStatus x : TruthStatus.values() )
-            tests.add(new Object[]{x, x, x});
-
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, TruthStatus.TRUE_POSITIVE, TruthStatus.DISCORDANT});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, TruthStatus.FALSE_POSITIVE, TruthStatus.DISCORDANT});
-
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, TruthStatus.SUSPECT, TruthStatus.FALSE_POSITIVE});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, TruthStatus.SUSPECT, TruthStatus.SUSPECT});
+        // this functionality can be adapted to provide input data for whatever you might want in your data
+        for ( final AssessmentType type : AssessmentType.values() ) {
+            for ( final int maxToWrite : Arrays.asList(Integer.MAX_VALUE, 10) ) {
+                for ( final boolean captureBadSites : Arrays.asList(true, false) ) {
+                    for ( final Set<AssessmentType> exclude : Arrays.asList(Collections.<AssessmentType>emptySet(), Collections.singleton(type), Collections.singleton(AssessmentType.FALSE_POSITIVE_SITE_IS_FP)) ) {
+                        tests.add(new Object[]{type, mvc, maxToWrite, captureBadSites, exclude});
+                    }
+                }
+            }
+        }
 
         return tests.toArray(new Object[][]{});
     }
 
-    @Test(dataProvider = "TSTest")
-    public void testMakeConsensus(final TruthStatus ps1, final TruthStatus ps2, final TruthStatus expected) {
-        Assert.assertEquals(ps1.makeConsensus(ps2), expected, "Truth status consensus of " + ps1 + " + " + ps2 + " was not expected " + expected);
+    @Test(dataProvider = "MyDataProvider")
+    public void testNotify(final AssessmentType type, final MongoVariantContext mvc, final int maxToWrite, final boolean captureBadSites, final Set<AssessmentType> assessmentsToExclude) {
+        final CountingWriter countingWriter = new CountingWriter();
+        final BadSitesWriter writer = new BadSitesWriter(maxToWrite, captureBadSites, assessmentsToExclude, countingWriter);
+
+        final int start = 10;
+        final List<Allele> alleles = Arrays.asList(Allele.create("A", true), Allele.create("C"));
+
+        int lastCount = 0;
+        for ( int i = 0; i < 1000; i++ ) {
+            final int pos = start + i;
+            final VariantContext vc = new VariantContextBuilder("x", "20", pos, pos, alleles).make();
+            if ( mvc != null) { mvc.setStart(pos); mvc.setStop(pos); }
+
+            writer.notifyOfSite(type, vc, mvc);
+            Assert.assertTrue(countingWriter.count <= maxToWrite, "Wrote too many sites " + countingWriter.count + " should be <= " + maxToWrite);
+
+            if ( type.isInteresting() && captureBadSites && ! assessmentsToExclude.contains(type) ) {
+                if ( countingWriter.count < maxToWrite ) {
+                    Assert.assertEquals(countingWriter.count, lastCount + 1, "Should have written just one variant but counter increased by more than 1");
+                    Assert.assertNotNull(countingWriter.lastVC, "Should have written just a variant didn't");
+                    Assert.assertEquals(countingWriter.lastVC.getStart(), pos);
+                    Assert.assertEquals(countingWriter.lastVC.getEnd(), pos);
+                    Assert.assertEquals(countingWriter.lastVC.getAlleles(), alleles);
+                    Assert.assertEquals(countingWriter.lastVC.getAttribute(BadSitesWriter.WHY_KEY), type.toString());
+                    if ( mvc != null )
+                        Assert.assertEquals(countingWriter.lastVC.getAttribute(BadSitesWriter.SUPPORTING_CALLSET_KEY), mvc.getCallSetName());
+                    lastCount = countingWriter.count;
+                }
+            } else {
+                Assert.assertNull(countingWriter.lastVC, "Shouldn't be writing VCs but badSites wrote " + countingWriter.lastVC);
+            }
+
+
+        }
     }
 }
