@@ -73,7 +73,7 @@ public class NA12878KBUnitTestBase extends BaseTest {
             final IndexedFastaSequenceFile fasta = new IndexedFastaSequenceFile(new File(b37KGReference));
             parser = new GenomeLocParser(fasta.getSequenceDictionary());
         } catch ( IOException e ) {
-            throw new SkipException("Couldn't read test VCF so skipping NA12878KB unit tests", e);
+            throw new SkipException("Couldn't read test VCF so skipping NA12878KB unit tests");
         }
     }
 
@@ -85,7 +85,7 @@ public class NA12878KBUnitTestBase extends BaseTest {
             args.resetDB = true;
             db = new NA12878KnowledgeBase(parser, args);
         } catch ( Exception e ) {
-            throw new SkipException("Failed to setup DB connection", e);
+            throw new SkipException("Failed to setup DB connection");
         }
     }
 
