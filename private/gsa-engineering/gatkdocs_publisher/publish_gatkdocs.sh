@@ -16,26 +16,15 @@ REPOSITORY="$1"
 if [ "${REPOSITORY}" == "unstable" ] 
 then 
 	DESTINATION_DIR="${IWWW_DIR}"
+    GATKDOCS_INCLUDE_HIDDEN="-Dgatkdocs.include.hidden=true"
 elif [ "${REPOSITORY}" == "release" ]
 then
 	DESTINATION_DIR="${WWW_DIR}"
+    GATKDOCS_INCLUDE_HIDDEN=""
 else
 	echo "No need to update gatkdocs for ${REPOSITORY} -- everything is fine"
 	exit 0
 fi
-
-#if [ "${REPOSITORY}" == "unstable" -o "${REPOSITORY}" == "stable" ]
-#then
-#    DESTINATION_DIR="${IWWW_DIR}/${REPOSITORY}" 
-#    GATKDOCS_INCLUDE_HIDDEN="-Dgatkdocs.include.hidden=true"
-#elif [ "${REPOSITORY}" == "release" -o "${REPOSITORY}" == "literelease" ]
-#then
-#    DESTINATION_DIR="${WWW_DIR}/${REPOSITORY}"
-#    GATKDOCS_INCLUDE_HIDDEN=""
-#else
-#    echo "$0: Invalid repository specified: ${REPOSITORY}"
-#    exit 1
-#fi
 
 STAGING_CLONE="${STAGING_DIR}/${REPOSITORY}"
 
@@ -63,9 +52,6 @@ printf "$0: destination dir is: %s\n" "${DESTINATION_DIR}"
 if [ "${REPOSITORY}" == "release" ]
 then
     rm -rf private
-elif [ "${REPOSITORY}" == "literelease" ]
-then
-    rm -rf protected private
 fi
 
 ant clean && ant gatkdocs ${GATKDOCS_INCLUDE_HIDDEN} -Divy.home=${IVY_CACHE_DIR}
@@ -75,29 +61,6 @@ then
     echo "$0: Failed to generate gatkdocs"
     exit 1
 fi
-
-#if [ ! -d "${DESTINATION_DIR}" ]
-#then
-#    mkdir "${DESTINATION_DIR}"
-#fi
-#
-#if [ -d "${DESTINATION_DIR}_new" ] 
-#then
-#    rm -rf "${DESTINATION_DIR}_new"
-#fi
-#
-#if [ -d "${DESTINATION_DIR}_old" ]
-#then
-#    rm -rf "${DESTINATION_DIR}_old"
-#fi
-
-# Try to minimize the window of time in which the docs are unavailable
-# as we replace the old docs with the new docs:
-
-#cp -r gatkdocs "${DESTINATION_DIR}_new" && \
-#rsync "${DESTINATION_DIR}" "${DESTINATION_DIR}_old" && \
-#rsync "${DESTINATION_DIR}_new" "${DESTINATION_DIR}" && \
-#rm -rf "${DESTINATION_DIR}_old"
 
 rsync -rvtz --delete gatkdocs/* ${DESTINATION_DIR} 
 
