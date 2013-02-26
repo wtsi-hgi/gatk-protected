@@ -1,0 +1,23 @@
+{
+  "Statement": [
+    {
+        "Sid": "StmtAllowUserToListAllBucketsSoWeCanLsOurDirectory",
+        "Effect": "Allow",
+        "Action": "s3:ListAllMyBuckets",
+        "Resource": "arn:aws:s3:::*"
+    },
+    {
+      "Sid": "Stmt234123412341234",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:s3:::GATK_Run_Reports*",
+        "arn:aws:s3:::GATK_Run_Reports*/*"
+      ]
+    }
+  ]
+}

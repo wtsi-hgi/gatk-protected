@@ -29,9 +29,10 @@ cat <<-EOF | ${EMAIL_COMMAND}
 	
 	If this is a bug fix to an existing release (eg., 2.1-1 -> 2.1-2), you 
 	can see what has changed by examining the commit logs in our github
-	repository:
+	repositories:
 	
 	https://github.com/broadgsa/gatk/commits/master
+	https://github.com/broadgsa/gatk-protected/commits/master
 	
 	
 	For documentation and tutorials, please visit the main GATK website:

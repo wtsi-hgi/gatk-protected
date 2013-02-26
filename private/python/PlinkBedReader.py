@@ -104,15 +104,21 @@ class BedGenotypeIterator(collections.Iterable):
   mode = struct.unpack('b',bedFileHandle.read(1))[0]
   return mode
 
- def __init__(self,fileHandle,nGenotypesPerMajor):
+ def __init__(self,fileHandle,nGenotypesPerMajor,opt=None):
   self.fileHandle = fileHandle
-  self.currentByteDecoded = self.decode(self.fileHandle.read(1))
-  self.currentGenotypeOffsetInByte = 0
   self.nBytesPerMajor = int((3+nGenotypesPerMajor)/4)
-  self.genotypesInFinalByte = nGenotypesPerMajor % 4
-  if ( self.genotypesInFinalByte == 0 ):
-   self.genotypesInFinalByte = 4
-  self.currentByteOfMajor = 1
+  self.nGenotypesPerMajor = nGenotypesPerMajor
+  if ( opt == None ):
+   self.currentByteDecoded = self.decode(self.fileHandle.read(1))
+   self.currentGenotypeOffsetInByte = 0
+   self.nBytesPerMajor = int((3+nGenotypesPerMajor)/4)
+   self.genotypesInFinalByte = nGenotypesPerMajor % 4
+   if ( self.genotypesInFinalByte == 0 ):
+    self.genotypesInFinalByte = 4
+   self.currentByteOfMajor = 1
+  if ( opt != None ):
+   import itertools
+   self.join = lambda z: list(itertools.chain.from_iterable(z)) 
 
  def __iter__(self):
   return self
@@ -127,6 +133,10 @@ class BedGenotypeIterator(collections.Iterable):
   if ( self.currentByteDecoded == None ):
    return None
   return self.currentByteDecoded[self.currentGenotypeOffsetInByte]
+
+ def nextMajor(self):
+  # should not be called with opt = None in init, this will cause the decoded byte to go all wonky
+  return self.join(map(self.decode2,self.fileHandle.read(self.nBytesPerMajor)))[0:self.nGenotypesPerMajor]
 
  def next(self):
   if ( self.currentByteDecoded == None ):
@@ -152,6 +162,13 @@ class BedGenotypeIterator(collections.Iterable):
    else:
     self.currentByteOfMajor += 1
   return genotype
+
+ def decode2(self,genoByte):
+   geno1 = 3 & genoByte
+   geno2 = (12 & genoByte ) >> 2
+   geno3 = (48 & genoByte ) >> 4
+   geno4 = (192 & genoByte ) >> 6
+   return [geno1, geno2, geno3, geno4]
 
  def decode(self,genoByte):
   genoInt = struct.unpack('b',genoByte)[0]
@@ -246,6 +263,47 @@ class PlinkBinaryReader:
   # return samples
   return samples
 
+## optimized reader for SNP-major binary files. Ultimately to replace reference version.
+class SiteOptimizedPlinkBinaryReader(collections.Iterable):
+ 
+ def __iter__(self):
+  return self
+
+ def __next__(self):
+  return self.next
+
+ def __init__(self,basePath):
+  self.samples = list(map(lambda x: utils.Plink.Sample(x),open(basePath+".fam",'r').readlines()))
+  self.sites = map(lambda x: utils.Plink.Variant(x),open(basePath+".bim",'r'))
+  binaryReader = open(basePath+".bed",'rb')
+  m = BedGenotypeIterator.getMode(binaryReader)
+  if ( m != 1 ):
+    raise BaseException("Optimized reader cannot be used in individual major mode.")
+  self.genotypeReader = BedGenotypeIterator(binaryReader,len(self.samples),True) # turn on the optimization for nextMajor
+  self.mode = HeaderMode.SNP_MAJOR
+  self.numGenotypesPerMajor = len(self.samples)
+  self.offset = 0
+
+ def __getSamples__(self):
+  return [x for x in self.samples] # clone it 
+
+ def next(self):
+  # return the standard ugly thing: utils.Plink.Genotypes for everything
+  self.offset += 1
+  return map(lambda x: utils.Plink.Genotype(self.sites.__next__(),x[0],x[1]), zip(self.samples,self.genotypeReader.nextMajor()))
+
+ def nextDosage(self):
+  # optimized: only return the variant and the dosage
+  self.offset += 1
+  return (self.sites.__next__(),list(map(lambda x: utils.Plink.Genotype.dosageFromEnc(x),self.genotypeReader.nextMajor())))
+
+ def nextDosageFloat(self):
+  # optimized: only return variant and dosage, with dosage as a float
+  self.offset += 1
+  return (self.sites.__next__(),list(map(utils.Plink.Genotype.dosageFromEncAsFloat,self.genotypeReader.nextMajor())))
+
+ def snpMajor(self):
+  return True
 
 def getReader(base):
  return PlinkBinaryReader(base)

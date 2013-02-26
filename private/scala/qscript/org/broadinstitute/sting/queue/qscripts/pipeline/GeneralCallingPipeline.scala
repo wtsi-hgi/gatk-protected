@@ -1,4 +1,50 @@
-package org.broadinstitute.sting.queue.qscripts
+/*
+*  By downloading the PROGRAM you agree to the following terms of use:
+*  
+*  BROAD INSTITUTE - SOFTWARE LICENSE AGREEMENT - FOR ACADEMIC NON-COMMERCIAL RESEARCH PURPOSES ONLY
+*  
+*  This Agreement is made between the Broad Institute, Inc. with a principal address at 7 Cambridge Center, Cambridge, MA 02142 (BROAD) and the LICENSEE and is effective at the date the downloading is completed (EFFECTIVE DATE).
+*  
+*  WHEREAS, LICENSEE desires to license the PROGRAM, as defined hereinafter, and BROAD wishes to have this PROGRAM utilized in the public interest, subject only to the royalty-free, nonexclusive, nontransferable license rights of the United States Government pursuant to 48 CFR 52.227-14; and
+*  WHEREAS, LICENSEE desires to license the PROGRAM and BROAD desires to grant a license on the following terms and conditions.
+*  NOW, THEREFORE, in consideration of the promises and covenants made herein, the parties hereto agree as follows:
+*  
+*  1. DEFINITIONS
+*  1.1 PROGRAM shall mean copyright in the object code and source code known as GATK2 and related documentation, if any, as they exist on the EFFECTIVE DATE and can be downloaded from http://www.broadinstitute/GATK on the EFFECTIVE DATE.
+*  
+*  2. LICENSE
+*  2.1   Grant. Subject to the terms of this Agreement, BROAD hereby grants to LICENSEE, solely for academic non-commercial research purposes, a non-exclusive, non-transferable license to: (a) download, execute and display the PROGRAM and (b) create bug fixes and modify the PROGRAM. 
+*  The LICENSEE may apply the PROGRAM in a pipeline to data owned by users other than the LICENSEE and provide these users the results of the PROGRAM provided LICENSEE does so for academic non-commercial purposes only.  For clarification purposes, academic sponsored research is not a commercial use under the terms of this Agreement.
+*  2.2  No Sublicensing or Additional Rights. LICENSEE shall not sublicense or distribute the PROGRAM, in whole or in part, without prior written permission from BROAD.  LICENSEE shall ensure that all of its users agree to the terms of this Agreement.  LICENSEE further agrees that it shall not put the PROGRAM on a network, server, or other similar technology that may be accessed by anyone other than the LICENSEE and its employees and users who have agreed to the terms of this agreement.
+*  2.3  License Limitations. Nothing in this Agreement shall be construed to confer any rights upon LICENSEE by implication, estoppel, or otherwise to any computer software, trademark, intellectual property, or patent rights of BROAD, or of any other entity, except as expressly granted herein. LICENSEE agrees that the PROGRAM, in whole or part, shall not be used for any commercial purpose, including without limitation, as the basis of a commercial software or hardware product or to provide services. LICENSEE further agrees that the PROGRAM shall not be copied or otherwise adapted in order to circumvent the need for obtaining a license for use of the PROGRAM.  
+*  
+*  3. OWNERSHIP OF INTELLECTUAL PROPERTY 
+*  LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies.  LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
+*  Copyright 2012 Broad Institute, Inc.
+*  Notice of attribution:  The GATK2 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
+*  LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
+*  
+*  4. INDEMNIFICATION
+*  LICENSEE shall indemnify, defend, and hold harmless BROAD, and their respective officers, faculty, students, employees, associated investigators and agents, and their respective successors, heirs and assigns, (Indemnitees), against any liability, damage, loss, or expense (including reasonable attorneys fees and expenses) incurred by or imposed upon any of the Indemnitees in connection with any claims, suits, actions, demands or judgments arising out of any theory of liability (including, without limitation, actions in the form of tort, warranty, or strict liability and regardless of whether such action has any factual basis) pursuant to any right or license granted under this Agreement.
+*  
+*  5. NO REPRESENTATIONS OR WARRANTIES
+*  THE PROGRAM IS DELIVERED AS IS.  BROAD MAKES NO REPRESENTATIONS OR WARRANTIES OF ANY KIND CONCERNING THE PROGRAM OR THE COPYRIGHT, EXPRESS OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NONINFRINGEMENT, OR THE ABSENCE OF LATENT OR OTHER DEFECTS, WHETHER OR NOT DISCOVERABLE. BROAD EXTENDS NO WARRANTIES OF ANY KIND AS TO PROGRAM CONFORMITY WITH WHATEVER USER MANUALS OR OTHER LITERATURE MAY BE ISSUED FROM TIME TO TIME.
+*  IN NO EVENT SHALL BROAD OR ITS RESPECTIVE DIRECTORS, OFFICERS, EMPLOYEES, AFFILIATED INVESTIGATORS AND AFFILIATES BE LIABLE FOR INCIDENTAL OR CONSEQUENTIAL DAMAGES OF ANY KIND, INCLUDING, WITHOUT LIMITATION, ECONOMIC DAMAGES OR INJURY TO PROPERTY AND LOST PROFITS, REGARDLESS OF WHETHER BROAD SHALL BE ADVISED, SHALL HAVE OTHER REASON TO KNOW, OR IN FACT SHALL KNOW OF THE POSSIBILITY OF THE FOREGOING.
+*  
+*  6. ASSIGNMENT
+*  This Agreement is personal to LICENSEE and any rights or obligations assigned by LICENSEE without the prior written consent of BROAD shall be null and void.
+*  
+*  7. MISCELLANEOUS
+*  7.1 Export Control. LICENSEE gives assurance that it will comply with all United States export control laws and regulations controlling the export of the PROGRAM, including, without limitation, all Export Administration Regulations of the United States Department of Commerce. Among other things, these laws and regulations prohibit, or require a license for, the export of certain types of software to specified countries.
+*  7.2 Termination. LICENSEE shall have the right to terminate this Agreement for any reason upon prior written notice to BROAD. If LICENSEE breaches any provision hereunder, and fails to cure such breach within thirty (30) days, BROAD may terminate this Agreement immediately. Upon termination, LICENSEE shall provide BROAD with written assurance that the original and all copies of the PROGRAM have been destroyed, except that, upon prior written authorization from BROAD, LICENSEE may retain a copy for archive purposes.
+*  7.3 Survival. The following provisions shall survive the expiration or termination of this Agreement: Articles 1, 3, 4, 5 and Sections 2.2, 2.3, 7.3, and 7.4.
+*  7.4 Notice. Any notices under this Agreement shall be in writing, shall specifically refer to this Agreement, and shall be sent by hand, recognized national overnight courier, confirmed facsimile transmission, confirmed electronic mail, or registered or certified mail, postage prepaid, return receipt requested.  All notices under this Agreement shall be deemed effective upon receipt. 
+*  7.5 Amendment and Waiver; Entire Agreement. This Agreement may be amended, supplemented, or otherwise modified only by means of a written instrument signed by all parties. Any waiver of any rights or failure to act in a specific instance shall relate only to such instance and shall not be construed as an agreement to waive any rights or fail to act in any other instance, whether or not similar. This Agreement constitutes the entire agreement among the parties with respect to its subject matter and supersedes prior agreements or understandings between the parties relating to its subject matter. 
+*  7.6 Binding Effect; Headings. This Agreement shall be binding upon and inure to the benefit of the parties and their respective permitted successors and assigns. All headings are for convenience only and shall not affect the meaning of any provision of this Agreement.
+*  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
+*/
+
+package org.broadinstitute.sting.queue.qscripts.pipeline
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
@@ -6,8 +52,8 @@ import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
 import org.broadinstitute.sting.queue.extensions.gatk.BaseRecalibrator
 import org.broadinstitute.sting.queue.extensions.gatk.PrintReads
 import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.queue.function.{RetryMemoryLimit, ListWriterFunction}
 import org.broadinstitute.sting.queue.function._
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 
 
 class GeneralCallingPipeline extends QScript {
@@ -22,7 +68,7 @@ class GeneralCallingPipeline extends QScript {
   var bamFile: File = _
 
   @Argument(shortName="V", doc="The pipeline version", required=true)
-  var pipelineVersion: Int = 1
+  var pipelineVersion: Int = _
 
   @Argument(shortName="mode", doc="the class of variation to model: SNP, INDEL, BOTH", required=true)
   var mode: String = _
@@ -32,14 +78,14 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName = "RPath", doc="RPath", required=false)
   var RPath: File = new File("../R")
 
-  @Argument(shortName="scatterCount", doc="set the number of the scattered jobs", required=false)
+  @Argument(shortName="sc", doc="set the number of the scattered jobs", required=false)
   var scatterCount: Int = 0
 
   @Argument(shortName="outputDir", doc="output directory", required=false)
   var outputDir: String = "./tmp"
 
-  @Input(shortName="L", doc="An optional file with a list of intervals to proccess.",  required=false)
-  var intervals: File = _
+  @Argument(shortName="L", doc="An optional file with a list of intervals to proccess.",  required=false)
+  var intervals: String = ""
 
   @Argument(shortName="filter", doc="A optional list of filter names.", required=false)
   var filterNames: List[String] = Nil // Nil is an empty List, versus null which means a non-existent List.
@@ -53,7 +99,7 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName="filterExpression", doc="An optional list of filter expressions.", required=false)
   var filterExpressions: List[String] = Nil
 
-  @Argument(shortName="sample", doc="Samples to include in Variant Eval", required=false)
+  @Argument(shortName="samples", doc="Samples to include in Variant Eval", required=false)
   var samples: List[String] = Nil
 
   @Argument(shortName="deletions", doc="Maximum deletion fraction allowed at a site to call a genotype.", required=false)
@@ -63,13 +109,16 @@ class GeneralCallingPipeline extends QScript {
   var excludeIntervals: List[File] = Nil
 
   @Input(shortName="ped", fullName="pedigree", doc="PED file of the family", required=false)
-  var ped: File = _
+  var ped: File = "/broad/hptmp/ami/tmp/CEUTrio.ped"
 
-  @Argument(doc="Subdirectory to store the reduced bams. By default set to 'reduced'.", shortName="bamDir", required=false)
-  var bamDir = "reducedBAMs/"
+  @Argument(shortName="bamDir", doc="Subdirectory to store the reduced bams. By default set to 'reduced'.", required=false)
+  var mergeBamDir = "reducedBAMs/"
 
-  @Argument(doc="Reduce reads memory limit.", shortName="rrMem", required=false)
+  @Argument(shortName="rrMem", doc="Reduce reads memory limit.",  required=false)
   var reduceReadsMemoryLimit = 4
+
+  @Argument(shortName="callingMem", doc="calling (UG/HC) memory limit.",  required=false)
+  var callingMemoryLimit = 6
 
   /************* invlude/exclude steps of the pipeline ***********************/
 
@@ -83,22 +132,25 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName="useBQSR.2.0", doc="turn on a first step of using 2.0 BQSR on the input bam file", required=false)
   var useBQSR2: Boolean = false
 
-  @Argument(shortName="usePhaseBT", doc="apply phaseByTrasmission on the output vcf", required=false)
-  var usePhaseBT: Boolean = false
+  @Argument(shortName="PBT", doc="apply phaseByTrasmission on the output vcf", required=false)
+  var usePhaseByTransmission: Boolean = false
 
-  @Argument(shortName="createEvalSummaryReport", doc="create a pdf file with eval summery tables of the output vcf", required=false)
+  @Argument(shortName="RBP", doc="apply readBackPhasing on the output vcf", required=false)
+  var useReadBackPhasing: Boolean = false
+
+  @Argument(shortName="summaryReport", doc="create a pdf file with eval summery tables of the output vcf", required=false)
   var createEvalSummaryReport: Boolean = false
 
-  @Argument(shortName="createFullPostQCReport", doc="create a pdf file with full QC eval report of the output vcf", required=false)
+  @Argument(shortName="fullReport", doc="create a pdf file with full QC eval report of the output vcf", required=false)
   var createFullPostQCReport: Boolean = false
 
-  @Argument(shortName="CallReduceReads", doc="produces reduce reads bam files", required=false)
+  @Argument(shortName="RR", doc="produces reduce reads bam files", required=false)
   var CallReduceReads: Boolean = false
 
 
 
-  val dbSNP_135 = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_135.b37.vcf"  // Best Practices v4
-  val hapmap = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/hapmap_3.3.b37.sites.vcf"                       // Best Practices v4
+  val dbSNP_135 = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.vcf"  // Best Practices v4
+  val hapmap = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/hapmap_3.3.b37.vcf"                       // Best Practices v4
   val omni_b37 = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Omni2.5_chip/Omni25_sites_2141_samples.b37.vcf"    // Best Practices v4
   val training_1000G = "/humgen/1kg/processing/official_release/phase1/projectConsensus/phase1.wgs.projectConsensus.v2b.recal.highQuality.vcf"  // from the MethodDevelopmentCallingPipeline scala script
   val projectConsensus_1000G = "/humgen/1kg/processing/official_release/phase1/projectConsensus/ALL.wgs.projectConsensus_v2b.20101123.snps.sites.vcf"  // from the MethodDevelopmentCallingPipeline scala script
@@ -110,17 +162,17 @@ class GeneralCallingPipeline extends QScript {
 
 
   val queueLogDir = ".qlog/"
-  val noET_key = "/humgen/gsa-hpprojects/GATK/data/gatk_user_keys/gsamembers_broadinstitute.org.key"                // TODO: remove before we make it public!!!!
+  val noET_key = "/humgen/gsa-hpprojects/GATK/data/gatk_user_keys/gsamembers_broadinstitute.org.key"
 
-
-trait BaseCommandArguments extends CommandLineGATK {
+trait BaseCommandArguments extends CommandLineGATK with RetryMemoryLimit {
     this.logging_level = "INFO"
-    phone_home = GATKRunReport.PhoneHomeOption.NO_ET   // TODO: remove before we make it public!!!!
-    gatk_key = noET_key                                // TODO: remove before we make it public!!!!
+    phone_home = GATKRunReport.PhoneHomeOption.NO_ET
+    gatk_key = noET_key
     this.jobQueue = "gsa"
 
     this.reference_sequence = qscript.referenceFile
-    this.intervals = if (qscript.intervals == null) Nil else List(qscript.intervals)
+    this.intervalsString :+= qscript.intervals
+    //this.intervals = if (qscript.intervals == null) Nil else List(qscript.intervals)
     this.excludeIntervals = qscript.excludeIntervals
     this.memoryLimit = 2
 
@@ -157,7 +209,7 @@ class BQSR( bam: File, recal: File ) extends BaseRecalibrator with BaseBQSR{
 class RecalBAM( bam: File, recal: File ) extends PrintReads with BaseBQSR{
 
   this.input_file :+= bam
-	this.out = qscript.outputDir + swapExt(bam, ".bam", ".subset.recal.bam")
+	this.out = qscript.outputDir + recal +".out"
 	this.BQSR = recal
 	this.memoryLimit = 6
 	this.qq = 0
@@ -174,6 +226,7 @@ class UGBase extends UnifiedGenotyper with BaseCommandArguments {
     this.stand_call_conf = 30.0
     this.stand_emit_conf = 30.0
     this.D = new File(dbSNP_135)
+    this.memoryLimit = qscript.callingMemoryLimit
 }
 
   // 1a.) Call SNPs with UG
@@ -193,7 +246,6 @@ class UGBase extends UnifiedGenotyper with BaseCommandArguments {
   // 1b.) Call Indels with UG
   class indelCaller(name: String, inputBamFile: File) extends UGBase with BaseCommandArguments {
     this.input_file :+= inputBamFile
-    this.memoryLimit = 6
     this.out = qscript.outputDir + name + "indel.unfiltered.vcf"
     this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
     this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
@@ -212,7 +264,6 @@ class HCBase(name:String, inputHCFile: File) extends HaplotypeCaller with Haplot
     this.stand_emit_conf = 10.0
     this.minPruning = 2
     this.javaGCThreads = 4
-    this.memoryLimit = 8 //4	
 }
  
 
@@ -340,7 +391,7 @@ class CutBoth(inputVCF: File) extends applyVQSRBase with HaplotypeCallerArgument
 class CombineSNPsIndels(name:String) extends CombineVariants with BaseCommandArguments {
     this.variant :+= TaggedFile(new File(qscript.outputDir + name + "indel.recalibrated.filtered.vcf"), "indels")
     this.variant :+= TaggedFile(new File(qscript.outputDir + name + "snp.recalibrated.filtered.vcf"), "snps")
-    this.filteredrecordsmergetype = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    this.filteredrecordsmergetype = FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     this.assumeIdenticalSamples = true
     this.out = qscript.outputDir + name +  "both.recalibrated.filtered.vcf"
 }
@@ -425,14 +476,25 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
   this.jobName = queueLogDir + "CEUTrio.phaseBT"
 }
 
+  //------------------------------------------------------------------------------------ //
+  //                      8) ReadBackPhasing                                             //
+  //------------------------------------------------------------------------------------ //
+  class RBP(inputVCF: File, inputBamFile: File) extends ReadBackedPhasing with BaseCommandArguments {
+    this.input_file :+= inputBamFile
+    this.variant = inputVCF
+    this.respectPhaseInInput = true
+    this.out = qscript.outputDir + swapExt(variant,"vcf","RBphased.vcf")
+    this.jobName = queueLogDir + "CEUTrio.RBphasing"
+  }
+
 
     /****************************************************************************************
     *                script                                                                 *
     *****************************************************************************************/
 
  def script() {
-    var inputBamFile = qscript.bamFile //todo make sure it work both for bam file and bam list file
-    var name = "noName"_
+    var inputBamFile = qscript.bamFile
+    var name = "noName"
     if(inputBamFile.getName.endsWith(".bam.list")){
       name = inputBamFile.getName.stripSuffix(".bam.list")
     }
@@ -460,11 +522,11 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
   }
 
   if (CallReduceReads){
-      var bams: Seq[Tuple2[File, File]] = Nil
+      var bams: Seq[(File, File)] = Nil
       var reducedBams = Seq.empty[File]
       if (inputBamFile != null) {
           for (originalBam: File <- io.Source.fromFile(inputBamFile).getLines().toSeq.map(new File(_))) {
-            val reducedBam: File = new File(new File(bamDir, "external"), swapExt(originalBam, ".bam", ".reduced.bam").getName)
+            val reducedBam: File = new File(new File(mergeBamDir, "external"), swapExt(originalBam, ".bam", ".reduced.bam").getName)
             bams :+= Tuple2(originalBam, reducedBam)
           }
         }
@@ -499,6 +561,7 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
 		val snpRecalibrator = new snpRecal(name)
 		val snpApplyVQSR = new applySnpVQSR(name)
 		val evaluateSnp = new snpEvaluation(name)
+    val phaseBT = new PBT(snpApplyVQSR.out)
  
 		if (! doNotCall){
       add (UGgenotyper)
@@ -515,7 +578,8 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
       val qc = new QCSummaryRScript(evalVCF, bySample.out)
       add(qc)
     }
-    if(usePhaseBT){add(new PBT(snpApplyVQSR.out)) }
+    if (usePhaseByTransmission) {add(phaseBT)}
+    if (useReadBackPhasing) {add(new RBP(phaseBT.out,inputBamFile))}
 	}
 
 	if (mode == "INDEL"){
@@ -523,6 +587,7 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
 		val indelRecalibrator = new indelRecal(name)
 		val indelApplyVQSR = new applyIndelVQSR(name)
 		val evaluateIndel = new indelEvaluation(name)
+    val phaseBT = new PBT(indelApplyVQSR.out)
 
     if (! doNotCall){
       add (UGgenotyper)
@@ -541,7 +606,8 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
       add(qc)
     }
 
-    if(usePhaseBT){add(new PBT(indelApplyVQSR.out)) }
+    if (usePhaseByTransmission){add(phaseBT)}
+    if (useReadBackPhasing){add(new RBP(phaseBT.out,inputBamFile))}
 	}
 
   // currently running separate runs for SNPs and INDELS
@@ -553,6 +619,7 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
 		val indelRecalibrator = new indelRecal(name)
 		val indelApplyVQSR = new applyIndelVQSR(name)
 	  val combineSNPsIndels = new CombineSNPsIndels(name)
+    val phaseBT = new PBT(combineSNPsIndels.out)
 
     if (! doNotCall){
       add (snpUGgenotyper)
@@ -590,7 +657,9 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
     }
 
 
-    if(usePhaseBT){add(new PBT(combineSNPsIndels.out)) }
+    if (usePhaseByTransmission){add(phaseBT) }
+    if (useReadBackPhasing){add(new RBP(phaseBT.out,inputBamFile))}
+
 	}
  }
 
@@ -601,6 +670,7 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
 		val HC_vcfFile = HCgenotyper.out
 		val HCRecalibrator = new RecalBoth(HC_vcfFile)
 		val HCApplyVQSR = new CutBoth(HC_vcfFile)
+    val phaseBT = new PBT(HCApplyVQSR.out)
 
     if (! doNotCall){
       add (HCgenotyper)
@@ -631,7 +701,9 @@ class PBT(inputVCF: File) extends PhaseByTransmission with BaseCommandArguments 
         add(qc)
       }
     }
-    if(usePhaseBT){add(new PBT(HCApplyVQSR.out)) }
+    if (usePhaseByTransmission){add(phaseBT) }
+    if (useReadBackPhasing){add(new RBP(phaseBT.out,inputBamFile))}
+
 
  }
 }

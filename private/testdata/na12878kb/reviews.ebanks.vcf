@@ -91,6 +91,8 @@
 ##contig=<ID=GL000192.1,length=547496,assembly=b37>
 ##reference=file:///humgen/gsa-hpprojects/GATK/bundle/current/b37/human_g1k_v37.fasta
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA12878
+20	258928	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	3802966	.	C	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
 20	10000694	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10001019	.	T	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10002458	.	G	GTTT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
@@ -266,10 +268,12 @@
 20	10743496	.	G	GTA	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
 20	10743498	.	GTG	ATATATATATATA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10743500	.	G	GTA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	10746969	.	CA	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
 20	10757486	.	T	TCACACACACA	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10757486	.	T	TACA	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
 20	10769255	.	A	ATGTG	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
 20	10775324	.	T	TACACAC	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10829664	.	CCA	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
 20	10829665	.	CA	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10833879	.	CT	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10844252	.	A	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
@@ -292,7 +296,8 @@
 20	10907668	.	A	AAGAAGAAGAAGAAGAAGAAG	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10907671	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
 20	10907674	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
-20	10927502	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=SUSPECT	GT	0/1
+20	10927502	.	T	TCTTTCTTTCTTTCTTTATTT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10927502	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
 20	10938347	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10940908	.	A	AT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
 20	10940934	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
@@ -326,3 +331,22 @@
 20	10999048	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10999056	.	TTTTC	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10999066	.	C	CT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	16013404	.	AAGAG	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	16016432	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	16016433	.	A	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	16016927	.	T	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	16016933	.	G	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	16016934	.	G	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	16019177	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	16261486	.	C	CGCGTGTGTGTGTGTGT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	16261514	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
+20	21686641	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	31680234	.	C	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	32246509	.	C	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	44004159	.	A	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	46295152	.	G	C	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	47851624	.	C	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	48184560	.	G	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	48252914	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	61303290	.	C	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0
+20	61461091	.	C	G	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/0

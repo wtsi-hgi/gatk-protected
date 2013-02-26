@@ -1,5 +1,8 @@
 import math
 import numpy
+import scipy
+import scipy.sparse
+import logitPredict 
 
 ## a python library for the fitting of linear models. No good python3 library exists for this. Lots of special-cases because
 ## it turns out that's what I need. Also because of speedocity.
@@ -80,7 +83,7 @@ class GLM:
     print("Warning: fitting via gradient descent can be painfully slow for serious applications.")
     # initial guess
     beta = OLS.fitCoefficients(response,predictors)
-    beta = beta/numpy.linalg.norm(beta)
+    beta = numpy.matrix(beta/numpy.linalg.norm(beta)).T
     betaChangeSq = 1.0
     iter = 0
     prev_step_size = 1
@@ -126,23 +129,67 @@ class GLM:
     return fitObj
 
    # package GLM.Logistic.Fit
-   def newton(response,predictors,N):
+   def newton(response,predictors,N,beta=None):
     """ Uses Iteratively Reweighted Least Squares to implement Newton's Method (equivalent for L2 norm)
+        TODO!!! -- find a better way to determine the edge cases.
+    """
+    # if guess not provided guess 0 (numpy.linalg.lstsq has a segfault currently) 
+    if ( beta == None ):
+     beta = numpy.zeros((predictors.shape[1],1))
+    # reweight by the squared residuals
+    sumPred = 2*response.size
+    prevSumPred = 0.0
+    sumPredProp = 1.0 
+    iter = 0
+    while (  sumPredProp > 1e-4 and iter < 30 ):
+     try:
+      pred = GLM.Logistic.predict(predictors,beta,N)
+      prevSumPred = sumPred
+      sumPred = sum(pred)
+      sumPredProp = abs(sumPred-prevSumPred)/prevSumPred
+      pred_P = pred/N
+      resid = (response-pred) 
+      #W = numpy.diag(N*pred_P*(1.0-pred_P))
+      #XW = numpy.inner(numpy.transpose(predictors),W)
+      XW = logitPredict.predictorsTimesWeights(predictors,pred_P,N)
+      inverted = numpy.linalg.inv(XW*predictors)
+      step = (resid*predictors*inverted).T
+      beta_new = beta + step
+      betaChangeSq = numpy.linalg.norm(step)**2/len(beta)
+      beta = beta_new
+     except OverflowError:
+      # happens if data is separable (pred_P == 1.0 or 0.0)
+      return GLM.Logistic.Fit.newtonPenalized(response,predictors,N,beta-step)
+     except numpy.linalg.linalg.LinAlgError:
+      return GLM.Logistic.Fit.newtonPenalized(response,predictors,N,beta-step) 
+    fitObj = GLM.Logistic.Fit()
+    fitObj.coefficients = beta
+    fitObj.predictedValues = GLM.Logistic.predict(predictors,beta,N)
+    fitObj.residuals = response - fitObj.predictedValues
+    return fitObj
+
+   # package GLM.Logistic.Fit
+   def newtonPenalized(response,predictors,N,beta=None):
+    """ Uses penalized IRLS to control the growth of beta.
     """
     # initial guess
-    beta = numpy.linalg.lstsq(predictors,response)[0] 
+    if ( beta == None ):
+     #beta = numpy.matrix(numpy.linalg.lstsq(predictors,response)[0]).T
+     # currently broken: corrupts the heap
+     beta = numpy.zeros((predictors.shape[1],1))
     # reweight by the squared residuals
     betaChangeSq = 1.0
     iter = 0
-    while ( betaChangeSq > 0.00001 and iter < 100 ):
-     print(beta)
-     pred = GLM.Logistic.predict(predictors,beta,N)
+    PENALTY = numpy.matrix(numpy.eye(predictors.shape[1]))
+    while ( betaChangeSq > 1e-6 and iter < 100 ):
+     pred = logitPredict.predict(predictors,beta,N)
      pred_P = pred/N
-     resid = (response-pred) 
-     W = numpy.diag(N*pred_P*(1.0-pred_P)) 
-     XW = numpy.inner(numpy.transpose(predictors),W)
-     inverted = numpy.linalg.inv(XW*predictors)
-     step = resid*predictors*inverted
+     resid = (response-pred)
+     #W = numpy.diag(N*pred_P*(1.0-pred_P))
+     #XW = numpy.inner(numpy.transpose(predictors),W)
+     XW = logitPredict.predictorsTimesWeights(predictors,pred_P,N)
+     inverted = numpy.linalg.inv(XW*predictors+PENALTY)
+     step = (resid*predictors*inverted).T
      beta_new = beta + step
      betaChangeSq = numpy.linalg.norm(step)**2/len(beta)
      beta = beta_new
@@ -152,10 +199,11 @@ class GLM:
     fitObj.residuals = response - fitObj.predictedValues
     return fitObj
 
+
    # package GLM.Logistic.Fit
    def quasiNewton(response,predictors,N):
     """ Uses a BGFS approximation scheme to the Newton update (e.g. approximate hessian) to
-        fit the logistic coefficients
+        fit the logistic coefficients.
     """
     assert false
     beta = OLS.fitCoefficients(response,predictors)
@@ -370,4 +418,5 @@ class GLM:
        @beta - coefficient vector.
        @N - number of trials (for binomial logistic).
    """
-   return numpy.array(list(map(lambda u: N*GLM.Logistic.logistic(u,beta),x)))
+   #return numpy.array(list(map(lambda u: N*GLM.Logistic.logistic(u,beta),x)))
+   return logitPredict.predict(x,beta,N)

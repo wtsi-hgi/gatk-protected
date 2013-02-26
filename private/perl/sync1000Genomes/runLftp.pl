@@ -15,7 +15,7 @@ if ( !$file ) {
 
 chomp($file);
 
-$file =~ m/ftp\/data\/(.*)\/(.*)\/.*/;
+$file =~ m/data\/(.*)\/(.*)\/.*/;
 
 my $dir = "/humgen/1kg/DCC/ftp/data/$1/";
 mkdir($dir) unless(-d $dir);
@@ -24,7 +24,7 @@ mkdir($dir) unless(-d $dir);
 chdir $dir;
 
 open (TMP, '>lftp.txt');
-print TMP "get ftp://ftp-trace.ncbi.nih.gov/1000genomes/$file\n";
+print TMP "get ftp://ftp-trace.ncbi.nih.gov/1000genomes/ftp/$file\n";
 close (TMP);
 
 my $cmd = "lftp -f lftp.txt";

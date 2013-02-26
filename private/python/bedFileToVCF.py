@@ -69,13 +69,6 @@ def writeBodySNPMajor(outVCF,inBed):
    alleleCount += genotype.getDosage()
    alleleNumber += 0 if genotype.isNoCall() else 2
    formattedGenotypes.append(utils.plinkGenotypeToVCFString(genotype))
- # there may be an extra one
- info = "%s;%s;%s" % ("%s=%d" %   (VCFBodyConstants.acKey,alleleCount),
-                      "%s=%.3f" % (VCFBodyConstants.afKey,float(alleleCount)/alleleNumber if alleleNumber > 0 else 0.0),
-                      "%s=%d" %   (VCFBodyConstants.anKey,alleleNumber))
- outVCF.write("%s\t%s\n" %
-       (VCFBodyConstants.getStandardFields(curVariant.chr,curVariant.pos,curVariant.id,curVariant.ref,curVariant.alt,info),
-        "\t".join(formattedGenotypes)))
 
 def writeBodyIndividualMajor(outVCF,inBed):
  # the annoying thing is reading in the full information and transposing

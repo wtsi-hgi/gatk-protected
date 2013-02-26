@@ -56,7 +56,7 @@ endif
 
 # import reviews from private testdata
 set reviewArchive = `ls -td /humgen/gsa-hpprojects/NA12878Collection/knowledgeBase/reviewsBackup/**.vcf | head -n 1`
-foreach review (private/testdata/na12878kb/reviews.vcf private/testdata/na12878kb/omnipoly.reviews.vcf private/testdata/na12878kb/reviews.ebanks.vcf $reviewArchive)
+foreach review (private/testdata/na12878kb/reviews.vcf private/testdata/na12878kb/omnipoly.reviews.vcf private/testdata/na12878kb/reviews.ebanks.vcf private/testdata/na12878kb/reviews.rpoplin.vcf $reviewArchive)
 $root -T ImportReviews -V $review
 end
 
