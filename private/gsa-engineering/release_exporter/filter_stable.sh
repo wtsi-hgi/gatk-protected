@@ -52,15 +52,19 @@ fi
 
 echo "$0: After filtering, local HEAD = `git rev-parse HEAD`"
 
-CURRENT_GITHUB_HEAD=`git ls-remote --heads ${GITHUB_URL} | grep refs/heads/master | awk '{print $1}'`
-git show ${CURRENT_GITHUB_HEAD} > /dev/null
+# Disable the sanity check below for now. It's not really necessary, since any subsequent (non -f) push would fail
+# if this check fails.
+#
+# CURRENT_GITHUB_HEAD=`git ls-remote --heads ${GITHUB_URL} | grep refs/heads/master | awk '{print $1}'`
+# git show ${CURRENT_GITHUB_HEAD} > /dev/null
+#
+# if [ $? -ne 0 ]
+# then
+#     echo "$0: Unable to find current github HEAD (${CURRENT_GITHUB_HEAD}) within the rewritten local history, refusing to proceed!"
+#     exit 1
+# fi
+#
+# echo "$0: Located the current github HEAD (${CURRENT_GITHUB_HEAD}) within the rewritten local history. Filtering succeeded!"
 
-if [ $? -ne 0 ]
-then
-    echo "$0: Unable to find current github HEAD (${CURRENT_GITHUB_HEAD}) within the rewritten local history, refusing to proceed!"
-    exit 1
-fi
-
-echo "$0: Located the current github HEAD (${CURRENT_GITHUB_HEAD}) within the rewritten local history. Filtering succeeded!"
 exit 0
 
