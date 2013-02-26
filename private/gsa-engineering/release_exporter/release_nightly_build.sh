@@ -14,12 +14,12 @@ GATKDOCS_OUTPUT_DIR="gatkdocs"
 
 TIMESTAMP=`date '+%Y-%m-%d'`
 HASH_PREFIX=`git describe --long | awk -F'-' '{ print $3; }'`
-NIGHTLY_BUILD_VERSION="${TIMESTAMP}-${HASH_PREFIX}"
+NIGHTLY_BUILD_VERSION="nightly-${TIMESTAMP}-${HASH_PREFIX}"
 
 GATK_ARCHIVE_NAME="GenomeAnalysisTK-${NIGHTLY_BUILD_VERSION}.tar.bz2"
 GATKDOCS_ARCHIVE_NAME="Gatkdocs-${NIGHTLY_BUILD_VERSION}.tar.bz2"
-CURRENT_NIGHTLY_GATK_LINK_NAME="nightly_gatk"
-CURRENT_NIGHTLY_GATKDOCS_LINK_NAME="nightly_gatkdocs"
+CURRENT_NIGHTLY_GATK_LINK_NAME="nightly_gatk.tar.bz2"
+CURRENT_NIGHTLY_GATKDOCS_LINK_NAME="nightly_gatkdocs.tar.bz2"
 
 ant clean package.gatk.full "-Djava.io.tmpdir=${TEMP_DIR}" \
                             "-Divy.home=${IVY_CACHE_DIR}" \
