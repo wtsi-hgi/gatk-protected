@@ -20,8 +20,8 @@ if ( onCMDLine ) {
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelBQSR/GATKPerformanceOverTime.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/parallelCombineVariants2/GATKPerformanceOverTime.jobreport.txt"
   #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/nanoUG//GATKPerformanceOverTime.jobreport.txt"
-  file <- "~/Desktop/broadLocal/GATK/unstable/GATKPerformanceOverTime.jobreport.txt"
-  #file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/gatkPerformanceOverTime/Q-24937@gsa1.jobreport.txt"
+  #file <- "~/Desktop/broadLocal/GATK/unstable/GATKPerformanceOverTime.jobreport.txt"
+  file <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/hcVsUgPerformance/GATKPerformanceOverTime.jobreport.txt"
   outputPDF <- NA
 }
 
@@ -190,6 +190,26 @@ for ( ntReport in ntReports ) {
       print(p)
     }
   }
+}
+
+# Plot HC vs. UG performance over time
+
+if ( "HCvsUG" %in% names(allReports) ) {
+  report = allReports[["HCvsUG"]]
+  p = ggplot(data=report, aes(x=gatk, y=runtime, group=interaction(gatk, tool), color=tool))
+  onlyOneIteration = max(report$iteration) == 0
+  p = p + geom_point()
+  if ( ! onlyOneIteration ) {
+    p = p + geom_boxplot()
+  } else {
+    p = p + geom_line(aes(group=tool))
+  }
+  #p = p + coord_trans(y="log10")
+  p = p + scale_y_log10()
+  p = p + xlab("GATK version") + ylab(paste("Runtime", RUNTIME_UNITS))
+  p = p + ggtitle(paste("Runtime", report$analysisName))
+  p = p + facet_wrap(~ assessment, scales="free")
+  print(p)
 }
 
 if ( ! is.na(outputPDF) ) {
