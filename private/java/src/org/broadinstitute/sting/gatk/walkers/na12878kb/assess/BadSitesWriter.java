@@ -49,10 +49,16 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.variant.vcf.VCFHeaderLineType;
+import org.broadinstitute.variant.vcf.VCFInfoHeaderLine;
 
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -73,24 +79,40 @@ class BadSitesWriter {
     private final boolean captureBadSites;
     private final int maxToWrite;
 
-    public final static BadSitesWriter NOOP_WRITER = new BadSitesWriter(Integer.MAX_VALUE, false, EnumSet.noneOf(AssessmentType.class), null);
+    public final static BadSitesWriter NOOP_WRITER = new BadSitesWriter(Integer.MAX_VALUE, EnumSet.noneOf(AssessmentType.class), null);
 
     int nWritten = 0;
+
+    /**
+     * Initial the bad writer
+     *
+     * Writes out VCF header if we are actually writing out the vcf
+     *
+     * @param lines the header lines for the input VCF we're analyzing
+     */
+    public void initialize(final Set<VCFHeaderLine> lines) {
+        if ( lines == null ) throw new IllegalArgumentException("lines cannot be null");
+
+        if ( captureBadSites ) {
+            lines.add(new VCFInfoHeaderLine("WHY", 1, VCFHeaderLineType.String, "Why was the site considered bad"));
+            lines.add(new VCFInfoHeaderLine("SupportingCallsets", 1, VCFHeaderLineType.String, "Callsets supporting the consensus, where available"));
+            lines.addAll(MongoVariantContext.reviewHeaderLines());
+            badSites.writeHeader(new VCFHeader(lines, Collections.singleton("NA12878")));
+        }
+    }
 
     /**
      * Create a new BadSitesWriter
      *
      * @param maxToWrite the maximum number of records to write
-     * @param captureBadSites should we even write out bad sites at all?
      * @param assessmentsToExclude don't include assessments in this set, even if they would normally be emitted
      * @param writer the underlying VCWriter we'll use to emit bad sites.  Can be null if captureBadSites is false
      */
-    public BadSitesWriter(int maxToWrite, boolean captureBadSites, Set<AssessmentType> assessmentsToExclude, VariantContextWriter writer) {
+    public BadSitesWriter(int maxToWrite, Set<AssessmentType> assessmentsToExclude, VariantContextWriter writer) {
         if ( assessmentsToExclude == null ) throw new IllegalArgumentException("assessmentsToExclude cannot be null");
-        if ( writer == null && captureBadSites ) throw new IllegalArgumentException("writer cannot be null when captureBadSites is true");
 
         this.maxToWrite = maxToWrite;
-        this.captureBadSites = captureBadSites;
+        this.captureBadSites = writer != null;
         this.assessmentsToExclude = assessmentsToExclude;
         this.badSites = writer;
     }
