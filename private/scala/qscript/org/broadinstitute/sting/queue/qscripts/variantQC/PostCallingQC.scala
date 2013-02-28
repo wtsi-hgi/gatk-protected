@@ -59,8 +59,11 @@ class PostCallingQC extends QScript {
   @Argument(shortName = "eval", doc="VCFs to evaluate")
   var evalVCFs: List[File] = Nil
 
+  @Argument(shortName = "LF", doc="intervals", required=false)
+  val myIntervals: List[File] = Nil
+
   @Argument(shortName = "L", doc="intervals", required=false)
-  val myIntervals: List[String] = Nil
+  val myIntervalsString: List[String] = Nil
 
   @Argument(shortName = "XL", doc="exclude intervals", required=false)
   var myExcludeIntervals: List[String] = Nil
@@ -100,7 +103,8 @@ class PostCallingQC extends QScript {
 
   class Eval(evalVCF: File, prefix: String, extraStrats: Seq[String]) extends VariantEval {
     this.reference_sequence = referenceFile
-    this.intervalsString = myIntervals
+    this.intervals = myIntervals
+    this.intervalsString = myIntervalsString
     this.excludeIntervalsString = myExcludeIntervals
     this.eval :+= evalVCF
     this.dbsnp = dbSNP
