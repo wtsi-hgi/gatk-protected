@@ -1,21 +1,25 @@
 #!/bin/bash
 
-if [ $# -ne 3 ]
+if [ $# -ne 4 ]
 then
-    echo "Usage: $0 test_class_suffix job_queue temp_dir"
+    echo "Usage: $0 test_class_suffix job_queue bamboo_build_number temp_dir"
     echo "Example test class suffixes: UnitTest, IntegrationTest, PipelineTest"
     exit 1
 fi
 
 TEST_CLASS_SUFFIX="$1"
 JOB_QUEUE="$2"
-TEMP_DIR="$3"
+BUILD_NUMBER="$3"
+TEMP_DIR="$4"
+
 BAMBOO_CLONE=`pwd`
-# name of the bamboo build directory can serve as a unique id for this run
-BAMBOO_BUILD_ID=`basename "${BAMBOO_CLONE}"`
+BAMBOO_BUILD_DIRECTORY=`basename "${BAMBOO_CLONE}"`
+# name of the bamboo build directory + the build number can serve as a unique id for this run
+BAMBOO_BUILD_ID="${BAMBOO_BUILD_DIRECTORY}-${BUILD_NUMBER}"
 TEST_ROOT_WORKING_DIR="/humgen/gsa-scr1/gsa-engineering/parallel_tests_working_directory/${BAMBOO_BUILD_ID}"
 TEST_CLONE="${TEST_ROOT_WORKING_DIR}/test_clone"
 IVY_CACHE="${TEST_ROOT_WORKING_DIR}/ivy_cache"
+
 JOB_OUTPUT_DIR="${TEST_ROOT_WORKING_DIR}/job_output"
 JOB_MEMORY="4"
 # Timeout in seconds before we give up and conclude that our jobs are stuck
