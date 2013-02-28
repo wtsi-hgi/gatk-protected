@@ -235,18 +235,18 @@ public class NA12878KnowledgeBase {
         return new SiteIterator<MongoVariantContext>(parser, cursor);
     }
 
-    public ConsensusSummarizer updateConsensus(final SiteSelector selector) {
-        return updateConsensus(selector, Priority.DEBUG);
+    public ConsensusSummarizer updateConsensus(final SiteSelector selector, final boolean tryToRemove) {
+        return updateConsensus(selector, Priority.DEBUG, tryToRemove);
     }
 
-    public ConsensusSummarizer updateConsensus(final SiteSelector selector, final Priority logPriority) {
+    public ConsensusSummarizer updateConsensus(final SiteSelector selector, final Priority logPriority, final boolean tryToRemove) {
         final ConsensusSummarizer summary = new ConsensusSummarizer();
 
         final SiteIterator<MongoVariantContext> siteIterator = getCalls(selector);
         while ( siteIterator.hasNext() ) {
             final Collection<MongoVariantContext> callsAtSite = siteIterator.getNextEquivalents();
             final MongoVariantContext consensus = new ConsensusMaker().makeConsensus(callsAtSite);
-            updateConsensusInDB(consensus);
+            updateConsensusInDB(consensus, tryToRemove);
             logger.log(logPriority, "Updating consensus at site " + consensus);
             summary.add(consensus);
         }
@@ -263,9 +263,10 @@ public class NA12878KnowledgeBase {
      * @param site a non-null site to update in the consensus
      * @return the result of the insert operation on the DB
      */
-    private WriteResult updateConsensusInDB(final MongoVariantContext site) {
+    private WriteResult updateConsensusInDB(final MongoVariantContext site, final boolean tryToRemove) {
         // remove existing entry, if one exists
-        consensusSites.remove(consensusSiteQuery(site));
+        if ( tryToRemove )
+            consensusSites.remove(consensusSiteQuery(site));
         // add the site to the consensus
         return consensusSites.insert(site);
     }
