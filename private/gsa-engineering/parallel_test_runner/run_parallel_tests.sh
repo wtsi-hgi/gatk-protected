@@ -53,8 +53,10 @@ fi
 echo "Dispatching jobs for ${BAMBOO_BUILD_ID}"
 NUM_JOBS=0
 
-for test_class in `find . -name "*${TEST_CLASS_SUFFIX}.java" | xargs basename -s ".java"`
+for test_class_file in `find . -name "*${TEST_CLASS_SUFFIX}.java"`
 do
+    test_class=`basename "${test_class_file}" ".java"`
+
     bsub -P "${BAMBOO_BUILD_ID}" \
          -q "${JOB_QUEUE}" \
          -R "rusage[mem=${JOB_MEMORY}] select[tmp>100]" \
