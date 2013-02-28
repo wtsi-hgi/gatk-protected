@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $# -ne 2 ]
+if [ $# -ne 3 ]
 then
     echo "Usage: $0 test_class_suffix job_queue temp_dir"
     echo "Example test class suffixes: UnitTest, IntegrationTest, PipelineTest"
