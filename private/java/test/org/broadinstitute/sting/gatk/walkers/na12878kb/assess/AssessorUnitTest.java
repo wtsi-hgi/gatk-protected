@@ -100,13 +100,13 @@ public class AssessorUnitTest extends BaseTest {
 
         final List<MongoVariantContext> noKB = Collections.emptyList();
 
-        final Assessment emptyAssessment = new Assessment();
-        final Assessment oneNovel = new Assessment(AssessmentType.CALLED_NOT_IN_DB_AT_ALL);
-        final Assessment oneTP = new Assessment(AssessmentType.TRUE_POSITIVE);
-        final Assessment oneFP = new Assessment(AssessmentType.FALSE_POSITIVE_SITE_IS_FP);
-        final Assessment oneFN = new Assessment(AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL);
-        final Assessment oneTN = new Assessment(AssessmentType.CORRECTLY_UNCALLED);
-        final Assessment oneNotRel = new Assessment(AssessmentType.NOT_RELEVANT);
+        final Assessment emptyAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
+        final Assessment oneNovel = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.CALLED_NOT_IN_DB_AT_ALL);
+        final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+        final Assessment oneFP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.FALSE_POSITIVE_SITE_IS_FP);
+        final Assessment oneFN = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL);
+        final Assessment oneTN = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.CORRECTLY_UNCALLED);
+        final Assessment oneNotRel = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.NOT_RELEVANT);
 
         // this functionality can be adapted to provide input data for whatever you might want in your data
         tests.add(new Object[]{Arrays.asList(vcAC10), noKB, oneNovel, emptyAssessment});
@@ -212,7 +212,7 @@ public class AssessorUnitTest extends BaseTest {
         final Assessor assessor = new Assessor("test");
         assessor.accessSite(Collections.singletonList(vc), mvc == null ? Collections.<MongoVariantContext>emptyList() : Collections.singletonList(mvc));
         final Assessment actual = vc.isSNP() ? assessor.getSNPAssessment() : assessor.getIndelAssessment();
-        final Assessment expected = new Assessment(expectedType);
+        final Assessment expected = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, expectedType);
         Assert.assertEquals(actual, expected);
     }
 

@@ -47,87 +47,69 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
 import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
-import org.broadinstitute.variant.variantcontext.*;
-import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
-import org.broadinstitute.variant.vcf.VCFHeader;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.List;
 
-public class BadSitesWriterUnitTest extends BaseTest {
-    private class CountingWriter implements VariantContextWriter {
-        int count = 0;
-        VariantContext lastVC = null;
+public class AssessmentUnitTest extends BaseTest {
+    private final static boolean DEBUG = false;
 
-        @Override public void writeHeader(VCFHeader vcfHeader) { }
-        @Override public void close() { }
-        @Override
-        public void add(VariantContext variantContext) {
-            Assert.assertNotNull(variantContext);
-            count++;
-            lastVC = variantContext;
-        }
-    }
+    // ------------------------------------------------------------
+    // Tests for simplifying an Assessment
+    // ------------------------------------------------------------
 
-    @DataProvider(name = "MyDataProvider")
-    public Object[][] makeMyDataProvider() {
+    @DataProvider(name = "SimpleAssessmentData")
+    public Object[][] makeSimpleAssessmentData() {
         List<Object[]> tests = new ArrayList<Object[]>();
 
-        final VariantContext vc = GATKVariantContextUtils.makeFromAlleles("vcf", "20", 10, Arrays.asList("A", "C"));
-        final Genotype het = GenotypeBuilder.create("NA12878", vc.getAlleles());
-        final MongoVariantContext mvc = MongoVariantContext.create(Arrays.asList("foo", "bar"), vc, TruthStatus.TRUE_POSITIVE, new Date(), het, true);
+        final Assessment detailedUNK = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.CALLED_NOT_IN_DB_AT_ALL);
+        final Assessment detailedTP1 = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+        final Assessment detailedFP1 = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.FALSE_POSITIVE_SITE_IS_FP);
+        final Assessment detailedFP2 = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.FALSE_POSITIVE_MONO_IN_NA12878);
+        final Assessment detailedFN1 = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL);
+        final Assessment detailedFN2 = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.FALSE_NEGATIVE_CALLED_BUT_FILTERED);
+        final Assessment detailedTN = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.CORRECTLY_UNCALLED);
+        final Assessment detailedNotRel = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.NOT_RELEVANT);
+
+        final Assessment simpleEmpty = new Assessment(AssessmentType.SIMPLE_ASSESSMENTS);
+        final Assessment simpleUNK = new Assessment(AssessmentType.SIMPLE_ASSESSMENTS, AssessmentType.CALLED_NOT_IN_DB_AT_ALL);
+        final Assessment simpleTP = new Assessment(AssessmentType.SIMPLE_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+        final Assessment simpleTN = new Assessment(AssessmentType.SIMPLE_ASSESSMENTS, AssessmentType.TRUE_NEGATIVE);
+        final Assessment simpleFP = new Assessment(AssessmentType.SIMPLE_ASSESSMENTS, AssessmentType.FALSE_POSITIVE);
+        final Assessment simpleFN = new Assessment(AssessmentType.SIMPLE_ASSESSMENTS, AssessmentType.FALSE_NEGATIVE);
+
 
         // this functionality can be adapted to provide input data for whatever you might want in your data
-        for ( final AssessmentType type : AssessmentType.DETAILED_ASSESSMENTS ) {
-            for ( final int maxToWrite : Arrays.asList(Integer.MAX_VALUE, 10) ) {
-                for ( final Set<AssessmentType> exclude : Arrays.asList(Collections.<AssessmentType>emptySet(), Collections.singleton(type), Collections.singleton(AssessmentType.FALSE_POSITIVE_SITE_IS_FP)) ) {
-                    tests.add(new Object[]{type, mvc, maxToWrite, exclude});
-                }
-            }
-        }
+        tests.add(new Object[]{detailedTP1, simpleTP});
+        tests.add(new Object[]{detailedTP1.add(detailedFP1), simpleTP.add(simpleFP)});
+        tests.add(new Object[]{detailedFP1.add(detailedFP2), simpleFP.add(simpleFP)});
+        tests.add(new Object[]{detailedFN1.add(detailedFP2), simpleFN.add(simpleFP)});
+        tests.add(new Object[]{detailedFN1.add(detailedFN2), simpleFN.add(simpleFN)});
+        tests.add(new Object[]{detailedTN, simpleTN});
+        tests.add(new Object[]{detailedNotRel, simpleEmpty});
+        tests.add(new Object[]{detailedUNK, simpleUNK});
+        tests.add(new Object[]{
+                detailedUNK.add(detailedTP1).add(detailedFP1).add(detailedFP2).add(detailedFN1).add(detailedFN2).add(detailedTN).add(detailedNotRel),
+                simpleUNK.add(simpleTP).add(simpleFP).add(simpleFP).add(simpleFN).add(simpleFN).add(simpleTN)});
 
         return tests.toArray(new Object[][]{});
     }
 
-    @Test(dataProvider = "MyDataProvider")
-    public void testNotify(final AssessmentType type, final MongoVariantContext mvc, final int maxToWrite, final Set<AssessmentType> assessmentsToExclude) {
-        final CountingWriter countingWriter = new CountingWriter();
-        final BadSitesWriter writer = new BadSitesWriter(maxToWrite, assessmentsToExclude, countingWriter);
+    @Test(dataProvider = "SimpleAssessmentData")
+    public void testSimplify(Assessment detailed, Assessment expectedSimple) {
+        final Assessment actualSimple = detailed.simplify();
+        Assert.assertEquals(actualSimple, expectedSimple);
+    }
 
-        final int start = 10;
-        final List<Allele> alleles = Arrays.asList(Allele.create("A", true), Allele.create("C"));
-
-        int lastCount = 0;
-        for ( int i = 0; i < 1000; i++ ) {
-            final int pos = start + i;
-            final VariantContext vc = new VariantContextBuilder("x", "20", pos, pos, alleles).make();
-            if ( mvc != null) { mvc.setStart(pos); mvc.setStop(pos); }
-
-            writer.notifyOfSite(type, vc, mvc);
-            Assert.assertTrue(countingWriter.count <= maxToWrite, "Wrote too many sites " + countingWriter.count + " should be <= " + maxToWrite);
-
-            if ( type.isInteresting()  && ! assessmentsToExclude.contains(type) ) {
-                if ( countingWriter.count < maxToWrite ) {
-                    Assert.assertEquals(countingWriter.count, lastCount + 1, "Should have written just one variant but counter increased by more than 1");
-                    Assert.assertNotNull(countingWriter.lastVC, "Should have written just a variant didn't");
-                    Assert.assertEquals(countingWriter.lastVC.getStart(), pos);
-                    Assert.assertEquals(countingWriter.lastVC.getEnd(), pos);
-                    Assert.assertEquals(countingWriter.lastVC.getAlleles(), alleles);
-                    Assert.assertEquals(countingWriter.lastVC.getAttribute(BadSitesWriter.WHY_KEY), type.toString());
-                    if ( mvc != null )
-                        Assert.assertEquals(countingWriter.lastVC.getAttribute(BadSitesWriter.SUPPORTING_CALLSET_KEY), mvc.getCallSetName());
-                    lastCount = countingWriter.count;
-                }
-            } else {
-                Assert.assertNull(countingWriter.lastVC, "Shouldn't be writing VCs but badSites wrote " + countingWriter.lastVC);
-            }
-
-
+    @Test
+    public void testGetCounts() throws Exception {
+        for ( final EnumSet<AssessmentType> set : Arrays.asList(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.SIMPLE_ASSESSMENTS) ) {
+            Assert.assertEquals(new Assessment(set).getCounts().size(), set.size());
         }
     }
 }

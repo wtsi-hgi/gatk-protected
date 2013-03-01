@@ -119,6 +119,9 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Argument(fullName="minDepthForLowCoverage", shortName = "minDepthForLowCoverage", doc="A false negative will be flagged as due to low coverage if the (optional) BAM is provided and the coverage overlapping the site is less than this value", required=false)
     public int minDepthForLowCoverage = 5;
 
+    @Argument(fullName="detailedAssessment", shortName = "detailed", doc="A true, we will emit a very detailed report of the types of variants, otherwise we'll use a simplified version", required=false)
+    public boolean detailedAssessment = false;
+
     @Argument(fullName="typesToInclude", shortName = "typesToInclude", doc="Should we analyze SNPs, INDELs, or both?", required=false)
     public TypesToInclude typesToInclude = TypesToInclude.BOTH;
 
@@ -205,17 +208,38 @@ public class AssessNA12878 extends NA12878DBWalker {
         }
     }
 
+    /**
+     * Replace all of the current detailed assessors with their simplified versions
+     */
+    private void simplifyAssessments() {
+        for ( final Assessor assessor : assessors.values() ) {
+            assessor.simplifyAssessments();
+        }
+    }
+
+    /**
+     * Get an assessment that's representative of the structure of all of the assessment
+     *
+     * Useful for getting things like the ActiveTypes for all assessments
+     *
+     * @return
+     */
+    private Assessment getRepresentativeAssessment() {
+        return assessors.values().iterator().next().getSNPAssessment();
+    }
+
     public void onTraversalDone(Integer result) {
         super.onTraversalDone(result);
         includeMissingCalls(consensusSiteIterator.toList());
+        if ( ! detailedAssessment ) simplifyAssessments();
 
         if ( variants.size() == 1 ) {
             final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets",
                     "Name", "VariantType", "AssessmentType", "Count");
             for( final RodBinding rod : variants ) {
                 for ( final TypesToInclude variantType : Arrays.asList(TypesToInclude.SNPS, TypesToInclude.INDELS) ) {
-                    for ( final AssessmentType type : AssessmentType.values() ) {
-                        final Assessment assessment = getAssessment(rod.getName(), variantType);
+                    final Assessment assessment = getAssessment(rod.getName(), variantType);
+                    for ( final AssessmentType type : assessment.getActiveTypes() ) {
                         report.addRow(rod.getName(), variantType.toString(), type, assessment.get(type));
                     }
                 }
@@ -225,7 +249,7 @@ public class AssessNA12878 extends NA12878DBWalker {
             final List<String> columns = new ArrayList<String>();
             columns.add("Name");
             columns.add("VariantType");
-            for( final AssessmentType type : AssessmentType.values() ) {
+            for( final AssessmentType type : getRepresentativeAssessment().getActiveTypes() ) {
                 columns.add(type.toString());
             }
             final GATKReport report = GATKReport.newSimpleReport("NA12878Assessment", columns);

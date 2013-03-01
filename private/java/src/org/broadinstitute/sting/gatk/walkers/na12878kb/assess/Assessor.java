@@ -92,8 +92,8 @@ public class Assessor {
     private final Set<String> excludeKBSitesSupportedByOnlyTheseCallset;
     private final BadSitesWriter badSitesWriter;
 
-    final Assessment SNPAssessment = new Assessment();
-    final Assessment IndelAssessment = new Assessment();
+    Assessment SNPAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
+    Assessment IndelAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
 
 
     /**
@@ -404,6 +404,14 @@ public class Assessor {
         final int depth = context != null ? context.getBasePileup().depthOfCoverage() : 0;
         it.close();
         return depth;
+    }
+
+    /**
+     * Transform the assessments to simpler forms
+     */
+    public void simplifyAssessments() {
+        SNPAssessment = SNPAssessment.simplify();
+        IndelAssessment = IndelAssessment.simplify();
     }
 
     /**
