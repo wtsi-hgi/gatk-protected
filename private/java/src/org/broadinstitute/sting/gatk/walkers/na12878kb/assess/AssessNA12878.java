@@ -139,7 +139,6 @@ public class AssessNA12878 extends NA12878DBWalker {
     protected boolean debug = false;
 
     SiteIterator<MongoVariantContext> consensusSiteIterator;
-    boolean captureBadSites = true;
 
     final Map<String,Assessor> assessors = new HashMap<String,Assessor>();
     SAMFileReader bamReader = null;
@@ -153,21 +152,13 @@ public class AssessNA12878 extends NA12878DBWalker {
     public void initialize() {
         super.initialize();
         consensusSiteIterator = db.getConsensusSites(makeSiteSelector());
-        captureBadSites = badSites != null;
-
-        if( captureBadSites ) {
-            final Set<VCFHeaderLine> lines = GATKVCFUtils.getHeaderFields(getToolkit());
-            lines.add(new VCFInfoHeaderLine("WHY", 1, VCFHeaderLineType.String, "Why was the site considered bad"));
-            lines.add(new VCFInfoHeaderLine("SupportingCallsets", 1, VCFHeaderLineType.String, "Callsets supporting the consensus, where available"));
-            lines.addAll(MongoVariantContext.reviewHeaderLines());
-            badSites.writeHeader(new VCFHeader(lines, Collections.singleton("NA12878")));
-        }
 
         if ( BAM != null ) {
             bamReader = Assessor.makeSAMFileReaderForDoCInBAM(BAM);
         }
 
-        badSitesWriter = new BadSitesWriter(maxToWrite, captureBadSites, AssessmentsToExclude, badSites);
+        badSitesWriter = new BadSitesWriter(maxToWrite, AssessmentsToExclude, badSites);
+        badSitesWriter.initialize(GATKVCFUtils.getHeaderFields(getToolkit()));
 
         // set up assessors for each rod binding
         for ( final RodBinding<VariantContext> rod : variants ) {
