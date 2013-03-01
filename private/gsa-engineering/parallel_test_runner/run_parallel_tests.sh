@@ -42,7 +42,7 @@ BAMBOO_CLONE=`pwd`
 BAMBOO_BUILD_DIRECTORY=`basename "${BAMBOO_CLONE}"`
 # name of the bamboo build directory + the build number can serve as a unique id for this run
 BAMBOO_BUILD_ID="${BAMBOO_BUILD_DIRECTORY}-${BUILD_NUMBER}"
-TEST_ROOT_WORKING_DIR="/humgen/gsa-scr1/gsa-engineering/parallel_tests_working_directory/${BAMBOO_BUILD_ID}"
+TEST_ROOT_WORKING_DIR="/humgen/gsa-hpprojects/GATK/testing/parallel_tests_working_directories/${BAMBOO_BUILD_ID}"
 TEST_CLONE="${TEST_ROOT_WORKING_DIR}/test_clone"
 IVY_CACHE="${TEST_ROOT_WORKING_DIR}/ivy_cache"
 
