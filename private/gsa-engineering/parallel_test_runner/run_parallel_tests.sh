@@ -1,16 +1,42 @@
 #!/bin/bash
+#
+# Simple implementation of class-level test suite parallelism. Dispatches one job
+# to the farm per test class, monitors jobs for completion, and saves the aggregated
+# results for display in Bamboo.
+#
+# Usage: run_parallel_tests.sh test_class_suffix job_queue timeout bamboo_build_number temp_dir
+#
+# Arguments:
+#
+# test_class_suffix: run tests from test classes ending in this suffix
+#                    (eg., UnitTest, IntegrationTest, etc.)
+#
+# job_queue: LSF queue to which to submit jobs
+#
+# timeout: if all jobs don't complete within this many seconds, terminate all jobs
+#          and exit with an error
+#
+# bamboo_build_number: build number of the Bamboo build that is invoking this script;
+#                      used to create unique working directory names
+#
+# temp_dir: Java temp directory to use for jobs
+#
+#
+# Author: David Roazen <droazen@broadinstitute.org>
+#
 
-if [ $# -ne 4 ]
+if [ $# -ne 5 ]
 then
-    echo "Usage: $0 test_class_suffix job_queue bamboo_build_number temp_dir"
+    echo "Usage: $0 test_class_suffix job_queue timeout bamboo_build_number temp_dir"
     echo "Example test class suffixes: UnitTest, IntegrationTest, PipelineTest"
     exit 1
 fi
 
 TEST_CLASS_SUFFIX="$1"
 JOB_QUEUE="$2"
-BUILD_NUMBER="$3"
-TEMP_DIR="$4"
+GLOBAL_TIMEOUT="$3"
+BUILD_NUMBER="$4"
+TEMP_DIR="$5"
 
 BAMBOO_CLONE=`pwd`
 BAMBOO_BUILD_DIRECTORY=`basename "${BAMBOO_CLONE}"`
@@ -22,10 +48,29 @@ IVY_CACHE="${TEST_ROOT_WORKING_DIR}/ivy_cache"
 
 JOB_OUTPUT_DIR="${TEST_ROOT_WORKING_DIR}/job_output"
 JOB_MEMORY="4"
-# Timeout in seconds before we give up and conclude that our jobs are stuck
-GLOBAL_TIMEOUT=3600
 # We check job status every JOB_POLL_INTERVAL seconds
 JOB_POLL_INTERVAL=30
+
+
+# Kill any outstanding jobs
+shutdown_jobs() {
+    bjobs -p -r -P "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | awk '{ print $1; }' | xargs bkill
+}
+
+# Print job output to stdout so that it gets recorded in bamboo's logs
+echo_job_output() {
+    cd "${JOB_OUTPUT_DIR}"
+    for job_output in *.out
+    do
+        echo ""
+        echo "-----------------------------------------------"
+        echo "${job_output}:"
+        echo "-----------------------------------------------"
+        cat "${job_output}"
+    done
+}
+
+# Setup working environment:
 
 if [ -d "${TEST_ROOT_WORKING_DIR}" ]
 then
@@ -45,6 +90,8 @@ then
     exit 1
 fi
 
+# Compile everything ONCE. All instances of the test suite will share this build:
+
 cd "${TEST_CLONE}"
 ant clean test.compile -Divy.home="${IVY_CACHE}" -Djava.io.tmpdir="${TEMP_DIR}"
 
@@ -53,6 +100,8 @@ then
     echo "$0: test.compile failed"
     exit 1
 fi
+
+# Submit one job per test class:
 
 echo "Dispatching jobs for ${BAMBOO_BUILD_ID}"
 NUM_JOBS=0
@@ -79,13 +128,18 @@ done
 
 echo "Dispatched ${NUM_JOBS} jobs to job queue ${JOB_QUEUE}"
 
+# Monitor jobs for completion. If they don't complete within the global timeout, terminate them:
+
 ELAPSED_SECONDS=0
 while [ "${ELAPSED_SECONDS}" -lt "${GLOBAL_TIMEOUT}" ]
 do
     sleep "${JOB_POLL_INTERVAL}" 
     ELAPSED_SECONDS=`expr "${ELAPSED_SECONDS}" + "${JOB_POLL_INTERVAL}"`
 
-    NUM_OUTSTANDING_JOBS=`bjobs -p -r -P "${BAMBOO_BUILD_ID}" 2> /dev/null | wc -l`
+    NUM_OUTSTANDING_JOBS=`bjobs -p -r -P "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | wc -l`
+
+    # If all jobs are done, save the test results back into bamboo's working directory,
+    # and print the job output logs to stdout so that bamboo will save them in its log
     if [ "${NUM_OUTSTANDING_JOBS}" -eq 0 ]
     then
         echo "$0: All jobs for ${BAMBOO_BUILD_ID} complete, saving results into ${BAMBOO_CLONE}"
@@ -98,12 +152,17 @@ do
         fi
 
         echo "$0: parallel test results saved"
+
+        echo_job_output
+
         # TODO: delete job working directory before exiting (keep it for now for debugging purposes)
         exit 0
     fi
+
+    echo "Outstanding jobs: ${NUM_OUTSTANDING_JOBS}"
 done
 
 echo "$0: Timeout of ${GLOBAL_TIMEOUT} seconds reached before jobs completed, giving up"
-# TODO: more graceful shutdown including bkill of outstanding jobs
+shutdown_jobs
 exit 1
 
