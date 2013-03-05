@@ -46,6 +46,8 @@
 
 package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
+import java.util.EnumSet;
+
 /**
  * Types of assessments for the KB.
  *
@@ -57,76 +59,94 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
  * Time: 8:34 PM
  */
 public enum AssessmentType {
-    // TODO -- add simple assessment types
+    // ------------------------------------------------------------------------------------------
+    //
+    // Simple assessment types
+    //
+    // ------------------------------------------------------------------------------------------
 
     /**
      * A true positive site that was unfiltered, wouldn't be filtered, and was called
      */
-    TRUE_POSITIVE(false),
+    TRUE_POSITIVE(null, true, true, false),
+
+    /**
+     * A false positive -- false in the KB, called and not filtered in the call set
+     */
+    FALSE_POSITIVE(null, true, false, true),
+
+    /**
+     * A false negative -- true in the KB, missing or filtered out of the call set
+     */
+    FALSE_NEGATIVE(null, true, false, true),
+
+    /**
+     * A true negative -- false in the KB, missing or filtered out of the call set
+     */
+    TRUE_NEGATIVE(null, true, false, false),
+
+    /**
+     * An unfiltered call in the callset that has no matching record at all in the KB
+     */
+    CALLED_NOT_IN_DB_AT_ALL(null, true, true, true),
+
+    // ------------------------------------------------------------------------------------------
+    //
+    // detailed assessment types
+    //
+    // ------------------------------------------------------------------------------------------
 
     /**
      * A FP in KB that was filtered in the call set
      */
-    CORRECTLY_FILTERED(false),
+    CORRECTLY_FILTERED(TRUE_NEGATIVE, false, true, false),
 
     /**
      * A FP in KB that wasn't called at all in the call set
      */
-    CORRECTLY_UNCALLED(false),
+    CORRECTLY_UNCALLED(TRUE_NEGATIVE, false, true, false),
 
     /**
      * FP site called and unfiltered in callset but with VC annotations that would likely filter it away
      */
-    REASONABLE_FILTERS_WOULD_FILTER_FP_SITE(false),
+    REASONABLE_FILTERS_WOULD_FILTER_FP_SITE(TRUE_NEGATIVE, false, true, false),
 
     /**
      * A unfiltered call in the callset that wouldn't likely be filtered due to annotations and is a FP in KB
      */
-    FALSE_POSITIVE_SITE_IS_FP(true),
+    FALSE_POSITIVE_SITE_IS_FP(FALSE_POSITIVE, false, true, true),
 
     /**
      * Called polymorphic in NA12878 in the callset but the site is TP but monomorphic in NA12878 in the KB
      */
-    FALSE_POSITIVE_MONO_IN_NA12878(true),
+    FALSE_POSITIVE_MONO_IN_NA12878(FALSE_POSITIVE, false, true, true),
 
     /**
      * A TP in the KB but the site was filtered in the callset
      */
-    FALSE_NEGATIVE_CALLED_BUT_FILTERED(true),
-
-//    /**
-//     * A TP in the KB, called in the callset and unfiltered but VC has annotations that would likely cause it to be filtered out
-//     */
-//    FALSE_NEGATIVE_CALLED_BUT_WOULD_BE_FILTERED(true),
+    FALSE_NEGATIVE_CALLED_BUT_FILTERED(FALSE_NEGATIVE, false, true, true),
 
     /**
      * A TP in the KB, and not called at all in the callset, but a BAM was provided and there wasn't enough data to call the
      * site in the BAM
      */
-    FALSE_NEGATIVE_NOT_CALLED_BUT_LOW_COVERAGE(false),
+    FALSE_NEGATIVE_NOT_CALLED_BUT_LOW_COVERAGE(FALSE_NEGATIVE, false, true, false),
 
     /**
      * A TP in the KB but not called at all in the callset
      */
-    FALSE_NEGATIVE_NOT_CALLED_AT_ALL(true),
+    FALSE_NEGATIVE_NOT_CALLED_AT_ALL(FALSE_NEGATIVE, false, true, true),
 
     /**
      * Unfiltered call in the callset with a match in the KB but the KB record is tagged as UNKNOWN
      */
-    CALLED_IN_DB_UNKNOWN_STATUS(true),
-
-    /**
-     * An unfiltered call in the callset that has no matching record at all in the KB
-     */
-    CALLED_NOT_IN_DB_AT_ALL(true),
+    CALLED_IN_DB_UNKNOWN_STATUS(null, false, true, true),
 
     /**
      * Catch all class for sites that (1) are in the callset but filtered and have no record in the KB or
      * (2) SUSPECT, MONO, UNKNOWN status in the KB that aren't called in the call set
      */
-    NOT_RELEVANT(false);
-
-    private final boolean interesting;
+    NOT_RELEVANT(null, false, true, false);
 
     /**
      * Is this site interesting to emit for later analysis?
@@ -139,7 +159,54 @@ public enum AssessmentType {
         return interesting;
     }
 
-    AssessmentType(boolean interesting) {
+    /**
+     * This is assessment one of the simple ones?
+     * @return
+     */
+    public boolean isSimple() {
+        return isSimple;
+    }
+
+    /**
+     * This is assessment one of the detailed ones?
+     * @return
+     */
+    public boolean isDetailed() {
+        return isDetailed;
+    }
+
+    /**
+     * Return the simple AssessmentType corresponding to this AssessmentType
+     *
+     * If this is already simple, the result is just this.
+     * Otherwise the result may be a AssessmentType that is simple, or null, meaning that
+     * there's no good simple version of this report.
+     *
+     * @return a simple AssessmentType, or null if that's not possible
+     */
+    public AssessmentType getSimpleVersion() {
+        // necessary because simple fields cannot map to themselves, but some fields are null
+        return isSimple() ? this : simpleVersion;
+    }
+
+    private final AssessmentType simpleVersion;
+    private final boolean isSimple;
+    private final boolean isDetailed;
+    private final boolean interesting;
+
+    private AssessmentType(final AssessmentType simpleVersion, boolean simple, boolean detailed, boolean interesting) {
+        this.simpleVersion = simpleVersion;
+        this.isSimple = simple;
+        this.isDetailed = detailed;
         this.interesting = interesting;
+    }
+
+    public final static EnumSet<AssessmentType> SIMPLE_ASSESSMENTS = EnumSet.noneOf(AssessmentType.class);
+    public final static EnumSet<AssessmentType> DETAILED_ASSESSMENTS = EnumSet.noneOf(AssessmentType.class);
+    static {
+        for ( AssessmentType type : values() ) {
+            if ( type.isSimple() ) SIMPLE_ASSESSMENTS.add(type);
+            if ( type.isDetailed() ) DETAILED_ASSESSMENTS.add(type);
+        }
     }
 }
