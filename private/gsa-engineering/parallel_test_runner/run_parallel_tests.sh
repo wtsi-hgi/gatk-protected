@@ -54,7 +54,23 @@ JOB_POLL_INTERVAL=30
 
 # Kill any outstanding jobs
 shutdown_jobs() {
+    echo "$0: shutting down jobs for ${BAMBOO_BUILD_ID}"
     bjobs -p -r -P "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | awk '{ print $1; }' | xargs bkill
+    echo "$0: done shutting down jobs for ${BAMBOO_BUILD_ID}"
+}
+
+# Delete the working directory used by this parallel test suite run
+cleanup_working_dir() {
+    echo "$0: removing test working directory"
+    cd "${BAMBOO_CLONE}"
+    rm -rf "${TEST_ROOT_WORKING_DIR}"
+
+    if [ $? -eq 0 ]
+    then
+        echo "$0: done removing test working directory"
+    else
+        echo "$0: failed to completely remove test working directory"
+    fi
 }
 
 # Print job output to stdout so that it gets recorded in bamboo's logs
@@ -106,9 +122,9 @@ fi
 echo "Dispatching jobs for ${BAMBOO_BUILD_ID}"
 NUM_JOBS=0
 
-for test_class_file in `find . -name "*${TEST_CLASS_SUFFIX}.java"`
+for test_class_file in `find . -name "*${TEST_CLASS_SUFFIX}.class"`
 do
-    test_class=`basename "${test_class_file}" ".java"`
+    test_class=`basename "${test_class_file}" ".class"`
 
     bsub -P "${BAMBOO_BUILD_ID}" \
          -q "${JOB_QUEUE}" \
@@ -155,7 +171,7 @@ do
 
         echo_job_output
 
-        # TODO: delete job working directory before exiting (keep it for now for debugging purposes)
+        # cleanup_working_dir
         exit 0
     fi
 
@@ -164,5 +180,6 @@ done
 
 echo "$0: Timeout of ${GLOBAL_TIMEOUT} seconds reached before jobs completed, giving up"
 shutdown_jobs
+# cleanup_working_dir
 exit 1
 
