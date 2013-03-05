@@ -50,6 +50,7 @@ import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import org.apache.commons.math.linear.*;
 import org.apache.log4j.Logger;
+import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -68,10 +69,11 @@ import org.broadinstitute.variant.variantcontext.VariantContext;
 import java.util.*;
 
 /**
- * This annotation attempts to generate a genotype dosage that is controlled for LD for analyses
- * such as variance analysis (e.g. animal model using relationship matrices) or association tests.
+ * Generate a genotype dosage that is controlled for LD
  *
- * Ideally one would want to include only the component of the genotypes not explained by the rest of the genome, e.g.
+ * <p>Intended for analyses such as variance analysis (e.g. animal model using relationship matrices) or association tests.</p>
+ *
+ * <p>Ideally one would want to include only the component of the genotypes not explained by the rest of the genome, e.g.
  * use in analysis the residuals of
  *
  * SNP_target ~ SNP1 + SNP2 + ... + SNP_K
@@ -85,7 +87,11 @@ import java.util.*;
  * SNP_{k+1} = SNP_1 + Resid_2 + Resid_3 + ... + Resid_k
  *
  * It follows by symmetry that the sum of squared residuals should be the same.
+ * </p>
+ *
+ * <p>Note that this annotation is currently not compatible with HaplotypeCaller.</p>
  */
+@Hidden
 public class LDCorrectedDosage extends GenotypeAnnotation implements ExperimentalAnnotation {
 
     private static final int MAX_DISTANCE_IN_BP = 7500;

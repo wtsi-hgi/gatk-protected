@@ -71,17 +71,17 @@ import java.util.List;
  * <p>
  * x
  *
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>
  * One or more bam files.
  * </p>
  *
- * <h2>Output</h2>
+ * <h3>Output</h3>
  * <p>
  * A single processed bam file.
  * </p>
  *
- * <h2>Examples</h2>
+ * <h3>Example</h3>
  * <pre>
  * java -Xmx2g -jar GenomeAnalysisTK.jar \
  *   -R ref.fasta \

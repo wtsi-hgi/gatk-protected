@@ -74,17 +74,17 @@ import java.util.List;
  * </p>
  * <p/>
  * <p/>
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>
  * A BAM file and an interval list with the targeted sequencing
  * </p>
  * <p/>
- * <h2>Output</h2>
+ * <h3>Output</h3>
  * <p>
  * A table with the values per interval for : target coverage, average interval coverage and the ratio between the two.
  * </p>
  * <p/>
- * <h2>Examples</h2>
+ * <h3>Examples</h3>
  * <pre>
  *    java
  *      -jar GenomeAnalysisTK.jar

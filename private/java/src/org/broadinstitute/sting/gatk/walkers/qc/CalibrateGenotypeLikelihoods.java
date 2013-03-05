@@ -86,7 +86,7 @@ import java.util.*;
  * </p>
  *
  *
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>
  *  This walker takes two inputs:
  *  <ul>
@@ -96,7 +96,7 @@ import java.util.*;
  *  <b>Warning: The truth ROD MUST include all possible genotypes to build the error model appropriately (AA, AB, BB)</b>
  * </p>
  *
- * <h2>Output</h2>
+ * <h3>Output</h3>
  *  <p>
  *      Two intermediate tables:
  *      <ul>
@@ -112,7 +112,7 @@ import java.util.*;
  *      </ul>
  *  <p>
  *
- * <h2>Example</h2>
+ * <h3>Example</h3>
  * <pre>
  * java -Xmx4g -jar GenomeAnalysisTK.jar \
  *   -T CalibrateGenotypeLikelihoods \

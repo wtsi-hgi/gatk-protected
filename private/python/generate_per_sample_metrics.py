@@ -14,7 +14,7 @@
 #
 # To add a new metric:
 #   - If the metric file is new to Picard, add the relevant parser to the picard-private jar
-#     (see http://www.broadinstitute.org/gsa/wiki/index.php/Adding_and_updating_dependencies for details).
+#     (see http://www.broadinstitute.org/gatk/guide/article?id=1352 for details).
 #   - Add the field name to the header array.
 #   - Add the field data to the statement printing the data array.
 #
