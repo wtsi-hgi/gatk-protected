@@ -43,6 +43,7 @@ BAMBOO_BUILD_DIRECTORY=`basename "${BAMBOO_CLONE}"`
 # name of the bamboo build directory + the build number can serve as a unique id for this run
 BAMBOO_BUILD_ID="${BAMBOO_BUILD_DIRECTORY}-${BUILD_NUMBER}"
 TEST_ROOT_WORKING_DIR="/humgen/gsa-hpprojects/GATK/testing/parallel_tests_working_directories/${BAMBOO_BUILD_ID}"
+TEST_ARCHIVE_DIR="/humgen/gsa-hpprojects/GATK/testing/parallel_tests_working_directories/archive"
 TEST_CLONE="${TEST_ROOT_WORKING_DIR}/test_clone"
 IVY_CACHE="${TEST_ROOT_WORKING_DIR}/ivy_cache"
 
@@ -59,17 +60,18 @@ shutdown_jobs() {
     echo "$0: done shutting down jobs for ${BAMBOO_BUILD_ID}"
 }
 
-# Delete the working directory used by this parallel test suite run
-cleanup_working_dir() {
-    echo "$0: removing test working directory"
+# Archive the working directory used by this parallel test suite run
+# Deleting is too time-consuming -- old working directories can be deleted later by a cron job
+archive_working_dir() {
+    echo "$0: archiving test working directory"
     cd "${BAMBOO_CLONE}"
-    rm -rf "${TEST_ROOT_WORKING_DIR}"
+    mv "${TEST_ROOT_WORKING_DIR}" "${TEST_ARCHIVE_DIR}"
 
     if [ $? -eq 0 ]
     then
-        echo "$0: done removing test working directory"
+        echo "$0: done archiving test working directory"
     else
-        echo "$0: failed to completely remove test working directory"
+        echo "$0: failed to archive test working directory"
     fi
 }
 
@@ -171,7 +173,7 @@ do
 
         echo_job_output
 
-        # cleanup_working_dir
+        archive_working_dir
         exit 0
     fi
 
@@ -180,6 +182,8 @@ done
 
 echo "$0: Timeout of ${GLOBAL_TIMEOUT} seconds reached before jobs completed, giving up"
 shutdown_jobs
-# cleanup_working_dir
+# ok to spend time deleting the working dir in this case, since we've already spent an excessive
+# amount of time on this run
+cd "${BAMBOO_CLONE}" && rm -rf "${TEST_ROOT_WORKING_DIR}"
 exit 1
 
