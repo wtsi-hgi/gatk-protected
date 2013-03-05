@@ -122,6 +122,9 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Argument(fullName="detailedAssessment", shortName = "detailed", doc="A true, we will emit a very detailed report of the types of variants, otherwise we'll use a simplified version", required=false)
     public boolean detailedAssessment = false;
 
+    @Argument(fullName="requireReviewed", shortName = "requireReviewed", doc="If true, we will only use reviewed sites for the analysis", required=false)
+    public boolean onlyReviewed = false;
+
     @Argument(fullName="typesToInclude", shortName = "typesToInclude", doc="Should we analyze SNPs, INDELs, or both?", required=false)
     public TypesToInclude typesToInclude = TypesToInclude.BOTH;
 
@@ -182,7 +185,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         for ( final RodBinding<VariantContext> rod : variants ) {
             final Assessor assessor = getAccessor(rod.getName());
             final List<VariantContext> vcs = tracker.getValues(rod, ref.getLocus());
-            assessor.accessSite(vcs, consensusSites);
+            assessor.accessSite(vcs, consensusSites, onlyReviewed);
         }
 
         return 1;
@@ -192,7 +195,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         final List<VariantContext> noCalls = Collections.emptyList();
 
         for ( final RodBinding<VariantContext> rod : variants ) {
-            getAccessor(rod.getName()).accessSite(noCalls, missedSites);
+            getAccessor(rod.getName()).accessSite(noCalls, missedSites, onlyReviewed);
         }
     }
 
