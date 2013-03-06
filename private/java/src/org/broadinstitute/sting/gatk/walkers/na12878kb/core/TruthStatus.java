@@ -128,6 +128,9 @@ public enum TruthStatus {
             // combining t with FALSE_POSITIVE results in FALSE_POSITIVE
             addToConsensusMatrix(t, FALSE_POSITIVE, FALSE_POSITIVE);
         }
+
+        // final case -- combining TP + FP = discordant
+        addToConsensusMatrix(TRUE_POSITIVE, FALSE_POSITIVE, DISCORDANT);
     }
 
     /**

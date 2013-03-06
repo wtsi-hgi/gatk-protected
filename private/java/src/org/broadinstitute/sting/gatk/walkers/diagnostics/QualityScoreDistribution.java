@@ -92,13 +92,13 @@ public class QualityScoreDistribution extends ReadWalker<HashMap<Byte, Long>, Ha
 
 
     public HashMap<Byte, Long> reduceInit() {
-        HashMap<Byte, Long> qualsMap = new HashMap<Byte, Long>(QualityUtils.MAX_QUAL_SCORE);
+        HashMap<Byte, Long> qualsMap = new HashMap<Byte, Long>(QualityUtils.MAX_SAM_QUAL_SCORE);
         return initQualsMap(qualsMap);
     }
 
     @Override
     public HashMap<Byte, Long> map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker metaDataTracker) {
-        HashMap<Byte, Long> qualsMap = new HashMap<Byte, Long>(QualityUtils.MAX_QUAL_SCORE);
+        HashMap<Byte, Long> qualsMap = new HashMap<Byte, Long>(QualityUtils.MAX_SAM_QUAL_SCORE);
         byte [] quals = read.getBaseQualities();
         initQualsMap(qualsMap);
         for (int i = 0; i < quals.length; i++) {
@@ -140,7 +140,7 @@ public class QualityScoreDistribution extends ReadWalker<HashMap<Byte, Long>, Ha
      * @return it returns the initialized map as a convenience
      */
     private static HashMap<Byte, Long> initQualsMap (HashMap<Byte, Long> map) {
-        for (byte i=0; i<=QualityUtils.MAX_QUAL_SCORE; i++)
+        for (byte i=0; i<=QualityUtils.MAX_SAM_QUAL_SCORE; i++)
             map.put(i, 0L);
         return map;
     }

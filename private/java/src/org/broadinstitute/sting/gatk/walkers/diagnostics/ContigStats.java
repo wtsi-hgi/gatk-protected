@@ -173,7 +173,7 @@ public class ContigStats extends ReadWalker<GATKSAMRecord, ContigStats.ContigSta
             String result = "contig" + "\t" + "size" + "\t" + "reads" + "\t" + "exp_reads" + "\t" + "enrichment" +"\t" + "exp_enrichment\n";
 
             // create a sorted set for the contigs to always be output in the same order (using Contig Comparator for ordering)
-            SortedSet<String> contigs = new TreeSet<String>(new ContigComparator());
+            SortedSet<String> contigs = new TreeSet<String>(new ContigComparator(getToolkit().getMasterSequenceDictionary()));
             contigs.addAll(contigCount.keySet());
 
             for (String contig : contigs)

@@ -58,11 +58,14 @@ public class ProcessUtils {
 
 	/**
 	 * Runs a command line and returns the result code.
-	 * @param command Command line to execute.
+	 * @param command Command line to execute, cannot be null or an empty string.
 	 * @return Result code of the command.
 	 */
 	public static int runCommandAndWait(String command) {
-		try {
+        if ( command == null ) throw new IllegalArgumentException("command cannot be null");
+        if ( command.equals("") ) throw new IllegalArgumentException("command cannot be the empty string");
+
+        try {
 			logger.debug("Running command: " + command);
 
 			Process p = Runtime.getRuntime().exec(command);
