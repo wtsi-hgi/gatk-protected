@@ -47,6 +47,7 @@ TEST_ARCHIVE_DIR="/humgen/gsa-hpprojects/GATK/testing/parallel_tests_working_dir
 TEST_CLONE="${TEST_ROOT_WORKING_DIR}/test_clone"
 IVY_CACHE="${TEST_ROOT_WORKING_DIR}/ivy_cache"
 
+JOB_RUNNER_DIR="${TEST_ROOT_WORKING_DIR}/job_runners"
 JOB_OUTPUT_DIR="${TEST_ROOT_WORKING_DIR}/job_output"
 JOB_MEMORY="4"
 # We check job status every JOB_POLL_INTERVAL seconds
@@ -56,7 +57,7 @@ JOB_POLL_INTERVAL=30
 # Kill any outstanding jobs
 shutdown_jobs() {
     echo "$0: shutting down jobs for ${BAMBOO_BUILD_ID}"
-    bjobs -p -r -P "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | awk '{ print $1; }' | xargs bkill
+    bjobs -A -J "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | awk '{ print $1; }' | xargs bkill
     echo "$0: done shutting down jobs for ${BAMBOO_BUILD_ID}"
 }
 
@@ -97,6 +98,7 @@ fi
 
 mkdir "${TEST_ROOT_WORKING_DIR}"
 mkdir "${IVY_CACHE}"
+mkdir "${JOB_RUNNER_DIR}"
 mkdir "${JOB_OUTPUT_DIR}"
 
 echo "$0: Cloning ${BAMBOO_CLONE} into ${TEST_CLONE}"
@@ -119,32 +121,44 @@ then
     exit 1
 fi
 
-# Submit one job per test class:
-
-echo "Dispatching jobs for ${BAMBOO_BUILD_ID}"
 NUM_JOBS=0
+
+# Create a separate shell script for each test class to be run
 
 for test_class_file in `find . -name "*${TEST_CLASS_SUFFIX}.class"`
 do
     test_class=`basename "${test_class_file}" ".class"`
-
-    bsub -P "${BAMBOO_BUILD_ID}" \
-         -q "${JOB_QUEUE}" \
-         -R "rusage[mem=${JOB_MEMORY}] select[tmp>100]" \
-         -o "${JOB_OUTPUT_DIR}/${test_class}.job.out" \
-         ant runtestonly -Dsingle="${test_class}" -Divy.home="${IVY_CACHE}" -Djava.io.tmpdir="${TEMP_DIR}"
-    
-    if [ $? -ne 0 ]
-    then
-        echo "Failed to dispatch job for test class ${test_class}"
-        # TODO: retry in this case
-        exit 1
-    fi
-
     NUM_JOBS=`expr "${NUM_JOBS}" + 1`
+
+    echo "#!/bin/bash" > "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
+    echo "ant runtestonly \
+          -Dsingle=${test_class} \
+          -Divy.home=${IVY_CACHE} \
+          -Djava.io.tmpdir=${TEMP_DIR} \
+          > ${JOB_OUTPUT_DIR}/${test_class}.job.out 2>&1" \
+          >> "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
+
+    chmod +x "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
 done
 
-echo "Dispatched ${NUM_JOBS} jobs to job queue ${JOB_QUEUE}"
+# Submit all jobs at once as a single job array:
+
+echo "Dispatching jobs for ${BAMBOO_BUILD_ID}"
+
+bsub -P "${BAMBOO_BUILD_ID}" \
+     -q "${JOB_QUEUE}" \
+     -R "rusage[mem=${JOB_MEMORY}] select[tmp>100]" \
+     -o "MASTER.job.out" \
+     -J "${BAMBOO_BUILD_ID}[1-${NUM_JOBS}]" \
+     "${JOB_RUNNER_DIR}/\${LSB_JOBINDEX}.sh"
+
+if [ $? -ne 0 ]
+then
+    echo "Failed to dispatch jobs"
+    exit 1
+fi
+
+echo "Dispatched ${NUM_JOBS} jobs to job queue ${JOB_QUEUE} as job array ${BAMBOO_BUILD_ID}[1-${NUM_JOBS}]"
 
 # Monitor jobs for completion. If they don't complete within the global timeout, terminate them:
 
@@ -154,7 +168,7 @@ do
     sleep "${JOB_POLL_INTERVAL}" 
     ELAPSED_SECONDS=`expr "${ELAPSED_SECONDS}" + "${JOB_POLL_INTERVAL}"`
 
-    NUM_OUTSTANDING_JOBS=`bjobs -p -r -P "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | wc -l`
+    NUM_OUTSTANDING_JOBS=`bjobs -J "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | wc -l`
 
     # If all jobs are done, save the test results back into bamboo's working directory,
     # and print the job output logs to stdout so that bamboo will save them in its log
