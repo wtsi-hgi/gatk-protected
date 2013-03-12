@@ -50,7 +50,7 @@ import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
 import org.broadinstitute.sting.queue.function._
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils
 
 class LargeScaleHybridSelectionPipeline extends QScript {
   qscript =>
@@ -364,7 +364,7 @@ class LargeScaleHybridSelectionPipeline extends QScript {
         combineSNPsIndels.variant ++= recalibratedSNPs
         combineSNPsIndels.variant ++= recalibratedIndels
         combineSNPsIndels.sites_only = true
-        combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.variant.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+        combineSNPsIndels.filteredrecordsmergetype = GATKVariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
         combineSNPsIndels.assumeIdenticalSamples = true
         combineSNPsIndels.out = unannotatedSitesOnly
         add(combineSNPsIndels)
