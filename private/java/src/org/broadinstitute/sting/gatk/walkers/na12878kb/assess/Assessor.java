@@ -73,7 +73,7 @@ import java.util.*;
  *
  * A function that assesses the calls at a single locus
  *
- * @see #accessSite(java.util.List, java.util.List)
+ * @see #accessSite(java.util.List, java.util.List, boolean)
  *
  * That finds equivalent calls at a single site in a single callset compared to the calls
  * in the KB at that location (list two)
@@ -172,8 +172,9 @@ public class Assessor {
      *            in the callset at consensusSites
      * @param consensusSites a non-null list of calls in the KB.  If empty, vcs are interpreted as having
      *                       no potential equivalents in the KB
+     * @param onlyReviewed if true, only consider reviewed sites during the assessment
      */
-    public void accessSite(final List<VariantContext> vcs, List<MongoVariantContext> consensusSites) {
+    public void accessSite(final List<VariantContext> vcs, List<MongoVariantContext> consensusSites, final boolean onlyReviewed) {
         if ( vcs == null ) throw new IllegalArgumentException("vcs cannot be null");
         if ( consensusSites == null ) throw new IllegalArgumentException("consensusSites cannot be null");
 
@@ -183,7 +184,7 @@ public class Assessor {
             // missed consensus site(s)
             for ( final MongoVariantContext site : consensusSites ) {
                 if ( logger.isDebugEnabled() ) logger.debug("Missed site in " + name + " site = " + site);
-                assessMatchedCallWithKB(null, site);
+                assessMatchedCallWithKB(null, site, onlyReviewed);
             }
         } else {
             final Set<VariantContext> biallelics = new HashSet<VariantContext>();
@@ -207,7 +208,7 @@ public class Assessor {
             for ( final Pair<VariantContext, MongoVariantContext> match : matchCallsWithKB(biallelics, consensusSites) ) {
                 final VariantContext biallelic = match.getFirst();
                 final MongoVariantContext consensusSite = match.getSecond();
-                assessMatchedCallWithKB(biallelic, consensusSite);
+                assessMatchedCallWithKB(biallelic, consensusSite, onlyReviewed);
             }
         }
     }
@@ -275,7 +276,7 @@ public class Assessor {
      * @param call a potentially null VariantContext call
      * @param consensusSite a potentially null consensus Site
      */
-    protected void assessMatchedCallWithKB(final VariantContext call, final MongoVariantContext consensusSite) {
+    protected void assessMatchedCallWithKB(final VariantContext call, final MongoVariantContext consensusSite, final boolean onlyReviewed) {
         if ( call == null && consensusSite == null ) throw new IllegalArgumentException("both call and consensusSite cannot be null");
         if ( call != null && consensusSite != null && ( call.getStart() != consensusSite.getStart() ) )
             throw new IllegalArgumentException("Call and consensusSite don't start at the same position! " + call + " consensus " + consensusSite);
@@ -283,6 +284,9 @@ public class Assessor {
         final VariantContext vc = call != null ? call : consensusSite.getVariantContext();
 
         if ( ! includeVariant(vc) )
+            return;
+
+        if ( onlyReviewed && (consensusSite == null || ! consensusSite.isReviewed()) )
             return;
 
         final AssessmentType type = figureOutAssessmentType(call, consensusSite);

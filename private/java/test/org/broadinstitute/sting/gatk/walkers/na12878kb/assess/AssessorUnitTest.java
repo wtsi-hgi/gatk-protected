@@ -170,7 +170,7 @@ public class AssessorUnitTest extends BaseTest {
     @Test(dataProvider = "AssessSiteData")
     public void testAssessSite(final List<VariantContext> fromVCF, final List<MongoVariantContext> fromKB, Assessment expectedSNPs, Assessment expectedIndels) {
         final Assessor assessor = new Assessor("test");
-        assessor.accessSite(fromVCF, fromKB);
+        assessor.accessSite(fromVCF, fromKB, false);
         Assert.assertEquals(assessor.getSNPAssessment(), expectedSNPs);
         Assert.assertEquals(assessor.getIndelAssessment(), expectedIndels);
     }
@@ -210,7 +210,7 @@ public class AssessorUnitTest extends BaseTest {
     @Test(dataProvider = "FilteringSiteData")
     public void testFilteringSites(final VariantContext vc, final MongoVariantContext mvc, final AssessmentType expectedType) {
         final Assessor assessor = new Assessor("test");
-        assessor.accessSite(Collections.singletonList(vc), mvc == null ? Collections.<MongoVariantContext>emptyList() : Collections.singletonList(mvc));
+        assessor.accessSite(Collections.singletonList(vc), mvc == null ? Collections.<MongoVariantContext>emptyList() : Collections.singletonList(mvc), false);
         final Assessment actual = vc.isSNP() ? assessor.getSNPAssessment() : assessor.getIndelAssessment();
         final Assessment expected = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, expectedType);
         Assert.assertEquals(actual, expected);
