@@ -4,12 +4,9 @@
 # to the farm per test class, monitors jobs for completion, and saves the aggregated
 # results for display in Bamboo.
 #
-# Usage: run_parallel_tests.sh test_class_suffix job_queue timeout bamboo_build_number temp_dir
+# Usage: run_parallel_tests.sh job_queue timeout bamboo_build_number temp_dir test_class_suffixes...
 #
 # Arguments:
-#
-# test_class_suffix: run tests from test classes ending in this suffix
-#                    (eg., UnitTest, IntegrationTest, etc.)
 #
 # job_queue: LSF queue to which to submit jobs
 #
@@ -21,31 +18,41 @@
 #
 # temp_dir: Java temp directory to use for jobs
 #
+# test_class_suffixes: run tests from test classes ending in these suffixes
+#                      (eg., UnitTest, IntegrationTest, etc.)
+#                      can specify an arbitrary number of suffixes
 #
 # Author: David Roazen <droazen@broadinstitute.org>
 #
 
-if [ $# -ne 5 ]
+if [ $# -lt 5 ]
 then
-    echo "Usage: $0 test_class_suffix job_queue timeout bamboo_build_number temp_dir"
-    echo "Example test class suffixes: UnitTest, IntegrationTest, PipelineTest"
+    echo "Usage: $0 job_queue timeout bamboo_build_number temp_dir test_class_suffixes..." 1>&2
+    echo "Example test class suffixes: UnitTest, IntegrationTest, PipelineTest" 1>&2
     exit 1
 fi
 
-TEST_CLASS_SUFFIX="$1"
-JOB_QUEUE="$2"
-GLOBAL_TIMEOUT="$3"
-BUILD_NUMBER="$4"
-TEMP_DIR="$5"
+# Record the start time so that we can later record how long this run took
+START_TIMESTAMP=`date '+%s'`
+
+JOB_QUEUE="$1"
+GLOBAL_TIMEOUT="$2"
+BUILD_NUMBER="$3"
+TEMP_DIR="$4"
+
+# shift the args so that the variable number of trailing test_class_suffix args start at $1
+shift 4
 
 BAMBOO_CLONE=`pwd`
 BAMBOO_BUILD_DIRECTORY=`basename "${BAMBOO_CLONE}"`
 # name of the bamboo build directory + the build number can serve as a unique id for this run
 BAMBOO_BUILD_ID="${BAMBOO_BUILD_DIRECTORY}-${BUILD_NUMBER}"
-TEST_ROOT_WORKING_DIR="/humgen/gsa-hpprojects/GATK/testing/parallel_tests_working_directories/${BAMBOO_BUILD_ID}"
-TEST_ARCHIVE_DIR="/humgen/gsa-hpprojects/GATK/testing/parallel_tests_working_directories/archive"
+GLOBAL_PARALLEL_TESTS_DIR="/humgen/gsa-hpprojects/GATK/testing/parallel_tests_working_directories"
+TEST_ARCHIVE_DIR="${GLOBAL_PARALLEL_TESTS_DIR}/archive"
+TEST_ROOT_WORKING_DIR="${GLOBAL_PARALLEL_TESTS_DIR}/${BAMBOO_BUILD_ID}"
 TEST_CLONE="${TEST_ROOT_WORKING_DIR}/test_clone"
 IVY_CACHE="${TEST_ROOT_WORKING_DIR}/ivy_cache"
+LOG_FILE="/humgen/gsa-hpprojects/GATK/testing/logs/parallel_tests_runtime.log"
 
 JOB_RUNNER_DIR="${TEST_ROOT_WORKING_DIR}/job_runners"
 JOB_OUTPUT_DIR="${TEST_ROOT_WORKING_DIR}/job_output"
@@ -72,7 +79,7 @@ archive_working_dir() {
     then
         echo "$0: done archiving test working directory"
     else
-        echo "$0: failed to archive test working directory"
+        echo "$0: failed to archive test working directory" 1>&2
     fi
 }
 
@@ -88,6 +95,17 @@ echo_job_output() {
         cat "${job_output}"
     done
 }
+
+# Record a log entry for this run including the Bamboo build ID, exit status (COMPLETED or TIMED_OUT),
+# total runtime in seconds, and seconds spent waiting for farm jobs to complete
+write_log_entry() {
+    EXIT_STATUS="$1"
+    END_TIMESTAMP=`date '+%s'`
+    TOTAL_RUNTIME_IN_SECONDS=`expr "${END_TIMESTAMP}" - "${START_TIMESTAMP}"`
+
+    printf "%s\t%s\t%d\t%d\n" "${BAMBOO_BUILD_ID}" "${EXIT_STATUS}" "${TOTAL_RUNTIME_IN_SECONDS}" "${SECONDS_WAITING_FOR_JOBS}" >> "${LOG_FILE}"
+}
+
 
 # Setup working environment:
 
@@ -106,7 +124,7 @@ git clone "${BAMBOO_CLONE}" "${TEST_CLONE}"
 
 if [ $? -ne 0 ]
 then
-    echo "$0: failed to clone ${BAMBOO_CLONE} into ${TEST_CLONE}"
+    echo "$0: failed to clone ${BAMBOO_CLONE} into ${TEST_CLONE}" 1>&2
     exit 1
 fi
 
@@ -117,7 +135,7 @@ ant clean test.compile -Divy.home="${IVY_CACHE}" -Djava.io.tmpdir="${TEMP_DIR}"
 
 if [ $? -ne 0 ]
 then
-    echo "$0: test.compile failed"
+    echo "$0: test.compile failed" 1>&2
     exit 1
 fi
 
@@ -125,20 +143,33 @@ NUM_JOBS=0
 
 # Create a separate shell script for each test class to be run
 
-for test_class_file in `find . -name "*${TEST_CLASS_SUFFIX}.class"`
+while [ $# -gt 0 ]
 do
-    test_class=`basename "${test_class_file}" ".class"`
-    NUM_JOBS=`expr "${NUM_JOBS}" + 1`
+    TEST_CLASS_SUFFIX="$1"
+    echo "Preparing job runners for ${TEST_CLASS_SUFFIX} test classes"
+    NUM_CLASSES_THIS_SUFFIX=0
 
-    echo "#!/bin/bash" > "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
-    echo "ant runtestonly \
-          -Dsingle=${test_class} \
-          -Divy.home=${IVY_CACHE} \
-          -Djava.io.tmpdir=${TEMP_DIR} \
-          > ${JOB_OUTPUT_DIR}/${test_class}.job.out 2>&1" \
-          >> "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
+    for test_class_file in `find . -name "*${TEST_CLASS_SUFFIX}.class"`
+    do
+        test_class=`basename "${test_class_file}" ".class"`
+        NUM_JOBS=`expr "${NUM_JOBS}" + 1`
+        NUM_CLASSES_THIS_SUFFIX=`expr ${NUM_CLASSES_THIS_SUFFIX} + 1`
 
-    chmod +x "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
+        echo "#!/bin/bash" > "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
+        echo "ant runtestonly \
+              -Dsingle=${test_class} \
+              -Divy.home=${IVY_CACHE} \
+              -Djava.io.tmpdir=${TEMP_DIR} \
+              > ${JOB_OUTPUT_DIR}/${test_class}.job.out 2>&1" \
+              >> "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
+
+        chmod +x "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
+    done
+
+    echo "Found ${NUM_CLASSES_THIS_SUFFIX} ${TEST_CLASS_SUFFIX} test classes"
+
+    # move on to next test class suffix
+    shift 1
 done
 
 # Submit all jobs at once as a single job array:
@@ -154,7 +185,7 @@ bsub -P "${BAMBOO_BUILD_ID}" \
 
 if [ $? -ne 0 ]
 then
-    echo "Failed to dispatch jobs"
+    echo "Failed to dispatch job array" 1>&2
     exit 1
 fi
 
@@ -162,11 +193,11 @@ echo "Dispatched ${NUM_JOBS} jobs to job queue ${JOB_QUEUE} as job array ${BAMBO
 
 # Monitor jobs for completion. If they don't complete within the global timeout, terminate them:
 
-ELAPSED_SECONDS=0
-while [ "${ELAPSED_SECONDS}" -lt "${GLOBAL_TIMEOUT}" ]
+SECONDS_WAITING_FOR_JOBS=0
+while [ "${SECONDS_WAITING_FOR_JOBS}" -lt "${GLOBAL_TIMEOUT}" ]
 do
     sleep "${JOB_POLL_INTERVAL}" 
-    ELAPSED_SECONDS=`expr "${ELAPSED_SECONDS}" + "${JOB_POLL_INTERVAL}"`
+    SECONDS_WAITING_FOR_JOBS=`expr "${SECONDS_WAITING_FOR_JOBS}" + "${JOB_POLL_INTERVAL}"`
 
     NUM_OUTSTANDING_JOBS=`bjobs -J "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | wc -l`
 
@@ -186,18 +217,27 @@ do
         echo "$0: parallel test results saved"
 
         echo_job_output
-
         archive_working_dir
+        write_log_entry "COMPLETED"
+
         exit 0
     fi
 
-    echo "Outstanding jobs: ${NUM_OUTSTANDING_JOBS}"
+    echo "--------------------------------------------------------------------------------"
+    echo "Unfinished Jobs / Total Jobs: ${NUM_OUTSTANDING_JOBS}/${NUM_JOBS}"
+    echo ""
+    bjobs -A -J "${BAMBOO_BUILD_ID}"
+    echo "--------------------------------------------------------------------------------"
 done
 
-echo "$0: Timeout of ${GLOBAL_TIMEOUT} seconds reached before jobs completed, giving up"
+echo "$0: Timeout of ${GLOBAL_TIMEOUT} seconds reached before jobs completed, giving up" 1>&2
+write_log_entry "TIMED_OUT"
+
 shutdown_jobs
+
 # ok to spend time deleting the working dir in this case, since we've already spent an excessive
 # amount of time on this run
 cd "${BAMBOO_CLONE}" && rm -rf "${TEST_ROOT_WORKING_DIR}"
+
 exit 1
 
