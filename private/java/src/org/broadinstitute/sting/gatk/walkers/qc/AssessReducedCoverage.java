@@ -69,17 +69,17 @@ import java.util.Set;
 /**
  * Emits intervals present in either the original or reduced bam but not the other.
  *
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>
  * The original and reduced BAM files.
  * </p>
  *
- * <h2>Output</h2>
+ * <h3>Output</h3>
  * <p>
  * A list of intervals present in one bam but not the other.
  * </p>
  *
- * <h2>Examples</h2>
+ * <h3>Examples</h3>
  * <pre>
  * java -Xmx2g -jar GenomeAnalysisTK.jar \
  *   -I:original original.bam \

@@ -69,17 +69,17 @@ import java.util.Map;
  *  genotype on these sites and provide a separate output.
  * </p>
  *
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>
  *  A BAM file and an optional gold standard callset (dbSNP)
  * </p>
  *
- * <h2>Output</h2>
+ * <h3>Output</h3>
  * <p>
  *  The mismatch, insertion and deletion error rate in this file.
  * </p>
  *
- * <h2>Examples</h2>
+ * <h3>Examples</h3>
  * <pre>
  *    java
  *      -jar GenomeAnalysisTK.jar

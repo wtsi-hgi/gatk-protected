@@ -74,12 +74,12 @@ import java.util.TreeSet;
  *  </p>
  *
  *
- * <h2>Input</h2>
+ * <h3>Input</h3>
  *  <p>
  *      One or more bam files to read the reads from. All bam files will be merged and treated like one input. If you want to compare different bam files, run them separately.
  *  </p>
  *
- * <h2>Output</h2>
+ * <h3>Output</h3>
  *  <p>
  *      A table containing the following metrics for each contig:
  *      <ul>
@@ -94,7 +94,7 @@ import java.util.TreeSet;
  *      Expected numbers are proportional to the size of the dataset and the size of each contig assuming untargetted sequencing.
  *  </p>
  *
- * <h2>Examples</h2>
+ * <h3>Examples</h3>
  *  <pre>
  *    java
  *      -jar GenomeAnalysisTK.jar

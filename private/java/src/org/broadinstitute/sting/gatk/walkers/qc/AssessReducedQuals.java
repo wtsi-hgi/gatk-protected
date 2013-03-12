@@ -65,17 +65,17 @@ import java.util.List;
  * Emits intervals in which the differences between the original and reduced bam quals are bigger epsilon (unless the quals of
  * the reduced bam are above sufficient threshold)
  *
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>
  * The original and reduced BAM files.
  * </p>
  *
- * <h2>Output</h2>
+ * <h3>Output</h3>
  * <p>
  * A list of intervals in which the differences between the original and reduced bam quals are bigger epsilon.
  * </p>
  *
- * <h2>Examples</h2>
+ * <h3>Examples</h3>
  * <pre>
  * java -Xmx2g -jar GenomeAnalysisTK.jar \
  *   -I:original original.bam \

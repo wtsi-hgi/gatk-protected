@@ -80,17 +80,17 @@ import java.util.concurrent.TimeUnit;
  * named 1 that has at least 250 Mb.
  * </p>
  *
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>
  * An already indexed VCF file for evaluation
  * </p>
  *
- * <h2>Output</h2>
+ * <h3>Output</h3>
  * <p>
  * A simple table of runtimes and detailed information
  * </p>
  *
- * <h2>Examples</h2>
+ * <h3>Examples</h3>
  * <pre>
  *    java
  *      -jar GenomeAnalysisTK.jar
