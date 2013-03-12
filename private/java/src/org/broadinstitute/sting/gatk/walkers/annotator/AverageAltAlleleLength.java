@@ -46,61 +46,56 @@
 
 package org.broadinstitute.sting.gatk.walkers.annotator;
 
-import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.StandardAnnotation;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.ActiveRegionBasedAnnotation;
+import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.AnnotatorCompatible;
+import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.ExperimentalAnnotation;
+import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.InfoFieldAnnotation;
 import org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.variantcontext.GenotypesContext;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.broadinstitute.variant.vcf.VCFHeaderLineType;
 import org.broadinstitute.variant.vcf.VCFInfoHeaderLine;
-import org.broadinstitute.sting.utils.pileup.PileupElement;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.variant.variantcontext.Allele;
 
-import java.util.*;
-
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * U-based z-approximation from the Mann-Whitney Rank Sum Test for base qualities
- *
- * <p>This tool calculates the u-based z-approximation from the Mann-Whitney Rank Sum Test for base qualities(ref bases vs. bases of the alternate allele).</p>
- *
- * <h3>Caveat</h3>
- * <p>The base quality rank sum test can not be calculated for sites without a mixture of reads showing both the reference and alternate alleles.</p>
+ * Created by IntelliJ IDEA.
+ * User: chartl
+ * Date: 1/3/13
+ * Time: 11:36 AM
+ * To change this template use File | Settings | File Templates.
  */
-public class BaseQualityRankSumTest extends RankSumTest implements StandardAnnotation {
-    public List<String> getKeyNames() { return Arrays.asList("BaseQRankSum"); }
+public class AverageAltAlleleLength extends InfoFieldAnnotation implements ActiveRegionBasedAnnotation, ExperimentalAnnotation {
 
-    public List<VCFInfoHeaderLine> getDescriptions() { return Arrays.asList(new VCFInfoHeaderLine("BaseQRankSum", 1, VCFHeaderLineType.Float, "Z-score from Wilcoxon rank sum test of Alt Vs. Ref base qualities")); }
-
-    protected void fillQualsFromPileup(final List<Allele> allAlleles, final int refLoc,
-                                       final ReadBackedPileup pileup,
-                                       final PerReadAlleleLikelihoodMap alleleLikelihoodMap,
-                                       final List<Double> refQuals, final List<Double> altQuals){
-
-        if (alleleLikelihoodMap == null) {
-            // use fast SNP-based version if we don't have per-read allele likelihoods
-            for ( final PileupElement p : pileup ) {
-                if ( isUsableBase(p) ) {
-                    if ( allAlleles.get(0).equals(Allele.create(p.getBase(),true)) ) {
-                        refQuals.add((double)p.getQual());
-                    } else if ( allAlleles.contains(Allele.create(p.getBase()))) {
-                        altQuals.add((double)p.getQual());
-                    }
-                }
-            }
-            return;
-        }
-
-        for (Map<Allele,Double> el : alleleLikelihoodMap.getLikelihoodMapValues()) {
-            final Allele a = PerReadAlleleLikelihoodMap.getMostLikelyAllele(el);
-            if (a.isNoCall())
-                continue; // read is non-informative
-            if (a.isReference())
-                refQuals.add(-10.0*(double)el.get(a));
-            else if (allAlleles.contains(a))
-                altQuals.add(-10.0*(double)el.get(a));
-
-
-        }
+    public List<VCFInfoHeaderLine> getDescriptions() {
+        return Arrays.asList(new VCFInfoHeaderLine(getKeyNames().get(0), 1, VCFHeaderLineType.Float, "Average Allele Length"));
     }
 
+    public List<String> getKeyNames() { return Arrays.asList("AAL"); }
+
+    public Map<String, Object> annotate(final RefMetaDataTracker tracker,
+                                        final AnnotatorCompatible walker,
+                                        final ReferenceContext ref,
+                                        final Map<String, AlignmentContext> stratifiedContexts,
+                                        final VariantContext vc,
+                                        final Map<String, PerReadAlleleLikelihoodMap> perReadAlleleLikelihoodMap ) {
+
+        final GenotypesContext genotypes = vc.getGenotypes();
+        if ( genotypes == null || genotypes.size() == 0 )
+            return null;
+
+        Map<String, Object> map = new HashMap<String, Object>();
+
+        double length = GATKVariantContextUtils.getMeanAltAlleleLength(vc);
+        map.put(getKeyNames().get(0),String.format("%.2f",length));
+        return map;
+    }
 
 }
