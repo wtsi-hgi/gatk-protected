@@ -67,7 +67,7 @@ import java.io.PrintStream;
 
 @ActiveRegionTraversalParameters(extension=50)
 public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInActiveRegions.Datum, GATKReport> {
-    @Output(doc = "File to which results should be written", required = true)
+    @Output(doc = "File to which results should be written")
     PrintStream out;
 
     public static class Datum {

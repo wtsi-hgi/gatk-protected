@@ -75,7 +75,7 @@ import java.io.PrintStream;
 @Reference(window=@Window(start=-5,stop=5))
 @Requires({DataSource.READS, DataSource.REFERENCE})
 public class ValidateBAQ extends ReadWalker<Integer, Integer> {
-    @Output(doc="File to which results should be written",required=true)
+    @Output(doc="File to which results should be written")
     protected PrintStream out;
 
     @Argument(doc="maximum read length to apply the BAQ calculation too",required=false)

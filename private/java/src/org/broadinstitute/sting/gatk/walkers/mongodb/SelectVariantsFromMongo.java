@@ -229,7 +229,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
     @Input(fullName="concordance", shortName = "conc", doc="Output variants that were also called in this comparison track", required=false)
     protected RodBinding<VariantContext> concordanceTrack;
 
-    @Output(doc="File to which variants should be written",required=true)
+    @Output(doc="File to which variants should be written")
     protected VariantContextWriter vcfWriter = null;
 
     @Argument(fullName="sample_name", shortName="sn", doc="Include genotypes from this sample. Can be specified multiple times", required=false)

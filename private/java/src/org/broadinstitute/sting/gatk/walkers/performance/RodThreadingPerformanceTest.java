@@ -105,7 +105,7 @@ public class RodThreadingPerformanceTest extends RodWalker<Integer, Integer> {
     private final static String CHROMOSOME = "1";
     private final static int MB_TO_BP = 1000000;
 
-    @Output(doc="File to which results should be written",required=true)
+    @Output(doc="File to which results should be written")
     protected PrintStream out;
 
     /**

@@ -76,7 +76,7 @@ import java.util.regex.Pattern;
  * To change this template use File | Settings | File Templates.
  */
 public class MillsGenotypeDecoder extends RodWalker<Integer, Integer> {
-    @Output(doc="File to which variants should be written",required=true)
+    @Output(doc="File to which variants should be written")
     protected VariantContextWriter vcfWriter = null;
 
     @Input(fullName="sites", shortName = "sites", doc="sites", required=false)
