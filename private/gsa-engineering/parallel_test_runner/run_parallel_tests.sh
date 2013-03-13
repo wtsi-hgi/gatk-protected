@@ -106,6 +106,23 @@ write_log_entry() {
     printf "%s\t%s\t%d\t%d\n" "${BAMBOO_BUILD_ID}" "${EXIT_STATUS}" "${TOTAL_RUNTIME_IN_SECONDS}" "${SECONDS_WAITING_FOR_JOBS}" >> "${LOG_FILE}"
 }
 
+# Detect the case where there were no actual test failures, but one or more jobs exited with an error
+check_for_non_test_related_job_failures() {
+    if ! grep 'BUILD FAILED' "${JOB_OUTPUT_DIR}"/*
+    then
+        JOBS_EXITED_WITH_ERROR=`bjobs -a -A -J "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | awk '{ print $8; }'`
+
+        if [ "${JOBS_EXITED_WITH_ERROR}" -ne 0 ]
+        then
+            echo "No test failures, but ${JOBS_EXITED_WITH_ERROR} jobs exited with an error. Probably a temporary farm glitch." 1>&2
+
+            archive_working_dir
+            write_log_entry "FARM_GLITCH"
+            exit 1
+        fi
+    fi
+}
+
 
 # Setup working environment:
 
@@ -217,6 +234,7 @@ do
         echo "$0: parallel test results saved"
 
         echo_job_output
+        check_for_non_test_related_job_failures
         archive_working_dir
         write_log_entry "COMPLETED"
 
