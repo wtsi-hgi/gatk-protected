@@ -4,7 +4,7 @@
 # to the farm per test class, monitors jobs for completion, and saves the aggregated
 # results for display in Bamboo.
 #
-# Usage: run_parallel_tests.sh job_queue timeout bamboo_build_number temp_dir test_class_suffixes...
+# Usage: run_parallel_tests.sh job_queue timeout bamboo_build_number test_class_suffixes...
 #
 # Arguments:
 #
@@ -16,8 +16,6 @@
 # bamboo_build_number: build number of the Bamboo build that is invoking this script;
 #                      used to create unique working directory names
 #
-# temp_dir: Java temp directory to use for jobs
-#
 # test_class_suffixes: run tests from test classes ending in these suffixes
 #                      (eg., UnitTest, IntegrationTest, etc.)
 #                      can specify an arbitrary number of suffixes
@@ -25,9 +23,9 @@
 # Author: David Roazen <droazen@broadinstitute.org>
 #
 
-if [ $# -lt 5 ]
+if [ $# -lt 4 ]
 then
-    echo "Usage: $0 job_queue timeout bamboo_build_number temp_dir test_class_suffixes..." 1>&2
+    echo "Usage: $0 job_queue timeout bamboo_build_number test_class_suffixes..." 1>&2
     echo "Example test class suffixes: UnitTest, IntegrationTest, PipelineTest" 1>&2
     exit 1
 fi
@@ -38,10 +36,9 @@ START_TIMESTAMP=`date '+%s'`
 JOB_QUEUE="$1"
 GLOBAL_TIMEOUT="$2"
 BUILD_NUMBER="$3"
-TEMP_DIR="$4"
 
 # shift the args so that the variable number of trailing test_class_suffix args start at $1
-shift 4
+shift 3
 
 BAMBOO_CLONE=`pwd`
 BAMBOO_BUILD_DIRECTORY=`basename "${BAMBOO_CLONE}"`
@@ -52,6 +49,7 @@ TEST_ARCHIVE_DIR="${GLOBAL_PARALLEL_TESTS_DIR}/archive"
 TEST_ROOT_WORKING_DIR="${GLOBAL_PARALLEL_TESTS_DIR}/${BAMBOO_BUILD_ID}"
 TEST_CLONE="${TEST_ROOT_WORKING_DIR}/test_clone"
 IVY_CACHE="${TEST_ROOT_WORKING_DIR}/ivy_cache"
+TEMP_DIR="${TEST_ROOT_WORKING_DIR}/tmp"
 LOG_FILE="/humgen/gsa-hpprojects/GATK/testing/logs/parallel_tests_runtime.log"
 
 JOB_RUNNER_DIR="${TEST_ROOT_WORKING_DIR}/job_runners"
@@ -133,6 +131,7 @@ fi
 
 mkdir "${TEST_ROOT_WORKING_DIR}"
 mkdir "${IVY_CACHE}"
+mkdir "${TEMP_DIR}"
 mkdir "${JOB_RUNNER_DIR}"
 mkdir "${JOB_OUTPUT_DIR}"
 
