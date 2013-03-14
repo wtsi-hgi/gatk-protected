@@ -135,18 +135,31 @@ mkdir "${TEMP_DIR}"
 mkdir "${JOB_RUNNER_DIR}"
 mkdir "${JOB_OUTPUT_DIR}"
 
-echo "$0: Cloning ${BAMBOO_CLONE} into ${TEST_CLONE}"
-git clone "${BAMBOO_CLONE}" "${TEST_CLONE}"
+# Introduce a delay to make sure bamboo clone has been fully written to disk
+sleep 5
+
+echo "$0: Copying ${BAMBOO_CLONE} into ${TEST_CLONE}"
+cp -r "${BAMBOO_CLONE}" "${TEST_CLONE}"
 
 if [ $? -ne 0 ]
 then
-    echo "$0: failed to clone ${BAMBOO_CLONE} into ${TEST_CLONE}" 1>&2
+    echo "$0: failed to copy ${BAMBOO_CLONE} into ${TEST_CLONE}" 1>&2
+    exit 1
+fi
+
+cd "${TEST_CLONE}"
+
+echo "$0: checking out HEAD (= `git rev-parse HEAD`) in ${TEST_CLONE}"
+git checkout -f HEAD
+
+if [ $? -ne 0 ]
+then
+    echo "$0: Failed to git checkout HEAD" 1>&2
     exit 1
 fi
 
 # Compile everything ONCE. All instances of the test suite will share this build:
 
-cd "${TEST_CLONE}"
 ant clean test.compile -Divy.home="${IVY_CACHE}" -Djava.io.tmpdir="${TEMP_DIR}"
 
 if [ $? -ne 0 ]
