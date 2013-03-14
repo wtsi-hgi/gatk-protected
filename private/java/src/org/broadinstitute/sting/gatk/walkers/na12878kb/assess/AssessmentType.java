@@ -138,9 +138,9 @@ public enum AssessmentType {
     FALSE_NEGATIVE_NOT_CALLED_AT_ALL(FALSE_NEGATIVE, false, true, true),
 
     /**
-     * Unfiltered call in the callset with a match in the KB but the KB record is tagged as UNKNOWN
+     * Unfiltered call in the callset with a match in the KB but the KB record is tagged as UNKNOWN status (likely true positive)
      */
-    CALLED_IN_DB_UNKNOWN_STATUS(null, false, true, true),
+    CALLED_IN_DB_UNKNOWN_STATUS(TRUE_POSITIVE, false, true, true),
 
     /**
      * Catch all class for sites that (1) are in the callset but filtered and have no record in the KB or
