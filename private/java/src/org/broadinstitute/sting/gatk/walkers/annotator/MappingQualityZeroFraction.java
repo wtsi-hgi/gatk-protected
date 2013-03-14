@@ -46,61 +46,61 @@
 
 package org.broadinstitute.sting.gatk.walkers.annotator;
 
-import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.StandardAnnotation;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.AnnotatorCompatible;
+import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.ExperimentalAnnotation;
+import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.InfoFieldAnnotation;
 import org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap;
 import org.broadinstitute.variant.vcf.VCFHeaderLineType;
 import org.broadinstitute.variant.vcf.VCFInfoHeaderLine;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
-import java.util.*;
-
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * U-based z-approximation from the Mann-Whitney Rank Sum Test for base qualities
- *
- * <p>This tool calculates the u-based z-approximation from the Mann-Whitney Rank Sum Test for base qualities(ref bases vs. bases of the alternate allele).</p>
- *
- * <h3>Caveat</h3>
- * <p>The base quality rank sum test can not be calculated for sites without a mixture of reads showing both the reference and alternate alleles.</p>
+ * Fraction of all reads across samples that have mapping quality zero
  */
-public class BaseQualityRankSumTest extends RankSumTest implements StandardAnnotation {
-    public List<String> getKeyNames() { return Arrays.asList("BaseQRankSum"); }
+public class MappingQualityZeroFraction extends InfoFieldAnnotation implements ExperimentalAnnotation {
 
-    public List<VCFInfoHeaderLine> getDescriptions() { return Arrays.asList(new VCFInfoHeaderLine("BaseQRankSum", 1, VCFHeaderLineType.Float, "Z-score from Wilcoxon rank sum test of Alt Vs. Ref base qualities")); }
+    public Map<String, Object> annotate(final RefMetaDataTracker tracker,
+                                        final AnnotatorCompatible walker,
+                                        final ReferenceContext ref,
+                                        final Map<String, AlignmentContext> stratifiedContexts,
+                                        final VariantContext vc,
+                                        final Map<String, PerReadAlleleLikelihoodMap> stratifiedPerReadAlleleLikelihoodMap) {
+        if ( stratifiedContexts.size() == 0 )
+            return null;
 
-    protected void fillQualsFromPileup(final List<Allele> allAlleles, final int refLoc,
-                                       final ReadBackedPileup pileup,
-                                       final PerReadAlleleLikelihoodMap alleleLikelihoodMap,
-                                       final List<Double> refQuals, final List<Double> altQuals){
-
-        if (alleleLikelihoodMap == null) {
-            // use fast SNP-based version if we don't have per-read allele likelihoods
-            for ( final PileupElement p : pileup ) {
-                if ( isUsableBase(p) ) {
-                    if ( allAlleles.get(0).equals(Allele.create(p.getBase(),true)) ) {
-                        refQuals.add((double)p.getQual());
-                    } else if ( allAlleles.contains(Allele.create(p.getBase()))) {
-                        altQuals.add((double)p.getQual());
-                    }
-                }
+        int mq0 = 0;
+        int depth = 0;
+        for ( Map.Entry<String, AlignmentContext> sample : stratifiedContexts.entrySet() ) {
+            AlignmentContext context = sample.getValue();
+            depth += context.size();
+            final ReadBackedPileup pileup = context.getBasePileup();
+            for (PileupElement p : pileup ) {
+                if ( p.getMappingQual() == 0 )
+                    mq0++;
             }
-            return;
         }
+        if (depth > 0) {
+            double mq0f = (double)mq0 / (double )depth;
 
-        for (Map<Allele,Double> el : alleleLikelihoodMap.getLikelihoodMapValues()) {
-            final Allele a = PerReadAlleleLikelihoodMap.getMostLikelyAllele(el);
-            if (a.isNoCall())
-                continue; // read is non-informative
-            if (a.isReference())
-                refQuals.add(-10.0*(double)el.get(a));
-            else if (allAlleles.contains(a))
-                altQuals.add(-10.0*(double)el.get(a));
-
-
+            Map<String, Object> map = new HashMap<String, Object>();
+            map.put(getKeyNames().get(0), String.format("%1.4f", mq0f));
+            return map;
         }
+        else
+            return null;
     }
 
+    public List<String> getKeyNames() { return Arrays.asList("MQ0Fraction"); }
 
+    public List<VCFInfoHeaderLine> getDescriptions() { return Arrays.asList(new VCFInfoHeaderLine(getKeyNames().get(0), 1, VCFHeaderLineType.Integer, "Fraction of Mapping Quality Zero Reads")); }
 }

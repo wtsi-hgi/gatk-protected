@@ -91,7 +91,6 @@ import java.util.*;
  *
  * <p>Note that this annotation is currently not compatible with HaplotypeCaller.</p>
  */
-@Hidden
 public class LDCorrectedDosage extends GenotypeAnnotation implements ExperimentalAnnotation {
 
     private static final int MAX_DISTANCE_IN_BP = 7500;
