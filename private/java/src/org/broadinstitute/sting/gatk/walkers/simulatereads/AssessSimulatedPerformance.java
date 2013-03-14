@@ -66,7 +66,7 @@ import java.util.List;
  * Emits specific fields as dictated by the user from one or more VCF files.
  */
 public class AssessSimulatedPerformance extends RodWalker<Integer, Integer> {
-    @Output(doc="File to which results should be written",required=true)
+    @Output(doc="File to which results should be written")
     protected PrintStream out;
 
     @Input(fullName="sim", shortName = "sim", doc="sim", required=true)

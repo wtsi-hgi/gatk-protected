@@ -73,7 +73,7 @@ import java.util.*;
 
 public class GreedyGLGenotyper extends RodWalker<Integer, Integer>  implements TreeReducible<Integer> {
 
-    @Output(doc="File to which variants should be written",required=true)
+    @Output(doc="File to which variants should be written")
     protected VariantContextWriter vcfWriter = null;
 
      @Input(fullName="variant", shortName = "V", doc="Input VCF file", required=true)

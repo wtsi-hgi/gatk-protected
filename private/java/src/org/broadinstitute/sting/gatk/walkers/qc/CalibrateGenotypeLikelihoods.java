@@ -156,7 +156,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     //@Argument(fullName="standard_min_confidence_threshold_for_calling", shortName="stand_call_conf", doc="the minimum phred-scaled Qscore threshold to separate high confidence from low confidence calls", required=false)
     private double callConf = 0;
 
-    @Output(doc="The name of the output files for both tables and pdf (name will be prepended to the appropriate extensions)", required=true)
+    @Output(doc="The name of the output files for both tables and pdf (name will be prepended to the appropriate extensions)")
     private File moltenDatasetFileName;
 
     PrintStream moltenDataset;

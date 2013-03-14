@@ -100,7 +100,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
     /**
      * A raw, unfiltered, highly sensitive callset in VCF format.
      */
-    @Output(doc="File to which variants should be written", required = true)
+    @Output(doc="File to which variants should be written")
     protected VariantContextWriter vcfWriterBase = null;
 
     protected VariantContextWriter vcfWriter;

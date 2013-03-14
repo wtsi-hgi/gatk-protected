@@ -69,7 +69,7 @@ public class MergeIntervalLists extends RodWalker<Integer, Integer> {
     @Input(fullName="targetIntervals", shortName="targetIntervals", doc="interval files to merge", required=true)
     protected List<IntervalBinding<Feature>> intervals;
 
-    @Output(doc="File to which intervals should be written", required=true)
+    @Output(doc="File to which intervals should be written")
     protected PrintStream writer = null;
 
     @Argument(fullName = "intervalSetRule", shortName = "intervalSetRule", doc = "Indicates the set merging approach the interval parser should use to combine the various intervals", required = false)
