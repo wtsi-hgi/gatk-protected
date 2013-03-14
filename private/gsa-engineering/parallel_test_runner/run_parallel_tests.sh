@@ -44,12 +44,13 @@ BAMBOO_CLONE=`pwd`
 BAMBOO_BUILD_DIRECTORY=`basename "${BAMBOO_CLONE}"`
 # name of the bamboo build directory + the build number can serve as a unique id for this run
 BAMBOO_BUILD_ID="${BAMBOO_BUILD_DIRECTORY}-${BUILD_NUMBER}"
+COMPILE_IVY_CACHE="${BAMBOO_CLONE}/ivy_cache"
+COMPILE_TEMP_DIR="${BAMBOO_CLONE}/tmp"
 GLOBAL_PARALLEL_TESTS_DIR="/humgen/gsa-hpprojects/GATK/testing/parallel_tests_working_directories"
 TEST_ARCHIVE_DIR="${GLOBAL_PARALLEL_TESTS_DIR}/archive"
 TEST_ROOT_WORKING_DIR="${GLOBAL_PARALLEL_TESTS_DIR}/${BAMBOO_BUILD_ID}"
 TEST_CLONE="${TEST_ROOT_WORKING_DIR}/test_clone"
-IVY_CACHE="${TEST_ROOT_WORKING_DIR}/ivy_cache"
-TEMP_DIR="${TEST_ROOT_WORKING_DIR}/tmp"
+TEST_TEMP_DIR="${TEST_ROOT_WORKING_DIR}/tmp"
 LOG_FILE="/humgen/gsa-hpprojects/GATK/testing/logs/parallel_tests_runtime.log"
 
 JOB_RUNNER_DIR="${TEST_ROOT_WORKING_DIR}/job_runners"
@@ -129,14 +130,24 @@ then
     rm -rf "${TEST_ROOT_WORKING_DIR}"
 fi
 
+mkdir "${COMPILE_IVY_CACHE}"
+mkdir "${COMPILE_TEMP_DIR}"
 mkdir "${TEST_ROOT_WORKING_DIR}"
-mkdir "${IVY_CACHE}"
-mkdir "${TEMP_DIR}"
+mkdir "${TEST_TEMP_DIR}"
 mkdir "${JOB_RUNNER_DIR}"
 mkdir "${JOB_OUTPUT_DIR}"
 
 # Introduce a delay to make sure bamboo clone has been fully written to disk
 sleep 5
+
+# Compile everything ONCE. All instances of the test suite will share this build:
+ant clean test.compile -Divy.home="${COMPILE_IVY_CACHE}" -Djava.io.tmpdir="${COMPILE_TEMP_DIR}"
+
+if [ $? -ne 0 ]
+then
+    echo "$0: test.compile failed" 1>&2
+    exit 1
+fi
 
 echo "$0: Copying ${BAMBOO_CLONE} into ${TEST_CLONE}"
 cp -r "${BAMBOO_CLONE}" "${TEST_CLONE}"
@@ -148,25 +159,6 @@ then
 fi
 
 cd "${TEST_CLONE}"
-
-echo "$0: checking out HEAD (= `git rev-parse HEAD`) in ${TEST_CLONE}"
-git checkout -f HEAD
-
-if [ $? -ne 0 ]
-then
-    echo "$0: Failed to git checkout HEAD" 1>&2
-    exit 1
-fi
-
-# Compile everything ONCE. All instances of the test suite will share this build:
-
-ant clean test.compile -Divy.home="${IVY_CACHE}" -Djava.io.tmpdir="${TEMP_DIR}"
-
-if [ $? -ne 0 ]
-then
-    echo "$0: test.compile failed" 1>&2
-    exit 1
-fi
 
 NUM_JOBS=0
 
@@ -187,8 +179,7 @@ do
         echo "#!/bin/bash" > "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
         echo "ant runtestonly \
               -Dsingle=${test_class} \
-              -Divy.home=${IVY_CACHE} \
-              -Djava.io.tmpdir=${TEMP_DIR} \
+              -Djava.io.tmpdir=${TEST_TEMP_DIR} \
               > ${JOB_OUTPUT_DIR}/${test_class}.job.out 2>&1" \
               >> "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
 
