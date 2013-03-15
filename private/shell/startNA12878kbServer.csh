@@ -17,4 +17,4 @@ set reviewDirectory = /humgen/gsa-hpprojects/NA12878Collection/knowledgeBase/rev
 set DATE = `date +"%m_%d_%Y"`
 set reviewVCFName = $reviewDirectory/$DATE.reviews.vcf
 
-java -Xmx2g -jar ${1}dist/GenomeAnalysisTK.jar -R $BUNDLE/b37/human_g1k_v37.fasta $args -T NA12878KnowledgeBaseServer -reviewsFile $reviewVCFName -maxRuntime 1430 -maxRuntimeUnits MINUTES -dbToUse PRODUCTION -log $logDirectory/$DATE.log
+java -Xmx2g -jar ${1} -R $BUNDLE/b37/human_g1k_v37.fasta $args -T NA12878KnowledgeBaseServer -reviewsFile $reviewVCFName -maxRuntime 1430 -maxRuntimeUnits MINUTES -dbToUse PRODUCTION -log $logDirectory/$DATE.log
