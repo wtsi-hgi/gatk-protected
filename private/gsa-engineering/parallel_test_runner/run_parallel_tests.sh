@@ -64,7 +64,7 @@ JOB_POLL_INTERVAL=30
 print_unfinished_test_class_names() {
     UNFINISHED_TEST_CLASSES="Unfinished Test Classes: "
 
-    for UNFINISHED_TEST_CLASS_ID in `bjobs -J "${BAMBOO_BUILD_ID}" | grep -v DONE | grep -v JOBID | sed 's/^.*\[//g' | sed 's/\].*$//g'`
+    for UNFINISHED_TEST_CLASS_ID in `bjobs -J "${BAMBOO_BUILD_ID}" | grep -v "DONE" | grep -v "EXIT" | grep -v "JOBID" | sed 's/^.*\[//g' | sed 's/\].*$//g'`
     do
         UNFINISHED_TEST_CLASS=`cat "${JOB_RUNNER_DIR}/${UNFINISHED_TEST_CLASS_ID}.sh" | grep runtestonly | awk '{ print $3; }' | awk -F'=' '{ print $2; }'`
         UNFINISHED_TEST_CLASSES="${UNFINISHED_TEST_CLASSES} ${UNFINISHED_TEST_CLASS}"
@@ -72,6 +72,20 @@ print_unfinished_test_class_names() {
 
     echo ""
     echo "${UNFINISHED_TEST_CLASSES}"
+}
+
+# Print the names of any test classes that exited with an error
+print_exited_test_class_names() {
+    EXITED_TEST_CLASSES="ERROR In Test Classes: "
+
+    for EXITED_TEST_CLASS_ID in `bjobs -a -J "${BAMBOO_BUILD_ID}" | grep -v "JOBID" | grep "EXIT" | sed 's/^.*\[//g' | sed 's/\].*$//g'`
+    do
+        EXITED_TEST_CLASS=`cat "${JOB_RUNNER_DIR}/${EXITED_TEST_CLASS_ID}.sh" | grep runtestonly | awk '{ print $3; }' | awk -F'=' '{ print $2; }'`
+        EXITED_TEST_CLASSES="${EXITED_TEST_CLASSES} ${EXITED_TEST_CLASS}"
+    done
+
+    echo ""
+    echo "${EXITED_TEST_CLASSES}"
 }
 
 # Kill any outstanding jobs
@@ -123,8 +137,6 @@ write_log_entry() {
 check_for_non_test_related_job_failures() {
     if ! grep 'BUILD FAILED' "${JOB_OUTPUT_DIR}"/*
     then
-        JOBS_EXITED_WITH_ERROR=`bjobs -a -A -J "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | awk '{ print $8; }'`
-
         if [ "${JOBS_EXITED_WITH_ERROR}" -ne 0 ]
         then
             echo "No test failures, but ${JOBS_EXITED_WITH_ERROR} jobs exited with an error. Probably a temporary farm glitch." 1>&2
@@ -233,6 +245,7 @@ do
     sleep "${JOB_POLL_INTERVAL}" 
     SECONDS_WAITING_FOR_JOBS=`expr "${SECONDS_WAITING_FOR_JOBS}" + "${JOB_POLL_INTERVAL}"`
 
+    JOBS_EXITED_WITH_ERROR=`bjobs -a -A -J "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | awk '{ print $8; }'`
     NUM_OUTSTANDING_JOBS=`bjobs -J "${BAMBOO_BUILD_ID}" 2> /dev/null | grep -v JOBID | wc -l`
 
     # If all jobs are done, save the test results back into bamboo's working directory,
@@ -262,6 +275,11 @@ do
     echo "Unfinished Jobs / Total Jobs: ${NUM_OUTSTANDING_JOBS}/${NUM_JOBS}"
     echo ""
     bjobs -A -J "${BAMBOO_BUILD_ID}"
+
+    if [ "${JOBS_EXITED_WITH_ERROR}" -gt 0 ]
+    then
+        print_exited_test_class_names
+    fi
 
     if [ "${NUM_OUTSTANDING_JOBS}" -lt 10 ]
     then
