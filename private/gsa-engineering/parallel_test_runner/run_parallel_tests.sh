@@ -60,6 +60,20 @@ JOB_MEMORY="4"
 JOB_POLL_INTERVAL=30
 
 
+# Print the names of any test classes that have not yet finished running
+print_unfinished_test_class_names() {
+    UNFINISHED_TEST_CLASSES="Unfinished Test Classes: "
+
+    for UNFINISHED_TEST_CLASS_ID in `bjobs -J "${BAMBOO_BUILD_ID}" | grep -v DONE | grep -v JOBID | sed 's/^.*\[//g' | sed 's/\].*$//g'`
+    do
+        UNFINISHED_TEST_CLASS=`cat "${JOB_RUNNER_DIR}/${UNFINISHED_TEST_CLASS_ID}.sh" | grep runtestonly | awk '{ print $3; }' | awk -F'=' '{ print $2; }'`
+        UNFINISHED_TEST_CLASSES="${UNFINISHED_TEST_CLASSES} ${UNFINISHED_TEST_CLASS}"
+    done
+
+    echo ""
+    echo "${UNFINISHED_TEST_CLASSES}"
+}
+
 # Kill any outstanding jobs
 shutdown_jobs() {
     echo "$0: shutting down jobs for ${BAMBOO_BUILD_ID}"
@@ -248,6 +262,12 @@ do
     echo "Unfinished Jobs / Total Jobs: ${NUM_OUTSTANDING_JOBS}/${NUM_JOBS}"
     echo ""
     bjobs -A -J "${BAMBOO_BUILD_ID}"
+
+    if [ "${NUM_OUTSTANDING_JOBS}" -lt 10 ]
+    then
+        print_unfinished_test_class_names
+    fi
+
     echo "--------------------------------------------------------------------------------"
 done
 
