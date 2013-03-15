@@ -84,7 +84,7 @@ public class GATKRunReportUnitTest extends BaseTest {
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
 
-    private static final long S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING = 300 * 1000;
+    private static final long S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING = 30 * 1000;
 
     private Walker walker;
     private Exception exception;
