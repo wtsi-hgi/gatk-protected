@@ -101,7 +101,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Input(fullName="BAM", shortName = "BAM", doc="Input BAM file.  If provided, we will differentiate false negative sites into those truly missed and those without coverage", required=false)
     public File BAM = null;
 
-    @Output(doc="Summary GATKReport will be written here")
+    @Output(doc="Summary GATKReport will be written here", required=false)
     public PrintStream out;
 
     @Argument(fullName="excludeCallset", shortName = "excludeCallset", doc="Don't count calls that come from only these excluded callsets", required=false)

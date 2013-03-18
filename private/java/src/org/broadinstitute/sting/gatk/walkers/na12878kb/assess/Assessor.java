@@ -194,14 +194,16 @@ public class Assessor {
                     continue;
 
                 // allow sites only VCs to be evaluated as though they are just NA12878 calls
-                final VariantContext na12878vc = vcRaw.hasGenotypes() ? vcRaw.subContextFromSample("NA12878") : vcRaw;
-                for ( final VariantContext biallelic : GATKVariantContextUtils.splitVariantContextToBiallelics(na12878vc, true)) {
-                    if ( biallelic != null && biallelic.getStart() > na12878vc.getStart() ) {
-                        // trimming the variant moved the variant forward on the genome, which can happen but
-                        // means that the input VCF had a very strange multi-allelic structure
-                        logger.warn("Biallelic split in " + name + " moved a variant into the future " + biallelic + " from " + na12878vc);
-                    } else
-                        biallelics.add(biallelic);
+                final VariantContext na12878vc = vcRaw.hasGenotypes() ? GATKVariantContextUtils.trimAlleles(vcRaw.subContextFromSample("NA12878"), false, true) : vcRaw;
+                if ( na12878vc.isVariant() ) {
+                    for ( final VariantContext biallelic : GATKVariantContextUtils.splitVariantContextToBiallelics(na12878vc, true)) {
+                        if ( biallelic != null && biallelic.getStart() > na12878vc.getStart() ) {
+                            // trimming the variant moved the variant forward on the genome, which can happen but
+                            // means that the input VCF had a very strange multi-allelic structure
+                            logger.warn("Biallelic split in " + name + " moved a variant into the future " + biallelic + " from " + na12878vc);
+                        } else
+                            biallelics.add(biallelic);
+                    }
                 }
             }
 
