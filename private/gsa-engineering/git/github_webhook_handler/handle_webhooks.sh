@@ -1,9 +1,14 @@
 #!/bin/bash
+#
+# Handles logged github webhook events by feeding them to the post-receive email script.
+# Run as a cron job at frequent intervals.
+#
+# Author: David Roazen
+#
 
 LOG_DIR="/humgen/gsa-scr1/gsa-engineering/git/github_webhook_logs"
 MIRROR_DIR="/humgen/gsa-scr1/gsa-engineering/git/github_webhook_handler/mirrors"
 EMAIL_SCRIPT="/humgen/gsa-scr1/gsa-engineering/git/email_scripts/post-receive-email"
-POLLING_INTERVAL=10
 
 if [ ! -d "${LOG_DIR}" ]
 then
@@ -65,9 +70,5 @@ handle_webhook_activity() {
     done
 }
 
-while true
-do
-    handle_webhook_activity
-    sleep ${POLLING_INTERVAL}
-done
-
+handle_webhook_activity
+exit 0
