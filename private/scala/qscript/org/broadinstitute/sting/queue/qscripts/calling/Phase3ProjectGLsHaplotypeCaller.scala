@@ -44,87 +44,114 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.genotyper;
+package org.broadinstitute.sting.queue.qscripts.calling
+
+import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.variant.variantcontext.VariantContext
 
 
-// the imports for unit testing.
+/**
+ * Created with IntelliJ IDEA.
+ * User: delangel
+ * Date: 3/15/13
+ * Time: 12:29 PM
+ * To change this template use File | Settings | File Templates.
+ */
+class Phase3ProjectGLsHaplotypeCaller extends QScript{
+
+  @Argument(shortName = "L",  required=false, doc = "Intervals ")
+  var intervalsFile:File = new File("chr20.interval_list")
+ // @Argument(shortName="alleles", doc="alleles file", required=true)
+ // var allelesFiles: List[File] = Nil
+  @Argument(shortName="I", doc="bam list file", required=false)
+  var inputBamList: File = new File("/humgen/1kg/processing/production_wgs_phase3/lowcov.phase3.bam.list")
+
+  @Argument(shortName="outputDir", doc="output directory", required=false)
+  var outputDir: File = new File("/humgen/1kg/processing/production_wgs_phase3/calls_HC_indel_GLs/")
+
+  @Argument(shortName="tmpDir", doc="tmp directory", required=false)
+  var tmpDir: File = new File("/humgen/1kg/processing/production_wgs_phase3/calls_HC_indel_GLs/tmp/")
+
+  @Argument(shortName="runnName", doc="runName directory", required=false)
+  var runName: String = "Phase3IndelGLs"
+
+  @Argument(doc = "How many ways to scatter/gather", fullName = "scatter_gather", shortName = "sg", required = false)
+  var myScatterCount: Int = 0
+
+  val reference:File = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
+
+  // input callers:
+  val bc:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/bc/ALL.chr20.bc.20120522.snps_indels_complex.low_coverage.genotype_likelihoods.vcf.gz")
+  val bcm:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/bcm/ALL.chr20.bcm.20120522.snps_indels.integrated.genotypes.vcf.gz")
+  val bia:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/bi_assembly/ALL.chr20.broad_assembly.20120522.snps_indels_complex.low_coverage.genotypes.vcf.gz")
+  val bim:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/bi_mapping/ALL.chr20.broad_mapping.20120522.snps_indels.low_coverage.genotypes.vcf.gz")
+  val lobstr:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/lobSTR/ALL.chr20.lobSTR.20120419.microsat.integrated.genotypes.vcf.gz")
+
+   val repseq:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/mittelman_repeatseq/ALL.chr20.repeatseq_wgs_v2.20120522.microsat.low_coverage.genotypes.vcf.gz")
+  val platypus:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/platypus/ALL.chr20.platypus.20120522.snps_indels_complex.low_coverage.genotypes.vcf.gz")
+  val samtools:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/si_samtools/ALL.chr20.si_samtools.20120522_analysis.snps_indels.low_coverage.genotypes.vcf.gz")
+  val sga:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/si_sga_dindel/ALL.chrom20.sga_left_aligned.20120522_analysis.snps_indels_mnps.low_coverage.genotypes.vcf.gz")
+// invalid VCF!
+//  val umich:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/um/ALL.chr20.umich.20120522.snps_indels.low_coverage.sites.vcf.gz")
+
+  trait CommandLineGATKArgs extends CommandLineGATK {
+    this.reference_sequence = reference
+    this.memoryLimit = 2
+    this.jobTempDir = tmpDir
+    this.jobQueue = "gsa"
+    this.intervals :+= intervalsFile
 
 
-import org.apache.commons.lang.ArrayUtils;
-import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.sting.gatk.arguments.GATKArgumentCollection;
-import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.variant.variantcontext.Allele;
-import org.broadinstitute.variant.variantcontext.GenotypeLikelihoods;
-import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
-import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+  }
 
-import java.util.*;
+  def script() {
 
-public class UnifiedGenotyperEngineUnitTest extends BaseTest {
-    private final static double TOLERANCE = 1e-5;
-    private UnifiedGenotyperEngine ugEngine;
+    val allelesFiles = Map("bcm"->bcm,"bia"->bia, "bim" -> bim, "repseq"->repseq,"platypus"->platypus, "samtools"->samtools,"sga"->sga)
 
-    @BeforeClass
-    public void setUp() throws Exception {
-        final GenomeAnalysisEngine engine = new GenomeAnalysisEngine();
-        engine.setArguments(new GATKArgumentCollection());
-        final UnifiedArgumentCollection args = new UnifiedArgumentCollection();
-        final Set<String> fakeSamples = Collections.singleton("fake");
-        ugEngine = new UnifiedGenotyperEngine(engine, fakeSamples, args);
+   // ) List(bcm,bia,bim,repseq,platypus,samtools,sga)
+
+
+    // create union allele list
+    val unionAlleles = new CombineVariants with CommandLineGATKArgs
+    unionAlleles.sites_only = true
+    //unionAlleles.assumeIdenticalSamples = true
+    unionAlleles.o = new File(outputDir.getName+"/ALL.chr20."+runName+".union.sites.vcf")
+    for( (allelesKey,allelesFile) <- allelesFiles ) {
+      val selIndels = new SelectVariants with CommandLineGATKArgs
+      selIndels.V = allelesFile
+      selIndels.o = swapExt(outputDir,allelesFile, ".vcf.gz",".indels.vcf")
+      selIndels.selectType :+= VariantContext.Type.INDEL
+      selIndels.sites_only = true
+      add(selIndels)
+
+      val leftAlign = new LeftAlignVariants with CommandLineGATKArgs
+      leftAlign.V = selIndels.o
+      leftAlign.o = swapExt(outputDir,selIndels.o, ".vcf",".leftAligned.vcf")
+      add(leftAlign)
+      unionAlleles.V :+= new TaggedFile(leftAlign.o,allelesKey)
+
     }
 
-    private UnifiedGenotyperEngine getEngine() {
-        return ugEngine;
-    }
+    add(unionAlleles)
+    add(HC(unionAlleles.o))
+  }
 
-    @DataProvider(name = "ReferenceQualityCalculation")
-    public Object[][] makeReferenceQualityCalculation() {
-        List<Object[]> tests = new ArrayList<Object[]>();
+  case class HC( allelesFile: File ) extends HaplotypeCaller with CommandLineGATKArgs {
+    this.out = swapExt(outputDir,allelesFile, ".vcf", ".gga.vcf")
+    this.memoryLimit = 7
+    this.scatterCount = myScatterCount
+    this.javaGCThreads = 4
+    this.alleles = allelesFile
+    this.minPruning = 1
+    this.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    this.gt_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
+    //this.GENOTYPE_GIVEN_ALL_ALLELES_COMBINATORIAL = true
+    this.stand_emit_conf = 0.0
+    this.stand_call_conf = 0.0
+    this.input_file :+= inputBamList
+    this.maxAltAlleles = 10
+  }
 
-        // this functionality can be adapted to provide input data for whatever you might want in your data
-        final double p = Math.log10(0.5);
-        for ( final double theta : Arrays.asList(0.1, 0.01, 0.001) ) {
-            for ( final int depth : Arrays.asList(0, 1, 2, 10, 100, 1000, 10000) ) {
-                final double log10PofNonRef = Math.log10(theta / 2.0) + MathUtils.log10BinomialProbability(depth, 0, p);
-                final double log10POfRef = MathUtils.log10OneMinusX(Math.pow(10.0, log10PofNonRef));
-                tests.add(new Object[]{depth, theta, log10POfRef});
-            }
-        }
-
-        return tests.toArray(new Object[][]{});
-    }
-
-    @Test(dataProvider = "ReferenceQualityCalculation")
-    public void testReferenceQualityCalculation(final int depth, final double theta, final double expected) {
-        final double ref = getEngine().estimateLog10ReferenceConfidenceForOneSample(depth, theta);
-        Assert.assertTrue(MathUtils.goodLog10Probability(ref), "Reference calculation wasn't a well formed log10 prob " + ref);
-        Assert.assertEquals(ref, expected, TOLERANCE, "Failed reference confidence for single sample");
-    }
-
-    @Test(enabled=true)
-    public void testTooManyAlleles() {
-
-        for ( Integer numAltAlleles = 0; numAltAlleles < 100; numAltAlleles++ )  {
-
-            Set<Allele> alleles = new HashSet<Allele>();
-            alleles.add(Allele.create("A", true));        // ref allele
-
-            for (int len = 1; len <=numAltAlleles; len++) {
-                // add alt allele of length len+1
-                alleles.add(Allele.create(Utils.dupString('A', len + 1), false));
-            }
-            final VariantContext vc = new VariantContextBuilder("test", "chr1", 1000, 1000, alleles).make();
-            final boolean result = ugEngine.canVCbeGenotyped(vc);
-            Assert.assertTrue(result == (vc.getNAlleles()<= GenotypeLikelihoods.MAX_ALT_ALLELES_THAT_CAN_BE_GENOTYPED));
-        }
-    }
 
 }
