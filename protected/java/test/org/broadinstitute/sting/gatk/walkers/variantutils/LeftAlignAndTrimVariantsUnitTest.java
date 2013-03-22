@@ -44,138 +44,134 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.sting.gatk.walkers.variantutils;
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.variant.variantcontext.VariantContext
+import net.sf.picard.reference.IndexedFastaSequenceFile;
+import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMReadGroupRecord;
+import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
+import org.broadinstitute.sting.utils.sam.ArtificialSAMUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
+import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.*;
 
 /**
  * Created with IntelliJ IDEA.
  * User: delangel
- * Date: 3/15/13
- * Time: 12:29 PM
+ * Date: 3/22/13
+ * Time: 6:09 PM
  * To change this template use File | Settings | File Templates.
  */
-class Phase3ProjectGLsHaplotypeCaller extends QScript{
+public class LeftAlignAndTrimVariantsUnitTest extends BaseTest {
+    final String refBases1 = "ACAGAGCTGACCCTCCCTCCCCTCTCCCAGTGCAACAGCACGGGCGGCGACTGCTTTTACCGAGGCTACACGTCAGGCGTGGCGGCTGTCCAGGACTGGTACCACTTCCACTATGTGGATCTCTGCTGAGGACCAGGAAAGCCAGCACCCGCAGAGACTCTTCCCCAGTGCTCCATACGATCACCATTCTCTGCAGAAGG";
+    final String longPiece = "AAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // where we'll perform tests
+    final String refBases = refBases1 + longPiece + refBases1;
 
-  @Argument(shortName = "L",  required=false, doc = "Intervals ")
-  var intervalsFile:File = new File("chr20.interval_list")
-  @Argument(shortName = "XL",  required=false, doc = "Exclude Intervals ")
-  var exclude:File = _
-
- // @Argument(shortName="alleles", doc="alleles file", required=true)
- // var allelesFiles: List[File] = Nil
-  @Argument(shortName="I", doc="bam list file", required=false)
-  var inputBamList: File = new File("/humgen/1kg/processing/production_wgs_phase3/lowcov.phase3.bam.list")
-
-  @Argument(shortName="outputDir", doc="output directory", required=false)
-  var outputDir: File = new File("/humgen/1kg/processing/production_wgs_phase3/calls_HC_indel_GLs/")
-
-  @Argument(shortName="tmpDir", doc="tmp directory", required=false)
-  var tmpDir: File = new File("/humgen/1kg/processing/production_wgs_phase3/calls_HC_indel_GLs/tmp/")
-
-  @Argument(shortName="runnName", doc="runName directory", required=false)
-  var runName: String = "Phase3IndelGLs"
-
-  @Argument(shortName="mnp", doc="do MNPs as well", required=false)
-  var doMNPs: Boolean = false
-
-  @Argument(shortName="complex", doc="do complex events as well", required=false)
-  var doComplex: Boolean = false
-
-  @Argument(doc = "How many ways to scatter/gather", fullName = "scatter_gather", shortName = "sg", required = false)
-  var myScatterCount: Int = 0
-
-  @Argument(doc = "Memory limit in GB", fullName = "mem", shortName = "mem", required = false)
-  var mem: Int = 8
-
-  val reference:File = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
-
-  // input callers:
-  val bc:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/bc/ALL.chr20.bc.20120522.snps_indels_complex.low_coverage.genotype_likelihoods.vcf.gz")
-  val bcm:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/bcm/ALL.chr20.bcm.20120522.snps_indels.integrated.genotypes.vcf.gz")
-  val bia:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/bi_assembly/ALL.chr20.broad_assembly.20120522.snps_indels_complex.low_coverage.genotypes.vcf.gz")
-  val bim:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/bi_mapping/ALL.chr20.broad_mapping.20120522.snps_indels.low_coverage.genotypes.vcf.gz")
-  val lobstr:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/lobSTR/ALL.chr20.lobSTR.20120419.microsat.integrated.genotypes.vcf.gz")
-
-   val repseq:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/mittelman_repeatseq/ALL.chr20.repeatseq_wgs_v2.20120522.microsat.low_coverage.genotypes.vcf.gz")
-  val platypus:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/platypus/ALL.chr20.platypus.20120522.snps_indels_complex.low_coverage.genotypes.vcf.gz")
-  val samtools:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/si_samtools/ALL.chr20.si_samtools.20120522_analysis.snps_indels.low_coverage.genotypes.vcf.gz")
-  val sga:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/si_sga_dindel/ALL.chrom20.sga_left_aligned.20120522_analysis.snps_indels_mnps.low_coverage.genotypes.vcf.gz")
-// invalid VCF!
-//  val umich:File = new File("/humgen/1kg/DCC/ftp/technical/working/20130202_phase3_chr20_calls/um/ALL.chr20.umich.20120522.snps_indels.low_coverage.sites.vcf.gz")
-
-  trait CommandLineGATKArgs extends CommandLineGATK {
-    this.reference_sequence = reference
-    this.memoryLimit = 2
-    this.jobTempDir = tmpDir
-    this.jobQueue = "gsa"
-    this.intervals :+= intervalsFile
+    final int contigStop = refBases.length();
+    final SAMFileHeader header = ArtificialSAMUtils.createArtificialSamHeader(1, 1, contigStop );
+    final String artificialContig = "chr1";
+    final int locStart = refBases1.length(); // start position where we desire artificial variant
+    final GenomeLocParser genomeLocParser = new GenomeLocParser(header.getSequenceDictionary());
+    final GenomeLoc window = genomeLocParser.createGenomeLoc(artificialContig,1,refBases.length());
+    final String windowBases = refBases;
 
 
-  }
 
-  def script() {
+    @DataProvider(name = "LeftAlignDataProvider")
+    public Object[][] makeLeftAlignDataProvider() {
+        List<Object[]> tests = new ArrayList<Object[]>();
 
-    val allelesFiles = Map("bcm"->bcm,"bia"->bia, "bim" -> bim, "repseq"->repseq,"platypus"->platypus, "samtools"->samtools,"sga"->sga)
+        // this functionality can be adapted to provide input data for whatever you might want in your data
+        for (  int offset = 1; offset < longPiece.length(); offset++ ) {
+            for ( int indelSize = -longPiece.length()+offset; indelSize < longPiece.length()-offset; indelSize++ ) {
+                tests.add(new Object[]{offset, indelSize});
+            }
+        }
 
-   // ) List(bcm,bia,bim,repseq,platypus,samtools,sga)
+        return tests.toArray(new Object[][]{});
+    }
 
+    @Test(dataProvider = "LeftAlignDataProvider")
+    public void testLeftAlignNoTrimming(final int offset, final int indelSize) {
+        if (indelSize == 0)
+            return;
 
-    // create union allele list
-    val unionAlleles = new CombineVariants with CommandLineGATKArgs
-    unionAlleles.sites_only = true
-    //unionAlleles.assumeIdenticalSamples = true
-    unionAlleles.o = new File(outputDir.getName+"/ALL.chr20."+runName+".union.sites.vcf")
-    for( (allelesKey,allelesFile) <- allelesFiles ) {
-      val selIndels = new SelectVariants with CommandLineGATKArgs
-      selIndels.V = allelesFile
-      selIndels.selectType :+= VariantContext.Type.INDEL
-      if (doComplex)
-        selIndels.selectType :+= VariantContext.Type.MIXED
-      if (doMNPs)  {
-        selIndels.selectType :+= VariantContext.Type.MNP
-        selIndels.o = swapExt(outputDir,allelesFile, ".vcf.gz",".indels.mnps.vcf")
-      }
-      else {
-        selIndels.o = swapExt(outputDir,allelesFile, ".vcf.gz",".indels.vcf")
-      }
+        final List<Allele> alleles = new ArrayList<Allele>();
 
-      selIndels.sites_only = true
-      selIndels.ef = true
-      add(selIndels)
+        if (indelSize < 0) { // deletion
+            alleles.add(Allele.create(Utils.dupString("A",Math.abs(indelSize)+1),true));
+            alleles.add(Allele.create("A", false));
+        }
+        else {
+            alleles.add(Allele.create("A", true));
+            alleles.add(Allele.create(Utils.dupString("A",Math.abs(indelSize)+1),false));
 
-      val leftAlign = new LeftAlignAndTrimVariants with CommandLineGATKArgs
-      leftAlign.V = selIndels.o
-      leftAlign.o = swapExt(outputDir,selIndels.o, ".vcf",".leftAligned.vcf")
-      leftAlign.trim = true
-      leftAlign.split= true
-      add(leftAlign)
-      unionAlleles.V :+= new TaggedFile(leftAlign.o,allelesKey)
+        }
+        final GenomeLoc loc = genomeLocParser.createGenomeLoc(artificialContig,locStart+offset,locStart+offset);
+        final ReferenceContext referenceContext = new ReferenceContext(genomeLocParser,loc,window,windowBases.getBytes());
+
+        final VariantContext vc = new VariantContextBuilder("test", artificialContig, locStart+offset, locStart+offset+alleles.get(0).length()-1, alleles).make();
+        final Pair<VariantContext,Integer> result = LeftAlignAndTrimVariants.alignAndWrite(vc,referenceContext);
+        Assert.assertTrue(result.second == (offset>0?1:0));
+        Assert.assertEquals(result.first.getStart(), locStart);
+
 
     }
 
-    add(unionAlleles)
-    add(HC(unionAlleles.o))
-  }
+    @DataProvider(name = "TrimDataProvider")
+    public Object[][] makeTrimDataProvider() {
+        List<Object[]> tests = new ArrayList<Object[]>();
 
-  case class HC( allelesFile: File ) extends HaplotypeCaller with CommandLineGATKArgs {
-    this.out = swapExt(outputDir,allelesFile, ".vcf", ".gga.vcf")
-    this.memoryLimit = mem
-    this.scatterCount = myScatterCount
-    this.javaGCThreads = 4
-    this.alleles = allelesFile
-    this.minPruning = 5
-    this.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
-    this.gt_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
-    //this.GENOTYPE_GIVEN_ALL_ALLELES_COMBINATORIAL = true
-    this.stand_emit_conf = 0.0
-    this.stand_call_conf = 0.0
-    this.input_file :+= inputBamList
-    this.maxAltAlleles = 6
-  }
+        for (  int offset = 1; offset < longPiece.length(); offset++ ) {
+            for ( int indelSize = -longPiece.length()+offset; indelSize < longPiece.length()-offset; indelSize++ )
+                tests.add(new Object[]{indelSize, offset});
+        }
 
+        return tests.toArray(new Object[][]{});
+    }
 
+    @Test(dataProvider = "TrimDataProvider")
+    public void testTrimming(final int indelSize, final int offset) {
+        if (indelSize == 0)
+            return;
+
+        final List<Allele> alleles = new ArrayList<Allele>();
+
+        final GenomeLoc loc = genomeLocParser.createGenomeLoc(artificialContig,locStart+offset,locStart+offset);
+        final ReferenceContext referenceContext = new ReferenceContext(genomeLocParser,loc,window,windowBases.getBytes());
+
+        final int prefixLen = 10;
+        final String prefix = refBases.substring(locStart+offset-prefixLen,locStart+offset);
+        if (indelSize < 0) { // deletion
+            alleles.add(Allele.create(prefix+Utils.dupString("A",Math.abs(indelSize)+1),true));
+            alleles.add(Allele.create(prefix+"A", false));
+        }
+        else {
+            alleles.add(Allele.create(prefix+"A", true));
+            alleles.add(Allele.create(prefix+Utils.dupString("A",Math.abs(indelSize)+1),false));
+
+        }
+
+        final VariantContext vc = GATKVariantContextUtils.trimAlleles( new VariantContextBuilder("test", artificialContig, locStart + offset, locStart + offset + alleles.get(0).length() - 1, alleles).make(),true,true);
+        if (indelSize>0)
+            Assert.assertEquals(vc.getReference().length(),1);
+        else
+            Assert.assertEquals(vc.getReference().length(),Math.abs(indelSize)+1);
+    }
 }
