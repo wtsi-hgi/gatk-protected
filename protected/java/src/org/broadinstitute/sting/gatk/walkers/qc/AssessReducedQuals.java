@@ -55,6 +55,7 @@ import org.broadinstitute.sting.gatk.walkers.LocusWalker;
 import org.broadinstitute.sting.gatk.walkers.TreeReducible;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
 
@@ -97,20 +98,15 @@ public class AssessReducedQuals extends LocusWalker<GenomeLoc, GenomeLoc> implem
     @Argument(fullName = "sufficientQualSum", shortName = "sufficientQualSum", doc = "When a reduced bam qual sum is above this threshold, it passes even without comparing to the non-reduced bam ", required = false)
     public int sufficientQualSum = 600;
 
-    @Argument(fullName = "qual_epsilon", shortName = "epsilon", doc = "when |Quals_reduced_bam - Quals_original_bam| > epsilon*Quals_original_bam we output this interval", required = false)
-    public int qual_epsilon = 0;
-
-    @Argument(fullName = "debugLevel", shortName = "debug", doc = "debug level: NO_DEBUG, PRINT_LOCI,PRINT_PILEUPS", required = false)
-    public DebugLevel debugLevel = DebugLevel.NO_DEBUG;
+    @Argument(fullName = "qual_epsilon", shortName = "epsilon", doc = "when |Quals_reduced_bam - Quals_original_bam| > (epsilon * Quals_original_bam) we output this interval", required = false)
+    public double qual_epsilon = 0.25;
 
     @Output
     protected PrintStream out;
 
     public void initialize() {
-        if (debugLevel != DebugLevel.NO_DEBUG)
-            out.println("  Debug mode" +
-                        "Debug:\tsufficientQualSum: "+sufficientQualSum+ "\n " +
-                        "Debug:\tqual_epsilon: "+qual_epsilon);
+        if ( qual_epsilon < 0.0 || qual_epsilon > 1.0 )
+            throw new UserException.BadArgumentValue("qual_epsilon", "must be a number between 0 and 1");
     }
 
     @Override
@@ -123,15 +119,11 @@ public class AssessReducedQuals extends LocusWalker<GenomeLoc, GenomeLoc> implem
 
         boolean reportLocus;
         final int[] quals = getPileupQuals(context.getBasePileup());
-        if (debugLevel != DebugLevel.NO_DEBUG)
-            out.println("Debug:\tLocus Quals\t"+ref.getLocus()+"\toriginal\t"+quals[originalQualsIndex]+"\treduced\t"+quals[reducedQualsIndex]);
-        final int epsilon = MathUtils.fastRound(quals[originalQualsIndex]*qual_epsilon);
-        final int calcOriginalQuals = Math.min(quals[originalQualsIndex],sufficientQualSum);
-        final int calcReducedQuals = Math.min(quals[reducedQualsIndex],sufficientQualSum);
-        final int OriginalReducedQualDiff = calcOriginalQuals - calcReducedQuals;
-        reportLocus = OriginalReducedQualDiff > epsilon || OriginalReducedQualDiff < -1*epsilon;
-        if(debugLevel != DebugLevel.NO_DEBUG && reportLocus)
-            out.println("Debug:\tEmited Locus\t"+ref.getLocus()+"\toriginal\t"+quals[originalQualsIndex]+"\treduced\t"+quals[reducedQualsIndex]+"\tepsilon\t"+epsilon+"\tdiff\t"+OriginalReducedQualDiff);
+        final int epsilon = MathUtils.fastRound(quals[originalQualsIndex] * qual_epsilon);
+        final int calcOriginalQuals = Math.min(quals[originalQualsIndex], sufficientQualSum);
+        final int calcReducedQuals = Math.min(quals[reducedQualsIndex], sufficientQualSum);
+        final int originalReducedQualDiff = calcOriginalQuals - calcReducedQuals;
+        reportLocus = originalReducedQualDiff > epsilon || originalReducedQualDiff < -1 * epsilon;
 
         return reportLocus ? ref.getLocus() : null;
     }
@@ -139,34 +131,24 @@ public class AssessReducedQuals extends LocusWalker<GenomeLoc, GenomeLoc> implem
     private int[] getPileupQuals(final ReadBackedPileup readPileup) {
 
         final int[] quals = new int[2];
-        String[] printPileup = {"Debug 2:\toriginal pileup:\t"+readPileup.getLocation()+"\nDebug 2:----------------------------------\n",
-                                "Debug 2:\t reduced pileup:\t"+readPileup.getLocation()+"\nDebug 2:----------------------------------\n"};
 
-        for( PileupElement p : readPileup ){
+        for ( final PileupElement p : readPileup ) {
             final List<String> tags = getToolkit().getReaderIDForRead(p.getRead()).getTags().getPositionalTags();
-            if ( isGoodRead(p) ){
+            if ( isGoodRead(p) ) {
                 final int tempQual = (int)(p.getQual()) * p.getRepresentativeCount();
                 final int tagIndex = getTagIndex(tags);
                 quals[tagIndex] += tempQual;
-                if(debugLevel == DebugLevel.PRINT_PILEUPS)
-                    printPileup[tagIndex] += "\tDebug 2: ("+p+")\tMQ="+p.getMappingQual()+":QU="+p.getQual()+":RC="+p.getRepresentativeCount()+":OS="+p.getOffset()+"\n";
             }
         }
-        if(debugLevel == DebugLevel.PRINT_PILEUPS){
-            out.println(printPileup[originalQualsIndex]);
-            out.println(printPileup[reducedQualsIndex]);
-        }
+
         return quals;
     }
 
-
-    private boolean isGoodRead(PileupElement p){
-        // TODO -- You want to check whether the read itself is a reduced read and only
-        // TODO --  for them you want to ignore that min mapping quality cutoff (but you *do* still want the min base cutoff).
-        return !p.isDeletion() && ((p.getRead().isReducedRead()) || (!p.getRead().isReducedRead() && (int)p.getQual() >= 20 && p.getMappingQual() >= 20));
+    private boolean isGoodRead(final PileupElement p) {
+        return !p.isDeletion() && (int)p.getQual() >= 20 && p.getMappingQual() >= 20;
     }
 
-    private int getTagIndex(List<String> tags){
+    private int getTagIndex(final List<String> tags) {
         return tags.contains(reduced) ? 1 : 0;
     }
 
@@ -213,17 +195,5 @@ public class AssessReducedQuals extends LocusWalker<GenomeLoc, GenomeLoc> implem
         // otherwise, print the sum and start over with the value
         out.println(sum);
         return value;
-    }
-
-    public enum DebugLevel {
-        NO_DEBUG,
-        /**
-         * Print locus level information (such as locus quals) and loci with unmatch quals
-         */
-        PRINT_LOCI,
-        /**
-         * Print the pileup infomarion of the reduced bam files and the original bam files
-         */
-        PRINT_PILEUPS
     }
 }
