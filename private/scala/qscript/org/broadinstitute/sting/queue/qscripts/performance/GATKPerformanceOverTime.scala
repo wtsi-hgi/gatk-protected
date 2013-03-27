@@ -137,6 +137,7 @@ class GATKPerformanceOverTime extends QScript {
   var GATKs: Map[String, File] =
     Map(
       "v2.cur" -> myJarFile, // TODO -- how do I get this value?
+      "v2.4" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "2.4"),
       "v2.0" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "2.0"),
       "v1.6" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "1.6")
     )
