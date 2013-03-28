@@ -231,6 +231,7 @@ class GeneralCallingPipeline extends QScript {
     this.analysisName = "HaplotypeCaller"
     this.javaGCThreads = 4
     this.memoryLimit = 4
+    this.useNewLDMerger = true
     //this.BQSR = new File(BQSRFILE)
     this.jobName =  queueLogDir + "CEU_Trio.hc"
   }
