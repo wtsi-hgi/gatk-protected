@@ -115,7 +115,7 @@ public class AssessReducedCoverage extends LocusWalker<GenomeLoc, GenomeLoc> imp
         if ( tracker == null )
             return null;
 
-        Set<String> tags = getAllTags(context.getBasePileup());
+        final Set<String> tags = getAllTags(context.getBasePileup());
         return (tags.contains(original) && !tags.contains(reduced)) ||
                 (OUTPUT_REDUCED_ONLY_INTERVALS && tags.contains(reduced) && !tags.contains(original)) ? ref.getLocus() : null;
     }
