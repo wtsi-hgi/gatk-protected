@@ -141,10 +141,11 @@ class GeneralCallingPipeline extends QScript {
 
 
   val dbSNP_135 = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.vcf"  // Best Practices v4
-  val hapmap = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/hapmap_3.3.b37.vcf"                       // Best Practices v4
-  val omni_b37 = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Omni2.5_chip/Omni25_sites_2141_samples.b37.vcf"    // Best Practices v4
+  val hapmapSites = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/hapmap_3.3.b37.vcf"                       // Best Practices v4
+  val hapmapGenotypes = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/HapMap/3.3/genotypes_r27_nr.b37_fwd.vcf"                       // Best Practices v4
+  val omni_b37_sites = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Omni2.5_chip/Omni25_sites_2141_samples.b37.vcf"    // Best Practices v4
+  val omni_b37_genotypes = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Omni2.5_chip/Omni25_genotypes_2141_samples.b37.vcf"    // Best Practices v4
   val training_1000G = "/humgen/1kg/processing/official_release/phase1/projectConsensus/phase1.wgs.projectConsensus.v2b.recal.highQuality.vcf"  // from the MethodDevelopmentCallingPipeline scala script
-  val projectConsensus_1000G = "/humgen/1kg/processing/official_release/phase1/projectConsensus/ALL.wgs.projectConsensus_v2b.20101123.snps.sites.vcf"  // from the MethodDevelopmentCallingPipeline scala script
   val indelGoldStandardCallset  = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/Mills_and_1000G_gold_standard.indels.b37.vcf" // Best Practices v4
   val dbSNP_129 = "/humgen/gsa-hpprojects/GATK/data/dbsnp_129_b37.vcf"
   val omni_mono: String = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Omni2.5_chip/Omni25_monomorphic_2141_samples.b37.vcf"
@@ -226,10 +227,6 @@ class GeneralCallingPipeline extends QScript {
     this.analysisName = "HaplotypeCaller"
     this.javaGCThreads = 4
     this.memoryLimit = 2
-//    this.useNewLDMerger = true
-//    this.trimActiveRegions = true
-//    this.activeRegionExtension = 200
-//    this.minPruning = 0
     this.jobName =  queueLogDir + "CEU_Trio.hc"
   }
 
@@ -240,28 +237,28 @@ class GeneralCallingPipeline extends QScript {
 
   class VQSRBase(vcf:File) extends VariantRecalibrator with BaseCommandArguments {
     this.input :+= vcf
-    this.nt = 2
+    this.nt = 4
     this.allPoly = true
     this.tranche ++= List("100.0", "99.9", "99.8", "99.7", "99.5", "99.0", "98.5", "98.0", "97.0", "95.0", "90.0")
     this.memoryLimit = 8
     this.tranches_file = swapExt(outputDir, vcf, ".vcf", ".tranches")
     this.recal_file = swapExt(outputDir, vcf, ".vcf", ".recal")
     this.rscript_file = swapExt(outputDir, vcf, ".vcf", ".vqsr.R")
-    this.use_annotation ++= List("QD", "FS", "DP")
+
+    // these arguments are necessary for the very high quality PCR free data
+    this.percentBadVariants = 0.01
+    this.minNumBad = 1000
   }
 
   // 3a)
   class snpRecal(snpVCF: File, useUGAnnotations: Boolean) extends VQSRBase(snpVCF) with BaseCommandArguments{
-    this.resource :+= new TaggedFile( hapmap, "known=false,training=true,truth=true,prior=15.0" )
-    this.resource :+= new TaggedFile( omni_b37, "known=false,training=true,truth=true,prior=12.0" ) // truth=false on the bast practices v4
+    this.resource :+= new TaggedFile( hapmapSites, "known=false,training=true,truth=true,prior=15.0" )
+    this.resource :+= new TaggedFile( omni_b37_sites, "known=false,training=true,truth=true,prior=12.0" ) // truth=false on the bast practices v4
     this.resource :+= new TaggedFile( training_1000G, "known=false,training=true,prior=10.0" )	// not part of the bast practices v4
     this.resource :+= new TaggedFile( dbSNP_129, "known=true,training=false,truth=false,prior=2.0" )    // prior=6.0 on the bast practices v4
-    this.resource :+= new TaggedFile( projectConsensus_1000G, "prior=8.0" )				// not part of the bast practices v4
-    this.use_annotation ++= List("MQ") // , "ClippingRankSum")
+    this.use_annotation ++= List("QD", "FS", "DP", "ReadPosRankSum", "MQRankSum")
     if ( useUGAnnotations )
-      this.use_annotation ++= List("ReadPosRankSum", "HaplotypeScore")
-    //    // TODO -- these annotations are unstable when not including the bad regions!
-    // this.use_annotation ++= List("InbreedingCoeff")   //need more then 10 samples
+      this.use_annotation ++= List("HaplotypeScore")
     this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
     this.analysisName = "CEUTrio_VQSRs"
     this.jobName = queueLogDir + "CEUTrio.snprecal"
@@ -269,11 +266,12 @@ class GeneralCallingPipeline extends QScript {
 
   // 3b)
   class indelRecal(indelVCF: String) extends VQSRBase(indelVCF) with BaseCommandArguments {
-    this.resource :+= new TaggedFile(indelGoldStandardCallset, "known=false,training=true,truth=true,prior=12.0" ) // known=true on the bast practices v4
+    this.resource :+= new TaggedFile( indelGoldStandardCallset, "known=false,training=true,truth=true,prior=12.0" ) // known=true on the bast practices v4
     this.resource :+= new TaggedFile( dbSNP_135, "known=true,prior=2.0" )  						// not part of the bast practices v4
     this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
     this.analysisName = "CEUTrio_VQSRi"
     this.jobName = queueLogDir + "CEUTrio.indelrecal"
+    this.use_annotation ++= List("FS", "DP", "ReadPosRankSum", "MQRankSum")
     this.maxGaussians = 4
   }
 
@@ -294,14 +292,14 @@ class GeneralCallingPipeline extends QScript {
     this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
     this.analysisName = "CEUTrio_AVQSRs"
     this.jobName = queueLogDir + "CEUTrio.snpcut"
-    this.ts_filter_level = 99.7
+    this.ts_filter_level = 99.9
   }
 
   class applyIndelVQSR(vqsr: VariantRecalibrator) extends applyVQSRBase(vqsr) with BaseCommandArguments {
     this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
     this.analysisName = "CEUTrio_AVQSRi"
     this.jobName = queueLogDir + "CEUTrio.indelcut"
-    this.ts_filter_level = 99.7
+    this.ts_filter_level = 99.9
   }
 
   def recalibrateSNPsAndIndels(snpsAndIndelsVCF: File, useUGAnnotations: Boolean): File = {
@@ -344,49 +342,22 @@ class GeneralCallingPipeline extends QScript {
     *                6.) Variant Evaluation Base(OPTIONAL)                                  *
     *****************************************************************************************/
 
-  class EvalBase extends VariantEval with BaseCommandArguments {
-    this.memoryLimit = 3
-    this.comp :+= new TaggedFile(hapmap, "hapmap" )
-    this.D = new File(dbSNP_129)
-    this.sample = samples
-  }
-
-
-  // 6a.) SNP Evaluation (OPTIONAL) based on the recalbrated vcf
-  class snpEvaluation(name:String) extends EvalBase with BaseCommandArguments {
-    this.comp :+= new TaggedFile( omni_b37, "omni" )
-    this.eval :+= qscript.outputDir + "/" + name + ".snp.recalibrated.filtered.vcf"
-    this.out = qscript.outputDir + "/" + name+ ".eval"
-    this.analysisName = "CEUTrio_VEs"
-    this.jobName = queueLogDir + "CEUTrio.snpeval"
-  }
-
-  // 6b.) Indel Evaluation (OPTIONAL)
-  class indelEvaluation(name:String) extends EvalBase with BaseCommandArguments{
-    this.eval :+= qscript.outputDir + "/" + name +".indel.recalibrated.filtered.vcf"
-    this.comp :+= new TaggedFile(indelGoldStandardCallset, "indelGS" )
-    this.noEV = true
-    this.evalModule = List("CompOverlap", "CountVariants", "TiTvVariantEvaluator", "ValidationReport", "IndelSummary")
-    this.out = qscript.outputDir + "/" + name + ".eval"
-    this.analysisName = "CEUTrio_VEi"
-    this.jobName = queueLogDir + "CEUTrio.indeleval"
-  }
-
   // todo  -- should accept separate indel and snp vcf's, right now script will assume they're combined in one
   class Eval(evalVCF: File, prefix: String, extraStrats: Seq[String]) extends VariantEval with BaseCommandArguments{
-
     this.eval :+= evalVCF
     this.dbsnp = new File(dbSNP_129)
     this.doNotUseAllStandardModules = true
     this.gold = qscript.indelGoldStandardCallset
-    this.comp :+= new TaggedFile( omni_b37, "omni" )
+    this.comp :+= new TaggedFile( omni_b37_genotypes, "omni" )
+    this.comp :+= new TaggedFile( hapmapGenotypes, "hapmap" )
     this.comp :+= new TaggedFile( omni_mono, "omni_mono" )
     this.comp :+= new TaggedFile( qscript.indelGoldStandardCallset, "GSindels" )
     this.comp :+= new TaggedFile( MVL_FP, "fp_MVL" )
+    this.sample = List("NA12878", "NA12891", "NA12892")
     this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap", "IndelSummary", "MultiallelicSummary","ValidationReport")
     this.doNotUseAllStandardStratifications = true
     this.stratificationModule = Seq("EvalRod", "CompRod", "Novelty", "FunctionalClass") ++ extraStrats
-    this.num_threads = 1
+    this.num_threads = 4
     this.memoryLimit = 8
     this.out = swapExt(outputDir, evalVCF, ".vcf", prefix + ".eval")
     this.sample = samples

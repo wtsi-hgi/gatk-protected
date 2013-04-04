@@ -4,10 +4,14 @@ library(ggplot2)
 library(reshape)
 
 args <- commandArgs(TRUE)
-
 projectName <- args[1]
 bySampleEval <- args[2]
-outputPDF <- args[3]    
+outputPDF <- args[3]
+
+# # for debugging
+# projectName <- "foo"
+# bySampleEval <- "/humgen/gsa-hpprojects/dev/depristo/oneOffProjects/ceuTrioBestPractices/V24.wgs/ceuTrio.bwasw.HaplotypeCaller.recalibrated.bySample.eval"
+# outputPDF <- "foo.pdf"
 
 theme_set(theme_bw())
 
@@ -100,20 +104,24 @@ CompSummaryTP <- function(gatkReport) {
 	report <- selectCumulativeMetrics(gatkReport,'FunctionalClass')
 	validationReport <-report$ValidationReport
 	
-	omni <- subset(validationReport, CompRod=="omniTrio")
-    omni_all <- CompSummaryAllSamplesTPByComp(omni)
-    omni_all$"Comp" <- "Omni"
+	omni <- subset(validationReport, CompRod=="omni")
+  omni_all <- CompSummaryAllSamplesTPByComp(omni)
+  omni_all$"Comp" <- "Omni"
+
+	hapmap <- subset(validationReport, CompRod=="hapmap")
+	hapmap <- CompSummaryAllSamplesTPByComp(hapmap)
+	hapmap$"Comp" <- "hapmap"
+  
+  gsIndels <- subset(validationReport, CompRod=="GSindels")
+  gsIndels_all <- CompSummaryAllSamplesTPByComp(gsIndels)
+  gsIndels_all$"Comp" <- "GS-Indels"
     
-    gsIndels <- subset(validationReport, CompRod=="GSindels")
-    gsIndels_all <- CompSummaryAllSamplesTPByComp(gsIndels)
-    gsIndels_all$"Comp" <- "GS-Indels"
-    
-    table_allSamples <- rbind(omni_all, gsIndels_all)
-    table <- table_allSamples[, c(1,7,6)]
-    colnames(table) <- c("Novelty", "Comp", "sensitivity")
-    table <- subset(table, Novelty != "novel")
-    table <- subset(table, Novelty != "known")
-    return(table)
+  table_allSamples <- rbind(omni_all, gsIndels_all, hapmap)
+  table <- table_allSamples[, c(1,7,6)]
+  colnames(table) <- c("Novelty", "Comp", "sensitivity")
+  table <- subset(table, Novelty != "novel")
+  table <- subset(table, Novelty != "known")
+  return(table)
 }
 
 
