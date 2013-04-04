@@ -1,6 +1,5 @@
 ##fileformat=VCFv4.1
 ##CallSet=Name=depristo;Date=0;IsReviewer=true
-##20	9	.	T	<DEL>	.	.	END=10
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
 20	1	.	T	C	.	.	.
 20	2	.	T	A	.	.	.
