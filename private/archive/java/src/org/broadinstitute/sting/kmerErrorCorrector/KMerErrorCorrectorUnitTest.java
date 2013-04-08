@@ -46,60 +46,43 @@
 
 package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.haplotype.Haplotype;
-import org.broadinstitute.sting.utils.activeregion.ActiveRegion;
-import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.sting.BaseTest;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
-import java.io.PrintStream;
-import java.util.List;
+/** test */
+public class KMerErrorCorrectorUnitTest extends BaseTest {
+    @Test
+    public void testMyData() {
+        final KMerErrorCorrector corrector = new KMerErrorCorrector(3, 1, 2, 2);
 
-/**
- * Created by IntelliJ IDEA.
- * User: ebanks
- * Date: Mar 14, 2011
- */
-public abstract class LocalAssemblyEngine {
-    public static final byte DEFAULT_MIN_BASE_QUALITY_TO_USE = (byte) 16;
+        Assert.assertNotNull(corrector.toString());
 
-    protected PrintStream graphWriter = null;
-    protected byte minBaseQualityToUseInAssembly = DEFAULT_MIN_BASE_QUALITY_TO_USE;
-    protected int pruneFactor = 2;
-    protected boolean errorCorrectKmers = false;
+        corrector.addKmers(
+                "ATG", "ATG", "ATG", "ATG",
+                "ACC", "ACC", "ACC",
+                "AAA", "AAA",
+                "CTG", // -> ATG
+                "NNA", // -> AAA
+                "CCC", // => ACC
+                "NNN", // => null
+                "NNC"  // => ACC [because of min count won't go to NNA]
+        );
 
-    protected LocalAssemblyEngine() { }
+        testCorrection(corrector, "ATG", "ATG");
+        testCorrection(corrector, "ACC", "ACC");
+        testCorrection(corrector, "AAA", "AAA");
+        testCorrection(corrector, "CTG", "ATG");
+        testCorrection(corrector, "NNA", "AAA");
+        testCorrection(corrector, "CCC", "ACC");
+        testCorrection(corrector, "NNN", null);
+        testCorrection(corrector, "NNC", "ACC");
 
-    public int getPruneFactor() {
-        return pruneFactor;
+        Assert.assertNotNull(corrector.toString());
     }
 
-    public void setPruneFactor(int pruneFactor) {
-        this.pruneFactor = pruneFactor;
+    private void testCorrection(final KMerErrorCorrector corrector, final String in, final String out) {
+        Assert.assertEquals(corrector.getErrorCorrectedKmer(in), out);
+        Assert.assertEquals(corrector.getErrorCorrectedKmer(in.getBytes()), out == null ? null : out.getBytes());
     }
-
-    public boolean shouldErrorCorrectKmers() {
-        return errorCorrectKmers;
-    }
-
-    public void setErrorCorrectKmers(boolean errorCorrectKmers) {
-        this.errorCorrectKmers = errorCorrectKmers;
-    }
-
-    public PrintStream getGraphWriter() {
-        return graphWriter;
-    }
-
-    public void setGraphWriter(PrintStream graphWriter) {
-        this.graphWriter = graphWriter;
-    }
-
-    public byte getMinBaseQualityToUseInAssembly() {
-        return minBaseQualityToUseInAssembly;
-    }
-
-    public void setMinBaseQualityToUseInAssembly(byte minBaseQualityToUseInAssembly) {
-        this.minBaseQualityToUseInAssembly = minBaseQualityToUseInAssembly;
-    }
-
-    public abstract List<Haplotype> runLocalAssembly(ActiveRegion activeRegion, Haplotype refHaplotype, byte[] fullReferenceWithPadding, GenomeLoc refLoc, List<VariantContext> activeAllelesToGenotype);
 }
