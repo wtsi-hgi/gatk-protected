@@ -133,7 +133,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
 
         if ( profileType == ProfileType.JUST_LOAD_INDICES ) {
             RMDTrackBuilder builder = new RMDTrackBuilder(getToolkit().getReferenceDataSource().getReference().getSequenceDictionary(),
-                    getToolkit().getGenomeLocParser(), ValidationExclusion.TYPE.ALL);
+                    getToolkit().getGenomeLocParser(), ValidationExclusion.TYPE.ALL, getToolkit().getArguments().disableAutoIndexCreationAndLockingWhenReadingRods);
             int i = 0;
             for ( int iteration = 0; iteration < nIterations; iteration++ ) {
                 for ( File x : vcfsForIndexTest ) {
