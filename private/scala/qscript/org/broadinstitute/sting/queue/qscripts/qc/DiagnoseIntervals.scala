@@ -48,27 +48,42 @@ package org.broadinstitute.sting.queue.qscripts.qc
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.sting.utils.interval.IntervalSetRule
 
 class DiagnoseIntervals extends QScript {
   @Argument(shortName = "i", required = true, doc = "Intervals file") var intervalsFile: List[File] = _
   @Argument(shortName = "b", required = true, doc = "List of BAM files") var bamList: List[File] = _
   @Argument(shortName = "r", required = false, doc = "Reference sequence") var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
-  @Argument(shortName = "sc", required = false, doc = "Scatter count") var ScatterCount: Int = 50
+  @Argument(shortName = "sc", required = false, doc = "Scatter count") var jobs: Int = 50
+  @Argument(shortName = "isr", required = false, doc = "interval set rule") var intervalSetRule = IntervalSetRule.UNION
+  @Argument(shortName = "ds", required = false, doc = "downsampling fractions") var downsamplingFranctions = List(1.0)
 
   def script {
 
-    for (interval <- intervalsFile) {
-      val output = swapExt(interval, ".interval_list", ".vcf")
+    for (ds <- downsamplingFranctions) {
 
-      val walker = new DiagnoseTargets()
-      walker.reference_sequence = referenceFile
-      walker.intervalsString = List(interval)
-      walker.out = output
-      walker.input_file = bamList
-      walker.memoryLimit = 4
-      walker.scatterCount = ScatterCount
-      add(walker)
+      val dt_output = swapExt(bamList(0), ".interval_list", ".d" + ds + ".vcf")
+      val vt_output = new File(dt_output + ".tbl")
 
+      val dt = new DiagnoseTargets()
+      dt.reference_sequence = referenceFile
+      dt.intervalsString = intervalsFile
+      dt.interval_set_rule = intervalSetRule
+      dt.out = dt_output
+      dt.input_file = bamList
+      dt.dfrac = ds
+      dt.memoryLimit = 4
+      dt.scatterCount = jobs
+
+      val vt = new VariantsToTable()
+      vt.reference_sequence = referenceFile
+      vt.variant = List(dt_output)
+      vt.F = Seq("CHROM", "POS", "END", "AVG_INTERVAL_DP")
+      vt.GF = Seq("MED")
+      vt.raw = true
+      vt.out = vt_output
+
+      add(dt, vt)
     }
   }
 
