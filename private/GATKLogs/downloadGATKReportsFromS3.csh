@@ -27,3 +27,5 @@ echo 'Done:', `date`
 
 # if the dir is empty we proceed
 rmdir --ignore-fail-on-non-empty $DIR
+rm -f progress_$DATE.log
+
