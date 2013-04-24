@@ -3,7 +3,7 @@
 library("lattice")
 library("ggplot2")
 library("splines")
-
+library("plyr")
 ##########################################
 ### Accessory functions
 ##########################################
