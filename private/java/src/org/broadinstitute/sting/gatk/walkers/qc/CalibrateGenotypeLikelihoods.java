@@ -153,6 +153,9 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     @Argument(fullName="repeats", shortName="repeats", doc="Do indel evaluation", required=false)
     private boolean doRepeats = false;
 
+    @Argument(fullName="skipFilteredRecords", shortName="skipFiltered", doc="Skip filtered records when evaluating external likelihoods", required=false)
+    private boolean skipFilteredRecords = false;
+
     //@Argument(fullName="standard_min_confidence_threshold_for_calling", shortName="stand_call_conf", doc="the minimum phred-scaled Qscore threshold to separate high confidence from low confidence calls", required=false)
     private double callConf = 0;
 
@@ -485,7 +488,11 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             if ( extVC == null ) {
                 return Data.EMPTY_DATA;
             }
-    
+
+
+            if (extVC.isFiltered() && skipFilteredRecords)
+                return Data.EMPTY_DATA;       // skip filtered eval records
+
             // make sure there is an alternate allele
             if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0 ) {
                 return Data.EMPTY_DATA;
