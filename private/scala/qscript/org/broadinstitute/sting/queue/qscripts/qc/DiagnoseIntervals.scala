@@ -72,14 +72,16 @@ class DiagnoseIntervals extends QScript {
       dt.out = dt_output
       dt.input_file = bamList
       dt.dfrac = ds
+      dt.coverage_status_threshold = 0.0
+      dt.max = Integer.MAX_VALUE
       dt.memoryLimit = 4
       dt.scatterCount = jobs
 
       val vt = new VariantsToTable()
       vt.reference_sequence = referenceFile
       vt.variant = List(dt_output)
-      vt.F = Seq("CHROM", "POS", "END", "AVG_INTERVAL_DP")
-      vt.GF = Seq("MED")
+      vt.F = Seq("CHROM", "POS", "END", "IDP")
+      vt.GF = Seq("IDP", "LL", "ZL")
       vt.raw = true
       vt.out = vt_output
 
