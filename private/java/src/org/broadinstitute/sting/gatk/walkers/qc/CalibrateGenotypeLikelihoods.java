@@ -100,7 +100,7 @@ import java.util.*;
  *  <p>
  *      Two intermediate tables:
  *      <ul>
- *          <li>Raw ouput of all sites with the three genotypes and their likelihoods</li>
+ *          <li>Raw output of all sites with the three genotypes and their likelihoods</li>
  *          <li>A digested table stratified by read group and platforms (for plotting)</li>
  *      </ul>
  *
@@ -489,12 +489,11 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
                 return Data.EMPTY_DATA;
             }
 
+            if ( extVC.isFiltered() && skipFilteredRecords )
+                return Data.EMPTY_DATA; // skip filtered eval records
 
-            if (extVC.isFiltered() && skipFilteredRecords)
-                return Data.EMPTY_DATA;       // skip filtered eval records
-
-            // make sure there is an alternate allele
-            if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0 ) {
+            // make sure there is an alternate allele and that it matches exactly the extVC allele
+            if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0 || !vcComp.hasSameAllelesAs(extVC) ) {
                 return Data.EMPTY_DATA;
             }
     
