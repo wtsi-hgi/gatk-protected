@@ -47,10 +47,16 @@
 package org.broadinstitute.sting.queue.qscripts.DataProcessing
 
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.commandline.Hidden
-import org.broadinstitute.sting.queue.extensions.gatk.{VariantFiltration, CommandLineGATK, UnifiedGenotyper}
+import org.broadinstitute.sting.commandline.{ClassType, Hidden}
+import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine
 import org.broadinstitute.sting.gatk.downsampling.DownsampleType
+import org.broadinstitute.sting.queue.extensions.gatk.TaggedFile
+import org.broadinstitute.sting.queue.extensions.gatk.UnifiedGenotyper
+import org.broadinstitute.sting.queue.extensions.gatk.VariantFiltration
+import org.broadinstitute.sting.queue.extensions.gatk.CommandLineGATK
+import org.broadinstitute.sting.queue.extensions.gatk.VariantEval
+import java.io.File
 
 /**
  * Created with IntelliJ IDEA.
@@ -64,8 +70,8 @@ class AncientDNASingleSampleCalling extends QScript{
     * Required Parameters
     * ***************************************************************************/
 
-  @Input(doc = "a table with all the necessary information to process the data", fullName = "metadata", shortName = "m", required = false, exclusiveOf = "individual")
-  var metaData: File = _
+  @Input(doc = "input bam", fullName = "inputBAM", shortName = "I", required = false)
+  var inputBAM:File = _
 
   /** ******************************************************************************
     * Additional Parameters that the pipeline should have pre-defined in the image
@@ -80,36 +86,54 @@ class AncientDNASingleSampleCalling extends QScript{
   @Argument(doc = "job queue for LSF", fullName = "queue", shortName = "queue", required = false)
   var queue: String = "short"
 
-  @Argument(doc = "job queue for LSF", fullName = "project", shortName = "project", required = false)
-  var project: String = "default"
-
   @Argument(doc = "tmp dir", fullName = "tmpDir", shortName = "tmpDir", required = false)
   var tmpDir: String = "/scratch/gd73/tmp/"
 
   @Argument(doc = "output dir", fullName = "outDir", shortName = "outDir", required = false)
   var outDir: String = "/scratch/gd73/"
 
-  @Argument(doc = "job queue for LSF", fullName = "runname", shortName = "runname", required = false)
-  var runname: String = "default"
-
-  @Argument(doc = "input bam", fullName = "inputBAM", shortName = "I", required = false)
-  var inputBAM:File = _
-
-  @Argument(doc = "output vcf", fullName = "outputVCF", shortName = "o", required = false)
+  @Argument(doc = "output vcf", fullName = "outputVCF", shortName = "o", required = true)
   var outputVCF:File = _
 
   @Argument(doc = "splitByContig", fullName = "splitByContig", shortName = "splitByContig", required = false)
   var splitByContig: Boolean = false
 
-  @Argument(doc = "noPrior", fullName = "noPrior", shortName = "noPrior", required = false)
-  var noPriors: Boolean = false
 
-
-  @Input(doc = "Interval file with targets used in exome capture (used for QC metrics)", fullName = "targets", shortName = "targets", required = false)
+  @Argument(doc = "Interval file with targets used in exome capture (used for QC metrics)", fullName = "targets", shortName = "targets", required = false)
   var targets: File = _
 
   @Argument(doc = "call indels as well as SNPs", fullName = "callIndels", shortName = "indels", required = false)
   var callIndels: Boolean = false
+
+  @Argument(doc = "Do hard filtering on raw calls", fullName = "doFiltering", shortName = "doFiltering", required = false)
+  var doFiltering: Boolean = false
+
+  @Argument(doc = "Do just one chr for testing", fullName = "doOneChr", shortName = "doOneChr", required = false)
+  var doOneChr: Boolean = false
+
+  @Argument(doc = "Only variants in this mask file are to be used. Only used if filtering enabled", fullName = "includeMask", shortName = "includeMask", required = false)
+  var includeMask: File = _
+
+  @Argument(doc = "Minimum MQ", fullName = "minMQ", shortName = "minMQ", required = false)
+  var minMQ: Double = 20.0
+
+  @Argument(doc = "Minimum QD", fullName = "minQD", shortName = "minQD", required = false)
+  var minQD: Double = 1.0
+
+  @Argument(doc = "Minimum DP", fullName = "minDP", shortName = "minDP", required = false)
+  var minDP: Int = 5
+
+  @Argument(doc = "Maximum DP", fullName = "maxDP", shortName = "maxDP", required = false)
+  var maxDP: Int = 500
+
+  @Argument(doc = "Minimum QUAL", fullName = "minQual", shortName = "minQual", required = false)
+  var minQual: Double = 10.0
+
+  @Argument(doc = "Maximum ReadPosRankSum", fullName = "minReadPosRankSum", shortName = "minRP", required = false)
+  var minRP: Double = -2.0
+  @Argument(doc = "Maximum HaplotypeScore", fullName = "maxHS", shortName = "maxHS", required = false)
+  var maxHS: Double = 20.0
+
 
   @Argument(doc = "Default memory limit per job", fullName = "mem_limit", shortName = "mem", required = false)
   var memLimit: Int = 2
@@ -117,46 +141,144 @@ class AncientDNASingleSampleCalling extends QScript{
   @Argument(doc = "How many ways to scatter/gather", fullName = "scatter_gather", shortName = "sg", required = false)
   var nContigs: Int = 0
 
+  @Argument(doc = "The path to the binary of tabix ", fullName = "tabix", shortName = "tabix", required = false)
+  var tabixPath: File = new File("/groups/reich/sw/tabix-0.2.6/tabix")
 
-  @Argument(doc="Use Genotype Given Alleles mode for calling", shortName="doGGA", required=false)
-  var doGGA: Boolean = false
+  @Argument(doc = "The path to the binary of bgzip ", fullName = "bgzip", shortName = "bgzip", required = false)
+  var bgzipPath: File = new File("/groups/reich/sw/tabix-0.2.6/bgzip")
 
+  @Argument(doc="Only filter, no calling", shortName="onlyFilter", required=false)
+  var onlyFilter: Boolean = false
+
+  @Argument(doc="Compress outputs", shortName="compress", required=false)
+  var compress: Boolean = false
+
+  @ClassType(classOf[Double])
+  @Argument(doc="Input AF priors", shortName="inputPriors", required=false)
+  var inputPriors:Seq[Double] = Nil
 
   /** **************************************************************************
     * Main script
     * ***************************************************************************/
+  // General arguments to non-GATK tools
+  trait ExternalCommonArgs extends CommandLineFunction {
+    this.memoryLimit = memLimit
+    this.isIntermediate = true
+    this.jobQueue = queue
+  }
 
   val contigs:List[String] = List("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X","Y","MT")
+  val contigShort:List[String] = List("20")
   def script() {
 
+    val ve = new Eval
     if (splitByContig) {
 
-      for (chr <- contigs) {
-        add(call(inputBAM, outputVCF,chr))
+      for (chr <- {if(doOneChr==false)contigs else contigShort}) {
+        ve.eval :+= callAndFilter(chr)
       }
     } else {
-      add(call(inputBAM, outputVCF,""))
+      ve.eval :+= callAndFilter("")
     }
-
+    if (doOneChr)
+      ve.intervalsString = contigShort
+    ve.out =  outputVCF+".eval"
+    add(ve)
 
   }
 
+  def callAndFilter(chr:String) = {
+    val caller = new call(inputBAM, outputVCF,chr)
+    val bg = bgzip(caller.out)
+    val indexer = index(bg.out)
+
+    if (!onlyFilter)  {
+      add(caller)
+      if (compress) {
+        add(bg)
+        add(indexer)
+      }
+    }
+
+    if (doFiltering) {
+      val filt = filter({if (compress)bg.out else caller.out},indexer.out, chr)
+//      val bgf = bgzip(filt.out)
+      val idf = index(filt.out)
+      add(filt)
+      add(idf)
+      filt.out
+
+    } else {
+      if (compress)
+        bg.out
+      else
+        caller.out
+    }
+
+  }
    // General arguments to GATK walkers
   trait CommandLineGATKArgs extends CommandLineGATK  {
     this.memoryLimit = memLimit
-    this.isIntermediate = true
+ //   this.isIntermediate = true
     this.jobQueue = queue
     this.reference_sequence = reference
   }
 
-  case class filter(inVCF: File, outVCF: File) extends VariantFiltration with CommandLineGATKArgs {
+  case class Eval() extends VariantEval with CommandLineGATKArgs {
 
+//    this.eval :+= evalVCF
+    this.dbsnp = dbSNP(0)
+    this.doNotUseAllStandardModules = true
+    this.evalModule = List("TiTvVariantEvaluator", "CountVariants", "CompOverlap")
+    this.doNotUseAllStandardStratifications = true
+    this.stratificationModule = Seq("Novelty", "Filter","AlleleCount")
+    this.num_threads = 4
+    this.memoryLimit = 8
+  }
+
+  case class filter(inVCF: File, inIdx: File, chr:String) extends VariantFiltration with CommandLineGATKArgs {
+    @Input(doc = "input file") var inp = inVCF
+    @Input(doc = "input file") var inpidx = inIdx
+
+    this.isIntermediate = false
+    this.variant = inVCF
+    if (inVCF.endsWith(".vcf"))
+      this.out = swapExt(outDir, inVCF, ".vcf", ".filtered.vcf")
+    else if (inVCF.endsWith(".bcf"))
+      this.out = swapExt(outDir,inVCF, ".bcf", ".filtered.bcf")
+    else if (inVCF.endsWith(".vcf.gz"))
+      this.out = swapExt(outDir,inVCF, ".vcf.gz", ".filtered.vcf.gz")
+
+    @Output(doc = "output  file") var outp = this.out
+
+    this.filterExpression = Seq("QUAL<"+minQual)
+    this.filterName = Seq("LowQual")
+    this.logging_level = "ERROR"
+    this.filterExpression :+= "QD<"+minQD
+    this.filterName :+= "LowQD"
+    this.filterExpression :+=("MQ<"+minMQ)
+    this.filterName :+=("LowMQ")
+    this.filterExpression :+=("DP<"+minDP)
+    this.filterName :+=("LowDP")
+    this.filterExpression :+=("DP>"+maxDP)
+    this.filterName :+=("HighDP")
+    this.filterExpression :+= ("ReadPosRankSum<"+minRP)
+    this.filterName :+= "LowReadPosRankSum"
+    this.filterExpression :+= ("HaplotypeScore>"+maxHS)
+    this.filterName :+= "HaplotypeScore"
+
+    if (includeMask != null) {
+      if (includeMask.toUpperCase.endsWith("BED")|| includeMask.toUpperCase.endsWith("BED.GZ")) {
+        this.mask = new TaggedFile( includeMask, "BED" )
+      } else this.mask = includeMask
+      this.maskName = "InMask"
+    }
+    if (!chr.isEmpty)
+      this.intervalsString :+= chr
   }
   case class call(inBAM: File, outVCF: File, chr:String) extends UnifiedGenotyper with CommandLineGATKArgs {
     this.input_file :+= inBAM
-    this.isIntermediate = false
-//    this.analysisName = outVCF + ".singleSampleCalling"
-//    this.jobName = outVCF + ".singleSampleCalling"
+    this.isIntermediate = (doFiltering) // if filtering == true, caller output is intermediate
     this.dbsnp = dbSNP(0)
 
     this.downsample_to_coverage = 600
@@ -167,8 +289,14 @@ class AncientDNASingleSampleCalling extends QScript{
 
      this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
 
-    if (noPriors)
-      this.noPrior = true
+    this.stand_call_conf = Some(5.0)
+    this.stand_emit_conf = Some(5.0) // will override with VF later
+
+    if (!inputPriors.isEmpty) {
+      this.inputPrior = inputPriors
+
+    }
+
     if (splitByContig) {
       if (outVCF.endsWith(".vcf"))
         this.out = swapExt(outDir, outVCF, ".vcf", ".chr"+chr+".vcf")
@@ -190,7 +318,33 @@ class AncientDNASingleSampleCalling extends QScript{
         this.intervals :+= targets
 
     }
+    // add useful annotations which are not default:
+    this.A :+= "GCContent"
+    this.A :+= "BaseCounts"
   }
 
+  case class index(inVCF: File) extends CommandLineFunction with ExternalCommonArgs {
+    @Input(doc = "input file") var inp = inVCF
+    @Output(doc = "output  file") var out = swapExt(outDir,inVCF,"gz","gz.tbi")
+
+    def commandLine = tabixPath + "  -f -p vcf -s 1 -b 2 -e 2 -c \\#  " + " " + inp
+
+    this.memoryLimit = 2
+    this.analysisName = out + ".tabix"
+    this.jobName = out + ".tabix"
+
+  }
+
+  case class bgzip(inVCF: File) extends CommandLineFunction with ExternalCommonArgs {
+    @Input(doc = "input file") var inp = inVCF
+    @Output(doc = "output  file") var out = swapExt(outDir,inVCF,"vcf","vcf.gz")
+
+    def commandLine = bgzipPath + " "+ inp
+
+    this.memoryLimit = 2
+    this.analysisName = out + ".bgzip"
+    this.jobName = out + ".bgzip"
+
+  }
 
 }
