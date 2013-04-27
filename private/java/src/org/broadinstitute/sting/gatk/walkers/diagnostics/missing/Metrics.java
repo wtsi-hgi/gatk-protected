@@ -44,126 +44,67 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.diagnostics.diagnosetargets;
-
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
-
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
+package org.broadinstitute.sting.gatk.walkers.diagnostics.missing;
 
 /**
- * The statistics calculator for a specific sample given the interval
+ * Short one line description of the walker.
+ * <p/>
+ * <p>
+ * [Long description of the walker]
+ * </p>
+ * <p/>
+ * <p/>
+ * <h2>Input</h2>
+ * <p>
+ * [Description of the Input]
+ * </p>
+ * <p/>
+ * <h2>Output</h2>
+ * <p>
+ * [Description of the Output]
+ * </p>
+ * <p/>
+ * <h2>Examples</h2>
+ * <pre>
+ *    java
+ *      -jar GenomeAnalysisTK.jar
+ *      -T [walker name]
+ *  </pre>
+ *
+ * @author Mauricio Carneiro
+ * @since 5/1/13
  */
-final class SampleStratification extends AbstractStratification {
-    private final GenomeLoc interval;
-    private final ArrayList<AbstractStratification> loci;
+final class Metrics {
+    private double gccontent;
+    private double baseQual;
+    private double mapQual;
+    private int reads;
+    private int refs;
 
-    private int nReads = -1;
-    private int nBadMates = -1;
+    void reads(int reads) {this.reads = reads;}
+    void refs(int refs) {this.refs = refs;}
 
-    public SampleStratification(final GenomeLoc interval, final ThresHolder thresholds) {
-        super(thresholds);
-        this.interval = interval;
-        this.loci = new ArrayList<AbstractStratification>(interval.size());
-        nReads = 0;
-        nBadMates = 0;
+    void gccontent(double gccontent) {this.gccontent = gccontent;}
+    void baseQual(double baseQual) {this.baseQual = baseQual;}
+    void mapQual(double mapQual) {this.mapQual = mapQual;}
 
-        // Initialize every loci (this way we don't have to worry about non-existent loci in the object
-        for (int i = 0; i < interval.size(); i++)
-            this.loci.add(new LocusStratification(thresholds));
-    }
-
-    /**
-     * Simple Getters
-     */
-    public int getIntervalSize() {return interval.size();}
-    public int getnReads() {return nReads;}
-    public int getnBadMates() {return nBadMates;}
+    double gccontent() {return refs > 0 ? gccontent/refs : 0.0;}
+    double baseQual() {return reads > 0 ? baseQual/reads : 0.0;}
+    double mapQual() {return reads > 0 ? mapQual/reads : 0.0;}
 
     /**
-     * Adds a locus to the interval wide stats
+     * Combines two metrics
      *
-     * @param locus      The locus given as a GenomeLoc
-     * @param pileup     The pileup of that locus, this exclusively contains the sample
+     * @param value the other metric to combine
+     * @return itself, for simple reduce
      */
-    public void addLocus(GenomeLoc locus, ReadBackedPileup pileup) {
-        if (!interval.containsP(locus))
-            throw new ReviewedStingException(String.format("Locus %s is not part of the Interval %s", locus, interval));
+    public Metrics combine(Metrics value) {
+        this.gccontent += value.gccontent;
+        this.baseQual += value.baseQual;
+        this.mapQual += value.mapQual;
+        this.reads += value.reads;
+        this.refs += value.refs;
 
-        // a null pileup means there nothing to add
-        if (pileup != null) {
-            final int locusIndex = locus.getStart() - interval.getStart();
-            final int rawCoverage = pileup.depthOfCoverage();
-            final int coverage = pileup.getBaseAndMappingFilteredPileup(thresholds.minimumBaseQuality, thresholds.minimumMappingQuality).depthOfCoverage();
-            final LocusStratification locusData = (LocusStratification) loci.get(locusIndex);
-            locusData.addLocus(coverage, rawCoverage);
-
-            // process all the reads in this pileup (tallying number of reads and bad mates)
-            for (GATKSAMRecord read : pileup.getReads())
-                processRead(read);
-        }
-    }
-
-    @Override
-    public Iterable<AbstractStratification> getElements() {
-        return loci;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<CallableStatus> callableStatuses() {
-        final List<CallableStatus> output = new LinkedList<CallableStatus>();
-
-        // get the sample statuses of all the Loci Metrics
-        for (Metric locusStat : thresholds.locusMetricList) {
-            final CallableStatus status = ((LocusMetric) locusStat).sampleStatus(this);
-            if (status != null) {
-                output.add(status);
-            }
-        }
-
-        // get the sample specific statitics statuses
-        output.addAll(queryStatus(thresholds.sampleMetricList));
-
-        // special case, if there are no reads, then there is no sense reporting coverage gaps.
-        if (output.contains(CallableStatus.NO_READS) && output.contains(CallableStatus.COVERAGE_GAPS))
-            output.remove(CallableStatus.COVERAGE_GAPS);
-
-        return output;
-    }
-
-
-    /**
-     * Account for the read and check it for any statistics necessary. Reads are marked in the temporary
-     * attribute "seen" to make sure they're not counted twice.
-     * 
-     * @param read the read
-     */
-    private void processRead(GATKSAMRecord read) {
-        if (read.getTemporaryAttribute("seen") == null) {
-            nReads++;
-            if (read.getReadPairedFlag() && !read.getProperPairFlag())
-                nBadMates++;
-            read.setTemporaryAttribute("seen", true);
-        }
-    }
-
-    public int getNLowCoveredLoci() {
-        return getCallableStatusCount(CallableStatus.LOW_COVERAGE);
-    }
-
-    public int getNUncoveredLoci() {
-        return getCallableStatusCount(CallableStatus.COVERAGE_GAPS);
-    }
-
-    private int getCallableStatusCount(CallableStatus status) {
-        final Integer x = getStatusTally().get(status);
-        return x == null ? 0 : x;
+        return this;
     }
 }

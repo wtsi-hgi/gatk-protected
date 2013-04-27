@@ -44,126 +44,183 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.diagnostics.diagnosetargets;
+package org.broadinstitute.sting.gatk.walkers.diagnostics.missing;
 
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.CommandLineGATK;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.report.GATKReport;
+import org.broadinstitute.sting.gatk.walkers.By;
+import org.broadinstitute.sting.gatk.walkers.DataSource;
+import org.broadinstitute.sting.gatk.walkers.LocusWalker;
+import org.broadinstitute.sting.gatk.walkers.NanoSchedulable;
 import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.GenomeLocSortedSet;
+import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.help.DocumentedGATKFeature;
+import org.broadinstitute.sting.utils.help.HelpConstants;
 import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.text.XReadLines;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
 import java.util.List;
 
 /**
- * The statistics calculator for a specific sample given the interval
+ * Walks along reference and calculates a few metrics for each interval.
+ *
+ * Metrics:
+ * <ul>
+ *     <li>Average Base Quality</li>
+ *     <li>Average Mapping Quality</li>
+ *     <li>GC Content</li>
+ *     <li>Position in the target</li>
+ *     <li>Coding Sequence / Intron</li>
+ *     <li>Length of the uncovered area</li>
+ * </ul>
+ *
+ * <h3>Input</h3>
+ * <p>
+ *  A reference file
+ * </p>
+ *
+ * <h3>Output</h3>
+ * <p>
+ *  GC content calculations per interval.
+ * </p>
+ *
+ * <h3>Example</h3>
+ * <pre>
+ * java -Xmx2g -jar GenomeAnalysisTK.jar \
+ *   -T QualifyMissingIntervals \
+ *   -R ref.fasta \
+ *   -o output.grp \
+ *   -L input.intervals \
+ *   -cds cds.intervals \
+ *   -targets targets.intervals
+ * </pre>
+ *
  */
-final class SampleStratification extends AbstractStratification {
-    private final GenomeLoc interval;
-    private final ArrayList<AbstractStratification> loci;
+@DocumentedGATKFeature( groupName = HelpConstants.DOCS_CAT_QC, extraDocs = {CommandLineGATK.class} )
+@By(DataSource.REFERENCE)
+public final class QualifyMissingIntervals extends LocusWalker<Metrics, Metrics> implements NanoSchedulable {
+    @Output
+    protected PrintStream out;
 
-    private int nReads = -1;
-    private int nBadMates = -1;
+    @Argument(shortName = "targets", required = true)
+    public File targetsFile;
 
-    public SampleStratification(final GenomeLoc interval, final ThresHolder thresholds) {
-        super(thresholds);
-        this.interval = interval;
-        this.loci = new ArrayList<AbstractStratification>(interval.size());
-        nReads = 0;
-        nBadMates = 0;
+    @Argument(shortName = "cds", required = false)
+    public File cdsFile;
 
-        // Initialize every loci (this way we don't have to worry about non-existent loci in the object
-        for (int i = 0; i < interval.size(); i++)
-            this.loci.add(new LocusStratification(thresholds));
+    GATKReport simpleReport;
+    GenomeLocSortedSet target;
+    GenomeLocSortedSet cds;
+
+    public boolean isReduceByInterval() {
+        return true;
     }
 
-    /**
-     * Simple Getters
-     */
-    public int getIntervalSize() {return interval.size();}
-    public int getnReads() {return nReads;}
-    public int getnBadMates() {return nBadMates;}
+    public void initialize() {
+        simpleReport = GATKReport.newSimpleReport("QualifyMissingIntervals", "IN", "GC", "BQ", "MQ", "TP", "CD", "LN");
+        final GenomeLocParser parser = getToolkit().getGenomeLocParser();
+        target = new GenomeLocSortedSet(parser);
+        cds = new GenomeLocSortedSet(parser);
+        parseFile(targetsFile, target, parser);
+        parseFile(cdsFile, cds, parser);
+    }
 
-    /**
-     * Adds a locus to the interval wide stats
-     *
-     * @param locus      The locus given as a GenomeLoc
-     * @param pileup     The pileup of that locus, this exclusively contains the sample
-     */
-    public void addLocus(GenomeLoc locus, ReadBackedPileup pileup) {
-        if (!interval.containsP(locus))
-            throw new ReviewedStingException(String.format("Locus %s is not part of the Interval %s", locus, interval));
+    public Metrics reduceInit() {
+        return new Metrics();
+    }
 
-        // a null pileup means there nothing to add
-        if (pileup != null) {
-            final int locusIndex = locus.getStart() - interval.getStart();
-            final int rawCoverage = pileup.depthOfCoverage();
-            final int coverage = pileup.getBaseAndMappingFilteredPileup(thresholds.minimumBaseQuality, thresholds.minimumMappingQuality).depthOfCoverage();
-            final LocusStratification locusData = (LocusStratification) loci.get(locusIndex);
-            locusData.addLocus(coverage, rawCoverage);
+    public Metrics map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+        if (tracker == null)
+            return null;
 
-            // process all the reads in this pileup (tallying number of reads and bad mates)
-            for (GATKSAMRecord read : pileup.getReads())
-                processRead(read);
+        final Metrics metrics = new Metrics();
+        final byte baseIndex = ref.getBase();
+        final ReadBackedPileup pileup = context.getBasePileup();
+        final int nBases = pileup.getNumberOfElements();
+
+        double baseQual = 0.0;
+        for (byte qual : pileup.getQuals()) {
+            baseQual += qual;
+        }
+        double mapQual = 0.0;
+        for (byte qual : pileup.getMappingQuals()) {
+            mapQual += qual;
+        }
+
+        metrics.baseQual(baseQual);
+        metrics.mapQual(mapQual);
+        metrics.gccontent(baseIndex == 'C' || baseIndex == 'G' ? 1.0 : 0.0);
+        metrics.reads(nBases);
+        metrics.refs(1);
+
+        return metrics;
+    }
+
+    @Override
+    public Metrics reduce(Metrics value, Metrics sum) {
+        return sum.combine(value);
+    }
+
+    public void onTraversalDone(List<Pair<GenomeLoc, Metrics>> results) {
+        for (Pair<GenomeLoc, Metrics> r : results) {
+            GenomeLoc interval = r.getFirst();
+            Metrics metrics = r.getSecond();
+            simpleReport.addRow(
+                    interval.toString(),
+                    metrics.gccontent(),
+                    metrics.baseQual(),
+                    metrics.mapQual(),
+                    getPositionInTarget(interval),
+                    cds.overlaps(interval),
+                    interval.size()
+            );
+        }
+        simpleReport.print(out);
+        out.close();
+    }
+
+    private static GenomeLoc parseInterval(String s, GenomeLocParser parser) {
+        if (s.isEmpty()) {
+            return null;
+        }
+        String[] first = s.split(":");
+        if (first.length == 2) {
+            String[] second = first[1].split("\\-");
+            return parser.createGenomeLoc(first[0], Integer.decode(second[0]), Integer.decode(second[1]));
+        } else {
+            throw new UserException.BadInput("Interval doesn't parse correctly: " + s);
         }
     }
 
-    @Override
-    public Iterable<AbstractStratification> getElements() {
-        return loci;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<CallableStatus> callableStatuses() {
-        final List<CallableStatus> output = new LinkedList<CallableStatus>();
-
-        // get the sample statuses of all the Loci Metrics
-        for (Metric locusStat : thresholds.locusMetricList) {
-            final CallableStatus status = ((LocusMetric) locusStat).sampleStatus(this);
-            if (status != null) {
-                output.add(status);
+    private void parseFile(File file, GenomeLocSortedSet set, GenomeLocParser parser) {
+        try {
+            for (String s : new XReadLines(file) ) {
+                GenomeLoc interval = parseInterval(s, parser);
+                if (interval != null)
+                    set.add(interval, true);
             }
-        }
-
-        // get the sample specific statitics statuses
-        output.addAll(queryStatus(thresholds.sampleMetricList));
-
-        // special case, if there are no reads, then there is no sense reporting coverage gaps.
-        if (output.contains(CallableStatus.NO_READS) && output.contains(CallableStatus.COVERAGE_GAPS))
-            output.remove(CallableStatus.COVERAGE_GAPS);
-
-        return output;
-    }
-
-
-    /**
-     * Account for the read and check it for any statistics necessary. Reads are marked in the temporary
-     * attribute "seen" to make sure they're not counted twice.
-     * 
-     * @param read the read
-     */
-    private void processRead(GATKSAMRecord read) {
-        if (read.getTemporaryAttribute("seen") == null) {
-            nReads++;
-            if (read.getReadPairedFlag() && !read.getProperPairFlag())
-                nBadMates++;
-            read.setTemporaryAttribute("seen", true);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
         }
     }
 
-    public int getNLowCoveredLoci() {
-        return getCallableStatusCount(CallableStatus.LOW_COVERAGE);
-    }
-
-    public int getNUncoveredLoci() {
-        return getCallableStatusCount(CallableStatus.COVERAGE_GAPS);
-    }
-
-    private int getCallableStatusCount(CallableStatus status) {
-        final Integer x = getStatusTally().get(status);
-        return x == null ? 0 : x;
+    private int getPositionInTarget(GenomeLoc interval) {
+        final List<GenomeLoc> hits = target.getOverlapping(interval);
+        int result = 0;
+        for (GenomeLoc hit : hits) {
+            result = interval.getStart() - hit.getStart(); // if there are multiple hits, we'll get the last one.
+        }
+        return result;
     }
 }
