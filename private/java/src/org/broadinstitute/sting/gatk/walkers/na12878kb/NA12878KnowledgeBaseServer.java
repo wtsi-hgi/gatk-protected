@@ -89,7 +89,7 @@ public class NA12878KnowledgeBaseServer extends NA12878DBWalker {
         if ( ! dontRebuildConsensus ) {
             logger.info("Rebuilding consensus from scratch...");
             db.clearConsensus();
-            final ConsensusSummarizer summary = db.updateConsensus(super.makeSiteSelector());
+            final ConsensusSummarizer summary = db.updateConsensus(super.makeSiteSelector(), false);
             logger.info("Updated " + summary.getnSites() + " consensus records");
         }
 
@@ -102,7 +102,7 @@ public class NA12878KnowledgeBaseServer extends NA12878DBWalker {
                 final SiteSelector updatedSites = newlyAddedSites.getNewlyAddedLocations(getToolkit().getGenomeLocParser(), maxQueriesBeforeFullRebuild);
                 if ( updatedSites != null ) {
                     logger.info("Updating sites " + updatedSites + "...");
-                    final int nUpdated = db.updateConsensus(updatedSites, Priority.INFO).getnSites();
+                    final int nUpdated = db.updateConsensus(updatedSites, Priority.INFO, true).getnSites();
                     logger.info("Updated " + nUpdated + " sites");
                 }
             } catch ( InterruptedException e ) {

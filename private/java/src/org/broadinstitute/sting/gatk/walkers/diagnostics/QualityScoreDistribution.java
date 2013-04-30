@@ -65,15 +65,15 @@ import java.util.Map;
  * <p>
  * Runs through every read counting the number of times a Q score has occurred.
  * </p>
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>
  * One or more BAM files.
  * </p>
- * <h2>Output</h2>
+ * <h3>Output</h3>
  * <p>
  * A table with the counts per PHRED scaled quality score from 0 to MAX_QUAL (defined in picard tools - currently 90)
  * </p>
- * <h2>Examples</h2>
+ * <h3>Examples</h3>
  * <pre>
  *    java
  *      -jar GenomeAnalysisTK.jar

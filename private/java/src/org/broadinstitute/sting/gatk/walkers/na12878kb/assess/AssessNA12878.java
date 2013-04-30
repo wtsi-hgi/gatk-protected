@@ -101,7 +101,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Input(fullName="BAM", shortName = "BAM", doc="Input BAM file.  If provided, we will differentiate false negative sites into those truly missed and those without coverage", required=false)
     public File BAM = null;
 
-    @Output(doc="Summary GATKReport will be written here")
+    @Output(doc="Summary GATKReport will be written here", required=false)
     public PrintStream out;
 
     @Argument(fullName="excludeCallset", shortName = "excludeCallset", doc="Don't count calls that come from only these excluded callsets", required=false)
@@ -110,7 +110,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     /**
      * An output VCF file containing the bad sites (FN/FP) that were found in the input callset w.r.t. the current NA12878 knowledge base
      */
-    @Output(fullName = "badSites", shortName = "badSites", doc="VCF file containing information on FP/FNs in the input callset", required=false)
+    @Output(fullName = "badSites", shortName = "badSites", doc="VCF file containing information on FP/FNs in the input callset", required=false, defaultToStdout=false)
     public VariantContextWriter badSites = null;
 
     @Argument(fullName="maxToWrite", shortName = "maxToWrite", doc="Max. number of bad sites to write out", required=false)
@@ -118,6 +118,12 @@ public class AssessNA12878 extends NA12878DBWalker {
 
     @Argument(fullName="minDepthForLowCoverage", shortName = "minDepthForLowCoverage", doc="A false negative will be flagged as due to low coverage if the (optional) BAM is provided and the coverage overlapping the site is less than this value", required=false)
     public int minDepthForLowCoverage = 5;
+
+    @Argument(fullName="detailedAssessment", shortName = "detailed", doc="A true, we will emit a very detailed report of the types of variants, otherwise we'll use a simplified version", required=false)
+    public boolean detailedAssessment = false;
+
+    @Argument(fullName="requireReviewed", shortName = "requireReviewed", doc="If true, we will only use reviewed sites for the analysis", required=false)
+    public boolean onlyReviewed = false;
 
     @Argument(fullName="typesToInclude", shortName = "typesToInclude", doc="Should we analyze SNPs, INDELs, or both?", required=false)
     public TypesToInclude typesToInclude = TypesToInclude.BOTH;
@@ -139,7 +145,6 @@ public class AssessNA12878 extends NA12878DBWalker {
     protected boolean debug = false;
 
     SiteIterator<MongoVariantContext> consensusSiteIterator;
-    boolean captureBadSites = true;
 
     final Map<String,Assessor> assessors = new HashMap<String,Assessor>();
     SAMFileReader bamReader = null;
@@ -153,21 +158,13 @@ public class AssessNA12878 extends NA12878DBWalker {
     public void initialize() {
         super.initialize();
         consensusSiteIterator = db.getConsensusSites(makeSiteSelector());
-        captureBadSites = badSites != null;
-
-        if( captureBadSites ) {
-            final Set<VCFHeaderLine> lines = GATKVCFUtils.getHeaderFields(getToolkit());
-            lines.add(new VCFInfoHeaderLine("WHY", 1, VCFHeaderLineType.String, "Why was the site considered bad"));
-            lines.add(new VCFInfoHeaderLine("SupportingCallsets", 1, VCFHeaderLineType.String, "Callsets supporting the consensus, where available"));
-            lines.addAll(MongoVariantContext.reviewHeaderLines());
-            badSites.writeHeader(new VCFHeader(lines, Collections.singleton("NA12878")));
-        }
 
         if ( BAM != null ) {
             bamReader = Assessor.makeSAMFileReaderForDoCInBAM(BAM);
         }
 
-        badSitesWriter = new BadSitesWriter(maxToWrite, captureBadSites, AssessmentsToExclude, badSites);
+        badSitesWriter = new BadSitesWriter(maxToWrite, AssessmentsToExclude, badSites);
+        badSitesWriter.initialize(GATKVCFUtils.getHeaderFields(getToolkit()));
 
         // set up assessors for each rod binding
         for ( final RodBinding<VariantContext> rod : variants ) {
@@ -188,7 +185,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         for ( final RodBinding<VariantContext> rod : variants ) {
             final Assessor assessor = getAccessor(rod.getName());
             final List<VariantContext> vcs = tracker.getValues(rod, ref.getLocus());
-            assessor.accessSite(vcs, consensusSites);
+            assessor.accessSite(vcs, consensusSites, onlyReviewed);
         }
 
         return 1;
@@ -198,7 +195,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         final List<VariantContext> noCalls = Collections.emptyList();
 
         for ( final RodBinding<VariantContext> rod : variants ) {
-            getAccessor(rod.getName()).accessSite(noCalls, missedSites);
+            getAccessor(rod.getName()).accessSite(noCalls, missedSites, onlyReviewed);
         }
     }
 
@@ -214,17 +211,38 @@ public class AssessNA12878 extends NA12878DBWalker {
         }
     }
 
+    /**
+     * Replace all of the current detailed assessors with their simplified versions
+     */
+    private void simplifyAssessments() {
+        for ( final Assessor assessor : assessors.values() ) {
+            assessor.simplifyAssessments();
+        }
+    }
+
+    /**
+     * Get an assessment that's representative of the structure of all of the assessment
+     *
+     * Useful for getting things like the ActiveTypes for all assessments
+     *
+     * @return
+     */
+    private Assessment getRepresentativeAssessment() {
+        return assessors.values().iterator().next().getSNPAssessment();
+    }
+
     public void onTraversalDone(Integer result) {
         super.onTraversalDone(result);
         includeMissingCalls(consensusSiteIterator.toList());
+        if ( ! detailedAssessment ) simplifyAssessments();
 
         if ( variants.size() == 1 ) {
             final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets",
                     "Name", "VariantType", "AssessmentType", "Count");
             for( final RodBinding rod : variants ) {
                 for ( final TypesToInclude variantType : Arrays.asList(TypesToInclude.SNPS, TypesToInclude.INDELS) ) {
-                    for ( final AssessmentType type : AssessmentType.values() ) {
-                        final Assessment assessment = getAssessment(rod.getName(), variantType);
+                    final Assessment assessment = getAssessment(rod.getName(), variantType);
+                    for ( final AssessmentType type : assessment.getActiveTypes() ) {
                         report.addRow(rod.getName(), variantType.toString(), type, assessment.get(type));
                     }
                 }
@@ -234,7 +252,7 @@ public class AssessNA12878 extends NA12878DBWalker {
             final List<String> columns = new ArrayList<String>();
             columns.add("Name");
             columns.add("VariantType");
-            for( final AssessmentType type : AssessmentType.values() ) {
+            for( final AssessmentType type : getRepresentativeAssessment().getActiveTypes() ) {
                 columns.add(type.toString());
             }
             final GATKReport report = GATKReport.newSimpleReport("NA12878Assessment", columns);

@@ -82,7 +82,7 @@ public class UGCalcLikelihoods extends LocusWalker<List<VariantCallContext>, Int
     @ArgumentCollection private UnifiedArgumentCollection UAC = new UnifiedArgumentCollection();
 
     // control the output
-    @Output(doc="File to which variants should be written",required=true)
+    @Output(doc="File to which variants should be written")
     protected VariantContextWriter writer = null;
 
     // the calculation arguments

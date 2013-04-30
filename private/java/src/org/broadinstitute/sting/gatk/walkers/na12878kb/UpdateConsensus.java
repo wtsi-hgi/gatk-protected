@@ -77,7 +77,7 @@ public class UpdateConsensus extends NA12878DBWalker {
     @Override public boolean isDone() { return true; }
 
     public void onTraversalDone(Integer result) {
-        final ConsensusSummarizer summary = db.updateConsensus(makeSiteSelector());
+        final ConsensusSummarizer summary = db.updateConsensus(makeSiteSelector(), true);
         summary.summaryGATKReport(false).print(out);
         super.onTraversalDone(result);
     }

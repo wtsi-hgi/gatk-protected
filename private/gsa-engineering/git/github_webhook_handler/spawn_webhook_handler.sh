@@ -12,7 +12,7 @@ HANDLER_USER="gsa-engineering"
 if ! ps -U "${HANDLER_USER}" -o comm | grep "${HANDLER_NAME}"
 then
     echo "Handler not found, restarting ${HANDLER}"
-    nohup "${HANDLER}" &
+    nohup "${HANDLER}" > /dev/null &
     sleep 5 
 fi
 

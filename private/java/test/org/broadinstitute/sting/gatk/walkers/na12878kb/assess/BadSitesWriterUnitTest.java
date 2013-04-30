@@ -83,12 +83,10 @@ public class BadSitesWriterUnitTest extends BaseTest {
         final MongoVariantContext mvc = MongoVariantContext.create(Arrays.asList("foo", "bar"), vc, TruthStatus.TRUE_POSITIVE, new Date(), het, true);
 
         // this functionality can be adapted to provide input data for whatever you might want in your data
-        for ( final AssessmentType type : AssessmentType.values() ) {
+        for ( final AssessmentType type : AssessmentType.DETAILED_ASSESSMENTS ) {
             for ( final int maxToWrite : Arrays.asList(Integer.MAX_VALUE, 10) ) {
-                for ( final boolean captureBadSites : Arrays.asList(true, false) ) {
-                    for ( final Set<AssessmentType> exclude : Arrays.asList(Collections.<AssessmentType>emptySet(), Collections.singleton(type), Collections.singleton(AssessmentType.FALSE_POSITIVE_SITE_IS_FP)) ) {
-                        tests.add(new Object[]{type, mvc, maxToWrite, captureBadSites, exclude});
-                    }
+                for ( final Set<AssessmentType> exclude : Arrays.asList(Collections.<AssessmentType>emptySet(), Collections.singleton(type), Collections.singleton(AssessmentType.FALSE_POSITIVE_SITE_IS_FP)) ) {
+                    tests.add(new Object[]{type, mvc, maxToWrite, exclude});
                 }
             }
         }
@@ -97,9 +95,9 @@ public class BadSitesWriterUnitTest extends BaseTest {
     }
 
     @Test(dataProvider = "MyDataProvider")
-    public void testNotify(final AssessmentType type, final MongoVariantContext mvc, final int maxToWrite, final boolean captureBadSites, final Set<AssessmentType> assessmentsToExclude) {
+    public void testNotify(final AssessmentType type, final MongoVariantContext mvc, final int maxToWrite, final Set<AssessmentType> assessmentsToExclude) {
         final CountingWriter countingWriter = new CountingWriter();
-        final BadSitesWriter writer = new BadSitesWriter(maxToWrite, captureBadSites, assessmentsToExclude, countingWriter);
+        final BadSitesWriter writer = new BadSitesWriter(maxToWrite, assessmentsToExclude, countingWriter);
 
         final int start = 10;
         final List<Allele> alleles = Arrays.asList(Allele.create("A", true), Allele.create("C"));
@@ -113,7 +111,7 @@ public class BadSitesWriterUnitTest extends BaseTest {
             writer.notifyOfSite(type, vc, mvc);
             Assert.assertTrue(countingWriter.count <= maxToWrite, "Wrote too many sites " + countingWriter.count + " should be <= " + maxToWrite);
 
-            if ( type.isInteresting() && captureBadSites && ! assessmentsToExclude.contains(type) ) {
+            if ( type.isInteresting()  && ! assessmentsToExclude.contains(type) ) {
                 if ( countingWriter.count < maxToWrite ) {
                     Assert.assertEquals(countingWriter.count, lastCount + 1, "Should have written just one variant but counter increased by more than 1");
                     Assert.assertNotNull(countingWriter.lastVC, "Should have written just a variant didn't");

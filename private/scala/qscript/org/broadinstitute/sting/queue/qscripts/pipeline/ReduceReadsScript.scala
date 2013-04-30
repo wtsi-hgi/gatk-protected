@@ -51,6 +51,7 @@ import org.broadinstitute.sting.pipeline.{PicardSample, PicardAggregationUtils}
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.function._
 import org.broadinstitute.sting.queue.QScript
+import collection.JavaConversions._
 
 class ReduceReadsScript extends QScript {
   @Input(doc="Tab separated squid projects and samples.", shortName="tsv", exclusiveOf="bamList", required=false)

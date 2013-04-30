@@ -74,19 +74,19 @@ import java.util.*;
  * Walks along reference and calculates the GC content for each interval.
  * <p/>
  * <p/>
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>
  * <ul>
  * <li>A reference file</li>
  * <li>A bam file OR multiple bams</li>
  * </p>
  * <p/>
- * <h2>Output</h2>
+ * <h3>Output</h3>
  * <p>
  * Tab-deliminated text file showing average coverage per read group per interval.
  * </p>
  * <p/>
- * <h2>Examples</h2>
+ * <h3>Examples</h3>
  * <pre>
  * java -Xmx2g -jar GenomeAnalysisTK.jar \
  *   -R ref.fasta \

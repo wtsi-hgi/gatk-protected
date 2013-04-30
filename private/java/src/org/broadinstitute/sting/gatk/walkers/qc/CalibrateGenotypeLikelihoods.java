@@ -86,7 +86,7 @@ import java.util.*;
  * </p>
  *
  *
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>
  *  This walker takes two inputs:
  *  <ul>
@@ -96,11 +96,11 @@ import java.util.*;
  *  <b>Warning: The truth ROD MUST include all possible genotypes to build the error model appropriately (AA, AB, BB)</b>
  * </p>
  *
- * <h2>Output</h2>
+ * <h3>Output</h3>
  *  <p>
  *      Two intermediate tables:
  *      <ul>
- *          <li>Raw ouput of all sites with the three genotypes and their likelihoods</li>
+ *          <li>Raw output of all sites with the three genotypes and their likelihoods</li>
  *          <li>A digested table stratified by read group and platforms (for plotting)</li>
  *      </ul>
  *
@@ -112,7 +112,7 @@ import java.util.*;
  *      </ul>
  *  <p>
  *
- * <h2>Example</h2>
+ * <h3>Example</h3>
  * <pre>
  * java -Xmx4g -jar GenomeAnalysisTK.jar \
  *   -T CalibrateGenotypeLikelihoods \
@@ -153,10 +153,13 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     @Argument(fullName="repeats", shortName="repeats", doc="Do indel evaluation", required=false)
     private boolean doRepeats = false;
 
+    @Argument(fullName="skipFilteredRecords", shortName="skipFiltered", doc="Skip filtered records when evaluating external likelihoods", required=false)
+    private boolean skipFilteredRecords = false;
+
     //@Argument(fullName="standard_min_confidence_threshold_for_calling", shortName="stand_call_conf", doc="the minimum phred-scaled Qscore threshold to separate high confidence from low confidence calls", required=false)
     private double callConf = 0;
 
-    @Output(doc="The name of the output files for both tables and pdf (name will be prepended to the appropriate extensions)", required=true)
+    @Output(doc="The name of the output files for both tables and pdf (name will be prepended to the appropriate extensions)")
     private File moltenDatasetFileName;
 
     PrintStream moltenDataset;
@@ -485,9 +488,12 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             if ( extVC == null ) {
                 return Data.EMPTY_DATA;
             }
-    
-            // make sure there is an alternate allele
-            if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0 ) {
+
+            if ( extVC.isFiltered() && skipFilteredRecords )
+                return Data.EMPTY_DATA; // skip filtered eval records
+
+            // make sure there is an alternate allele and that it matches exactly the extVC allele
+            if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0 || !vcComp.hasSameAllelesAs(extVC) ) {
                 return Data.EMPTY_DATA;
             }
     

@@ -70,7 +70,7 @@ public class CGVarToVCF extends RodWalker<Integer, Integer> {
     @ArgumentCollection
     protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
-    @Output(doc="File to which variants should be written", required=true)
+    @Output(doc="File to which variants should be written")
     protected VariantContextWriter vcfWriter = null;
 
     @Argument(fullName="sample", shortName="sample", doc="The sample name represented by the variant rod", required=true)

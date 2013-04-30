@@ -90,6 +90,9 @@ class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "maxNSamples", doc="maxNSamples", required=false)
   val maxNSamples: Int = 1000000
 
+  @Argument(shortName = "manyVersions", doc="manyVersions", required=false)
+  val manyVersions: Boolean = false
+
   val singleTestsPerIteration = 3
 
   val RECAL_BAM_FILENAME = "CEUTrio.HiSeq.WGS.b37_decoy.NA12878.clean.dedup.recal.20GAV.8.bam"
@@ -127,17 +130,21 @@ class GATKPerformanceOverTime extends QScript {
   // TODO -- count the number of lines in the bam.list file
   val WGSAssessment = new AssessmentParameters("WGS.multiSample.4x", "wgs.bam.list.local.list", "wgs.bam.list.select.intervals", "20:10000000-11000000", 1103, 50, true)
   val WGSDeepAssessment = new AssessmentParameters("WGS.singleSample.60x", "wgs.deep.bam.list.local.list", "wgs.deep.bam.list.select.intervals", "1", 1, 250, true)
+  val WGSDeepAssessmentReduced = new AssessmentParameters("WGS.singleSample.60x.reduced", "CEUTrio.HiSeq.WGS.b37.NA12878.clean.dedup.recal.reduced.bam", "20:10,000,000-10,500,000", "20:10,000,000-10,500,000", 1, 250, true)
   val WExAssessment = new AssessmentParameters("WEx.multiSample.150x", "wex.bam.list.local.list", "wex.bam.list.select.intervals", "wex.bam.list.small.intervals", 140, 500, true)
 
   val GATK_RELEASE_DIR = new File("/humgen/gsa-hpprojects/GATK/bin/")
-  val GATKs: Map[String, File] = Map(
-    "v2.cur" -> myJarFile, // TODO -- how do I get this value?
-    "v2.0" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "2.0"),
-    "v1.6" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "1.6"))
+  var GATKs: Map[String, File] =
+    Map(
+      "v2.cur" -> myJarFile, // TODO -- how do I get this value?
+      "v2.4" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "2.4"),
+      "v2.0" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "2.0"),
+      "v1.6" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "1.6")
+    )
 
   object Assessment extends Enumeration {
     type Assessment = Value
-    val UG, UG_NT, CL, CL_NT, CV, CV_NT, VE, VE_NT, SV, BQSR_NT, PRINT_READS_NT, MANY_SAMPLES_NT = Value
+    val UG, UG_NT, CL, CL_NT, CV, CV_NT, VE, VE_NT, SV, BQSR_NT, PRINT_READS_NT, MANY_SAMPLES_NT, HC_VS_UG = Value
   }
 
   val NCT_ASSESSMENTS = List(Assessment.UG_NT, Assessment.CL_NT, Assessment.BQSR_NT, Assessment.PRINT_READS_NT, Assessment.MANY_SAMPLES_NT)
@@ -155,6 +162,20 @@ class GATKPerformanceOverTime extends QScript {
   def script() {
     assessments = assessmentsArg.map(Assessment.withName(_))
 
+    if ( manyVersions ) {
+      GATKs = GATKs ++ Map(
+        "v2.3" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "2.3"),
+        "v2.2" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "2.2"),
+        "v2.1" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "2.1"),
+        "v1.5" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "1.5"),
+        "v1.4" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "1.4"),
+        "v1.3" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "1.3"),
+        "v1.2" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "1.2"),
+        "v1.1" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "1.1"),
+        "v1.0" -> PathUtils.findMostRecentGATKVersion(GATK_RELEASE_DIR, "1.0")
+      )
+    }
+
     if ( ! resultsDir.exists ) resultsDir.mkdirs()
 
     // iterate over GATK's and data sets
@@ -162,6 +183,7 @@ class GATKPerformanceOverTime extends QScript {
       for ( (gatkName, gatkJar) <- GATKs ) {
 
         enqueueCommandsForEachAssessment(iteration, gatkName, gatkJar)
+        enqueueCommandsForHCvsUG(iteration, gatkName, gatkJar)
         enqueueMultiThreadedCommands(iteration, gatkName, gatkJar)
         enqueueSingleTestCommands(iteration, gatkName, gatkJar)
       }
@@ -306,6 +328,53 @@ class GATKPerformanceOverTime extends QScript {
     }
   }
 
+  def enqueueCommandsForHCvsUG(iteration: Int, gatkName: String, gatkJar: File) {
+    val G1K4x = new AssessmentParameters("WGS.G1K4x.1100samples", "20120522.chrom20.20_10000000_10100000.bam", "20:10,000,000-10,100,000", "20:10,000,000-10,010,000", 1, 50, true)
+    val dataSets = if ( justDeepWGS ) List(WGSDeepAssessment) else List(G1K4x, WGSDeepAssessment, WGSDeepAssessmentReduced, WExAssessment)
+
+    val intervalsForAssessments = Map(
+      G1K4x -> "20:10,000,000-10,010,000",
+      WGSDeepAssessment -> "1:10,000,000-11,000,000",
+      WGSDeepAssessmentReduced -> WGSDeepAssessmentReduced.fullIntervals,
+      WExAssessment -> makeResource("wex.bam.list.tiny.intervals")
+    )
+
+    if ( assessments.contains(Assessment.HC_VS_UG) ) {
+      for ( assess <- dataSets ) {
+        for ( tool <- List("HaplotypeCaller", "UnifiedGenotyper") ) {
+          val bams = {
+            if ( assess.bamList.getAbsolutePath.endsWith(".list") ) {
+              val sublist = new SliceList(assess.name, assess.nSamples, makeResource(assess.bamList))
+              if ( iteration == 0 ) add(sublist)
+              sublist.list
+            } else {
+              makeResource(assess.bamList)
+            }
+          }
+          val name: String = "%s/assess.%s_gatk.%s_iter.hc_vs_ug.%d".format(resultsDir, assess.name, gatkName, iteration)
+
+          trait VersionOverrides extends CommandLineGATK {
+            this.jarFile = gatkJar
+            this.intervalsString :+= intervalsForAssessments.get(assess).get
+            this.memoryLimit = 8
+
+            this.configureJobReport(Map(
+              "iteration" -> iteration,
+              "gatk" -> gatkName,
+              "tool" -> tool,
+              "assessment" -> assess.name))
+            this.analysisName = "HCvsUG"
+          }
+
+          if ( tool == "UnifiedGenotyper" )
+            addGATKCommand(new Call(bams, assess.nSamples, name, assess.baq) with VersionOverrides)
+          else if ( gatkName.contains("v2") ) // must be HC, only do it if version is 2+
+            addGATKCommand(new HCCall(bams, assess.nSamples, name) with VersionOverrides)
+        }
+      }
+    }
+  }
+
   def addMultiThreadedTest(gatkName: String,
                            assessment: Assessment.Assessment,
                            makeCommand: () => CommandLineGATK,
@@ -316,7 +385,7 @@ class GATKPerformanceOverTime extends QScript {
         if ( nt <= maxNT ) {
           for ( useNT <- List(true, false) ) {
             if ( ( useNT && supportsNT(assessment)) ||
-                 (! useNT && supportsNCT(assessment) && gatkName.contains("v2.cur") )) {
+              (! useNT && supportsNCT(assessment) && gatkName.contains("v2.cur") )) {
               // TODO -- fix v2.cur testing
               val cmd = makeCommand()
               if ( useNT )
@@ -348,7 +417,13 @@ class GATKPerformanceOverTime extends QScript {
     this.input_file :+= bamList
     this.stand_call_conf = 10.0
     this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
-    //this.baq = if ( ! skipBAQ && useBaq ) org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE else org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
+    this.baq = if ( ! skipBAQ && useBaq ) org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE else org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
+    @Output(doc="foo") var outVCF: File = new File("/dev/null")
+    this.o = outVCF
+  }
+
+  class HCCall(@Input(doc="foo") bamList: File, n: Int, name: String) extends HaplotypeCaller with UNIVERSAL_GATK_ARGS {
+    this.input_file :+= bamList
     @Output(doc="foo") var outVCF: File = new File("/dev/null")
     this.o = outVCF
   }

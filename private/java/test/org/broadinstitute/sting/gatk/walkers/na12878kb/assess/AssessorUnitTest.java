@@ -52,10 +52,7 @@ import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
-import org.broadinstitute.variant.variantcontext.Genotype;
-import org.broadinstitute.variant.variantcontext.GenotypeBuilder;
-import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.variantcontext.*;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -91,6 +88,7 @@ public class AssessorUnitTest extends BaseTest {
         final VariantContext vcAT10 = makeVC(10, "A", "T");
         final VariantContext vcAG10 = makeVC(10, "A", "G");
         final VariantContext vcACT10 = makeVC(10, "A", "C", "T");
+        final VariantContext vcNoVariation = makeVC(10, "A");
 
         final MongoVariantContext mvcAC10TP = makeMVC(vcAC10, TruthStatus.TRUE_POSITIVE);
         final MongoVariantContext mvcAT10TP = makeMVC(vcAT10, TruthStatus.TRUE_POSITIVE);
@@ -100,13 +98,13 @@ public class AssessorUnitTest extends BaseTest {
 
         final List<MongoVariantContext> noKB = Collections.emptyList();
 
-        final Assessment emptyAssessment = new Assessment();
-        final Assessment oneNovel = new Assessment(AssessmentType.CALLED_NOT_IN_DB_AT_ALL);
-        final Assessment oneTP = new Assessment(AssessmentType.TRUE_POSITIVE);
-        final Assessment oneFP = new Assessment(AssessmentType.FALSE_POSITIVE_SITE_IS_FP);
-        final Assessment oneFN = new Assessment(AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL);
-        final Assessment oneTN = new Assessment(AssessmentType.CORRECTLY_UNCALLED);
-        final Assessment oneNotRel = new Assessment(AssessmentType.NOT_RELEVANT);
+        final Assessment emptyAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
+        final Assessment oneNovel = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.CALLED_NOT_IN_DB_AT_ALL);
+        final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+        final Assessment oneFP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.FALSE_POSITIVE_SITE_IS_FP);
+        final Assessment oneFN = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL);
+        final Assessment oneTN = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.CORRECTLY_UNCALLED);
+        final Assessment oneNotRel = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.NOT_RELEVANT);
 
         // this functionality can be adapted to provide input data for whatever you might want in your data
         tests.add(new Object[]{Arrays.asList(vcAC10), noKB, oneNovel, emptyAssessment});
@@ -121,6 +119,9 @@ public class AssessorUnitTest extends BaseTest {
         tests.add(new Object[]{Arrays.asList(vcAC10), Arrays.asList(mvcAC10SUS), oneNotRel, emptyAssessment});
         tests.add(new Object[]{Arrays.asList(), Arrays.asList(mvcAC10SUS), oneNotRel, emptyAssessment});
 
+        // make sure no variation is handled corrected
+        tests.add(new Object[]{Arrays.asList(vcNoVariation), noKB, emptyAssessment, emptyAssessment});
+        tests.add(new Object[]{Arrays.asList(vcNoVariation), Arrays.asList(mvcAC10TP), oneFN, emptyAssessment});
 
         // make sure multiple events are handled properly
         tests.add(new Object[]{Arrays.asList(vcAC10, vcAT10), Arrays.asList(mvcAC10TP), oneNovel.add(oneTP), emptyAssessment});
@@ -170,9 +171,34 @@ public class AssessorUnitTest extends BaseTest {
     @Test(dataProvider = "AssessSiteData")
     public void testAssessSite(final List<VariantContext> fromVCF, final List<MongoVariantContext> fromKB, Assessment expectedSNPs, Assessment expectedIndels) {
         final Assessor assessor = new Assessor("test");
-        assessor.accessSite(fromVCF, fromKB);
+        assessor.accessSite(fromVCF, fromKB, false);
         Assert.assertEquals(assessor.getSNPAssessment(), expectedSNPs);
         Assert.assertEquals(assessor.getIndelAssessment(), expectedIndels);
+    }
+
+    @Test
+    public void testSubsetMultiAllelic() {
+        // This ensures that subsetting down multi-allelic to NA12878 works properly
+
+        final Allele threeCopies = Allele.create("GTTTTATTTTATTTTA", true);
+        final Allele twoCopies = Allele.create("GTTTTATTTTA", true);
+        final Allele zeroCopies = Allele.create("G", false);
+        final Allele oneCopies = Allele.create("GTTTTA", false);
+
+        final VariantContextBuilder b = new VariantContextBuilder().source("foo").chr("20").start(10).stop(25);
+        b.alleles(Arrays.asList(threeCopies, zeroCopies, oneCopies));
+        b.genotypes(
+                new GenotypeBuilder("NA12878", Arrays.asList(threeCopies, oneCopies)).make(),
+                new GenotypeBuilder("NA12891", Arrays.asList(threeCopies, zeroCopies)).make());
+
+        final VariantContext truthVC = new VariantContextBuilder("truth", "20", 10, 20, Arrays.asList(twoCopies, zeroCopies)).make();
+        final MongoVariantContext truthMVC = makeMVC(truthVC, TruthStatus.TRUE_POSITIVE);
+
+        final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+
+        final Assessor assessor = new Assessor("test");
+        assessor.accessSite(Arrays.asList(b.make()), Arrays.asList(truthMVC), false);
+        Assert.assertEquals(assessor.getIndelAssessment(), oneTP);
     }
 
     // ------------------------------------------------------------
@@ -210,9 +236,9 @@ public class AssessorUnitTest extends BaseTest {
     @Test(dataProvider = "FilteringSiteData")
     public void testFilteringSites(final VariantContext vc, final MongoVariantContext mvc, final AssessmentType expectedType) {
         final Assessor assessor = new Assessor("test");
-        assessor.accessSite(Collections.singletonList(vc), mvc == null ? Collections.<MongoVariantContext>emptyList() : Collections.singletonList(mvc));
+        assessor.accessSite(Collections.singletonList(vc), mvc == null ? Collections.<MongoVariantContext>emptyList() : Collections.singletonList(mvc), false);
         final Assessment actual = vc.isSNP() ? assessor.getSNPAssessment() : assessor.getIndelAssessment();
-        final Assessment expected = new Assessment(expectedType);
+        final Assessment expected = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, expectedType);
         Assert.assertEquals(actual, expected);
     }
 

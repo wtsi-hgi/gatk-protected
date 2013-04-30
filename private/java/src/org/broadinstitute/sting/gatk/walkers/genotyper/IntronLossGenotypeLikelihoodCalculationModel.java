@@ -58,6 +58,7 @@ import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.sting.utils.smithwaterman.SWPairwiseAlignment;
 
 import java.util.*;
 

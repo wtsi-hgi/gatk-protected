@@ -50,6 +50,7 @@ import com.google.java.contract.Ensures;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 
 /**
@@ -60,25 +61,40 @@ import java.util.List;
  * Time: 8:35 PM
  */
 class Assessment {
+    final EnumSet<AssessmentType> activeTypes;
     final EnumMap<AssessmentType, Integer> counts;
 
     /**
      * Create a new Assessment, initialized to 0 count per AssessmentType
+     * @param activeTypes The set of all types that are being tracked by this assessment
      */
-    public Assessment() {
+    public Assessment(final EnumSet<AssessmentType> activeTypes) {
+        if ( activeTypes == null ) throw new IllegalArgumentException("activeTypes cannot be null");
+        if ( activeTypes.isEmpty() ) throw new IllegalArgumentException("activeTypes cannot be empty");
+
+        this.activeTypes = activeTypes;
         counts = new EnumMap<AssessmentType, Integer>(AssessmentType.class);
-        for ( final AssessmentType type : AssessmentType.values() )
+        for ( final AssessmentType type : activeTypes )
             counts.put(type, 0);
     }
 
     /**
      * Create an assessment initialized to having +1 count for each value provided
+     * @param activeTypes The set of all types that are being tracked by this assessment
      * @param initialValues a vararg of types to increment
      */
-    protected Assessment(final AssessmentType ... initialValues) {
-        this();
+    protected Assessment(final EnumSet<AssessmentType> activeTypes, final AssessmentType ... initialValues) {
+        this(activeTypes);
         for ( final AssessmentType initial : initialValues )
             inc(initial);
+    }
+
+    /**
+     * Get the set of all AssessmentTypes that are being tracked by this assessment
+     * @return non-null enum set
+     */
+    public EnumSet<AssessmentType> getActiveTypes() {
+        return activeTypes;
     }
 
     /**
@@ -88,6 +104,7 @@ class Assessment {
      */
     public final void inc(final AssessmentType type) {
         if ( type == null ) throw new IllegalArgumentException("type cannot be null");
+        if ( ! getActiveTypes().contains(type) ) throw new IllegalArgumentException("Cannot increment count for non-active assessment " + type);
         counts.put(type, counts.get(type) + 1);
     }
 
@@ -99,6 +116,7 @@ class Assessment {
      */
     public final int get(final AssessmentType type) {
         if ( type == null ) throw new IllegalArgumentException("type cannot be null");
+        if ( ! getActiveTypes().contains(type) ) throw new IllegalArgumentException("Cannot get count for non-active assessment " + type);
         return counts.get(type);
     }
 
@@ -107,10 +125,10 @@ class Assessment {
      *
      * @return a non-null list
      */
-    @Ensures({"result != null", "result.size() == AssessmentType.values().length"})
+    @Ensures({"result != null", "result.size() == getActiveTypes().size()"})
     public List<Integer> getCounts() {
         final List<Integer> returnList = new ArrayList<Integer>();
-        for( final AssessmentType type : AssessmentType.values() ) {
+        for( final AssessmentType type : activeTypes ) {
             returnList.add(get(type));
         }
         return returnList;
@@ -123,6 +141,7 @@ class Assessment {
      */
     public void merge(final Assessment toAdd) {
         if ( toAdd == null ) throw new IllegalArgumentException("toAdd cannot be null");
+        if ( ! toAdd.getActiveTypes().equals(getActiveTypes()) ) throw new IllegalArgumentException("Cannot merge assessments with non-equal active types: this " + this + " vs. toAdd " + toAdd);
         for ( final EnumMap.Entry<AssessmentType, Integer> count : toAdd.counts.entrySet() )
             counts.put(count.getKey(), get(count.getKey()) + count.getValue());
     }
@@ -133,10 +152,33 @@ class Assessment {
      * @return a newly allocated assessment == this + toAdd
      */
     public Assessment add(final Assessment toAdd) {
-        final Assessment copy = new Assessment();
+        final Assessment copy = new Assessment(getActiveTypes());
         copy.merge(this);
         copy.merge(toAdd);
         return copy;
+    }
+
+    /**
+     * Return a new assessment that uses only the simpler assessments of AssessmentType
+     *
+     * Remaps the current assessments into their more detailed version, so if there are
+     * multiple FN detailed values these will all sum up in the simple FN assessment
+     *
+     * @return a simple version of this Assessment (if this is already simple just returns this)
+     */
+    public Assessment simplify() {
+        if ( this.getActiveTypes().equals(AssessmentType.SIMPLE_ASSESSMENTS) )
+            return this;
+
+        final Assessment simpleAssessment = new Assessment(AssessmentType.SIMPLE_ASSESSMENTS);
+        for ( final EnumMap.Entry<AssessmentType, Integer> count : this.counts.entrySet() ) {
+            final AssessmentType detailed = count.getKey();
+            final AssessmentType simple = detailed.getSimpleVersion();
+            if ( simple != null )
+                simpleAssessment.counts.put(simple, simpleAssessment.get(simple) + count.getValue());
+        }
+
+        return simpleAssessment;
     }
 
     @Override

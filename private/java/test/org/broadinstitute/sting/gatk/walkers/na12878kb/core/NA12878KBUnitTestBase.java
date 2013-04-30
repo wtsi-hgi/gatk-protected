@@ -53,6 +53,7 @@ import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.testng.SkipException;
+import org.testng.annotations.BeforeSuite;
 
 import java.io.File;
 import java.io.IOException;
@@ -62,12 +63,13 @@ public class NA12878KBUnitTestBase extends BaseTest {
     private final static Logger logger = Logger.getLogger(NA12878KBUnitTestBase.class);
     protected final static String NA12878_KB_TESTFILES = privateTestDir + "/na12878kb/";
     protected final static File testVCF = new File(NA12878_KB_TESTFILES + "test.vcf");
-    protected final static List<VariantContext> testVCs;
-    protected final static GenomeLocParser parser;
+    protected static List<VariantContext> testVCs;
+    protected static GenomeLocParser parser;
 
     protected NA12878KnowledgeBase db;
 
-    static {
+    @BeforeSuite
+    protected static void initialSetup() {
         try {
             testVCs = Collections.unmodifiableList(GATKVCFUtils.readVCF(testVCF).getSecond());
             final IndexedFastaSequenceFile fasta = new IndexedFastaSequenceFile(new File(b37KGReference));

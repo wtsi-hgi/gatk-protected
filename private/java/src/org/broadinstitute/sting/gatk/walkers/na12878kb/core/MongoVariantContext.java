@@ -52,9 +52,7 @@ import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.variant.vcf.VCFHeaderLine;
-import org.broadinstitute.variant.vcf.VCFHeaderLineType;
-import org.broadinstitute.variant.vcf.VCFInfoHeaderLine;
+import org.broadinstitute.variant.vcf.*;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.variant.variantcontext.Allele;
@@ -361,6 +359,8 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         lines.add(new VCFInfoHeaderLine("PolymorphicStatus", 1, VCFHeaderLineType.String, "Is this call polymorphic in NA12878"));
         lines.add(new VCFInfoHeaderLine("Date", 1, VCFHeaderLineType.String, "Date/time as a long of this review"));
         lines.add(new VCFInfoHeaderLine("PhredConfidence", 1, VCFHeaderLineType.Integer, "Phred-scaled confidence in this review"));
+        lines.add(VCFStandardHeaderLines.getFormatLine(VCFConstants.DEPTH_KEY));
+        lines.add(VCFStandardHeaderLines.getFormatLine(VCFConstants.GENOTYPE_QUALITY_KEY));
 
         return lines;
     }
