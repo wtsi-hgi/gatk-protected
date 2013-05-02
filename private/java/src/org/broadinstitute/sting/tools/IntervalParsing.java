@@ -44,106 +44,147 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.diagnostics.diagnosetargets;
+package org.broadinstitute.sting.tools;
 
+import net.sf.picard.reference.IndexedFastaSequenceFile;
+import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.CommandLineProgram;
 import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.interval.IntervalUtils;
 
+import java.io.File;
 import java.io.PrintStream;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 
-final class ThresHolder {
+/**
+ * Standalone utility to operate on interval lists
+ */
+public final class IntervalParsing extends CommandLineProgram {
 
-    /**
-     * Only bases with quality greater than this will be considered in the coverage metrics.
-     */
-    @Argument(fullName = "minimum_base_quality", shortName = "BQ", doc = "The minimum Base Quality that is considered for calls", required = false)
-    public int minimumBaseQuality = 20;
+    private static Logger logger = Logger.getLogger(IntervalParsing.class);
 
-    /**
-     * Only reads with mapping quality greater than this will be considered in the coverage metrics.
-     */
-    @Argument(fullName = "minimum_mapping_quality", shortName = "MQ", doc = "The minimum read mapping quality considered for calls", required = false)
-    public int minimumMappingQuality = 20;
+    @Output
+    protected PrintStream out;
 
-    /**
-     * If at any locus, a sample has less coverage than this, it will be reported as LOW_COVERAGE
-     */
-    @Argument(fullName = "minimum_coverage", shortName = "min", doc = "The minimum allowable coverage, used for calling LOW_COVERAGE", required = false)
-    public int minimumCoverage = 5;
+    @Argument(shortName = "R", required = true)
+    public File reference;
 
-    /**
-     * If at any locus, a sample has more coverage than this, it will be reported as EXCESSIVE_COVERAGE
-     */
-    @Argument(fullName = "maximum_coverage", shortName = "max", doc = "The maximum allowable coverage, used for calling EXCESSIVE_COVERAGE", required = false)
-    public int maximumCoverage = 700;
+    @Argument(shortName = "targets", required = true)
+    public List<File> intervalList;
 
-    /**
-     * If any sample has a paired read whose distance between alignment starts (between the pairs) is greater than this, it will be reported as BAD_MATE
-     */
-    @Argument(fullName = "maximum_insert_size", shortName = "ins", doc = "The maximum allowed distance between a read and its mate", required = false)
-    public int maximumInsertSize = 500;
+    @Argument(shortName = "action", required = true)
+    public Action action;
 
-    /**
-     * The proportion of samples that must have a status for it to filter the entire interval. Example: 8 out of 10 samples have low coverage status on the interval,
-     * with a threshold higher than 0.2, this interval will be filtered as LOW_COVERAGE.
-     */
-    @Argument(fullName = "voting_status_threshold", shortName = "stV", doc = "The needed proportion of samples containing a call for the interval to adopt the call ", required = false)
-    public double votePercentageThreshold = 0.50;
+    public enum Action {
+        UNION,       // A + B
+        DIFFERENCE,  // (((A - B) - C) - D) ... in order
+        INTERSECTION // A & B
+    }
 
-    /**
-     * The proportion of reads in the loci that must have bad mates for the sample to be reported as BAD_MATE
-     */
-    @Argument(fullName = "bad_mate_status_threshold", shortName = "stBM", doc = "The proportion of the loci needed for calling BAD_MATE", required = false)
-    public double badMateStatusThreshold = 0.50;
+    public static void main ( String[] args ) {
+        try {
+            IntervalParsing instance = new IntervalParsing();
+            start(instance, args);
+            System.exit(CommandLineProgram.result);
+        } catch ( UserException e ) {
+            exitSystemWithUserError(e);
+        } catch ( Exception e ) {
+            exitSystemWithError(e);
+        }
+    }
 
-    /**
-     * The proportion of loci in a sample that must fall under the LOW_COVERAGE or COVERAGE_GAPS category for the sample to be reported as either (or both)
-     */
-    @Argument(fullName = "coverage_status_threshold", shortName = "stC", doc = "The proportion of the loci needed for calling LOW_COVERAGE and COVERAGE_GAPS", required = false)
-    public double coverageStatusThreshold = 0.20;
+    @Override
+    protected int execute() throws Exception {
+        final List<List<GenomeLoc>> intervals = new ArrayList<List<GenomeLoc>>(intervalList.size());
+        final GenomeLocParser genomeLocParser = new GenomeLocParser(new IndexedFastaSequenceFile(reference));
+        for (File f : intervalList) {
+            intervals.add(IntervalUtils.intervalFileToList(genomeLocParser, f.getAbsolutePath()));
+        }
+        List<GenomeLoc> result = null;
+        switch (action) {
+            case UNION:
+                throw new ReviewedStingException("Not implemented");
+            case DIFFERENCE:
+                result = difference(intervals);
+                break;
+            case INTERSECTION:
+                throw new ReviewedStingException("Not implemented");
+            default:
+                throw new ReviewedStingException("Not implemented");
+        }
+        for (GenomeLoc interval : result)
+            out.println(interval);
+        out.close();
+        return 0;
+    }
 
-    /**
-     * The proportion of loci in a sample that must fall under the EXCESSIVE_COVERAGE category for the sample to be reported as EXCESSIVE_COVERAGE
-     */
-    @Argument(fullName = "excessive_coverage_status_threshold", shortName = "stXC", doc = "The proportion of the loci needed for calling EXCESSIVE_COVERAGE", required = false)
-    public double excessiveCoverageThreshold = 0.20;
+    private static List<GenomeLoc> difference(List<List<GenomeLoc>> list) {
+        return difference(list, 0);
+    }
 
-    /**
-     * The proportion of loci in a sample that must fall under the LOW_QUALITY category for the sample to be reported as LOW_QUALITY
-     */
-    @Argument(fullName = "quality_status_threshold", shortName = "stQ", doc = "The proportion of the loci needed for calling POOR_QUALITY", required = false)
-    public double qualityStatusThreshold = 0.50;
+    private static List<GenomeLoc> difference(List<List<GenomeLoc>> list, int index) {
+        if (list.size() < index + 1)
+            throw new ReviewedStingException("Not enough elements in the interval list");
 
-    @Output(fullName = "missing_intervals", shortName = "missing", doc ="Produces a file with the intervals that don't pass filters", required = false)
-    public PrintStream missingTargets = null;
+        List<GenomeLoc> result =  list.get(index);
+        for (int i = index + 1; i < list.size(); i++) {
+            result = difference(result, list.get(i));
+        }
+        return result;
+    }
 
-    public final List<Metric> locusMetricList = new LinkedList<Metric>();
-    public final List<Metric> sampleMetricList = new LinkedList<Metric>();
-    public final List<Metric> intervalMetricList = new LinkedList<Metric>();
+    private static List<GenomeLoc> difference (List<GenomeLoc> a, List<GenomeLoc> b) {
+        final List<GenomeLoc> result = new ArrayList<GenomeLoc>(a.size());
+        for (GenomeLoc interval : a) {
+            List<GenomeLoc> ints = difference(interval, b);
+            result.addAll(ints);
+        }
+        return result;
+    }
 
-    public ThresHolder() {}
+    private static List<GenomeLoc> difference(GenomeLoc interval, List<GenomeLoc> b) {
+        final List<GenomeLoc> result = new ArrayList<GenomeLoc>();
+        int left = 0;
+        int right = b.size();
+        boolean overlaps;
+        int comp;
+        int key;
+        do {
+            key = (left + right)/2;
+            GenomeLoc other = b.get(key);
+            overlaps = other.overlapsP(interval);
+            comp = other.compareTo(interval);
+            if (comp > 0) {
+                right = key - 1;
+            } else if (comp < 0) {
+                left = key + 1;
+            }
+        } while (!overlaps && right >= left);
 
-    public ThresHolder(final int minimumBaseQuality,
-                       final int minimumMappingQuality,
-                       final int minimumCoverage,
-                       final int maximumCoverage,
-                       final int maximumInsertSize,
-                       final double votePercentageThreshold,
-                       final double badMateStatusThreshold,
-                       final double coverageStatusThreshold,
-                       final double excessiveCoverageThreshold,
-                       final double qualityStatusThreshold) {
-        this.minimumBaseQuality = minimumBaseQuality;
-        this.minimumMappingQuality = minimumMappingQuality;
-        this.minimumCoverage = minimumCoverage;
-        this.maximumCoverage = maximumCoverage;
-        this.maximumInsertSize = maximumInsertSize;
-        this.votePercentageThreshold = votePercentageThreshold;
-        this.badMateStatusThreshold = badMateStatusThreshold;
-        this.coverageStatusThreshold = coverageStatusThreshold;
-        this.excessiveCoverageThreshold = excessiveCoverageThreshold;
-        this.qualityStatusThreshold = qualityStatusThreshold;
+        if (overlaps) {
+            left = key - 1;
+            right = key + 1;
+            while (left >= 0 && b.get(left).overlapsP(interval)) left--;
+            while (right < b.size() && b.get(right).overlapsP(interval)) right++;
+
+            List<GenomeLoc> partial = new ArrayList<GenomeLoc>();
+            result.add(interval);
+            for (int i = left+1; i<right; i++) {
+                for (GenomeLoc in : result) {
+                    partial.addAll(in.subtract(b.get(i)));
+                }
+                result.clear();
+                result.addAll(partial);
+                partial.clear();
+            }
+        }
+
+        return result;
     }
 }
