@@ -1,5 +1,7 @@
 #!/bin/tcsh
 
+use Java-1.7
+
 set args = ""
 
 if ( $1 == "local" ) then
