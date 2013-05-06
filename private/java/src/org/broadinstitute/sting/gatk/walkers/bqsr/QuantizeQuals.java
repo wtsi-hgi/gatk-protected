@@ -71,17 +71,17 @@ import java.util.List;
  * <p>
  * x
  *
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>
  * One or more bam files.
  * </p>
  *
- * <h2>Output</h2>
+ * <h3>Output</h3>
  * <p>
  * A single processed bam file.
  * </p>
  *
- * <h2>Examples</h2>
+ * <h3>Example</h3>
  * <pre>
  * java -Xmx2g -jar GenomeAnalysisTK.jar \
  *   -R ref.fasta \
@@ -106,7 +106,7 @@ public class QuantizeQuals extends ReadWalker<SAMRecord, SAMFileWriter> {
     @Argument(fullName = "minInterestingQual", shortName = "minInterestingQual", doc="Quality scores less than or equal to this value are considered uninteresting, are can be freely merged together", required = false)
     private int minInterestingQual = 10;
 
-    @Output(fullName = "report", shortName = "report", doc="Write GATK report of quantization process to this file", required = false)
+    @Output(fullName = "report", shortName = "report", doc="Write GATK report of quantization process to this file", required = false, defaultToStdout = false)
     private PrintStream reportOut = null;
 
     @Argument(fullName = "maxQualToInclude", shortName = "maxQualToInclude", doc="Only quality scores <= this value are considered for remapping", required = false)

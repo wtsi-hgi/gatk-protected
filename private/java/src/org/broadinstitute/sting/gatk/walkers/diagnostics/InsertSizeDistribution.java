@@ -60,16 +60,20 @@ import java.io.PrintStream;
 import java.util.*;
 
 /**
- * This tool computes the insert size distributions (from the ISIZE field of the GATKSAMRecord) for each sample and read group in a BAM
+ * Compute insert size distributions per sample and read group
  *
- * <h2>Input</h2>
+ * <p>
+ * This tool computes the insert size distributions (from the ISIZE field of the GATKSAMRecord) for each sample and read group in a BAM
+ * </p>
+ *
+ * <h3>Input</h3>
  * <p>
  *     Any number of BAM files.
  * </p>
  *
- * <h2>Output</h2>
+ * <h3>Output</h3>
  * <p>
- *     Emits a standard <a href="https://www.broadinstitute.org/gsa/wiki/index.php/GATKReport">GATKReport</a>
+ *     Emits a standard <a href="http://www.broadinstitute.org/gatk/guide/article?id=1244">GATKReport</a>
  *     with two tables:
  *
  *     <dl>
@@ -81,9 +85,13 @@ import java.util.*;
  *     </dl>
  * </p>
  *
- * <h2>Examples</h2>
+ * <h3>Examples</h3>
  * <pre>
- *     -T InsertSizeDistribution -I my.bam -o insert_sizes.gatkreport.txt
+ * java -Xmx2g -jar GenomeAnalysisTK.jar \
+ *    -T InsertSizeDistribution \
+ *    -R ref.fasta \
+ *    -I my.bam \
+ *    -o insert_sizes.grp
  * </pre>
 
  * @author Kiran Garimella and Mark DePristo

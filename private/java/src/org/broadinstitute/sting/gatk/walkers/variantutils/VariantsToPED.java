@@ -70,10 +70,10 @@ import java.util.*;
  *     Takes a VCF file and writes out a PED/INFO file suitable for loading into Haploview.
  * </p>
  *
- * <h2>Input</h2>
+ * <h3>Input</h3>
  * <p>A VCF file with genotypes</p>
  *
- * <h2>Output</h2>
+ * <h3>Output</h3>
  * <p>A PED and INFO files.
  * See http://www.broadinstitute.org/science/programs/medical-and-population-genetics/haploview/input-file-formats-0 for
  * information on these files.  This info file is a 'Marker Information File'
@@ -85,7 +85,7 @@ import java.util.*;
  * and detect automatically the info field when you select X.ped.
  * </p>
  *
- * <h2>Examples</h2>
+ * <h3>Examples</h3>
  * <pre>
  *     -T $WalkerName -V my.vcf -pedOut my.ped -infoOut my.info
  * </pre>

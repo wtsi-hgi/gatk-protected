@@ -22,26 +22,24 @@ fi
 
 git remote add github "${TARGET_REPO}"
 
-# Disable the check against the remote HEAD for now, as it's not strictly necessary.
-#
-# NEW_HEAD=`git rev-parse HEAD`
-# REMOTE_HEAD=`git ls-remote --heads github | grep refs/heads/master | awk '{print $1}'`
-#
-# if [ "${NEW_HEAD}" == "${REMOTE_HEAD}" ]
-# then
-#     echo "$0: Release repository ${TARGET_REPO} up-to-date with respect to Stable, no source release performed (HEAD = ${REMOTE_HEAD})"
-#     exit 0
-# fi
+NEW_HEAD=`git rev-parse HEAD`
+REMOTE_HEAD=`git ls-remote --heads github | grep refs/heads/master | awk '{print $1}'`
+
+if [ "${NEW_HEAD}" == "${REMOTE_HEAD}" ]
+then
+    echo "$0: Release repository ${TARGET_REPO} up-to-date with respect to Stable, no source release performed (HEAD = ${REMOTE_HEAD})"
+    exit 0
+fi
 
 git push --tags github master:master 
 
 if [ $? -ne 0 ]
 then
-    echo "$0: SOURCE RELEASE FAILED: Failed to push into ${RELEASE_URL}"
+    echo "$0: SOURCE RELEASE FAILED: Failed to push into ${TARGET_REPO}"
     exit 1
 fi
 
-echo "$0: SOURCE RELEASE SUCCEEDED: Successfully updated Release repository from latest Stable (new HEAD = ${NEW_HEAD})"
+echo "$0: SOURCE RELEASE SUCCEEDED: Successfully updated repository ${TARGET_REPO} from latest Stable (new HEAD = ${NEW_HEAD})"
 
 exit 0
 

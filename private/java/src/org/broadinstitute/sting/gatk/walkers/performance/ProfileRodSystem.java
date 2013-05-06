@@ -85,7 +85,7 @@ import java.util.*;
  * Emits specific fields as dictated by the user from one or more VCF files.
  */
 public class ProfileRodSystem extends RodWalker<Integer, Integer> {
-    @Output(doc="File to which results should be written",required=true)
+    @Output(doc="File to which results should be written")
     protected PrintStream out;
 
     @Input(fullName="vcf", shortName = "vcf", doc="vcf", required=true)
@@ -133,7 +133,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
 
         if ( profileType == ProfileType.JUST_LOAD_INDICES ) {
             RMDTrackBuilder builder = new RMDTrackBuilder(getToolkit().getReferenceDataSource().getReference().getSequenceDictionary(),
-                    getToolkit().getGenomeLocParser(), ValidationExclusion.TYPE.ALL);
+                    getToolkit().getGenomeLocParser(), ValidationExclusion.TYPE.ALL, getToolkit().getArguments().disableAutoIndexCreationAndLockingWhenReadingRods);
             int i = 0;
             for ( int iteration = 0; iteration < nIterations; iteration++ ) {
                 for ( File x : vcfsForIndexTest ) {

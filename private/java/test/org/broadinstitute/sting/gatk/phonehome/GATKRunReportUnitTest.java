@@ -84,6 +84,8 @@ public class GATKRunReportUnitTest extends BaseTest {
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
 
+    private static final long S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING = 30 * 1000;
+
     private Walker walker;
     private Exception exception;
     private GenomeAnalysisEngine engine;
@@ -181,10 +183,13 @@ public class GATKRunReportUnitTest extends BaseTest {
 
     // Will fail with timeout if AWS time out isn't working
     // Will fail with exception if AWS doesn't protect itself from errors
-    @Test(enabled = ! DEBUG, dataProvider = "GATKAWSReportMode", timeOut = 60 * 1000)
+    @Test(enabled = ! DEBUG, dataProvider = "GATKAWSReportMode", timeOut = S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING * 2)
     public void testAWS(final GATKRunReport.AWSMode awsMode) {
         logger.warn("Starting testAWS mode=" + awsMode);
-        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD);
+
+        // Use a shorter timeout than usual when we're testing GATKRunReport.AWSMode.TIMEOUT
+        final long thisTestS3Timeout = awsMode == GATKRunReport.AWSMode.TIMEOUT ? 30 * 1000 : S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING;
+        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD, thisTestS3Timeout);
         report.sendAWSToTestBucket();
         report.setAwsMode(awsMode);
         final S3Object s3Object = report.postReportToAWSS3();
@@ -227,9 +232,9 @@ public class GATKRunReportUnitTest extends BaseTest {
         return tests.toArray(new Object[][]{});
     }
 
-    @Test(enabled = ! DEBUG, dataProvider = "PostReportByType", timeOut = 60 * 1000)
+    @Test(enabled = ! DEBUG, dataProvider = "PostReportByType", timeOut = S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING * 2)
     public void testPostReportByType(final GATKRunReport.PhoneHomeOption type) {
-        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD);
+        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD, S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING);
         Assert.assertFalse(report.exceptionOccurredDuringPost(), "An exception occurred during posting the report");
         final boolean succeeded = report.postReport(type);
 
@@ -261,9 +266,9 @@ public class GATKRunReportUnitTest extends BaseTest {
 
     // Will fail with timeout if AWS time out isn't working
     // Will fail with exception if AWS doesn't protect itself from errors
-    @Test(timeOut = 30 * 1000)
+    @Test(timeOut = S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING * 2)
     public void testAWSPublicKeyHasAccessControls() throws Exception {
-        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD);
+        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD, S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING);
         report.sendAWSToTestBucket();
         final S3Object s3Object = report.postReportToAWSS3();
         Assert.assertNotNull(s3Object, "Upload to AWS failed, s3Object was null. error was " + report.formatError());

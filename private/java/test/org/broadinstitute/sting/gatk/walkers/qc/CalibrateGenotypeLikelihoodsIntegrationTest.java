@@ -63,7 +63,7 @@ public class CalibrateGenotypeLikelihoodsIntegrationTest extends WalkerTest {
                         " -alleles " + b37_NA12878_OMNI +
                         " -nt 4 -L 20:10,000,000-11,000,000 -o %s",
                 1,
-                Arrays.asList("74a2fb5f6c40d1d16c82f4f3d597e899"));
+                Arrays.asList("af7dee7af57d7449932f549ffc4373d6"));
         executeTest("CalibrateGenotypeLikelihoods:", spec);
     }
 
@@ -79,4 +79,32 @@ public class CalibrateGenotypeLikelihoodsIntegrationTest extends WalkerTest {
                 Arrays.asList("59960ef17b0efb844724eb36ebbc770a"));
         executeTest("CalibrateGenotypeLikelihoods:", spec);
     }
+
+    @Test
+    public void externalLikelihoodsSkipFilteredTest() {
+        WalkerTestSpec spec = new WalkerTestSpec(
+                "-T CalibrateGenotypeLikelihoods -R " + b37KGReference +
+                        " --externalLikelihoods:testRG " + privateTestDir + "NA12878.hg19.example1.badAlleles.vcf" +
+                        " --externalLikelihoods:testRG2 " + privateTestDir + "NA12878.hg19.example1.badAlleles.vcf" +
+                        " -alleles " + b37_NA12878_OMNI +
+                        " -skipFiltered " +
+                        " -L 20:10,000,000-11,000,000 -o %s",
+                1,
+                Arrays.asList("1a38d54d5ba5524c26c70962824dfa6e"));
+        executeTest("CalibrateGenotypeLikelihoods:", spec);
+    }
+
+    @Test
+    public void externalLikelihoodsWithBadAllelesTest() {
+        WalkerTestSpec spec = new WalkerTestSpec(
+                "-T CalibrateGenotypeLikelihoods -R " + b37KGReference +
+                        " --externalLikelihoods:testRG " + privateTestDir + "NA12878.hg19.example1.badAlleles.vcf" +
+                        " --externalLikelihoods:testRG2 " + privateTestDir + "NA12878.hg19.example1.badAlleles.vcf" +
+                        " -alleles " + b37_NA12878_OMNI +
+                        " -L 20:10,000,000-11,000,000 -o %s",
+                1,
+                Arrays.asList("d32705f694a7a229f554c570b1008d8d"));
+        executeTest("CalibrateGenotypeLikelihoods:", spec);
+    }
+
 }

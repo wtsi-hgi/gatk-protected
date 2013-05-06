@@ -47,8 +47,13 @@
 package org.broadinstitute.sting.gatk.walkers.activeregionqc;
 
 import org.broadinstitute.sting.WalkerTest;
+import org.broadinstitute.sting.gatk.report.GATKReport;
+import org.broadinstitute.sting.gatk.report.GATKReportTable;
+import org.broadinstitute.sting.gatk.walkers.ActiveRegionTraversalParameters;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Arrays;
 
 /**
@@ -62,5 +67,23 @@ public class CountReadsInActiveRegionsIntegrationTest extends WalkerTest {
                 1,
                 Arrays.asList("cf0be3e8aa86a2e4f1d98325e9a154b5"));
         executeTest("CountReadsInActiveRegions:", spec);
+    }
+
+    @Test
+    public void basicHandlingExcessiveCoverage() {
+        WalkerTestSpec spec = new WalkerTestSpec(
+                "-T CountReadsInActiveRegions -R " + b37KGReference + " -I " + privateTestDir + "excessiveCoverage.1.121484835.bam -L 1:121484835 -o %s",
+                1,
+                Arrays.asList("")); // don't care about our md5s, as we are going to read the result back in an test it directly
+        final File coverage = executeTest("basicHandlingExcessiveCoverage:", spec).getFirst().get(0);
+        final GATKReport report = new GATKReport(coverage);
+        final GATKReportTable table = report.getTable("CountReadsInActiveRegions");
+        final int nReads = Integer.valueOf((String)table.get(0, "n.reads"));
+
+        logger.warn("Excessive coverage test found nReads in the single region " + nReads);
+
+        final int nSamplesInBAM = 3;
+        ActiveRegionTraversalParameters annotation = CountReadsInActiveRegions.class.getAnnotation(ActiveRegionTraversalParameters.class);
+        Assert.assertEquals(nReads, annotation.maxReadsToHoldInMemoryPerSample() * nSamplesInBAM);
     }
 }

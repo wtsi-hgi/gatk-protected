@@ -79,7 +79,7 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
     public List<RodBinding<VariantContext>> variants;
 
     // control the output
-    @Output(doc="File to which variants should be written",required=true)
+    @Output(doc="File to which variants should be written")
     protected VariantContextWriter writer = null;
 
     // the calculation arguments

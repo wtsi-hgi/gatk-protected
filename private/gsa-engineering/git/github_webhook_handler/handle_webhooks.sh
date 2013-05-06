@@ -1,4 +1,10 @@
 #!/bin/bash
+#
+# Handles logged github webhook events by feeding them to the post-receive email script.
+# Run as a persistent daemon process on gsa4. 
+#
+# Author: David Roazen
+#
 
 LOG_DIR="/humgen/gsa-scr1/gsa-engineering/git/github_webhook_logs"
 MIRROR_DIR="/humgen/gsa-scr1/gsa-engineering/git/github_webhook_handler/mirrors"

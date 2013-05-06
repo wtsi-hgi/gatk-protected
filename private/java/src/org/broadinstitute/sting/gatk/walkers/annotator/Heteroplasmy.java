@@ -65,6 +65,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Mean heteroplasmy (dosage fraction of variant allele) across non-variant samples
+ */
 public class Heteroplasmy extends InfoFieldAnnotation {
     public static final String NUM_VARIANT_SAMPLES_KEY = "NV";
     public static final String HETEROPLASMY_KEY = "HP";

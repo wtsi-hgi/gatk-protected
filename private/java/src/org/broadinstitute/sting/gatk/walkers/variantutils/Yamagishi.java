@@ -83,7 +83,7 @@ public class Yamagishi extends RodWalker<Pair<String, String>, Map<String, Yamag
     @Argument(shortName = "debug", fullName = "debug", doc="If true print out a lot of info", required=true)
     protected boolean DEBUG;
 
-    @Output(doc="File to which results should be written",required=true)
+    @Output(doc="File to which results should be written")
     protected PrintStream out;
 
     @Argument(fullName="selectTypeToInclude", shortName="selectType", doc="Select only a certain type of variants from the input file. Valid types are INDEL, SNP, MIXED, MNP, SYMBOLIC, NO_VARIATION. Can be specified multiple times", required=false)

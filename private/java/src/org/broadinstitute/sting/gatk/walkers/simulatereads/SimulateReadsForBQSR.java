@@ -73,7 +73,7 @@ import java.util.*;
 
 @Reference(window=@Window(start=-200,stop=200))
 public class SimulateReadsForBQSR extends RefWalker<Integer, Integer> {
-    @Output(doc="Write output to this BAM filename instead of STDOUT", required = true)
+    @Output(doc="Write output to this BAM filename instead of STDOUT")
     StingSAMFileWriter out;
 
     @Argument(fullName="nSamples", shortName="NS", doc="Number of samples to simulate", required=false)
