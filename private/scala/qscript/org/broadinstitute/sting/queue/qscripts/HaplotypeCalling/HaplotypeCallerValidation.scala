@@ -139,8 +139,11 @@ class HaplotypeCallerValidation extends QScript {
           if (splitLoc.length > 1) {
             extent = splitLoc(1).toInt
           }
-          locus = locParser.setStart(locus, max(1, locus.getStart - extent))
-          locus = locParser.setStop(locus, min(locParser.getContigInfo(locus.getContig).getSequenceLength, locus.getStop + extent))
+          val start = max(1, locus.getStart - extent)
+          val stop = min(locParser.getContigInfo(locus.getContig).getSequenceLength, locus.getStop + extent)
+
+          // mustBeOnReference == true: must be valid coordinates on reference:
+          locus = locParser.createGenomeLoc(locus.getContig, locus.getContigIndex, start, stop, true)
         }
 
         val ugRun = new UGrun(name, locus, samples)
