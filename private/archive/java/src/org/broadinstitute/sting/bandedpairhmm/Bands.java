@@ -46,153 +46,136 @@
 
 package org.broadinstitute.sting.utils.pairhmm;
 
-import com.google.java.contract.Ensures;
-import com.google.java.contract.Requires;
-import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.utils.Utils;
+
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
- * Created with IntelliJ IDEA.
- * User: rpoplin, carneiro
- * Date: 10/16/12
+ * A list of band through the pair hmm vector
+ *
+ * Has the following structure: an ordered list of pairs start-stop, where stop is an exclusive position,
+ * indicating the columns of a vector that should be used in the PairHMM calculation
+ *
+ * User: depristo
+ * Date: 5/20/13
+ * Time: 2:03 PM
  */
-public final class LoglessPairHMM extends N2MemoryPairHMM {
-    protected static final double INITIAL_CONDITION = Math.pow(2, 1020);
-    protected static final double INITIAL_CONDITION_LOG10 = Math.log10(INITIAL_CONDITION);
+final class Bands {
+    private final static int MAX_BANDS = 10;
 
-    private static final int matchToMatch = 0;
-    private static final int indelToMatch = 1;
-    private static final int matchToInsertion = 2;
-    private static final int insertionToInsertion = 3;
-    private static final int matchToDeletion = 4;
-    private static final int deletionToDeletion = 5;
-
+    private int nBands = 0;
+    private int[] starts = new int[MAX_BANDS];
+    private int[] stops = new int[MAX_BANDS];
 
     /**
-     * {@inheritDoc}
+     * Add a new band from start (inclusive) to stop (exclusive)
+     *
+     * @param start a start >= 0
+     * @param stop a stop > start
      */
+    public final void addBand(final int start, final int stop) {
+        if ( start < 0 ) throw new IllegalArgumentException("Bad start " + start);
+        if ( stop < start ) throw new IllegalArgumentException("Bad stop " + stop + " < start " + start);
+
+        if ( nBands >= starts.length ) {
+            // dynamically increase the size of the start and stop vectors as necessary
+            starts = Arrays.copyOfRange(starts, 0, nBands * 2);
+            stops = Arrays.copyOfRange(stops, 0, nBands * 2);
+        }
+
+        starts[nBands] = start;
+        stops[nBands] = stop;
+        nBands++;
+    }
+
+    /**
+     * Add a new band from unpaddedStart - unpaddedEnd expanded on both sides by bandSize, capped between 1 and maxLength
+     *
+     * @param unpaddedStart the unpadded start of the interval
+     * @param unpaddedEnd the unpadded end of the interval
+     * @param bandSize the number of elements to substract / add to the unpaddedStart / unpaddedEnd for the actual band
+     * @param maxLength the maximum value of the unpaddedEnd + bandSize
+     */
+    public final void addPaddedBand(final int unpaddedStart, final int unpaddedEnd, final int bandSize, final int maxLength) {
+        final int start = unpaddedStart - bandSize;
+        final int end   = unpaddedEnd + bandSize;
+        addBand(start <= 0 ? 1 : start, end > maxLength ? maxLength : end);
+    }
+
+    /**
+     * Clear all of the bands in this bands
+     */
+    public final void clear() {
+        nBands = 0;
+    }
+
+    /**
+     * Get the number of bands in this band object
+     * @return
+     */
+    public final int getNBands() {
+        return nBands;
+    }
+
+    /**
+     * Get the start index of the ith band
+     * @param i a valid index into this bands object (not checked for performance reasons)
+     * @return the first index to be used (inclusive) for the ith band
+     */
+    public final int getStart(final int i) {
+        return starts[i];
+    }
+
+    /**
+     * Get the end index of the ith band
+     * @param i a valid index into this bands object (not checked for performance reasons)
+     * @return the last index to be used (exclusive) for the ith band
+     */
+    public final int getEnd(final int i) {
+        return stops[i];
+    }
+
     @Override
-    public void initialize(final int readMaxLength, final int haplotypeMaxLength ) {
-        super.initialize(readMaxLength, haplotypeMaxLength);
-
-        transition = new double[paddedMaxReadLength][6];
-        prior = new double[paddedMaxReadLength][paddedMaxHaplotypeLength];
+    public String toString() {
+        final List<String> sub = new LinkedList<>();
+        for ( int i = 0; i < nBands; i++) sub.add("[" + getStart(i) + "-" + getEnd(i) + "]");
+        return "Bands{" + Utils.join(",", sub) + "}";
     }
 
     /**
-     * {@inheritDoc}
+     * Copy all of the bands from this bands object into Bands
+     * @param dest the destination of this bands object
      */
+    public final void copyInto(final Bands dest) {
+        dest.clear();
+        for ( int i = 0; i < nBands; i++ ) {
+            dest.addBand(getStart(i), getEnd(i));
+        }
+    }
+
     @Override
-    public double subComputeReadLikelihoodGivenHaplotypeLog10( final byte[] haplotypeBases,
-                                                               final byte[] readBases,
-                                                               final byte[] readQuals,
-                                                               final byte[] insertionGOP,
-                                                               final byte[] deletionGOP,
-                                                               final byte[] overallGCP,
-                                                               final int hapStartIndex,
-                                                               final boolean recacheReadValues ) {
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
 
-        if (previousHaplotypeBases == null || previousHaplotypeBases.length != haplotypeBases.length) {
-            final double initialValue = INITIAL_CONDITION / haplotypeBases.length;
-            // set the initial value (free deletions in the beginning) for the first row in the deletion matrix
-            for( int j = 0; j < paddedHaplotypeLength; j++ ) {
-                deletionMatrix[0][j] = initialValue;
-            }
+        Bands bands = (Bands) o;
+
+        if (nBands != bands.nBands) return false;
+        for ( int i = 0; i < nBands; i++ ) {
+            if ( starts[i] != bands.starts[i] ) return false;
+            if ( stops[i] != bands.stops[i] ) return false;
         }
 
-        if ( ! constantsAreInitialized || recacheReadValues ) {
-            initializeProbabilities(transition, insertionGOP, deletionGOP, overallGCP);
-
-            // note that we initialized the constants
-            constantsAreInitialized = true;
-        }
-
-        initializePriors(haplotypeBases, readBases, readQuals, hapStartIndex);
-
-        for (int i = 1; i < paddedReadLength; i++) {
-            // +1 here is because hapStartIndex is 0-based, but our matrices are 1 based
-            for (int j = hapStartIndex+1; j < paddedHaplotypeLength; j++) {
-                updateCell(i, j, prior[i][j], transition[i]);
-            }
-        }
-
-        // final probability is the log10 sum of the last element in the Match and Insertion state arrays
-        // this way we ignore all paths that ended in deletions! (huge)
-        // but we have to sum all the paths ending in the M and I matrices, because they're no longer extended.
-        final int endI = paddedReadLength - 1;
-        double finalSumProbabilities = 0.0;
-        for (int j = 1; j < paddedHaplotypeLength; j++) {
-            finalSumProbabilities += matchMatrix[endI][j] + insertionMatrix[endI][j];
-        }
-        return Math.log10(finalSumProbabilities) - INITIAL_CONDITION_LOG10;
+        return true;
     }
 
-    /**
-     * Initializes the matrix that holds all the constants related to the editing
-     * distance between the read and the haplotype.
-     *
-     * @param haplotypeBases the bases of the haplotype
-     * @param readBases      the bases of the read
-     * @param readQuals      the base quality scores of the read
-     * @param startIndex     where to start updating the distanceMatrix (in case this read is similar to the previous read)
-     */
-    public void initializePriors(final byte[] haplotypeBases, final byte[] readBases, final byte[] readQuals, final int startIndex) {
-
-        // initialize the pBaseReadLog10 matrix for all combinations of read x haplotype bases
-        // Abusing the fact that java initializes arrays with 0.0, so no need to fill in rows and columns below 2.
-
-        for (int i = 0; i < readBases.length; i++) {
-            final byte x = readBases[i];
-            final byte qual = readQuals[i];
-            for (int j = startIndex; j < haplotypeBases.length; j++) {
-                final byte y = haplotypeBases[j];
-                prior[i+1][j+1] = ( x == y || x == (byte) 'N' || y == (byte) 'N' ?
-                        QualityUtils.qualToProb(qual) : QualityUtils.qualToErrorProb(qual) );
-            }
-        }
-    }
-
-    /**
-     * Initializes the matrix that holds all the constants related to quality scores.
-     *
-     * @param insertionGOP   insertion quality scores of the read
-     * @param deletionGOP    deletion quality scores of the read
-     * @param overallGCP     overall gap continuation penalty
-     */
-    @Requires({
-            "insertionGOP != null",
-            "deletionGOP != null",
-            "overallGCP != null"
-    })
-    @Ensures("constantsAreInitialized")
-    protected static void initializeProbabilities(final double[][] transition, final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP) {
-        for (int i = 0; i < insertionGOP.length; i++) {
-            final int qualIndexGOP = Math.min(insertionGOP[i] + deletionGOP[i], Byte.MAX_VALUE);
-            transition[i+1][matchToMatch] = QualityUtils.qualToProb((byte) qualIndexGOP);
-            transition[i+1][indelToMatch] = QualityUtils.qualToProb(overallGCP[i]);
-            transition[i+1][matchToInsertion] = QualityUtils.qualToErrorProb(insertionGOP[i]);
-            transition[i+1][insertionToInsertion] = QualityUtils.qualToErrorProb(overallGCP[i]);
-            transition[i+1][matchToDeletion] = QualityUtils.qualToErrorProb(deletionGOP[i]);
-            transition[i+1][deletionToDeletion] = QualityUtils.qualToErrorProb(overallGCP[i]);
-        }
-    }
-
-    /**
-     * Updates a cell in the HMM matrix
-     *
-     * The read and haplotype indices are offset by one because the state arrays have an extra column to hold the
-     * initial conditions
-
-     * @param indI             row index in the matrices to update
-     * @param indJ             column index in the matrices to update
-     * @param prior            the likelihood editing distance matrix for the read x haplotype
-     * @param transition        an array with the six transition relevant to this location
-     */
-    private void updateCell( final int indI, final int indJ, final double prior, final double[] transition) {
-
-        matchMatrix[indI][indJ] = prior * ( matchMatrix[indI - 1][indJ - 1] * transition[matchToMatch] +
-                                                 insertionMatrix[indI - 1][indJ - 1] * transition[indelToMatch] +
-                                                 deletionMatrix[indI - 1][indJ - 1] * transition[indelToMatch] );
-        insertionMatrix[indI][indJ] = matchMatrix[indI - 1][indJ] * transition[matchToInsertion] + insertionMatrix[indI - 1][indJ] * transition[insertionToInsertion];
-        deletionMatrix[indI][indJ] = matchMatrix[indI][indJ - 1] * transition[matchToDeletion] + deletionMatrix[indI][indJ - 1] * transition[deletionToDeletion];
+    @Override
+    public int hashCode() {
+        int result = nBands;
+        result = 31 * result + Arrays.hashCode(starts);
+        result = 31 * result + Arrays.hashCode(stops);
+        return result;
     }
 }

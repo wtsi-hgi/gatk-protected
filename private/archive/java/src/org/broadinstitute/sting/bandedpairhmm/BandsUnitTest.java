@@ -46,153 +46,98 @@
 
 package org.broadinstitute.sting.utils.pairhmm;
 
-import com.google.java.contract.Ensures;
-import com.google.java.contract.Requires;
-import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.BaseTest;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
-/**
- * Created with IntelliJ IDEA.
- * User: rpoplin, carneiro
- * Date: 10/16/12
- */
-public final class LoglessPairHMM extends N2MemoryPairHMM {
-    protected static final double INITIAL_CONDITION = Math.pow(2, 1020);
-    protected static final double INITIAL_CONDITION_LOG10 = Math.log10(INITIAL_CONDITION);
+import java.util.Arrays;
 
-    private static final int matchToMatch = 0;
-    private static final int indelToMatch = 1;
-    private static final int matchToInsertion = 2;
-    private static final int insertionToInsertion = 3;
-    private static final int matchToDeletion = 4;
-    private static final int deletionToDeletion = 5;
-
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void initialize(final int readMaxLength, final int haplotypeMaxLength ) {
-        super.initialize(readMaxLength, haplotypeMaxLength);
-
-        transition = new double[paddedMaxReadLength][6];
-        prior = new double[paddedMaxReadLength][paddedMaxHaplotypeLength];
+public class BandsUnitTest extends BaseTest {
+    @Test
+    public void testGoodBand() {
+        final Bands bands = new Bands();
+        bands.addBand(10, 20);
+        bands.addBand(30, 40);
+        Assert.assertEquals(bands.getNBands(), 2);
+        Assert.assertEquals(bands.getStart(0), 10);
+        Assert.assertEquals(bands.getEnd(0), 20);
+        Assert.assertEquals(bands.getStart(1), 30);
+        Assert.assertEquals(bands.getEnd(1), 40);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public double subComputeReadLikelihoodGivenHaplotypeLog10( final byte[] haplotypeBases,
-                                                               final byte[] readBases,
-                                                               final byte[] readQuals,
-                                                               final byte[] insertionGOP,
-                                                               final byte[] deletionGOP,
-                                                               final byte[] overallGCP,
-                                                               final int hapStartIndex,
-                                                               final boolean recacheReadValues ) {
+    @Test
+    public void testLotsOfBands() {
+        for ( int nBands = 1; nBands < 1000; nBands++ ) {
+            final Bands bands = new Bands();
 
-        if (previousHaplotypeBases == null || previousHaplotypeBases.length != haplotypeBases.length) {
-            final double initialValue = INITIAL_CONDITION / haplotypeBases.length;
-            // set the initial value (free deletions in the beginning) for the first row in the deletion matrix
-            for( int j = 0; j < paddedHaplotypeLength; j++ ) {
-                deletionMatrix[0][j] = initialValue;
+            for ( int i = 0; i < nBands; i++ ) {
+                bands.addBand(i, i+1);
             }
-        }
 
-        if ( ! constantsAreInitialized || recacheReadValues ) {
-            initializeProbabilities(transition, insertionGOP, deletionGOP, overallGCP);
+            Assert.assertEquals(bands.getNBands(), nBands);
 
-            // note that we initialized the constants
-            constantsAreInitialized = true;
-        }
-
-        initializePriors(haplotypeBases, readBases, readQuals, hapStartIndex);
-
-        for (int i = 1; i < paddedReadLength; i++) {
-            // +1 here is because hapStartIndex is 0-based, but our matrices are 1 based
-            for (int j = hapStartIndex+1; j < paddedHaplotypeLength; j++) {
-                updateCell(i, j, prior[i][j], transition[i]);
-            }
-        }
-
-        // final probability is the log10 sum of the last element in the Match and Insertion state arrays
-        // this way we ignore all paths that ended in deletions! (huge)
-        // but we have to sum all the paths ending in the M and I matrices, because they're no longer extended.
-        final int endI = paddedReadLength - 1;
-        double finalSumProbabilities = 0.0;
-        for (int j = 1; j < paddedHaplotypeLength; j++) {
-            finalSumProbabilities += matchMatrix[endI][j] + insertionMatrix[endI][j];
-        }
-        return Math.log10(finalSumProbabilities) - INITIAL_CONDITION_LOG10;
-    }
-
-    /**
-     * Initializes the matrix that holds all the constants related to the editing
-     * distance between the read and the haplotype.
-     *
-     * @param haplotypeBases the bases of the haplotype
-     * @param readBases      the bases of the read
-     * @param readQuals      the base quality scores of the read
-     * @param startIndex     where to start updating the distanceMatrix (in case this read is similar to the previous read)
-     */
-    public void initializePriors(final byte[] haplotypeBases, final byte[] readBases, final byte[] readQuals, final int startIndex) {
-
-        // initialize the pBaseReadLog10 matrix for all combinations of read x haplotype bases
-        // Abusing the fact that java initializes arrays with 0.0, so no need to fill in rows and columns below 2.
-
-        for (int i = 0; i < readBases.length; i++) {
-            final byte x = readBases[i];
-            final byte qual = readQuals[i];
-            for (int j = startIndex; j < haplotypeBases.length; j++) {
-                final byte y = haplotypeBases[j];
-                prior[i+1][j+1] = ( x == y || x == (byte) 'N' || y == (byte) 'N' ?
-                        QualityUtils.qualToProb(qual) : QualityUtils.qualToErrorProb(qual) );
+            for ( int i = 0; i < nBands; i++ ) {
+                Assert.assertEquals(bands.getStart(i), i);
+                Assert.assertEquals(bands.getEnd(i), i+1);
             }
         }
     }
 
-    /**
-     * Initializes the matrix that holds all the constants related to quality scores.
-     *
-     * @param insertionGOP   insertion quality scores of the read
-     * @param deletionGOP    deletion quality scores of the read
-     * @param overallGCP     overall gap continuation penalty
-     */
-    @Requires({
-            "insertionGOP != null",
-            "deletionGOP != null",
-            "overallGCP != null"
-    })
-    @Ensures("constantsAreInitialized")
-    protected static void initializeProbabilities(final double[][] transition, final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP) {
-        for (int i = 0; i < insertionGOP.length; i++) {
-            final int qualIndexGOP = Math.min(insertionGOP[i] + deletionGOP[i], Byte.MAX_VALUE);
-            transition[i+1][matchToMatch] = QualityUtils.qualToProb((byte) qualIndexGOP);
-            transition[i+1][indelToMatch] = QualityUtils.qualToProb(overallGCP[i]);
-            transition[i+1][matchToInsertion] = QualityUtils.qualToErrorProb(insertionGOP[i]);
-            transition[i+1][insertionToInsertion] = QualityUtils.qualToErrorProb(overallGCP[i]);
-            transition[i+1][matchToDeletion] = QualityUtils.qualToErrorProb(deletionGOP[i]);
-            transition[i+1][deletionToDeletion] = QualityUtils.qualToErrorProb(overallGCP[i]);
+    @Test
+    public void testPaddedBands() {
+        for ( int start = 1; start < 20; start++ ) {
+            for ( int end = start; end < 20; end++ ) {
+                for ( int pad = 0; pad < 3; pad++ ) {
+                    for ( int max : Arrays.asList(20, 50) ) {
+                        final Bands bands = new Bands();
+                        bands.addPaddedBand(start, end, pad, max);
+                        Assert.assertEquals(bands.getNBands(), 1);
+                        Assert.assertEquals(bands.getStart(0), Math.max(start - pad, 1));
+                        Assert.assertEquals(bands.getEnd(0), Math.min(end + pad, max));
+                    }
+                }
+            }
         }
     }
 
-    /**
-     * Updates a cell in the HMM matrix
-     *
-     * The read and haplotype indices are offset by one because the state arrays have an extra column to hold the
-     * initial conditions
+    @Test()
+    public void testClear() {
+        final Bands bands = new Bands();
+        bands.addBand(10, 20);
+        Assert.assertEquals(bands.getNBands(), 1);
+        bands.clear();
+        Assert.assertEquals(bands.getNBands(), 0);
+        bands.addBand(30, 40);
+        Assert.assertEquals(bands.getNBands(), 1);
+        Assert.assertEquals(bands.getStart(0), 30);
+        Assert.assertEquals(bands.getEnd(0), 40);
+    }
 
-     * @param indI             row index in the matrices to update
-     * @param indJ             column index in the matrices to update
-     * @param prior            the likelihood editing distance matrix for the read x haplotype
-     * @param transition        an array with the six transition relevant to this location
-     */
-    private void updateCell( final int indI, final int indJ, final double prior, final double[] transition) {
+    @Test()
+    public void testCopyInto() {
+        final Bands dest = new Bands();
+        dest.addBand(10, 10);
+        dest.addBand(11, 11);
+        dest.addBand(12, 12);
 
-        matchMatrix[indI][indJ] = prior * ( matchMatrix[indI - 1][indJ - 1] * transition[matchToMatch] +
-                                                 insertionMatrix[indI - 1][indJ - 1] * transition[indelToMatch] +
-                                                 deletionMatrix[indI - 1][indJ - 1] * transition[indelToMatch] );
-        insertionMatrix[indI][indJ] = matchMatrix[indI - 1][indJ] * transition[matchToInsertion] + insertionMatrix[indI - 1][indJ] * transition[insertionToInsertion];
-        deletionMatrix[indI][indJ] = matchMatrix[indI][indJ - 1] * transition[matchToDeletion] + deletionMatrix[indI][indJ - 1] * transition[deletionToDeletion];
+        final Bands src = new Bands();
+        src.addBand(1, 1);
+        Assert.assertEquals(src.getNBands(), 1);
+        Assert.assertEquals(dest.getNBands(), 3);
+
+        src.copyInto(dest);
+        Assert.assertEquals(dest.getNBands(), 1);
+        Assert.assertEquals(dest.getStart(0), 1);
+        Assert.assertEquals(dest.getEnd(0), 1);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testBadStart() {
+        new Bands().addBand(-1, 20);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testBadStop() {
+        new Bands().addBand(10, 9);
     }
 }

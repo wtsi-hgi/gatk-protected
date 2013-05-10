@@ -46,16 +46,19 @@
 
 package org.broadinstitute.sting.utils.pairhmm;
 
-import com.google.java.contract.Ensures;
-import com.google.java.contract.Requires;
 import org.broadinstitute.sting.utils.QualityUtils;
 
+import java.util.Arrays;
+
 /**
- * Created with IntelliJ IDEA.
- * User: rpoplin, carneiro
- * Date: 10/16/12
+ * A banded version of the logless PairHMM
+ *
+ * User: mdepristo
+ * Date: May 2013
  */
-public final class LoglessPairHMM extends N2MemoryPairHMM {
+public final class BandedLoglessPairHMM extends PairHMM {
+    private final static boolean DEBUG = false;
+    private final static boolean PRINT_MLE_SEARCH = DEBUG && false;
     protected static final double INITIAL_CONDITION = Math.pow(2, 1020);
     protected static final double INITIAL_CONDITION_LOG10 = Math.log10(INITIAL_CONDITION);
 
@@ -65,7 +68,45 @@ public final class LoglessPairHMM extends N2MemoryPairHMM {
     private static final int insertionToInsertion = 3;
     private static final int matchToDeletion = 4;
     private static final int deletionToDeletion = 5;
+    private static final int N_TRANSITION_STATES = 6;
 
+    private final int bandSize, initialBandSize;
+    private final double keepPathsWithinTolOfMLE;
+
+    protected double[][] transition = null;
+    protected RowData curRow, prevRow;
+
+    protected Bands prevBands = new Bands();
+    protected Bands currBands = new Bands();
+
+    /**
+     * Create a new BandedLoglessPairHMM with provided band size
+     * @param bandSize band size, must be >= 1
+     * @param keepPathsWithinTolOfMLE any cell within this ratio of the MLE will be keep in the next band.
+     *                                For example, if the MLE cell is 1e-10 and a cell has 1e-15, then
+     *                                that cell will be included as an important cell to continue exploring
+     *                                as long as this parameter value is >= 1e-5;
+     */
+    public BandedLoglessPairHMM(final int initialBandSize, final int bandSize, final double keepPathsWithinTolOfMLE) {
+        super();
+        if ( bandSize < 1 ) throw new IllegalStateException("Bad bandSize " + bandSize);
+        if ( initialBandSize < 1 ) throw new IllegalStateException("Bad initialBandSize " + initialBandSize);
+        this.bandSize = bandSize;
+        this.initialBandSize = bandSize;
+        this.keepPathsWithinTolOfMLE = keepPathsWithinTolOfMLE;
+    }
+
+   public BandedLoglessPairHMM(final int bandSize, final double keepPathsWithinTolOfMLE) {
+       this(bandSize, bandSize, keepPathsWithinTolOfMLE);
+    }
+
+    /**
+     * Create a new BandedLoglessPairHMM with provided band size
+     * @param bandSize band size, must be >= 1
+     */
+    public BandedLoglessPairHMM(final int bandSize) {
+        this(bandSize, 1e-20);
+    }
 
     /**
      * {@inheritDoc}
@@ -74,8 +115,11 @@ public final class LoglessPairHMM extends N2MemoryPairHMM {
     public void initialize(final int readMaxLength, final int haplotypeMaxLength ) {
         super.initialize(readMaxLength, haplotypeMaxLength);
 
-        transition = new double[paddedMaxReadLength][6];
-        prior = new double[paddedMaxReadLength][paddedMaxHaplotypeLength];
+        transition = new double[paddedMaxReadLength][N_TRANSITION_STATES];
+
+        // setup the current and previous rows
+        prevRow = new RowData(paddedMaxHaplotypeLength);
+        curRow = new RowData(paddedMaxHaplotypeLength);
     }
 
     /**
@@ -90,90 +134,136 @@ public final class LoglessPairHMM extends N2MemoryPairHMM {
                                                                final byte[] overallGCP,
                                                                final int hapStartIndex,
                                                                final boolean recacheReadValues ) {
+        curRow.clear();
+        prevRow.clear();
 
-        if (previousHaplotypeBases == null || previousHaplotypeBases.length != haplotypeBases.length) {
-            final double initialValue = INITIAL_CONDITION / haplotypeBases.length;
-            // set the initial value (free deletions in the beginning) for the first row in the deletion matrix
-            for( int j = 0; j < paddedHaplotypeLength; j++ ) {
-                deletionMatrix[0][j] = initialValue;
-            }
-        }
+        // set the initial value (free deletions in the beginning) for the first row in the deletion matrix
+        Arrays.fill(prevRow.deletion, INITIAL_CONDITION / haplotypeBases.length);
 
         if ( ! constantsAreInitialized || recacheReadValues ) {
-            initializeProbabilities(transition, insertionGOP, deletionGOP, overallGCP);
+            LoglessPairHMM.initializeProbabilities(transition, insertionGOP, deletionGOP, overallGCP);
 
             // note that we initialized the constants
             constantsAreInitialized = true;
         }
 
-        initializePriors(haplotypeBases, readBases, readQuals, hapStartIndex);
-
+        // bands are spans to access in the haplotype matrix
+        prevBands.clear();
+        currBands.clear();
+        currBands.addBand(1, paddedHaplotypeLength);
         for (int i = 1; i < paddedReadLength; i++) {
-            // +1 here is because hapStartIndex is 0-based, but our matrices are 1 based
-            for (int j = hapStartIndex+1; j < paddedHaplotypeLength; j++) {
-                updateCell(i, j, prior[i][j], transition[i]);
+            double ml = 0;
+
+            if ( DEBUG ) logger.warn("Bands at " + i + " " + currBands);
+
+            // evaluate read base at all positions in the haplotype band
+            for ( int bandI = 0; bandI < currBands.getNBands(); bandI++ ) {
+                final int bandStart = currBands.getStart(bandI);
+                final int bandEnd = currBands.getEnd(bandI);
+                for (int j = bandStart; j < bandEnd; j++) {
+                    nCellsEvaluated++;
+                    final double cellValue = updateCell(j, getPrior(haplotypeBases, readBases, readQuals, i,j), transition[i]);
+                    if ( cellValue > ml ) ml = cellValue;
+                }
             }
+
+            swapBands(i >= firstRowsBandSize());
+            updateBands(prevBands, i, ml); // prevBands is actually current after the swap, so we need to update it
+            swapRows();
         }
 
         // final probability is the log10 sum of the last element in the Match and Insertion state arrays
         // this way we ignore all paths that ended in deletions! (huge)
         // but we have to sum all the paths ending in the M and I matrices, because they're no longer extended.
-        final int endI = paddedReadLength - 1;
-        double finalSumProbabilities = 0.0;
-        for (int j = 1; j < paddedHaplotypeLength; j++) {
-            finalSumProbabilities += matchMatrix[endI][j] + insertionMatrix[endI][j];
-        }
+        final double finalSumProbabilities = prevRow.sumMatchInsertion(1, paddedHaplotypeLength);
         return Math.log10(finalSumProbabilities) - INITIAL_CONDITION_LOG10;
     }
 
-    /**
-     * Initializes the matrix that holds all the constants related to the editing
-     * distance between the read and the haplotype.
-     *
-     * @param haplotypeBases the bases of the haplotype
-     * @param readBases      the bases of the read
-     * @param readQuals      the base quality scores of the read
-     * @param startIndex     where to start updating the distanceMatrix (in case this read is similar to the previous read)
-     */
-    public void initializePriors(final byte[] haplotypeBases, final byte[] readBases, final byte[] readQuals, final int startIndex) {
+    private void swapBands(final boolean clear) {
+        prevRow.deletion[0] = 0.0; // special case -- the prev row is initialized to all free deletions, and we need to clean this up
 
-        // initialize the pBaseReadLog10 matrix for all combinations of read x haplotype bases
-        // Abusing the fact that java initializes arrays with 0.0, so no need to fill in rows and columns below 2.
-
-        for (int i = 0; i < readBases.length; i++) {
-            final byte x = readBases[i];
-            final byte qual = readQuals[i];
-            for (int j = startIndex; j < haplotypeBases.length; j++) {
-                final byte y = haplotypeBases[j];
-                prior[i+1][j+1] = ( x == y || x == (byte) 'N' || y == (byte) 'N' ?
-                        QualityUtils.qualToProb(qual) : QualityUtils.qualToErrorProb(qual) );
+        if ( clear ) {
+            for ( int bandI = 0; bandI < prevBands.getNBands(); bandI++ ) {
+                final int bandStart = prevBands.getStart(bandI);
+                final int bandEnd = prevBands.getEnd(bandI);
+                prevRow.clear(bandStart, bandEnd);
             }
         }
+
+        final Bands tmp = currBands;
+        currBands = prevBands;
+        prevBands = tmp;
     }
 
     /**
-     * Initializes the matrix that holds all the constants related to quality scores.
-     *
-     * @param insertionGOP   insertion quality scores of the read
-     * @param deletionGOP    deletion quality scores of the read
-     * @param overallGCP     overall gap continuation penalty
+     * Swap the current and previous rows, so that previous is the current row and current row
+     * is the old previous.
      */
-    @Requires({
-            "insertionGOP != null",
-            "deletionGOP != null",
-            "overallGCP != null"
-    })
-    @Ensures("constantsAreInitialized")
-    protected static void initializeProbabilities(final double[][] transition, final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP) {
-        for (int i = 0; i < insertionGOP.length; i++) {
-            final int qualIndexGOP = Math.min(insertionGOP[i] + deletionGOP[i], Byte.MAX_VALUE);
-            transition[i+1][matchToMatch] = QualityUtils.qualToProb((byte) qualIndexGOP);
-            transition[i+1][indelToMatch] = QualityUtils.qualToProb(overallGCP[i]);
-            transition[i+1][matchToInsertion] = QualityUtils.qualToErrorProb(insertionGOP[i]);
-            transition[i+1][insertionToInsertion] = QualityUtils.qualToErrorProb(overallGCP[i]);
-            transition[i+1][matchToDeletion] = QualityUtils.qualToErrorProb(deletionGOP[i]);
-            transition[i+1][deletionToDeletion] = QualityUtils.qualToErrorProb(overallGCP[i]);
+    private void swapRows() {
+        final RowData tmp = curRow;
+        curRow = prevRow;
+        prevRow = tmp;
+    }
+
+    protected final void updateBands(final Bands bands, final int readPos, final double ml) {
+        if ( readPos < firstRowsBandSize() ) {
+            bands.copyInto(currBands);
+        } else {
+            currBands.clear();
+
+            // go through the likelihoods and find maximum likelihoods position, and create bands
+            int bandStart = -1, bandEnd = -1;
+
+            for ( int bandI = 0; bandI < bands.getNBands(); bandI++ ) {
+                final int bandIStart = bands.getStart(bandI);
+                final int bandIEnd = bands.getEnd(bandI);
+                for (int j = bandIStart; j < bandIEnd; j++) {
+                    final double cellProbCurr = curRow.getCellProb(j);
+                    final boolean keep = cellProbCurr / ml > keepPathsWithinTolOfMLE;
+
+                    if ( PRINT_MLE_SEARCH ) {
+                        logger.warn(String.format("%5d/%5d %.2e => mle %b", readPos, j, cellProbCurr, keep));
+                    }
+
+                    if ( keep ) {
+                        if ( bandStart == -1 ) {
+                            // this is the first element we're keeping in the band
+                            bandStart = bandEnd = j;
+                        } else if ( j - bandEnd <= 2 * bandSize ) {
+                            // if we were to create a band starting at i it would overlap with the band end (accounting for band size) so keep merging
+                            bandEnd = j;
+                        } else {
+                            // the previous band doesn't extend to cover us, so create a new band for it and update band start and stop
+                            currBands.addPaddedBand(bandStart, bandEnd, bandSize, paddedHaplotypeLength);
+                            bandStart = bandEnd = j;
+                        }
+                    }
+                }
+            }
+
+            // bandStart and end contains the last band we want to create, so add it to the list of bands
+            currBands.addPaddedBand(bandStart, bandEnd, bandSize, paddedHaplotypeLength);
         }
+    }
+
+    protected final int firstRowsBandSize() {
+        return initialBandSize;
+    }
+
+    /**
+     * Get the prior
+     *
+     * @param readI
+     * @param hapJ
+     * @return
+     */
+    private double getPrior(final byte[] haplotypeBases, final byte[] readBases, final byte[] quals, final int readI, final int hapJ) {
+        final byte x = readBases[readI-1];
+        final byte qual = quals[readI-1];
+        final byte y = haplotypeBases[hapJ - 1];
+        return x == y || x == (byte) 'N' || y == (byte) 'N'
+                ? QualityUtils.qualToProb(qual)
+                : QualityUtils.qualToErrorProb(qual);
     }
 
     /**
@@ -182,17 +272,31 @@ public final class LoglessPairHMM extends N2MemoryPairHMM {
      * The read and haplotype indices are offset by one because the state arrays have an extra column to hold the
      * initial conditions
 
-     * @param indI             row index in the matrices to update
      * @param indJ             column index in the matrices to update
      * @param prior            the likelihood editing distance matrix for the read x haplotype
      * @param transition        an array with the six transition relevant to this location
      */
-    private void updateCell( final int indI, final int indJ, final double prior, final double[] transition) {
+    private double updateCell( final int indJ, final double prior, final double[] transition) {
+        final double matchValue = prior * ( prevRow.match[indJ - 1] * transition[matchToMatch] +
+                prevRow.insertion[indJ - 1] * transition[indelToMatch] +
+                prevRow.deletion[indJ - 1] * transition[indelToMatch] );
+        final double insertValue = prevRow.match[indJ] * transition[matchToInsertion] + prevRow.insertion[indJ] * transition[insertionToInsertion];
+        final double deleteValue = curRow.match[indJ - 1] * transition[matchToDeletion] + curRow.deletion[indJ - 1] * transition[deletionToDeletion];
 
-        matchMatrix[indI][indJ] = prior * ( matchMatrix[indI - 1][indJ - 1] * transition[matchToMatch] +
-                                                 insertionMatrix[indI - 1][indJ - 1] * transition[indelToMatch] +
-                                                 deletionMatrix[indI - 1][indJ - 1] * transition[indelToMatch] );
-        insertionMatrix[indI][indJ] = matchMatrix[indI - 1][indJ] * transition[matchToInsertion] + insertionMatrix[indI - 1][indJ] * transition[insertionToInsertion];
-        deletionMatrix[indI][indJ] = matchMatrix[indI][indJ - 1] * transition[matchToDeletion] + deletionMatrix[indI][indJ - 1] * transition[deletionToDeletion];
+        // update the matrix values
+        curRow.match[indJ] = matchValue;
+        curRow.insertion[indJ] = insertValue;
+        curRow.deletion[indJ] = deleteValue;
+
+        return matchValue + insertValue + deleteValue;
+    }
+
+    @Override
+    public String toString() {
+        return "BandedLoglessPairHMM{" +
+                "nCellsOverall=" + nCellsOverall +
+                ", nCellsEvaluated=" + nCellsEvaluated +
+                ", bandSize=" + bandSize +
+                '}';
     }
 }
