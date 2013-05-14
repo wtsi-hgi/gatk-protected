@@ -54,6 +54,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.walkers.ActiveRegionTraversalParameters;
 import org.broadinstitute.sting.gatk.walkers.ActiveRegionWalker;
+import org.broadinstitute.sting.gatk.walkers.NanoSchedulable;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.activeregion.ActivityProfileState;
 
@@ -66,7 +67,7 @@ import java.io.PrintStream;
  */
 
 @ActiveRegionTraversalParameters(extension=50)
-public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInActiveRegions.Datum, GATKReport> {
+public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInActiveRegions.Datum, GATKReport> implements NanoSchedulable {
     @Output(doc = "File to which results should be written")
     PrintStream out;
 

@@ -51,21 +51,35 @@ import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.report.GATKReportTable;
 import org.broadinstitute.sting.gatk.walkers.ActiveRegionTraversalParameters;
 import org.testng.Assert;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Tests CountReadsInActiveRegions
  */
 public class CountReadsInActiveRegionsIntegrationTest extends WalkerTest {
-    @Test
-    public void basicTest() {
+    @DataProvider(name = "NCTDataProvider")
+    public Object[][] makeNCTDataProvider() {
+        List<Object[]> tests = new ArrayList<Object[]>();
+
+        for ( final int nct : Arrays.asList(1, 2, 4) ) {
+            tests.add(new Object[]{nct, "cf0be3e8aa86a2e4f1d98325e9a154b5"});
+        }
+
+        return tests.toArray(new Object[][]{});
+    }
+
+    @Test(dataProvider = "NCTDataProvider")
+    public void basicTest(final int nct, final String md5) {
         WalkerTestSpec spec = new WalkerTestSpec(
-                "-T CountReadsInActiveRegions -R " + b37KGReference + " -I " + b37GoodNA12878BAM + " -L 20:10,000,000-10,200,000 -o %s",
+                "-T CountReadsInActiveRegions -R " + b37KGReference + " -I " + b37GoodNA12878BAM + " -L 20:10,000,000-10,200,000 -o %s -nct " + nct,
                 1,
-                Arrays.asList("cf0be3e8aa86a2e4f1d98325e9a154b5"));
+                Arrays.asList(md5));
         executeTest("CountReadsInActiveRegions:", spec);
     }
 
