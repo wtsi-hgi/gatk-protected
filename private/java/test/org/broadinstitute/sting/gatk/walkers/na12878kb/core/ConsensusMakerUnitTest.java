@@ -63,7 +63,7 @@ public class ConsensusMakerUnitTest extends BaseTest {
     ConsensusMaker maker;
 
     MongoVariantContext reviewedX, reviewedX2, reviewedX3, reviewedA, notReviewedY, notReviewedZ, notReviewedZ2;
-    MongoVariantContext reviewedTPX, reviewedFPX, reviewedFPY, reviewedSUSPECT, notReviewedTP, notReviewedFP;
+    MongoVariantContext reviewedTPX, reviewedFPX, reviewedFPY, reviewedTPZ, reviewedSUSPECT, notReviewedTP, notReviewedFP;
     static long date = 10;
 
     @BeforeMethod
@@ -78,9 +78,13 @@ public class ConsensusMakerUnitTest extends BaseTest {
         notReviewedZ = copyTemplate("z", false);
         notReviewedZ2 = copyTemplate("z", false);
 
+        // ***** IMPORTANT *****
+        // the ordering of these lines is important because I am trying to replicate an issue we encountered [EB]
+        reviewedTPZ = copyTemplate("z", true, TruthStatus.TRUE_POSITIVE);
+        reviewedFPY = copyTemplate("Y", true, TruthStatus.FALSE_POSITIVE);
         reviewedTPX = copyTemplate("x", true, TruthStatus.TRUE_POSITIVE);
         reviewedFPX = copyTemplate("x", true, TruthStatus.FALSE_POSITIVE);
-        reviewedFPY = copyTemplate("Y", true, TruthStatus.FALSE_POSITIVE);
+
         reviewedSUSPECT = copyTemplate("z", true, TruthStatus.SUSPECT);
         notReviewedTP = copyTemplate("z", false, TruthStatus.TRUE_POSITIVE);
         notReviewedFP = copyTemplate("z", false, TruthStatus.FALSE_POSITIVE);
@@ -121,6 +125,7 @@ public class ConsensusMakerUnitTest extends BaseTest {
         // special case -- takes FP because FP was created after TP and they are the same call set
         tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedTPX, reviewedFPX)});
         tests.add(new Object[]{TruthStatus.DISCORDANT, noCall, true, Arrays.asList(reviewedTPX, reviewedFPY)});
+        tests.add(new Object[]{TruthStatus.DISCORDANT, noCall, true, Arrays.asList(reviewedTPZ, reviewedFPY, reviewedTPX, reviewedFPX)});
 
         return tests.toArray(new Object[][]{});
     }
