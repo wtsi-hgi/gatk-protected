@@ -56,35 +56,36 @@ class DiagnoseIntervals extends QScript {
   @Argument(shortName = "r", required = false, doc = "Reference sequence") var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
   @Argument(shortName = "sc", required = false, doc = "Scatter count") var jobs: Int = 50
   @Argument(shortName = "isr", required = false, doc = "interval set rule") var intervalSetRule = IntervalSetRule.UNION
-  @Argument(shortName = "ds", required = false, doc = "downsampling fractions") var downsamplingFranctions = List(1.0)
+  @Argument(shortName = "ds", required = false, doc = "downsampling fractions") var downsamplingFraction = 1.0
+  @Argument(shortName = "m", required = false, doc = "missing intervals") var missingIntervals:File = _
 
   def script {
 
-    for (ds <- downsamplingFranctions) {
+    val dt_output = swapExt(bamList(0), ".interval_list", ".vcf")
+    val vt_output = new File(dt_output + ".tbl")
 
-      val dt_output = swapExt(bamList(0), ".interval_list", ".d" + ds + ".vcf")
-      val vt_output = new File(dt_output + ".tbl")
+    val dt = new DiagnoseTargets()
+    dt.reference_sequence = referenceFile
+    dt.intervalsString = intervalsFile
+    dt.interval_set_rule = intervalSetRule
+    dt.out = dt_output
+    dt.input_file = bamList
+    dt.dfrac = downsamplingFraction
+    dt.coverage_status_threshold = 0.0
+    dt.max = Integer.MAX_VALUE
+    dt.missing = missingIntervals
+    dt.memoryLimit = 4
+    dt.scatterCount = jobs
 
-      val dt = new DiagnoseTargets()
-      dt.reference_sequence = referenceFile
-      dt.intervalsString = intervalsFile
-      dt.interval_set_rule = intervalSetRule
-      dt.out = dt_output
-      dt.input_file = bamList
-      dt.dfrac = ds
-      dt.memoryLimit = 4
-      dt.scatterCount = jobs
+    val vt = new VariantsToTable()
+    vt.reference_sequence = referenceFile
+    vt.variant = List(dt_output)
+    vt.F = Seq("CHROM", "POS", "END", "IDP", "FILTER")
+    vt.GF = Seq("IDP", "LL", "ZL")
+    vt.raw = true
+    vt.out = vt_output
 
-      val vt = new VariantsToTable()
-      vt.reference_sequence = referenceFile
-      vt.variant = List(dt_output)
-      vt.F = Seq("CHROM", "POS", "END", "AVG_INTERVAL_DP")
-      vt.GF = Seq("MED")
-      vt.raw = true
-      vt.out = vt_output
-
-      add(dt, vt)
-    }
+    add(dt, vt)
   }
 
 }

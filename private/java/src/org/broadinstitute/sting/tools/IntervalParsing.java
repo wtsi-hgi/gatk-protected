@@ -44,126 +44,147 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.diagnostics.diagnosetargets;
+package org.broadinstitute.sting.tools;
 
+import net.sf.picard.reference.IndexedFastaSequenceFile;
+import org.apache.log4j.Logger;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.CommandLineProgram;
+import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.interval.IntervalUtils;
 
+import java.io.File;
+import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 /**
- * The statistics calculator for a specific sample given the interval
+ * Standalone utility to operate on interval lists
  */
-final class SampleStratification extends AbstractStratification {
-    private final GenomeLoc interval;
-    private final ArrayList<AbstractStratification> loci;
+public final class IntervalParsing extends CommandLineProgram {
 
-    private int nReads = -1;
-    private int nBadMates = -1;
+    private static Logger logger = Logger.getLogger(IntervalParsing.class);
 
-    public SampleStratification(final GenomeLoc interval, final ThresHolder thresholds) {
-        super(thresholds);
-        this.interval = interval;
-        this.loci = new ArrayList<AbstractStratification>(interval.size());
-        nReads = 0;
-        nBadMates = 0;
+    @Output
+    protected PrintStream out;
 
-        // Initialize every loci (this way we don't have to worry about non-existent loci in the object
-        for (int i = 0; i < interval.size(); i++)
-            this.loci.add(new LocusStratification(thresholds));
+    @Argument(shortName = "R", required = true)
+    public File reference;
+
+    @Argument(shortName = "targets", required = true)
+    public List<File> intervalList;
+
+    @Argument(shortName = "action", required = true)
+    public Action action;
+
+    public enum Action {
+        UNION,       // A + B
+        DIFFERENCE,  // (((A - B) - C) - D) ... in order
+        INTERSECTION // A & B
     }
 
-    /**
-     * Simple Getters
-     */
-    public int getIntervalSize() {return interval.size();}
-    public int getnReads() {return nReads;}
-    public int getnBadMates() {return nBadMates;}
-
-    /**
-     * Adds a locus to the interval wide stats
-     *
-     * @param locus      The locus given as a GenomeLoc
-     * @param pileup     The pileup of that locus, this exclusively contains the sample
-     */
-    public void addLocus(GenomeLoc locus, ReadBackedPileup pileup) {
-        if (!interval.containsP(locus))
-            throw new ReviewedStingException(String.format("Locus %s is not part of the Interval %s", locus, interval));
-
-        // a null pileup means there nothing to add
-        if (pileup != null) {
-            final int locusIndex = locus.getStart() - interval.getStart();
-            final int rawCoverage = pileup.depthOfCoverage();
-            final int coverage = pileup.getBaseAndMappingFilteredPileup(thresholds.minimumBaseQuality, thresholds.minimumMappingQuality).depthOfCoverage();
-            final LocusStratification locusData = (LocusStratification) loci.get(locusIndex);
-            locusData.addLocus(coverage, rawCoverage);
-
-            // process all the reads in this pileup (tallying number of reads and bad mates)
-            for (GATKSAMRecord read : pileup.getReads())
-                processRead(read);
+    public static void main ( String[] args ) {
+        try {
+            IntervalParsing instance = new IntervalParsing();
+            start(instance, args);
+            System.exit(CommandLineProgram.result);
+        } catch ( UserException e ) {
+            exitSystemWithUserError(e);
+        } catch ( Exception e ) {
+            exitSystemWithError(e);
         }
     }
 
     @Override
-    public Iterable<AbstractStratification> getElements() {
-        return loci;
+    protected int execute() throws Exception {
+        final List<List<GenomeLoc>> intervals = new ArrayList<List<GenomeLoc>>(intervalList.size());
+        final GenomeLocParser genomeLocParser = new GenomeLocParser(new IndexedFastaSequenceFile(reference));
+        for (File f : intervalList) {
+            intervals.add(IntervalUtils.intervalFileToList(genomeLocParser, f.getAbsolutePath()));
+        }
+        List<GenomeLoc> result = null;
+        switch (action) {
+            case UNION:
+                throw new ReviewedStingException("Not implemented");
+            case DIFFERENCE:
+                result = difference(intervals);
+                break;
+            case INTERSECTION:
+                throw new ReviewedStingException("Not implemented");
+            default:
+                throw new ReviewedStingException("Not implemented");
+        }
+        for (GenomeLoc interval : result)
+            out.println(interval);
+        out.close();
+        return 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<CallableStatus> callableStatuses() {
-        final List<CallableStatus> output = new LinkedList<CallableStatus>();
+    private static List<GenomeLoc> difference(List<List<GenomeLoc>> list) {
+        return difference(list, 0);
+    }
 
-        // get the sample statuses of all the Loci Metrics
-        for (Metric locusStat : thresholds.locusMetricList) {
-            final CallableStatus status = ((LocusMetric) locusStat).sampleStatus(this);
-            if (status != null) {
-                output.add(status);
+    private static List<GenomeLoc> difference(List<List<GenomeLoc>> list, int index) {
+        if (list.size() < index + 1)
+            throw new ReviewedStingException("Not enough elements in the interval list");
+
+        List<GenomeLoc> result =  list.get(index);
+        for (int i = index + 1; i < list.size(); i++) {
+            result = difference(result, list.get(i));
+        }
+        return result;
+    }
+
+    private static List<GenomeLoc> difference (List<GenomeLoc> a, List<GenomeLoc> b) {
+        final List<GenomeLoc> result = new ArrayList<GenomeLoc>(a.size());
+        for (GenomeLoc interval : a) {
+            List<GenomeLoc> ints = difference(interval, b);
+            result.addAll(ints);
+        }
+        return result;
+    }
+
+    private static List<GenomeLoc> difference(GenomeLoc interval, List<GenomeLoc> b) {
+        final List<GenomeLoc> result = new ArrayList<GenomeLoc>();
+        int left = 0;
+        int right = b.size();
+        boolean overlaps;
+        int comp;
+        int key;
+        do {
+            key = (left + right)/2;
+            GenomeLoc other = b.get(key);
+            overlaps = other.overlapsP(interval);
+            comp = other.compareTo(interval);
+            if (comp > 0) {
+                right = key - 1;
+            } else if (comp < 0) {
+                left = key + 1;
+            }
+        } while (!overlaps && right >= left);
+
+        if (overlaps) {
+            left = key - 1;
+            right = key + 1;
+            while (left >= 0 && b.get(left).overlapsP(interval)) left--;
+            while (right < b.size() && b.get(right).overlapsP(interval)) right++;
+
+            List<GenomeLoc> partial = new ArrayList<GenomeLoc>();
+            result.add(interval);
+            for (int i = left+1; i<right; i++) {
+                for (GenomeLoc in : result) {
+                    partial.addAll(in.subtract(b.get(i)));
+                }
+                result.clear();
+                result.addAll(partial);
+                partial.clear();
             }
         }
 
-        // get the sample specific statitics statuses
-        output.addAll(queryStatus(thresholds.sampleMetricList));
-
-        // special case, if there are no reads, then there is no sense reporting coverage gaps.
-        if (output.contains(CallableStatus.NO_READS) && output.contains(CallableStatus.COVERAGE_GAPS))
-            output.remove(CallableStatus.COVERAGE_GAPS);
-
-        return output;
-    }
-
-
-    /**
-     * Account for the read and check it for any statistics necessary. Reads are marked in the temporary
-     * attribute "seen" to make sure they're not counted twice.
-     * 
-     * @param read the read
-     */
-    private void processRead(GATKSAMRecord read) {
-        if (read.getTemporaryAttribute("seen") == null) {
-            nReads++;
-            if (read.getReadPairedFlag() && !read.getProperPairFlag())
-                nBadMates++;
-            read.setTemporaryAttribute("seen", true);
-        }
-    }
-
-    public int getNLowCoveredLoci() {
-        return getCallableStatusCount(CallableStatus.LOW_COVERAGE);
-    }
-
-    public int getNUncoveredLoci() {
-        return getCallableStatusCount(CallableStatus.COVERAGE_GAPS);
-    }
-
-    private int getCallableStatusCount(CallableStatus status) {
-        final Integer x = getStatusTally().get(status);
-        return x == null ? 0 : x;
+        return result;
     }
 }
