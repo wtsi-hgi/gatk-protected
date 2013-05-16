@@ -118,22 +118,27 @@ class AncientDNASingleSampleCalling extends QScript{
   var minMQ: Double = 20.0
 
   @Argument(doc = "Minimum QD", fullName = "minQD", shortName = "minQD", required = false)
-  var minQD: Double = 1.0
+  var minQD: Double = 2.0
 
   @Argument(doc = "Minimum DP", fullName = "minDP", shortName = "minDP", required = false)
   var minDP: Int = 5
+
+  @Argument(doc = "Minimum MQRankSum", fullName = "minMQRankSum", shortName = "minMQRankSum", required = false)
+  var minMQRankSum: Double = -12.5
 
   @Argument(doc = "Maximum DP", fullName = "maxDP", shortName = "maxDP", required = false)
   var maxDP: Int = 500
 
   @Argument(doc = "Minimum QUAL", fullName = "minQual", shortName = "minQual", required = false)
-  var minQual: Double = 10.0
+  var minQual: Double = 30.0
 
   @Argument(doc = "Maximum ReadPosRankSum", fullName = "minReadPosRankSum", shortName = "minRP", required = false)
   var minRP: Double = -2.0
   @Argument(doc = "Maximum HaplotypeScore", fullName = "maxHS", shortName = "maxHS", required = false)
-  var maxHS: Double = 20.0
+  var maxHS: Double = 13.0
 
+  @Argument(doc = "Maximum FisherStrand", fullName = "maxFS", shortName = "maxFS", required = false)
+  var maxFS: Double = 60.0
 
   @Argument(doc = "Default memory limit per job", fullName = "mem_limit", shortName = "mem", required = false)
   var memLimit: Int = 2
@@ -171,19 +176,16 @@ class AncientDNASingleSampleCalling extends QScript{
   val contigShort:List[String] = List("20")
   def script() {
 
-    val ve = new Eval
     if (splitByContig) {
 
       for (chr <- {if(doOneChr==false)contigs else contigShort}) {
-        ve.eval :+= callAndFilter(chr)
+        val ve = new Eval(callAndFilter(chr),chr)
+        add(ve)
       }
     } else {
-      ve.eval :+= callAndFilter("")
+      val ve = new Eval(callAndFilter(""),"")
+      add(ve)
     }
-    if (doOneChr)
-      ve.intervalsString = contigShort
-    ve.out =  outputVCF+".eval"
-    add(ve)
 
   }
 
@@ -222,9 +224,10 @@ class AncientDNASingleSampleCalling extends QScript{
  //   this.isIntermediate = true
     this.jobQueue = queue
     this.reference_sequence = reference
+    this.retries = 1
   }
 
-  case class Eval() extends VariantEval with CommandLineGATKArgs {
+  case class Eval(evalVCF:File, chr:String) extends VariantEval with CommandLineGATKArgs {
 
 //    this.eval :+= evalVCF
     this.dbsnp = dbSNP(0)
@@ -234,6 +237,11 @@ class AncientDNASingleSampleCalling extends QScript{
     this.stratificationModule = Seq("Novelty", "Filter","AlleleCount")
     this.num_threads = 4
     this.memoryLimit = 8
+    this.eval :+= evalVCF
+    this.out = new File(evalVCF+".eval")
+    this.nt = Some(4)
+    if (!chr.isEmpty)
+      this.intervalsString :+= chr
   }
 
   case class filter(inVCF: File, inIdx: File, chr:String) extends VariantFiltration with CommandLineGATKArgs {
@@ -253,7 +261,7 @@ class AncientDNASingleSampleCalling extends QScript{
 
     this.filterExpression = Seq("QUAL<"+minQual)
     this.filterName = Seq("LowQual")
-    this.logging_level = "ERROR"
+    this.logging_level = "ERROR"         // needed to avoid massive warnings at reference site
     this.filterExpression :+= "QD<"+minQD
     this.filterName :+= "LowQD"
     this.filterExpression :+=("MQ<"+minMQ)
@@ -266,6 +274,10 @@ class AncientDNASingleSampleCalling extends QScript{
     this.filterName :+= "LowReadPosRankSum"
     this.filterExpression :+= ("HaplotypeScore>"+maxHS)
     this.filterName :+= "HaplotypeScore"
+    this.filterExpression :+= ("MQRankSum<"+minMQRankSum)
+    this.filterName :+= "LowMQRankSum"
+    this.filterExpression :+=("FS>"+maxFS)
+    this.filterName :+=("HighFS")
 
     if (includeMask != null) {
       if (includeMask.toUpperCase.endsWith("BED")|| includeMask.toUpperCase.endsWith("BED.GZ")) {
@@ -314,6 +326,7 @@ class AncientDNASingleSampleCalling extends QScript{
     } else {
       this.out = outVCF
       this.scatterCount = nContigs
+      this.scatterGatherDirectory = new File(tmpDir)
       if (targets != null)
         this.intervals :+= targets
 
@@ -332,7 +345,7 @@ class AncientDNASingleSampleCalling extends QScript{
     this.memoryLimit = 2
     this.analysisName = out + ".tabix"
     this.jobName = out + ".tabix"
-
+    this.isIntermediate = false
   }
 
   case class bgzip(inVCF: File) extends CommandLineFunction with ExternalCommonArgs {
