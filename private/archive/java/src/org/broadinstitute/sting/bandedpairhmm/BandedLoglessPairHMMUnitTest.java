@@ -46,153 +46,181 @@
 
 package org.broadinstitute.sting.utils.pairhmm;
 
-import com.google.java.contract.Ensures;
-import com.google.java.contract.Requires;
-import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.sting.utils.Utils;
+import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
-/**
- * Created with IntelliJ IDEA.
- * User: rpoplin, carneiro
- * Date: 10/16/12
- */
-public final class LoglessPairHMM extends N2MemoryPairHMM {
-    protected static final double INITIAL_CONDITION = Math.pow(2, 1020);
-    protected static final double INITIAL_CONDITION_LOG10 = Math.log10(INITIAL_CONDITION);
+import java.io.File;
+import java.util.*;
 
-    private static final int matchToMatch = 0;
-    private static final int indelToMatch = 1;
-    private static final int matchToInsertion = 2;
-    private static final int insertionToInsertion = 3;
-    private static final int matchToDeletion = 4;
-    private static final int deletionToDeletion = 5;
+public class BandedLoglessPairHMMUnitTest extends BaseTest {
+    private final static boolean DEBUG = false;
+    private final File FILENAME = new File(privateTestDir + "likelihoods_2x101_100kb.txt.gz");
+//    private final File FILENAME = new File("likelihoods_2x250_1mb.txt.gz");
+    private final List<PairHMMTestData> results = new LinkedList<>();
 
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void initialize(final int readMaxLength, final int haplotypeMaxLength ) {
-        super.initialize(readMaxLength, haplotypeMaxLength);
-
-        transition = new double[paddedMaxReadLength][6];
-        prior = new double[paddedMaxReadLength][paddedMaxHaplotypeLength];
+    @BeforeClass
+    public void setUp() throws Exception {
+        for ( final List<PairHMMTestData> data : PairHMMTestData.readLikelihoods(FILENAME).values() )
+            results.addAll(data);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public double subComputeReadLikelihoodGivenHaplotypeLog10( final byte[] haplotypeBases,
-                                                               final byte[] readBases,
-                                                               final byte[] readQuals,
-                                                               final byte[] insertionGOP,
-                                                               final byte[] deletionGOP,
-                                                               final byte[] overallGCP,
-                                                               final int hapStartIndex,
-                                                               final boolean recacheReadValues ) {
+    @DataProvider(name = "InfoData")
+    public Object[][] makeInfoData() {
+        List<Object[]> tests = new ArrayList<>();
 
-        if (previousHaplotypeBases == null || previousHaplotypeBases.length != haplotypeBases.length) {
-            final double initialValue = INITIAL_CONDITION / haplotypeBases.length;
-            // set the initial value (free deletions in the beginning) for the first row in the deletion matrix
-            for( int j = 0; j < paddedHaplotypeLength; j++ ) {
-                deletionMatrix[0][j] = initialValue;
+        final List<Integer> infosToTake = Arrays.asList();
+        final int maxInfo = 10000000;
+        int counter = 0;
+        for ( final PairHMMTestData info : results ) {
+            if ( counter < maxInfo && ( infosToTake.isEmpty() || infosToTake.contains(counter)))
+                tests.add(new Object[]{counter, info});
+            counter++;
+        }
+
+        return tests.toArray(new Object[][]{});
+    }
+
+    // this value (-20) depends on the band size and mle distance of our parameters
+    private final static double SMALLEST_LIKELIHOOD_THAT_WILL_BE_EQUAL_TO_FULL_LOGLESS = -20;
+    @Test(dataProvider = "InfoData", enabled = !DEBUG)
+    public void testBandedLoglessHMM(final int i, final PairHMMTestData info) {
+        //logger.warn("Testing " + info.ref + " against " + info.read);
+        final BandedLoglessPairHMM hmm = new BandedLoglessPairHMM(5, 1e-20);
+        final double myL = info.runHMM(hmm);
+        logger.warn("hmm " + hmm);
+        if ( info.log10l >= SMALLEST_LIKELIHOOD_THAT_WILL_BE_EQUAL_TO_FULL_LOGLESS )
+            Assert.assertEquals(myL, info.log10l, 1e-3);
+    }
+
+
+
+    @DataProvider(name = "ConstructedData")
+    public Object[][] makeConstructedData() {
+        List<Object[]> tests = new ArrayList<>();
+
+        final int bandSize = 5;
+        final String allCommonBases = "ACGTAACCGGTTAAACCCGGGTTTAAAACCCCGGGGGTTTT";
+
+        for ( int commonSize = 1; commonSize < allCommonBases.length(); commonSize++ ) {
+            final String commonBases = allCommonBases.substring(0, commonSize);
+            tests.add(new Object[]{"Read starts in middle of haplotype, goes to end",
+                    bandSize,
+                    new PairHMMTestData(Utils.dupString("A", 5*bandSize) + commonBases, commonBases, (byte)30)});
+            tests.add(new Object[]{"Read starts in start of haplotype, doesn't have tail",
+                    bandSize,
+                    new PairHMMTestData(commonBases + Utils.dupString("A", 5*bandSize), commonBases, (byte)30)});
+            tests.add(new Object[]{"Read starts in middle of haplotype, has both header and tail",
+                    bandSize,
+                    new PairHMMTestData(Utils.dupString("C", 5*bandSize) + commonBases + Utils.dupString("A", 5*bandSize), commonBases, (byte)30)});
+        }
+
+//        final int commonSize = allCommonBases.length();
+//        final String commonBases = allCommonBases.substring(0, commonSize);
+//        tests.add(new Object[]{"Read starts in middle of haplotype, goes to end",
+//                    bandSize,
+//                    new PairHMMTestData(Utils.dupString("A", 5*bandSize) + commonBases, commonBases, (byte)30)});
+
+        return tests.toArray(new Object[][]{});
+    }
+
+    @Test(dataProvider = "ConstructedData", enabled = !DEBUG)
+    public void testConstructedExample(final String name, final int bandSize, final PairHMMTestData info) {
+        //logger.warn("Testing " + info.ref + " against " + info.read);
+        final BandedLoglessPairHMM hmm = new BandedLoglessPairHMM(bandSize);
+        final double myL = info.runHMM(hmm);
+        final double standardL = info.runHMM(new LoglessPairHMM());
+        logger.warn("hmm " + hmm);
+        Assert.assertEquals(myL, standardL, 1e-3);
+    }
+
+    final static double DONT_KEEP_VALUE = 1e60;
+    final static double MLE_VALUE = 1e100;
+
+    @DataProvider(name = "UpdateBandData")
+    public Object[][] makeUpdateBandData() {
+        List<Object[]> tests = new ArrayList<>();
+
+        final int readLen = 80;
+        final int hapLen = 100;
+        final byte[] hapBases = Utils.dupBytes((byte)'A', hapLen);
+        final byte[] readBases = Utils.dupBytes((byte)'A', readLen);
+        final byte[] quals = Utils.dupBytes((byte)30, readLen);
+
+        final int bandSize = 5;
+        boolean alreadyGeneratedMultiBandTest = false;
+//        for ( final int readI : Arrays.asList(50) ) {
+        for ( int readI = 1; readI < readLen; readI++ ) {
+            final BandedLoglessPairHMM hmm = new BandedLoglessPairHMM(bandSize);
+            hmm.initialize(readLen, hapLen);
+            // necessary to ensure all of the internal state is set up correctly
+            hmm.computeReadLikelihoodGivenHaplotypeLog10(hapBases, readBases, quals, quals, quals, quals, true);
+
+            final Bands fullBand = new Bands();
+            fullBand.addBand(1, hapLen+1);
+
+            // test single band
+            for ( int hapPos = 1; hapPos < hapLen; hapPos++ ) {
+//            for ( final int hapPos : Arrays.asList(11) ) {
+                final double[] bandData = new double[hapLen+1];
+                Arrays.fill(bandData, DONT_KEEP_VALUE);
+                bandData[hapPos] = MLE_VALUE;
+
+                if ( readI < hmm.firstRowsBandSize() ) {
+                    tests.add(new Object[]{hmm, bandData, readI, fullBand, fullBand});
+                } else {
+                    final Bands expected = new Bands();
+                    expected.addPaddedBand(hapPos, hapPos, bandSize, hapLen+1);
+                    tests.add(new Object[]{hmm, bandData, readI, fullBand, expected});
+                }
+            }
+
+            // test multiple bands
+            if ( readI >= hmm.firstRowsBandSize() && ! alreadyGeneratedMultiBandTest ) {
+//                for ( int i : Arrays.asList(50) ) {
+//                    for ( int j : Arrays.asList(60)) {
+                for ( int i = 1; i < hapLen; i++ ) {
+                    for ( int j = i + 1; j < hapLen; j++ ) {
+                        final double[] bandData = new double[hapLen+1];
+                        Arrays.fill(bandData, DONT_KEEP_VALUE);
+                        bandData[i] = MLE_VALUE;
+                        bandData[j] = MLE_VALUE;
+
+                        final Bands expected = new Bands();
+                        if ( i + bandSize >= j - bandSize ) {
+                            expected.addPaddedBand(i, j, bandSize, hapLen+1);
+                        } else {
+                            expected.addPaddedBand(i, i, bandSize, hapLen+1);
+                            expected.addPaddedBand(j, j, bandSize, hapLen+1);
+                        }
+                        tests.add(new Object[]{hmm, bandData, readI, fullBand, expected});
+                    }
+                }
+
+                // only do this expense test once, since it doesn't depend on the hapPos
+                alreadyGeneratedMultiBandTest = true;
             }
         }
 
-        if ( ! constantsAreInitialized || recacheReadValues ) {
-            initializeProbabilities(transition, insertionGOP, deletionGOP, overallGCP);
-
-            // note that we initialized the constants
-            constantsAreInitialized = true;
-        }
-
-        initializePriors(haplotypeBases, readBases, readQuals, hapStartIndex);
-
-        for (int i = 1; i < paddedReadLength; i++) {
-            // +1 here is because hapStartIndex is 0-based, but our matrices are 1 based
-            for (int j = hapStartIndex+1; j < paddedHaplotypeLength; j++) {
-                updateCell(i, j, prior[i][j], transition[i]);
-            }
-        }
-
-        // final probability is the log10 sum of the last element in the Match and Insertion state arrays
-        // this way we ignore all paths that ended in deletions! (huge)
-        // but we have to sum all the paths ending in the M and I matrices, because they're no longer extended.
-        final int endI = paddedReadLength - 1;
-        double finalSumProbabilities = 0.0;
-        for (int j = 1; j < paddedHaplotypeLength; j++) {
-            finalSumProbabilities += matchMatrix[endI][j] + insertionMatrix[endI][j];
-        }
-        return Math.log10(finalSumProbabilities) - INITIAL_CONDITION_LOG10;
+        return tests.toArray(new Object[][]{});
     }
 
-    /**
-     * Initializes the matrix that holds all the constants related to the editing
-     * distance between the read and the haplotype.
-     *
-     * @param haplotypeBases the bases of the haplotype
-     * @param readBases      the bases of the read
-     * @param readQuals      the base quality scores of the read
-     * @param startIndex     where to start updating the distanceMatrix (in case this read is similar to the previous read)
-     */
-    public void initializePriors(final byte[] haplotypeBases, final byte[] readBases, final byte[] readQuals, final int startIndex) {
-
-        // initialize the pBaseReadLog10 matrix for all combinations of read x haplotype bases
-        // Abusing the fact that java initializes arrays with 0.0, so no need to fill in rows and columns below 2.
-
-        for (int i = 0; i < readBases.length; i++) {
-            final byte x = readBases[i];
-            final byte qual = readQuals[i];
-            for (int j = startIndex; j < haplotypeBases.length; j++) {
-                final byte y = haplotypeBases[j];
-                prior[i+1][j+1] = ( x == y || x == (byte) 'N' || y == (byte) 'N' ?
-                        QualityUtils.qualToProb(qual) : QualityUtils.qualToErrorProb(qual) );
-            }
+    @Test(dataProvider = "UpdateBandData", enabled = true)
+    public void testUpdateBand(final BandedLoglessPairHMM hmm,
+                               final double[] bandData,
+                               final int readPos,
+                               final Bands currentBands,
+                               final Bands expectedBands) {
+        // set the band data for use int he updateBands calculation
+        hmm.curRow.clear();
+        for ( int j = 0; j < bandData.length; j++) {
+            hmm.curRow.match[j] = bandData[j];
         }
-    }
 
-    /**
-     * Initializes the matrix that holds all the constants related to quality scores.
-     *
-     * @param insertionGOP   insertion quality scores of the read
-     * @param deletionGOP    deletion quality scores of the read
-     * @param overallGCP     overall gap continuation penalty
-     */
-    @Requires({
-            "insertionGOP != null",
-            "deletionGOP != null",
-            "overallGCP != null"
-    })
-    @Ensures("constantsAreInitialized")
-    protected static void initializeProbabilities(final double[][] transition, final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP) {
-        for (int i = 0; i < insertionGOP.length; i++) {
-            final int qualIndexGOP = Math.min(insertionGOP[i] + deletionGOP[i], Byte.MAX_VALUE);
-            transition[i+1][matchToMatch] = QualityUtils.qualToProb((byte) qualIndexGOP);
-            transition[i+1][indelToMatch] = QualityUtils.qualToProb(overallGCP[i]);
-            transition[i+1][matchToInsertion] = QualityUtils.qualToErrorProb(insertionGOP[i]);
-            transition[i+1][insertionToInsertion] = QualityUtils.qualToErrorProb(overallGCP[i]);
-            transition[i+1][matchToDeletion] = QualityUtils.qualToErrorProb(deletionGOP[i]);
-            transition[i+1][deletionToDeletion] = QualityUtils.qualToErrorProb(overallGCP[i]);
-        }
-    }
-
-    /**
-     * Updates a cell in the HMM matrix
-     *
-     * The read and haplotype indices are offset by one because the state arrays have an extra column to hold the
-     * initial conditions
-
-     * @param indI             row index in the matrices to update
-     * @param indJ             column index in the matrices to update
-     * @param prior            the likelihood editing distance matrix for the read x haplotype
-     * @param transition        an array with the six transition relevant to this location
-     */
-    private void updateCell( final int indI, final int indJ, final double prior, final double[] transition) {
-
-        matchMatrix[indI][indJ] = prior * ( matchMatrix[indI - 1][indJ - 1] * transition[matchToMatch] +
-                                                 insertionMatrix[indI - 1][indJ - 1] * transition[indelToMatch] +
-                                                 deletionMatrix[indI - 1][indJ - 1] * transition[indelToMatch] );
-        insertionMatrix[indI][indJ] = matchMatrix[indI - 1][indJ] * transition[matchToInsertion] + insertionMatrix[indI - 1][indJ] * transition[insertionToInsertion];
-        deletionMatrix[indI][indJ] = matchMatrix[indI][indJ - 1] * transition[matchToDeletion] + deletionMatrix[indI][indJ - 1] * transition[deletionToDeletion];
+        hmm.updateBands(currentBands, readPos, MLE_VALUE);
+        Assert.assertEquals(hmm.currBands, expectedBands, "Expected bands " + expectedBands + " but found " + hmm.currBands);
     }
 }

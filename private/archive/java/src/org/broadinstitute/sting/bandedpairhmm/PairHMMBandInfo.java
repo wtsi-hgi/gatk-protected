@@ -44,155 +44,117 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.utils.pairhmm;
+package org.broadinstitute.sting.gatk.walkers.performance;
 
-import com.google.java.contract.Ensures;
-import com.google.java.contract.Requires;
-import org.broadinstitute.sting.utils.QualityUtils;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
+import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.RefWalker;
+import org.broadinstitute.sting.gatk.walkers.haplotypecaller.LikelihoodCalculationEngine;
+import org.broadinstitute.sting.utils.SimpleTimer;
+import org.broadinstitute.sting.utils.pairhmm.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Created with IntelliJ IDEA.
- * User: rpoplin, carneiro
- * Date: 10/16/12
+ * Writes out performance information about the BandedLoglessPairHMM
  */
-public final class LoglessPairHMM extends N2MemoryPairHMM {
-    protected static final double INITIAL_CONDITION = Math.pow(2, 1020);
-    protected static final double INITIAL_CONDITION_LOG10 = Math.log10(INITIAL_CONDITION);
+public class PairHMMBandInfo extends RefWalker<Integer,Integer> {
+    @Input(doc="", required=false)
+    public String likelihoodsFile = "likelihoods_2x250_1mb.txt.gz";
 
-    private static final int matchToMatch = 0;
-    private static final int indelToMatch = 1;
-    private static final int matchToInsertion = 2;
-    private static final int insertionToInsertion = 3;
-    private static final int matchToDeletion = 4;
-    private static final int deletionToDeletion = 5;
+    @Argument(doc="", required=false)
+    public int width = LikelihoodCalculationEngine.BANDED_HMM_DEFAULT_BAND_SIZE;
 
+    @Argument(doc="", required=false)
+    public int initialWidth = LikelihoodCalculationEngine.BANDED_HMM_DEFAULT_INITIAL_BAND_SIZE;
 
-    /**
-     * {@inheritDoc}
-     */
+    @Argument(doc="", required=false)
+    public double tol = LikelihoodCalculationEngine.BANDED_HMM_DEFAULT_TOLERANCE;
+
+    @Argument(doc="", required=false)
+    int maxRecords = -1;
+
+    @Argument(doc="", required=false)
+    int reps = 1;
+
+    @Argument(shortName = "comparatorHMM", doc="", required=false)
+    String comparatorHMM = "logless";
+
+    @Output(required=false)
+    PrintStream out;
+
     @Override
-    public void initialize(final int readMaxLength, final int haplotypeMaxLength ) {
-        super.initialize(readMaxLength, haplotypeMaxLength);
-
-        transition = new double[paddedMaxReadLength][6];
-        prior = new double[paddedMaxReadLength][paddedMaxHaplotypeLength];
+    public boolean isDone() {
+        return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public double subComputeReadLikelihoodGivenHaplotypeLog10( final byte[] haplotypeBases,
-                                                               final byte[] readBases,
-                                                               final byte[] readQuals,
-                                                               final byte[] insertionGOP,
-                                                               final byte[] deletionGOP,
-                                                               final byte[] overallGCP,
-                                                               final int hapStartIndex,
-                                                               final boolean recacheReadValues ) {
-
-        if (previousHaplotypeBases == null || previousHaplotypeBases.length != haplotypeBases.length) {
-            final double initialValue = INITIAL_CONDITION / haplotypeBases.length;
-            // set the initial value (free deletions in the beginning) for the first row in the deletion matrix
-            for( int j = 0; j < paddedHaplotypeLength; j++ ) {
-                deletionMatrix[0][j] = initialValue;
-            }
-        }
-
-        if ( ! constantsAreInitialized || recacheReadValues ) {
-            initializeProbabilities(transition, insertionGOP, deletionGOP, overallGCP);
-
-            // note that we initialized the constants
-            constantsAreInitialized = true;
-        }
-
-        initializePriors(haplotypeBases, readBases, readQuals, hapStartIndex);
-
-        for (int i = 1; i < paddedReadLength; i++) {
-            // +1 here is because hapStartIndex is 0-based, but our matrices are 1 based
-            for (int j = hapStartIndex+1; j < paddedHaplotypeLength; j++) {
-                updateCell(i, j, prior[i][j], transition[i]);
-            }
-        }
-
-        // final probability is the log10 sum of the last element in the Match and Insertion state arrays
-        // this way we ignore all paths that ended in deletions! (huge)
-        // but we have to sum all the paths ending in the M and I matrices, because they're no longer extended.
-        final int endI = paddedReadLength - 1;
-        double finalSumProbabilities = 0.0;
-        for (int j = 1; j < paddedHaplotypeLength; j++) {
-            finalSumProbabilities += matchMatrix[endI][j] + insertionMatrix[endI][j];
-        }
-        return Math.log10(finalSumProbabilities) - INITIAL_CONDITION_LOG10;
+    public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    /**
-     * Initializes the matrix that holds all the constants related to the editing
-     * distance between the read and the haplotype.
-     *
-     * @param haplotypeBases the bases of the haplotype
-     * @param readBases      the bases of the read
-     * @param readQuals      the base quality scores of the read
-     * @param startIndex     where to start updating the distanceMatrix (in case this read is similar to the previous read)
-     */
-    public void initializePriors(final byte[] haplotypeBases, final byte[] readBases, final byte[] readQuals, final int startIndex) {
+    @Override
+    public void initialize() {
+        try {
+            final SimpleTimer timer = new SimpleTimer();
+            Map<String, List<PairHMMTestData>> empiricalData = PairHMMTestData.readLikelihoods(new File(likelihoodsFile));
 
-        // initialize the pBaseReadLog10 matrix for all combinations of read x haplotype bases
-        // Abusing the fact that java initializes arrays with 0.0, so no need to fill in rows and columns below 2.
+            logger.info("Starting HMM calculations");
+            out.printf("index single.run n.haplotypes ref.length read.length max.length n.cells.evaluated n.cells.overall logless.n.evaluated logless.n.overall banded.nano logless.nano%n");
+            int i = 0;
+            for ( final List<PairHMMTestData> testData : empiricalData.values() ) {
+                for ( final boolean runSingly : Arrays.asList(true, false) ) {
+                    timer.restart();
+                    final BandedLoglessPairHMM hmm = new BandedLoglessPairHMM(initialWidth, width, tol);
+                    for ( int rep = 0; rep < reps; rep++ ) {
+                        PairHMMTestData.runHMMs(hmm, testData, runSingly);
+                    }
+                    final long nanoBanded = timer.getElapsedTimeNano();
 
-        for (int i = 0; i < readBases.length; i++) {
-            final byte x = readBases[i];
-            final byte qual = readQuals[i];
-            for (int j = startIndex; j < haplotypeBases.length; j++) {
-                final byte y = haplotypeBases[j];
-                prior[i+1][j+1] = ( x == y || x == (byte) 'N' || y == (byte) 'N' ?
-                        QualityUtils.qualToProb(qual) : QualityUtils.qualToErrorProb(qual) );
+                    long loglessNCells = 0, loglessNEvals = 0;
+                    if ( comparatorHMM != null ) {
+//                        final PairHMM loglessPairHMM = comparatorHMM.equals("logless") ? new LoglessPairHMM() : new BaselineBandedLoglessPairHMM(width, tol);
+                        final PairHMM loglessPairHMM = new LoglessPairHMM();
+
+                        timer.restart();
+                        for ( int rep = 0; rep < reps; rep++ ) {
+                            PairHMMTestData.runHMMs(loglessPairHMM, testData, runSingly);
+                        }
+                        loglessNCells = loglessPairHMM.nCellsOverall;
+                        loglessNEvals = loglessPairHMM.nCellsEvaluated;
+                    }
+                    final long nanoLogless = comparatorHMM == null ? 1 : timer.getElapsedTimeNano();
+
+                    final int maxHapLen = PairHMMTestData.calcMaxHaplotypeLen(testData);
+                    final PairHMMTestData first = testData.get(0);
+                    out.printf("%d %b %d %d %d %d %d %d %d %d %d %d%n", i++, runSingly, testData.size(), maxHapLen, first.getRead().length(), Math.max(first.getRead().length(), maxHapLen),
+                            hmm.nCellsEvaluated, hmm.nCellsOverall, loglessNEvals, loglessNCells,
+                            nanoBanded, nanoLogless);
+                }
+
+                if ( maxRecords != -1 && i > maxRecords ) break;
             }
+        } catch ( IOException e ) {
+            throw new RuntimeException(e);
         }
     }
 
-    /**
-     * Initializes the matrix that holds all the constants related to quality scores.
-     *
-     * @param insertionGOP   insertion quality scores of the read
-     * @param deletionGOP    deletion quality scores of the read
-     * @param overallGCP     overall gap continuation penalty
-     */
-    @Requires({
-            "insertionGOP != null",
-            "deletionGOP != null",
-            "overallGCP != null"
-    })
-    @Ensures("constantsAreInitialized")
-    protected static void initializeProbabilities(final double[][] transition, final byte[] insertionGOP, final byte[] deletionGOP, final byte[] overallGCP) {
-        for (int i = 0; i < insertionGOP.length; i++) {
-            final int qualIndexGOP = Math.min(insertionGOP[i] + deletionGOP[i], Byte.MAX_VALUE);
-            transition[i+1][matchToMatch] = QualityUtils.qualToProb((byte) qualIndexGOP);
-            transition[i+1][indelToMatch] = QualityUtils.qualToProb(overallGCP[i]);
-            transition[i+1][matchToInsertion] = QualityUtils.qualToErrorProb(insertionGOP[i]);
-            transition[i+1][insertionToInsertion] = QualityUtils.qualToErrorProb(overallGCP[i]);
-            transition[i+1][matchToDeletion] = QualityUtils.qualToErrorProb(deletionGOP[i]);
-            transition[i+1][deletionToDeletion] = QualityUtils.qualToErrorProb(overallGCP[i]);
-        }
+    @Override
+    public Integer reduceInit() {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    /**
-     * Updates a cell in the HMM matrix
-     *
-     * The read and haplotype indices are offset by one because the state arrays have an extra column to hold the
-     * initial conditions
-
-     * @param indI             row index in the matrices to update
-     * @param indJ             column index in the matrices to update
-     * @param prior            the likelihood editing distance matrix for the read x haplotype
-     * @param transition        an array with the six transition relevant to this location
-     */
-    private void updateCell( final int indI, final int indJ, final double prior, final double[] transition) {
-
-        matchMatrix[indI][indJ] = prior * ( matchMatrix[indI - 1][indJ - 1] * transition[matchToMatch] +
-                                                 insertionMatrix[indI - 1][indJ - 1] * transition[indelToMatch] +
-                                                 deletionMatrix[indI - 1][indJ - 1] * transition[indelToMatch] );
-        insertionMatrix[indI][indJ] = matchMatrix[indI - 1][indJ] * transition[matchToInsertion] + insertionMatrix[indI - 1][indJ] * transition[insertionToInsertion];
-        deletionMatrix[indI][indJ] = matchMatrix[indI][indJ - 1] * transition[matchToDeletion] + deletionMatrix[indI][indJ - 1] * transition[deletionToDeletion];
+    @Override
+    public Integer reduce(Integer value, Integer sum) {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 }
