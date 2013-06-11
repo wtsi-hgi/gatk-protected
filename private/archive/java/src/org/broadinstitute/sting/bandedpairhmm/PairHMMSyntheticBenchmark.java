@@ -101,8 +101,9 @@ public class PairHMMSyntheticBenchmark extends SimpleBenchmark {
     public void timePairHMM(int rep) {
         final PairHMM hmm = getHmm();
         final String ref = generateSeq(refLength);
+        final String nextRef = generateSeq(refLength);
         final String read = generateSeq(readLength);
-        final PairHMMTestData testData = new PairHMMTestData(ref, read, (byte)30);
+        final PairHMMTestData testData = new PairHMMTestData(ref, nextRef, read, (byte)30);
         System.out.println(testData.toString());
         for ( int i = 0; i < rep; i++ ) {
             testData.runHMM(hmm);
