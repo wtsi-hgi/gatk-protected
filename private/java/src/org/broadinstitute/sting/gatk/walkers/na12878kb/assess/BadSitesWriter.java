@@ -48,6 +48,7 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
+import org.broadinstitute.variant.variantcontext.Genotype;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
@@ -91,6 +92,7 @@ class BadSitesWriter {
         if ( captureBadSites ) {
             lines.add(new VCFInfoHeaderLine("WHY", 1, VCFHeaderLineType.String, "Why was the site considered bad"));
             lines.add(new VCFInfoHeaderLine("SupportingCallsets", 1, VCFHeaderLineType.String, "Callsets supporting the consensus, where available"));
+            lines.add(new VCFInfoHeaderLine("ExpectedGenotype", 1, VCFHeaderLineType.String, "Genotype expected according to the KB for sites with genotype discordance"));
             lines.add(VCFStandardHeaderLines.getFormatLine("GT"));
             lines.addAll(MongoVariantContext.reviewHeaderLines());
             badSites.writeHeader(new VCFHeader(lines, Collections.singleton("NA12878")));
@@ -131,6 +133,10 @@ class BadSitesWriter {
             if ( consensusSite != null )
                 builder.attribute(SUPPORTING_CALLSET_KEY, consensusSite.getCallSetName());
             builder.attribute(WHY_KEY, type.toString());
+            if ( type == AssessmentType.GENOTYPE_DISCORDANCE ) {
+                final Genotype expectedGT = consensusSite.getGt().toGenotype(vc.getAlleles());
+                builder.attribute("ExpectedGenotype", expectedGT.getType());
+            }
             badSites.add(builder.make());
             if ( logger.isDebugEnabled() ) logger.debug("Accessed site " + vc + " consensus " + consensusSite);
         }

@@ -47,11 +47,10 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
 import com.google.java.contract.Ensures;
+import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.variant.variantcontext.GenotypeType;
 
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.List;
+import java.util.*;
 
 /**
  * Keeps track of observations for each AssessmentType
@@ -65,6 +64,54 @@ class Assessment {
     final EnumMap<AssessmentType, Integer> counts;
 
     /**
+     * Tracks genotyping accuracy at TP sites
+     */
+    public static class GenotypeAssessment {
+        private final String name;
+        int nTPCalled = 0, nTPCalledWithCorrectGenotype = 0;
+
+        public GenotypeAssessment(String name) {
+            if ( name == null ) throw new IllegalArgumentException("name cannot be null");
+            this.name = name;
+        }
+
+        /**
+         * Increment nTPs and if calledCorrectly nTPCalledWithCorrectGenotype
+         * @param calledCorrectly true if we had the right genotype, false otherwise
+         */
+        public void inc(final boolean calledCorrectly) {
+            nTPCalled++;
+            nTPCalledWithCorrectGenotype += calledCorrectly ? 1 : 0;
+        }
+
+        /**
+         * Get a pretty formatted genotyping accuracy as a percent
+         * @return a non-null string
+         */
+        public String getGenotypingAccuracy() {
+            return String.format("%.2f", MathUtils.percentage(nTPCalledWithCorrectGenotype, nTPCalled));
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        /**
+         * Add the genotyping accuracy information from toAdd into this assessment
+         * @param toAdd a non-null GenotypeAssessment to incorporate
+         */
+        public void add(final GenotypeAssessment toAdd) {
+            if ( toAdd == null ) throw new IllegalArgumentException("toAdd cannot be null");
+            if ( ! name.equals(toAdd.getName()) ) throw new IllegalArgumentException("Cannot merge GenotypeAssessment " + toAdd.getName() + " into assessment with different name " + name);
+            nTPCalled += toAdd.nTPCalled;
+            nTPCalledWithCorrectGenotype += toAdd.nTPCalledWithCorrectGenotype;
+        }
+    }
+
+    private final GenotypeAssessment hetAssessment = new GenotypeAssessment("HET_CONCORDANCE");
+    private final GenotypeAssessment homVarAssessment = new GenotypeAssessment("HOMVAR_CONCORDANCE");
+
+    /**
      * Create a new Assessment, initialized to 0 count per AssessmentType
      * @param activeTypes The set of all types that are being tracked by this assessment
      */
@@ -73,9 +120,15 @@ class Assessment {
         if ( activeTypes.isEmpty() ) throw new IllegalArgumentException("activeTypes cannot be empty");
 
         this.activeTypes = activeTypes;
-        counts = new EnumMap<AssessmentType, Integer>(AssessmentType.class);
+        counts = new EnumMap<>(AssessmentType.class);
         for ( final AssessmentType type : activeTypes )
             counts.put(type, 0);
+    }
+
+    private Assessment(final EnumSet<AssessmentType> activeTypes, final GenotypeAssessment hetAssessment, final GenotypeAssessment homVarAssessment) {
+        this(activeTypes);
+        this.hetAssessment.add(hetAssessment);
+        this.homVarAssessment.add(homVarAssessment);
     }
 
     /**
@@ -144,6 +197,8 @@ class Assessment {
         if ( ! toAdd.getActiveTypes().equals(getActiveTypes()) ) throw new IllegalArgumentException("Cannot merge assessments with non-equal active types: this " + this + " vs. toAdd " + toAdd);
         for ( final EnumMap.Entry<AssessmentType, Integer> count : toAdd.counts.entrySet() )
             counts.put(count.getKey(), get(count.getKey()) + count.getValue());
+        hetAssessment.add(toAdd.hetAssessment);
+        homVarAssessment.add(toAdd.homVarAssessment);
     }
 
     /**
@@ -170,7 +225,7 @@ class Assessment {
         if ( this.getActiveTypes().equals(AssessmentType.SIMPLE_ASSESSMENTS) )
             return this;
 
-        final Assessment simpleAssessment = new Assessment(AssessmentType.SIMPLE_ASSESSMENTS);
+        final Assessment simpleAssessment = new Assessment(AssessmentType.SIMPLE_ASSESSMENTS, hetAssessment, homVarAssessment);
         for ( final EnumMap.Entry<AssessmentType, Integer> count : this.counts.entrySet() ) {
             final AssessmentType detailed = count.getKey();
             final AssessmentType simple = detailed.getSimpleVersion();
@@ -180,6 +235,30 @@ class Assessment {
 
         return simpleAssessment;
     }
+
+    /**
+     * Get the list of genotyping accuracy assessments we are tracking in this Assessment
+     * @return a non-null List
+     */
+    public List<GenotypeAssessment> getGenotypeAssessments() {
+        return Arrays.asList(hetAssessment, homVarAssessment);
+    }
+
+    /**
+     * Increment the genotyping accuracy for type (either HET or HOM_VAR)
+     * @param type the type of the TP event we are assessing
+     * @param concordant true if the call had the right genotype for the TP site, false otherwise
+     */
+    public void incGenotypingAccuracy(final GenotypeType type, final boolean concordant) {
+        if ( type == null ) throw new IllegalArgumentException("type cannot be null");
+
+        switch ( type ) {
+            case HET: hetAssessment.inc(concordant); break;
+            case HOM_VAR: homVarAssessment.inc(concordant); break;
+            default: throw new IllegalArgumentException("Unsupported type " + type);
+        }
+    }
+
 
     @Override
     public String toString() {

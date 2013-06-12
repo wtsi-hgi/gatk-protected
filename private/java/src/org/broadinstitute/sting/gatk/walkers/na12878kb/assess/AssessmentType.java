@@ -146,7 +146,16 @@ public enum AssessmentType {
      * Catch all class for sites that (1) are in the callset but filtered and have no record in the KB or
      * (2) SUSPECT, MONO, UNKNOWN status in the KB that aren't called in the call set
      */
-    NOT_RELEVANT(null, false, true, false);
+    NOT_RELEVANT(null, false, true, false),
+
+    /**
+     * A Genotype discordance state.
+     *
+     * This isn't a full blown standard state (not shown in either the simple or full report)
+     * but rather a state used to signal that although a site was called correctly the
+     * genotype assignment was incorrect.
+     */
+    GENOTYPE_DISCORDANCE(null, false, false, true);
 
     /**
      * Is this site interesting to emit for later analysis?
