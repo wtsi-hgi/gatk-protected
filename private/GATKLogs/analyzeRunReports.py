@@ -17,7 +17,7 @@ except ImportError, e:
 
 MISSING_VALUE = "NA"
 RUN_REPORT_LIST = "GATK-run-reports"
-RUN_REPORT = "GATK-run-report"
+RUN_REPORTS = ["GATK-run-report","GATKRunReport"]
 
 def main():
     global OPTIONS
@@ -282,12 +282,12 @@ def parseGATKVersion(text):
         minor = svnMatch.group(2)
     else:
         # maps git numbers 1.3-22-g1bfe280 to 1.3
-        gitFullMatch = re.match("^(\d)\.(\d+)-(\d+)-\w*$", text)
+        gitFullMatch = re.match("^(\d)\.(\d+)-(\d+)-\w*.*$", text)
         if gitFullMatch != None:
             major = "%s.%s" % gitFullMatch.group(1,2)
             minor = gitFullMatch.group(3)
         else:
-            gitShortMatch = re.match("^(\d)\.(\d+)$", text)
+            gitShortMatch = re.match("^(\d)\.(\d+).*$", text)
             if gitShortMatch != None:
                 major = "%s.%s" % gitShortMatch.group(1,2)
             
@@ -301,6 +301,11 @@ class TestSequenceFunctions(unittest.TestCase):
             "1.0.6000" : ['0.6', 0],
             "1.3-33-g1bfe280" : ['1.3', 33],
             "1.4-1-xafdasdf" : ['1.4', 1],
+            "2.5-2-xafdasdf-picard" : ['2.5', 2],
+            "2.5-2-xafdasdf-nightly" : ['2.5', 2],
+            "jenkins-raw_call_and_assess_NA12878-69-0-g01402c5" : ['unknown', 0],
+            "picard_2013_06_11-0-gfea5b57" : ['unknown', 0],
+            "nightly-2013-04-18-g2fd787a" : ['unknown', 0],
             "1.3" : ['1.3', 0],
             "<unknown>" : ['unknown', 0],
             "382343549e2e98e2727e66548b6b2bafa6fa4297" : ['unknown', 0]
@@ -745,7 +750,9 @@ def readReports(files):
         try:
             counter = 0
             for event, elem in iterparse(input):
-                if elem.tag == RUN_REPORT:
+                if elem.tag in RUN_REPORTS:
+                    # necessary for historical consistency
+                    elem.tag = "GATK-run-report"
                     if passesFilters(elem):
                         counter += 1
                         #if counter % 1000 == 0: print 'Returning', counter

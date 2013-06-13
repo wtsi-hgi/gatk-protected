@@ -2,7 +2,7 @@
 
 source /broad/tools/scripts/useuse
 
-reuse Python-2.5
+reuse Python-2.6
 
 setenv DIR /humgen/gsa-hpprojects/GATK/reports 
 setenv ARCHIVE_DIR $DIR/archive
