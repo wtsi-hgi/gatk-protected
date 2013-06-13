@@ -124,10 +124,7 @@ public enum TruthStatus {
         }
 
         // note this must occur after SUSPECT since SUSPECT + FALSE_POSITIVE = FALSE_POSITIVE
-        for ( final TruthStatus t : TruthStatus.values() ) {
-            // combining t with FALSE_POSITIVE results in FALSE_POSITIVE
-            addToConsensusMatrix(t, FALSE_POSITIVE, FALSE_POSITIVE);
-        }
+        addToConsensusMatrix(SUSPECT, FALSE_POSITIVE, FALSE_POSITIVE);
 
         // final case -- combining TP + FP = discordant
         addToConsensusMatrix(TRUE_POSITIVE, FALSE_POSITIVE, DISCORDANT);

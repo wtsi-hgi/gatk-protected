@@ -136,7 +136,7 @@ class BadSitesWriter {
                 builder.attribute(SUPPORTING_CALLSET_KEY, consensusSite.getCallSetName());
             builder.attribute(WHY_KEY, type.toString());
             badSites.add(builder.make());
-            logger.info("Accessed site " + vc + " consensus " + consensusSite);
+            if ( logger.isDebugEnabled() ) logger.debug("Accessed site " + vc + " consensus " + consensusSite);
         }
     }
 }
