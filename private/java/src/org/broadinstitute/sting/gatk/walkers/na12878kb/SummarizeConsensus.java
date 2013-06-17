@@ -70,7 +70,7 @@ public class SummarizeConsensus extends NA12878DBWalker {
 
     public void onTraversalDone(Integer result) {
         final ConsensusSummarizer summarizer = new ConsensusSummarizer();
-        for ( final MongoVariantContext mvc : db.getConsensusSites(makeSiteSelector())) {
+        for ( final MongoVariantContext mvc : db.getConsensusSites(makeSiteManager())) {
             summarizer.add(mvc);
         }
 

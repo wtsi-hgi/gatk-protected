@@ -152,9 +152,9 @@ public class NewlyAddedSites {
      *                           records in the db will be selected instead.  This is essential as a
      *                           query of >100K locations will be slower than just updating the entire
      *                           DB in one go.  If -1 any number of location will be query.
-     * @return null if no new locations have been added, or a SiteSelector that will query for all of the changed locations
+     * @return null if no new locations have been added, or a SiteManager that will query for all of the changed locations
      */
-    public SiteSelector getNewlyAddedLocations(final GenomeLocParser parser, final int maxItemizedQueries) {
+    public SiteManager getNewlyAddedLocations(final GenomeLocParser parser, final int maxItemizedQueries) {
         if ( parser == null )
             throw new IllegalArgumentException("GenomeLocParser cannot be null");
 
@@ -163,14 +163,13 @@ public class NewlyAddedSites {
         if ( cursor.size() == 0 ) {
             return null;
         } else if ( cursor.size() > maxItemizedQueries && maxItemizedQueries != -1 ) {
-            return new SiteSelector(parser);
+            return new SiteManager(parser);
         } else {
             final SiteSelector selector = new SiteSelector(parser);
-            for ( final MongoVariantContext mvc : new SiteIterator<MongoVariantContext>(parser, cursor) ) {
+            for ( final MongoVariantContext mvc : new SiteManager(parser, cursor).getIterator() ) {
                 selector.addInterval(mvc.getLocation(parser));
             }
-
-            return selector;
+            return new SiteManager(parser, selector);
         }
     }
 

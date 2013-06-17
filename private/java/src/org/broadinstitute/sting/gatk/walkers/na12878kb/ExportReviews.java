@@ -58,7 +58,7 @@ public class ExportReviews extends NA12878DBWalker {
 
     @Override
     public void onTraversalDone(Integer result) {
-        db.writeReviews(out, super.makeSiteSelector());
+        db.writeReviews(out, super.makeSiteManager());
         super.onTraversalDone(result);
     }
 
