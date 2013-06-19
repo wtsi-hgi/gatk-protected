@@ -422,7 +422,7 @@ public class Assessor {
     protected int getDepthAtLocus(final String chr, final int position) {
         final SAMRecordIterator it = bamReader.queryOverlapping(chr, position, position);
         final LocusIteratorByState libs = new LocusIteratorByState(bamReader, it);
-        final AlignmentContext context = libs.advanceToLocus(position);
+        final AlignmentContext context = libs.advanceToLocus(position, false);
         int depth = 0;
         if ( context != null )
             depth = context.getBasePileup().getBaseAndMappingFilteredPileup(20, 20).depthOfCoverage();
