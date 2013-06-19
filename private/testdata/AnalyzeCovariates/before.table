@@ -1,5 +1,5 @@
 #:GATKReport.v1.1:5
-#:GATKTable:2:18:%s:%s:;
+#:GATKTable:2:17:%s:%s:;
 #:GATKTable:Arguments:Recalibration argument collection values used in this run
 Argument                    Value                                                                   
 binary_tag_name             null                                                                    
@@ -14,7 +14,6 @@ maximum_cycle_value         500
 mismatches_context_size     2                                                                       
 mismatches_default_quality  -1                                                                      
 no_standard_covs            false                                                                   
-plot_pdf_file               null                                                                    
 quantizing_levels           16                                                                      
 recalibration_report        null                                                                    
 run_without_dbsnp           false                                                                   
