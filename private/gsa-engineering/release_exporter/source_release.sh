@@ -22,6 +22,13 @@ fi
 
 git remote add github "${TARGET_REPO}"
 
+# Make sure all refs are up-to-date before attempting to push
+git fetch github
+git checkout -f master
+git checkout -f HEAD
+sleep 60
+git fsck
+
 NEW_HEAD=`git rev-parse HEAD`
 REMOTE_HEAD=`git ls-remote --heads github | grep refs/heads/master | awk '{print $1}'`
 
@@ -30,6 +37,11 @@ then
     echo "$0: Release repository ${TARGET_REPO} up-to-date with respect to Stable, no source release performed (HEAD = ${REMOTE_HEAD})"
     exit 0
 fi
+
+echo "HEAD = ${NEW_HEAD}"
+echo "master = `git rev-parse master`"
+echo "REMOTE HEAD = ${REMOTE_HEAD}"
+echo "$0: updating github master branch"
 
 git push --tags github master:master 
 
