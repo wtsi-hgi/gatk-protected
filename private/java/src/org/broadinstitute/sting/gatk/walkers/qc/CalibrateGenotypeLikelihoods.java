@@ -156,6 +156,9 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     @Argument(fullName="skipFilteredRecords", shortName="skipFiltered", doc="Skip filtered records when evaluating external likelihoods", required=false)
     private boolean skipFilteredRecords = false;
 
+    @Argument(fullName="dontStratifyBySample", shortName="dontStratifyBySample", doc="Don't stratify the data by sample. Useful for projects like 1000 Genomes when there are a lot of samples.", required=false)
+    private boolean dontStratifyBySample = false;
+
     //@Argument(fullName="standard_min_confidence_threshold_for_calling", shortName="stand_call_conf", doc="the minimum phred-scaled Qscore threshold to separate high confidence from low confidence calls", required=false)
     private double callConf = 0;
 
@@ -503,7 +506,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
                 if ( compGT == null || genotype.isNoCall() || compGT.isNoCall() )
                     continue;
 
-                addValue(data, vcComp, ref, sample, rod.getName() + "." + genotype.getSampleName(), genotype, compGT);
+                addValue(data, vcComp, ref, ( dontStratifyBySample ? "all" : sample ),
+                        rod.getName() + ( dontStratifyBySample ? "" : "." + genotype.getSampleName()), genotype, compGT);
             }
         }
 

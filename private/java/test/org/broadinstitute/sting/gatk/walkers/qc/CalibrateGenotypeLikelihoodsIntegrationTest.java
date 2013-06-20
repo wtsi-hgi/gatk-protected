@@ -63,7 +63,7 @@ public class CalibrateGenotypeLikelihoodsIntegrationTest extends WalkerTest {
                         " -alleles " + b37_NA12878_OMNI +
                         " -nt 4 -L 20:10,000,000-11,000,000 -o %s",
                 1,
-                Arrays.asList("74a2fb5f6c40d1d16c82f4f3d597e899"));
+                Arrays.asList("af7dee7af57d7449932f549ffc4373d6"));
         executeTest("CalibrateGenotypeLikelihoods:", spec);
     }
 

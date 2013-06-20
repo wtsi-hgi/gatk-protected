@@ -173,7 +173,7 @@ def getFilesInBucket(args, delete=False):
         writeLog('del', alreadyDel, filesDel)
         nGot = nGot + len(filesGot)
         nDel = nDel + len(filesDel)
-        print 'Total %d got, %d deleted of %d overall. This work unit got %d files, deleted %d files in group' % (nGot, nDel, nFilesToProcess, len(filesGot), len(filesDel))
+        #print 'Total %d got, %d deleted of %d overall. This work unit got %d files, deleted %d files in group' % (nGot, nDel, nFilesToProcess, len(filesGot), len(filesDel))
 
     print '\nDownloading complete'
     print 'No. files downloaded   :', nGot

@@ -46,10 +46,17 @@
 
 package org.broadinstitute.sting.gatk.walkers.bqsr;
 
+import net.sf.samtools.TextCigarCodec;
+import org.broadinstitute.sting.utils.recalibration.EventType;
+import org.broadinstitute.sting.utils.sam.ArtificialSAMUtils;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 import org.testng.Assert;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Created with IntelliJ IDEA.
@@ -132,5 +139,51 @@ public class BaseRecalibratorUnitTest {
         for( int iii = 0; iii < answer.length; iii++) {
             Assert.assertEquals(result[iii], answer[iii], 1E-6);
         }
+    }
+
+    @DataProvider(name = "CalculateIsIndelData")
+    public Object[][] makeCalculateIsIndelData() {
+        List<Object[]> tests = new ArrayList<Object[]>();
+
+        // this functionality can be adapted to provide input data for whatever you might want in your data
+        for ( final EventType model : Arrays.asList(EventType.BASE_DELETION, EventType.BASE_INSERTION) ) {
+            for ( final boolean neg : Arrays.asList(true, false) ) {
+                for ( final int readLen : Arrays.asList(1, 3, 10)) {
+                    tests.add(new Object[]{readLen + "M", neg, model, new int[readLen]});
+                }
+            }
+        }
+
+        tests.add(new Object[]{"1D3M",   false, EventType.BASE_DELETION, new int[]{0,0,0}});
+        tests.add(new Object[]{"1M1D2M", false, EventType.BASE_DELETION, new int[]{1,0,0}});
+        tests.add(new Object[]{"2M1D1M", false, EventType.BASE_DELETION, new int[]{0,1,0}});
+        tests.add(new Object[]{"3M1D",   false, EventType.BASE_DELETION, new int[]{0,0,1}});
+
+        tests.add(new Object[]{"1D3M",   true, EventType.BASE_DELETION, new int[]{1,0,0}});
+        tests.add(new Object[]{"1M1D2M", true, EventType.BASE_DELETION, new int[]{0,1,0}});
+        tests.add(new Object[]{"2M1D1M", true, EventType.BASE_DELETION, new int[]{0,0,1}});
+        tests.add(new Object[]{"3M1D",   true, EventType.BASE_DELETION, new int[]{0,0,0}});
+
+        tests.add(new Object[]{"4M1I",   false, EventType.BASE_INSERTION, new int[]{0,0,0,1,0}});
+        tests.add(new Object[]{"3M1I1M", false, EventType.BASE_INSERTION, new int[]{0,0,1,0,0}});
+        tests.add(new Object[]{"2M1I2M", false, EventType.BASE_INSERTION, new int[]{0,1,0,0,0}});
+        tests.add(new Object[]{"1M1I3M", false, EventType.BASE_INSERTION, new int[]{1,0,0,0,0}});
+        tests.add(new Object[]{"1I4M",   false, EventType.BASE_INSERTION, new int[]{0,0,0,0,0}});
+
+        tests.add(new Object[]{"4M1I",   true, EventType.BASE_INSERTION, new int[]{0,0,0,0,0}});
+        tests.add(new Object[]{"3M1I1M", true, EventType.BASE_INSERTION, new int[]{0,0,0,0,1}});
+        tests.add(new Object[]{"2M1I2M", true, EventType.BASE_INSERTION, new int[]{0,0,0,1,0}});
+        tests.add(new Object[]{"1M1I3M", true, EventType.BASE_INSERTION, new int[]{0,0,1,0,0}});
+        tests.add(new Object[]{"1I4M",   true, EventType.BASE_INSERTION, new int[]{0,1,0,0,0}});
+
+        return tests.toArray(new Object[][]{});
+    }
+
+    @Test(dataProvider = "CalculateIsIndelData")
+    public void testCalculateIsIndel(final String cigar, final boolean negStrand, final EventType mode, final int[] expected) {
+        final GATKSAMRecord read = ArtificialSAMUtils.createArtificialRead(TextCigarCodec.getSingleton().decode(cigar));
+        read.setReadNegativeStrandFlag(negStrand);
+        final int[] actual = BaseRecalibrator.calculateIsIndel(read, mode);
+        Assert.assertEquals(actual, expected, "CalculateIsIndel failed with " + mode + " and cigar " + cigar + " Expected " + Arrays.toString(expected) + " but got " + Arrays.toString(actual));
     }
 }

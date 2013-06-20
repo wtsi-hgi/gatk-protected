@@ -52,7 +52,7 @@ import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 
 import net.sf.samtools.SAMFileHeader.SortOrder
 
-import org.broadinstitute.sting.queue.function.ListWriterFunction
+import org.broadinstitute.sting.queue.function.{RetryMemoryLimit, ListWriterFunction}
 import org.broadinstitute.sting.commandline.Hidden
 import org.broadinstitute.sting.utils.NGSPlatform
 import org.broadinstitute.sting.queue.extensions.picard._
@@ -60,6 +60,7 @@ import io.Source
 import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotyperEngine, GenotypeLikelihoodsCalculationModel}
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.gatk.downsampling.DownsampleType
+import org.broadinstitute.sting.utils.baq.BAQ
 
 class AncientDNAProcessingPipeline extends QScript {
   qscript =>
@@ -195,7 +196,7 @@ class AncientDNAProcessingPipeline extends QScript {
 
   @Hidden
   @Argument(doc = "BWA Parameteres", fullName = "bwa_parameters", shortName = "bp", required = false)
-  val bwaParameters: String = " -o 2 -n 0.01 -l 16500 " // " -q 5 -l 32 -k 2 -o 1 "
+  val bwaParameters: String = " -o 2 -n 0.01 -l 16500 " // " -q 5 -l 32 -o 1 "
 
   @Hidden
   @Argument(doc = "Base path for Picard executables", fullName = "picardBase", shortName = "picardBase", required = false)
@@ -288,13 +289,13 @@ class AncientDNAProcessingPipeline extends QScript {
       val outGcBiasMetrics = swapExt(recalBAM, ".bam", ".gc_metrics")
       val outMultipleMetrics = swapExt(recalBAM, ".bam", ".multipleMetrics")
 
-      add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
+ //     add(calculateGCMetrics(recalBAM, outGcBiasMetrics))
       add(calculateMultipleMetrics(recalBAM, outMultipleMetrics))
 
     }
 
-
-    add(call(recalBAM, outVCF))
+    if (doSingleSampleCalling)
+      add(call(recalBAM, outVCF))
 
   }
 
@@ -444,7 +445,7 @@ class AncientDNAProcessingPipeline extends QScript {
 
 
   // General arguments to non-GATK tools
-  trait ExternalCommonArgs extends CommandLineFunction {
+  trait ExternalCommonArgs extends CommandLineFunction with  RetryMemoryLimit{
     this.memoryLimit = qscript.memLimit
     this.isIntermediate = true
     this.jobQueue = queue
@@ -504,11 +505,11 @@ class AncientDNAProcessingPipeline extends QScript {
     if (qscript.indelSites != null)
       this.known ++= qscript.indelSites
     this.consensusDeterminationModel = ConsensusDeterminationModel.USE_READS
-
+    this.baq = CalculationMode.OFF
     this.noPGTag = qscript.testMode
     this.analysisName = baseName.toString + "clean"
     this.jobName = baseName.toString + ".clean"
-//    this.isIntermediate = false
+    this.isIntermediate = false
 
   }
 
@@ -524,19 +525,22 @@ class AncientDNAProcessingPipeline extends QScript {
     this.jobName = outRecalFile + ".covariates"
     this.memoryLimit = Some(4) // needs 4 GB to store big tables in memory
     this.nct = Some(qscript.numThreads)
+    // can't gather this correctly in 2.5.2!
+    // this.plot_pdf_file = swapExt(outRecalFile,".table",".table.pdf")
+    this.isIntermediate = false
   }
 
   case class apply_bqsr(inBAMs: Seq[File], inRecalFile: File, outBAM: File) extends PrintReads with CommandLineGATKArgs {
     this.input_file = inBAMs
     this.BQSR = inRecalFile
-    this.baq = CalculationMode.CALCULATE_AS_NECESSARY
+    this.baq = CalculationMode.OFF
     this.out = outBAM
     this.scatterCount = nContigs
     this.isIntermediate = false
     this.analysisName = outBAM + ".recalibration"
     this.jobName = outBAM + ".recalibration"
     this.nct = Some(qscript.numThreads)
-  }
+   }
 
   case class reduce(inBAM: File, outBAM: File) extends ReduceReads with CommandLineGATKArgs {
     this.input_file :+= inBAM
@@ -559,7 +563,6 @@ class AncientDNAProcessingPipeline extends QScript {
     this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.scatterCount = nContigs
     this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
-
     if (qscript.targets != null)
       this.intervals :+= qscript.targets
   }
@@ -617,11 +620,11 @@ class AncientDNAProcessingPipeline extends QScript {
     this.input :+= inBAM
     this.output = outBAM
     this.metrics = metricsFile
-    //this.memoryLimit = 4
+    this.memoryLimit = 64
     this.analysisName = outBAM + ".dedup"
     this.jobName = outBAM + ".dedup"
     this.assumeSorted = Some(true)
-//    this.isIntermediate = false
+    this.isIntermediate = false
   }
 
   case class calculateHSMetrics(inBAM: File, outFile: File) extends CalculateHsMetrics with ExternalCommonArgs {
@@ -727,20 +730,7 @@ class AncientDNAProcessingPipeline extends QScript {
 
   }
 
-  case class FilterPairs(inBAM: File, outBAM: File, filter: Boolean) extends PrintReads with CommandLineGATKArgs with PairedRead {
-    this.input_file :+= inBAM
-    this.out= outBAM
-    this.dt = DownsampleType.NONE
-    this.baq = CalculationMode.OFF
-    this.analysisName = outBAM+".filterPairedReads"
-    this.jobName = outBAM + ".filterPairedReads"
-//    this.isIntermediate = false
-    this.nct = Some(qscript.numThreads)
 
-   // this.rf :+= "PairedReadFilter"
-    this.filter_paired = filter
-
-  }
   case class seqPrep(inFQ1: File, inFQ2: File, outMerged: File, outUnmerged1: File, outUnmerged2: File) extends CommandLineFunction with ExternalCommonArgs {
     @Input(doc = "fq file 1 to be merged") var fq1 = inFQ1
     @Input(doc = "fq file 2 to be merged") var fq2 = inFQ2
@@ -782,9 +772,10 @@ class AncientDNAProcessingPipeline extends QScript {
 
     def commandLine = bwaPath + " sampe " + reference + " " + sai1 + " " + sai2 + " " + first + " " + second + " -r \"" + readGroupString + "\" > " + alignedBam
 
-    this.memoryLimit = 4
+    this.memoryLimit = 6
     this.analysisName = outBAM + ".bwa_sam_pe"
     this.jobName = outBAM + ".bwa_sam_pe"
+    this.jobQueue = longQueue
 //    this.isIntermediate = false
   }
 
@@ -795,9 +786,10 @@ class AncientDNAProcessingPipeline extends QScript {
     @Output(doc = "output aligned bam file") var alignedBam = outBAM
 
     def commandLine = bwaPath + " sampe " + reference + " " + sai1 + " " + sai2 + " " + bam + " " + bam + " -r \"" + readGroupString + "\" > " + alignedBam
-    this.memoryLimit = 4
+    this.memoryLimit = 6
     this.analysisName = outBAM + ".bwa_sam_pe"
     this.jobName = outBAM + ".bwa_sam_pe"
+    this.jobQueue = longQueue
 //    this.isIntermediate = false
   }
 
@@ -825,6 +817,7 @@ class AncientDNAProcessingPipeline extends QScript {
     this.memoryLimit = Some(6)
     this.isIntermediate = false
     this.jobQueue = longQueue
+    this.nCoresRequest = Some(bwaThreads)
 
   }
   case class bwa_aln_pe (inBam: File, outSai1: File, index: Int) extends CommandLineFunction {
@@ -836,6 +829,7 @@ class AncientDNAProcessingPipeline extends QScript {
     this.memoryLimit = Some(8)
     this.isIntermediate = false
     this.jobQueue = longQueue
+    this.nCoresRequest = Some(bwaThreads)
   }
 
   case class writeList(inBAMs: Seq[File], outBAMList: File) extends ListWriterFunction {
