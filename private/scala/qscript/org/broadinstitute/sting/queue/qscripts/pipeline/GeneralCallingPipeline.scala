@@ -140,7 +140,7 @@ class GeneralCallingPipeline extends QScript {
   var excludeBadRegions: Boolean = false
 
 
-  val dbSNP_135 = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.vcf"  // Best Practices v4
+  val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.vcf"  // Best Practices v4
   val hapmapSites = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/hapmap_3.3.b37.vcf"                       // Best Practices v4
   val hapmapGenotypes = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/HapMap/3.3/genotypes_r27_nr.b37_fwd.vcf"                       // Best Practices v4
   val omni_b37_sites = "/humgen/gsa-hpprojects/GATK/data/Comparisons/Validated/Omni2.5_chip/Omni25_sites_2141_samples.b37.vcf"    // Best Practices v4
@@ -181,7 +181,7 @@ class GeneralCallingPipeline extends QScript {
     this.knownSites ++= List(new File(indelGoldStandardCallset))
     this.knownSites ++= List(new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/1000G_phase1.indels.b37.vcf"))
     this.knownSites ++= List(new File("/humgen/gsa-hpprojects/dev/carneiro/bqsr/data/projectConsensus.snps.vcf"))
-    this.knownSites ++= List(new File(dbSNP_135))
+    this.knownSites ++= List(new File(latestdbSNP))
     this.memoryLimit = 8
     this.qq = 0
     this.mcs = 2
@@ -215,7 +215,7 @@ class GeneralCallingPipeline extends QScript {
     this.scatterCount = if(qscript.scatterCount == 0) 80 else qscript.scatterCount
     this.stand_call_conf = 30.0
     this.stand_emit_conf = 30.0
-    this.D = new File(dbSNP_135)
+    this.D = new File(latestdbSNP)
     this.memoryLimit = qscript.callingMemoryLimit
   }
 
@@ -226,8 +226,9 @@ class GeneralCallingPipeline extends QScript {
     this.out = qscript.outputDir + "/" + name + ".HaplotypeCaller.unfiltered.vcf"
     this.analysisName = "HaplotypeCaller"
     this.javaGCThreads = 4
-    this.memoryLimit = 2
+    this.memoryLimit = 4
     this.jobName =  queueLogDir + "CEU_Trio.hc"
+    this.dbsnp = latestdbSNP
   }
 
 
@@ -256,7 +257,7 @@ class GeneralCallingPipeline extends QScript {
     this.resource :+= new TaggedFile( omni_b37_sites, "known=false,training=true,truth=true,prior=12.0" ) // truth=false on the bast practices v4
     this.resource :+= new TaggedFile( training_1000G, "known=false,training=true,prior=10.0" )	// not part of the bast practices v4
     this.resource :+= new TaggedFile( dbSNP_129, "known=true,training=false,truth=false,prior=2.0" )    // prior=6.0 on the bast practices v4
-    this.use_annotation ++= List("QD", "FS", "DP", "ReadPosRankSum", "MQRankSum")
+    this.use_annotation ++= List("QD", "FS", "DP", "ReadPosRankSum", "MQRankSum") // , "BaseQRankSum", "LikelihoodRankSum")
     if ( useUGAnnotations )
       this.use_annotation ++= List("HaplotypeScore")
     this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
@@ -267,11 +268,11 @@ class GeneralCallingPipeline extends QScript {
   // 3b)
   class indelRecal(indelVCF: String) extends VQSRBase(indelVCF) with BaseCommandArguments {
     this.resource :+= new TaggedFile( indelGoldStandardCallset, "known=false,training=true,truth=true,prior=12.0" ) // known=true on the bast practices v4
-    this.resource :+= new TaggedFile( dbSNP_135, "known=true,prior=2.0" )  						// not part of the bast practices v4
+    this.resource :+= new TaggedFile( latestdbSNP, "known=true,prior=2.0" )  						// not part of the bast practices v4
     this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
     this.analysisName = "CEUTrio_VQSRi"
     this.jobName = queueLogDir + "CEUTrio.indelrecal"
-    this.use_annotation ++= List("FS", "DP", "ReadPosRankSum", "MQRankSum")
+    this.use_annotation ++= List("FS", "DP", "ReadPosRankSum", "MQRankSum") // , "BaseQRankSum", "LikelihoodRankSum")
     this.maxGaussians = 4
   }
 
