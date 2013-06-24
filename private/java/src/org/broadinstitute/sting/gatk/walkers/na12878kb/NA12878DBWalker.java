@@ -46,6 +46,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
+import net.sf.samtools.SAMSequenceDictionary;
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
@@ -53,7 +54,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878KnowledgeBase;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteSelector;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteManager;
 
 public abstract class NA12878DBWalker extends RodWalker<Integer, Integer> {
     @ArgumentCollection
@@ -84,16 +85,25 @@ public abstract class NA12878DBWalker extends RodWalker<Integer, Integer> {
     @Override
     public void onTraversalDone(Integer result) {
         db.close();
-        //db.updateConsensus(makeSiteSelector());
     }
 
-    public SiteSelector makeSiteSelector() {
-        final SiteSelector select = new SiteSelector(getToolkit().getGenomeLocParser());
+    /**
+     * Return a SiteManager object that will iterate over all records without any promises as to their ordering,
+     * so records may come out of order.  Use the other version below to constrain the output ordering.
+     *
+     * @return non-null SiteManager object
+     */
+    public SiteManager makeSiteManager() {
+        return new SiteManager(getToolkit().getGenomeLocParser());
+    }
 
-        if ( getToolkit().getIntervals() != null ) {
-            select.addIntervals(getToolkit().getIntervals());
-        }
-
-        return select;
+    /**
+     * Return a SiteManager object that ensures records are returned in contig order defined by the dictionary.
+     *
+     * @param dictionary  used to define contig ordering; can be null, in which case no ordering is enforced
+     * @return non-null SiteManager object
+     */
+    public SiteManager makeSiteManager(final SAMSequenceDictionary dictionary) {
+        return new SiteManager(getToolkit().getGenomeLocParser(), getToolkit().getIntervals(), dictionary);
     }
 }

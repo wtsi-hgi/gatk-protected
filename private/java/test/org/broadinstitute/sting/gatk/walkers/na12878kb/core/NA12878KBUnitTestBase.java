@@ -63,6 +63,7 @@ public class NA12878KBUnitTestBase extends BaseTest {
     private final static Logger logger = Logger.getLogger(NA12878KBUnitTestBase.class);
     protected final static String NA12878_KB_TESTFILES = privateTestDir + "/na12878kb/";
     protected final static File testVCF = new File(NA12878_KB_TESTFILES + "test.vcf");
+    protected static IndexedFastaSequenceFile fasta;
     protected static List<VariantContext> testVCs;
     protected static GenomeLocParser parser;
 
@@ -72,7 +73,7 @@ public class NA12878KBUnitTestBase extends BaseTest {
     protected static void initialSetup() {
         try {
             testVCs = Collections.unmodifiableList(GATKVCFUtils.readVCF(testVCF).getSecond());
-            final IndexedFastaSequenceFile fasta = new IndexedFastaSequenceFile(new File(b37KGReference));
+            fasta = new IndexedFastaSequenceFile(new File(b37KGReference));
             parser = new GenomeLocParser(fasta.getSequenceDictionary());
         } catch ( IOException e ) {
             throw new SkipException("Couldn't read test VCF so skipping NA12878KB unit tests");

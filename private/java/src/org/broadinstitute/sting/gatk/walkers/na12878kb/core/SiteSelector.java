@@ -53,10 +53,8 @@ import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.GenomeLocSortedSet;
 
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Create queries on a MongoDB from DBCollections containing MongoVariantContexts
@@ -74,10 +72,10 @@ import java.util.Set;
 public class SiteSelector {
     private static Logger logger = Logger.getLogger(SiteSelector.class);
 
+    protected static final int MAXIMUM_REASONABLE_INTERVALS_FOR_QUERY = 5;
+
     final GenomeLocParser parser;
     GenomeLocSortedSet intervals = null;
-    final Set<CallSet> setsToInclude = new HashSet<CallSet>();
-    final Set<TruthStatus> typesToInclude = new HashSet<TruthStatus>();
     boolean onlyReviewed = false;
 
     /**
@@ -85,7 +83,7 @@ public class SiteSelector {
      *
      * @param parser A GenomeLocParser to make GenomeLocs as necessary
      */
-    public SiteSelector(final GenomeLocParser parser) {
+    protected SiteSelector(final GenomeLocParser parser) {
         if ( parser == null )
             throw new IllegalArgumentException("GenomeLocParser cannot be null");
         this.parser = parser;
@@ -101,7 +99,7 @@ public class SiteSelector {
      * @param locs the locations we wish to see records within
      * @return this SiteSelector
      */
-    public SiteSelector addIntervals(final GenomeLocSortedSet locs) {
+    protected SiteSelector addIntervals(final List<GenomeLoc> locs) {
         if ( locs == null )
             throw new IllegalArgumentException("Locs cannot be null");
 
@@ -120,7 +118,7 @@ public class SiteSelector {
      * @param loc the location we wish to see records within
      * @return this SiteSelector
      */
-    public SiteSelector addInterval(final GenomeLoc loc) {
+    protected SiteSelector addInterval(final GenomeLoc loc) {
         if ( loc == null )
             throw new IllegalArgumentException("Loc cannot be null");
 
@@ -133,43 +131,9 @@ public class SiteSelector {
 
     /**
      * Convenience function equivalent to #addInterval
-     * @param contig
-     * @param start
-     * @param stop
-     * @return
      */
-    public SiteSelector addInterval(final String contig, final int start, final int stop) {
+    protected SiteSelector addInterval(final String contig, final int start, final int stop) {
         return addInterval(parser.createGenomeLoc(contig, start, stop));
-    }
-
-    /**
-        * Only include calls within the callset set
-        *
-        * Note that this function is cumulative, so subsequent calls *add* sets
-        * for selection.  So adding X and Y will result in a query
-        * that returns records within either set.
-        *
-        * @param set the call set we wish to include
-        * @return this SiteSelector
-        */
-    public SiteSelector addSetToInclude(final CallSet set) {
-        setsToInclude.add(set);
-        return this;
-    }
-
-    /**
-     * Only include calls having TruthStatus type
-     *
-     * Note that this function is cumulative, so subsequent calls *add* sets
-     * for selection.  So adding X and Y will result in a query
-     * that returns records within either set.
-     *
-     * @param type the type of call we wish to include
-     * @return this SiteSelector
-     */
-    public SiteSelector addTypeToInclude(final TruthStatus type) {
-        typesToInclude.add(type);
-        return this;
     }
 
     /**
@@ -177,21 +141,24 @@ public class SiteSelector {
      *
      * @return this SiteSelector
      */
-    public SiteSelector onlyReviewed() {
+    protected SiteSelector onlyReviewed() {
         onlyReviewed = true;
         return this;
     }
 
-    public GenomeLocSortedSet getIntervals() {
+    protected GenomeLocSortedSet getIntervals() {
         return intervals;
     }
 
-    public Set<CallSet> getSetsToInclude() {
-        return setsToInclude;
-    }
-
-    public Set<TruthStatus> getTypesToInclude() {
-        return typesToInclude;
+    /**
+     * Are there too many intervals to process in the provided set?  MongoDB completely falls apart with too many
+     * intervals because the query logic stinks and requires complex ORs.
+     *
+     * @param intervals  the set of intervals
+     * @return true if there are too many intervals for processing
+     */
+    protected static boolean hasTooManyIntervals(final List<GenomeLoc> intervals) {
+        return intervals != null && intervals.size() > MAXIMUM_REASONABLE_INTERVALS_FOR_QUERY;
     }
 
     /**
@@ -204,13 +171,13 @@ public class SiteSelector {
      *
      * @return a DBObject suitable for mongodb.collection.find()
      */
-    public DBObject toQuery() {
+    protected DBObject toQuery() {
         // a list of all of the conditions to add to the query
-        final List<DBObject> conditions = new LinkedList<DBObject>();
+        final List<DBObject> conditions = new LinkedList<>();
 
         // add the interval restrictions
         if ( intervals != null ) {
-            final List<DBObject> regionsToOr = new LinkedList<DBObject>();
+            final List<DBObject> regionsToOr = new LinkedList<>();
 
             for ( final GenomeLoc interval : intervals.toList() ) {
                 final DBObject StartRange = new BasicDBObject("$gte", interval.getStart()).append("$lte", interval.getStop());
@@ -224,12 +191,6 @@ public class SiteSelector {
         if ( onlyReviewed ) {
             conditions.add(new BasicDBObject("Reviewed", true));
         }
-
-        if ( ! getSetsToInclude().isEmpty() )
-            throw new UnsupportedOperationException("SetsToInclude not yet implemented");
-
-        if ( ! getTypesToInclude().isEmpty() )
-            throw new UnsupportedOperationException("TypesToInclude not yet implemented");
 
         final DBObject query = conditions.isEmpty() ? new BasicDBObject() : new BasicDBObject("$and", conditions);
         if ( logger.isDebugEnabled() ) logger.debug("Query " + query);

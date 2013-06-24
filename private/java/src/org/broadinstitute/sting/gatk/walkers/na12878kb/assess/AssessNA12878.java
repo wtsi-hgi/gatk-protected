@@ -153,7 +153,7 @@ public class AssessNA12878 extends NA12878DBWalker {
 
     public void initialize() {
         super.initialize();
-        consensusSiteIterator = db.getConsensusSites(makeSiteSelector());
+        consensusSiteIterator = db.getConsensusSites(makeSiteManager(getToolkit().getMasterSequenceDictionary()));
 
         if ( BAM != null ) {
             bamReader = Assessor.makeSAMFileReaderForDoCInBAM(BAM);
