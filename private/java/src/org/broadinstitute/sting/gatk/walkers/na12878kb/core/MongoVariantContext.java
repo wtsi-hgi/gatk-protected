@@ -384,6 +384,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         vcb.attribute("Date", getDate().getTime());
         vcb.attribute("Reviewed", isReviewed());
         //vcb.attribute("PhredConfidence", getPhredConfidence());
+        vcb.attribute("isComplexEvent", isComplexEvent());
     }
 
     public static Set<VCFHeaderLine> reviewHeaderLines() {
