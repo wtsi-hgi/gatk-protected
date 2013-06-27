@@ -246,7 +246,7 @@ public class AssessorUnitTest extends BaseTest {
     // Tests for assessing a site
     // ------------------------------------------------------------
 
-    // java -jar dist/GenomeAnalysisTK.jar -T DepthOfCoverage -I private/testdata/reduced.readNotFullySpanningDeletion.bam -R ~/Desktop/broadLocal/localData/human_g1k_v37.fasta -L 1:167,022,605-167,025,904 | grep "1:" | grep -v "-" | awk '{print $1, $2}' | awk -F ":" '{print $1, $2}' > private/testdata/reduced.readNotFullySpanningDeletion.doc
+    // java -jar dist/GenomeAnalysisTK.jar -T DepthOfCoverage -I private/testdata/reduced.readNotFullySpanningDeletion.bam -R ~/Desktop/broadLocal/localData/human_g1k_v37.fasta -L 1:167,022,605-167,025,904 -mmq 20 -mbq 20 | grep "1:" | grep -v "-" | awk '{print $1, $2}' | awk -F ":" '{print $1, $2}' > private/testdata/reduced.readNotFullySpanningDeletion.doc
     private final static File DoC = new File(privateTestDir + "reduced.readNotFullySpanningDeletion.doc");
     private final static File BAM = new File(privateTestDir + "reduced.readNotFullySpanningDeletion.bam");
 
