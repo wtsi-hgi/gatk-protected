@@ -379,9 +379,9 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
 
     protected void addReviewInfoFields(final VariantContextBuilder vcb) {
         vcb.attribute("CallSetName", getCallSetName());
-        vcb.attribute("TruthStatus", getType());
-        vcb.attribute("PolymorphicStatus", getPolymorphicStatus());
-        vcb.attribute("Date", getDate().getTime());
+        vcb.attribute("TruthStatus", getType().toString());
+        vcb.attribute("PolymorphicStatus", getPolymorphicStatus().toString());
+        vcb.attribute("Date", String.valueOf(getDate().getTime()));
         vcb.attribute("Reviewed", isReviewed());
         //vcb.attribute("PhredConfidence", getPhredConfidence());
         vcb.attribute("isComplexEvent", isComplexEvent());
@@ -390,12 +390,13 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
     public static Set<VCFHeaderLine> reviewHeaderLines() {
         final Set<VCFHeaderLine> lines = new HashSet<>();
 
-        lines.add(new VCFInfoHeaderLine("CallSetName", 1, VCFHeaderLineType.String, "Name of the review"));
+        lines.add(new VCFInfoHeaderLine("CallSetName", VCFHeaderLineCount.UNBOUNDED, VCFHeaderLineType.String, "Name of the review(s)"));
         lines.add(new VCFInfoHeaderLine("TruthStatus", 1, VCFHeaderLineType.String, "What is the truth state of this call"));
         lines.add(new VCFInfoHeaderLine("PolymorphicStatus", 1, VCFHeaderLineType.String, "Is this call polymorphic in NA12878"));
         lines.add(new VCFInfoHeaderLine("Date", 1, VCFHeaderLineType.String, "Date/time as a long of this review"));
-        lines.add(new VCFInfoHeaderLine("PhredConfidence", 1, VCFHeaderLineType.Integer, "Phred-scaled confidence in this review"));
+        //lines.add(new VCFInfoHeaderLine("PhredConfidence", 1, VCFHeaderLineType.Integer, "Phred-scaled confidence in this review"));
         lines.add(new VCFInfoHeaderLine("Reviewed", 0, VCFHeaderLineType.Flag, "Was this a manually reviewed record?"));
+        lines.add(new VCFInfoHeaderLine("isComplexEvent", 0, VCFHeaderLineType.Flag, "Does this record represent a complex event?"));
         lines.add(VCFStandardHeaderLines.getFormatLine(VCFConstants.DEPTH_KEY));
         lines.add(VCFStandardHeaderLines.getFormatLine(VCFConstants.GENOTYPE_QUALITY_KEY));
 

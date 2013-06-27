@@ -46,99 +46,23 @@
 
 package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
-import org.apache.log4j.Logger;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
-import org.broadinstitute.variant.variantcontext.Genotype;
-import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
-import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
-import org.broadinstitute.variant.vcf.*;
+import org.broadinstitute.sting.WalkerTest;
+import org.testng.annotations.Test;
 
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Set;
+import java.util.Arrays;
 
-/**
- * Write bad KB sites to a VCF
- *
- * User: depristo
- * Date: 2/19/13
- * Time: 10:13 PM
- */
-class BadSitesWriter {
-    private final static Logger logger = Logger.getLogger(BadSitesWriter.class);
-    protected final static String SUPPORTING_CALLSET_KEY = "SupportingCallsets";
-    protected final static String WHY_KEY = "WHY";
+public class AssessNA12878IntegrationTest extends WalkerTest {
 
-    private final VariantContextWriter badSites;
-    private final Set<AssessmentType> assessmentsToExclude;
-    private final boolean captureBadSites;
-    private final int maxToWrite;
+    private final static String baseCommand = "-T AssessNA12878 -R " + b37KGReference + " -o %s -badSites %s";
 
-    public final static BadSitesWriter NOOP_WRITER = new BadSitesWriter(Integer.MAX_VALUE, EnumSet.noneOf(AssessmentType.class), null);
-
-    int nWritten = 0;
-
-    /**
-     * Initial the bad writer
-     *
-     * Writes out VCF header if we are actually writing out the vcf
-     *
-     * @param lines the header lines for the input VCF we're analyzing
-     */
-    public void initialize(final Set<VCFHeaderLine> lines) {
-        if ( lines == null ) throw new IllegalArgumentException("lines cannot be null");
-
-        if ( captureBadSites ) {
-            lines.add(new VCFInfoHeaderLine(WHY_KEY, 1, VCFHeaderLineType.String, "Why was the site considered bad"));
-            lines.add(new VCFInfoHeaderLine(SUPPORTING_CALLSET_KEY, VCFHeaderLineCount.UNBOUNDED, VCFHeaderLineType.String, "Callsets supporting the consensus, where available"));
-            lines.add(new VCFInfoHeaderLine("ExpectedGenotype", 1, VCFHeaderLineType.String, "Genotype expected according to the KB for sites with genotype discordance"));
-            lines.add(VCFStandardHeaderLines.getFormatLine("GT"));
-            lines.addAll(MongoVariantContext.reviewHeaderLines());
-            badSites.writeHeader(new VCFHeader(lines, Collections.singleton("NA12878")));
-        }
+    @Test
+    public void testBasicQuery() {
+        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
+                baseCommand + " -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -L 20:1-1,000,000",
+                2,
+                Arrays.asList("", "")); // DO NOT PUT MD5s HERE AS THE KB CHANGES DAILY!  This is just a test that it doesn't blow up.
+        spec.disableShadowBCF(); // BCF output does not work with -badSites because of the way Mongo constructs the MVCs
+        executeTest("test basic query", spec);
     }
 
-    /**
-     * Create a new BadSitesWriter
-     *
-     * @param maxToWrite the maximum number of records to write
-     * @param assessmentsToExclude don't include assessments in this set, even if they would normally be emitted
-     * @param writer the underlying VCWriter we'll use to emit bad sites.  Can be null if captureBadSites is false
-     */
-    public BadSitesWriter(int maxToWrite, Set<AssessmentType> assessmentsToExclude, VariantContextWriter writer) {
-        if ( assessmentsToExclude == null ) throw new IllegalArgumentException("assessmentsToExclude cannot be null");
-
-        this.maxToWrite = maxToWrite;
-        this.captureBadSites = writer != null;
-        this.assessmentsToExclude = assessmentsToExclude;
-        this.badSites = writer;
-    }
-
-    /**
-     * Notify this writer of the pair of equivalent sites vc and consensusSite with determined assessment type type
-     *
-     * @param type a non-null type of the equivalence of vc and consensusSite
-     * @param vc a non-null VC containing the information about this site.  This VC cannot be null, and so the client
-     *           of this function needs to be smart in constructing the necessary VC
-     * @param consensusSite a potentially null consensusSite.  If not null, can be used to get information about
-     *                      the support for the consensus in the KB
-     */
-    public void notifyOfSite(final AssessmentType type, final VariantContext vc, final MongoVariantContext consensusSite) {
-        if ( type == null ) throw new IllegalArgumentException("type cannot be null");
-        if ( vc == null ) throw new IllegalArgumentException("vc cannot be null");
-
-        if ( captureBadSites && type.isInteresting() && ! assessmentsToExclude.contains(type) && nWritten++ < maxToWrite) {
-            final VariantContextBuilder builder = new VariantContextBuilder(vc);
-            if ( consensusSite != null )
-                builder.attribute(SUPPORTING_CALLSET_KEY, consensusSite.getCallSetName());
-            builder.attribute(WHY_KEY, type.toString());
-            if ( type == AssessmentType.GENOTYPE_DISCORDANCE ) {
-                final Genotype expectedGT = consensusSite.getGt().toGenotype(vc.getAlleles());
-                builder.attribute("ExpectedGenotype", expectedGT.getType());
-            }
-            badSites.add(builder.make());
-            if ( logger.isDebugEnabled() ) logger.debug("Accessed site " + vc + " consensus " + consensusSite);
-        }
-    }
 }
