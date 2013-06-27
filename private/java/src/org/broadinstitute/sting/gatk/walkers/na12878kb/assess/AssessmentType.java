@@ -130,7 +130,7 @@ public enum AssessmentType {
      * A TP in the KB, and not called at all in the callset, but a BAM was provided and there wasn't enough data to call the
      * site in the BAM
      */
-    FALSE_NEGATIVE_NOT_CALLED_BUT_LOW_COVERAGE(FALSE_NEGATIVE, false, true, false),
+    FALSE_NEGATIVE_NOT_CALLED_BUT_LOW_COVERAGE(null, false, true, false),
 
     /**
      * A TP in the KB but not called at all in the callset
