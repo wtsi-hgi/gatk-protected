@@ -59,10 +59,6 @@ import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteIterator;
 import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
-import org.broadinstitute.variant.vcf.VCFHeader;
-import org.broadinstitute.variant.vcf.VCFHeaderLine;
-import org.broadinstitute.variant.vcf.VCFHeaderLineType;
-import org.broadinstitute.variant.vcf.VCFInfoHeaderLine;
 
 import java.io.File;
 import java.io.PrintStream;
@@ -105,7 +101,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     public PrintStream out;
 
     @Argument(fullName="excludeCallset", shortName = "excludeCallset", doc="Don't count calls that come from only these excluded callsets", required=false)
-    public Set<String> excludeCallset = new HashSet<String>();
+    public Set<String> excludeCallset = Collections.singleton("CEUTrio_best_practices");
 
     /**
      * An output VCF file containing the bad sites (FN/FP) that were found in the input callset w.r.t. the current NA12878 knowledge base
@@ -157,7 +153,7 @@ public class AssessNA12878 extends NA12878DBWalker {
 
     public void initialize() {
         super.initialize();
-        consensusSiteIterator = db.getConsensusSites(makeSiteSelector());
+        consensusSiteIterator = db.getConsensusSites(makeSiteManager(getToolkit().getMasterSequenceDictionary()));
 
         if ( BAM != null ) {
             bamReader = Assessor.makeSAMFileReaderForDoCInBAM(BAM);
@@ -245,26 +241,35 @@ public class AssessNA12878 extends NA12878DBWalker {
                     for ( final AssessmentType type : assessment.getActiveTypes() ) {
                         report.addRow(rod.getName(), variantType.toString(), type, assessment.get(type));
                     }
+                    for ( final Assessment.GenotypeAssessment gt : assessment.getGenotypeAssessments() ) {
+                        report.addRow(rod.getName(), variantType.toString(), gt.getName(), gt.getGenotypingAccuracy());
+                    }
                 }
             }
             report.print(out);
         } else {
-            final List<String> columns = new ArrayList<String>();
+            final List<String> columns = new ArrayList<>();
             columns.add("Name");
             columns.add("VariantType");
             for( final AssessmentType type : getRepresentativeAssessment().getActiveTypes() ) {
                 columns.add(type.toString());
             }
+            for ( final Assessment.GenotypeAssessment gt : getRepresentativeAssessment().getGenotypeAssessments() ) {
+                columns.add(gt.getName());
+            }
+
             final GATKReport report = GATKReport.newSimpleReport("NA12878Assessment", columns);
 
             for( final RodBinding rod : variants ) {
-                final List<Object> row = new ArrayList<Object>();
                 for ( final TypesToInclude variantType : Arrays.asList(TypesToInclude.SNPS, TypesToInclude.INDELS) ) {
+                    final List<Object> row = new ArrayList<>();
                     row.add(rod.getName());
                     row.add(variantType.toString());
                     row.addAll(getAssessment(rod.getName(), variantType).getCounts());
+                    for ( final Assessment.GenotypeAssessment gt : getAssessment(rod.getName(), variantType).getGenotypeAssessments() ) {
+                        row.add(gt.getGenotypingAccuracy());
+                    }
                     report.addRowList(row);
-                    row.clear();
                 }
             }
 

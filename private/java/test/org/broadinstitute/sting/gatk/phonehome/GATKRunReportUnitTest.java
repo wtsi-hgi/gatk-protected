@@ -149,7 +149,7 @@ public class GATKRunReportUnitTest extends BaseTest {
 
     @Test(enabled = !DEBUG, dataProvider = "GATKReportCreationTest")
     public void testGATKReportCreationReadingAndWriting(final Walker walker, final Exception exception, final GenomeAnalysisEngine engine) throws Exception {
-        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD);
+        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STDOUT);
         final ByteArrayOutputStream captureStream = new ByteArrayOutputStream();
         final boolean succeeded = report.postReportToStream(captureStream);
         Assert.assertTrue(succeeded, "Failed to write report to stream");
@@ -189,7 +189,7 @@ public class GATKRunReportUnitTest extends BaseTest {
 
         // Use a shorter timeout than usual when we're testing GATKRunReport.AWSMode.TIMEOUT
         final long thisTestS3Timeout = awsMode == GATKRunReport.AWSMode.TIMEOUT ? 30 * 1000 : S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING;
-        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD, thisTestS3Timeout);
+        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.AWS, thisTestS3Timeout);
         report.sendAWSToTestBucket();
         report.setAwsMode(awsMode);
         final S3Object s3Object = report.postReportToAWSS3();
@@ -234,7 +234,7 @@ public class GATKRunReportUnitTest extends BaseTest {
 
     @Test(enabled = ! DEBUG, dataProvider = "PostReportByType", timeOut = S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING * 2)
     public void testPostReportByType(final GATKRunReport.PhoneHomeOption type) {
-        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD, S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING);
+        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.AWS, S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING);
         Assert.assertFalse(report.exceptionOccurredDuringPost(), "An exception occurred during posting the report");
         final boolean succeeded = report.postReport(type);
 
@@ -245,9 +245,6 @@ public class GATKRunReportUnitTest extends BaseTest {
 
             if ( type == GATKRunReport.PhoneHomeOption.STDOUT ) {
                 // nothing to do
-            } else if ( type == GATKRunReport.PhoneHomeOption.STANDARD && ! report.wentToAWS()) {
-                final boolean wasDeleted = report.getLocalReportFullPath().delete();
-                Assert.assertTrue(wasDeleted, "Couldn't delete a supposedly written local GATK report");
             } else {
                 // must have gone to AWS
                 try {
@@ -268,7 +265,7 @@ public class GATKRunReportUnitTest extends BaseTest {
     // Will fail with exception if AWS doesn't protect itself from errors
     @Test(timeOut = S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING * 2)
     public void testAWSPublicKeyHasAccessControls() throws Exception {
-        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.STANDARD, S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING);
+        final GATKRunReport report = new GATKRunReport(walker, exception, engine, GATKRunReport.PhoneHomeOption.AWS, S3_PUT_TIMEOUT_IN_MILLISECONDS_FOR_TESTING);
         report.sendAWSToTestBucket();
         final S3Object s3Object = report.postReportToAWSS3();
         Assert.assertNotNull(s3Object, "Upload to AWS failed, s3Object was null. error was " + report.formatError());

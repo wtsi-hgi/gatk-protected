@@ -51,49 +51,57 @@ import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.variant.variantcontext.Allele;
 import org.broadinstitute.variant.variantcontext.Genotype;
 import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.*;
 
 public class ConsensusMakerUnitTest extends BaseTest {
-    final static MongoVariantContext template = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C", TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 0), new Date(), false);
+    final static MongoVariantContext template = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C", TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 0), new Date(), 0.5, false, false);
 
     ConsensusMaker maker;
 
     MongoVariantContext reviewedX, reviewedX2, reviewedX3, reviewedA, notReviewedY, notReviewedZ, notReviewedZ2;
-    MongoVariantContext reviewedTPX, reviewedFPX, reviewedFPY, reviewedTPZ, reviewedSUSPECT, notReviewedTP, notReviewedFP;
+    MongoVariantContext reviewedTPX, reviewedFPX, reviewedFPY, reviewedTPZ, reviewedSUSPECT, notReviewedTP1, notReviewedFP1, notReviewedTP2, notReviewedFP2;
     static long date = 10;
 
-    @BeforeMethod
+    // TODO -- if we like these numbers, put them in some standard public place
+    final static double REVIEWER_CONFIDENCE = 0.99;
+    final static double TRUSTED_CALLSET_CONFIDENCE = 0.95;
+    final static double UNTRUSTED_CALLSET_CONFIDENCE = 0.75;
+
+    @BeforeClass
     public void setUp() throws Exception {
         maker = new ConsensusMaker();
 
-        reviewedX = copyTemplate("x", true);
-        reviewedX2 = copyTemplate("x", true);
-        reviewedX3 = copyTemplate("x", true);
-        reviewedA = copyTemplate("A", true);
-        notReviewedY = copyTemplate("y", false);
-        notReviewedZ = copyTemplate("z", false);
-        notReviewedZ2 = copyTemplate("z", false);
+        reviewedX = copyTemplate("x", REVIEWER_CONFIDENCE, true);
+        reviewedX2 = copyTemplate("x", REVIEWER_CONFIDENCE, true);
+        reviewedX3 = copyTemplate("x", REVIEWER_CONFIDENCE, true);
+        reviewedA = copyTemplate("A", REVIEWER_CONFIDENCE, true);
+        notReviewedY = copyTemplate("y", TRUSTED_CALLSET_CONFIDENCE, false);
+        notReviewedZ = copyTemplate("z", 0.90, false);
+        notReviewedZ2 = copyTemplate("z", 0.90, false);
 
         // ***** IMPORTANT *****
         // the ordering of these lines is important because I am trying to replicate an issue we encountered [EB]
-        reviewedTPZ = copyTemplate("z", true, TruthStatus.TRUE_POSITIVE);
-        reviewedFPY = copyTemplate("Y", true, TruthStatus.FALSE_POSITIVE);
-        reviewedTPX = copyTemplate("x", true, TruthStatus.TRUE_POSITIVE);
-        reviewedFPX = copyTemplate("x", true, TruthStatus.FALSE_POSITIVE);
+        reviewedTPZ = copyTemplate("z", REVIEWER_CONFIDENCE, true, TruthStatus.TRUE_POSITIVE);
+        reviewedFPY = copyTemplate("Y", REVIEWER_CONFIDENCE, true, TruthStatus.FALSE_POSITIVE);
+        reviewedTPX = copyTemplate("x", REVIEWER_CONFIDENCE, true, TruthStatus.TRUE_POSITIVE);
+        reviewedFPX = copyTemplate("x", REVIEWER_CONFIDENCE, true, TruthStatus.FALSE_POSITIVE);
 
-        reviewedSUSPECT = copyTemplate("z", true, TruthStatus.SUSPECT);
-        notReviewedTP = copyTemplate("z", false, TruthStatus.TRUE_POSITIVE);
-        notReviewedFP = copyTemplate("z", false, TruthStatus.FALSE_POSITIVE);
+        reviewedSUSPECT = copyTemplate("a", REVIEWER_CONFIDENCE, true, TruthStatus.SUSPECT);
+        notReviewedTP1 = copyTemplate("b", TRUSTED_CALLSET_CONFIDENCE, false, TruthStatus.TRUE_POSITIVE);
+        notReviewedTP2 = copyTemplate("c", UNTRUSTED_CALLSET_CONFIDENCE, false, TruthStatus.TRUE_POSITIVE);
+        notReviewedFP1 = copyTemplate("d", TRUSTED_CALLSET_CONFIDENCE, false, TruthStatus.FALSE_POSITIVE);
+        notReviewedFP2 = copyTemplate("e", UNTRUSTED_CALLSET_CONFIDENCE, false, TruthStatus.FALSE_POSITIVE);
     }
 
-    private static MongoVariantContext copyTemplate(final String name, final boolean reviewed, final TruthStatus status) {
+    private static MongoVariantContext copyTemplate(final String name, final double confidence, final boolean reviewed, final TruthStatus status) {
         try {
             final MongoVariantContext mvc = template.clone();
             mvc.setSupportingCallSets(Arrays.asList(name));
+            mvc.setConfidence(confidence);
             mvc.setReviewed(reviewed);
             mvc.setDate(new Date(date++));
             mvc.setTruth(status);
@@ -104,8 +112,8 @@ public class ConsensusMakerUnitTest extends BaseTest {
         }
     }
 
-    private static MongoVariantContext copyTemplate(final String name, final boolean reviewed) {
-        return copyTemplate(name, reviewed, TruthStatus.TRUE_POSITIVE);
+    private static MongoVariantContext copyTemplate(final String name, final double confidence, final boolean reviewed) {
+        return copyTemplate(name, confidence, reviewed, TruthStatus.TRUE_POSITIVE);
     }
 
     @DataProvider(name = "MakerData")
@@ -116,11 +124,11 @@ public class ConsensusMakerUnitTest extends BaseTest {
         final MongoGenotype noCall = new MongoGenotype(-1, -1);
 
         tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, het, true, Arrays.asList(reviewedTPX)});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, het, true, Arrays.asList(reviewedTPX, notReviewedTP)});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, het, true, Arrays.asList(reviewedTPX, notReviewedFP)});
+        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, het, true, Arrays.asList(reviewedTPX, notReviewedTP1)});
+        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, het, true, Arrays.asList(reviewedTPX, notReviewedFP1)});
         tests.add(new Object[]{TruthStatus.SUSPECT, noCall, true, Arrays.asList(reviewedTPX, reviewedSUSPECT)});
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedFPX, notReviewedFP)});
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedFPX, notReviewedTP)});
+        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedFPX, notReviewedFP1)});
+        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedFPX, notReviewedTP1)});
 
         // special case -- takes FP because FP was created after TP and they are the same call set
         tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedTPX, reviewedFPX)});
@@ -172,22 +180,22 @@ public class ConsensusMakerUnitTest extends BaseTest {
         final List<Allele> alleles = Arrays.asList(Allele.create("A", true), Allele.create("C"));
 
         final MongoVariantContext tpHet = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C",
-                TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), false);
+                TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), 0.5, false, false);
 
         final MongoVariantContext tpNoCall = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C",
-                TruthStatus.TRUE_POSITIVE, new MongoGenotype(-1, -1), new Date(), false);
+                TruthStatus.TRUE_POSITIVE, new MongoGenotype(-1, -1), new Date(), 0.5, false, false);
 
         final MongoVariantContext tpHet2 = new MongoVariantContext(Arrays.asList("y"), "20", 1, 1, "A", "C",
-                TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), false);
+                TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), 0.5, false, false);
 
         final MongoVariantContext tpHetReviewed = new MongoVariantContext(Arrays.asList("z"), "20", 1, 1, "A", "C",
-                TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), true);
+                TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), 0.5, true, false);
 
         final MongoVariantContext tpHomVar = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C",
-                TruthStatus.TRUE_POSITIVE, new MongoGenotype(1, 1), new Date(), false);
+                TruthStatus.TRUE_POSITIVE, new MongoGenotype(1, 1), new Date(), 0.5, false, false);
 
         final MongoVariantContext fpHet = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C",
-                TruthStatus.FALSE_POSITIVE, new MongoGenotype(0, 1), new Date(), false);
+                TruthStatus.FALSE_POSITIVE, new MongoGenotype(0, 1), new Date(), 0.5, false, false);
 
         final Genotype hetGT = tpHet.getGt().toGenotype(alleles);
 
@@ -227,5 +235,40 @@ public class ConsensusMakerUnitTest extends BaseTest {
                     new MongoGenotype(alleles, actualGT),
                     new MongoGenotype(alleles, expectedGT),
                     "Failed to create expected consensus GT");
+    }
+
+    @DataProvider(name = "TestBayesianTruthEstimate")
+    public Object[][] makeBayesianTruthEstimateData() {
+        List<Object[]> tests = new ArrayList<Object[]>();
+
+        tests.add(new Object[]{Arrays.asList(reviewedTPX), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedFPX), TruthStatus.FALSE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedTPX, reviewedTPZ), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedFPX, reviewedFPY), TruthStatus.FALSE_POSITIVE});
+
+        tests.add(new Object[]{Arrays.asList(reviewedTPX, reviewedFPY), TruthStatus.DISCORDANT});
+        tests.add(new Object[]{Arrays.asList(reviewedTPX, reviewedFPY, reviewedTPZ), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedTPX, reviewedSUSPECT), TruthStatus.DISCORDANT});
+        tests.add(new Object[]{Arrays.asList(reviewedTPX, reviewedTPZ, reviewedSUSPECT), TruthStatus.TRUE_POSITIVE});
+
+        tests.add(new Object[]{Arrays.asList(reviewedTPX, notReviewedTP1), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedFPX, notReviewedFP2), TruthStatus.FALSE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedTPX, notReviewedFP1), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedTPX, notReviewedFP2), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedFPX, notReviewedTP1), TruthStatus.FALSE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedFPX, notReviewedTP2), TruthStatus.FALSE_POSITIVE});
+
+        tests.add(new Object[]{Arrays.asList(notReviewedTP1, notReviewedTP2), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(notReviewedTP1, notReviewedFP2), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(notReviewedTP2, notReviewedFP1), TruthStatus.FALSE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(notReviewedTP1, notReviewedFP1), TruthStatus.DISCORDANT});
+        tests.add(new Object[]{Arrays.asList(notReviewedTP2, notReviewedFP2), TruthStatus.DISCORDANT});
+
+        return tests.toArray(new Object[][]{});
+    }
+
+    @Test(dataProvider = "TestBayesianTruthEstimate")
+    public void testBayesianTruthEstimate(final Collection<MongoVariantContext> calls, final TruthStatus expectedStatus) {
+        Assert.assertEquals(maker.determineBayesianTruthEstimate(calls), expectedStatus);
     }
 }

@@ -100,6 +100,7 @@ public class SiteSelectorUnitTest extends NA12878KBUnitTestBase {
         tests.add(new Object[]{new SiteSelector(parser).addInterval("20", 3, 4), Arrays.asList(mvc20_3, mvc20_4)});
         tests.add(new Object[]{new SiteSelector(parser).addInterval("20", 1, 5), Arrays.asList(mvc20_1, mvc20_3, mvc20_4, mvc20_5)});
         tests.add(new Object[]{new SiteSelector(parser).addInterval("20", 1, 100), Arrays.asList(mvc20_1, mvc20_3, mvc20_4, mvc20_5)});
+        tests.add(new Object[]{new SiteSelector(parser).addInterval("20", 1, 1).addInterval("19", 2, 2), Arrays.asList(mvc19_2, mvc20_1)});
 
         for ( final List<MongoVariantContext> mvcs : Utils.makePermutations(allMVCs, 3, false) ) {
             Collections.sort(mvcs, new CompareMVCs());
@@ -117,7 +118,7 @@ public class SiteSelectorUnitTest extends NA12878KBUnitTestBase {
 
     @Test(dataProvider = "SiteSelectorQueryTest")
     public void testSiteSelectorQuery(final SiteSelector selector, final List<MongoVariantContext> expectMVCs) {
-        final SiteIterator<MongoVariantContext> it = db.getCalls(selector);
+        final SiteIterator<MongoVariantContext> it = db.getCalls(new SiteManager(parser, selector));
         final List<MongoVariantContext> actualMVCs = it.toList();
         Assert.assertEquals(actualMVCs, expectMVCs, "Expected " + expectMVCs);
     }

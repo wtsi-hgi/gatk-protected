@@ -57,6 +57,9 @@ import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.locusiterator.LocusIteratorByState;
 import org.broadinstitute.sting.utils.sam.GATKSamRecordFactory;
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.variantcontext.Allele;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.GenotypeType;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.io.File;
@@ -196,7 +199,7 @@ public class Assessor {
                 // allow sites only VCs to be evaluated as though they are just NA12878 calls
                 final VariantContext na12878vc = vcRaw.hasGenotypes() ? GATKVariantContextUtils.trimAlleles(vcRaw.subContextFromSample("NA12878"), false, true) : vcRaw;
                 if ( na12878vc.isVariant() ) {
-                    for ( final VariantContext biallelic : GATKVariantContextUtils.splitVariantContextToBiallelics(na12878vc, true)) {
+                    for ( final VariantContext biallelic : GATKVariantContextUtils.splitVariantContextToBiallelics(na12878vc, true, GATKVariantContextUtils.GenotypeAssignmentMethod.BEST_MATCH_TO_ORIGINAL)) {
                         if ( biallelic != null && biallelic.getStart() > na12878vc.getStart() ) {
                             // trimming the variant moved the variant forward on the genome, which can happen but
                             // means that the input VCF had a very strange multi-allelic structure
@@ -295,9 +298,22 @@ public class Assessor {
         final Assessment assessment = vc.isSNP() ? SNPAssessment : IndelAssessment;
         assessment.inc(type);
 
+        // determine if we have called the site correctly but failed to genotype it properly
+        boolean genotypeDiscordance = false;
+        if ( call != null && consensusSite != null && type == AssessmentType.TRUE_POSITIVE  &&
+                call.hasGenotype("NA12878") && call.isNotFiltered() && consensusSite.isPolymorphic()) {
+            final List<Allele> alleles = vc.getAlleles();
+            final Genotype consensusGT = consensusSite.getGt().toGenotype(alleles);
+            if ( consensusGT.getType() == GenotypeType.HET || consensusGT.getType() == GenotypeType.HOM_VAR ) {
+                final boolean concordant = consensusGT.getType() == call.getGenotype("NA12878").getType();
+                genotypeDiscordance = ! concordant;
+                assessment.incGenotypingAccuracy(consensusGT.getType(), concordant);
+            }
+        }
+
         if ( logger.isDebugEnabled() ) logger.debug("Assessing site " + name + " call " + call + " against consensus " + consensusSite);
 
-        badSitesWriter.notifyOfSite(type, vc, consensusSite);
+        badSitesWriter.notifyOfSite(genotypeDiscordance ? AssessmentType.GENOTYPE_DISCORDANCE : type, vc, consensusSite);
     }
 
     /**
@@ -407,7 +423,9 @@ public class Assessor {
         final SAMRecordIterator it = bamReader.queryOverlapping(chr, position, position);
         final LocusIteratorByState libs = new LocusIteratorByState(bamReader, it);
         final AlignmentContext context = libs.advanceToLocus(position);
-        final int depth = context != null ? context.getBasePileup().depthOfCoverage() : 0;
+        int depth = 0;
+        if ( context != null )
+            depth = context.getBasePileup().getBaseAndMappingFilteredPileup(20, 20).depthOfCoverage();
         it.close();
         return depth;
     }

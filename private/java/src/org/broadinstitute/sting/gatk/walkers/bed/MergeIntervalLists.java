@@ -54,8 +54,6 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocSortedSet;
-import org.broadinstitute.sting.utils.interval.IntervalMergingRule;
-import org.broadinstitute.sting.utils.interval.IntervalSetRule;
 import org.broadinstitute.sting.utils.interval.IntervalUtils;
 
 import java.io.PrintStream;
@@ -72,19 +70,11 @@ public class MergeIntervalLists extends RodWalker<Integer, Integer> {
     @Output(doc="File to which intervals should be written")
     protected PrintStream writer = null;
 
-    @Argument(fullName = "intervalSetRule", shortName = "intervalSetRule", doc = "Indicates the set merging approach the interval parser should use to combine the various intervals", required = false)
-    public IntervalSetRule intervalSetRule = IntervalSetRule.UNION;
-
     public void initialize() {
 
-        List<GenomeLoc> allIntervals = new ArrayList<GenomeLoc>();
-        for ( IntervalBinding intervalBinding : intervals) {
-            List<GenomeLoc> intervals = intervalBinding.getIntervals(getToolkit());
-            allIntervals = IntervalUtils.mergeListsBySetOperator(intervals, allIntervals, intervalSetRule);
-        }
-
-        final GenomeLocSortedSet sorted = IntervalUtils.sortAndMergeIntervals(getToolkit().getGenomeLocParser(), allIntervals, IntervalMergingRule.ALL);
-        for ( GenomeLoc loc : sorted )
+        final IntervalArgumentCollection args = getToolkit().getArguments().intervalArguments;
+        final GenomeLocSortedSet locs = IntervalUtils.loadIntervals(intervals, args.intervalSetRule, args.intervalMerging, args.intervalPadding, getToolkit().getGenomeLocParser());
+        for ( final GenomeLoc loc : locs )
             writer.println(loc);
     }
 

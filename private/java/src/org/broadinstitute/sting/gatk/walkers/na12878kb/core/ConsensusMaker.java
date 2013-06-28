@@ -109,6 +109,56 @@ public class ConsensusMaker {
     }
 
     /**
+     * Key interface: create a consensus based on joining the evidence from allSupportingCalls
+     *
+     * Looks at the supporting calls, and creates a consensus that reflects the TP/FP etc status
+     * of each and the genotypes.  Weighs the result heavily by the confidence of the individual calls.
+     * The resulting consensus is at the same site as allSupportingCalls and same alleles, and the
+     * supporting call set field will reflect the information in allSupportingCalls.
+     *
+     * For supports having multiple equivalent supporting calls (two depristo records, for instance), only
+     * the most recent result will be used.
+     *
+     * @param allSupportingCalls a non-null, non-empty collection of supporting calls
+     * @return a non-null MongoVariantContext consensus
+     */
+// TODO -- DISABLED FOR NOW
+    /*
+    public MongoVariantContext makeBayesianConsensus(final Collection<MongoVariantContext> allSupportingCalls) {
+        if ( allSupportingCalls == null || allSupportingCalls.isEmpty())
+            throw new IllegalArgumentException("allSupportingCalls must be non-null, not empty collection");
+
+        // make sure the input MVCs can be safely combined into a consensus
+        final MongoVariantContext firstMVC = allSupportingCalls.iterator().next();
+        for ( final MongoVariantContext mvc : allSupportingCalls )
+            ensureSafeToCombineInConsensus(firstMVC, mvc);
+
+        // only the most recent call from each call set is used
+        final Collection<MongoVariantContext> callsForConsensus = mostRecentCalls(allSupportingCalls);
+
+        final VariantContextBuilder builder = new VariantContextBuilder();
+        final VariantContext first = firstMVC.getVariantContext();
+        builder.chr(first.getChr()).start(first.getStart()).stop(first.getEnd());
+
+        final List<Allele> alleles = first.getAlleles();
+        builder.alleles(alleles);
+
+        // iteration is over allSupportingCalls so we get the names all correct
+        final LinkedHashSet<String> supportingCallSets = new LinkedHashSet<String>();
+        for ( final MongoVariantContext vc : allSupportingCalls ) {
+            supportingCallSets.addAll(vc.getSupportingCallSets());
+        }
+
+        final TruthStatus type = determineBayesianTruthEstimate(callsForConsensus);
+        final PolymorphicStatus status = determinePolymorphicStatus(callsForConsensus);
+        final Genotype gt = consensusGT(type, status, new LinkedList<>(alleles), callsForConsensus);
+
+        final boolean isReviewed = isReviewed(callsForConsensus);
+        return MongoVariantContext.create(new LinkedList<>(supportingCallSets), builder.make(), type, new Date(), gt, isReviewed);
+    }
+    */
+
+    /**
      * Make sure the canon and test can be combined in a consensus
      * @param canon the first to test
      * @param test the second to test
@@ -262,4 +312,53 @@ public class ConsensusMaker {
 
         return status;
     }
+
+    private static final double CONFIDENCE_THRESHOLD = 0.8;
+
+    /**
+     * Determines the truth status of the site given the calls using a Bayesian estimate
+     *
+     * @param calls   the calls at the site
+     * @return non-null truth status
+     */
+    protected TruthStatus determineBayesianTruthEstimate(final Collection<MongoVariantContext> calls) {
+
+        final double LofTP = calculateLikelihood(calls, TruthStatus.TRUE_POSITIVE);
+        final double LofFP = calculateLikelihood(calls, TruthStatus.FALSE_POSITIVE);
+        final double LofSuspect = calculateLikelihood(calls, TruthStatus.SUSPECT);
+        final double totalL = LofTP + LofFP + LofSuspect;
+
+        final TruthStatus status;
+        if ( LofTP / totalL >= CONFIDENCE_THRESHOLD )
+            status = TruthStatus.TRUE_POSITIVE;
+        else if ( LofFP / totalL >= CONFIDENCE_THRESHOLD )
+            status = TruthStatus.FALSE_POSITIVE;
+        else if ( LofSuspect > CONFIDENCE_THRESHOLD / 2.0 )
+            status = TruthStatus.SUSPECT;
+        else
+            status = TruthStatus.DISCORDANT;
+
+        return status;
+    }
+
+    /**
+     * Determines the likelihood of the given truth status
+     *
+     * @param calls   the calls at the site
+     * @param status  the truth status to assess
+     * @return likelihood
+     */
+    private double calculateLikelihood(final Collection<MongoVariantContext> calls, final TruthStatus status) {
+
+        // for now let's just multiply through the confidences
+
+        double confidence = 1.0;
+        for ( final MongoVariantContext call : calls ) {
+            confidence *= (call.getType() == status ? call.getConfidence() : 1.0 - call.getConfidence());
+        }
+        return confidence;
+    }
+
+
+
 }

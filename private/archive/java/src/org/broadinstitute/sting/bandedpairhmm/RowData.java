@@ -44,183 +44,88 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.diagnostics.missing;
+package org.broadinstitute.sting.utils.pairhmm;
 
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.CommandLineGATK;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.walkers.By;
-import org.broadinstitute.sting.gatk.walkers.DataSource;
-import org.broadinstitute.sting.gatk.walkers.LocusWalker;
-import org.broadinstitute.sting.gatk.walkers.NanoSchedulable;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.GenomeLocSortedSet;
-import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.help.DocumentedGATKFeature;
-import org.broadinstitute.sting.utils.help.HelpConstants;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
-import org.broadinstitute.sting.utils.text.XReadLines;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.PrintStream;
-import java.util.List;
+import java.util.Arrays;
 
 /**
- * Walks along reference and calculates a few metrics for each interval.
+ * PairHMM data for a single row
  *
- * Metrics:
- * <ul>
- *     <li>Average Base Quality</li>
- *     <li>Average Mapping Quality</li>
- *     <li>GC Content</li>
- *     <li>Position in the target</li>
- *     <li>Coding Sequence / Intron</li>
- *     <li>Length of the uncovered area</li>
- * </ul>
+ * Stores the match, deletion, and insertion PairHMM cell values for a single row of up to
+ * size in length, and provides high-performance utilities for getting cell values, sums,
+ * and clearing specific ranges of values from these vectors
  *
- * <h3>Input</h3>
- * <p>
- *  A reference file
- * </p>
- *
- * <h3>Output</h3>
- * <p>
- *  GC content calculations per interval.
- * </p>
- *
- * <h3>Example</h3>
- * <pre>
- * java -Xmx2g -jar GenomeAnalysisTK.jar \
- *   -T QualifyMissingIntervals \
- *   -R ref.fasta \
- *   -o output.grp \
- *   -L input.intervals \
- *   -cds cds.intervals \
- *   -targets targets.intervals
- * </pre>
- *
+ * User: depristo
+ * Date: 5/16/13
+ * Time: 10:48 AM
  */
-@DocumentedGATKFeature( groupName = HelpConstants.DOCS_CAT_QC, extraDocs = {CommandLineGATK.class} )
-@By(DataSource.REFERENCE)
-public final class QualifyMissingIntervals extends LocusWalker<Metrics, Metrics> implements NanoSchedulable {
-    @Output
-    protected PrintStream out;
+final class RowData {
+    /**
+     * The HMM cell values for a single row for the match, deletion, and insertion vectors
+     */
+    public final double[] match, deletion, insertion;
 
-    @Argument(shortName = "targets", required = true)
-    public File targetsFile;
-
-    @Argument(shortName = "cds", required = false)
-    public File cdsFile;
-
-    GATKReport simpleReport;
-    GenomeLocSortedSet target;
-    GenomeLocSortedSet cds;
-
-    public boolean isReduceByInterval() {
-        return true;
+    /**
+     * Create a new RowData object
+     *
+     * @param size the number of match, mismatch, and insertion elements to store in this data
+     */
+    public RowData(final int size) {
+        if ( size < 0 ) throw new IllegalArgumentException("size must be >= 0 but got " + size);
+        match     = new double[size];
+        insertion = new double[size];
+        deletion  = new double[size];
     }
 
-    public void initialize() {
-        simpleReport = GATKReport.newSimpleReport("QualifyMissingIntervals", "IN", "GC", "BQ", "MQ", "TP", "CD", "LN");
-        final GenomeLocParser parser = getToolkit().getGenomeLocParser();
-        target = new GenomeLocSortedSet(parser);
-        cds = new GenomeLocSortedSet(parser);
-        parseFile(targetsFile, target, parser);
-        parseFile(cdsFile, cds, parser);
+    /**
+     * Get the probability contained at position hapJ, which is the sum of the match, insertion, and deletion vectors at hapJ
+     *
+     * @param hapJ a valid index into the row data.  For performance reasons validity is not checked
+     * @return a double value
+     */
+    public double getCellProb(final int hapJ) {
+        return match[hapJ] + insertion[hapJ] + deletion[hapJ];
     }
 
-    public Metrics reduceInit() {
-        return new Metrics();
-    }
-
-    public Metrics map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
-        if (tracker == null)
-            return null;
-
-        final Metrics metrics = new Metrics();
-        final byte baseIndex = ref.getBase();
-        final ReadBackedPileup pileup = context.getBasePileup();
-        final int nBases = pileup.getNumberOfElements();
-
-        double baseQual = 0.0;
-        for (byte qual : pileup.getQuals()) {
-            baseQual += qual;
-        }
-        double mapQual = 0.0;
-        for (byte qual : pileup.getMappingQuals()) {
-            mapQual += qual;
-        }
-
-        metrics.baseQual(baseQual);
-        metrics.mapQual(mapQual);
-        metrics.gccontent(baseIndex == 'C' || baseIndex == 'G' ? 1.0 : 0.0);
-        metrics.reads(nBases);
-        metrics.refs(1);
-
-        return metrics;
-    }
-
-    @Override
-    public Metrics reduce(Metrics value, Metrics sum) {
-        return sum.combine(value);
-    }
-
-    public void onTraversalDone(List<Pair<GenomeLoc, Metrics>> results) {
-        for (Pair<GenomeLoc, Metrics> r : results) {
-            GenomeLoc interval = r.getFirst();
-            Metrics metrics = r.getSecond();
-            simpleReport.addRow(
-                    interval.toString(),
-                    metrics.gccontent(),
-                    metrics.baseQual(),
-                    metrics.mapQual(),
-                    getPositionInTarget(interval),
-                    cds.overlaps(interval),
-                    interval.size()
-            );
-        }
-        simpleReport.print(out);
-        out.close();
-    }
-
-    private static GenomeLoc parseInterval(String s, GenomeLocParser parser) {
-        if (s.isEmpty()) {
-            return null;
-        }
-        String[] first = s.split(":");
-        if (first.length == 2) {
-            String[] second = first[1].split("\\-");
-            return parser.createGenomeLoc(first[0], Integer.decode(second[0]), Integer.decode(second[1]));
-        } else {
-            throw new UserException.BadInput("Interval doesn't parse correctly: " + s);
+    /**
+     * Set all of the cell values from start and end in all three vectors to zero
+     * @param start the starting position to zero out
+     * @param end the ending position (exclusive) to zero out
+     */
+    public void clear(final int start, final int end) {
+        for ( int i = start; i < end; i++ ) {
+            match[i] = deletion[i] = insertion[i] = 0.0;
         }
     }
 
-    private void parseFile(File file, GenomeLocSortedSet set, GenomeLocParser parser) {
-        try {
-            for (String s : new XReadLines(file) ) {
-                GenomeLoc interval = parseInterval(s, parser);
-                if (interval != null)
-                    set.add(interval, true);
-            }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
+    private int size() {
+        return match.length;
     }
 
-    private int getPositionInTarget(GenomeLoc interval) {
-        final List<GenomeLoc> hits = target.getOverlapping(interval);
-        int result = 0;
-        for (GenomeLoc hit : hits) {
-            result = interval.getStart() - hit.getStart(); // if there are multiple hits, we'll get the last one.
+    /**
+     * Set all of the values in this row data to 0.0
+     */
+    public void clear() {
+        Arrays.fill(match, 0.0);
+        Arrays.fill(insertion, 0.0);
+        Arrays.fill(deletion, 0.0);
+    }
+
+    /**
+     * Compute the sum of the values in the match and insertion vectors from start to end (exclusive)
+     *
+     * @param start a starting offset into this vector row data, must be >= 0 and < size
+     * @param end the last position (exclusive) to use in the sum, must be >= start and < size
+     * @return the sum of the value in the match and insertion vectors from start and end (exclusive)
+     */
+    public double sumMatchInsertion(final int start, final int end) {
+        if ( start < 0 || start >= size() ) throw new IllegalArgumentException("Bad start " + start + " must be >= 0 and < " + size());
+        if ( end < start || end > size() ) throw new IllegalArgumentException("Bad end " + end + " must be >= start " + start + " and < " + size());
+
+        double finalSumProbabilities = 0.0;
+        for (int j = start; j < end; j++) {
+            finalSumProbabilities += match[j] + insertion[j];
         }
-        return result;
+        return finalSumProbabilities;
     }
 }

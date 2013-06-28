@@ -79,6 +79,7 @@ public class ConsensusSummarizer {
         int nSingletons = 0;
         int nSNPs = 0;
         int nIndels = 0;
+        int nComplex = 0;
 
         CallSetSummary(String callSetName) {
             if ( callSetName == null ) throw new IllegalArgumentException("callSetName cannot be null");
@@ -118,6 +119,9 @@ public class ConsensusSummarizer {
                 nSNPs++;
             else
                 nIndels++;
+
+            if ( mvc.isComplexEvent() )
+                nComplex++;
         }
 
         @Ensures("result != null")
@@ -201,6 +205,9 @@ public class ConsensusSummarizer {
         public int getnIndels() { return nIndels; }
 
         @Ensures("result >= 0")
+        public int getnComplex() { return nComplex; }
+
+        @Ensures("result >= 0")
         public int getnTPPoly() {
             return nTPPoly;
         }
@@ -268,6 +275,7 @@ public class ConsensusSummarizer {
             report.addRow(name, "percent.of.all.tp.poly.sites", summary.getPercentOfAllSites(totalPolyTPSites));
             report.addRow(name, "n.SNPs", summary.getnSNPs());
             report.addRow(name, "n.Indels", summary.getnIndels());
+            report.addRow(name, "n.Complex", summary.getnComplex());
             report.addRow(name, "poly.nonsingleton.count", summary.getnNonSingletonTPPoly());
             report.addRow(name, "poly.nonsingleton.percent", summary.percent(summary.getnNonSingletonTPPoly()));
             report.addRow(name, "poly.singletons.count", summary.getnSingletonTPPoly());

@@ -47,9 +47,7 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
-import org.broadinstitute.sting.utils.Utils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.variant.variantcontext.Allele;
 import org.broadinstitute.variant.variantcontext.Genotype;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.testng.Assert;
@@ -71,16 +69,22 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
 
             // date is passively tested before we get different dates each time
             for ( final String name : Arrays.asList("x", "y", "z") )
-                tests.add(new Object[]{vc, new MongoVariantContext(name, vc, TruthStatus.TRUE_POSITIVE, new Date(), HET, true)});
+                tests.add(new Object[]{vc, new MongoVariantContext(name, vc, TruthStatus.TRUE_POSITIVE, new Date(), HET, 0.99, true, false)});
 
             for ( final TruthStatus status : TruthStatus.values() )
-                tests.add(new Object[]{vc, new MongoVariantContext("x", vc, status, new Date(), HET, true)});
+                tests.add(new Object[]{vc, new MongoVariantContext("x", vc, status, new Date(), HET, 0.99, true, false)});
 
             for ( final Genotype genotype : Arrays.asList(NO_CALL, HOMREF, HET, HOMVAR) )
-                tests.add(new Object[]{vc, new MongoVariantContext("x", vc, TruthStatus.TRUE_POSITIVE, new Date(), genotype, true)});
+                tests.add(new Object[]{vc, new MongoVariantContext("x", vc, TruthStatus.TRUE_POSITIVE, new Date(), genotype, 0.99, true, false)});
 
             for ( final boolean reviewed : Arrays.asList(true, false) )
-                tests.add(new Object[]{vc, new MongoVariantContext("x", vc, TruthStatus.TRUE_POSITIVE, new Date(), HET, reviewed)});
+                tests.add(new Object[]{vc, new MongoVariantContext("x", vc, TruthStatus.TRUE_POSITIVE, new Date(), HET, 0.9, reviewed, false)});
+
+            for ( final boolean complex : Arrays.asList(true, false) )
+                tests.add(new Object[]{vc, new MongoVariantContext("x", vc, TruthStatus.TRUE_POSITIVE, new Date(), HET, 0.99, true, complex)});
+
+            for ( final double confidence : Arrays.asList(0.8, 0.9, 0.99) )
+                tests.add(new Object[]{vc, new MongoVariantContext("x", vc, TruthStatus.TRUE_POSITIVE, new Date(), HET, confidence, true, false)});
         }
 
         return tests.toArray(new Object[][]{});
@@ -140,7 +144,7 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
         return mvc;
     }
 
-    final static MongoVariantContext good = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C", TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 0), new Date(), false);
+    final static MongoVariantContext good = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C", TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 0), new Date(), 0.5, false, false);
     private static MongoVariantContext makeBad(final List<MongoVariantContext> bads) throws CloneNotSupportedException {
         final MongoVariantContext mvc = good.clone();
         bads.add(mvc);
@@ -198,7 +202,7 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
         mvc.validate(parser);
     }
 
-    final static MongoVariantContext DUP = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C", TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), false);
+    final static MongoVariantContext DUP = new MongoVariantContext(Arrays.asList("x"), "20", 1, 1, "A", "C", TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 1), new Date(), 0.5, false, false);
     private static MongoVariantContext makeNoDup(final List<MongoVariantContext> nonDups) throws CloneNotSupportedException {
         final MongoVariantContext mvc = DUP.clone();
         nonDups.add(mvc);

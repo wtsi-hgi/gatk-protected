@@ -77,7 +77,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
      *
      * May contains multiple strings if the site is present in multiple callsets in the consensus
      */
-    private List<String> supportingCallsets = new ArrayList<String>(1);
+    private List<String> supportingCallsets = new ArrayList<>(1);
 
     /**
      * The chromosomal position of the site, following b37 conventions (i.e., chromosomes are named 1, 2, etc).
@@ -127,11 +127,24 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
     private Date date = new Date();
 
     /**
-     * (Optional) reviewed status.  If true, indicates that this site represent information from a
+     * (Optional) reviewed status.  If true, indicates that this site represents information from a
      * manual review of data, and will be interpreted as more informative than a non-reviewed site.
-     * If missing, assumed to *not* to be a reviewed site
+     * If missing, assumed *not* to be a reviewed site
      */
     private boolean reviewed = false;
+
+    /**
+     * (Optional) the confidence of the call represented by this MVC
+     */
+    private double confidence = 0.0;
+
+    /**
+     * (Optional) whether this call represents a complex event.  If true, we will not penalize this site
+     * as a false negative because it can be represented in multiple ways (so the caller is not restricted
+     * to just the exact allele represented by this call).
+     */
+    private boolean isComplexEvent = false;
+
 
     public MongoVariantContext() { }
 
@@ -151,7 +164,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
                                                 final String alt,
                                                 final Genotype gt,
                                                 final boolean isReviewed) {
-        return create(callSetName, chr, start, ref, alt, TruthStatus.TRUE_POSITIVE, gt, isReviewed);
+        return create(callSetName, chr, start, ref, alt, TruthStatus.TRUE_POSITIVE, gt, 0.0, isReviewed, false);
     }
 
     protected static MongoVariantContext create(final String callSetName,
@@ -161,10 +174,12 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
                                                 final String alt,
                                                 final TruthStatus truthStatus,
                                                 final Genotype gt,
-                                                final boolean isReviewed) {
+                                                final double confidence,
+                                                final boolean isReviewed,
+                                                final boolean isComplexEvent) {
         final int stop = start + ref.length() - 1;
         final VariantContextBuilder vcb = new VariantContextBuilder(callSetName, chr, start, stop, Arrays.asList(Allele.create(ref, true), Allele.create(alt)));
-        return new MongoVariantContext(callSetName, vcb.make(), truthStatus, new Date(), gt, isReviewed);
+        return new MongoVariantContext(callSetName, vcb.make(), truthStatus, new Date(), gt, confidence, isReviewed, isComplexEvent);
     }
 
     public static MongoVariantContext create(final List<String> supportingCallsets,
@@ -173,7 +188,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
                                              final Date date,
                                              final Genotype gt,
                                              final boolean isReviewed) {
-        return new MongoVariantContext(supportingCallsets, vc, truthStatus, date, gt, isReviewed);
+        return new MongoVariantContext(supportingCallsets, vc, truthStatus, date, gt, 0.0, isReviewed, false);
     }
 
     public static MongoVariantContext create(final String callSetName,
@@ -188,7 +203,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         final TruthStatus truthStatus = TruthStatus.valueOf(parseReviewField(vc, "TruthStatus"));
         final Date date = new Date(Long.valueOf(parseReviewField(vc, "Date")));
         final Genotype gt = vc.hasGenotype("NA12878") ? vc.getGenotype("NA12878") : MongoGenotype.NO_CALL;
-        return new MongoVariantContext(callSet, vc, truthStatus, date, gt, true);
+        return new MongoVariantContext(callSet, vc, truthStatus, date, gt, 0.99, true, false);
     }
 
     protected MongoVariantContext(final String callset,
@@ -196,8 +211,10 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
                                   final TruthStatus truthStatus,
                                   final Date date,
                                   final Genotype gt,
-                                  final boolean isReviewed) {
-        this(Arrays.asList(callset), vc, truthStatus, date, gt, isReviewed);
+                                  final double confidence,
+                                  final boolean isReviewed,
+                                  final boolean isComplexEvent) {
+        this(Arrays.asList(callset), vc, truthStatus, date, gt, confidence, isReviewed, isComplexEvent);
     }
 
     protected MongoVariantContext(final List<String> supportingCallsets,
@@ -205,7 +222,9 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
                                   final TruthStatus truthStatus,
                                   final Date date,
                                   final Genotype gt,
-                                  final boolean isReviewed) {
+                                  final double confidence,
+                                  final boolean isReviewed,
+                                  final boolean isComplexEvent) {
         if ( vc.getNAlleles() > 2 )
             throw new ReviewedStingException("MongoVariantContext only supports single alt allele, but saw " + vc);
 
@@ -220,14 +239,27 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         this.alt = vc.getAlternateAllele(0).getDisplayString();
         this.mongoType = truthStatus;
         this.date = date;
+        this.confidence = confidence;
         this.reviewed = isReviewed;
+        this.isComplexEvent = isComplexEvent;
         this.gt = new MongoGenotype(vc.getAlleles(), gt);
 
         //TODO Once the public gatk includes BaseUtils.isUpperCase, we can enable this
         //validate(null);
     }
 
-    protected MongoVariantContext(List<String> supportingCallsets, String chr, int start, int stop, String ref, String alt, TruthStatus truthStatus, MongoGenotype gt, Date date, boolean reviewed) {
+    protected MongoVariantContext(final List<String> supportingCallsets,
+                                  final String chr,
+                                  final int start,
+                                  final int stop,
+                                  final String ref,
+                                  final String alt,
+                                  final TruthStatus truthStatus,
+                                  final MongoGenotype gt,
+                                  final Date date,
+                                  final double confidence,
+                                  final boolean reviewed,
+                                  final boolean isComplexEvent) {
         this.supportingCallsets = supportingCallsets;
         this.chr = chr;
         this.start = start;
@@ -237,12 +269,14 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         this.mongoType = truthStatus;
         this.gt = gt;
         this.date = date;
+        this.confidence = confidence;
         this.reviewed = reviewed;
+        this.isComplexEvent = isComplexEvent;
     }
 
     @Override
     protected MongoVariantContext clone() throws CloneNotSupportedException {
-        return new MongoVariantContext(supportingCallsets, chr, start, stop, ref, alt, mongoType, gt, date, reviewed);
+        return new MongoVariantContext(supportingCallsets, chr, start, stop, ref, alt, mongoType, gt, date, confidence, reviewed, isComplexEvent);
     }
 
     private List<Allele> getAlleles() {
@@ -345,22 +379,24 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
 
     protected void addReviewInfoFields(final VariantContextBuilder vcb) {
         vcb.attribute("CallSetName", getCallSetName());
-        vcb.attribute("TruthStatus", getType());
-        vcb.attribute("PolymorphicStatus", getPolymorphicStatus());
-        vcb.attribute("Date", getDate().getTime());
+        vcb.attribute("TruthStatus", getType().toString());
+        vcb.attribute("PolymorphicStatus", getPolymorphicStatus().toString());
+        vcb.attribute("Date", String.valueOf(getDate().getTime()));
         vcb.attribute("Reviewed", isReviewed());
         //vcb.attribute("PhredConfidence", getPhredConfidence());
+        vcb.attribute("isComplexEvent", isComplexEvent());
     }
 
     public static Set<VCFHeaderLine> reviewHeaderLines() {
-        final Set<VCFHeaderLine> lines = new HashSet<VCFHeaderLine>();
+        final Set<VCFHeaderLine> lines = new HashSet<>();
 
-        lines.add(new VCFInfoHeaderLine("CallSetName", 1, VCFHeaderLineType.String, "Name of the review"));
+        lines.add(new VCFInfoHeaderLine("CallSetName", VCFHeaderLineCount.UNBOUNDED, VCFHeaderLineType.String, "Name of the review(s)"));
         lines.add(new VCFInfoHeaderLine("TruthStatus", 1, VCFHeaderLineType.String, "What is the truth state of this call"));
         lines.add(new VCFInfoHeaderLine("PolymorphicStatus", 1, VCFHeaderLineType.String, "Is this call polymorphic in NA12878"));
         lines.add(new VCFInfoHeaderLine("Date", 1, VCFHeaderLineType.String, "Date/time as a long of this review"));
-        lines.add(new VCFInfoHeaderLine("PhredConfidence", 1, VCFHeaderLineType.Integer, "Phred-scaled confidence in this review"));
+        //lines.add(new VCFInfoHeaderLine("PhredConfidence", 1, VCFHeaderLineType.Integer, "Phred-scaled confidence in this review"));
         lines.add(new VCFInfoHeaderLine("Reviewed", 0, VCFHeaderLineType.Flag, "Was this a manually reviewed record?"));
+        lines.add(new VCFInfoHeaderLine("isComplexEvent", 0, VCFHeaderLineType.Flag, "Does this record represent a complex event?"));
         lines.add(VCFStandardHeaderLines.getFormatLine(VCFConstants.DEPTH_KEY));
         lines.add(VCFStandardHeaderLines.getFormatLine(VCFConstants.GENOTYPE_QUALITY_KEY));
 
@@ -394,8 +430,28 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         return reviewed;
     }
 
-    public void setReviewed(boolean reviewed) {
+    public void setReviewed(final boolean reviewed) {
         this.reviewed = reviewed;
+    }
+
+    public boolean isComplexEvent() {
+        return isComplexEvent;
+    }
+
+    public boolean getIsComplexEvent() {
+        return isComplexEvent;
+    }
+
+    public void setIsComplexEvent(final boolean isComplexEvent) {
+        this.isComplexEvent = isComplexEvent;
+    }
+
+    public double getConfidence() {
+        return confidence;
+    }
+
+    public void setConfidence(final double confidence) {
+        this.confidence = confidence;
     }
 
     public GenomeLoc getLocation(final GenomeLocParser parser) {
