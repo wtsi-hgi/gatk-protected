@@ -55,6 +55,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.locusiterator.LocusIteratorByState;
+import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.sam.GATKSamRecordFactory;
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
 import org.broadinstitute.variant.variantcontext.Allele;
@@ -424,8 +425,13 @@ public class Assessor {
         final LocusIteratorByState libs = new LocusIteratorByState(bamReader, it);
         final AlignmentContext context = libs.advanceToLocus(position, false);
         int depth = 0;
-        if ( context != null )
-            depth = context.getBasePileup().getBaseAndMappingFilteredPileup(20, 20).depthOfCoverage();
+        if ( context != null ) {
+            // need to remove duplicates and low quality reads/bases
+            for (final PileupElement p : context.getBasePileup().getBaseAndMappingFilteredPileup(20, 20) ) {
+                if ( ! p.getRead().getDuplicateReadFlag() )
+                    depth += p.getRepresentativeCount();
+            }
+        }
         it.close();
         return depth;
     }
@@ -466,7 +472,7 @@ public class Assessor {
         final double MQ = vc.getAttributeAsDouble("MQ", 50.0);
 
         if ( vc.isSNP() ) {
-            return FS > 60 || QD < 2 || MQ < 40;
+            return FS > 40 || QD < 2 || MQ < 40;
         } else {
             return FS > 200 || QD < 2;
         }
