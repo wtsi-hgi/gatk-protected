@@ -44,46 +44,78 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.HaplotypeCalling
+package org.broadinstitute.sting.gatk.walkers.techdev;
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.sting.commandline.ArgumentCollection;
+import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.gatk.arguments.StandardVariantContextInputArgumentCollection;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.report.GATKReport;
+import org.broadinstitute.sting.gatk.walkers.RodWalker;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
-class SGHaplotypeCaller extends QScript {
-  @Argument(shortName = "I", doc="bam file", required = true)
-  val bam: File = new File("/humgen/gsa-hpprojects/dev/carneiro/agbt13/sandbox/calls/NA12878-2x250.bwasw.chr20.dedup.clean.bam")
+import java.io.PrintStream;
+import java.util.Collection;
 
-  @Argument(shortName = "o", doc="vcf file", required = true)
-  val out: File = null
+/**
+ * User: carneiro
+ * Date: 6/28/13
+ * Time: 1:25 PM
+ */
+public class ReferenceBias extends RodWalker<Long, Long> {
+    @ArgumentCollection
+    protected StandardVariantContextInputArgumentCollection variantCollection = new StandardVariantContextInputArgumentCollection();
 
-  @Argument(shortName = "R", doc = "ref", required = false)
-  val ref: File = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/human_g1k_v37.fasta"
+    @Output
+    PrintStream out;
 
-  @Argument(shortName = "scatterCount", doc="scatterCount", required=false)
-  val scatterCount: Int = 10
+    final GATKReport report = GATKReport.newSimpleReport("RefBiasPerSite", "Site", "Sample", "GQ", "SNP", "RefBias");
 
-  @Argument(shortName = "L", doc="vcfs", required=false)
-  val myIntervals: String = null
+    @Override
+    public Long map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+        if ( tracker == null )
+            return 0L;
 
-  @Argument(shortName = "il", doc="interval list", required = false)
-  val intervalList: Seq[File] = null
+        final Collection<VariantContext> vcs = tracker.getValues(variantCollection.variants, context.getLocation());
+        if ( vcs == null)
+            return 0L;
 
-  trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
-    this.logging_level = "INFO"
-    this.reference_sequence = ref
-    this.memoryLimit = 8
-    if ( myIntervals != null )
-      this.intervalsString :+= myIntervals
-    if ( intervalList != null )
-      this.intervals = intervalList
-  }
+        long hets = 0;
+        for (final VariantContext vc : vcs) {
+            if(vc.isBiallelic()) {
+                for (final Genotype g : vc.getGenotypes()) {
+                    if (g.isHet() && g.hasAD()) {
+                            report.addRow(ref.getLocus(), g.getSampleName(), g.getGQ(), vc.isSNP(), calculateRefBias(g.getAD()));
+                            hets++;
+                    }
+                }
+            }
+        }
+        return hets;
+    }
 
-  def script() {
-    val hc = new HaplotypeCaller with UNIVERSAL_GATK_ARGS
-    hc.input_file :+= bam
-    hc.out = out
-    hc.scatterCount = scatterCount
-    hc.nct = 4
-    add(hc)
-  }
+    @Override
+    public Long reduceInit() {
+        return 0L;
+    }
+
+    @Override
+    public Long reduce(Long value, Long sum) {
+        return sum + value;
+    }
+
+    @Override
+    public void onTraversalDone(Long result) {
+        report.print(out);
+        out.close();
+    }
+
+    private static double calculateRefBias(final int[] ad) {
+        final int ref = ad[0];
+        final int alt = ad[1];
+        return (double) ref / (ref + alt);
+    }
 }

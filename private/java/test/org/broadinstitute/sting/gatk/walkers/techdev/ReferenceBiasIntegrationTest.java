@@ -44,46 +44,35 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.HaplotypeCalling
+package org.broadinstitute.sting.gatk.walkers.techdev;
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.sting.WalkerTest;
+import org.testng.annotations.Test;
 
-class SGHaplotypeCaller extends QScript {
-  @Argument(shortName = "I", doc="bam file", required = true)
-  val bam: File = new File("/humgen/gsa-hpprojects/dev/carneiro/agbt13/sandbox/calls/NA12878-2x250.bwasw.chr20.dedup.clean.bam")
+import java.util.Arrays;
 
-  @Argument(shortName = "o", doc="vcf file", required = true)
-  val out: File = null
+/**
+ * Created with IntelliJ IDEA.
+ * User: carneiro
+ * Date: 8/2/13
+ * Time: 1:02 AM
+ * To change this template use File | Settings | File Templates.
+ */
+public class ReferenceBiasIntegrationTest extends WalkerTest {
+    final static String commonArgs = " -T ReferenceBias -o %s ";
 
-  @Argument(shortName = "R", doc = "ref", required = false)
-  val ref: File = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/human_g1k_v37.fasta"
+    @Test
+    public void testReferenceBiasNoAD() {
+        String gatk_args = commonArgs + "-R " + b36KGReference + " -V private/testdata/vcfexample2.vcf";
+        WalkerTestSpec spec = new WalkerTestSpec(gatk_args, Arrays.asList("5185c9ee3a11a4b467b064bbdbed1426"));
+        executeTest("test NO AD field -- vcfexampl2.vcf", spec);
+    }
 
-  @Argument(shortName = "scatterCount", doc="scatterCount", required=false)
-  val scatterCount: Int = 10
+    @Test
+    public void testReferenceBiasWithAD() {
+        String gatk_args = commonArgs + "-R " + hg19Reference + " -V private/testdata/NA12878.hg19.example1.vcf";
+        WalkerTestSpec spec = new WalkerTestSpec(gatk_args, Arrays.asList("5e518091daab2c534a7287840f6c6af2"));
+        executeTest("test NO AD field -- vcfexampl2.vcf", spec);
+    }
 
-  @Argument(shortName = "L", doc="vcfs", required=false)
-  val myIntervals: String = null
-
-  @Argument(shortName = "il", doc="interval list", required = false)
-  val intervalList: Seq[File] = null
-
-  trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
-    this.logging_level = "INFO"
-    this.reference_sequence = ref
-    this.memoryLimit = 8
-    if ( myIntervals != null )
-      this.intervalsString :+= myIntervals
-    if ( intervalList != null )
-      this.intervals = intervalList
-  }
-
-  def script() {
-    val hc = new HaplotypeCaller with UNIVERSAL_GATK_ARGS
-    hc.input_file :+= bam
-    hc.out = out
-    hc.scatterCount = scatterCount
-    hc.nct = 4
-    add(hc)
-  }
 }
