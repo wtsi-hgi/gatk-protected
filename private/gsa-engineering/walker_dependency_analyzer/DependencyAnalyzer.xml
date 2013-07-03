@@ -1,0 +1,140 @@
+<!--
+Walker dependency analyzer
+
+Given a walker class and a file listing Java classes that have changed, determines whether the walker has
+compile-time dependencies on any of the changed classes. Appends the result to the supplied Java properties
+file as a line of the form "walker_class_name=true|false", with "true" indicating the existence of dependencies
+on one or more of the changed classes.
+
+NOTE: Should not be run directly in most cases; use the analyze_walker_dependencies.sh frontend script instead.
+
+Prerequisites: -The bcel and ant-apache-bcel jars must be installed in ~/.ant/lib
+               -"ant clean package.gatk.all" must have been run first to populate the staging directory with classes
+
+Usage: ant -f DependencyAnalyzer.xml -Dwalker=walker_class -Dchanged.classes.file=file -Dresult.properties.file=file
+
+walker: must be the fully-qualified class name of a walker (eg., org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper)
+
+changed.classes.file: a file listing changed Java classes, one per line, as a set of relative paths from the package root.
+                      Eg.,
+                      org/broadinstitute/sting/utils/MathUtils.class
+                      org/broadinstitute/sting/utils/crypt/CryptUtils.class
+                      etc.
+
+result.properties.file: A Java properties file to which to append the analysis result
+
+Author: David Roazen
+-->
+<project name="DependencyAnalyzer" default="analyze.walker.dependencies" basedir=".">
+    <description>DependencyAnalyzer: determines whether a walker depends on any of a set of classes that have changed</description>
+
+    <property name="gatk.staging.dir" value="staging" />
+
+    <target name="check.arguments">
+        <condition property="walker.specified">
+            <not>
+                <equals arg1="${walker}" arg2="$${walker}" />
+            </not>
+        </condition>
+        <fail unless="walker.specified"
+              message="Must specify the fully-qualified name of a walker (eg., org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper) via -Dwalker=walker" />
+
+        <condition property="changed.classes.file.specified">
+            <not>
+                <equals arg1="${changed.classes.file}" arg2="$${changed.classes.file}" />
+            </not>
+        </condition>
+        <fail unless="changed.classes.file.specified"
+              message="You must provide a file listing the class files that have been modified via -Dchanged.classes.file=file" />
+
+        <condition property="changed.classes.file.exists">
+            <available file="${changed.classes.file}" />
+        </condition>
+        <fail unless="changed.classes.file.exists"
+              message="The file ${changed.classes.file} does not exist" />
+
+        <condition property="result.properties.file.specified">
+            <not>
+                <equals arg1="${result.properties.file}" arg2="$${result.properties.file}" />
+            </not>
+        </condition>
+        <fail unless="result.properties.file.specified"
+              message="You must provide the name of a properties file to append the result to via -Dresult.properties.file=file" />
+    </target>
+
+    <target name="check.runtime.environment" depends="require.bcel">
+        <condition property="gatk.staging.dir.exists">
+            <available file="${gatk.staging.dir}" />
+        </condition>
+        <fail unless="gatk.staging.dir.exists"
+              message="GATK staging directory not found. Run ant package.gatk.all in the GATK build.xml file before running the dependency analyzer" />
+    </target>
+
+    <target name="require.bcel">
+        <fileset id="bcel.jar" dir="${user.home}/.ant/lib">
+            <include name="bcel-*.jar" />
+        </fileset>
+        <pathconvert refid="bcel.jar" property="bcel.jar.installed" setonempty="false" />
+
+        <fileset id="ant.bcel.jar" dir="${user.home}/.ant/lib">
+            <include name="ant-apache-bcel-*.jar" />
+        </fileset>
+        <pathconvert refid="ant.bcel.jar" property="ant.bcel.jar.installed" setonempty="false" />
+
+        <condition property="bcel.installed">
+            <and>
+                <isset property="bcel.jar.installed" />
+                <isset property="ant.bcel.jar.installed" />
+            </and>
+        </condition>
+        <fail unless="bcel.installed"
+              message="Required bcel libraries not installed in ${user.home}/.ant/lib/${line.separator}The bcel jar can be found in the lib directory of a GATK clone after compiling, and the ant-apache-bcel jar can be downloading from here: http://repo1.maven.org/maven2/ant/ant-apache-bcel/1.6.5/ant-apache-bcel-1.6.5.jar" />
+    </target>
+
+    <target name="init" depends="check.arguments,check.runtime.environment">
+        <fileset id="classes.changed" dir="${gatk.staging.dir}" includesfile="${changed.classes.file}" />
+    </target>
+
+    <target name="analyze.walker.dependencies" depends="init">
+        <echo message="Analyzing dependencies of walker ${walker}" />
+
+        <classfileset id="walker.dependencies" dir="${gatk.staging.dir}">
+            <root classname="${walker}" />
+        </classfileset>
+
+        <echo message="Calculating intersection with list of changed class files" />
+
+        <intersect id="intersection">
+            <fileset refid="walker.dependencies" />
+            <fileset refid="classes.changed" />
+        </intersect>
+
+        <pathconvert refid="intersection" property="intersection.not.empty" setonempty="false" />
+
+        <condition property="intersection.result" value="true" else="false">
+            <isset property="intersection.not.empty" />
+        </condition>
+
+        <echo>
+
+            walker.dependencies:
+            --------------------
+            ${toString:walker.dependencies}
+
+
+            classes.changed:
+            ----------------
+            ${toString:classes.changed}
+
+
+            intersection:
+            -------------
+            ${toString:intersection}
+
+        </echo>
+
+        <echo message="Walker depends on changed classes: ${intersection.result}" />
+        <echo message="Appending result to ${result.properties.file}" />
+        <echo file="${result.properties.file}" append="true" message="${walker}=${intersection.result}${line.separator}" />
+    </target>
+</project>
