@@ -39,6 +39,10 @@ Author: David Roazen
         <fail unless="walker.specified"
               message="Must specify the fully-qualified name of a walker (eg., org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper) via -Dwalker=walker" />
 
+        <available classname="${walker}" classpath="${gatk.staging.dir}" ignoresystemclasses="true" property="walker.class.exists" />
+        <fail unless="walker.class.exists"
+              message="Walker class ${walker} not found" />
+
         <condition property="changed.classes.file.specified">
             <not>
                 <equals arg1="${changed.classes.file}" arg2="$${changed.classes.file}" />
