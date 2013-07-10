@@ -33,8 +33,7 @@ fi
 
 if [ ! -d "${TEMP_DIR}" ]
 then
-    echo "$0: Temp directory ${TEMP_DIR} does not exist. Please create it."
-    exit 1
+    mkdir "${TEMP_DIR}"
 fi
 
 if [ -d "${PIPELINE_TEST_WORKING_DIR}" ]

@@ -17,10 +17,11 @@ except ImportError, e:
 
 MISSING_VALUE = "NA"
 RUN_REPORT_LIST = "GATK-run-reports"
-RUN_REPORT = "GATK-run-report"
+RUN_REPORTS = ["GATK-run-report","GATKRunReport"]
+gitHash = dict()
 
 def main():
-    global OPTIONS
+    global OPTIONS, gitHash
     usage = "usage: %prog [options] mode file1 ... fileN"
     parser = OptionParser(usage=usage)
     
@@ -86,6 +87,13 @@ def main():
     if len(args) == 0:
         parser.error("Requires at least GATKRunReport xml to analyze")
 
+    if os.path.exists(OPTIONS.versions):
+        OPTIONS.versions = read_versions(OPTIONS.versions)
+        gitHash = makeGitHash(OPTIONS.versions)
+    else:
+        OPTIONS.versions = dict()
+        print 'Warning: git version file does not exist', OPTIONS.versions
+
     if OPTIONS.test:
         sys.argv = ["x"]
         unittest.main()
@@ -94,12 +102,6 @@ def main():
     stage = args[0]
     files = resolveFiles(args[1:])
     
-    if os.path.exists(OPTIONS.versions):
-        OPTIONS.versions = read_versions(OPTIONS.versions)
-    else:
-        OPTIONS.versions = dict()
-        print 'Warning: git version file does not exist', OPTIONS.versions
-
     # open up the output file
     if OPTIONS.output != None:
         if stage == "archive" and os.path.exists(OPTIONS.output) and not OPTIONS.overwrite:
@@ -178,7 +180,15 @@ def read_versions(file):
             type = types[0]
         return type
 
-    return dict([[version, resolveType(version, types)] for version, types in d.iteritems()])  
+    return dict([[version, resolveType(version, types)] for version, types in d.iteritems()])
+
+def makeGitHash(versions):
+    hashToGit = dict()
+    for line in versions:
+        result = fullGitMatch(line)
+        if result != None:
+            hashToGit[result[2]] = result
+    return hashToGit
 
 #
 # Stage HANDLERS
@@ -271,7 +281,17 @@ def javaExceptionFile(javaException):
         return m.group(1)
     else:
         return javaException
-        
+
+def fullGitMatch(gitShortVersion):
+    gitFullMatch = re.match("^(\d)\.(\d+)-(\d+)-(\w{8}).*$", gitShortVersion)
+    if gitFullMatch != None:
+        major = "%s.%s" % gitFullMatch.group(1,2)
+        minor = gitFullMatch.group(3)
+        hash = gitFullMatch.group(4)
+        return [major, minor, hash]
+    else:
+        return None
+
 def parseGATKVersion(text):
     # maps svn numbers 1.0.Vxxx to 0.V.xxx
     svnMatch = re.match("^1\.0\.(\d)(\d*)", text)
@@ -282,14 +302,22 @@ def parseGATKVersion(text):
         minor = svnMatch.group(2)
     else:
         # maps git numbers 1.3-22-g1bfe280 to 1.3
-        gitFullMatch = re.match("^(\d)\.(\d+)-(\d+)-\w*$", text)
+        gitFullMatch = fullGitMatch(text)
         if gitFullMatch != None:
-            major = "%s.%s" % gitFullMatch.group(1,2)
-            minor = gitFullMatch.group(3)
+            major, minor, ignore = gitFullMatch
         else:
-            gitShortMatch = re.match("^(\d)\.(\d+)$", text)
+            gitShortMatch = re.match("^(\d)\.(\d+).*$", text)
             if gitShortMatch != None:
                 major = "%s.%s" % gitShortMatch.group(1,2)
+            else:
+                # fall back on looking up version hash in versions
+                gitHashMatch = re.match("^.*-(\w{8})$", text)
+                if gitHashMatch != None:
+                    hash = gitHashMatch.group(1)
+                    #print 'matching hash ', hash
+                    #print 'lookup', lookup
+                    if hash in gitHash:
+                        major, minor, ignore = gitHash[hash]
             
     #print text, "=>", major, minor
     return major, int(minor)
@@ -301,6 +329,11 @@ class TestSequenceFunctions(unittest.TestCase):
             "1.0.6000" : ['0.6', 0],
             "1.3-33-g1bfe280" : ['1.3', 33],
             "1.4-1-xafdasdf" : ['1.4', 1],
+            "2.5-2-xafdasdf-picard" : ['2.5', 2],
+            "2.5-2-xafdasdf-nightly" : ['2.5', 2],
+            "jenkins-raw_call_and_assess_NA12878-69-0-g01402c5" : ['2.5', 106],
+            "picard_2013_06_11-0-gfea5b57" : ['unknown', 0],
+            "nightly-2013-04-18-g2fd787a" : ['2.4', 313],
             "1.3" : ['1.3', 0],
             "<unknown>" : ['unknown', 0],
             "382343549e2e98e2727e66548b6b2bafa6fa4297" : ['unknown', 0]
@@ -745,7 +778,9 @@ def readReports(files):
         try:
             counter = 0
             for event, elem in iterparse(input):
-                if elem.tag == RUN_REPORT:
+                if elem.tag in RUN_REPORTS:
+                    # necessary for historical consistency
+                    elem.tag = "GATK-run-report"
                     if passesFilters(elem):
                         counter += 1
                         #if counter % 1000 == 0: print 'Returning', counter

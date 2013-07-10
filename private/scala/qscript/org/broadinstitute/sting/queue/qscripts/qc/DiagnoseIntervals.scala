@@ -51,40 +51,61 @@ import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.utils.interval.IntervalSetRule
 
 class DiagnoseIntervals extends QScript {
-  @Argument(shortName = "i", required = true, doc = "Intervals file") var intervalsFile: List[File] = _
-  @Argument(shortName = "b", required = true, doc = "List of BAM files") var bamList: List[File] = _
-  @Argument(shortName = "r", required = false, doc = "Reference sequence") var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
+  // Required arguments
+  @Argument(shortName = "I", required = true, doc = "List of BAM files") var bamList: List[File] = _
+  @Argument(shortName = "L", required = true, doc = "Intervals file") var intervalsFile: List[File] = _
+  @Argument(shortName = "R", required = false, doc = "Reference sequence") var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
+
+  // Script arguments
   @Argument(shortName = "sc", required = false, doc = "Scatter count") var jobs: Int = 50
   @Argument(shortName = "isr", required = false, doc = "interval set rule") var intervalSetRule = IntervalSetRule.UNION
-  @Argument(shortName = "ds", required = false, doc = "downsampling fractions") var downsamplingFranctions = List(1.0)
+  @Argument(shortName = "ds", required = false, doc = "downsampling fractions") var downsamplingFraction = 1.0
+  @Argument(shortName = "mem", required = false, doc = "memory for the jvm") var memoryLimit = 4
+
+  // Walker optional arguments
+  @Argument(shortName = "BQ", doc = "The minimum Base Quality that is considered for calls", required = false) var minimumBaseQuality: Int = 20
+  @Argument(shortName = "MQ", doc = "The minimum read mapping quality considered for calls", required = false) var minimumMappingQuality: Int = 20
+  @Argument(shortName = "min", doc = "The minimum allowable coverage, used for calling LOW_COVERAGE", required = false) var minimumCoverage: Int = 5
+  @Argument(shortName = "max", doc = "The maximum allowable coverage, used for calling EXCESSIVE_COVERAGE", required = false) var maximumCoverage: Int = 700
+  @Argument(shortName = "ins", doc = "The maximum allowed distance between a read and its mate", required = false) var maximumInsertSize: Int = 500
+  @Argument(shortName = "stV", doc = "The needed proportion of samples containing a call for the interval to adopt the call ", required = false) var votePercentageThreshold: Double = 0.50
+  @Argument(shortName = "stBM", doc = "The proportion of the loci needed for calling BAD_MATE", required = false) var badMateStatusThreshold: Double = 0.50
+  @Argument(shortName = "stC", doc = "The proportion of the loci needed for calling LOW_COVERAGE and COVERAGE_GAPS", required = false) var coverageStatusThreshold: Double = 0.20
+  @Argument(shortName = "stXC", doc = "The proportion of the loci needed for calling EXCESSIVE_COVERAGE", required = false) var excessiveCoverageThreshold: Double = 0.20
+  @Argument(shortName = "stQ", doc = "The proportion of the loci needed for calling POOR_QUALITY", required = false) var qualityStatusThreshold: Double = 0.50
+  @Argument(shortName = "m", required = false, doc = "missing intervals") var missingIntervals:File = _
 
   def script {
 
-    for (ds <- downsamplingFranctions) {
+    val dt_output = swapExt(bamList(0), ".interval_list", ".diagnose.vcf")
 
-      val dt_output = swapExt(bamList(0), ".interval_list", ".d" + ds + ".vcf")
-      val vt_output = new File(dt_output + ".tbl")
+    val dt = new DiagnoseTargets()
+    // Required arguments
+    dt.input_file = bamList
+    dt.intervalsString = intervalsFile
+    dt.reference_sequence = referenceFile
 
-      val dt = new DiagnoseTargets()
-      dt.reference_sequence = referenceFile
-      dt.intervalsString = intervalsFile
-      dt.interval_set_rule = intervalSetRule
-      dt.out = dt_output
-      dt.input_file = bamList
-      dt.dfrac = ds
-      dt.memoryLimit = 4
-      dt.scatterCount = jobs
+    // Script arguments
+    dt.scatterCount = jobs
+    dt.interval_set_rule = intervalSetRule
+    dt.dfrac = downsamplingFraction
+    dt.memoryLimit = memoryLimit
+    dt.out = dt_output
 
-      val vt = new VariantsToTable()
-      vt.reference_sequence = referenceFile
-      vt.variant = List(dt_output)
-      vt.F = Seq("CHROM", "POS", "END", "AVG_INTERVAL_DP")
-      vt.GF = Seq("MED")
-      vt.raw = true
-      vt.out = vt_output
+    // Walker optional arguments
+    dt.minimum_base_quality = minimumBaseQuality
+    dt.minimum_mapping_quality = minimumMappingQuality
+    dt.minimum_coverage = minimumCoverage
+    dt.maximum_coverage = maximumCoverage
+    dt.maximum_insert_size = maximumInsertSize
+    dt.voting_status_threshold = votePercentageThreshold
+    dt.bad_mate_status_threshold = badMateStatusThreshold
+    dt.coverage_status_threshold = coverageStatusThreshold
+    dt.excessive_coverage_status_threshold = excessiveCoverageThreshold
+    dt.quality_status_threshold = qualityStatusThreshold
+    dt.missing = missingIntervals
 
-      add(dt, vt)
-    }
+    add(dt)
   }
 
 }

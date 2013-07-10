@@ -89,7 +89,8 @@ dups <- subset(allData,is.element(POS,badPos$POS))
 allData$DUPLICATE = F
 allData[is.element(allData$POS,dups$POS),]$DUPLICATE = T
 
-
+# extra filtering for QUAL
+allData$goodSite = allData$goodSite & (allData$QUAL > 100)
 
 allStats <- getStats(allData,0)
 maxPool <- 92
@@ -141,6 +142,11 @@ for (pool in c(1:maxPool)) {
     poolData$DUPLICATE = F
     poolData[is.element(poolData$POS,dups$POS),]$DUPLICATE = T
     
+    if (pool <= 10) {
+      poolData$AC.LOF = poolData$AC.LOF - poolData$AC.NA12878      
+    }
+    poolData$goodSite = poolData$goodSite & (poolData$QUAL > 100) 
+    
     allPoolData<-rbind(allPoolData,poolData)
     poolStats <- getStats(allPoolData,pool)
     allPoolStats <- rbind(allPoolStats, poolStats)
@@ -153,11 +159,26 @@ pdf("corr_per_pool.pdf",width=11,height=8.5)
 ggplot(allPoolStats,aes(x=poolNumber,y=corrValue,color=DataSet))+geom_point() + facet_grid(TYPE~.)+opts(title="Per-pool Cross-correlation of estimated AC counts vs. chip genotype data or 1000 G genotypes")
 dev.off()
 
+runName = paste(runName,"Qual100",sep="")
 outputDir="/humgen/gsa-hpprojects/dev/validationExperiments/largeScaleValidation/finalPaperData/processedTables"
 write.table(x=allPoolStats,file=sprintf("%s/%s.allPoolStats.table",outputDir,runName),sep="\t",row.names=F,quote=F)
 write.table(x=allPoolData,file=sprintf("%s/%s.allPoolData.table",outputDir,runName),sep="\t",row.names=F,quote=F)
 write.table(x=allStats,file=sprintf("%s/%s.allStats.table",outputDir,runName),sep="\t",row.names=F,quote=F)
 write.table(x=allData,file=sprintf("%s/%s.allData.table",outputDir,runName),sep="\t",row.names=F,quote=F)
+
+snpMatrix = matrix(nrow=nrow(subset(allPoolData,TYPE=="SNP" & poolNumber == 2 & goodSite == T)),ncol=92)
+indelMatrix = matrix(nrow=nrow(subset(allPoolData,TYPE=="INDEL" & poolNumber == 2 & goodSite == T)),ncol=92)
+for (pool  in c(1:92)) {
+  if (pool != 12 && pool != 24 && pool != 72) {
+    snpMatrix[,pool] = subset(allPoolData,TYPE=="SNP" & poolNumber == pool & goodSite == T)$AC.LOF
+    indelMatrix[,pool] = subset(allPoolData,TYPE=="INDEL" & poolNumber == pool & goodSite == T)$AC.LOF
+  }
+  else {
+    snpMatrix[,pool] = -1
+    indelMatrix[,pool] = -1
+  }
+  cat(pool)
+}
 
 # png("PCAC_vs_omni_lof_by_chrom.png",width=640,height=480)
 # ggplot(allPoolData,aes(x=TruthAC,y=PoolCallerAC,color=CHROM))+geom_point(alpha=0.3)+facet_grid(refSample~DataSet)+geom_jitter()

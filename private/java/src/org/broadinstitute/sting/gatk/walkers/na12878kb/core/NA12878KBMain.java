@@ -60,7 +60,7 @@ public class NA12878KBMain {
 
         System.out.printf("Printing consensus%n");
         int n = 0;
-        for ( final MongoVariantContext mvc : db.getConsensusSites(new SiteSelector(parser))) {
+        for ( final MongoVariantContext mvc : db.getConsensusSites(new SiteManager(parser))) {
             if ( n++ % 10 == 0 )
                 System.out.printf("mvc + " + mvc.getChr() + ":" + mvc.getStart() + "%n");
             if ( n > 100 ) break;

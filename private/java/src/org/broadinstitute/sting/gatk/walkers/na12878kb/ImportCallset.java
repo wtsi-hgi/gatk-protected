@@ -141,7 +141,7 @@ public class ImportCallset extends NA12878DBWalker {
                 continue;
             }
 
-            final List<VariantContext> biallelics = GATKVariantContextUtils.splitVariantContextToBiallelics(vc);
+            final List<VariantContext> biallelics = GATKVariantContextUtils.splitVariantContextToBiallelics(vc, false, GATKVariantContextUtils.GenotypeAssignmentMethod.BEST_MATCH_TO_ORIGINAL);
             final boolean isMultiAllelic = biallelics.size() > 1;
             if ( isMultiAllelic )
                 logger.info("Splitting original multi-allelic " + vc);
