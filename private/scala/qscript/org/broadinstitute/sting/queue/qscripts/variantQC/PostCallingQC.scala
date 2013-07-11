@@ -72,7 +72,7 @@ class PostCallingQC extends QScript {
   var RPath: File = new File("../R")
 
   @Argument(shortName = "dbSNP", doc="dbSNP", required=false)
-  val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.vcf")
+  val dbSNP: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.excluding_sites_after_129.vcf")
 
   @Argument(shortName = "goldStandardIndels", doc="Path to gold standard indels", required=false)
   val goldStandardIndels: File = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/Mills_and_1000G_gold_standard.indels.b37.vcf")
