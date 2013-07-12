@@ -62,6 +62,20 @@ import java.util.*;
 public class NA12878KnowledgeBase {
     private final static Logger logger = Logger.getLogger(NA12878KnowledgeBase.class);
 
+    // standard confidences to use for various types of input callsets
+    public enum InputCallsetConfidence {
+        REVIEW (0.99),
+        TRUSTED_CALLSET (0.95),
+        UNTRUSTED_CALLSET (0.75),
+        UNKNOWN (0.0);
+
+        public double confidence;
+
+        private InputCallsetConfidence(final double confidence) {
+            this.confidence = confidence;
+        }
+    }
+
     protected DBCollection sites;
     protected DBCollection callSets;
     protected DBCollection consensusSites;
@@ -259,6 +273,7 @@ public class NA12878KnowledgeBase {
      * present, then site is simply inserted
      *
      * @param site a non-null site to update in the consensus
+     * @param tryToRemove if true, we will first try to remove the site from the consensus (possibly an expensive oepration)
      * @return the result of the insert operation on the DB
      */
     private WriteResult updateConsensusInDB(final MongoVariantContext site, final boolean tryToRemove) {

@@ -53,16 +53,24 @@ import java.util.Arrays;
 
 public class AssessNA12878IntegrationTest extends WalkerTest {
 
-    private final static String baseCommand = "-T AssessNA12878 -R " + b37KGReference + " -o %s -badSites %s";
+    private final static String baseCommand = "-T AssessNA12878 -R " + b37KGReference + " -o %s";
 
     @Test
     public void testBasicQuery() {
         WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
-                baseCommand + " -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -L 20:1-1,000,000",
+                baseCommand + " -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -L 20:1-1,000,000 -badSites %s",
                 2,
                 Arrays.asList("", "")); // DO NOT PUT MD5s HERE AS THE KB CHANGES DAILY!  This is just a test that it doesn't blow up.
         spec.disableShadowBCF(); // BCF output does not work with -badSites because of the way Mongo constructs the MVCs
         executeTest("test basic query", spec);
     }
 
+    @Test
+    public void testOkayToMiss() {
+        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
+                baseCommand + " -V " + privateTestDir + "empty.vcf -L " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -okayToMiss " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -typesToInclude SNPS",
+                1,
+                Arrays.asList("d0f061899fe75a537725859954ef6b2d"));
+        executeTest("test okayToMiss", spec);
+    }
 }

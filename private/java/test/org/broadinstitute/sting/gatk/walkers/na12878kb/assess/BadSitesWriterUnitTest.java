@@ -80,7 +80,7 @@ public class BadSitesWriterUnitTest extends BaseTest {
 
         final VariantContext vc = GATKVariantContextUtils.makeFromAlleles("vcf", "20", 10, Arrays.asList("A", "C"));
         final Genotype het = GenotypeBuilder.create("NA12878", vc.getAlleles());
-        final MongoVariantContext mvc = MongoVariantContext.create(Arrays.asList("foo", "bar"), vc, TruthStatus.TRUE_POSITIVE, new Date(), het, true);
+        final MongoVariantContext mvc = MongoVariantContext.create(Arrays.asList("foo", "bar"), vc, TruthStatus.TRUE_POSITIVE, new Date(), het, true, false);
 
         // this functionality can be adapted to provide input data for whatever you might want in your data
         for ( final AssessmentType type : AssessmentType.DETAILED_ASSESSMENTS ) {

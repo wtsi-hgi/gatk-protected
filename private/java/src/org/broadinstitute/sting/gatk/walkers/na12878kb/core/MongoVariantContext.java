@@ -164,7 +164,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
                                                 final String alt,
                                                 final Genotype gt,
                                                 final boolean isReviewed) {
-        return create(callSetName, chr, start, ref, alt, TruthStatus.TRUE_POSITIVE, gt, 0.0, isReviewed, false);
+        return create(callSetName, chr, start, ref, alt, TruthStatus.TRUE_POSITIVE, gt, NA12878KnowledgeBase.InputCallsetConfidence.UNKNOWN.confidence, isReviewed, false);
     }
 
     protected static MongoVariantContext create(final String callSetName,
@@ -187,15 +187,24 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
                                              final TruthStatus truthStatus,
                                              final Date date,
                                              final Genotype gt,
-                                             final boolean isReviewed) {
-        return new MongoVariantContext(supportingCallsets, vc, truthStatus, date, gt, 0.0, isReviewed, false);
+                                             final boolean isReviewed,
+                                             final boolean isComplexEvent) {
+        return new MongoVariantContext(supportingCallsets, vc, truthStatus, date, gt, NA12878KnowledgeBase.InputCallsetConfidence.UNKNOWN.confidence, isReviewed, isComplexEvent);
     }
 
     public static MongoVariantContext create(final String callSetName,
                                              final VariantContext vc,
                                              final TruthStatus truthStatus,
                                              final Genotype gt) {
-        return create(Arrays.asList(callSetName), vc, truthStatus, new Date(), gt, false);
+        return create(Arrays.asList(callSetName), vc, truthStatus, new Date(), gt, false, false);
+    }
+
+    public static MongoVariantContext create(final String callSetName,
+                                             final VariantContext vc,
+                                             final TruthStatus truthStatus,
+                                             final Genotype gt,
+                                             final double confidence) {
+        return new MongoVariantContext(Arrays.asList(callSetName), vc, truthStatus, new Date(), gt, confidence, false, false);
     }
 
     public static MongoVariantContext createFromReview(final VariantContext vc) {
@@ -203,7 +212,8 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         final TruthStatus truthStatus = TruthStatus.valueOf(parseReviewField(vc, "TruthStatus"));
         final Date date = new Date(Long.valueOf(parseReviewField(vc, "Date")));
         final Genotype gt = vc.hasGenotype("NA12878") ? vc.getGenotype("NA12878") : MongoGenotype.NO_CALL;
-        return new MongoVariantContext(callSet, vc, truthStatus, date, gt, 0.99, true, false);
+        final boolean isComplexEvent = vc.hasAttribute("isComplexEvent");
+        return new MongoVariantContext(callSet, vc, truthStatus, date, gt, NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true, isComplexEvent);
     }
 
     protected MongoVariantContext(final String callset,
@@ -383,7 +393,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         vcb.attribute("PolymorphicStatus", getPolymorphicStatus().toString());
         vcb.attribute("Date", String.valueOf(getDate().getTime()));
         vcb.attribute("Reviewed", isReviewed());
-        //vcb.attribute("PhredConfidence", getPhredConfidence());
+        vcb.attribute("Confidence", getConfidence());
         vcb.attribute("isComplexEvent", isComplexEvent());
     }
 
@@ -394,7 +404,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         lines.add(new VCFInfoHeaderLine("TruthStatus", 1, VCFHeaderLineType.String, "What is the truth state of this call"));
         lines.add(new VCFInfoHeaderLine("PolymorphicStatus", 1, VCFHeaderLineType.String, "Is this call polymorphic in NA12878"));
         lines.add(new VCFInfoHeaderLine("Date", 1, VCFHeaderLineType.String, "Date/time as a long of this review"));
-        //lines.add(new VCFInfoHeaderLine("PhredConfidence", 1, VCFHeaderLineType.Integer, "Phred-scaled confidence in this review"));
+        lines.add(new VCFInfoHeaderLine("Confidence", 1, VCFHeaderLineType.Float, "Confidence in this record as a fraction from 0 to 1"));
         lines.add(new VCFInfoHeaderLine("Reviewed", 0, VCFHeaderLineType.Flag, "Was this a manually reviewed record?"));
         lines.add(new VCFInfoHeaderLine("isComplexEvent", 0, VCFHeaderLineType.Flag, "Does this record represent a complex event?"));
         lines.add(VCFStandardHeaderLines.getFormatLine(VCFConstants.DEPTH_KEY));

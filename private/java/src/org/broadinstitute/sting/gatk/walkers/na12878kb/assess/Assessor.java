@@ -77,7 +77,7 @@ import java.util.*;
  *
  * A function that assesses the calls at a single locus
  *
- * @see #accessSite(java.util.List, java.util.List, boolean)
+ * @see #assessSite(java.util.List, java.util.List, boolean)
  *
  * That finds equivalent calls at a single site in a single callset compared to the calls
  * in the KB at that location (list two)
@@ -178,7 +178,7 @@ public class Assessor {
      *                       no potential equivalents in the KB
      * @param onlyReviewed if true, only consider reviewed sites during the assessment
      */
-    public void accessSite(final List<VariantContext> vcs, List<MongoVariantContext> consensusSites, final boolean onlyReviewed) {
+    public void assessSite(final List<VariantContext> vcs, final List<MongoVariantContext> consensusSites, final boolean onlyReviewed) {
         if ( vcs == null ) throw new IllegalArgumentException("vcs cannot be null");
         if ( consensusSites == null ) throw new IllegalArgumentException("consensusSites cannot be null");
 
@@ -364,6 +364,10 @@ public class Assessor {
                 return AssessmentType.NOT_RELEVANT;
             }
         } else if ( consensusTP ) { // call == null
+            // if it's a complex event, just ignore it (because we may have called it with a different representation in the VCF)
+            if ( consensusSite.isComplexEvent() )
+                return AssessmentType.NOT_RELEVANT;
+
             if ( bamReader != null ) {
                 return sufficientDepthToCall(consensusSite)
                         ? AssessmentType.FALSE_NEGATIVE_NOT_CALLED_AT_ALL
