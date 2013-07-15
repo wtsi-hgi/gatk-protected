@@ -1,0 +1,5 @@
+org.broadinstitute.sting.gatk.walkers.bed.MergeIntervalLists=true
+org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper=false
+org.broadinstitute.sting.gatk.walkers.haplotypecaller.HaplotypeCaller=false
+org.broadinstitute.sting.gatk.walkers.na12878kb.NA12878DBWalker=true
+org.broadinstitute.sting.gatk.walkers.readutils.PrintReads=false

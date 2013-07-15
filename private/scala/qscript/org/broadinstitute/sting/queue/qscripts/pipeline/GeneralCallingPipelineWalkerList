@@ -1,0 +1,14 @@
+org.broadinstitute.sting.gatk.walkers.bqsr.BaseRecalibrator
+org.broadinstitute.sting.gatk.walkers.readutils.PrintReads
+org.broadinstitute.sting.gatk.walkers.compression.reducereads.ReduceReads
+org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper
+org.broadinstitute.sting.gatk.walkers.haplotypecaller.HaplotypeCaller
+org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibrator
+org.broadinstitute.sting.gatk.walkers.variantrecalibration.ApplyRecalibration
+org.broadinstitute.sting.gatk.walkers.variantutils.SelectVariants
+org.broadinstitute.sting.gatk.walkers.variantutils.CombineVariants
+org.broadinstitute.sting.gatk.walkers.varianteval.VariantEval
+org.broadinstitute.sting.gatk.walkers.phasing.PhaseByTransmission
+org.broadinstitute.sting.gatk.walkers.phasing.ReadBackedPhasing
+org.broadinstitute.sting.gatk.walkers.na12878kb.assess.AssessNA12878
+org.broadinstitute.sting.gatk.walkers.variantutils.VariantsToTable
