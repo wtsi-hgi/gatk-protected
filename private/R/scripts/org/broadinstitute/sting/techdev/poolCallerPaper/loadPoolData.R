@@ -1,11 +1,11 @@
 outputDir="/humgen/gsa-hpprojects/dev/validationExperiments/largeScaleValidation/finalPaperData/processedTables"
-
+runName<-"finalRunGGAQual100"
 loadData <- T
 if (loadData) {
-  allPoolStats <- read.table(sprintf("%s/allPoolStats.table",outputDir),header=T)
-  allPoolData <- read.table(sprintf("%s/allPoolData.table",outputDir),header=T)
-  allStats <- read.table(sprintf("%s/allStats.table",outputDir),header=T)
-  allData <- read.table(sprintf("%s/allData.table",outputDir),header=T)
+  allPoolStats <- read.table(sprintf("%s/%s.allPoolStats.table",outputDir,runName),header=T)
+  allPoolData <- read.table(sprintf("%s/%s.allPoolData.table",outputDir,runName),header=T)
+  allStats <- read.table(sprintf("%s/%s.allStats.table",outputDir,runName),header=T)
+  allData <- read.table(sprintf("%s/%s.allData.table",outputDir,runName),header=T)
   
 }
 
