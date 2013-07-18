@@ -138,6 +138,7 @@ public enum TruthStatus {
      * @param otherStatus the TruthStatus of the other call
      * @return a consensus TruthStatus resulting from this and otherStatus
      */
+    @Deprecated
     final TruthStatus makeConsensus(final TruthStatus otherStatus) {
         return CONSENSUS_MATRIX[this.ordinal()][otherStatus.ordinal()];
     }

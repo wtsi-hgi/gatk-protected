@@ -136,15 +136,25 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Argument(fullName="AssessmentsToExclude", shortName = "AssessmentsToExclude", doc="If provided, we will prevent any of these states from being written out to the badSites VCF.", required=false)
     public Set<AssessmentType> AssessmentsToExclude = EnumSet.noneOf(AssessmentType.class);
 
+    /**
+     * True positive sites in the knowledge base that are present in this optional VCF file will not be counted as
+     * false negatives in the assessment if missed.
+     * This is particularly useful when you have a list of sites that you have reviewed against your input BAM and
+     * have noted that the alternate allele is not present (even though there is sufficient coverage).  Intended to
+     * be used mainly with the automated Jenkins assessments.
+     */
+    @Input(fullName="okayToMiss", shortName = "okayToMiss", doc="VCF file with sites that should not get penalized as FNs", required=false)
+    public RodBinding<VariantContext> okayToMiss;
+
     @Hidden
     @Argument(shortName = "debug", required=false)
     protected boolean debug = false;
 
-    SiteIterator<MongoVariantContext> consensusSiteIterator;
+    private SiteIterator<MongoVariantContext> consensusSiteIterator;
 
-    final Map<String,Assessor> assessors = new HashMap<String,Assessor>();
-    SAMFileReader bamReader = null;
-    BadSitesWriter badSitesWriter;
+    private final Map<String,Assessor> assessors = new HashMap<>();
+    private SAMFileReader bamReader = null;
+    private BadSitesWriter badSitesWriter;
 
     @Override
     public NA12878DBArgumentCollection.DBType getDefaultDB() {
@@ -153,7 +163,7 @@ public class AssessNA12878 extends NA12878DBWalker {
 
     public void initialize() {
         super.initialize();
-        consensusSiteIterator = db.getConsensusSites(makeSiteManager(getToolkit().getMasterSequenceDictionary()));
+        consensusSiteIterator = db.getConsensusSites(makeSiteManager(false));
 
         if ( BAM != null ) {
             bamReader = Assessor.makeSAMFileReaderForDoCInBAM(BAM);
@@ -178,10 +188,19 @@ public class AssessNA12878 extends NA12878DBWalker {
         includeMissingCalls(consensusSiteIterator.getSitesBefore(context.getLocation()));
         final List<MongoVariantContext> consensusSites = consensusSiteIterator.getSitesAtLocation(context.getLocation());
 
+        boolean siteIsOkayToMiss = false;
+        if ( okayToMiss.isBound() ) {
+            // TODO -- maybe it's worth implementing exact allele checking here?
+            if ( ! tracker.getValues(okayToMiss, ref.getLocus()).isEmpty() )
+                siteIsOkayToMiss = true;
+        }
+
         for ( final RodBinding<VariantContext> rod : variants ) {
-            final Assessor assessor = getAccessor(rod.getName());
             final List<VariantContext> vcs = tracker.getValues(rod, ref.getLocus());
-            assessor.accessSite(vcs, consensusSites, onlyReviewed);
+            if ( siteIsOkayToMiss && vcs.isEmpty() )
+                continue;
+            final Assessor assessor = getAssessor(rod.getName());
+            assessor.assessSite(vcs, consensusSites, onlyReviewed);
         }
 
         return 1;
@@ -191,18 +210,18 @@ public class AssessNA12878 extends NA12878DBWalker {
         final List<VariantContext> noCalls = Collections.emptyList();
 
         for ( final RodBinding<VariantContext> rod : variants ) {
-            getAccessor(rod.getName()).accessSite(noCalls, missedSites, onlyReviewed);
+            getAssessor(rod.getName()).assessSite(noCalls, missedSites, onlyReviewed);
         }
     }
 
-    private Assessor getAccessor(final String rodName) {
+    private Assessor getAssessor(final String rodName) {
         return assessors.get(rodName);
     }
 
     private Assessment getAssessment(final String rodName, final TypesToInclude type) {
         switch ( type ) {
-            case SNPS: return getAccessor(rodName).getSNPAssessment();
-            case INDELS: return getAccessor(rodName).getIndelAssessment();
+            case SNPS: return getAssessor(rodName).getSNPAssessment();
+            case INDELS: return getAssessor(rodName).getIndelAssessment();
             default: throw new IllegalArgumentException("Unexpected type " + type);
         }
     }
@@ -221,15 +240,16 @@ public class AssessNA12878 extends NA12878DBWalker {
      *
      * Useful for getting things like the ActiveTypes for all assessments
      *
-     * @return
+     * @return non-null assessment
      */
     private Assessment getRepresentativeAssessment() {
         return assessors.values().iterator().next().getSNPAssessment();
     }
 
     public void onTraversalDone(Integer result) {
-        super.onTraversalDone(result);
         includeMissingCalls(consensusSiteIterator.toList());
+        super.onTraversalDone(result);
+
         if ( ! detailedAssessment ) simplifyAssessments();
 
         if ( variants.size() == 1 ) {
