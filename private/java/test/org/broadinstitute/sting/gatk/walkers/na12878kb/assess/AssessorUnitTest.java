@@ -268,7 +268,7 @@ public class AssessorUnitTest extends BaseTest {
     @Test(dataProvider = "DoCSites")
     public void testFilteringSites(final File bam, final String chr, final int pos, final int expectedDoC) {
         final SAMFileReader bamReader = Assessor.makeSAMFileReaderForDoCInBAM(bam);
-        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, bamReader, 5);
+        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, bamReader, 5, -1, false);
         final int actualDoC = assessor.getDepthAtLocus(chr, pos);
         Assert.assertEquals(actualDoC, expectedDoC, "Depth of coverage at " + chr + ":" + pos + " had unexpected depth");
     }

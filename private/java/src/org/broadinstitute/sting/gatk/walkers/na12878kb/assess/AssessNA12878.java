@@ -109,14 +109,23 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Output(fullName = "badSites", shortName = "badSites", doc="VCF file containing information on FP/FNs in the input callset", required=false, defaultToStdout=false)
     public VariantContextWriter badSites = null;
 
+    @Argument(fullName="writeAllSites", shortName = "allSites", doc="Emit all interesting (everything but not relevant) sites to the badSites output VCF, not just those that are considered bad", required=false)
+    public boolean captureAllSites = false;
+
     @Argument(fullName="maxToWrite", shortName = "maxToWrite", doc="Max. number of bad sites to write out", required=false)
-    public int maxToWrite = 10000;
+    public int maxToWrite = 100_000_000;
 
     @Argument(fullName="minDepthForLowCoverage", shortName = "minDepthForLowCoverage", doc="A false negative will be flagged as due to low coverage if the (optional) BAM is provided and the coverage overlapping the site is less than this value", required=false)
     public int minDepthForLowCoverage = 5;
 
-    @Argument(fullName="detailedAssessment", shortName = "detailed", doc="A true, we will emit a very detailed report of the types of variants, otherwise we'll use a simplified version", required=false)
+    @Argument(fullName="detailedAssessment", shortName = "detailed", doc="If true, we will emit a very detailed report of the types of variants, otherwise we'll use a simplified version", required=false)
     public boolean detailedAssessment = false;
+
+    @Argument(fullName="ignoreFilters", shortName = "ignoreFilters", doc="If true, we will ignore the filter status of calls", required=false)
+    public boolean ignoreFilters = false;
+
+    @Argument(fullName="minPNonRef", shortName = "minPNonRef", doc="Min. PL against 0/0 for a site to be considered called in NA12878", required=false)
+    public int minPNonRef = -1;
 
     @Argument(fullName="requireReviewed", shortName = "requireReviewed", doc="If true, we will only use reviewed sites for the analysis", required=false)
     public boolean onlyReviewed = false;
@@ -154,7 +163,7 @@ public class AssessNA12878 extends NA12878DBWalker {
 
     private final Map<String,Assessor> assessors = new HashMap<>();
     private SAMFileReader bamReader = null;
-    private BadSitesWriter badSitesWriter;
+    private SitesWriter sitesWriter;
 
     @Override
     public NA12878DBArgumentCollection.DBType getDefaultDB() {
@@ -169,13 +178,18 @@ public class AssessNA12878 extends NA12878DBWalker {
             bamReader = Assessor.makeSAMFileReaderForDoCInBAM(BAM);
         }
 
-        badSitesWriter = new BadSitesWriter(maxToWrite, AssessmentsToExclude, badSites);
-        badSitesWriter.initialize(GATKVCFUtils.getHeaderFields(getToolkit()));
+        if ( badSites == null )
+            sitesWriter = SitesWriter.NOOP_WRITER;
+        else if ( captureAllSites )
+            sitesWriter = new AllSitesWriter(maxToWrite, AssessmentsToExclude, badSites);
+        else
+            sitesWriter = new BadSitesWriter(maxToWrite, AssessmentsToExclude, badSites);
+        sitesWriter.initialize(GATKVCFUtils.getHeaderFields(getToolkit()));
 
         // set up assessors for each rod binding
         for ( final RodBinding<VariantContext> rod : variants ) {
             final String rodName = rod.getName();
-            final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, badSitesWriter, bamReader, minDepthForLowCoverage);
+            final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, sitesWriter, bamReader, minDepthForLowCoverage, minPNonRef, ignoreFilters);
             assessors.put(rodName, assessor);
         }
     }

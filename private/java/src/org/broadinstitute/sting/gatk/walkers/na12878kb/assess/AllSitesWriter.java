@@ -53,34 +53,39 @@ import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 import java.util.Set;
 
 /**
- * Write bad KB sites to a VCF
+ * Write all relevant from a VCF and TP sites from KB.
  *
  * User: depristo
  * Date: 2/19/13
  * Time: 10:13 PM
  */
-class BadSitesWriter extends SitesWriter {
-    private final boolean captureBadSites;
-
+class AllSitesWriter extends SitesWriter {
     /**
-     * Create a new BadSitesWriter
+     * Create a new AllSitesWriter
      *
      * @param maxToWrite the maximum number of records to write
      * @param assessmentsToExclude don't include assessments in this set, even if they would normally be emitted
      * @param writer the underlying VCWriter we'll use to emit bad sites.  Can be null if captureBadSites is false
      */
-    public BadSitesWriter(int maxToWrite, Set<AssessmentType> assessmentsToExclude, VariantContextWriter writer) {
+    public AllSitesWriter(final int maxToWrite, final Set<AssessmentType> assessmentsToExclude, final VariantContextWriter writer) {
         super(maxToWrite, assessmentsToExclude, writer);
-        this.captureBadSites = writer != null;
     }
 
     @Override
-    protected boolean emitting() {
-        return captureBadSites;
+    public void notifyOfSite(final AssessmentType type, final VariantContext vc, final MongoVariantContext consensusSite) {
+        final AssessmentType simple = type.getSimpleVersion();
+        if ( simple != null )
+            super.notifyOfSite(simple, vc, consensusSite);
     }
 
     @Override
-    protected boolean emitSite(AssessmentType type, VariantContext vc, MongoVariantContext consensusSite) {
-        return captureBadSites && type.isInteresting() && super.emitSite(type, vc, consensusSite);
+    protected boolean emitting() { return true; }
+
+    @Override
+    protected boolean emitSite(final AssessmentType type, final VariantContext vc, final MongoVariantContext consensusSite) {
+        return ((type != AssessmentType.NOT_RELEVANT && // we made some kind of call, so emit
+                 type != AssessmentType.CORRECTLY_UNCALLED) ||
+                type.getSimpleVersion() == AssessmentType.TRUE_POSITIVE) // or we didn't make a call here, so only emit if the type is a TP
+                && super.emitSite(type, vc, consensusSite);
     }
 }
