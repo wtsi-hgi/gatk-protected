@@ -197,10 +197,8 @@ public class AssessNA12878 extends NA12878DBWalker {
 
         for ( final RodBinding<VariantContext> rod : variants ) {
             final List<VariantContext> vcs = tracker.getValues(rod, ref.getLocus());
-            if ( siteIsOkayToMiss && vcs.isEmpty() )
-                continue;
             final Assessor assessor = getAssessor(rod.getName());
-            assessor.assessSite(vcs, consensusSites, onlyReviewed);
+            assessor.assessSite(vcs, consensusSites, onlyReviewed, siteIsOkayToMiss);
         }
 
         return 1;

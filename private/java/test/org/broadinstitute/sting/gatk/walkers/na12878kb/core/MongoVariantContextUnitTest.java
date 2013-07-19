@@ -222,6 +222,8 @@ public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
         makeNoDup(nonDups).setAlt("G");
         makeNoDup(nonDups).setTruth(TruthStatus.FALSE_POSITIVE);
         makeNoDup(nonDups).setReviewed(true);
+        makeNoDup(nonDups).setIsComplexEvent(true);
+        makeNoDup(nonDups).setConfidence(0.99);
         makeNoDup(nonDups).setGt(new MongoGenotype(0, 0));
         makeNoDup(nonDups).setGt(new MongoGenotype(1, 0));
         makeNoDup(nonDups).setGt(new MongoGenotype(1, 1));

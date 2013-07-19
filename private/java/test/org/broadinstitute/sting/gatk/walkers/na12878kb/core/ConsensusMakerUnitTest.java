@@ -78,8 +78,6 @@ public class ConsensusMakerUnitTest extends BaseTest {
         notReviewedZ = copyTemplate("z", 0.90, false);
         notReviewedZ2 = copyTemplate("z", 0.90, false);
 
-        // ***** IMPORTANT *****
-        // the ordering of these lines is important because I am trying to replicate an issue we encountered [EB]
         reviewedTPZ = copyTemplate("z", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true, TruthStatus.TRUE_POSITIVE);
         reviewedFPY = copyTemplate("Y", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true, TruthStatus.FALSE_POSITIVE);
         reviewedTPX = copyTemplate("x", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true, TruthStatus.TRUE_POSITIVE);
@@ -278,5 +276,11 @@ public class ConsensusMakerUnitTest extends BaseTest {
     @Test(dataProvider = "TestBayesianTruthEstimate")
     public void testBayesianTruthEstimate(final Collection<MongoVariantContext> calls, final TruthStatus expectedStatus) {
         Assert.assertEquals(maker.determineBayesianTruthEstimate(calls), expectedStatus);
+    }
+
+    @Test
+    public void testUnknownConfidenceIsTreatedLikeReviewed() {
+        final MongoVariantContext unknownConfidence = copyTemplate("some review", NA12878KnowledgeBase.InputCallsetConfidence.UNKNOWN.confidence, true, TruthStatus.TRUE_POSITIVE);
+        Assert.assertEquals(maker.determineBayesianTruthEstimate(Arrays.asList(unknownConfidence, notReviewedTPTrusted)), TruthStatus.TRUE_POSITIVE);
     }
 }
