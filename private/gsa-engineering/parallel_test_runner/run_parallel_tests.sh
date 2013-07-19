@@ -59,6 +59,14 @@ JOB_MEMORY="4"
 # We check job status every JOB_POLL_INTERVAL seconds
 JOB_POLL_INTERVAL=30
 
+# We attempt to cd into each of these directories before each job in an effort to avoid automount failures
+declare -a AUTOMOUNT_DIR_LIST=( "/seq/references/" \
+                                "/humgen/1kg/reference/" \
+                                "/humgen/gsa-hpprojects/" \
+                              )
+# Seconds to wait after attempting to trigger automount
+AUTOMOUNT_TRIGGER_DELAY=10
+
 
 # Print the names of any test classes that have not yet finished running
 print_unfinished_test_class_names() {
@@ -148,6 +156,17 @@ check_for_non_test_related_job_failures() {
     fi
 }
 
+create_automount_triggers_command_line() {
+    AUTOMOUNT_COMMAND_LINE=""
+
+    for automount_dir in ${AUTOMOUNT_DIR_LIST[@]}
+    do
+        AUTOMOUNT_COMMAND_LINE="${AUTOMOUNT_COMMAND_LINE} cd \"${automount_dir}\";"
+    done
+
+    AUTOMOUNT_COMMAND_LINE="${AUTOMOUNT_COMMAND_LINE} sleep ${AUTOMOUNT_TRIGGER_DELAY}"
+    echo "${AUTOMOUNT_COMMAND_LINE}"
+}
 
 # Setup working environment:
 
@@ -213,6 +232,8 @@ do
         NUM_CLASSES_THIS_SUFFIX=`expr ${NUM_CLASSES_THIS_SUFFIX} + 1`
 
         echo "#!/bin/bash" > "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
+        echo "`create_automount_triggers_command_line`" >> "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
+        echo "cd ${TEST_CLONE}" >> "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
         echo "ant runtestonly \
               -Dsingle=${test_class} \
               -Djava.io.tmpdir=${TEST_TEMP_DIR} \
