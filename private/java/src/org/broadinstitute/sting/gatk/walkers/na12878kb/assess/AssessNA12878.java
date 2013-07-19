@@ -101,7 +101,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     public PrintStream out;
 
     @Argument(fullName="excludeCallset", shortName = "excludeCallset", doc="Don't count calls that come from only these excluded callsets", required=false)
-    public Set<String> excludeCallset = Collections.singleton("CEUTrio_best_practices");
+    public Set<String> excludeCallset = Collections.emptySet();
 
     /**
      * An output VCF file containing the bad sites (FN/FP) that were found in the input callset w.r.t. the current NA12878 knowledge base
