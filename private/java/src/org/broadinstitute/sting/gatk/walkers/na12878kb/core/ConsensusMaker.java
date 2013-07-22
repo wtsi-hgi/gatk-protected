@@ -48,6 +48,7 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
+import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.variant.variantcontext.Allele;
 import org.broadinstitute.variant.variantcontext.Genotype;
 import org.broadinstitute.variant.variantcontext.VariantContext;
@@ -331,8 +332,13 @@ public class ConsensusMaker {
 
         double confidence = 1.0;
         for ( final MongoVariantContext call : calls ) {
-            if ( call.getType() != TruthStatus.UNKNOWN )
-                confidence *= (call.getType() == status ? call.getConfidence() : 1.0 - call.getConfidence());
+            if ( call.getType() != TruthStatus.UNKNOWN ) {
+                double callConfidence = call.getConfidence();
+                // TODO -- what should we do with an unknown confidence in the long term?
+                if ( MathUtils.compareDoubles(callConfidence, NA12878KnowledgeBase.InputCallsetConfidence.UNKNOWN.confidence) == 0 )
+                    callConfidence = NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence;
+                confidence *= (call.getType() == status ? callConfidence : 1.0 - callConfidence);
+            }
         }
         return confidence;
     }

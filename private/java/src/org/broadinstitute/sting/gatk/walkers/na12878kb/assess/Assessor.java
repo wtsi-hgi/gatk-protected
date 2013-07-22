@@ -164,6 +164,13 @@ public class Assessor {
     }
 
     /**
+     * @see #assessSite(java.util.List, java.util.List, boolean, boolean) with okayToMiss=false
+     */
+    public void assessSite(final List<VariantContext> vcs, final List<MongoVariantContext> consensusSites, final boolean onlyReviewed) {
+        assessSite(vcs, consensusSites, onlyReviewed, false);
+    }
+
+    /**
      * Access a single locus that contains vcs calls from a single callset and consensusSites calls from the KB
      *
      * Finds equivalent pairs of calls between vcs and consensusSites, and updates the TP/FN/etc assessment
@@ -177,8 +184,9 @@ public class Assessor {
      * @param consensusSites a non-null list of calls in the KB.  If empty, vcs are interpreted as having
      *                       no potential equivalents in the KB
      * @param onlyReviewed if true, only consider reviewed sites during the assessment
+     * @param okayToMiss   if true, we will not penalize for any FALSE_NEGATIVES
      */
-    public void assessSite(final List<VariantContext> vcs, final List<MongoVariantContext> consensusSites, final boolean onlyReviewed) {
+    public void assessSite(final List<VariantContext> vcs, final List<MongoVariantContext> consensusSites, final boolean onlyReviewed, final boolean okayToMiss) {
         if ( vcs == null ) throw new IllegalArgumentException("vcs cannot be null");
         if ( consensusSites == null ) throw new IllegalArgumentException("consensusSites cannot be null");
 
@@ -188,7 +196,7 @@ public class Assessor {
             // missed consensus site(s)
             for ( final MongoVariantContext site : consensusSites ) {
                 if ( logger.isDebugEnabled() ) logger.debug("Missed site in " + name + " site = " + site);
-                assessMatchedCallWithKB(null, site, onlyReviewed);
+                assessMatchedCallWithKB(null, site, onlyReviewed, okayToMiss);
             }
         } else {
             final Set<VariantContext> biallelics = new HashSet<VariantContext>();
@@ -214,7 +222,7 @@ public class Assessor {
             for ( final Pair<VariantContext, MongoVariantContext> match : matchCallsWithKB(biallelics, consensusSites) ) {
                 final VariantContext biallelic = match.getFirst();
                 final MongoVariantContext consensusSite = match.getSecond();
-                assessMatchedCallWithKB(biallelic, consensusSite, onlyReviewed);
+                assessMatchedCallWithKB(biallelic, consensusSite, onlyReviewed, okayToMiss);
             }
         }
     }
@@ -281,8 +289,9 @@ public class Assessor {
      *
      * @param call a potentially null VariantContext call
      * @param consensusSite a potentially null consensus Site
+     * @param okayToMiss   if true, we will not penalize for any FALSE_NEGATIVES
      */
-    protected void assessMatchedCallWithKB(final VariantContext call, final MongoVariantContext consensusSite, final boolean onlyReviewed) {
+    protected void assessMatchedCallWithKB(final VariantContext call, final MongoVariantContext consensusSite, final boolean onlyReviewed, final boolean okayToMiss) {
         if ( call == null && consensusSite == null ) throw new IllegalArgumentException("both call and consensusSite cannot be null");
         if ( call != null && consensusSite != null && ( call.getStart() != consensusSite.getStart() ) )
             throw new IllegalArgumentException("Call and consensusSite don't start at the same position! " + call + " consensus " + consensusSite);
@@ -295,7 +304,7 @@ public class Assessor {
         if ( onlyReviewed && (consensusSite == null || ! consensusSite.isReviewed()) )
             return;
 
-        final AssessmentType type = figureOutAssessmentType(call, consensusSite);
+        final AssessmentType type = figureOutAssessmentType(call, consensusSite, okayToMiss);
         final Assessment assessment = vc.isSNP() ? SNPAssessment : IndelAssessment;
         assessment.inc(type);
 
@@ -328,10 +337,11 @@ public class Assessor {
      *             If null, then no equivalent call was found in the input callset for consensusSite
      * @param consensusSite a single MongoVariantContext representing a KB consensus call equivalent to call.  If
      *                      null, indicates that there was no equivalent call in the KB for call.
+     * @param okayToMiss   if true, we will not penalize for any FALSE_NEGATIVES
      * @return a non-null AssessmentType
      */
     @Ensures("result != null")
-    protected AssessmentType figureOutAssessmentType(final VariantContext call, final MongoVariantContext consensusSite) {
+    protected AssessmentType figureOutAssessmentType(final VariantContext call, final MongoVariantContext consensusSite, final boolean okayToMiss) {
         if ( call == null && consensusSite == null ) throw new IllegalArgumentException("Both call and consensusSite cannot be null");
 
         final boolean consensusTP = consensusSite != null && !excludeConsensusSite(consensusSite) && consensusSite.getType().isTruePositive() && consensusSite.getPolymorphicStatus().isPolymorphic();
@@ -365,7 +375,7 @@ public class Assessor {
             }
         } else if ( consensusTP ) { // call == null
             // if it's a complex event, just ignore it (because we may have called it with a different representation in the VCF)
-            if ( consensusSite.isComplexEvent() )
+            if ( okayToMiss || consensusSite.isComplexEvent() )
                 return AssessmentType.NOT_RELEVANT;
 
             if ( bamReader != null ) {

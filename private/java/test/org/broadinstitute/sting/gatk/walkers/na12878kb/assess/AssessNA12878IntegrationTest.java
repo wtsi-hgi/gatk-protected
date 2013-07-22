@@ -46,9 +46,14 @@
 
 package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
+import junit.framework.Assert;
 import org.broadinstitute.sting.WalkerTest;
+import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.text.XReadLines;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.Arrays;
 
 public class AssessNA12878IntegrationTest extends WalkerTest {
@@ -70,7 +75,21 @@ public class AssessNA12878IntegrationTest extends WalkerTest {
         WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
                 baseCommand + " -V " + privateTestDir + "empty.vcf -L " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -okayToMiss " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -typesToInclude SNPS",
                 1,
-                Arrays.asList("d0f061899fe75a537725859954ef6b2d"));
-        executeTest("test okayToMiss", spec);
+                Arrays.asList(""));  // No MD5s; we only want to check the FNs
+
+        final File report = executeTest("test okayToMiss", spec).first.get(0);
+        try {
+            boolean sawFNLine = false;
+            for ( final String line : new XReadLines(report) ) {
+                final String[] tokens = line.split("\\s+");
+                if ( tokens.length == 4 && tokens[2].equals("FALSE_NEGATIVE") ) {
+                    Assert.assertTrue(tokens[3].equals("0"));
+                    sawFNLine = true;
+                }
+            }
+            Assert.assertTrue(sawFNLine);
+        } catch ( FileNotFoundException e ) {
+            throw new UserException.CouldNotReadInputFile(report, e);
+        }
     }
 }

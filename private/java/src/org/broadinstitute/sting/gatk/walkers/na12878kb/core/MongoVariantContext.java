@@ -516,6 +516,8 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         if (reviewed != that.reviewed) return false;
         if (start != that.start) return false;
         if (stop != that.stop) return false;
+        if (confidence != that.confidence) return false;
+        if (isComplexEvent != that.isComplexEvent) return false;
         if (alt != null ? !alt.equals(that.alt) : that.alt != null) return false;
         if (chr != null ? !chr.equals(that.chr) : that.chr != null) return false;
         if (date != null ? !date.equals(that.date) : that.date != null) return false;
@@ -544,6 +546,8 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
         if (reviewed != that.reviewed) return false;
         if (start != that.start) return false;
         if (stop != that.stop) return false;
+        if (confidence != that.confidence) return false;
+        if (isComplexEvent != that.isComplexEvent) return false;
         if (!ref.equals(that.ref)) return false;
         if (!alt.equals(that.alt)) return false;
         if (!chr.equals(that.chr)) return false;
