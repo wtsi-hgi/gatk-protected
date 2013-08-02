@@ -154,6 +154,18 @@ public class NewlyAddedSitesUnitTest extends NA12878KBUnitTestBase {
         }
     }
 
+    @Test(enabled = true)
+    public void testHandlingBadRecords() {
+        db.addCall(MongoVariantContext.create("y", "20", 4, "A", "C", false));   // good record
+
+        final NewlyAddedSites newGetter = new NewlyAddedSites(db);
+
+        db.addCall(MongoVariantContext.create("y", "x", 4, "A", "C", false));    // bad record
+
+        // this will fail when we try to parse the bad record, but let's make sure we handle it internally and don't exception out
+        newGetter.getNewlyAddedLocations(parser, 100);
+    }
+
     @Test(enabled = true, dataProvider = "NewlyAddedTest", dependsOnMethods =  "testQueryForRecords")
     public void testQueryForLocations(final List<MongoVariantContext> befores, final List<MongoVariantContext> newlyAdded, int expectedByLocation) {
 //        logger.warn("testQueryForLocations " + befores + " " + newlyAdded);
@@ -216,7 +228,7 @@ public class NewlyAddedSitesUnitTest extends NA12878KBUnitTestBase {
         return tests.toArray(new Object[][]{});
     }
 
-    @Test(dataProvider = "NewlyAddedTestManyValues")
+    @Test(enabled = true, dataProvider = "NewlyAddedTestManyValues")
     public void testQueryForLocationsManyResults(final List<MongoVariantContext> toAdd, final int maxQueries) {
         final int n = toAdd.size();
         final List<MongoVariantContext> pre = toAdd.subList(0, n / 2);
