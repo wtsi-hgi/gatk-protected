@@ -249,7 +249,7 @@ public class OneChunkIterator<T extends MongoVariantContext> extends PeekableIte
     }
 
     private boolean occursAtUsableInterval(final GenomeLoc loc) {
-        return intervals == null || intervals.overlaps(loc);
+        return intervals == null || intervals.overlaps(loc.getStartLocation());
     }
 
     private void handleError(final T record, final MongoVariantContextException e) {

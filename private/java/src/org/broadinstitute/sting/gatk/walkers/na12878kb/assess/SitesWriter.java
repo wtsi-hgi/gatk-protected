@@ -47,40 +47,112 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
+import org.broadinstitute.variant.variantcontext.Genotype;
 import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.vcf.*;
 
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * Write bad KB sites to a VCF
+ * Write information about variant call comparison to the KB to a VCF
  *
  * User: depristo
  * Date: 2/19/13
  * Time: 10:13 PM
  */
-class BadSitesWriter extends SitesWriter {
-    private final boolean captureBadSites;
+class SitesWriter {
+    protected final static String SUPPORTING_CALLSET_KEY = "SupportingCallsets";
+    protected final static String WHY_KEY = "WHY";
+
+    protected final VariantContextWriter writer;
+    private final Set<AssessmentType> assessmentsToExclude;
+    private final int maxToWrite;
+    int nWritten = 0;
+
+    public final static SitesWriter NOOP_WRITER = new SitesWriter(Integer.MAX_VALUE, EnumSet.noneOf(AssessmentType.class), null);
 
     /**
-     * Create a new BadSitesWriter
+     * Initial the writer
+     *
+     * Writes out VCF header if we are actually writing out the vcf (calls emitting())
+     *
+     * @param lines the header lines for the input VCF we're analyzing
+     */
+    public void initialize(final Set<VCFHeaderLine> lines) {
+        if ( lines == null ) throw new IllegalArgumentException("lines cannot be null");
+
+        if ( emitting() ) {
+            lines.add(new VCFInfoHeaderLine(WHY_KEY, 1, VCFHeaderLineType.String, "Why was the site considered bad"));
+            lines.add(new VCFInfoHeaderLine(SUPPORTING_CALLSET_KEY, VCFHeaderLineCount.UNBOUNDED, VCFHeaderLineType.String, "Callsets supporting the consensus, where available"));
+            lines.add(new VCFInfoHeaderLine("ExpectedGenotype", 1, VCFHeaderLineType.String, "Genotype expected according to the KB for sites with genotype discordance"));
+            lines.add(VCFStandardHeaderLines.getFormatLine("GT"));
+            lines.addAll(MongoVariantContext.reviewHeaderLines());
+            writer.writeHeader(new VCFHeader(lines, Collections.singleton("NA12878")));
+        }
+    }
+
+    /**
+     * Create a new SitesWriter
      *
      * @param maxToWrite the maximum number of records to write
      * @param assessmentsToExclude don't include assessments in this set, even if they would normally be emitted
-     * @param writer the underlying VCWriter we'll use to emit bad sites.  Can be null if captureBadSites is false
+     * @param writer the underlying VCWriter we'll use to emit sites.  Can be null
      */
-    public BadSitesWriter(int maxToWrite, Set<AssessmentType> assessmentsToExclude, VariantContextWriter writer) {
-        super(maxToWrite, assessmentsToExclude, writer);
-        this.captureBadSites = writer != null;
+    public SitesWriter(int maxToWrite, Set<AssessmentType> assessmentsToExclude, VariantContextWriter writer) {
+        if ( assessmentsToExclude == null ) throw new IllegalArgumentException("assessmentsToExclude cannot be null");
+
+        this.maxToWrite = maxToWrite;
+        this.assessmentsToExclude = assessmentsToExclude;
+        this.writer = writer;
     }
 
-    @Override
-    protected boolean emitting() {
-        return captureBadSites;
+    /**
+     * Notify this writer of the pair of equivalent sites vc and consensusSite with determined assessment type type
+     *
+     * @param type a non-null type of the equivalence of vc and consensusSite
+     * @param vc a non-null VC containing the information about this site.  This VC cannot be null, and so the client
+     *           of this function needs to be smart in constructing the necessary VC
+     * @param consensusSite a potentially null consensusSite.  If not null, can be used to get information about
+     *                      the support for the consensus in the KB
+     */
+    public void notifyOfSite(final AssessmentType type, final VariantContext vc, final MongoVariantContext consensusSite) {
+        if ( type == null ) throw new IllegalArgumentException("type cannot be null");
+        if ( vc == null ) throw new IllegalArgumentException("vc cannot be null");
+
+        if ( emitSite(type, vc, consensusSite) ) {
+            final VariantContextBuilder builder = new VariantContextBuilder(vc);
+            if ( consensusSite != null )
+                builder.attribute(SUPPORTING_CALLSET_KEY, consensusSite.getCallSetName());
+            builder.attribute(WHY_KEY, type.toString());
+            if ( type == AssessmentType.GENOTYPE_DISCORDANCE ) {
+                final Genotype expectedGT = consensusSite.getGt().toGenotype(vc.getAlleles());
+                builder.attribute("ExpectedGenotype", expectedGT.getType());
+            }
+            writer.add(builder.make());
+        }
     }
 
-    @Override
-    protected boolean emitSite(AssessmentType type, VariantContext vc, MongoVariantContext consensusSite) {
-        return captureBadSites && type.isInteresting() && super.emitSite(type, vc, consensusSite);
+    /**
+     * Are we emitting anything from this writer?
+     * @return true if this writer is active, false otherwise
+     */
+    protected boolean emitting() { return false; }
+
+    /**
+     * Should we emit this site?
+     *
+     * Should be overloaded by subclasses to specifically control which records are written out
+     *
+     * @param type the type comparing vc to consensusSite
+     * @param vc the variant context (either a call or the result of converting consensusSite to a VariantContext)
+     * @param consensusSite consensus site for VC
+     * @return true we we want to write out information about VC, false otherwise
+     */
+    protected boolean emitSite(final AssessmentType type, final VariantContext vc, final MongoVariantContext consensusSite) {
+        return writer != null && ! assessmentsToExclude.contains(type) && nWritten++ < maxToWrite;
     }
 }

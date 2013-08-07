@@ -48,10 +48,14 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
+import net.sf.picard.filter.FilteringIterator;
 import net.sf.samtools.SAMFileReader;
-import net.sf.samtools.SAMRecordIterator;
+import net.sf.samtools.SAMRecord;
+import net.sf.samtools.util.CloseableIterator;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.filters.BadCigarFilter;
+import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.locusiterator.LocusIteratorByState;
@@ -94,7 +98,9 @@ public class Assessor {
     private final SAMFileReader bamReader;
     private final int minDepthForLowCoverage;
     private final Set<String> excludeKBSitesSupportedByOnlyTheseCallset;
-    private final BadSitesWriter badSitesWriter;
+    private final SitesWriter badSitesWriter;
+    private final boolean ignoreFilters;
+    private final int minPNonRef;
 
     Assessment SNPAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
     Assessment IndelAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
@@ -106,7 +112,7 @@ public class Assessor {
      * @param name the name of our assessor
      */
     protected Assessor(final String name) {
-        this(name, AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 0);
+        this(name, AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 0, -1, false);
     }
 
     /**
@@ -126,9 +132,11 @@ public class Assessor {
     public Assessor(final String name,
                     final AssessNA12878.TypesToInclude typesToInclude,
                     final Set<String> excludeKBSitesSupportedByOnlyTheseCallset,
-                    final BadSitesWriter badSitesWriter,
+                    final SitesWriter badSitesWriter,
                     final SAMFileReader bamReader,
-                    final int minDepthForLowCoverage) {
+                    final int minDepthForLowCoverage,
+                    final int minPNonRef,
+                    final boolean ignoreFilters) {
         if ( name == null ) throw new IllegalArgumentException("ROD name cannot be null");
         if ( name.equals("") ) throw new IllegalArgumentException("ROD name cannot be the empty string");
         if ( typesToInclude == null ) throw new IllegalArgumentException("typesToInclude cannot be null");
@@ -139,8 +147,10 @@ public class Assessor {
         this.typesToInclude = typesToInclude;
         this.bamReader = bamReader;
         this.minDepthForLowCoverage = minDepthForLowCoverage;
+        this.minPNonRef = minPNonRef;
         this.excludeKBSitesSupportedByOnlyTheseCallset = excludeKBSitesSupportedByOnlyTheseCallset;
         this.badSitesWriter = badSitesWriter;
+        this.ignoreFilters = ignoreFilters;
     }
 
     public Assessment getSNPAssessment() { return SNPAssessment; }
@@ -206,8 +216,8 @@ public class Assessor {
                     continue;
 
                 // allow sites only VCs to be evaluated as though they are just NA12878 calls
-                final VariantContext na12878vc = vcRaw.hasGenotypes() ? GATKVariantContextUtils.trimAlleles(vcRaw.subContextFromSample("NA12878"), false, true) : vcRaw;
-                if ( na12878vc.isVariant() ) {
+                final VariantContext na12878vc = subsetToNA12878(vcRaw);
+                if ( na12878vc != null && na12878vc.isVariant() ) {
                     for ( final VariantContext biallelic : GATKVariantContextUtils.splitVariantContextToBiallelics(na12878vc, true, GATKVariantContextUtils.GenotypeAssignmentMethod.BEST_MATCH_TO_ORIGINAL)) {
                         if ( biallelic != null && biallelic.getStart() > na12878vc.getStart() ) {
                             // trimming the variant moved the variant forward on the genome, which can happen but
@@ -224,6 +234,20 @@ public class Assessor {
                 final MongoVariantContext consensusSite = match.getSecond();
                 assessMatchedCallWithKB(biallelic, consensusSite, onlyReviewed, okayToMiss);
             }
+        }
+    }
+
+    private VariantContext subsetToNA12878(final VariantContext vcRaw) {
+        if ( vcRaw.hasGenotypes() ) {
+            final VariantContext vcNA12878 = GATKVariantContextUtils.trimAlleles(vcRaw.subContextFromSample("NA12878"), false, true);
+            final Genotype na12878 = vcNA12878.getGenotype("NA12878");
+            if ( na12878.hasPL() && na12878.getPL()[0] < minPNonRef )
+                return null;
+            else {
+                return vcNA12878;
+            }
+        } else {
+            return vcRaw;
         }
     }
 
@@ -311,7 +335,7 @@ public class Assessor {
         // determine if we have called the site correctly but failed to genotype it properly
         boolean genotypeDiscordance = false;
         if ( call != null && consensusSite != null && type == AssessmentType.TRUE_POSITIVE  &&
-                call.hasGenotype("NA12878") && call.isNotFiltered() && consensusSite.isPolymorphic()) {
+                call.hasGenotype("NA12878") && ! isUsableCall(call) && consensusSite.isPolymorphic()) {
             final List<Allele> alleles = vc.getAlleles();
             final Genotype consensusGT = consensusSite.getGt().toGenotype(alleles);
             if ( consensusGT.getType() == GenotypeType.HET || consensusGT.getType() == GenotypeType.HOM_VAR ) {
@@ -349,7 +373,7 @@ public class Assessor {
 
         if ( call != null ) {
             if ( consensusTP ) {
-                if ( call.isFiltered() )
+                if ( isUsableCall(call) )
                     return AssessmentType.FALSE_NEGATIVE_CALLED_BUT_FILTERED;
                 else if ( likelyWouldBeFiltered(call) )
                     // note that we don't consider how we might potentially filter a site that at a TP
@@ -360,7 +384,7 @@ public class Assessor {
             } else if (consensusSite != null && consensusSite.getType().isTruePositive() && consensusSite.getPolymorphicStatus().isMonomorphic() ) {
                 return AssessmentType.FALSE_POSITIVE_MONO_IN_NA12878;
             } else if ( consensusFP ) {
-                if ( call.isFiltered() )
+                if ( isUsableCall(call) )
                     return AssessmentType.CORRECTLY_FILTERED;
                 else if ( likelyWouldBeFiltered(call) )
                     return AssessmentType.REASONABLE_FILTERS_WOULD_FILTER_FP_SITE;
@@ -368,7 +392,7 @@ public class Assessor {
                     return AssessmentType.FALSE_POSITIVE_SITE_IS_FP;
             } else if ( consensusSite != null && consensusSite.getType().isUnknown() ) {
                 return AssessmentType.CALLED_IN_DB_UNKNOWN_STATUS;
-            } else if ( consensusSite == null && call.isNotFiltered() ) {
+            } else if ( consensusSite == null && ! isUsableCall(call) ) {
                 return AssessmentType.CALLED_NOT_IN_DB_AT_ALL;
             } else {
                 return AssessmentType.NOT_RELEVANT;
@@ -392,6 +416,10 @@ public class Assessor {
         }
     }
 
+    private boolean isUsableCall(final VariantContext vc) {
+        return ! ignoreFilters && vc.isFiltered();
+    }
+
     /**
      * Should consensusSite be excluded from the analysis?
      *
@@ -412,6 +440,7 @@ public class Assessor {
     public static SAMFileReader makeSAMFileReaderForDoCInBAM(final File bam) {
         final SAMFileReader bamReader = new SAMFileReader(bam);
         bamReader.setSAMRecordFactory(new GATKSamRecordFactory());
+        bamReader.setValidationStringency(SAMFileReader.ValidationStringency.SILENT);
         return bamReader;
     }
 
@@ -435,15 +464,18 @@ public class Assessor {
      * @return the depth at chr:position
      */
     protected int getDepthAtLocus(final String chr, final int position) {
-        final SAMRecordIterator it = bamReader.queryOverlapping(chr, position, position);
+        // set up the query and wrapping filtering iterators
+        CloseableIterator<SAMRecord> it = bamReader.queryOverlapping(chr, position, position);
+        it = new FilteringIterator(it, new BadCigarFilter());
+        it = new FilteringIterator(it, new DuplicateReadFilter());
+
         final LocusIteratorByState libs = new LocusIteratorByState(bamReader, it);
         final AlignmentContext context = libs.advanceToLocus(position, false);
         int depth = 0;
         if ( context != null ) {
             // need to remove duplicates and low quality reads/bases
             for (final PileupElement p : context.getBasePileup().getBaseAndMappingFilteredPileup(20, 20) ) {
-                if ( ! p.getRead().getDuplicateReadFlag() )
-                    depth += p.getRepresentativeCount();
+                depth += p.getRepresentativeCount();
             }
         }
         it.close();
