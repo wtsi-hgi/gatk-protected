@@ -397,13 +397,13 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
      */
     public void initialize() {
         // Get list of samples to include in the output
-        List<String> rodNames = Arrays.asList(variantCollection.variants.getName());
+        final List<String> rodNames = Arrays.asList(variantCollection.variants.getName());
 
-        Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
-        TreeSet<String> vcfSamples = new TreeSet<String>(SampleUtils.getSampleList(vcfRods, GATKVariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE));
+        final Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
+        final TreeSet<String> vcfSamples = new TreeSet<>(SampleUtils.getSampleList(vcfRods, GATKVariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE));
 
-        Collection<String> samplesFromFile = SampleUtils.getSamplesFromFiles(sampleFiles);
-        Collection<String> samplesFromExpressions = SampleUtils.matchSamplesExpressions(vcfSamples, sampleExpressions);
+        final Collection<String> samplesFromFile = SampleUtils.getSamplesFromFiles(sampleFiles);
+        final Collection<String> samplesFromExpressions = SampleUtils.matchSamplesExpressions(vcfSamples, sampleExpressions);
 
         // first, add any requested samples
         samples.addAll(samplesFromFile);
@@ -417,7 +417,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         }
 
         // now, exclude any requested samples
-        Collection<String> XLsamplesFromFile = SampleUtils.getSamplesFromFiles(XLsampleFiles);
+        final Collection<String> XLsamplesFromFile = SampleUtils.getSamplesFromFiles(XLsampleFiles);
         samples.removeAll(XLsamplesFromFile);
         samples.removeAll(XLsampleNames);
 
@@ -436,17 +436,17 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         // if user specified types to include, add these, otherwise, add all possible variant context types to list of vc types to include
         if (TYPES_TO_INCLUDE.isEmpty()) {
 
-            for (VariantContext.Type t : VariantContext.Type.values())
+            for (final VariantContext.Type t : VariantContext.Type.values())
                 selectedTypes.add(t);
 
         }
         else {
-            for (VariantContext.Type t : TYPES_TO_INCLUDE)
+            for (final VariantContext.Type t : TYPES_TO_INCLUDE)
                 selectedTypes.add(t);
 
         }
         // Initialize VCF header
-        Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), true);
+        final Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), true);
         headerLines.add(new VCFHeaderLine("source", "SelectVariants"));
 
         if (KEEP_ORIGINAL_CHR_COUNTS) {
@@ -493,7 +493,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
         /** load in the IDs file to a hashset for matching */
         if ( rsIDFile != null ) {
-            IDsToKeep = new HashSet<String>();
+            IDsToKeep = new HashSet<>();
             try {
                 for ( final String line : new XReadLines(rsIDFile).readLines() ) {
                     IDsToKeep.add(line.trim());
@@ -514,21 +514,21 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
      * @return 1 if the record was printed to the output file, 0 if otherwise
      */
     @Override
-    public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+    public Integer map(final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
         if ( tracker == null )
             return 0;
 
-        Collection<VariantContext> vcs = new ArrayList<VariantContext>();
+        Collection<VariantContext> vcs = new ArrayList<>();
 
-        MongoBlockKey block_id = new MongoBlockKey(context.getLocation());
+        final MongoBlockKey block_id = new MongoBlockKey(context.getLocation());
 
         // Blocks must be accessed in order.  If the previous block is complete, remove it from memory.
 
         if (!block_id.equals(activeBlockKey)) {
             activeBlockKey = block_id;
             activeBlockSiteData = MongoSiteData.retrieveFromMongo(activeBlockKey);
-            activeBlockSampleMap = new HashMap<String, Map<Integer, List<MongoSampleData>>>();
-            for (String sample : samples) {
+            activeBlockSampleMap = new HashMap<>();
+            for (final String sample : samples) {
                 activeBlockSampleMap.put(sample, MongoSampleData.retrieveFromMongo(activeBlockKey, sample));
             }
         }
@@ -541,7 +541,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
         vcs = combineMongoVariants(vcs);
 
-        for (VariantContext vc : vcs) {
+        for (final VariantContext vc : vcs) {
             if ( IDsToKeep != null && ! IDsToKeep.contains(vc.getID()) )
                 continue;
 
@@ -549,8 +549,8 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
                 break;
 
             if (outMVFile != null){
-                for( String familyId : mv.getViolationFamilies()){
-                    for(Sample sample : this.getSampleDB().getFamily(familyId)){
+                for( final String familyId : mv.getViolationFamilies()){
+                    for(final Sample sample : this.getSampleDB().getFamily(familyId)){
                         if(sample.getParents().size() > 0){
                             outMVFileStream.format("MV@%s:%d. REF=%s, ALT=%s, AC=%d, momID=%s, dadID=%s, childID=%s, momG=%s, momGL=%s, dadG=%s, dadGL=%s, " +
                                     "childG=%s childGL=%s\n",vc.getChr(), vc.getStart(),
@@ -566,12 +566,12 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             }
 
             if (DISCORDANCE_ONLY) {
-                Collection<VariantContext> compVCs = tracker.getValues(discordanceTrack, context.getLocation());
+                final Collection<VariantContext> compVCs = tracker.getValues(discordanceTrack, context.getLocation());
                 if (!isDiscordant(vc, compVCs))
                     continue;
             }
             if (CONCORDANCE_ONLY) {
-                Collection<VariantContext> compVCs = tracker.getValues(concordanceTrack, context.getLocation());
+                final Collection<VariantContext> compVCs = tracker.getValues(concordanceTrack, context.getLocation());
                 if (!isConcordant(vc, compVCs))
                     continue;
             }
@@ -595,7 +595,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             
             if ( (!EXCLUDE_NON_VARIANTS || sub.isPolymorphicInSamples()) && (!EXCLUDE_FILTERED || !sub.isFiltered()) ) {
                 boolean failedJexlMatch = false;
-                for ( VariantContextUtils.JexlVCMatchExp jexl : jexls ) {
+                for ( final VariantContextUtils.JexlVCMatchExp jexl : jexls ) {
                     if ( !VariantContextUtils.match(sub, jexl) ) {
                         failedJexlMatch = true;
                         break;
@@ -616,21 +616,21 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
     }
 
     private Collection<VariantContext> getMongoVariants(ReferenceContext ref, GenomeLoc location, Set<String> samples) {
-        Integer start = location.getStart();
+        final Integer start = location.getStart();
 
-        ArrayList<VariantContext> vcs = new ArrayList<VariantContext>();
+        final ArrayList<VariantContext> vcs = new ArrayList<>();
 
         if (!activeBlockSiteData.containsKey(start)) {
             return vcs;
         }
 
-        for (MongoSiteData oneSite : activeBlockSiteData.get(start)) {
-            VariantContextBuilder builder = oneSite.builder(ref);
+        for (final MongoSiteData oneSite : activeBlockSiteData.get(start)) {
+            final VariantContextBuilder builder = oneSite.builder(ref);
             vcs.add(builder.make());
 
-            for (String sample: samples) {
+            for (final String sample: samples) {
                 if (activeBlockSampleMap.containsKey(sample) && activeBlockSampleMap.get(sample).containsKey(start)) {
-                    for (MongoSampleData oneSample : activeBlockSampleMap.get(sample).get(start)) {
+                    for (final MongoSampleData oneSample : activeBlockSampleMap.get(sample).get(start)) {
                         if (oneSample.matches(oneSite)) {
                             builder.genotypes(oneSample.getGenotype());
                             vcs.add(builder.make());
@@ -644,31 +644,32 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
     }
 
     // Copied from CombineVariants
-    private Collection<VariantContext> combineMongoVariants(Collection<VariantContext> vcs) {
+    private Collection<VariantContext> combineMongoVariants(final Collection<VariantContext> vcs) {
         if (vcs.size() < 2)
             return vcs;
 
-        List<VariantContext> mergedVCs = new ArrayList<VariantContext>();
+        final List<VariantContext> mergedVCs = new ArrayList<>();
 
         //defaults from CombineVariants
-        GATKVariantContextUtils.MultipleAllelesMergeType multipleAllelesMergeType = GATKVariantContextUtils.MultipleAllelesMergeType.BY_TYPE;
-        List<String> priority = new ArrayList<String>();
+        final GATKVariantContextUtils.MultipleAllelesMergeType multipleAllelesMergeType = GATKVariantContextUtils.MultipleAllelesMergeType.BY_TYPE;
+        final List<String> priority = new ArrayList<>();
         priority.add("input");
-        GATKVariantContextUtils.FilteredRecordMergeType filteredRecordsMergeType = GATKVariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED;
-        GATKVariantContextUtils.GenotypeMergeType genotypeMergeOption = GATKVariantContextUtils.GenotypeMergeType.PRIORITIZE;
-        boolean printComplexMerges = false;
-        String SET_KEY = "set";
-        boolean filteredAreUncalled = false;
-        boolean MERGE_INFO_WITH_MAX_AC = false;
+        final GATKVariantContextUtils.FilteredRecordMergeType filteredRecordsMergeType = GATKVariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED;
+        final GATKVariantContextUtils.GenotypeMergeType genotypeMergeOption = GATKVariantContextUtils.GenotypeMergeType.PRIORITIZE;
+        final boolean printComplexMerges = false;
+        final String SET_KEY = "set";
+        final boolean filteredAreUncalled = false;
+        final boolean MERGE_INFO_WITH_MAX_AC = false;
+        final boolean COMBINE_ANNOTATIONS = false;
 
         if (multipleAllelesMergeType == GATKVariantContextUtils.MultipleAllelesMergeType.BY_TYPE) {
-            Map<VariantContext.Type, List<VariantContext>> VCsByType = GATKVariantContextUtils.separateVariantContextsByType(vcs);
+            final Map<VariantContext.Type, List<VariantContext>> VCsByType = GATKVariantContextUtils.separateVariantContextsByType(vcs);
 
             // TODO -- clean this up in a refactoring
             // merge NO_VARIATION into another type of variant (based on the ordering in VariantContext.Type)
             if ( VCsByType.containsKey(VariantContext.Type.NO_VARIATION) && VCsByType.size() > 1 ) {
                 final List<VariantContext> refs = VCsByType.remove(VariantContext.Type.NO_VARIATION);
-                for ( VariantContext.Type type : VariantContext.Type.values() ) {
+                for ( final VariantContext.Type type : VariantContext.Type.values() ) {
                     if ( VCsByType.containsKey(type) ) {
                         VCsByType.get(type).addAll(refs);
                         break;
@@ -677,24 +678,24 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             }
 
             // iterate over the types so that it's deterministic
-            for (VariantContext.Type type : VariantContext.Type.values()) {
+            for (final VariantContext.Type type : VariantContext.Type.values()) {
                 if (VCsByType.containsKey(type))
                     mergedVCs.add(GATKVariantContextUtils.simpleMerge(VCsByType.get(type),
                             priority, filteredRecordsMergeType, genotypeMergeOption, true, printComplexMerges,
-                            SET_KEY, filteredAreUncalled, MERGE_INFO_WITH_MAX_AC));
+                            SET_KEY, filteredAreUncalled, MERGE_INFO_WITH_MAX_AC, COMBINE_ANNOTATIONS));
             }
         }
         else if (multipleAllelesMergeType == GATKVariantContextUtils.MultipleAllelesMergeType.MIX_TYPES) {
             mergedVCs.add(GATKVariantContextUtils.simpleMerge(vcs,
                     priority, filteredRecordsMergeType, genotypeMergeOption, true, printComplexMerges,
-                    SET_KEY, filteredAreUncalled, MERGE_INFO_WITH_MAX_AC));
+                    SET_KEY, filteredAreUncalled, MERGE_INFO_WITH_MAX_AC, COMBINE_ANNOTATIONS));
         }
         else {
             logger.warn("Ignoring all records at site");
         }
 
-        List<VariantContext> recomputedVCs = new ArrayList<VariantContext>();
-        for ( VariantContext mergedVC : mergedVCs ) {
+        final List<VariantContext> recomputedVCs = new ArrayList<>();
+        for ( final VariantContext mergedVC : mergedVCs ) {
             // only operate at the start of events
             if ( mergedVC == null )
                 continue;
@@ -709,7 +710,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
     }
 
     private boolean hasPLs(final VariantContext vc) {
-        for ( Genotype g : vc.getGenotypes() ) {
+        for ( final Genotype g : vc.getGenotypes() ) {
             if ( g.hasLikelihoods() )
                 return true;
         }
@@ -722,7 +723,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
      * @param compVCs the comparison VariantContext (discordance
      * @return
      */
-    private boolean isDiscordant (VariantContext vc, Collection<VariantContext> compVCs) {
+    private boolean isDiscordant (final VariantContext vc, final Collection<VariantContext> compVCs) {
         if (vc == null)
             return false;
 
@@ -731,7 +732,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             return (compVCs == null || compVCs.isEmpty());
 
         // check if we find it in the variant rod
-        GenotypesContext genotypes = vc.getGenotypes(samples);
+        final GenotypesContext genotypes = vc.getGenotypes(samples);
         for (final Genotype g : genotypes) {
             if (sampleHasVariant(g)) {
                 // There is a variant called (or filtered with not exclude filtered option set) that is not HomRef for at least one of the samples.
@@ -739,7 +740,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
                     return true;
                 // Look for this sample in the all vcs of the comp ROD track.
                 boolean foundVariant = false;
-                for (VariantContext compVC : compVCs) {
+                for (final VariantContext compVC : compVCs) {
                     if (haveSameGenotypes(g, compVC.getGenotype(g.getSampleName()))) {
                         foundVariant = true;
                         break;
@@ -753,7 +754,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         return false; // we only get here if all samples have a variant in the comp rod.
     }
 
-    private boolean isConcordant (VariantContext vc, Collection<VariantContext> compVCs) {
+    private boolean isConcordant (final VariantContext vc, final Collection<VariantContext> compVCs) {
         if (vc == null || compVCs == null || compVCs.isEmpty())
             return false;
 
@@ -762,15 +763,15 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
             return true;
 
         // make a list of all samples contained in this variant VC that are being tracked by the user command line arguments.
-        Set<String> variantSamples = vc.getSampleNames();
+        final Set<String> variantSamples = vc.getSampleNames();
         variantSamples.retainAll(samples);
 
         // check if we can find all samples from the variant rod in the comp rod.
-        for (String sample : variantSamples) {
+        for (final String sample : variantSamples) {
             boolean foundSample = false;
-            for (VariantContext compVC : compVCs) {
-                Genotype varG = vc.getGenotype(sample);
-                Genotype compG = compVC.getGenotype(sample);
+            for (final VariantContext compVC : compVCs) {
+                final Genotype varG = vc.getGenotype(sample);
+                final Genotype compG = compVC.getGenotype(sample);
                 if (haveSameGenotypes(varG, compG)) {
                     foundSample = true;
                     break;
@@ -784,18 +785,18 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         return true;
     }
 
-    private boolean sampleHasVariant(Genotype g) {
+    private boolean sampleHasVariant(final Genotype g) {
         return (g !=null && !g.isHomRef() && (g.isCalled() || (g.isFiltered() && !EXCLUDE_FILTERED)));
     }
 
-    private boolean haveSameGenotypes(Genotype g1, Genotype g2) {
+    private boolean haveSameGenotypes(final Genotype g1, final Genotype g2) {
         if ((g1.isCalled() && g2.isFiltered()) ||
                 (g2.isCalled() && g1.isFiltered()) ||
                 (g1.isFiltered() && g2.isFiltered() && EXCLUDE_FILTERED))
             return false;
 
-        List<Allele> a1s = g1.getAlleles();
-        List<Allele> a2s = g2.getAlleles();
+        final List<Allele> a1s = g1.getAlleles();
+        final List<Allele> a2s = g2.getAlleles();
         return (a1s.containsAll(a2s) && a2s.containsAll(a1s));
     }
     @Override
@@ -838,7 +839,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
         // strip out the alternate alleles that aren't being used, if requested
         final VariantContext sub = vc.subContextFromSamples(samples, excludeNonVariants);
-        VariantContextBuilder builder = new VariantContextBuilder(sub);
+        final VariantContextBuilder builder = new VariantContextBuilder(sub);
 
         GenotypesContext newGC = sub.getGenotypes();
 
@@ -848,11 +849,11 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
 
         //Remove a fraction of the genotypes if needed
         if(fractionGenotypes>0){
-            ArrayList<Genotype> genotypes = new ArrayList<Genotype>();
+            final ArrayList<Genotype> genotypes = new ArrayList<>();
             for ( Genotype genotype : newGC ) {
                 //Set genotype to no call if it falls in the fraction.
                 if(fractionGenotypes>0 && randomGenotypes.nextDouble()<fractionGenotypes){
-                    ArrayList<Allele> alleles = new ArrayList<Allele>(2);
+                    final ArrayList<Allele> alleles = new ArrayList<>(2);
                     alleles.add(Allele.create((byte)'.'));
                     alleles.add(Allele.create((byte)'.'));
                     genotypes.add(GenotypeBuilder.create(genotype.getSampleName(),alleles));
@@ -884,12 +885,12 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         VariantContextUtils.calculateChromosomeCounts(builder, false);
 
         int depth = 0;
-        for (String sample : originalVC.getSampleNames()) {
-            Genotype g = originalVC.getGenotype(sample);
+        for (final String sample : originalVC.getSampleNames()) {
+            final Genotype g = originalVC.getGenotype(sample);
 
             if ( ! g.isFiltered() ) {
 
-                String dp = (String) g.getExtendedAttribute("DP");
+                final String dp = (String) g.getExtendedAttribute("DP");
                 if (dp != null && ! dp.equals(VCFConstants.MISSING_DEPTH_v3) && ! dp.equals(VCFConstants.MISSING_VALUE_v4) ) {
                     depth += Integer.valueOf(dp);
                 }
@@ -898,13 +899,13 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         builder.attribute("DP", depth);
     }
 
-    private void randomlyAddVariant(int rank, VariantContext vc) {
+    private void randomlyAddVariant(final int rank, final VariantContext vc) {
         if (nVariantsAdded < numRandom)
             variantArray[nVariantsAdded++] = new RandomVariantStructure(vc);
 
         else {
-            double v = GenomeAnalysisEngine.getRandomGenerator().nextDouble();
-            double t = (1.0/(rank-numRandom+1));
+            final double v = GenomeAnalysisEngine.getRandomGenerator().nextDouble();
+            final double t = (1.0/(rank-numRandom+1));
             if ( v < t) {
                 variantArray[positionToAdd].set(vc);
                 nVariantsAdded++;
@@ -913,7 +914,7 @@ public class SelectVariantsFromMongo extends RodWalker<Integer, Integer> impleme
         }
     }
 
-    private int nextCircularPosition(int cur) {
+    private int nextCircularPosition(final int cur) {
         if ((cur + 1) == variantArray.length)
             return 0;
         return cur + 1;
