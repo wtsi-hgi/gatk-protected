@@ -48,6 +48,7 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
 import net.sf.samtools.SAMFileReader;
 import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoGenotype;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
 import org.broadinstitute.sting.utils.text.XReadLines;
@@ -240,6 +241,19 @@ public class AssessorUnitTest extends BaseTest {
         final Assessment actual = vc.isSNP() ? assessor.getSNPAssessment() : assessor.getIndelAssessment();
         final Assessment expected = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, expectedType);
         Assert.assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testAssessSiteWithDiscordantGT() {
+        final Assessor assessor = new Assessor("test");
+        final VariantContext vcAC10 = makeVC(10, "A", "C");
+        final Genotype het = GenotypeBuilder.create("NA12878", vcAC10.getAlleles());
+        final Genotype discordant = MongoGenotype.createDiscordant(het);
+        final MongoVariantContext mvcAC10 = MongoVariantContext.create("kb", vcAC10, TruthStatus.TRUE_POSITIVE, discordant);
+        assessor.assessSite(Arrays.asList(vcAC10), Arrays.asList(mvcAC10), false);
+
+        final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+        Assert.assertEquals(assessor.getSNPAssessment(), oneTP);
     }
 
     // ------------------------------------------------------------
