@@ -59,7 +59,6 @@ import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.utils.collections.Pair;
 import org.broadinstitute.sting.utils.locusiterator.LocusIteratorByState;
-import org.broadinstitute.sting.utils.pileup.PileupElement;
 import org.broadinstitute.sting.utils.sam.GATKSamRecordFactory;
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
 import org.broadinstitute.variant.variantcontext.Allele;
@@ -334,8 +333,8 @@ public class Assessor {
 
         // determine if we have called the site correctly but failed to genotype it properly
         boolean genotypeDiscordance = false;
-        if ( call != null && consensusSite != null && type == AssessmentType.TRUE_POSITIVE  &&
-                call.hasGenotype("NA12878") && ! isUsableCall(call) && consensusSite.isPolymorphic()) {
+        if ( call != null && consensusSite != null && type == AssessmentType.TRUE_POSITIVE &&
+                call.hasGenotype("NA12878") && ! isNotUsableCall(call) && consensusSite.isPolymorphic()) {
             final List<Allele> alleles = vc.getAlleles();
             final Genotype consensusGT = consensusSite.getGt().toGenotype(alleles);
             if ( consensusGT.getType() == GenotypeType.HET || consensusGT.getType() == GenotypeType.HOM_VAR ) {
@@ -368,12 +367,13 @@ public class Assessor {
     protected AssessmentType figureOutAssessmentType(final VariantContext call, final MongoVariantContext consensusSite, final boolean okayToMiss) {
         if ( call == null && consensusSite == null ) throw new IllegalArgumentException("Both call and consensusSite cannot be null");
 
-        final boolean consensusTP = consensusSite != null && !excludeConsensusSite(consensusSite) && consensusSite.getType().isTruePositive() && consensusSite.getPolymorphicStatus().isPolymorphic();
+        final boolean consensusTP = consensusSite != null && !excludeConsensusSite(consensusSite) && consensusSite.getType().isTruePositive()
+                && !consensusSite.getPolymorphicStatus().isMonomorphic(); // discordant genotypes should be allowed through (since it means at least one call must be polymorphic)
         final boolean consensusFP = consensusSite != null && !excludeConsensusSite(consensusSite) && consensusSite.getType().isFalsePositive();
 
         if ( call != null ) {
             if ( consensusTP ) {
-                if ( isUsableCall(call) )
+                if ( isNotUsableCall(call) )
                     return AssessmentType.FALSE_NEGATIVE_CALLED_BUT_FILTERED;
                 else if ( likelyWouldBeFiltered(call) )
                     // note that we don't consider how we might potentially filter a site that at a TP
@@ -384,7 +384,7 @@ public class Assessor {
             } else if (consensusSite != null && consensusSite.getType().isTruePositive() && consensusSite.getPolymorphicStatus().isMonomorphic() ) {
                 return AssessmentType.FALSE_POSITIVE_MONO_IN_NA12878;
             } else if ( consensusFP ) {
-                if ( isUsableCall(call) )
+                if ( isNotUsableCall(call) )
                     return AssessmentType.CORRECTLY_FILTERED;
                 else if ( likelyWouldBeFiltered(call) )
                     return AssessmentType.REASONABLE_FILTERS_WOULD_FILTER_FP_SITE;
@@ -392,7 +392,7 @@ public class Assessor {
                     return AssessmentType.FALSE_POSITIVE_SITE_IS_FP;
             } else if ( consensusSite != null && consensusSite.getType().isUnknown() ) {
                 return AssessmentType.CALLED_IN_DB_UNKNOWN_STATUS;
-            } else if ( consensusSite == null && ! isUsableCall(call) ) {
+            } else if ( consensusSite == null && ! isNotUsableCall(call) ) {
                 return AssessmentType.CALLED_NOT_IN_DB_AT_ALL;
             } else {
                 return AssessmentType.NOT_RELEVANT;
@@ -416,7 +416,7 @@ public class Assessor {
         }
     }
 
-    private boolean isUsableCall(final VariantContext vc) {
+    private boolean isNotUsableCall(final VariantContext vc) {
         return ! ignoreFilters && vc.isFiltered();
     }
 
@@ -473,10 +473,8 @@ public class Assessor {
         final AlignmentContext context = libs.advanceToLocus(position, false);
         int depth = 0;
         if ( context != null ) {
-            // need to remove duplicates and low quality reads/bases
-            for (final PileupElement p : context.getBasePileup().getBaseAndMappingFilteredPileup(20, 20) ) {
-                depth += p.getRepresentativeCount();
-            }
+            // need to remove low quality reads/bases
+            depth = context.getBasePileup().getBaseAndMappingFilteredPileup(20, 20).depthOfCoverage();
         }
         it.close();
         return depth;
