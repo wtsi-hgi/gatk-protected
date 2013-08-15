@@ -48,10 +48,7 @@ package org.broadinstitute.sting.gatk.walkers.techdev;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import net.sf.samtools.SAMFileHeader;
-import net.sf.samtools.SAMFileWriter;
-import net.sf.samtools.SAMFileWriterFactory;
-import net.sf.samtools.SAMReadGroupRecord;
+import net.sf.samtools.*;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.ReadWalker;
@@ -76,8 +73,10 @@ public class SplitByRG extends ReadWalker<Long, Long> {
         final SAMFileWriterFactory factory = new SAMFileWriterFactory();
         factory.setCreateIndex(true);
         factory.setCreateMd5File(false);
-        for (final SAMReadGroupRecord rg : getToolkit().getSAMFileHeader().getReadGroups()) {
-            out.put(rg.getId(), factory.makeSAMOrBAMWriter(discardReadGroups(rg, getToolkit().getSAMFileHeader()), true, new File(rg.getSample() + "." + rg.getId() + ".bam")));
+        for (final Map.Entry<SAMReadGroupRecord, File> entry : getSplitFileNamesForRgs(getToolkit().getSAMFileHeader()).entrySet()) {
+            final SAMReadGroupRecord rg = entry.getKey();
+            final File fname = entry.getValue();
+            out.put(rg.getId(), factory.makeSAMOrBAMWriter(discardReadGroups(rg, getToolkit().getSAMFileHeader()), true, fname));
         }
     }
 
@@ -111,5 +110,14 @@ public class SplitByRG extends ReadWalker<Long, Long> {
         rgList.add(rg);
         newHeader.setReadGroups(rgList);
         return newHeader;
+    }
+
+    public static Map<SAMReadGroupRecord, File> getSplitFileNamesForRgs(SAMFileHeader bamHeader) {
+        final List<SAMReadGroupRecord> rgs = bamHeader.getReadGroups();
+        final Map<SAMReadGroupRecord, File> splitBAMs = new Object2ObjectOpenHashMap<>(rgs.size());
+        for (final SAMReadGroupRecord rg : rgs) {
+            splitBAMs.put(rg, new File(rg.getSample() + "." + rg.getId() + ".bam"));
+        }
+        return splitBAMs;
     }
 }
