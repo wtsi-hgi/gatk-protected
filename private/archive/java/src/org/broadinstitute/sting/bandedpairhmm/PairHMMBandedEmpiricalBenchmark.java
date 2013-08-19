@@ -46,143 +46,95 @@
 
 package org.broadinstitute.sting.utils.pairhmm;
 
-import net.sf.samtools.SAMUtils;
-import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.text.XReadLines;
+import com.google.caliper.Param;
+import com.google.caliper.SimpleBenchmark;
 
-import java.io.*;
-import java.util.LinkedHashMap;
+import java.io.File;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.zip.GZIPInputStream;
 
 /**
- * Useful single class carrying test data for PairHMMs (for use in benchmarking and unit tests)
- *
- * User: depristo
- * Date: 5/12/13
- * Time: 3:52 PM
- * To change this template use File | Settings | File Templates.
+ * Caliper microbenchmark for synthetic test data for PairHMM
  */
-public class PairHMMTestData {
-    public final String ref;
-    public final String nextRef;
-    private final String read;
-    public final byte[] baseQuals, insQuals, delQuals, gcp;
-    public final double log10l;
+public class PairHMMBandedEmpiricalBenchmark extends SimpleBenchmark {
+//    @Param ({"array_logless", "logless"})
+//    @Param ({"logless", "array_logless"})
+    @Param({"logless", "banded_w5_mle10"})
+//    @Param({"logless", "banded_w10_mle20", "banded_w5_mle20", "banded_w5_mle10"})
+    String algorithm;
 
-    PairHMMTestData(String ref, String nextRef, String read, byte[] baseQuals, byte[] insQuals, byte[] delQuals, byte[] gcp, double log10l) {
-        this.ref = ref;
-        this.nextRef = nextRef;
-        this.read = read;
-        this.baseQuals = baseQuals;
-        this.insQuals = insQuals;
-        this.delQuals = delQuals;
-        this.gcp = gcp;
-        this.log10l = log10l;
-    }
+    @Param({"likelihoods_2x250_1mb.txt.gz"})
+    String likelihoodsFile;
 
-    PairHMMTestData(String ref, String nextRef, String read, final byte qual) {
-        this.ref = ref;
-        this.nextRef = nextRef;
-        this.read = read;
-        this.baseQuals = this.insQuals = this.delQuals =  Utils.dupBytes(qual, read.length());
-        this.gcp =  Utils.dupBytes((byte)10, read.length());
-        this.log10l = -1;
-    }
+    @Param({"0-50","51-150","150-1000"})
+    String sizeRange;
 
-    public double runHMM(final PairHMM hmm) {
-        hmm.initialize(getRead().length(), ref.length());
-        return hmm.computeReadLikelihoodGivenHaplotypeLog10(ref.getBytes(), getRead().getBytes(),
-                baseQuals, insQuals, delQuals, gcp, true, null);
-    }
+    @Param({"true","false"})
+    boolean allowCaching;
+
+    Map<String, List<PairHMMTestData>> empiricalData;
+
+    final int maxRecords = 1000;
 
     @Override
-    public String toString() {
-        return "Info{" +
-                "ref='" + ref + '\'' +
-                ", nextRef=" + nextRef + '\'' +
-                ", read='" + getRead() + '\'' +
-                ", log10l=" + log10l +
-                '}';
+    protected void setUp() throws Exception {
+        empiricalData = PairHMMTestData.readLikelihoods(new File(likelihoodsFile));
     }
 
-    public static void runHMMs(final PairHMM hmm, final List<PairHMMTestData> data, final boolean runSingly) {
-        if ( runSingly ) {
-            for ( final PairHMMTestData datum : data )
-                datum.runHMM(hmm);
-        } else {
-            // running in batch mode
-            final PairHMMTestData first = data.get(0);
-            int maxHaplotypeLen = calcMaxHaplotypeLen(data);
-            hmm.initialize(first.getRead().length(), maxHaplotypeLen);
-            for ( final PairHMMTestData datum : data ) {
-                hmm.computeReadLikelihoodGivenHaplotypeLog10(datum.ref.getBytes(), datum.getRead().getBytes(),
-                        datum.baseQuals, datum.insQuals, datum.delQuals, datum.gcp, false, datum.nextRef.getBytes());
+    protected List<List<PairHMMTestData>> selectWorkingData() {
+        //System.out.printf("Selecting size %s%n", sizeRange);
+        final String[] range = sizeRange.split("-");
+        final int minSize = Integer.valueOf(range[0]);
+        final int maxSize = Integer.valueOf(range[1]);
 
+        final List<List<PairHMMTestData>> myData = new LinkedList<>();
+        //System.out.printf("selecting size %d - %d%n", minSize, maxSize);
+        for ( final List<PairHMMTestData> readsForHaplotype : empiricalData.values() ) {
+            final PairHMMTestData data = readsForHaplotype.get(0);
+            if ( data.ref.length() >= minSize && data.ref.length() < maxSize ) {
+                myData.add(readsForHaplotype);
+                if ( myData.size() > maxRecords)
+                    break;
             }
         }
+        //System.out.printf("  => Found %d records%n", myData.size());
+
+        return myData;
     }
 
-    public static int calcMaxHaplotypeLen(final List<PairHMMTestData> data) {
-        int maxHaplotypeLen = 0;
-        for ( final PairHMMTestData datum : data )
-            maxHaplotypeLen = Math.max(maxHaplotypeLen, datum.ref.length());
-        return maxHaplotypeLen;
-    }
-
-    public static Map<String, List<PairHMMTestData>> readLikelihoods(final File file) throws IOException {
-        final Map<String, List<PairHMMTestData>> results = new LinkedHashMap<>();
-
-        InputStream in = new FileInputStream(file);
-        if ( file.getName().endsWith(".gz") ) {
-            in = new GZIPInputStream(in);
+    private PairHMM getHmm() {
+        switch (algorithm) {
+            case "logless": return new LoglessPairHMM();
+            case "array_logless": return new ArrayLoglessPairHMM();
+            case "banded_w10_mle20": return new BandedLoglessPairHMM(10, 1e-20);
+            case "banded_w5_mle20":  return new BandedLoglessPairHMM(5, 1e-20);
+            case "banded_w5_mle10":  return new BandedLoglessPairHMM(5, 1e-10);
+            default: throw new IllegalStateException("Unexpected algorithm " + algorithm);
         }
+    }
 
-        String[] nextEntry;
-        String[] thisEntry = null;
-        for ( final String line : new XReadLines(in) ) {
-            // peak at the next entry (to get the haplotype bases)
-            nextEntry = line.split(" ");
-            // process the current entry
-            if (thisEntry != null) {
-                final PairHMMTestData info = new PairHMMTestData(
-                        thisEntry[0], nextEntry[0], thisEntry[1],
-                        SAMUtils.fastqToPhred(thisEntry[2]),
-                        SAMUtils.fastqToPhred(thisEntry[3]),
-                        SAMUtils.fastqToPhred(thisEntry[4]),
-                        SAMUtils.fastqToPhred(thisEntry[5]),
-                        Double.parseDouble(thisEntry[6]));
 
-                if ( ! results.containsKey(info.read) )  {
-                    results.put(info.read, new LinkedList<PairHMMTestData>());
-                }
-                final List<PairHMMTestData> byHap = results.get(info.read);
-                byHap.add(info);
+
+    public double timePairHMM(int rep) {
+//        int counter = 0;
+        double result = 0;
+        final PairHMM hmm = getHmm();
+
+        final List<List<PairHMMTestData>> data = selectWorkingData();
+
+        for ( int i = 0; i < rep; i++ ) {
+            for ( final List<PairHMMTestData> testData : data ) {
+                result += PairHMMTestData.runHMMs(hmm, testData, ! allowCaching);
+//                counter += testData.size();
             }
-            // update the current entry
-            thisEntry = nextEntry;
         }
-        // process the final entry
-        final PairHMMTestData info = new PairHMMTestData(
-                thisEntry[0], null, thisEntry[1],
-                SAMUtils.fastqToPhred(thisEntry[2]),
-                SAMUtils.fastqToPhred(thisEntry[3]),
-                SAMUtils.fastqToPhred(thisEntry[4]),
-                SAMUtils.fastqToPhred(thisEntry[5]),
-                Double.parseDouble(thisEntry[6]));
-
-        if ( ! results.containsKey(info.read) )  {
-            results.put(info.read, new LinkedList<PairHMMTestData>());
+        System.out.printf("Computations performed: %d\n",counter/rep);
+        if ( hmm instanceof BandedLoglessPairHMM ) {
+            final BandedLoglessPairHMM banded = (BandedLoglessPairHMM)hmm;
+            System.out.printf("Banded n cells possible  : %d%n", banded.nCellsOverall);
+            System.out.printf("Banded n cells evaluated : %d%n", banded.nCellsEvaluated);
         }
-        final List<PairHMMTestData> byHap = results.get(info.read);
-        byHap.add(info);
-
-        return results;
-    }
-
-    public String getRead() {
-        return read;
+        return result;
     }
 }

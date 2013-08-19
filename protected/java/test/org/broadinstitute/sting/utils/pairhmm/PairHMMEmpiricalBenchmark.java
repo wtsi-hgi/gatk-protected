@@ -48,70 +48,68 @@ package org.broadinstitute.sting.utils.pairhmm;
 
 import com.google.caliper.Param;
 import com.google.caliper.SimpleBenchmark;
-import net.sf.samtools.Cigar;
-import net.sf.samtools.CigarElement;
-import net.sf.samtools.TextCigarCodec;
-import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 
-import java.util.*;
+import java.io.File;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.lang.Math;
 
 /**
- * Caliper microbenchmark for synthetic test data for PairHMM
+ * Caliper microbenchmark for empirical test data for PairHMM
  */
-public class PairHMMSyntheticBenchmark extends SimpleBenchmark {
-    @Param({"logless", "banded_w5_mle10", "banded_w5_mle20"})
-//    @Param({"logless", "banded_w10_mle20", "banded_w5_mle20", "banded_w5_mle10"})
+public class PairHMMEmpiricalBenchmark extends SimpleBenchmark {
+    @Param ({"array_logless", "logless"})
     String algorithm;
 
-//    @Param({"40", "100", "200", "300", "500"})
-    @Param({"40", "300"})
-//    @Param({"300"})
-    int refLength;
+    @Param({"likelihoods_NA12878_HiSeqWGS_chr20_1mb.txt"})
+    String likelihoodsFile;
 
-//    @Param({"200"})
-    @Param({"40", "101", "200"})
-//    @Param({"40", "100", "200", "300", "500"})
-    int readLength;
+    @Param({"1000","10000","70000"})
+    int records;
 
+    PairHMM hmm =null;
+
+    List<PairHMMTestData> empiricalData = new LinkedList<>();
+    List<PairHMMTestData> workingData = new LinkedList<>();
+
+
+    @Override
+    protected void setUp() throws Exception {
+        empiricalData = PairHMMTestData.readLikelihoodsInOrder(new File(likelihoodsFile));
+        records = Math.min(records, empiricalData.size());
+        workingData = empiricalData.subList(0,records);
+
+        int maxReadLength = PairHMMTestData.calcMaxReadLen(workingData);
+        int maxHaplotypeLength = PairHMMTestData.calcMaxHaplotypeLen(workingData);
+
+        hmm = getHmm();
+        hmm.initialize(maxReadLength,maxHaplotypeLength);
+    }
 
     private PairHMM getHmm() {
         switch (algorithm) {
             case "logless": return new LoglessPairHMM();
-            case "banded_w10_mle20": return new BandedLoglessPairHMM(10, 1e-20);
-            case "banded_w5_mle20":  return new BandedLoglessPairHMM(5, 1e-20);
-            case "banded_w5_mle10":  return new BandedLoglessPairHMM(5, 1e-10);
+            case "array_logless": return new ArrayLoglessPairHMM();
             default: throw new IllegalStateException("Unexpected algorithm " + algorithm);
         }
     }
 
-    private String generateSeq(final int len) {
-        final List<String> root = Arrays.asList("A", "C", "G", "T");
+    public double timeHMM(int rep){
+        double result = 0;
+        for (int i = 0; i < rep; i++) {
+            for (final PairHMMTestData datum : workingData){
+                result += hmm.computeReadLikelihoodGivenHaplotypeLog10(datum.ref.getBytes(),
+                                                                       datum.getRead().getBytes(),
+                                                                       datum.baseQuals,
+                                                                       datum.insQuals,
+                                                                       datum.delQuals,
+                                                                       datum.gcp,
+                                                                       datum.newRead,
+                                                                       datum.nextRef.getBytes());
 
-        String seq = "";
-        for ( int i = 0; true; i++ ) {
-            final String base = root.get(i % root.size());
-            final int copies = i / root.size() + 1;
-            seq += Utils.dupString(base, copies);
-            if ( seq.length() >= len )
-                return seq.substring(0, len);
+            }
         }
-    }
-
-    public void timePairHMM(int rep) {
-        final PairHMM hmm = getHmm();
-        final String ref = generateSeq(refLength);
-        final String nextRef = generateSeq(refLength);
-        final String read = generateSeq(readLength);
-        final PairHMMTestData testData = new PairHMMTestData(ref, nextRef, read, (byte)30);
-        System.out.println(testData.toString());
-        for ( int i = 0; i < rep; i++ ) {
-            testData.runHMM(hmm);
-        }
-        if ( hmm instanceof BandedLoglessPairHMM ) {
-            final BandedLoglessPairHMM banded = (BandedLoglessPairHMM)hmm;
-            System.out.printf("Banded n cells possible  : %d%n", banded.nCellsOverall);
-            System.out.printf("Banded n cells evaluated : %d%n", banded.nCellsEvaluated);
-        }
+        return result;
     }
 }
