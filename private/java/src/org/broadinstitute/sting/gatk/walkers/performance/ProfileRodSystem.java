@@ -52,7 +52,7 @@ import org.broad.tribble.FeatureReader;
 import org.broad.tribble.Tribble;
 import org.broad.tribble.index.Index;
 import org.broad.tribble.index.IndexFactory;
-import org.broad.tribble.readers.AsciiLineReader;
+import org.broad.tribble.readers.LineIterator;
 import org.broad.tribble.readers.PositionalBufferedStream;
 import org.broad.tribble.util.ParsingUtils;
 import org.broadinstitute.sting.commandline.Argument;
@@ -67,16 +67,16 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.refdata.tracks.RMDTrackBuilder;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.variant.bcf2.BCF2Codec;
-import org.broadinstitute.variant.vcf.VCFCodec;
-import org.broadinstitute.variant.vcf.VCFConstants;
-import org.broadinstitute.variant.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.variant.bcf2.BCF2Codec;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.broadinstitute.variant.variantcontext.writer.Options;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriterFactory;
+import org.broadinstitute.variant.vcf.VCFCodec;
+import org.broadinstitute.variant.vcf.VCFConstants;
+import org.broadinstitute.variant.vcf.VCFHeader;
 
 import java.io.*;
 import java.util.*;
@@ -252,7 +252,7 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
         logger.info("Reading BCF2 from " + source);
 
         BCF2Codec codec = new BCF2Codec();
-        AbstractFeatureReader<VariantContext> featureReader = AbstractFeatureReader.getFeatureReader(source.getAbsolutePath(), codec, false);
+        AbstractFeatureReader<VariantContext, PositionalBufferedStream> featureReader = AbstractFeatureReader.getFeatureReader(source.getAbsolutePath(), codec, false);
 
         int counter = 0;
         featureReader.getHeader();
@@ -284,13 +284,13 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
                 int counter = 0;
                 VCFCodec codec = new VCFCodec();
                 String[] parts = new String[100000];
-                AsciiLineReader lineReader = new AsciiLineReader(new PositionalBufferedStream(s));
+                final LineIterator vcfSource = codec.makeSourceFromStream(new PositionalBufferedStream(s));
 
                 if ( mode == ReadMode.DECODE_LOC || mode == ReadMode.DECODE )
-                    codec.readHeader(lineReader);
+                    codec.readHeader(vcfSource);
 
                 while (counter++ < MAX_RECORDS || MAX_RECORDS == -1) {
-                    String line = lineReader.readLine();
+                    String line = vcfSource.next();
                     if ( line == null )
                         break;
                     else if ( mode == ReadMode.BY_PARTS ) {

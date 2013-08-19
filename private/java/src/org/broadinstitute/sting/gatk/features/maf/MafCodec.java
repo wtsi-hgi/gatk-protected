@@ -49,6 +49,7 @@ package org.broadinstitute.sting.gatk.features.maf;
 import org.apache.log4j.Logger;
 import org.broad.tribble.AsciiFeatureCodec;
 import org.broad.tribble.Feature;
+import org.broad.tribble.readers.LineIterator;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 
@@ -135,6 +136,12 @@ public class MafCodec extends AsciiFeatureCodec<MafFeature> {
      */
     public MafFeature decode(String line) {
         return reallyDecode(line,true);
+    }
+
+    @Override
+    public Object readActualHeader(LineIterator lineIterator) {
+        // No header for this format
+        return null;
     }
 
     /** Decodes a maf line. If <code>extra</code> is false, will decode only location and return;
