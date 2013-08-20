@@ -46,8 +46,11 @@
 
 package org.broadinstitute.sting.utils.codecs;
 
-import org.broad.tribble.*;
+import org.broad.tribble.AsciiFeatureCodec;
+import org.broad.tribble.NameAwareCodec;
+import org.broad.tribble.TribbleException;
 import org.broad.tribble.exception.CodecLineParsingException;
+import org.broad.tribble.readers.LineIterator;
 import org.broadinstitute.variant.variantcontext.*;
 
 import java.util.*;
@@ -156,6 +159,12 @@ public class SoapSNPCodec extends AsciiFeatureCodec<VariantContext> implements N
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             throw new TribbleException("Unable to parse line " + line,e);
         }
+    }
+
+    @Override
+    public Object readActualHeader(LineIterator lineIterator) {
+        // No header for this format
+        return null;
     }
 
     private static class AlleleAndGenotype {
