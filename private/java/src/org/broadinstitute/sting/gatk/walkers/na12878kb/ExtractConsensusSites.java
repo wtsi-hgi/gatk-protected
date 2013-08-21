@@ -127,7 +127,7 @@ public class ExtractConsensusSites extends NA12878DBWalker {
     @Override
     public void onTraversalDone(Integer result) {
         int nWritten = 0;
-        for ( final MongoVariantContext mvc : db.getConsensusSites(makeSiteSelector())) {
+        for ( final MongoVariantContext mvc : db.getConsensusSites(makeSiteManager(false))) {
             final VariantContext vc = mvc.getVariantContext();
             if ( shouldBeReviewed(mvc, vc) ) {
                 out.add(vc);

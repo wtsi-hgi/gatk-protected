@@ -68,7 +68,7 @@ class LargeScaleValidationPerPoolAnalysis extends QScript {
   var referenceSample: String = "NA12878"
 
   @Argument(doc="base output filename", shortName="runnName", required=false)
-  var runName: String = "/humgen/gsa-hpprojects/dev/validationExperiments/largeScaleValidation/finalPaperData/calls/finalRun"
+  var runName: String = "/humgen/gsa-hpprojects/dev/validationExperiments/largeScaleValidation/finalPaperData/calls/finalRunGGANew"
 
   @Argument(doc="scatterCount", shortName="scatterCount", required=false)
   var variantCallerScatterCount: Int = 1
@@ -99,7 +99,7 @@ class LargeScaleValidationPerPoolAnalysis extends QScript {
     this.reference_sequence = qscript.reference
     this.memoryLimit = 2
     this.jobTempDir = qscript.tmpDir
-    this.jobQueue = "gsa"
+    this.jobQueue = "hour"
   }
 
   case class SelectVariantsAtPool(pool:Int, inputFile: File, intervalss: File, sampleList: Seq[String]) extends SelectVariants with CommandLineGATKArgs {
@@ -217,7 +217,7 @@ class LargeScaleValidationPerPoolAnalysis extends QScript {
         val selOmniToTable = new VTot(selOmni.o )
         add(selOmniToTable)
 
-        for (dataSet <- List("LOFSNP","LOFINDEL","exomeChip","omniPoly")) {
+        for (dataSet <- List("LOFSNP","LOFINDEL","exomeChip","omniPoly","millsPoly","omniMono","afSNPs","afIndels","unifSNPs","unifIndels")) {
           // Step 2: select genotypes from input file, for all datasets in which we have genotype data:
           // Step 1: select corresponding pool results from data
           var inputPoolFile = new File(runName+"."+dataSet + ".withRef.filtered.annotated.vcf")
@@ -300,7 +300,7 @@ class LargeScaleValidationPerPoolAnalysis extends QScript {
           poolCall.ploidy = qscript.ploidy
           poolCall.out = qscript.outputDir + "/poolData"+ poolStr +"/ALL.wgs.PoolCaller_at_OmniInPool"+ poolStr +".Singletons_sample_"+sample +
           "."+qscript.runName+".snp.genotypes.vcf"
-          poolCall.refsample = "NA12878"
+          poolCall.refsample = "gsa878"
           poolCall.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
           poolCall.gt_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
           poolCall.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES

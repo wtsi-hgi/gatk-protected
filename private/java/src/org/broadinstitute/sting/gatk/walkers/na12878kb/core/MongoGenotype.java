@@ -185,7 +185,7 @@ public class MongoGenotype extends ReflectionDBObject {
     }
 
     public boolean isMonomorphic() {
-        return allele1 == 0 && allele2 == 0;
+        return allele1 == 0 && allele2 == 0 && ! isDiscordant();
     }
 
     public boolean isDiscordant() {

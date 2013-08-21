@@ -53,7 +53,7 @@ import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878KnowledgeBase;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteSelector;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteManager;
 
 public abstract class NA12878DBWalker extends RodWalker<Integer, Integer> {
     @ArgumentCollection
@@ -84,16 +84,24 @@ public abstract class NA12878DBWalker extends RodWalker<Integer, Integer> {
     @Override
     public void onTraversalDone(Integer result) {
         db.close();
-        //db.updateConsensus(makeSiteSelector());
     }
 
-    public SiteSelector makeSiteSelector() {
-        final SiteSelector select = new SiteSelector(getToolkit().getGenomeLocParser());
+    /**
+     * @see #makeSiteManager(boolean) with allowUnorderedIterationOverAllSites set to true
+     */
+    public SiteManager makeSiteManager() {
+        return makeSiteManager(true);
+    }
 
-        if ( getToolkit().getIntervals() != null ) {
-            select.addIntervals(getToolkit().getIntervals());
-        }
-
-        return select;
+    /**
+     * Return a SiteManager object that ensures records are returned in contig order defined by the dictionary.
+     *
+     * @param allowUnorderedIterationOverAllSites  if true then we iterate over all records with no enforced ordering
+     * @return non-null SiteManager object
+     */
+    public SiteManager makeSiteManager(final boolean allowUnorderedIterationOverAllSites) {
+        if ( allowUnorderedIterationOverAllSites )
+            return new SiteManager(getToolkit().getGenomeLocParser());
+        return new SiteManager(getToolkit().getGenomeLocParser(), getToolkit().getIntervals(), getToolkit().getMasterSequenceDictionary());
     }
 }

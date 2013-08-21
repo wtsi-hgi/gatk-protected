@@ -50,36 +50,40 @@ import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 
 class SGHaplotypeCaller extends QScript {
+  @Argument(shortName = "I", doc="bam file", required = true)
   val bam: File = new File("/humgen/gsa-hpprojects/dev/carneiro/agbt13/sandbox/calls/NA12878-2x250.bwasw.chr20.dedup.clean.bam")
-  val bqsr: File = new File("/humgen/gsa-hpprojects/dev/carneiro/agbt13/sandbox/calls/NA12878-2x250.bwasw.chr20.grp")
 
-  @Argument(shortName = "outdir", doc="outdir", required=false)
-  val outdir: String = "./"
+  @Argument(shortName = "o", doc="vcf file", required = true)
+  val out: File = null
+
+  @Argument(shortName = "R", doc = "ref", required = false)
+  val ref: File = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/human_g1k_v37.fasta"
 
   @Argument(shortName = "scatterCount", doc="scatterCount", required=false)
   val scatterCount: Int = 10
 
   @Argument(shortName = "L", doc="vcfs", required=false)
-  val myIntervals: String = "20:10,000,000-11,000,000"
+  val myIntervals: String = null
+
+  @Argument(shortName = "il", doc="interval list", required = false)
+  val intervalList: Seq[File] = null
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     this.logging_level = "INFO"
-    this.reference_sequence = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/human_g1k_v37.fasta"
+    this.reference_sequence = ref
+    this.memoryLimit = 8
     if ( myIntervals != null )
       this.intervalsString :+= myIntervals
-    this.memoryLimit = 8
+    if ( intervalList != null )
+      this.intervals = intervalList
   }
 
   def script() {
-    for ( includeBQSR <- List(true, false) ) {
-      val hc = new HaplotypeCaller with UNIVERSAL_GATK_ARGS
-      hc.input_file :+= bam
-      if ( includeBQSR )
-        hc.BQSR = bqsr
-      hc.out = swapExt(outdir, bam, ".bam", (if ( includeBQSR ) ".bqsr" else "") + ".2x250.vcf")
-      hc.scatterCount = scatterCount
-      //hc.stand_call_conf = Option(100)
-      add(hc)
-    }
+    val hc = new HaplotypeCaller with UNIVERSAL_GATK_ARGS
+    hc.input_file :+= bam
+    hc.out = out
+    hc.scatterCount = scatterCount
+    hc.nct = 4
+    add(hc)
   }
 }

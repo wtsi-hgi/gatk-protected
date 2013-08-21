@@ -62,6 +62,20 @@ import java.util.*;
 public class NA12878KnowledgeBase {
     private final static Logger logger = Logger.getLogger(NA12878KnowledgeBase.class);
 
+    // standard confidences to use for various types of input callsets
+    public enum InputCallsetConfidence {
+        REVIEW (0.99),
+        TRUSTED_CALLSET (0.95),
+        UNTRUSTED_CALLSET (0.75),
+        UNKNOWN (0.0);
+
+        public double confidence;
+
+        private InputCallsetConfidence(final double confidence) {
+            this.confidence = confidence;
+        }
+    }
+
     protected DBCollection sites;
     protected DBCollection callSets;
     protected DBCollection consensusSites;
@@ -138,7 +152,7 @@ public class NA12878KnowledgeBase {
     }
 
     public List<CallSet> getCallSets() {
-        final List<CallSet> callsets = new LinkedList<CallSet>();
+        final List<CallSet> callsets = new LinkedList<>();
 
         for ( final DBObject obj : callSets.find() ) {
             callsets.add((CallSet)obj);
@@ -161,16 +175,16 @@ public class NA12878KnowledgeBase {
     }
 
     public List<WriteResult> removeCall(final MongoVariantContext mvc){
-        Set<String> matchKeys = new HashSet<String>(mvc.keySet());
+        final Set<String> matchKeys = new HashSet<>(mvc.keySet());
         matchKeys.remove("Date");
         matchKeys.remove("_id");
-        DBObject matchObject = new BasicDBObject();
-        for(String key: matchKeys){
+        final DBObject matchObject = new BasicDBObject();
+        for(final String key: matchKeys){
             matchObject.put(key, mvc.get(key));
         }
-        DBCursor cursor = sites.find(matchObject);
-        List<WriteResult> results = new ArrayList<WriteResult>(cursor.size());
-        for(DBObject next: cursor){
+        final DBCursor cursor = sites.find(matchObject);
+        final List<WriteResult> results = new ArrayList<>(cursor.size());
+        for(final DBObject next: cursor){
             results.add(sites.remove(next));
         }
         return results;
@@ -203,46 +217,44 @@ public class NA12878KnowledgeBase {
     }
 
     /**
-     * Get all of the calls in the db
-     * @return
+     * Get all of the calls in the db in any order
+     * @return iterator over MVCs
      */
-    public SiteIterator<MongoVariantContext> getCalls() {
-        return getCalls(new SiteSelector(parser));
+    protected SiteIterator<MongoVariantContext> getCalls() {
+        return getCalls(new SiteManager(parser));
     }
 
     /**
      * Get the sites, if any, that overlap the interval specified as the loc
      *
-     * @param criteria
-     * @return
+     * @param manager the site manager
+     * @return iterator over MVCs
      */
-    public SiteIterator<MongoVariantContext> getCalls(final SiteSelector criteria) {
+    public SiteIterator<MongoVariantContext> getCalls(final SiteManager manager) {
         final DBObject sortOrder = sitesOrder();
-        final DBCursor cursor = sites.find(criteria.toQuery()).sort(sortOrder);
-        final SiteIterator<MongoVariantContext> it = new SiteIterator<MongoVariantContext>(parser, cursor);
-        it.setErrorHandler(new InvalidRecordsRemove<MongoVariantContext>(sites));
+        final SiteIterator<MongoVariantContext> it = manager.getIterator(sites, sortOrder);
+        it.setErrorHandler(new InvalidRecordsRemove<>(sites));
         return it;
     }
 
     /**
      * Get the consensus sites, if any, that overlap the interval specified as the loc
      *
-     * @param criteria a SiteSelector to select the consensus sites we are interested in
-     * @return
+     * @param manager the site manager
+     * @return non-null iterator
      */
-    public SiteIterator<MongoVariantContext> getConsensusSites(final SiteSelector criteria) {
-        final DBCursor cursor = consensusSites.find(criteria.toQuery()).sort(sitesOrder());
-        return new SiteIterator<MongoVariantContext>(parser, cursor);
+    public SiteIterator<MongoVariantContext> getConsensusSites(final SiteManager manager) {
+        return manager.getIterator(consensusSites, sitesOrder());
     }
 
-    public ConsensusSummarizer updateConsensus(final SiteSelector selector, final boolean tryToRemove) {
-        return updateConsensus(selector, Priority.DEBUG, tryToRemove);
+    public ConsensusSummarizer updateConsensus(final SiteManager manager, final boolean tryToRemove) {
+        return updateConsensus(manager, Priority.DEBUG, tryToRemove);
     }
 
-    public ConsensusSummarizer updateConsensus(final SiteSelector selector, final Priority logPriority, final boolean tryToRemove) {
+    public ConsensusSummarizer updateConsensus(final SiteManager manager, final Priority logPriority, final boolean tryToRemove) {
         final ConsensusSummarizer summary = new ConsensusSummarizer();
 
-        final SiteIterator<MongoVariantContext> siteIterator = getCalls(selector);
+        final SiteIterator<MongoVariantContext> siteIterator = getCalls(manager);
         while ( siteIterator.hasNext() ) {
             final Collection<MongoVariantContext> callsAtSite = siteIterator.getNextEquivalents();
             final MongoVariantContext consensus = new ConsensusMaker().makeConsensus(callsAtSite);
@@ -261,6 +273,7 @@ public class NA12878KnowledgeBase {
      * present, then site is simply inserted
      *
      * @param site a non-null site to update in the consensus
+     * @param tryToRemove if true, we will first try to remove the site from the consensus (possibly an expensive oepration)
      * @return the result of the insert operation on the DB
      */
     private WriteResult updateConsensusInDB(final MongoVariantContext site, final boolean tryToRemove) {
@@ -272,7 +285,7 @@ public class NA12878KnowledgeBase {
     }
 
     private static DBObject consensusSiteQuery(final MongoVariantContext site) {
-        final List<DBObject> conditions = new LinkedList<DBObject>();
+        final List<DBObject> conditions = new LinkedList<>();
         conditions.add(new BasicDBObject("Chr", site.getChr()));
         conditions.add(new BasicDBObject("Start", site.getStart()));
         conditions.add(new BasicDBObject("Stop", site.getStop()));
@@ -288,25 +301,25 @@ public class NA12878KnowledgeBase {
      * from the sites collection to the VariantContextWriter outputStream
      *
      * @param writer where the VariantContexts should be written
-     * @param selector the root SiteSelector that lets us know where we should be getting our records from
+     * @param manager the root SiteManager that lets us know where we should be getting our records from
      * @return the number of reviews written to disk
      */
-    public int writeReviews(final VariantContextWriter writer, final SiteSelector selector) {
-        return writeSelectedSites(writer, selector.onlyReviewed());
+    public int writeReviews(final VariantContextWriter writer, final SiteManager manager) {
+        return writeSelectedSites(writer, manager.onlyReviewed());
     }
 
     /**
      * Write all selected sites from the knowledge base to the writer
      *
-     * @param writer
-     * @param selector
-     * @return
+     * @param writer     the VCF writer
+     * @param manager    the site manager
+     * @return number of records that were written
      */
-    public int writeSelectedSites(final VariantContextWriter writer, final SiteSelector selector) {
+    public int writeSelectedSites(final VariantContextWriter writer, final SiteManager manager) {
         writer.writeHeader(makeStandardVCFHeader());
 
         int counter = 0;
-        for ( final MongoVariantContext vc : getCalls(selector)) {
+        for ( final MongoVariantContext vc : getCalls(manager)) {
             writer.add(vc.getVariantContext());
             counter++;
         }
@@ -318,7 +331,7 @@ public class NA12878KnowledgeBase {
      * @return a VCF header containing all of the standard NA12878 knowledge base metadata (INFO and FORMAT) fields
      */
     public VCFHeader makeStandardVCFHeader() {
-        final Set<VCFHeaderLine> metadata = new HashSet<VCFHeaderLine>();
+        final Set<VCFHeaderLine> metadata = new HashSet<>();
 
         for ( final VCFHeaderLine line : MongoVariantContext.reviewHeaderLines() )
             metadata.add(line);
@@ -331,7 +344,6 @@ public class NA12878KnowledgeBase {
 
     @Override
     public String toString() {
-        String msg = String.format("NA12878KnowledgeBase{%s}", dblocator);
-        return msg;
+        return String.format("NA12878KnowledgeBase{%s}", dblocator);
     }
 }

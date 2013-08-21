@@ -129,11 +129,16 @@ public class NewlyAddedSitesUnitTest extends NA12878KBUnitTestBase {
                 Arrays.asList(MongoVariantContext.create("z", "20", 4, "A", "C", false), MongoVariantContext.create("z", "20", 5, "A", "C", false)),
                 4});
 
+        tests.add(new Object[]{
+                Arrays.asList(MongoVariantContext.create("y", "20", 3, "A", "C", false), MongoVariantContext.create("y", "19", 3, "A", "C", false), MongoVariantContext.create("y", "20", 5, "A", "C", false)),
+                Arrays.asList(MongoVariantContext.create("z", "20", 3, "A", "C", false), MongoVariantContext.create("z", "19", 3, "A", "C", false)),
+                4});
+
         return tests.toArray(new Object[][]{});
     }
 
     @Test(enabled = true, dataProvider = "NewlyAddedTest")
-    public void testQueryForRecords(final List<MongoVariantContext> befores, final List<MongoVariantContext> newlyAdded, int expecteByLocation) {
+    public void testQueryForRecords(final List<MongoVariantContext> befores, final List<MongoVariantContext> newlyAdded, int expectedByLocation) {
         db.addCalls(befores);
 
         final NewlyAddedSites newGetter = new NewlyAddedSites(db);
@@ -143,14 +148,26 @@ public class NewlyAddedSitesUnitTest extends NA12878KBUnitTestBase {
         final DBCursor cursor = newGetter.getNewlyAddedRecords();
         Assert.assertEquals(cursor.size(), newlyAdded.size());
 
-        final SiteIterator<MongoVariantContext> it = new SiteIterator<MongoVariantContext>(parser, cursor);
+        final SiteIterator<MongoVariantContext> it = new OneChunkIterator<>(parser, cursor);
         for ( final MongoVariantContext mvc : it ) {
             Assert.assertTrue(newlyAdded.contains(mvc));
         }
     }
 
+    @Test(enabled = true)
+    public void testHandlingBadRecords() {
+        db.addCall(MongoVariantContext.create("y", "20", 4, "A", "C", false));   // good record
+
+        final NewlyAddedSites newGetter = new NewlyAddedSites(db);
+
+        db.addCall(MongoVariantContext.create("y", "x", 4, "A", "C", false));    // bad record
+
+        // this will fail when we try to parse the bad record, but let's make sure we handle it internally and don't exception out
+        newGetter.getNewlyAddedLocations(parser, 100);
+    }
+
     @Test(enabled = true, dataProvider = "NewlyAddedTest", dependsOnMethods =  "testQueryForRecords")
-    public void testQueryForLocations(final List<MongoVariantContext> befores, final List<MongoVariantContext> newlyAdded, int expecteByLocation) {
+    public void testQueryForLocations(final List<MongoVariantContext> befores, final List<MongoVariantContext> newlyAdded, int expectedByLocation) {
 //        logger.warn("testQueryForLocations " + befores + " " + newlyAdded);
         db.addCalls(befores);
 
@@ -159,17 +176,17 @@ public class NewlyAddedSitesUnitTest extends NA12878KBUnitTestBase {
 
         db.addCalls(newlyAdded);
 
-        final SiteSelector selector = newGetter.getNewlyAddedLocations(parser, maxToItemize); // TODO -- fixme
+        final SiteManager manager = newGetter.getNewlyAddedLocations(parser, maxToItemize); // TODO -- fixme
 
         if ( newlyAdded.isEmpty() ) {
-            Assert.assertNull(selector);
+            Assert.assertNull(manager);
         } else {
-            Assert.assertNotNull(selector);
-            final SiteIterator<MongoVariantContext> it = db.getCalls(selector);
+            Assert.assertNotNull(manager);
+            final SiteIterator<MongoVariantContext> it = db.getCalls(manager);
             final List<MongoVariantContext> l = it.toList();
 
-            if ( expecteByLocation != -1 )
-                Assert.assertEquals(l.size(), expecteByLocation);
+            if ( expectedByLocation != -1 )
+                Assert.assertEquals(l.size(), expectedByLocation);
 
             final List<MongoVariantContext> allAdded = new LinkedList<MongoVariantContext>();
             allAdded.addAll(befores);
@@ -211,7 +228,7 @@ public class NewlyAddedSitesUnitTest extends NA12878KBUnitTestBase {
         return tests.toArray(new Object[][]{});
     }
 
-    @Test(dataProvider = "NewlyAddedTestManyValues")
+    @Test(enabled = true, dataProvider = "NewlyAddedTestManyValues")
     public void testQueryForLocationsManyResults(final List<MongoVariantContext> toAdd, final int maxQueries) {
         final int n = toAdd.size();
         final List<MongoVariantContext> pre = toAdd.subList(0, n / 2);
@@ -220,9 +237,9 @@ public class NewlyAddedSitesUnitTest extends NA12878KBUnitTestBase {
         final NewlyAddedSites newGetter = new NewlyAddedSites(db);
         db.addCalls(post);
 
-        final SiteSelector selector = newGetter.getNewlyAddedLocations(parser, maxQueries);
+        final SiteManager manager = newGetter.getNewlyAddedLocations(parser, maxQueries);
 
-        final SiteIterator<MongoVariantContext> it = db.getCalls(selector);
+        final SiteIterator<MongoVariantContext> it = db.getCalls(manager);
         final List<MongoVariantContext> l = it.toList();
 
         if ( post.size() > maxQueries && maxQueries != -1 ) {

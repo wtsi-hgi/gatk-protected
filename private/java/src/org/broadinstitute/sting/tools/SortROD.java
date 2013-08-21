@@ -55,15 +55,15 @@ import org.broad.tribble.Feature;
 import org.broad.tribble.bed.BEDCodec;
 import org.broad.tribble.dbsnp.OldDbSNPCodec;
 import org.broad.tribble.gelitext.GeliTextCodec;
-import org.broad.tribble.readers.AsciiLineReader;
+import org.broad.tribble.readers.LineIterator;
 import org.broad.tribble.readers.PositionalBufferedStream;
 import org.broadinstitute.sting.gatk.features.maf.MafCodec;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.codecs.CGVarCodec;
 import org.broadinstitute.sting.utils.codecs.SoapSNPCodec;
-import org.broadinstitute.variant.vcf.VCFCodec;
 import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.variant.vcf.VCFCodec;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -90,7 +90,7 @@ public class SortROD {
      *
      * @param args a single parameter, the file name to load
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         BasicConfigurator.configure();
         logger.setLevel(org.apache.log4j.Level.INFO);
         // check yourself before you wreck yourself - we require one arg, the input file
@@ -138,16 +138,16 @@ public class SortROD {
         AsciiFeatureCodec featureCodec = getFeatureCodec(featureFile,rodType);
         ReferenceSequenceFile ref = ReferenceSequenceFileFactory.getReferenceSequenceFile(refFile);
 
-        AsciiLineReader reader = null;
+        LineIterator source = null;
         try {
-            reader = new AsciiLineReader(new PositionalBufferedStream(new FileInputStream(featureFile)));
+            source = featureCodec.makeSourceFromStream(new PositionalBufferedStream(new FileInputStream(featureFile)));
         } catch (FileNotFoundException e) {
             System.err.println("File "+featureFile.getAbsolutePath()+" doesn't exist");
             System.exit(1);
         }
 
         // read the headers
-        featureCodec.readHeader(reader);
+        featureCodec.readHeader(source);
 
         GenomeLocParser parser = new GenomeLocParser(ref.getSequenceDictionary());
 
@@ -157,7 +157,7 @@ public class SortROD {
 
         int nLines = 0;
         try {
-            String currentLine = reader.readLine();
+            String currentLine = source.next();
             while ( currentLine != null ) {
                 nLines++;
 
@@ -165,7 +165,7 @@ public class SortROD {
                 //if ( featureCodec.decodeLoc(currentLine) != null )
                 sorter.add(currentLine);
 
-                currentLine = reader.readLine();
+                currentLine = source.next();
             }
             
             for ( String s : sorter ) {
@@ -332,8 +332,14 @@ public class SortROD {
          *                            being compared by this comparator.
          */
         public int compare(String o1, String o2) {
-            Feature f1 = codec.decodeLoc(o1);
-            Feature f2 = codec.decodeLoc(o2);
+            Feature f1 = null, f2 = null;
+            try {
+                f1 = codec.decodeLoc(o1);
+                f2 = codec.decodeLoc(o2);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            
             if ( f1 == null ) {
                 if ( f2 == null ) return 0;
                 else return -1; // null is less than non-null, this will hopefully push header strings up (but commented out lines will move up too!)

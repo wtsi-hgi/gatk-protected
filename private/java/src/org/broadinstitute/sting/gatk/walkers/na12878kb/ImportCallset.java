@@ -97,6 +97,17 @@ public class ImportCallset extends NA12878DBWalker {
     @Input(fullName="variant", shortName = "V", doc="Input VCF file", required=false)
     public RodBinding<VariantContext> variants;
 
+
+    // TODO -- Eventually we want to allow arbitrary confidences for a given call set, but until we are happy with the way
+    // TODO --  everything is working we will constrain the possibilities to trusted and untrusted (reviews are handled by ImportReviews).
+
+    /**
+     * Untrusted callsets are assigned lower confidences than trusted ones.
+     * By default, all input callsets are assumed to be trusted.
+     */
+    @Argument(fullName="isUntrustedCallset", shortName = "untrusted", doc="If true, treat this callset as having a low trust factor", required=false)
+    public boolean isUntrusted = false;
+
     private CallSet callSet = null;
 
     @Override
@@ -254,7 +265,8 @@ public class ImportCallset extends NA12878DBWalker {
             type = assumedCallTruth;
         }
 
-        final MongoVariantContext mvc = MongoVariantContext.create(callSet.getName(), vc, type, gt);
+        final double confidence = isUntrusted ? NA12878KnowledgeBase.InputCallsetConfidence.UNTRUSTED_CALLSET.confidence : NA12878KnowledgeBase.InputCallsetConfidence.TRUSTED_CALLSET.confidence;
+        final MongoVariantContext mvc = MongoVariantContext.create(callSet.getName(), vc, type, gt, confidence);
         logger.info("adding call " + mvc);
         db.addCall(mvc);
     }

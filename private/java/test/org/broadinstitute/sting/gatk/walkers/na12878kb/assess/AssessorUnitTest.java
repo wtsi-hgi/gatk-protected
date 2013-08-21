@@ -48,6 +48,7 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
 import net.sf.samtools.SAMFileReader;
 import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoGenotype;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
 import org.broadinstitute.sting.utils.text.XReadLines;
@@ -171,7 +172,7 @@ public class AssessorUnitTest extends BaseTest {
     @Test(dataProvider = "AssessSiteData")
     public void testAssessSite(final List<VariantContext> fromVCF, final List<MongoVariantContext> fromKB, Assessment expectedSNPs, Assessment expectedIndels) {
         final Assessor assessor = new Assessor("test");
-        assessor.accessSite(fromVCF, fromKB, false);
+        assessor.assessSite(fromVCF, fromKB, false);
         Assert.assertEquals(assessor.getSNPAssessment(), expectedSNPs);
         Assert.assertEquals(assessor.getIndelAssessment(), expectedIndels);
     }
@@ -197,7 +198,7 @@ public class AssessorUnitTest extends BaseTest {
         final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
 
         final Assessor assessor = new Assessor("test");
-        assessor.accessSite(Arrays.asList(b.make()), Arrays.asList(truthMVC), false);
+        assessor.assessSite(Arrays.asList(b.make()), Arrays.asList(truthMVC), false);
         Assert.assertEquals(assessor.getIndelAssessment(), oneTP);
     }
 
@@ -236,17 +237,30 @@ public class AssessorUnitTest extends BaseTest {
     @Test(dataProvider = "FilteringSiteData")
     public void testFilteringSites(final VariantContext vc, final MongoVariantContext mvc, final AssessmentType expectedType) {
         final Assessor assessor = new Assessor("test");
-        assessor.accessSite(Collections.singletonList(vc), mvc == null ? Collections.<MongoVariantContext>emptyList() : Collections.singletonList(mvc), false);
+        assessor.assessSite(Collections.singletonList(vc), mvc == null ? Collections.<MongoVariantContext>emptyList() : Collections.singletonList(mvc), false);
         final Assessment actual = vc.isSNP() ? assessor.getSNPAssessment() : assessor.getIndelAssessment();
         final Assessment expected = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, expectedType);
         Assert.assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testAssessSiteWithDiscordantGT() {
+        final Assessor assessor = new Assessor("test");
+        final VariantContext vcAC10 = makeVC(10, "A", "C");
+        final Genotype het = GenotypeBuilder.create("NA12878", vcAC10.getAlleles());
+        final Genotype discordant = MongoGenotype.createDiscordant(het);
+        final MongoVariantContext mvcAC10 = MongoVariantContext.create("kb", vcAC10, TruthStatus.TRUE_POSITIVE, discordant);
+        assessor.assessSite(Arrays.asList(vcAC10), Arrays.asList(mvcAC10), false);
+
+        final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+        Assert.assertEquals(assessor.getSNPAssessment(), oneTP);
     }
 
     // ------------------------------------------------------------
     // Tests for assessing a site
     // ------------------------------------------------------------
 
-    // java -jar dist/GenomeAnalysisTK.jar -T DepthOfCoverage -I private/testdata/reduced.readNotFullySpanningDeletion.bam -R ~/Desktop/broadLocal/localData/human_g1k_v37.fasta -L 1:167,022,605-167,025,904 | grep "1:" | grep -v "-" | awk '{print $1, $2}' | awk -F ":" '{print $1, $2}' > private/testdata/reduced.readNotFullySpanningDeletion.doc
+    // java -jar dist/GenomeAnalysisTK.jar -T DepthOfCoverage -I private/testdata/reduced.readNotFullySpanningDeletion.bam -R ~/Desktop/broadLocal/localData/human_g1k_v37.fasta -L 1:167,022,605-167,025,904 -mmq 20 -mbq 20 | grep "1:" | grep -v "-" | awk '{print $1, $2}' | awk -F ":" '{print $1, $2}' > private/testdata/reduced.readNotFullySpanningDeletion.doc
     private final static File DoC = new File(privateTestDir + "reduced.readNotFullySpanningDeletion.doc");
     private final static File BAM = new File(privateTestDir + "reduced.readNotFullySpanningDeletion.bam");
 
@@ -268,7 +282,7 @@ public class AssessorUnitTest extends BaseTest {
     @Test(dataProvider = "DoCSites")
     public void testFilteringSites(final File bam, final String chr, final int pos, final int expectedDoC) {
         final SAMFileReader bamReader = Assessor.makeSAMFileReaderForDoCInBAM(bam);
-        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, bamReader, 5);
+        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, bamReader, 5, -1, false);
         final int actualDoC = assessor.getDepthAtLocus(chr, pos);
         Assert.assertEquals(actualDoC, expectedDoC, "Depth of coverage at " + chr + ":" + pos + " had unexpected depth");
     }

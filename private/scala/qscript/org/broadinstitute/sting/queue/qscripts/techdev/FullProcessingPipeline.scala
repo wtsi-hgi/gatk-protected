@@ -44,51 +44,74 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.techdev
+package org.broadinstitute.sting.queue.qscripts.techdev
 
-import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.picard._
+import org.broadinstitute.sting.commandline.{Output, Hidden}
 import org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel
-import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.commandline.Hidden
-import net.sf.samtools.SAMFileHeader
-import org.broadinstitute.sting.utils.exceptions.UserException.BadInput
+import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.sting.queue.extensions.picard._
+import net.sf.samtools.{SAMReadGroupRecord, SAMFileReader, SAMFileHeader}
+import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
+import collection.JavaConversions._
+import org.broadinstitute.sting.utils.exceptions.ReviewedStingException
+import net.sf.samtools.SAMFileHeader.SortOrder
 
 class FullProcessingPipeline extends QScript {
   qscript =>
 
-  @Input(doc="input BAM files -- one per -I, no bam lists", fullName="input", shortName="I", required=true)
+  @Input(doc="input BAM files -- one per -I, no bam lists",
+    fullName="input", shortName="I", required=true)
   var input: Seq[File] = _
 
-  @Argument(doc="Read Group strings for bwa (has to be in the same order as the BAM files", fullName="readgroup", shortName="G", required=true)
-  var rgs: Seq[String] = _
-
-  @Input(doc="Reference fasta file", fullName="reference", shortName="R", required=false)
+  @Input(doc="Reference fasta file to process with",
+    fullName="reference", shortName="R", required=false)
   var reference = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
 
-  @Input(doc="dbsnp ROD to use (must be in VCF format)", fullName="dbsnp", shortName="D", required=false)
+  @Input(doc="Alternative fasta file in case your input is not using the same reference as the processing pipeline target",
+    fullName="alternative_reference", shortName = "AR", required = false)
+  var alternative_reference: File = null
+
+  @Input(doc="dbsnp ROD to use (must be in VCF format)",
+    fullName="dbsnp", shortName="D", required=false)
   var dbSNP = Seq(new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.vcf"))
 
-  @Argument(doc="Final root name of the BAM file", fullName="project", shortName="p", required=true)
-  var project: String = _
+  @Argument(doc="Final root name of the BAM file",
+    fullName="project", shortName="p", required=false)
+  var project: String = ""
+
+  @Argument(doc="hard clip illumina adapter sequence",
+    fullName="hard_clip_adapter", shortName="adapter", required=false)
+  var clipAdapter:Boolean = false
 
   @Hidden
-  @Argument(doc="only process the minimum possible to get an analizable bam", shortName="fly", required=false)
+  @Argument(doc="Skip reverting the bam",
+    fullName = "skip_revert", shortName = "skip_revert", required=false)
+  var skip_revert: Boolean = false
+
+  @Hidden
+  @Argument(doc="only process the minimum possible to get an analizable bam",
+    shortName="fly", required=false)
   var flyThrough = false
 
   @Hidden
-  @Argument(doc="Number of threads to use with BWA", shortName="t", required=false)
-  var threads = -1
+  @Argument(doc="Number of threads to use with BWA",
+    shortName="t", required=false)
+  var threads = 8
 
   @Hidden
-  @Argument(doc="How many ways to scatter/gather", fullName="scatter_gather", shortName="sg", required=false)
-  var nContigs: Int = 16
+  @Argument(doc="How many ways to scatter/gather",
+    fullName="scatter_gather", shortName="sg", required=false)
+  var nContigs: Int = -1
 
   @Hidden
-  @Argument(doc="Define the default platform for Count Covariates -- useful for techdev purposes only.", fullName="default_platform", shortName="dp", required=false)
+  @Argument(doc="Define the default platform for Count Covariates -- useful for techdev purposes only.",
+    fullName="default_platform", shortName="dp", required=false)
   var defaultPlatform: String = ""
+
+
+
   val cleaningModel: ConsensusDeterminationModel = ConsensusDeterminationModel.USE_READS
 
   def script() {
@@ -96,42 +119,231 @@ class FullProcessingPipeline extends QScript {
     if (qscript.nContigs < 0)
       qscript.nContigs = QScriptUtils.getNumberOfContigs(qscript.input(0))
 
-    if (input.length != rgs.length)
-      throw new BadInput("The number of inputs must match the number of read groups")
+    // assert that all bams are from the same sample.
+    val sampleName = getSampleName(input)
 
-    var sams:Seq[File] = Seq()
-    for (i <- 0 to input.length - 1) {
-      val bam        = qscript.input(i)
-      val rg         = qscript.rgs(i)
-      val fq         = swapExt(bam, ".bam", ".fq")
-      val alignedSam = swapExt(fq, ".fq", ".aligned.sam")
-
-      add(
-        bam2fq(bam, fq),
-        bwa(fq, rg, alignedSam, qscript.threads)
-      )
-
-      sams :+= alignedSam
-    }
     // BAM files generated by the pipeline
-    val sortedBam  = new File(qscript.project + "sorted.bam")
+    val bams = align(convert_to_fastq(revert_bam(splitIfMultipleReadGroups(input))))
+    val sortedBam  = new File(qscript.project + sampleName + ".sorted.bam")
     val cleanedBam = swapExt(sortedBam, ".bam", ".clean.bam")
     val recalBam   = swapExt(cleanedBam, ".bam", ".recal.bam")
     val reducedBam = swapExt(recalBam, ".bam", ".reduced.bam")
 
     // Accessory files
-    val targetIntervals = swapExt(qscript.project, ".bam", ".intervals")
-    val recalFile       = swapExt(qscript.project, ".bam", ".grp")
+    val targetIntervals = swapExt(sampleName, ".bam", ".intervals")
+    val recalFile       = swapExt(sampleName, ".bam", ".grp")
 
 
     add(
-      merge(sams, sortedBam),
+      merge(bams, sortedBam),
       target(sortedBam, targetIntervals),
       clean(sortedBam, targetIntervals, cleanedBam),
       bqsr(cleanedBam, recalFile),
       printreads(cleanedBam, recalFile, recalBam),
       reduce(recalBam, reducedBam)
     )
+  }
+
+  /****************************************************************************
+    * Helper methods
+    ****************************************************************************/
+  def splitIfMultipleReadGroups(bams: Seq[File]): Seq[(File, String)] = {
+    var outBAMs: Seq[File] = Seq()
+    var bwargs: Seq[String] = Seq()
+    for (bam <- bams) {
+      val rgs: Seq[SAMReadGroupRecord] = getReadGroupList(bam)
+      bwargs ++= getBWAReadGroupLine(bam)
+      assert (rgs.size > 0, "Bam file has no read group information, please add it before starting the reprocessing pipeline")
+      assert (!QScriptUtils.hasMultipleSamples(rgs), "Bam file has multiple samples, this pipeline cannot handle that. Each bam file can only have one sample")
+
+      // if we only have one read group, no need to split.
+      if (rgs.size == 1) {
+        outBAMs :+= bam
+      }
+
+      // produce the list of files for each read group (as produced by the walker) and convert it to Seq[File]
+      else {
+        val splitBAMs = getSplitBAMList(bam)
+        outBAMs ++= splitBAMs // add the list of splitted bams to the return sequence
+
+        if (splitBAMs.size == 2)
+          add(split_rgs2(bam, splitBAMs(0), splitBAMs(1)))
+        else if (rgs.size == 3)
+          add(split_rgs3(bam, splitBAMs(0), splitBAMs(1), splitBAMs(2)))
+        else if (rgs.size == 4)
+          add(split_rgs4(bam, splitBAMs(0), splitBAMs(1), splitBAMs(2), splitBAMs(3)))
+        else if (rgs.size == 5)
+          add(split_rgs5(bam, splitBAMs(0), splitBAMs(1), splitBAMs(2), splitBAMs(3), splitBAMs(4)))
+        else
+          throw new ReviewedStingException("Sorry, this script has a manual step to split the BAMs and your bam has more than 5 read groups. You'll have to add the call for your number of readgroups yourself.")
+
+      }
+    }
+    outBAMs zip bwargs  // make a Seq[ (File, String) ] in beautiful scala syntax (the order should be exactly the same as SplitRG).
+  }
+
+  def getSplitBAMList(bam: File) : Seq[File] = {
+    var splitBAMs: Seq[File] = Seq()
+    val reader: SAMFileReader = new SAMFileReader(bam)
+    for (file <- org.broadinstitute.sting.gatk.walkers.techdev.SplitByRG.getSplitFileNamesForRgs(reader.getFileHeader).values()) {
+      splitBAMs :+= file
+    }
+    splitBAMs
+  }
+
+  /**
+   * Reverts all input bam files using Picard's RevertSAM
+   *
+   * @param bams input bam files
+   * @return a sequence of reverted bam files
+   */
+  def revert_bam(bams:Seq[(File, String)]) : Seq[(File, String)] = {
+    var revBams: Seq[(File, String)] = Seq()
+    for ( (bam, rg) <- bams) {
+      if (skip_revert) {
+        revBams :+= (bam, rg)
+      }
+      else {
+        val revertedBAM = swapExt(bam, ".bam", ".reverted.bam")
+        add(revert(bam, revertedBAM))
+        revBams :+= (revertedBAM, rg)
+      }
+    }
+    revBams
+  }
+
+  /**
+   * converts bam files to interleaved fastq clipping adapters if necessary
+   *
+   * @param bams the input bams (should be reverted)
+   * @return the sequence of interleaved fastq files and their read group strings in a tuple
+   */
+  def convert_to_fastq(bams:Seq[(File, String)]) : Seq[(File, String)] = {
+    var fqs: Seq[(File, String)] = Seq()
+    for ( (bam, rg) <- bams) {
+      if (clipAdapter) {
+        fqs :+= (picard_fq(bam), rg)
+      }
+      else {
+        fqs :+= (htslib_fq(bam), rg)
+      }
+    }
+    fqs
+  }
+
+  /**
+   * alignment of interleaved fastq files
+   *
+   * Aligns all interleaved fastqs
+   *
+   * @param fqs a sequence of tuples (fastq file, read group string)
+   * @return list of aligned sam files
+   */
+  def align(fqs:Seq[(File, String)]) : Seq[File] = {
+    var sams: Seq[File] = Seq()
+    for ((fq, rg) <- fqs) {
+      sams :+= align_fastq(fq, rg)
+    }
+    sams
+  }
+
+
+  /**
+   * convert to fastq without clipping adapters (using htslib)
+   *
+   * @param bam input bam
+   * @return output interleaved fastq
+   */
+  def htslib_fq(bam: File): File = {
+    val fq         = swapExt(bam, ".bam", ".fq.gz")
+    add(bam2fq(bam, fq))
+    fq
+  }
+
+  /**
+   * convert to fastq and clip adapter sequence (using picard)
+   *
+   * @param bam input bam
+   * @return output interleaved fastq
+   */
+  def picard_fq(bam: File): File = {
+    val queryBAM = swapExt(bam,".bam",".query.bam")
+    val markedBAM = swapExt(bam,".bam",".adaptor_marked.bam")
+    val fq = swapExt(bam,".bam",".clipped.fq")
+
+    add (
+      sortSam(bam, queryBAM, SortOrder.queryname),
+      mark_adaptor(queryBAM, markedBAM),
+      sam2fq(markedBAM, fq)
+    )
+    fq
+  }
+
+  /**
+   * aligns an interleaved fastq file
+   *
+   * @param fq the fastq file
+   * @param rg the read group string
+   * @return the aligned sam file
+   */
+  def align_fastq(fq: File, rg: String): File = {
+    val alignedSam = swapExt(fq, ".fq.gz", ".aligned.sam")
+    add(bwa(fq, rg, alignedSam, qscript.threads))
+    alignedSam
+  }
+
+  /**
+   * parses the read group line from a bam file and returns all it's read groups
+   * in the string format used by BWA
+   *
+   * @param bam the input bam file
+   * @return a list of all read groups
+   */
+  def getBWAReadGroupLine (bam:File): Seq[String] = {
+    var rgs: Seq[String] = Seq()
+    for (rg: SAMReadGroupRecord <- getReadGroupList(bam)) {
+      val id = "@RG\tID:" + rg.getId
+      val lb = if (rg.getLibrary != null) {"\\tLB:" + rg.getLibrary} else {""}
+      val pl = if (rg.getPlatform != null) {"\\tPL:" + rg.getPlatform} else {""}
+      val pu = if (rg.getPlatformUnit != null) {"\\tPU:" + rg.getPlatformUnit} else {""}
+      val sm = if (rg.getSample != null) {"\\tSM:" + rg.getSample} else {""}
+      val cn = if (rg.getSequencingCenter != null) {"\\tCN:" + rg.getSequencingCenter} else {""}
+      val ds = if (rg.getDescription != null) {"\\tDS:" + rg.getDescription} else {""}
+
+      rgs :+= "'" + id + lb + pl + pu + sm + cn + ds + "'" // we only do 1 readgroup per bam file
+    }
+    rgs
+  }
+
+  /**
+   * Extracts the sample name from all BAM files and checks that they all match
+   * (in this pipeline, all bams must be from the same sample -- run multiple samples in parallel processess)
+   *
+   * @param bams all input bams
+   * @return the sample name
+   * @throws ReviewedStingException if the sample names are not the same across all files
+   */
+  def getSampleName (bams:Seq[File]): String = {
+    val sample = getReadGroupList(bams(0))(0).getSample  // first read group of the first bam file in the list -- happy to blow up if this fails.
+    for (bam <- bams) {
+      for (rg: SAMReadGroupRecord <- getReadGroupList(bam)) {
+        if (rg.getSample != sample)
+          throw new ReviewedStingException(String.format("BAM file %s contains multiple samples, this pipeline cannot handle that", bam.getName))
+      }
+    }
+    sample
+  }
+
+  /**
+   * Gets the list of read groups from a BAM file (converts it neatly to a scala Sequence)
+   *
+   * @param bam the input bam file
+   * @return a sequence of read group records
+   */
+  def getReadGroupList(bam:File): Seq[SAMReadGroupRecord] = {
+    val samReader = new SAMFileReader(bam)
+    val header = samReader.getFileHeader
+    header.getReadGroups
   }
 
   /****************************************************************************
@@ -153,15 +365,46 @@ class FullProcessingPipeline extends QScript {
     this.maxRecordsInRam = 100000
   }
 
-  case class bam2fq (@Input inBam: File, @Output outFQ: File) extends org.broadinstitute.sting.queue.function.CommandLineFunction {
-    def commandLine = "htscmd bamshuf -uOn 128 " + inBam + " " + qscript.project + "-tmp" + " | htscmd bam2fq -a - | gzip > " + outFQ
+  trait SplitByRGAltRefMixin extends CommandLineGATK with ExternalCommonArgs {
+    this.reference_sequence = if (qscript.alternative_reference != null) { qscript.alternative_reference} else {reference_sequence}
+  }
+
+  case class bam2fq (@Input inBam: File, @Output outFQ: File) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs {
+    def commandLine = "htscmd bamshuf -uOn 128 " + inBam + " " + outFQ + ".tmp" + " | htscmd bam2fq -a - | gzip > " + outFQ
+    this.memoryLimit = 8
     this.analysisName = "FastQ"
   }
 
-  case class bwa (@Input inFQ: File, inRG: String, @Output outSAM: File, threads: Int) extends org.broadinstitute.sting.queue.function.CommandLineFunction {
+  case class bwa (@Input inFQ: File, inRG: String, @Output outSAM: File, threads: Int) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs{
     def commandLine = "bwa mem -p -M -t " + threads + " -R " + inRG + " " + reference + " " + inFQ + " > " + outSAM
+    this.memoryLimit = 8
     this.nCoresRequest = threads
     this.analysisName = "BWA"
+  }
+
+  case class mark_adaptor(@Input inBAM: File, @Output outBAM: File) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs {
+    def commandLine = "java -Dsamjdk.compression_level=1 -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -Xmx4000m -jar /seq/software/picard/current/bin/MarkIlluminaAdapters.jar INPUT=" + inBAM + " OUTPUT=" + outBAM + " PE=true ADAPTERS=DUAL_INDEXED M=" + outBAM + ".adapter_metrics"
+    this.memoryLimit = 4
+    this.analysisName = "ADAPTER"
+  }
+
+  case class revert (inBam: File, outBam: File) extends RevertSam with SAMargs {
+    this.output = outBam
+    this.input :+= inBam
+  }
+
+  case class sam2fq (inBAM: File, outFQ: File) extends SamToFastq with SAMargs {
+    this.input :+= inBAM
+    this.fastq = outFQ
+    this.interleave = true
+    this.clippingAction = "X"
+    this.clippingAttribute = "XT"
+  }
+
+  case class sortSam (inBam: File, outBam: File, sortOrderP: SortOrder) extends SortSam with SAMargs {
+    this.input :+= inBam
+    this.output = outBam
+    this.sortOrder = sortOrderP
   }
 
   case class merge (inBams: Seq[File], outBam: File) extends MergeSamFiles with SAMargs {
@@ -169,6 +412,34 @@ class FullProcessingPipeline extends QScript {
     this.output = outBam
     this.sortOrder = SAMFileHeader.SortOrder.coordinate
   }
+
+//  This is how this should be if Queue accepted a list of outputs... unfortunately it doesn't
+//
+//  case class split_rgs(inBam: File, @Output outBams: Seq[File]) extends SplitByRG with CommandLineGATKArgs {
+//
+//  this is the worst piece of code I've ever written in my life!
+//
+//  [Horrible code starts here]
+//
+  case class split_rgs1(inBam: File, @Output outBAM1: File) extends SplitByRG with SplitByRGAltRefMixin {
+    this.input_file :+= inBam
+  }
+
+  case class split_rgs2(inBam: File, @Output outBAM1: File, @Output outBAM2: File) extends SplitByRG with SplitByRGAltRefMixin {
+    this.input_file :+= inBam
+  }
+  case class split_rgs3(inBam: File, @Output outBAM1: File, @Output outBAM2: File, @Output outBAM3: File) extends SplitByRG with SplitByRGAltRefMixin {
+    this.input_file :+= inBam
+  }
+  case class split_rgs4(inBam: File, @Output outBAM1: File, @Output outBAM2: File, @Output outBAM3: File, @Output outBAM4: File) extends SplitByRG with SplitByRGAltRefMixin {
+    this.input_file :+= inBam
+  }
+  case class split_rgs5(inBam: File, @Output outBAM1: File, @Output outBAM2: File, @Output outBAM3: File, @Output outBAM4: File, @Output outBAM5: File) extends SplitByRG with SplitByRGAltRefMixin {
+    this.input_file :+= inBam
+  }
+  //
+  //  [Horrible code ends here]
+  //
 
 
   case class target (inBams: File, outIntervals: File) extends RealignerTargetCreator with CommandLineGATKArgs {
@@ -187,6 +458,7 @@ class FullProcessingPipeline extends QScript {
     this.consensusDeterminationModel = qscript.cleaningModel
     this.compress = 0
     this.read_filter :+= "BadCigar"
+    this.filter_bases_not_stored = true
     this.scatterCount = nContigs
   }
 
@@ -214,5 +486,6 @@ class FullProcessingPipeline extends QScript {
     this.out = outBam
     this.scatterCount = nContigs
     this.isIntermediate = false
+    this.memoryLimit = 8
   }
 }

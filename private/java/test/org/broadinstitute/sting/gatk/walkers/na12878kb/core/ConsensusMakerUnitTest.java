@@ -63,38 +63,32 @@ public class ConsensusMakerUnitTest extends BaseTest {
     ConsensusMaker maker;
 
     MongoVariantContext reviewedX, reviewedX2, reviewedX3, reviewedA, notReviewedY, notReviewedZ, notReviewedZ2;
-    MongoVariantContext reviewedTPX, reviewedFPX, reviewedFPY, reviewedTPZ, reviewedSUSPECT, notReviewedTP1, notReviewedFP1, notReviewedTP2, notReviewedFP2;
+    MongoVariantContext reviewedTPX, reviewedFPX, reviewedFPY, reviewedTPZ, reviewedSUSPECT, notReviewedUNKNOWN, notReviewedTPTrusted, notReviewedFPTrusted, notReviewedTPUntrusted, notReviewedFPUntrusted;
     static long date = 10;
-
-    // TODO -- if we like these numbers, put them in some standard public place
-    final static double REVIEWER_CONFIDENCE = 0.99;
-    final static double TRUSTED_CALLSET_CONFIDENCE = 0.95;
-    final static double UNTRUSTED_CALLSET_CONFIDENCE = 0.75;
 
     @BeforeClass
     public void setUp() throws Exception {
         maker = new ConsensusMaker();
 
-        reviewedX = copyTemplate("x", REVIEWER_CONFIDENCE, true);
-        reviewedX2 = copyTemplate("x", REVIEWER_CONFIDENCE, true);
-        reviewedX3 = copyTemplate("x", REVIEWER_CONFIDENCE, true);
-        reviewedA = copyTemplate("A", REVIEWER_CONFIDENCE, true);
-        notReviewedY = copyTemplate("y", TRUSTED_CALLSET_CONFIDENCE, false);
+        reviewedX = copyTemplate("x", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true);
+        reviewedX2 = copyTemplate("x", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true);
+        reviewedX3 = copyTemplate("x", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true);
+        reviewedA = copyTemplate("A", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true);
+        notReviewedY = copyTemplate("y", NA12878KnowledgeBase.InputCallsetConfidence.TRUSTED_CALLSET.confidence, false);
         notReviewedZ = copyTemplate("z", 0.90, false);
         notReviewedZ2 = copyTemplate("z", 0.90, false);
 
-        // ***** IMPORTANT *****
-        // the ordering of these lines is important because I am trying to replicate an issue we encountered [EB]
-        reviewedTPZ = copyTemplate("z", REVIEWER_CONFIDENCE, true, TruthStatus.TRUE_POSITIVE);
-        reviewedFPY = copyTemplate("Y", REVIEWER_CONFIDENCE, true, TruthStatus.FALSE_POSITIVE);
-        reviewedTPX = copyTemplate("x", REVIEWER_CONFIDENCE, true, TruthStatus.TRUE_POSITIVE);
-        reviewedFPX = copyTemplate("x", REVIEWER_CONFIDENCE, true, TruthStatus.FALSE_POSITIVE);
+        reviewedTPZ = copyTemplate("z", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true, TruthStatus.TRUE_POSITIVE);
+        reviewedFPY = copyTemplate("Y", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true, TruthStatus.FALSE_POSITIVE);
+        reviewedTPX = copyTemplate("x", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true, TruthStatus.TRUE_POSITIVE);
+        reviewedFPX = copyTemplate("x", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true, TruthStatus.FALSE_POSITIVE);
 
-        reviewedSUSPECT = copyTemplate("a", REVIEWER_CONFIDENCE, true, TruthStatus.SUSPECT);
-        notReviewedTP1 = copyTemplate("b", TRUSTED_CALLSET_CONFIDENCE, false, TruthStatus.TRUE_POSITIVE);
-        notReviewedTP2 = copyTemplate("c", UNTRUSTED_CALLSET_CONFIDENCE, false, TruthStatus.TRUE_POSITIVE);
-        notReviewedFP1 = copyTemplate("d", TRUSTED_CALLSET_CONFIDENCE, false, TruthStatus.FALSE_POSITIVE);
-        notReviewedFP2 = copyTemplate("e", UNTRUSTED_CALLSET_CONFIDENCE, false, TruthStatus.FALSE_POSITIVE);
+        reviewedSUSPECT = copyTemplate("a", NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true, TruthStatus.SUSPECT);
+        notReviewedTPTrusted = copyTemplate("b", NA12878KnowledgeBase.InputCallsetConfidence.TRUSTED_CALLSET.confidence, false, TruthStatus.TRUE_POSITIVE);
+        notReviewedTPUntrusted = copyTemplate("c", NA12878KnowledgeBase.InputCallsetConfidence.UNTRUSTED_CALLSET.confidence, false, TruthStatus.TRUE_POSITIVE);
+        notReviewedFPTrusted = copyTemplate("d", NA12878KnowledgeBase.InputCallsetConfidence.TRUSTED_CALLSET.confidence, false, TruthStatus.FALSE_POSITIVE);
+        notReviewedFPUntrusted = copyTemplate("e", NA12878KnowledgeBase.InputCallsetConfidence.UNTRUSTED_CALLSET.confidence, false, TruthStatus.FALSE_POSITIVE);
+        notReviewedUNKNOWN = copyTemplate("a", NA12878KnowledgeBase.InputCallsetConfidence.TRUSTED_CALLSET.confidence, true, TruthStatus.UNKNOWN);
     }
 
     private static MongoVariantContext copyTemplate(final String name, final double confidence, final boolean reviewed, final TruthStatus status) {
@@ -124,16 +118,16 @@ public class ConsensusMakerUnitTest extends BaseTest {
         final MongoGenotype noCall = new MongoGenotype(-1, -1);
 
         tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, het, true, Arrays.asList(reviewedTPX)});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, het, true, Arrays.asList(reviewedTPX, notReviewedTP1)});
-        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, het, true, Arrays.asList(reviewedTPX, notReviewedFP1)});
-        tests.add(new Object[]{TruthStatus.SUSPECT, noCall, true, Arrays.asList(reviewedTPX, reviewedSUSPECT)});
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedFPX, notReviewedFP1)});
-        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedFPX, notReviewedTP1)});
+        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, het, true, Arrays.asList(reviewedTPX, notReviewedTPTrusted)});
+        tests.add(new Object[]{TruthStatus.TRUE_POSITIVE, het, true, Arrays.asList(reviewedTPX, notReviewedFPTrusted)});
+        tests.add(new Object[]{TruthStatus.DISCORDANT, noCall, true, Arrays.asList(reviewedTPX, reviewedSUSPECT)});
+        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedFPX, notReviewedFPTrusted)});
+        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedFPX, notReviewedTPTrusted)});
 
         // special case -- takes FP because FP was created after TP and they are the same call set
         tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedTPX, reviewedFPX)});
         tests.add(new Object[]{TruthStatus.DISCORDANT, noCall, true, Arrays.asList(reviewedTPX, reviewedFPY)});
-        tests.add(new Object[]{TruthStatus.DISCORDANT, noCall, true, Arrays.asList(reviewedTPZ, reviewedFPY, reviewedTPX, reviewedFPX)});
+        tests.add(new Object[]{TruthStatus.FALSE_POSITIVE, noCall, true, Arrays.asList(reviewedTPZ, reviewedFPY, reviewedTPX, reviewedFPX)});
 
         return tests.toArray(new Object[][]{});
     }
@@ -144,11 +138,6 @@ public class ConsensusMakerUnitTest extends BaseTest {
         Assert.assertEquals(consensus.getType(), expectedTruth);
         Assert.assertEquals(consensus.isReviewed(), expectedReviewed, "isReviewed failed");
         Assert.assertEquals(consensus.getGt(), expectedGT);
-    }
-
-    @Test
-    public void testConsensusGT() throws Exception {
-
     }
 
     @Test
@@ -171,6 +160,17 @@ public class ConsensusMakerUnitTest extends BaseTest {
         Assert.assertEquals(maker.isReviewed(Arrays.asList(notReviewedY, notReviewedZ, reviewedX)), true);
         Assert.assertEquals(maker.isReviewed(Arrays.asList(notReviewedY, reviewedX, notReviewedZ)), true);
         Assert.assertEquals(maker.isReviewed(Arrays.asList(notReviewedY, reviewedX, reviewedX2)), true);
+    }
+
+    @Test
+    public void testIsComplexEvent() throws Exception {
+
+        final MongoVariantContext complexFoo = new MongoVariantContext(Arrays.asList("Foo"), "20", 1, 1, "A", "C", TruthStatus.TRUE_POSITIVE, new MongoGenotype(0, 0), new Date(), NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence, true, true);
+
+        Assert.assertEquals(maker.isComplexEvent(Arrays.asList(reviewedX)), false);
+        Assert.assertEquals(maker.isComplexEvent(Arrays.asList(notReviewedY, notReviewedZ)), false);
+        Assert.assertEquals(maker.isComplexEvent(Arrays.asList(complexFoo)), true);
+        Assert.assertEquals(maker.isComplexEvent(Arrays.asList(complexFoo, reviewedX, notReviewedZ)), true);
     }
 
     @DataProvider(name = "TestConsensusGT")
@@ -251,18 +251,24 @@ public class ConsensusMakerUnitTest extends BaseTest {
         tests.add(new Object[]{Arrays.asList(reviewedTPX, reviewedSUSPECT), TruthStatus.DISCORDANT});
         tests.add(new Object[]{Arrays.asList(reviewedTPX, reviewedTPZ, reviewedSUSPECT), TruthStatus.TRUE_POSITIVE});
 
-        tests.add(new Object[]{Arrays.asList(reviewedTPX, notReviewedTP1), TruthStatus.TRUE_POSITIVE});
-        tests.add(new Object[]{Arrays.asList(reviewedFPX, notReviewedFP2), TruthStatus.FALSE_POSITIVE});
-        tests.add(new Object[]{Arrays.asList(reviewedTPX, notReviewedFP1), TruthStatus.TRUE_POSITIVE});
-        tests.add(new Object[]{Arrays.asList(reviewedTPX, notReviewedFP2), TruthStatus.TRUE_POSITIVE});
-        tests.add(new Object[]{Arrays.asList(reviewedFPX, notReviewedTP1), TruthStatus.FALSE_POSITIVE});
-        tests.add(new Object[]{Arrays.asList(reviewedFPX, notReviewedTP2), TruthStatus.FALSE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedTPX, notReviewedTPTrusted), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedFPX, notReviewedFPUntrusted), TruthStatus.FALSE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedTPX, notReviewedFPTrusted), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedTPX, notReviewedFPUntrusted), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedFPX, notReviewedTPTrusted), TruthStatus.FALSE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedFPX, notReviewedTPUntrusted), TruthStatus.FALSE_POSITIVE});
 
-        tests.add(new Object[]{Arrays.asList(notReviewedTP1, notReviewedTP2), TruthStatus.TRUE_POSITIVE});
-        tests.add(new Object[]{Arrays.asList(notReviewedTP1, notReviewedFP2), TruthStatus.TRUE_POSITIVE});
-        tests.add(new Object[]{Arrays.asList(notReviewedTP2, notReviewedFP1), TruthStatus.FALSE_POSITIVE});
-        tests.add(new Object[]{Arrays.asList(notReviewedTP1, notReviewedFP1), TruthStatus.DISCORDANT});
-        tests.add(new Object[]{Arrays.asList(notReviewedTP2, notReviewedFP2), TruthStatus.DISCORDANT});
+        tests.add(new Object[]{Arrays.asList(notReviewedTPTrusted, notReviewedTPUntrusted), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(notReviewedTPTrusted, notReviewedFPUntrusted), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(notReviewedTPUntrusted, notReviewedFPTrusted), TruthStatus.FALSE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(notReviewedTPTrusted, notReviewedFPTrusted), TruthStatus.DISCORDANT});
+        tests.add(new Object[]{Arrays.asList(notReviewedTPUntrusted, notReviewedFPUntrusted), TruthStatus.DISCORDANT});
+
+        // any type with an UNKNOWN is that type
+        tests.add(new Object[]{Arrays.asList(notReviewedTPTrusted, notReviewedUNKNOWN), TruthStatus.TRUE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(notReviewedFPTrusted, notReviewedUNKNOWN), TruthStatus.FALSE_POSITIVE});
+        tests.add(new Object[]{Arrays.asList(reviewedSUSPECT, notReviewedUNKNOWN), TruthStatus.SUSPECT});
+        tests.add(new Object[]{Arrays.asList(notReviewedUNKNOWN), TruthStatus.UNKNOWN});
 
         return tests.toArray(new Object[][]{});
     }
@@ -270,5 +276,11 @@ public class ConsensusMakerUnitTest extends BaseTest {
     @Test(dataProvider = "TestBayesianTruthEstimate")
     public void testBayesianTruthEstimate(final Collection<MongoVariantContext> calls, final TruthStatus expectedStatus) {
         Assert.assertEquals(maker.determineBayesianTruthEstimate(calls), expectedStatus);
+    }
+
+    @Test
+    public void testUnknownConfidenceIsTreatedLikeReviewed() {
+        final MongoVariantContext unknownConfidence = copyTemplate("some review", NA12878KnowledgeBase.InputCallsetConfidence.UNKNOWN.confidence, true, TruthStatus.TRUE_POSITIVE);
+        Assert.assertEquals(maker.determineBayesianTruthEstimate(Arrays.asList(unknownConfidence, notReviewedTPTrusted)), TruthStatus.TRUE_POSITIVE);
     }
 }

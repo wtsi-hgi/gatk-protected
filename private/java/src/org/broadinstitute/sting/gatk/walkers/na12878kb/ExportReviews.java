@@ -46,19 +46,34 @@
 
 package org.broadinstitute.sting.gatk.walkers.na12878kb;
 
+import org.broadinstitute.sting.commandline.Advanced;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Hidden;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteManager;
 import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+
+import java.util.Collections;
+import java.util.List;
 
 public class ExportReviews extends NA12878DBWalker {
     @Output
     public VariantContextWriter out;
 
+    @Advanced
+    @Argument(shortName = "exportAllSites", fullName = "exportAllSites", doc = "do not limit the output to reviews only; really for debugging purposes", required=false)
+    public boolean exportAllSites = false;
+
     @Override public boolean isDone() { return true; }
 
     @Override
     public void onTraversalDone(Integer result) {
-        db.writeReviews(out, super.makeSiteSelector());
+        final SiteManager manager = makeSiteManager(false);
+        if ( exportAllSites )
+            db.writeSelectedSites(out, manager);
+        else
+            db.writeReviews(out, manager);
         super.onTraversalDone(result);
     }
 

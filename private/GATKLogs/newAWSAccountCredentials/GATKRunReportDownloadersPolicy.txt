@@ -1,0 +1,28 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "s3:ListAllMyBuckets"
+      ],
+      "Sid": "Stmt1377107704000",
+      "Resource": [
+        "arn:aws:s3:::*"
+      ],
+      "Effect": "Allow"
+    },
+    {
+      "Action": [
+        "s3:DeleteObject",
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Sid": "Stmt1377107750000",
+      "Resource": [
+        "arn:aws:s3:::broad.gsa.gatk.run.reports*",
+        "arn:aws:s3:::broad.gsa.gatk.run.reports*/*"
+      ],
+      "Effect": "Allow"
+    }
+  ]
+}

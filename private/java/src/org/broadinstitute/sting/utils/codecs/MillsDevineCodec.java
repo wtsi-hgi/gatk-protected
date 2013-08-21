@@ -47,12 +47,11 @@
 package org.broadinstitute.sting.utils.codecs;
 
 import org.broad.tribble.AsciiFeatureCodec;
-import org.broad.tribble.readers.LineReader;
+import org.broad.tribble.readers.LineIterator;
 import org.broadinstitute.variant.variantcontext.Allele;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.regex.Matcher;
@@ -207,14 +206,10 @@ public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
 
     // There's no spec and no character to distinguish header lines...
     private final static int NUM_HEADER_LINES = 1;
-    public Object readHeader(LineReader reader) {
+    public Object readActualHeader(final LineIterator reader) {
         String headerLine = null;
-        try {
-            for (int i = 0; i < NUM_HEADER_LINES; i++)
-                headerLine = reader.readLine();
-        } catch (IOException e) {
-            throw new IllegalArgumentException("Unable to read a line from the line reader");
-        }
+        for (int i = 0; i < NUM_HEADER_LINES; i++)
+            headerLine = reader.next();
         return null;
     }
 
