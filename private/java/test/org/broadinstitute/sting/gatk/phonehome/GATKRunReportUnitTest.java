@@ -78,8 +78,8 @@ public class GATKRunReportUnitTest extends BaseTest {
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
-    private final static String downloaderAccessKey = "AKIAJ6L5JRU4FZWN3YKQ";
-    private final static String downloaderSecretKey = "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";
+    private final static String downloaderAccessKey = "AKIAJV5G6F6IDMKBK5FQ";
+    private final static String downloaderSecretKey = "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";
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
     // WARNING WARNING WARNING WARNING WARNING WARNING WARNING -- do not distribute this code
