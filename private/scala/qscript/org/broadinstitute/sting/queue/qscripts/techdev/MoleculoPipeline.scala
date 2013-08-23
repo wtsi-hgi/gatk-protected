@@ -44,75 +44,141 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.sting.queue.qscripts.techdev
 
-import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.sting.commandline.{Hidden, Input}
+import org.broadinstitute.sting.queue.extensions.picard.{PicardBamFunction, MergeSamFiles}
+import net.sf.samtools.SAMFileHeader
+import org.broadinstitute.sting.queue.extensions.gatk.{CommandLineGATK, UnifiedGenotyper, HaplotypeCaller}
 
-class HaplotypeCallerScript extends QScript {
+class MoleculoPipeline extends QScript{
   qscript =>
 
-  @Argument(shortName="out", doc="output file", required=true)
-  var out: String = _
-  @Argument(shortName="R", doc="ref file", required=true)
-  var ref: String = _
-  @Argument(shortName="I", doc="bam file", required=true)
-  var bam: String = _
-  @Argument(shortName="interval", doc="interval file", required=false)
-  var intervalString: List[String] = List()
-  @Argument(shortName="intervalFile", doc="interval file", required=false)
-  var intervalFiles: List[File] = List()
-  @Argument(shortName="sc", doc="scatter count", required=false)
-  var jobs: Int = 100
-  @Argument(shortName="dr", doc="downsampling", required=false)
-  var downsampling: Int = 250
-  @Argument(shortName="lowpass", doc="lowpass", required=false)
-  var lowpass: Boolean = false
-  @Argument(shortName = "stand_call_conf", doc= "standard min confidence threshold for calling", required = false)
-  var stand_call_conf: Double = _
-  @Argument(shortName = "stand_emit_conf", doc= "standard min confidence threshold for emitting", required = false)
-  var stand_emit_conf: Double = _
+  @Input (doc="input FASTQ files -- one per -I, no list",
+    fullName="input", shortName="I", required=true)
+  var input: Seq[File] = _
+
+  @Argument(doc="BWA Read Group string -- one per -G same order as the -I inputs",
+    fullName="read_group", shortName="G", required=false)
+  var rg: Seq[String] = _
+
+  @Input(doc="Reference fasta file to process with",
+    fullName="reference", shortName="R", required=false)
+  var reference = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
+
+  @Argument(doc="sampleName",
+    fullName="sampleName", shortName="sn", required=true)
+  var sampleName : String= ""
+
+  @Hidden
+  @Argument(doc="How many ways to scatter/gather",
+    fullName="scatter_gather", shortName="sg", required=false)
+  var nContigs: Int = -1
+
+  @Hidden
+  @Argument(doc="keep intermediate files",
+    fullName="keepIntermediate", shortName="keepIntermediate", required=false)
+  var keepIntermediateFiles = false
+
+  @Hidden
+  @Argument(doc="Number of threads to use with BWA",
+    shortName="t", required=false)
+  var threads = 8
+
+  def script() {
+    val fastqs_with_rgs = input zip rg
+
+    val bams = align(fastqs_with_rgs)
+    val sortedBam  = new File(sampleName + ".sorted.bam")
+
+
+    add(merge(bams, sortedBam))
+
+    add(HC(sortedBam))
+    add(UG(sortedBam))
+
+  }
+
+  // General arguments to non-GATK tools
+  trait ExternalCommonArgs extends CommandLineFunction {
+    this.memoryLimit = 4
+    if(keepIntermediateFiles)
+      this.isIntermediate = false
+    else
+      this.isIntermediate = true
+  }
+
+  trait SAMargs extends PicardBamFunction with ExternalCommonArgs {
+    this.maxRecordsInRam = 100000
+  }
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     memoryLimit = 2;
-    this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
-
   }
 
-  def script = {
-    val hc = new HaplotypeCaller with UNIVERSAL_GATK_ARGS
-    hc.reference_sequence = new File(ref)
-    hc.intervalsString = intervalString
-    hc.intervals = intervalFiles
-    hc.scatterCount = jobs
-    hc.input_file :+= new File(bam)
-    hc.o = new File(out + ".hc.vcf")
-    hc.dcov = downsampling
-    hc.analysisName = "HaplotypeCaller"
-    if (qscript.stand_call_conf != null) hc.stand_call_conf = qscript.stand_call_conf
-    if (qscript.stand_emit_conf != null) hc.stand_emit_conf = qscript.stand_emit_conf
-    if(lowpass) {
-      hc.stand_call_conf = 4.0
-      hc.stand_emit_conf = 4.0
+  /**
+   * alignment of interleaved fastq files
+   *
+   * Aligns all interleaved fastqs
+   *
+   * @param fqs a sequence of tuples (fastq file, read group string)
+   * @return list of aligned sam files
+   */
+  def align(fqs:Seq[(File, String)]) : Seq[File] = {
+    var sams: Seq[File] = Seq()
+    for ((fq, rg) <- fqs) {
+      sams :+= align_fastq(fq, rg)
     }
-    add(hc)
-
-    val ug = new UnifiedGenotyper with UNIVERSAL_GATK_ARGS
-    ug.reference_sequence = new File(ref)
-    ug.intervalsString = intervalString
-    ug.intervals = intervalFiles
-    ug.scatterCount = jobs
-    ug.input_file :+= new File(bam)
-    ug.o = new File(out + ".ug.vcf")
-    ug.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
-    ug.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
-    ug.analysisName = "UnifiedGenotyper"
-    if (qscript.stand_call_conf != null) ug.stand_call_conf = qscript.stand_call_conf
-    if (qscript.stand_emit_conf != null) ug.stand_emit_conf = qscript.stand_emit_conf
-    if(lowpass) {
-      ug.stand_call_conf = 4.0
-      ug.stand_emit_conf = 4.0
-    }
-    add(ug)
+    sams
   }
+
+
+  /**
+   * aligns an interleaved fastq file
+   *
+   * @param fq the fastq file
+   * @param rg the read group string
+   * @return the aligned sam file
+   */
+  def align_fastq(fq: File, rg: String): File = {
+    var suffix = ".fq"
+    if(fq.getName.endsWith("gz"))
+      suffix = ".fq.gz"
+    val alignedSam = swapExt(fq, suffix, ".aligned.sam")
+    add(bwa(fq, rg, alignedSam, qscript.threads))
+    alignedSam
+  }
+
+  case class merge (@Input inBams: Seq[File], @Output outBam: File) extends MergeSamFiles with SAMargs {
+    this.input = inBams
+    this.output = outBam
+    this.sortOrder = SAMFileHeader.SortOrder.coordinate
+  }
+
+  case class bwa (@Input inFQ: File, inRG: String, @Output outSAM: File, threads: Int) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs{
+    def commandLine = "bwa mem -M -t " + threads + " -R '" + inRG + "' " + reference + " " + inFQ + " > " + outSAM
+    this.memoryLimit = 8
+    this.nCoresRequest = threads
+    this.analysisName = "BWA"
+  }
+
+  case class HC (@Input inBam: File) extends HaplotypeCaller with UNIVERSAL_GATK_ARGS {
+    this.reference_sequence = new File(reference)
+    this.scatterCount = 100
+    this.input_file :+= new File(inBam)
+    this.o = new File(qscript.sampleName + ".hc.vcf")
+    this.analysisName = "HaplotypeCaller"
+  }
+
+  case class UG (@Input inBam: File) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
+    this.reference_sequence = new File(reference)
+    this.scatterCount = 100
+    this.input_file :+= new File(inBam)
+    this.o = new File(qscript.sampleName + ".ug.vcf")
+    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+    this.analysisName = "UnifiedGenotyper"
+  }
+
 }
