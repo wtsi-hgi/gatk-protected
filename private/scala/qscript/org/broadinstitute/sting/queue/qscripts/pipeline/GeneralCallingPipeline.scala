@@ -116,7 +116,7 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName="callingMem", doc="calling (UG/HC) memory limit.",  required=false)
   var callingMemoryLimit = 6
 
-  /************* invlude/exclude steps of the pipeline ***********************/
+  /************* include/exclude steps of the pipeline ***********************/
 
   @Argument(shortName="useBQSR.2.0", doc="turn on a first step of using 2.0 BQSR on the input bam file", required=false)
   var useBQSR2: Boolean = false
