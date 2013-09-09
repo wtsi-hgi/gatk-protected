@@ -133,7 +133,8 @@ public final class BandedLoglessPairHMM extends PairHMM {
                                                                final byte[] deletionGOP,
                                                                final byte[] overallGCP,
                                                                final int hapStartIndex,
-                                                               final boolean recacheReadValues ) {
+                                                               final boolean recacheReadValues,
+                                                               final int nextHapStartIndex) {
         curRow.clear();
         prevRow.clear();
 

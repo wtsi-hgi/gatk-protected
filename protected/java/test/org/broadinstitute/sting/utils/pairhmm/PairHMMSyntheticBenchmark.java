@@ -48,85 +48,80 @@ package org.broadinstitute.sting.utils.pairhmm;
 
 import com.google.caliper.Param;
 import com.google.caliper.SimpleBenchmark;
+import net.sf.samtools.Cigar;
+import net.sf.samtools.CigarElement;
+import net.sf.samtools.TextCigarCodec;
+import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.sting.utils.sam.AlignmentUtils;
 
-import java.io.File;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Caliper microbenchmark for synthetic test data for PairHMM
  */
-public class PairHMMEmpiricalBenchmark extends SimpleBenchmark {
-    @Param({"logless", "banded_w5_mle10"})
+public class PairHMMSyntheticBenchmark extends SimpleBenchmark {
+    @Param ({"array_logless", "logless"})
+//    @Param({"logless", "array_logless"})
+//    @Param({"logless", "banded_w5_mle10", "banded_w5_mle20"})
 //    @Param({"logless", "banded_w10_mle20", "banded_w5_mle20", "banded_w5_mle10"})
     String algorithm;
 
-    @Param({"likelihoods_2x250_1mb.txt.gz"})
-    String likelihoodsFile;
+//    @Param({"40", "100", "200", "300", "500"})
+    @Param({"40", "300"})
+//    @Param({"300"})
+    int refLength;
 
-    @Param({"0-50","51-150","150-1000"})
-    String sizeRange;
+//    @Param({"200"})
+    @Param({"40", "101", "200"})
+//    @Param({"40", "100", "200", "300", "500"})
+    int readLength;
 
-    @Param({"true","false"})
-    boolean allowCaching;
+    private PairHMM hmm;
+    private PairHMMTestData testData;
 
-    Map<String, List<PairHMMTestData>> empiricalData = null;
-
-    final int maxRecords = 10000;
 
     @Override
     protected void setUp() throws Exception {
-        empiricalData = PairHMMTestData.readLikelihoods(new File(likelihoodsFile));
-    }
-
-    protected List<List<PairHMMTestData>> selectWorkingData() {
-        //System.out.printf("Selecting size %s%n", sizeRange);
-        final String[] range = sizeRange.split("-");
-        final int minSize = Integer.valueOf(range[0]);
-        final int maxSize = Integer.valueOf(range[1]);
-
-        final List<List<PairHMMTestData>> myData = new LinkedList<>();
-        //System.out.printf("selecting size %d - %d%n", minSize, maxSize);
-        for ( final List<PairHMMTestData> readsForHaplotype : empiricalData.values() ) {
-            final PairHMMTestData data = readsForHaplotype.get(0);
-            if ( data.ref.length() >= minSize && data.ref.length() < maxSize ) {
-                myData.add(readsForHaplotype);
-                if ( empiricalData.size() > maxRecords )
-                    break;
-            }
-        }
-        //System.out.printf("  => Found %d records%n", myData.size());
-
-        return myData;
+        hmm = getHmm();
+        final String ref = generateSeq(refLength);
+        final String nextRef = generateSeq(refLength);
+        final String read = generateSeq(readLength);
+        testData = new PairHMMTestData(ref, nextRef, read, (byte)30);
+        System.out.println(testData.toString());
     }
 
     private PairHMM getHmm() {
         switch (algorithm) {
             case "logless": return new LoglessPairHMM();
-            case "banded_w10_mle20": return new BandedLoglessPairHMM(10, 1e-20);
-            case "banded_w5_mle20":  return new BandedLoglessPairHMM(5, 1e-20);
-            case "banded_w5_mle10":  return new BandedLoglessPairHMM(5, 1e-10);
+            case "array_logless": return new ArrayLoglessPairHMM();
+//            case "banded_w10_mle20": return new BandedLoglessPairHMM(10, 1e-20);
+//            case "banded_w5_mle20":  return new BandedLoglessPairHMM(5, 1e-20);
+//            case "banded_w5_mle10":  return new BandedLoglessPairHMM(5, 1e-10);
             default: throw new IllegalStateException("Unexpected algorithm " + algorithm);
         }
     }
 
+    private String generateSeq(final int len) {
+        final List<String> root = Arrays.asList("A", "C", "G", "T");
 
+        String seq = "";
+        for ( int i = 0; true; i++ ) {
+            final String base = root.get(i % root.size());
+            final int copies = i / root.size() + 1;
+            seq += Utils.dupString(base, copies);
+            if ( seq.length() >= len )
+                return seq.substring(0, len);
+        }
+    }
 
     public void timePairHMM(int rep) {
-        final PairHMM hmm = getHmm();
-
-        final List<List<PairHMMTestData>> data = selectWorkingData();
-
         for ( int i = 0; i < rep; i++ ) {
-            for ( final List<PairHMMTestData> testData : data )
-                PairHMMTestData.runHMMs(hmm, testData, ! allowCaching);
+            testData.runHMM(hmm);
         }
-
-        if ( hmm instanceof BandedLoglessPairHMM ) {
-            final BandedLoglessPairHMM banded = (BandedLoglessPairHMM)hmm;
-            System.out.printf("Banded n cells possible  : %d%n", banded.nCellsOverall);
-            System.out.printf("Banded n cells evaluated : %d%n", banded.nCellsEvaluated);
-        }
+//        if ( hmm instanceof BandedLoglessPairHMM ) {
+//            final BandedLoglessPairHMM banded = (BandedLoglessPairHMM)hmm;
+//            System.out.printf("Banded n cells possible  : %d%n", banded.nCellsOverall);
+//            System.out.printf("Banded n cells evaluated : %d%n", banded.nCellsEvaluated);
+//        }
     }
 }

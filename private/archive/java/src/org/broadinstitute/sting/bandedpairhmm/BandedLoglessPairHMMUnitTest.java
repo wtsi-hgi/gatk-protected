@@ -109,20 +109,20 @@ public class BandedLoglessPairHMMUnitTest extends BaseTest {
             final String commonBases = allCommonBases.substring(0, commonSize);
             tests.add(new Object[]{"Read starts in middle of haplotype, goes to end",
                     bandSize,
-                    new PairHMMTestData(Utils.dupString("A", 5*bandSize) + commonBases, commonBases, (byte)30)});
+                    new PairHMMTestData(Utils.dupString("A", 5*bandSize) + commonBases, null, commonBases, (byte)30)});
             tests.add(new Object[]{"Read starts in start of haplotype, doesn't have tail",
                     bandSize,
-                    new PairHMMTestData(commonBases + Utils.dupString("A", 5*bandSize), commonBases, (byte)30)});
+                    new PairHMMTestData(commonBases + Utils.dupString("A", 5*bandSize), null, commonBases, (byte)30)});
             tests.add(new Object[]{"Read starts in middle of haplotype, has both header and tail",
                     bandSize,
-                    new PairHMMTestData(Utils.dupString("C", 5*bandSize) + commonBases + Utils.dupString("A", 5*bandSize), commonBases, (byte)30)});
+                    new PairHMMTestData(Utils.dupString("C", 5*bandSize) + commonBases + Utils.dupString("A", 5*bandSize), null, commonBases, (byte)30)});
         }
 
 //        final int commonSize = allCommonBases.length();
 //        final String commonBases = allCommonBases.substring(0, commonSize);
 //        tests.add(new Object[]{"Read starts in middle of haplotype, goes to end",
 //                    bandSize,
-//                    new PairHMMTestData(Utils.dupString("A", 5*bandSize) + commonBases, commonBases, (byte)30)});
+//                    new PairHMMTestData(Utils.dupString("A", 5*bandSize) + commonBases, null, commonBases, (byte)30)});
 
         return tests.toArray(new Object[][]{});
     }
@@ -157,7 +157,7 @@ public class BandedLoglessPairHMMUnitTest extends BaseTest {
             final BandedLoglessPairHMM hmm = new BandedLoglessPairHMM(bandSize);
             hmm.initialize(readLen, hapLen);
             // necessary to ensure all of the internal state is set up correctly
-            hmm.computeReadLikelihoodGivenHaplotypeLog10(hapBases, readBases, quals, quals, quals, quals, true);
+            hmm.computeReadLikelihoodGivenHaplotypeLog10(hapBases, readBases, quals, quals, quals, quals, true, null);
 
             final Bands fullBand = new Bands();
             fullBand.addBand(1, hapLen+1);
