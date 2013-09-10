@@ -210,9 +210,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.
       if ( useUGAnnotations )
         this.use_annotation ++= List("HaplotypeScore")
       this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
-      this.numBad = 3000
-      if ( useUGAnnotations )
-        this.numBad = 4000
+      this.numBad = 9000
       this.analysisName = "VQSR"
     }
 
@@ -223,9 +221,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.
       this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
       this.use_annotation ++= List("FS", "DP", "ReadPosRankSum", "MQRankSum", "InbreedingCoeff")
       this.maxGaussians = 4
-      this.numBad = 2000
-      if ( useUGAnnotations )
-         this.numBad = 2500
+      this.numBad = 3000
       this.analysisName = "VQSR"
     }
 
