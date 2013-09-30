@@ -97,8 +97,10 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.
       }
   combine.isIntermediate = true
   add(combine)
+  val hcRegenotyped: File = new File(outputDir + "hc.regenotyped.vcf")
+  add(RG(hcVCF,hcRegenotyped))
   val hcAnnotatedVCF: File = new File(outputDir + "hc.vcf")
-  add(VA(hcVCF, hcAnnotatedVCF))
+  add(VA(hcRegenotyped, hcAnnotatedVCF))
 
   // Joint Calling with UG
   val ugVCF: File = new File(outputDir + "ug.vcf")
@@ -162,11 +164,20 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.
     this.analysisName = "HC_SingleSampleCalling"
   }
 
-  case class VA( inFile: File, outFile: File) extends VariantAnnotator with BaseCommandArguments {
+  case class RG( inFile: File, outFile: File ) extends RegenotypeVariants with BaseCommandArguments {
+      this.out = outFile
+      this.memoryLimit = 3
+      this.scatterCount = 40
+      this.isIntermediate = true
+      this.V = inFile
+      this.analysisName = "HC_SingleSampleCalling"
+    }
+
+  case class VA( inFile: File, outFile: File ) extends VariantAnnotator with BaseCommandArguments {
     this.out = outFile
     this.V = inFile
     this.intervalsString = List(inFile)
-    this.A = List("InbreedingCoeff", "FisherStrand")
+    this.A = List("InbreedingCoeff", "FisherStrand", "QualByDepth")
     this.memoryLimit = 3
     this.scatterCount = 40
     this.analysisName = "HC_SingleSampleCalling"
