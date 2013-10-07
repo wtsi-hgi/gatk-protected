@@ -4,6 +4,7 @@ GATK_CLONES=/local/gsa-engineering/cron_clones
 MAILTO=""
 0,30 * * * * source $USEUSE && use Git-1.7 && use Java-1.7 && exec /local/gsa-engineering/github_mirrors/spawn_github_mirrord.sh > /dev/null 2>&1 &
 0,30 * * * * source $USEUSE && use Git-1.7 && use Java-1.7 && exec /humgen/gsa-scr1/gsa-engineering/git/github_webhook_handler/spawn_webhook_handler.sh > /dev/null 2>&1 &
+0,30 * * * * exec /local/gsa-engineering/bamboo/spawn_bamboo_server.sh > /dev/null 2>&1 &
 0 3 * * * source $USEUSE && use Ant-1.8 && use Java-1.7 && use Git-1.7 && /humgen/gsa-scr1/gsa-engineering/keygen_binary/update_keygen.sh 
 MAILTO=gsa-engineering@broadinstitute.org
 0 2 * * * find /broad/hptmp/gsabamboo/parallel_tests_working_directories/archive -maxdepth 1 -mindepth 1 -type d -mtime +0 -exec rm -rf '{}' ';'
