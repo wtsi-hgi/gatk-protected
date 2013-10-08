@@ -139,7 +139,6 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
 
             // Add the filters and attributes from the mergedVC first (so they can be overriden as necessary by mergedVCwithGT):
             VariantContextBuilder vcb = new VariantContextBuilder(mergedVCwithGT);
-            vcb.log10PError(mergedVC.getLog10PError());
 
             Set<String> filters = new HashSet<String>();
             Map<String, Object> attributes = new HashMap<String, Object>();
