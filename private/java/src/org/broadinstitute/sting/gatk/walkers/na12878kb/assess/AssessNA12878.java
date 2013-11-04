@@ -124,8 +124,11 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Argument(fullName="ignoreFilters", shortName = "ignoreFilters", doc="If true, we will ignore the filter status of calls", required=false)
     public boolean ignoreFilters = false;
 
-    @Argument(fullName="minPNonRef", shortName = "minPNonRef", doc="Min. PL against 0/0 for a site to be considered called in NA12878", required=false)
+    @Argument(fullName="minPNonRef", shortName = "minPNonRef", doc="Min. PL against 0/0 for a site to be considered called in NA12878; set to -1 to allow all sites", required=false)
     public int minPNonRef = -1;
+
+    @Argument(fullName="minGQ", shortName = "minGQ", doc="Min. Genotype Quality for a genotype to be considered confidently called in NA12878; set to -1 to allow all genotypes", required=false)
+    public int minGQ = 20;
 
     @Argument(fullName="requireReviewed", shortName = "requireReviewed", doc="If true, we will only use reviewed sites for the analysis", required=false)
     public boolean onlyReviewed = false;
@@ -189,7 +192,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         // set up assessors for each rod binding
         for ( final RodBinding<VariantContext> rod : variants ) {
             final String rodName = rod.getName();
-            final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, sitesWriter, bamReader, minDepthForLowCoverage, minPNonRef, ignoreFilters);
+            final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, sitesWriter, bamReader, minDepthForLowCoverage, minPNonRef, minGQ, ignoreFilters);
             assessors.put(rodName, assessor);
         }
     }

@@ -100,6 +100,7 @@ public class Assessor {
     private final SitesWriter badSitesWriter;
     private final boolean ignoreFilters;
     private final int minPNonRef;
+    private final int minGQ;
 
     Assessment SNPAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
     Assessment IndelAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
@@ -111,7 +112,7 @@ public class Assessor {
      * @param name the name of our assessor
      */
     protected Assessor(final String name) {
-        this(name, AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 0, -1, false);
+        this(name, AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 0, -1, 20, false);
     }
 
     /**
@@ -127,6 +128,9 @@ public class Assessor {
      *                  for FNs using this reader
      * @param minDepthForLowCoverage if bamReader is provided, coverage at a FN will be considered "low coverage"
      *                               if its below this value
+     * @param minPNonRef  if PLs against 0/0 are below this number, do not consider the site called; use -1 to ignore
+     * @param minGQ  if GQ is below this number, do not consider the genotype called; use -1 to ignore
+     * @param ignoreFilters if true, ignore the filter status of calls and use them all
      */
     public Assessor(final String name,
                     final AssessNA12878.TypesToInclude typesToInclude,
@@ -135,6 +139,7 @@ public class Assessor {
                     final SAMFileReader bamReader,
                     final int minDepthForLowCoverage,
                     final int minPNonRef,
+                    final int minGQ,
                     final boolean ignoreFilters) {
         if ( name == null ) throw new IllegalArgumentException("ROD name cannot be null");
         if ( name.equals("") ) throw new IllegalArgumentException("ROD name cannot be the empty string");
@@ -147,6 +152,7 @@ public class Assessor {
         this.bamReader = bamReader;
         this.minDepthForLowCoverage = minDepthForLowCoverage;
         this.minPNonRef = minPNonRef;
+        this.minGQ = minGQ;
         this.excludeKBSitesSupportedByOnlyTheseCallset = excludeKBSitesSupportedByOnlyTheseCallset;
         this.badSitesWriter = badSitesWriter;
         this.ignoreFilters = ignoreFilters;
@@ -205,7 +211,7 @@ public class Assessor {
             // missed consensus site(s)
             for ( final MongoVariantContext site : consensusSites ) {
                 if ( logger.isDebugEnabled() ) logger.debug("Missed site in " + name + " site = " + site);
-                assessMatchedCallWithKB(null, site, onlyReviewed, okayToMiss);
+                assessMatchedCallWithKB(null, site, onlyReviewed, okayToMiss, true);
             }
         } else {
             final Set<VariantContext> biallelics = new HashSet<VariantContext>();
@@ -231,7 +237,10 @@ public class Assessor {
             for ( final Pair<VariantContext, MongoVariantContext> match : matchCallsWithKB(biallelics, consensusSites) ) {
                 final VariantContext biallelic = match.getFirst();
                 final MongoVariantContext consensusSite = match.getSecond();
-                assessMatchedCallWithKB(biallelic, consensusSite, onlyReviewed, okayToMiss);
+                // because we split VariantContexts into component parts it is possible that records that were originally
+                // of MIXED type can look 0/1 instead of 1/2 (in VCF parlance), so we don't want to assess genotype concordance
+                // in such cases (hence the check for biallelics having at most 1 element).
+                assessMatchedCallWithKB(biallelic, consensusSite, onlyReviewed, okayToMiss, biallelics.size() <= 1);
             }
         }
     }
@@ -306,15 +315,17 @@ public class Assessor {
      * Assess a call with its matched consensus site
      *
      * If call and consensusSite are both not null, then we interpret this as a equivalent call, and the
-     * assessment type is computed as such.  If call is null, consensusSite must not be null and it's intrepreted
+     * assessment type is computed as such.  If call is null, consensusSite must not be null and it's interpreted
      * as a KB site that wasn't present in the call set.  If call is not null and consensusSite is null, it's
      * intrepreted as a call without an equivalent record in the KB.  It's an error if both are null.
      *
      * @param call a potentially null VariantContext call
      * @param consensusSite a potentially null consensus Site
      * @param okayToMiss   if true, we will not penalize for any FALSE_NEGATIVES
+     * @param okayToAssessGenotypes if false, we will not penalize for possible genotype discordance
      */
-    protected void assessMatchedCallWithKB(final VariantContext call, final MongoVariantContext consensusSite, final boolean onlyReviewed, final boolean okayToMiss) {
+    protected void assessMatchedCallWithKB(final VariantContext call, final MongoVariantContext consensusSite,
+                                           final boolean onlyReviewed, final boolean okayToMiss, final boolean okayToAssessGenotypes) {
         if ( call == null && consensusSite == null ) throw new IllegalArgumentException("both call and consensusSite cannot be null");
         if ( call != null && consensusSite != null && ( call.getStart() != consensusSite.getStart() ) )
             throw new IllegalArgumentException("Call and consensusSite don't start at the same position! " + call + " consensus " + consensusSite);
@@ -333,14 +344,17 @@ public class Assessor {
 
         // determine if we have called the site correctly but failed to genotype it properly
         boolean genotypeDiscordance = false;
-        if ( call != null && consensusSite != null && type == AssessmentType.TRUE_POSITIVE &&
+        if ( okayToAssessGenotypes && call != null && consensusSite != null && type == AssessmentType.TRUE_POSITIVE &&
                 call.hasGenotype("NA12878") && ! isNotUsableCall(call) && consensusSite.isPolymorphic()) {
             final List<Allele> alleles = vc.getAlleles();
             final Genotype consensusGT = consensusSite.getGt().toGenotype(alleles);
             if ( consensusGT.getType() == GenotypeType.HET || consensusGT.getType() == GenotypeType.HOM_VAR ) {
-                final boolean concordant = consensusGT.getType() == call.getGenotype("NA12878").getType();
-                genotypeDiscordance = ! concordant;
-                assessment.incGenotypingAccuracy(consensusGT.getType(), concordant);
+                final Genotype callGT = call.getGenotype("NA12878");
+                if ( !callGT.hasGQ() || callGT.getGQ() >= minGQ ) {
+                    final boolean concordant = consensusGT.getType() == callGT.getType();
+                    genotypeDiscordance = ! concordant;
+                    assessment.incGenotypingAccuracy(consensusGT.getType(), concordant);
+                }
             }
         }
 
