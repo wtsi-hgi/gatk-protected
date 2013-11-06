@@ -256,6 +256,19 @@ public class AssessorUnitTest extends BaseTest {
         Assert.assertEquals(assessor.getSNPAssessment(), oneTP);
     }
 
+    @Test
+    public void testAssessSiteWithDiscordantGTButLowGQ() {
+        final Assessor assessor = new Assessor("test");
+        final VariantContext vcAC10 = makeVC(10, "A", "C");
+        final Genotype het = new GenotypeBuilder("NA12878", vcAC10.getAlleles()).GQ(1).make();
+        final Genotype discordant = MongoGenotype.createDiscordant(het);
+        final MongoVariantContext mvcAC10 = MongoVariantContext.create("kb", vcAC10, TruthStatus.TRUE_POSITIVE, discordant);
+        assessor.assessSite(Arrays.asList(vcAC10), Arrays.asList(mvcAC10), false);
+
+        final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+        Assert.assertEquals(assessor.getSNPAssessment(), oneTP);
+    }
+
     // ------------------------------------------------------------
     // Tests for assessing a site
     // ------------------------------------------------------------
@@ -282,7 +295,7 @@ public class AssessorUnitTest extends BaseTest {
     @Test(dataProvider = "DoCSites")
     public void testFilteringSites(final File bam, final String chr, final int pos, final int expectedDoC) {
         final SAMFileReader bamReader = Assessor.makeSAMFileReaderForDoCInBAM(bam);
-        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, bamReader, 5, -1, false);
+        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, bamReader, 5, -1, -1, false);
         final int actualDoC = assessor.getDepthAtLocus(chr, pos);
         Assert.assertEquals(actualDoC, expectedDoC, "Depth of coverage at " + chr + ":" + pos + " had unexpected depth");
     }
