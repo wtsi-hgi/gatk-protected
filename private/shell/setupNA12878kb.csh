@@ -44,7 +44,7 @@ $import -callSetName 1000GPilot1Liftover -assumedCallTruth TRUE_POSITIVE -howToT
 $import -callSetName HapMap3.3 -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/genotypes_r27_nr.b37_fwd.na12878.kbInterval.vcf
 $import -callSetName GoldIndelGenotyped -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 MARK_AS_NON_POLYMORPHIC -V $source/NA12878.indel.filtered.truth.na12878.kbInterval.vcf
 $import -callSetName 1000G_250sites_indelValidation_POLY -assumedCallTruth UNKNOWN -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/1000G.250sites.indelValidation.polymorphic.alleles.na12878.kbInterval.vcf
-    $import -callSetName 1000G_250sites_indelValidation_MONO -assumedCallTruth FALSE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/1000G.250sites.indelValidation.monomorphic.alleles.na12878.kbInterval.vcf
+$import -callSetName 1000G_250sites_indelValidation_MONO -assumedCallTruth FALSE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/1000G.250sites.indelValidation.monomorphic.alleles.na12878.kbInterval.vcf
 $import -callSetName 1000G_exomeChip -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/1000G.exomechip.20121009.snps_only.genotypes.na12878.kbInterval.vcf
 $import -callSetName 1000G_variousValidations -assumedCallTruth UNKNOWN -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/1000G.validationExperiments.polymorphic.b37.na12878.kbInterval.vcf
 $import -callSetName 1000G_snpChip -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/1000Genome.chip.b37.filtered.na12878.kbInterval.vcf
@@ -54,6 +54,10 @@ $import -callSetName MiSeqLargeIndels -assumedCallTruth TRUE_POSITIVE -howToTrea
 $import -callSetName largeScaleValidationPools_POLY -assumedCallTruth UNKNOWN -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/largeScaleValidationSites_pools_run20121030EASFix.POLYMORPHIC.sites.na12878.kbInterval.vcf
 $import -callSetName largeScaleValidationPools_MONO -assumedCallTruth FALSE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/largeScaleValidationSites_pools_run20121030EASFix.MONOMORPHIC.sites.na12878.kbInterval.vcf
 $import -callSetName NIST_GenomesInABottle -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 SKIP -V $source/NISTIntegratedCalls_v2.17.na12878.kbInterval.vcf
+$import -callSetName AffyExomePlus_POLY -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 MARK_AS_NON_POLYMORPHIC -V $source/Axiom_Exome_Plus.genotypes.NA12878.poly.vcf
+$import -callSetName AffyExomePlus_MONO -assumedCallTruth FALSE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/Axiom_Exome_Plus.genotypes.all_populations.monomorphic.biallelic.vcf
+$import -callSetName BroadExomeLOF_POLY -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 MARK_AS_NON_POLYMORPHIC -V $source/ALL.wex.broad_lof_exome_chip_beadstudio.20130703.snps_and_indels.chip.genotypes.NA12878.poly.vcf
+$import -callSetName BroadExomeLOF_MONO -assumedCallTruth FALSE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/ALL.wex.broad_lof_exome_chip_beadstudio.20130703.snps_and_indels.chip.genotypes.mono.vcf
 #$import -callSetName largeScaleValidationNA12878 -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 SKIP -V $source/largeScaleValidation.HC.NA12878.chr20.recalibrated.na12878.kbInterval.vcf
 endif
 
