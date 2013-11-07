@@ -266,7 +266,7 @@ class GeneralCallingPipeline extends QScript {
   }
 
   // 3b)
-  class indelRecal(indelVCF: String) extends VQSRBase(indelVCF) with BaseCommandArguments {
+  class indelRecal(indelVCF: File) extends VQSRBase(indelVCF) with BaseCommandArguments {
     this.resource :+= new TaggedFile( indelGoldStandardCallset, "known=false,training=true,truth=true,prior=12.0" ) // known=true on the bast practices v4
     this.resource :+= new TaggedFile( latestdbSNP, "known=true,prior=2.0" )  						// not part of the bast practices v4
     this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
