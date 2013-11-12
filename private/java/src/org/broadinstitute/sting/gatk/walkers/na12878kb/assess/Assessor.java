@@ -58,6 +58,7 @@ import org.broadinstitute.sting.gatk.filters.BadCigarFilter;
 import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.locusiterator.LocusIteratorByState;
 import org.broadinstitute.sting.utils.sam.GATKSamRecordFactory;
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
@@ -248,8 +249,10 @@ public class Assessor {
     private VariantContext subsetToNA12878(final VariantContext vcRaw) {
         if ( vcRaw.hasGenotypes() ) {
             final VariantContext vcNA12878 = GATKVariantContextUtils.trimAlleles(vcRaw.subContextFromSample("NA12878"), false, true);
+            if (!vcNA12878.hasGenotype("NA12878"))
+                throw new UserException.BadInput("The input file does not contain NA12878. VCFs with genotypes must have NA12878 as one of the samples present, otherwise you must use a sites-only VCF. If your VCF is from NA12878 make sure that the sample name is actually 'NA12878'.");
             final Genotype na12878 = vcNA12878.getGenotype("NA12878");
-            if ( na12878.hasPL() && na12878.getPL()[0] < minPNonRef )
+            if (na12878.hasPL() && na12878.getPL()[0] < minPNonRef)
                 return null;
             else {
                 return vcNA12878;
