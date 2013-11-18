@@ -44,89 +44,72 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.andrey.utils;
+package org.broadinstitute.sting.gatk.walkers.haplotypecaller.graphs;
 
-import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.sting.gatk.walkers.haplotypecaller.Kmer;
+import org.testng.Assert;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Arrays;
 import java.util.List;
 
-class AlignmentList implements Iterable<AlignmentInfo> {
-        private int best_mm = 1000000000;
-        private int next_best_mm = 1000000000;
-        private List<AlignmentInfo> als = null;
-        private int next_best_count = 0;
-        private int best_overlap = 0;
+public class KmerSearchableSeqGraphUnitTest extends BaseTest {
+    private final static boolean DEBUG = false;
 
-        private AlignmentStrategy strategy = null;
 
-        public AlignmentList(AlignmentStrategy s) {
-            this.strategy = s;
-            best_mm = 1000000000;
-            next_best_mm = 1000000000;
-            best_overlap = 0;
-            als = new ArrayList<AlignmentInfo>(1);
-        }
+    @Test(enabled=true,dataProvider = "KmerListData")
+    public void testFindKmers(final KmerSearchableSeqGraph graph, final String bases, final List<KmerMap> result) {
 
-        public boolean isAligned() {
-            return best_mm < 1000000000;
-        }
-
-        public List<AlignmentInfo> getAlignments() { return als; }
-
-        public int size() { return als.size(); }
-
-        public Iterator<AlignmentInfo> iterator() { return als.iterator(); }
-
- //       public void tryAdd(int mm, int offset, boolean isRc, int overlap) {
- //           tryAdd(new AlignmentInfo(mm,offset,isRc,overlap));
- //       }
-
-        public void tryAdd(AlignmentInfo ai) {
-            AlignmentStrategy.Action a = strategy.action(ai,this) ;
-            switch ( a ) {
-                case DISCARD: break;
-                case REPLACE_BEST:
-                    next_best_mm = best_mm;
-                    next_best_count = size();
-                    als.clear();
-                    als.add(ai);
-                    best_mm = ai.getMismatchCount();
-                    best_overlap = ai.getOverlap();
-                    break;
-                case ADD_BEST:
-                    als.add(ai);
-                    if ( ai.getMismatchCount() < best_mm ) best_mm = ai.getMismatchCount();
-                    if ( ai.getOverlap() > best_overlap) best_overlap = ai.getOverlap();
-                    break;
-                case REPLACE_NEXTBEST:
-                    next_best_mm = ai.getMismatchCount();
-                    next_best_count = 1;
-                    break;
-                case ADD_NEXTBEST:
-                    next_best_count++;
-                    if ( ai.getMismatchCount() < next_best_mm ) next_best_mm = ai.getMismatchCount();
-                    break;
-                default: throw new StingException("Unrecognized action requested: "+a);
+       List<KmerMap> maps = graph.findKmerMaps(bases.getBytes());
+       final int count;
+       Assert.assertEquals(maps.size(), count = bases.length() - graph.getKmerSize() + 1);
+       for (int i = 0; i < count; i++) {
+            Assert.assertNotNull(maps.get(i));
+            try {
+              Assert.assertEquals(maps.get(i),result.get(i));
+            } catch (Throwable th) {
+              throw new RuntimeException(th);
             }
+       }
+    }
+
+
+    @DataProvider(name="KmerListData")
+    private Object[][] findKmerListTestData() {
+
+        SeqVertex v0 = new SeqVertex("AAAACAAATAAAGAAACTAA");
+        SeqVertex v1 = new SeqVertex("CC");
+        SeqVertex v2 = new SeqVertex("TTCATAGAT");
+
+        final KmerSearchableSeqGraph graph = new KmerSearchableSeqGraph(4);
+
+        graph.addVertices(v0,v1,v2);
+        graph.addEdge(v0, v1);
+        graph.addEdge(v1, v2);
+        graph.addEdge(v0, v2);
+
+        final Object[][] result = new Object[][] {
+           new Object[] {graph, "AAAATAGA", kmerMapList(graph,"AAAATAGA",v0,0,v0,5,v0,6,v2,4,v2,5) }
+        };
+
+        return result;
+
+    }
+
+    private List<KmerMap> kmerMapList(final KmerSearchableSeqGraph graph, final String seq, final Object ... o) {
+
+        final KmerMap[] result = new KmerMap[o.length / 2];
+        final byte[] sequence = seq.getBytes();
+
+        for (int i = 0; i < o.length; i += 2) {
+            SeqVertex v = (SeqVertex) o[i];
+            int offset = (int) o[i+1];
+            result[i / 2] = v == null || offset == -1 ? KmerMap.unmapped(graph,new Kmer(sequence,i/2,4))
+                    : new KmerMap(graph,new Kmer(sequence,i/2,4),v,offset,v,offset + 4);
         }
+        return Arrays.asList(result);
 
-        public void tryAddAll(AlignmentList al) {
-            for( AlignmentInfo ai : al) {
-                tryAdd(ai);
-            }
-        }
-
-        public int getBestMMCount() { return best_mm; }
-        public int getBestOverlap() { return best_overlap; }
-        public int getBestHitCount() { return als.size() ; }
-        public int getNextBestHitCount() { return next_best_count; }
-        public int getNextBestMMCount() { return next_best_mm; }
-//        public int getOverlap() { return overlap; }
-//        public int getEndOffset() { return offset; }
-//        public boolean isNegativeStrand() { return rc; }
-
-//        public double getMismatchRate() { return isAligned() ? ((double)best_mm)/overlap : 1.0 ; }
-
+    }
 }

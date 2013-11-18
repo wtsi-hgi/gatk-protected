@@ -44,89 +44,222 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.andrey.utils;
+package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
-import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.sting.gatk.walkers.haplotypecaller.graphs.BaseEdge;
+import org.broadinstitute.sting.gatk.walkers.haplotypecaller.graphs.BaseVertex;
+import org.broadinstitute.sting.gatk.walkers.haplotypecaller.graphs.KmerSearchableGraph;
+import org.broadinstitute.sting.utils.pairhmm.FlexibleHMM;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
-class AlignmentList implements Iterable<AlignmentInfo> {
-        private int best_mm = 1000000000;
-        private int next_best_mm = 1000000000;
-        private List<AlignmentInfo> als = null;
-        private int next_best_count = 0;
-        private int best_overlap = 0;
+/**
+ * Contains information as to how a read maps to (assembly) graph.
+ *
+ * @author Valentin Ruano-Rubio &lt;valentin@broadinstitute.com&gt;
+ */
+public class ReadGraphMap<V extends BaseVertex,E extends BaseEdge> extends KmerSequenceGraphMap<V,E> {
 
-        private AlignmentStrategy strategy = null;
+    protected FlexibleHMM mlPairHMM;
+    private long computationCount;
+    private boolean useSingleArrayMLImplementation = true;
+    private byte[] bases;
+    private byte[] bq;
+    private byte[] dq;
+    private int mq;
+    private byte[] iq;
 
-        public AlignmentList(AlignmentStrategy s) {
-            this.strategy = s;
-            best_mm = 1000000000;
-            next_best_mm = 1000000000;
-            best_overlap = 0;
-            als = new ArrayList<AlignmentInfo>(1);
+    public ReadGraphMap(final KmerSearchableGraph g, final byte[] bases, final byte[] bq, final byte[] iq, final byte[] dq, final int mq) {
+        super(g, new KmerSequence(bases,g.getKmerSize()));
+        this.bases = bases;
+        this.bq = bq;
+        this.iq = iq;
+        this.dq = dq;
+        this.mq = mq;
+    }
+
+    public void setUseSingleArrayMLImplementation(final boolean b) {
+        if (mlPairHMM != null && useSingleArrayMLImplementation != b)
+            mlPairHMM = null;
+        useSingleArrayMLImplementation = b;
+    }
+
+    private FlexibleHMM createFastPairHMM() {
+        if (mlPairHMM == null) {
+            if (useSingleArrayMLImplementation) {
+                mlPairHMM = new MLECalculationEngine(bases,bq,iq,dq,mq);
+
+            } else {
+                final MLLog10PairHMM engine = new MLLog10PairHMM((byte)10);
+                engine.setupForGraphLikelihoodTest();
+                engine.loadRead(bases,bq,iq,dq,mq);
+                mlPairHMM = engine;
+            }
+        }
+        return mlPairHMM;
+    }
+
+    public ReadGraphMap(final KmerSearchableGraph g, final GATKSAMRecord r) {
+        super(g, new KmerSequence(r,g.getKmerSize()));
+
+        mlPairHMM = new MLECalculationEngine(r);
+    }
+
+    public long getComputationStepsReused() {
+        return 0;
+        //return createFastPairHMM().getComputationStepsReused();
+    }
+
+    /**
+     * Given a path through the threading graph, it returns the maximum likelihood estimate (MLE) of the
+     * alignment Read vs that path constrained by kmer exact matches.
+     * @return log10 likelihood of that path
+     */
+    public double log10MLE(final KmerSequenceGraphMap<V,E> haplotype)  {
+
+        if (haplotype.graph != graph) {
+            throw new IllegalArgumentException("both maps must be based on the same graph");
+        }
+        if (haplotype.sequence.size() == 0) {
+            return 0;
         }
 
-        public boolean isAligned() {
-            return best_mm < 1000000000;
+
+        final int kmerCount = sequence.size();
+        final int seqLength = sequence.getBytes().length;
+        final int hapKmerCount = haplotype.sequence.size();
+        final int hapLength = hapKmerCount + kmerSize - 1;
+
+        final List<V> vertexList = vertexList();
+        final Map<V,Integer> hapVertexOffset = haplotype.vertexOffset();
+
+        createFastPairHMM().loadHaplotypeBases(haplotype.sequence.getBytes());
+        //createFastPairHMM().resetComputationSteps();
+        final int[] alignment = calculateKmerMatchAlignment(kmerCount, seqLength, vertexList, hapVertexOffset);
+        double cost = 0;
+        if (alignment == null) { // a null means that tha kmer matchs with the haplotype are or overlap in disorder.
+           //TODO inefficient, perhaps we can recover by removing some common kmer mappings .
+
+            cost = failOver(seqLength, hapLength);
+           return cost;
         }
 
-        public List<AlignmentInfo> getAlignments() { return als; }
 
-        public int size() { return als.size(); }
+        int seqStart = 0;
+        int hapStart = 0;
+        while (seqStart < seqLength) {
+            if (alignment[seqStart] == -1) {
+                int seqEnd = seqStart;
+                while (seqEnd < seqLength && alignment[seqEnd] == -1) {
+                    seqEnd++;
+                }
+                final int hapEnd = seqEnd < seqLength ? alignment[seqEnd] : hapLength;
+                cost += createFastPairHMM().calculateLocalLikelihood(seqStart, seqEnd, hapStart, hapEnd, false);
+                hapStart = hapEnd;
+                seqStart = seqEnd;
+            } else {
+                int seqEnd = seqStart;
+                hapStart = alignment[seqStart];
+                while (seqEnd < seqLength - 1 && alignment[seqEnd + 1] == alignment[seqEnd] + 1) {
+                    seqEnd++;
+                }
+                int hapEnd = alignment[seqEnd] + 1;
+                seqEnd++;
+                hapEnd += kmerSize - 1;   // be greedy in the case of a kmer match stretch.
+                seqEnd += kmerSize - 1;   // be greedy in the case of a kmer match stretch.
+                cost += createFastPairHMM().calculateLocalLikelihood(seqStart, seqEnd, hapStart, hapEnd, true);
+                hapStart = hapEnd;
+                seqStart = seqEnd;
+                if (seqStart < seqLength && alignment[seqStart] != -1) {
+                    hapEnd = Math.max(alignment[seqStart], hapStart);
+                    cost += createFastPairHMM().calculateLocalLikelihood(seqStart, seqStart, hapStart, hapEnd, false);
+                    hapStart = hapEnd;
+                }
+            }
+        }
+        //computationCount = createFastPairHMM().getComputationSteps();
 
-        public Iterator<AlignmentInfo> iterator() { return als.iterator(); }
+        return cost;
+    }
 
- //       public void tryAdd(int mm, int offset, boolean isRc, int overlap) {
- //           tryAdd(new AlignmentInfo(mm,offset,isRc,overlap));
- //       }
+    private double failOver(final int seqLength, final int hapLength) {
+        final double cost;
+        cost = createFastPairHMM().calculateLocalLikelihood(0, seqLength, 0, hapLength, false);
+        //computationCount += createFastPairHMM().getComputationSteps();
+        return cost;
+    }
 
-        public void tryAdd(AlignmentInfo ai) {
-            AlignmentStrategy.Action a = strategy.action(ai,this) ;
-            switch ( a ) {
-                case DISCARD: break;
-                case REPLACE_BEST:
-                    next_best_mm = best_mm;
-                    next_best_count = size();
-                    als.clear();
-                    als.add(ai);
-                    best_mm = ai.getMismatchCount();
-                    best_overlap = ai.getOverlap();
-                    break;
-                case ADD_BEST:
-                    als.add(ai);
-                    if ( ai.getMismatchCount() < best_mm ) best_mm = ai.getMismatchCount();
-                    if ( ai.getOverlap() > best_overlap) best_overlap = ai.getOverlap();
-                    break;
-                case REPLACE_NEXTBEST:
-                    next_best_mm = ai.getMismatchCount();
-                    next_best_count = 1;
-                    break;
-                case ADD_NEXTBEST:
-                    next_best_count++;
-                    if ( ai.getMismatchCount() < next_best_mm ) next_best_mm = ai.getMismatchCount();
-                    break;
-                default: throw new StingException("Unrecognized action requested: "+a);
+
+    private int[] calculateKmerMatchAlignment(final int kmerCount, final int readCount, final List<V> vertexList, final Map<V, Integer> hapVertexOffset)  {
+        int[] result = new int[readCount];
+
+        Arrays.fill(result, -1);
+        for (int i = 0; i < kmerCount; i++) {
+            final V v = vertexList.get(i);
+            if (v == null)
+                continue;
+            final Integer kmerReadOffset = hapVertexOffset.get(v);
+            if (kmerReadOffset != null) {
+                    result[i] = kmerReadOffset;
             }
         }
 
-        public void tryAddAll(AlignmentList al) {
-            for( AlignmentInfo ai : al) {
-                tryAdd(ai);
+        int lastKmer = -1;
+        int lastKmerPos = -1;
+        for (int i = 0; i < result.length; i++) {
+            final int kmer = result[i];
+            if (kmer == -1) {
+                continue;
+            }
+            if (lastKmer == -1) {
+                lastKmer = kmer;
+                lastKmerPos = i;
+            } else if (lastKmer + kmerSize - 1 >= kmer && (i - lastKmerPos) != (kmer - lastKmer)) { // kmer overlap. fixing by eliminating offending kmers alignments.
+                int skip = result.length;  // first we go forward and remove further offenders.   skip will contain the next position to visit.
+                for (int j = i; j < result.length; j++) {
+                    if (result[j] == -1) {
+                        continue;
+                    } else if (lastKmer + kmerSize - 1 >= result[j]) {
+                        result[j] = -1;
+                    } else {
+                        skip = j;
+                        break;
+                    }
+                }
+                // then backwards and do the same.
+                int j = lastKmerPos;
+                lastKmer = -1;
+                lastKmerPos = -1;
+                for (; j >= 0; j--) {
+                    if (result[j] == -1) {
+                        continue;
+                    } else if (result[j] + kmerSize - 1 >= kmer) {
+                        result[j] = -1;
+                    } else {
+                        lastKmer = result[j];
+                        lastKmerPos = j;
+                        break;
+                    }
+                }
+                i = skip;
+            } else {
+                lastKmer = kmer;
+                lastKmerPos = i;
             }
         }
+        return result;
+    }
 
-        public int getBestMMCount() { return best_mm; }
-        public int getBestOverlap() { return best_overlap; }
-        public int getBestHitCount() { return als.size() ; }
-        public int getNextBestHitCount() { return next_best_count; }
-        public int getNextBestMMCount() { return next_best_mm; }
-//        public int getOverlap() { return overlap; }
-//        public int getEndOffset() { return offset; }
-//        public boolean isNegativeStrand() { return rc; }
+    public void restComputationCounts() {
+        computationCount = 0;
+    }
 
-//        public double getMismatchRate() { return isAligned() ? ((double)best_mm)/overlap : 1.0 ; }
+    public long getComputationSteps() {
+        return computationCount;
+    }
 
 }
+
