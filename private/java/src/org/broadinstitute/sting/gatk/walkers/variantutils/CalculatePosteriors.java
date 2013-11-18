@@ -56,7 +56,7 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
-import org.broadinstitute.sting.gatk.walkers.haplotypecaller.LikelihoodCalculationEngine;
+import org.broadinstitute.sting.gatk.walkers.haplotypecaller.PairHMMLikelihoodCalculationEngine;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
@@ -254,7 +254,7 @@ public class CalculatePosteriors extends RodWalker<Integer,Integer> {
         final int missing = supportVariants.size() - otherVCs.size();
 
         for ( VariantContext vc : vcs ) {
-            vcfWriter.add(LikelihoodCalculationEngine.calculatePosteriorGLs(vc, otherVCs, missing * numRefIfMissing, globalPrior, !ignoreInputSamples, NO_EM, defaultToAC));
+            vcfWriter.add(PairHMMLikelihoodCalculationEngine.calculatePosteriorGLs(vc, otherVCs, missing * numRefIfMissing, globalPrior, !ignoreInputSamples, NO_EM, defaultToAC));
         }
 
         return 1;

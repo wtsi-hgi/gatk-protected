@@ -68,7 +68,7 @@ class SitesWriter {
     protected final static String SUPPORTING_CALLSET_KEY = "SupportingCallsets";
     protected final static String WHY_KEY = "WHY";
 
-    protected final VariantContextWriter writer;
+    private final VariantContextWriter writer;
     private final Set<AssessmentType> assessmentsToExclude;
     private final int maxToWrite;
     int nWritten = 0;
@@ -132,7 +132,7 @@ class SitesWriter {
                 final Genotype expectedGT = consensusSite.getGt().toGenotype(vc.getAlleles());
                 builder.attribute("ExpectedGenotype", expectedGT.getType());
             }
-            writer.add(builder.make());
+            outputSite(builder.make());
         }
     }
 
@@ -154,5 +154,18 @@ class SitesWriter {
      */
     protected boolean emitSite(final AssessmentType type, final VariantContext vc, final MongoVariantContext consensusSite) {
         return writer != null && ! assessmentsToExclude.contains(type) && nWritten++ < maxToWrite;
+    }
+
+    /**
+     * Outputs a variant context into the variant context writer.
+     *
+     * <p>
+     *     Subclasses must use this method rather than the writer's {@link VariantContextWriter#add(VariantContext) add} method directly.
+     * </p>
+     *
+     * @param vc the variant context to output.
+     */
+    protected void outputSite(final VariantContext vc) {
+        writer.add(vc);
     }
 }
