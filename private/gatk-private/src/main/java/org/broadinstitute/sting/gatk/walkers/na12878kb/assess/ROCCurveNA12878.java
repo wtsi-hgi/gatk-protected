@@ -87,13 +87,16 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     public RodBinding<VariantContext> variants;
 
     @Argument(fullName="numBins", shortName = "numBins", doc="number of bins to use for making the ROC curve", required=false)
-    private int numBins = 50;
+    private int numBins = 100;
 
     @Output(doc="Summary GATKReport will be written here", required=false)
     public PrintStream out;
 
     @Argument(fullName="project", shortName = "project", doc="String project tag", required=true)
     public String project = null;
+
+    @Argument(fullName="requireReviewed", shortName = "requireReviewed", doc="If specified will only use reviewed sites in the knowledgebase for the assessment", required=false)
+    public boolean requireReviewed = false;
 
     private SiteIterator<MongoVariantContext> consensusSiteIterator;
     private List<ROCDatum> data = new ArrayList<>();
@@ -117,10 +120,12 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
         for( final MongoVariantContext cs : consensusSiteIterator.getSitesAtLocation(context.getLocation()) ) {
             // Is it either a SNP or indel and is it marked as either a true positive or false positive
             if( (cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive()) ) {
-                for ( final VariantContext vc : tracker.getValues(variants, ref.getLocus()) ) {
-                    // Do the alleles match between the input site and the KB site
-                    if( cs.getVariantContext().hasSameAllelesAs(vc) ) {
-                        data.add( new ROCDatum( cs.getType().isTruePositive(), cs.getVariantContext().isSNP(), vc.getAttributeAsDouble("VQSLOD", Double.NaN), vc.getFiltersMaybeNull() ) );
+                if( !requireReviewed || cs.isReviewed() ) {
+                    for ( final VariantContext vc : tracker.getValues(variants, ref.getLocus()) ) {
+                        // Do the alleles match between the input site and the KB site
+                        if( cs.getVariantContext().hasSameAllelesAs(vc) ) {
+                            data.add( new ROCDatum( cs.getType().isTruePositive(), cs.getVariantContext().isSNP(), vc.getAttributeAsDouble("VQSLOD", Double.NaN), vc.getFiltersMaybeNull() ) );
+                        }
                     }
                 }
             }
@@ -153,17 +158,30 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
         for( final ROCDatum datum : data ) {
             rocData[datum.isSNP ? SNP_INDEX : INDEL_INDEX][datum.isTP ? TP_INDEX : FP_INDEX][TOTAL_INDEX]++;
         }
-        int numVariants = 0;
-        for( final ROCDatum datum : data ) {
-            rocData[datum.isSNP ? SNP_INDEX : INDEL_INDEX][datum.isTP ? TP_INDEX : FP_INDEX][CALLED_INDEX]++;
-            if( (numVariants+1) % numBins == 0 ) {
-                report.addRow(project, name, "SNPs", datum.lod, (double)rocData[SNP_INDEX][TP_INDEX][CALLED_INDEX]/(double)rocData[SNP_INDEX][TP_INDEX][TOTAL_INDEX],
-                        (double)rocData[SNP_INDEX][FP_INDEX][CALLED_INDEX]/(double)rocData[SNP_INDEX][FP_INDEX][TOTAL_INDEX], datum.filterField);
-                report.addRow(project, name, "Indels", datum.lod, (double)rocData[INDEL_INDEX][TP_INDEX][CALLED_INDEX]/(double)rocData[INDEL_INDEX][TP_INDEX][TOTAL_INDEX],
-                        (double)rocData[INDEL_INDEX][FP_INDEX][CALLED_INDEX]/(double)rocData[INDEL_INDEX][FP_INDEX][TOTAL_INDEX], datum.filterField);
+        for( final boolean calcSNP : new boolean[]{true, false} ) {
+            int numVariants = 0;
+            final int varIndex = calcSNP? SNP_INDEX : INDEL_INDEX;
+            final int total = rocData[varIndex][TP_INDEX][TOTAL_INDEX] + rocData[varIndex][FP_INDEX][TOTAL_INDEX];
+            final int stepSize = total / numBins;
+            for( final ROCDatum datum : data ) {
+                if( datum.isSNP != calcSNP ) { continue; }
+                rocData[datum.isSNP ? SNP_INDEX : INDEL_INDEX][datum.isTP ? TP_INDEX : FP_INDEX][CALLED_INDEX]++;
+                if( (numVariants+1) % stepSize == 0 ) {
+
+                    report.addRow(project, name, calcSNP ? "SNPs" : "Indels", datum.lod, (double)rocData[varIndex][TP_INDEX][CALLED_INDEX]/(double)rocData[varIndex][TP_INDEX][TOTAL_INDEX],
+                            (double)rocData[varIndex][FP_INDEX][CALLED_INDEX]/(double)rocData[varIndex][FP_INDEX][TOTAL_INDEX], datum.filterField);
+                }
+                numVariants++;
             }
-            numVariants++;
         }
+
+        logger.info("SNPs");
+        logger.info("\tTotal # of true positives: " + rocData[SNP_INDEX][TP_INDEX][TOTAL_INDEX]);
+        logger.info("\tTotal # of false positives: "+ rocData[SNP_INDEX][FP_INDEX][TOTAL_INDEX]);
+        logger.info("Indels");
+        logger.info("\tTotal # of true positives: " + rocData[INDEL_INDEX][TP_INDEX][TOTAL_INDEX]);
+        logger.info("\tTotal # of false positives: "+ rocData[INDEL_INDEX][FP_INDEX][TOTAL_INDEX]);
+
         return report;
     }
 

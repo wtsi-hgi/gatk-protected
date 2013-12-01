@@ -44,38 +44,26 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
-
-import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+package org.broadinstitute.sting.gatk.walkers.randomforest;
 
 /**
- * Created by rpoplin on 12/11/13.
+ * Created with IntelliJ IDEA.
+ * User: rpoplin
+ * Date: 11/14/13
  */
 
-public class ROCCurveNA12878UnitTest extends BaseTest {
+public class RandomForestTerminalNode implements RandomForestNode {
+    private final boolean truthStatus;
 
-    @Test
-    public final void testCalculateROCCurve() {
-        final List<ROCCurveNA12878.ROCDatum> data = new ArrayList<>();
-        data.add(new ROCCurveNA12878.ROCDatum(true, true, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, true, -10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(true, false, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, false, -10.0, Collections.<String>emptySet()));
+    public RandomForestTerminalNode( final boolean truthStatus ) {
+        this.truthStatus = truthStatus;
+    }
 
-        final GATKReport calculatedGATKReport = ROCCurveNA12878.calculateROCCurve(data, 2, "project", "name");
-        final GATKReport expectedGATKReport = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR", "filter");
-        expectedGATKReport.addRow("project", "name", "SNPs", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "SNPs", -10.0, 1.0, 1.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", -10.0, 1.0, 1.0, "PASS");
-
-        Assert.assertTrue(expectedGATKReport.equals(calculatedGATKReport));
+    @Override
+    /**
+     * Simply return the true/false answer at the bottom of the decision tree
+     */
+    public boolean classifyDatum( final RandomForestDatum rfd ) {
+        return truthStatus;
     }
 }

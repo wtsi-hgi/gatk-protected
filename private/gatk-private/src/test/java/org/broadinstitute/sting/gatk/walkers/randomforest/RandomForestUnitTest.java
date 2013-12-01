@@ -44,38 +44,100 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
+package org.broadinstitute.sting.gatk.walkers.randomforest;
 
 import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Created by rpoplin on 12/11/13.
+ * Created by rpoplin on 2/14/14
  */
 
-public class ROCCurveNA12878UnitTest extends BaseTest {
+public class RandomForestUnitTest extends BaseTest {
 
     @Test
-    public final void testCalculateROCCurve() {
-        final List<ROCCurveNA12878.ROCDatum> data = new ArrayList<>();
-        data.add(new ROCCurveNA12878.ROCDatum(true, true, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, true, -10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(true, false, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, false, -10.0, Collections.<String>emptySet()));
+    public void testClassifyDatum() throws Exception {
+        final RandomForestDecisionNode tree1 = new RandomForestDecisionNode("ANN1", 50.0, true, new RandomForestTerminalNode(true), new RandomForestTerminalNode(false), 0.88);
+        final RandomForestDecisionNode tree2 = new RandomForestDecisionNode("ANN1", 90.0, true, new RandomForestTerminalNode(true), new RandomForestTerminalNode(false), 0.12);
+        final ArrayList<RandomForestDecisionNode> classifier = new ArrayList<>();
+        classifier.add(tree1);
+        classifier.add(tree2);
 
-        final GATKReport calculatedGATKReport = ROCCurveNA12878.calculateROCCurve(data, 2, "project", "name");
-        final GATKReport expectedGATKReport = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR", "filter");
-        expectedGATKReport.addRow("project", "name", "SNPs", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "SNPs", -10.0, 1.0, 1.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", -10.0, 1.0, 1.0, "PASS");
+        final RandomForest randomForest = new RandomForest(classifier);
 
-        Assert.assertTrue(expectedGATKReport.equals(calculatedGATKReport));
+        final Map<String, Comparable> annotations = new HashMap<>();
+        annotations.put("ANN1", 900.0);
+        final RandomForestDatum rfd = new RandomForestDatum(annotations, true, false, false);
+
+        Assert.assertEquals(randomForest.classifyDatum(rfd), 1.0, 1E-4);
+    }
+
+    @Test
+    public void testClassifyDatum2D() throws Exception {
+        final RandomForestDecisionNode tree1 = new RandomForestDecisionNode("ANN1", 50.0, true, new RandomForestTerminalNode(true), new RandomForestTerminalNode(false), 0.88);
+        final RandomForestDecisionNode tree2 = new RandomForestDecisionNode("ANN2", 90.0, true, new RandomForestTerminalNode(true), new RandomForestTerminalNode(false), 0.12);
+        final ArrayList<RandomForestDecisionNode> classifier = new ArrayList<>();
+        classifier.add(tree1);
+        classifier.add(tree2);
+
+        final RandomForest randomForest = new RandomForest(classifier);
+
+        final Map<String, Comparable> annotations = new HashMap<>();
+        annotations.put("ANN1", 900.0);
+        annotations.put("ANN2", 600.0);
+        final RandomForestDatum rfd = new RandomForestDatum(annotations, true, false, false);
+
+        Assert.assertEquals(randomForest.classifyDatum(rfd), 1.0, 1E-4);
+    }
+
+    @Test
+    public void testSubsetFunctions() throws Exception {
+        final Map<String, Comparable> annotations = new HashMap<>();
+        annotations.put("ANN1", 900.0);
+        annotations.put("ANN2", 600.0);
+        final ArrayList<RandomForestDatum> data = new ArrayList<>();
+        data.add(new RandomForestDatum(annotations, true, false, false));
+        data.add(new RandomForestDatum(annotations, true, false, false));
+        data.add(new RandomForestDatum(annotations, true, false, false));
+        data.add(new RandomForestDatum(annotations, true, true, false));
+        data.add(new RandomForestDatum(annotations, true, false, true));
+        data.add(new RandomForestDatum(annotations, true, false, true));
+        data.add(new RandomForestDatum(annotations, true, false, true));
+        data.add(new RandomForestDatum(annotations, true, false, true));
+        data.add(new RandomForestDatum(annotations, true, false, true));
+        data.add(new RandomForestDatum(annotations, true, true, true));
+        data.add(new RandomForestDatum(annotations, false, false, true));
+        data.add(new RandomForestDatum(annotations, false, true, true));
+        data.add(new RandomForestDatum(annotations, false, false, false));
+
+        final List<RandomForestDatum> subsetTrue = RandomForest.subsetToTruth(data, true);
+        final List<RandomForestDatum> subsetFalse = RandomForest.subsetToTruth(data, false);
+        final List<RandomForestDatum> subsetInput = RandomForest.subsetToInputData(data);
+        final List<RandomForestDatum> subsetTraining = RandomForest.subsetToTrainingData(data);
+
+        for ( final RandomForestDatum rfd : subsetTrue ) {
+            Assert.assertTrue(rfd.isGood);
+            Assert.assertFalse(rfd.isBad);
+        }
+
+        for ( final RandomForestDatum rfd : subsetFalse ) {
+            Assert.assertTrue(rfd.isBad);
+            Assert.assertFalse(rfd.isGood);
+        }
+
+        for ( final RandomForestDatum rfd : subsetInput ) {
+            Assert.assertTrue(rfd.isInput);
+        }
+
+        for ( final RandomForestDatum rfd : subsetTraining ) {
+            Assert.assertTrue(rfd.isGood | rfd.isBad);
+            Assert.assertFalse(rfd.isGood == rfd.isBad);
+        }
     }
 }
