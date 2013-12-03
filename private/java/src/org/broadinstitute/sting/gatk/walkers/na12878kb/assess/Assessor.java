@@ -94,7 +94,7 @@ public class Assessor {
     private final Logger logger = Logger.getLogger(Assessor.class);
 
     private final AssessNA12878.TypesToInclude typesToInclude;
-    private final String name;
+    protected final String name;
     private final SAMFileReader bamReader;
     private final int minDepthForLowCoverage;
     private final Set<String> excludeKBSitesSupportedByOnlyTheseCallset;
@@ -260,6 +260,29 @@ public class Assessor {
         } else {
             return vcRaw;
         }
+    }
+
+    protected List<VariantContext> biallelizeVarantContextList(final List<VariantContext> vcs) {
+        final List<VariantContext> biallelics = new LinkedList<VariantContext>();
+
+        for( final VariantContext vcRaw : vcs ) {
+            if ( vcRaw.getAlternateAlleles().isEmpty() ) // skip sites without alt allele
+                continue;
+
+            // allow sites only VCs to be evaluated as though they are just NA12878 calls
+            final VariantContext na12878vc = vcRaw.hasGenotypes() ? GATKVariantContextUtils.trimAlleles(vcRaw.subContextFromSample("NA12878"), false, true) : vcRaw;
+            if ( na12878vc.isVariant() ) {
+                for ( final VariantContext biallelic : GATKVariantContextUtils.splitVariantContextToBiallelics(na12878vc, true, GATKVariantContextUtils.GenotypeAssignmentMethod.BEST_MATCH_TO_ORIGINAL)) {
+                    if ( biallelic != null && biallelic.getStart() > na12878vc.getStart() ) {
+                        // trimming the variant moved the variant forward on the genome, which can happen but
+                        // means that the input VCF had a very strange multi-allelic structure
+                        logger.warn("Biallelic split in " + name + " moved a variant into the future " + biallelic + " from " + na12878vc);
+                    } else
+                        biallelics.add(biallelic);
+                }
+            }
+        }
+        return biallelics;
     }
 
     /**

@@ -124,7 +124,7 @@ class AlignmentList implements Iterable<AlignmentInfo> {
         public int getNextBestHitCount() { return next_best_count; }
         public int getNextBestMMCount() { return next_best_mm; }
 //        public int getOverlap() { return overlap; }
-//        public int getOffset() { return offset; }
+//        public int getEndOffset() { return offset; }
 //        public boolean isNegativeStrand() { return rc; }
 
 //        public double getMismatchRate() { return isAligned() ? ((double)best_mm)/overlap : 1.0 ; }

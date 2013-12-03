@@ -59,7 +59,10 @@ import java.util.Set;
  * Date: 2/19/13
  * Time: 10:13 PM
  */
-class BadSitesWriter extends SitesWriter {
+
+public class BadSitesWriter extends SitesWriter {
+;
+
     private final boolean captureBadSites;
 
     /**
@@ -69,7 +72,7 @@ class BadSitesWriter extends SitesWriter {
      * @param assessmentsToExclude don't include assessments in this set, even if they would normally be emitted
      * @param writer the underlying VCWriter we'll use to emit bad sites.  Can be null if captureBadSites is false
      */
-    public BadSitesWriter(int maxToWrite, Set<AssessmentType> assessmentsToExclude, VariantContextWriter writer) {
+    public BadSitesWriter(final int maxToWrite, final Set<AssessmentType> assessmentsToExclude, final VariantContextWriter writer) {
         super(maxToWrite, assessmentsToExclude, writer);
         this.captureBadSites = writer != null;
     }
@@ -80,7 +83,7 @@ class BadSitesWriter extends SitesWriter {
     }
 
     @Override
-    protected boolean emitSite(AssessmentType type, VariantContext vc, MongoVariantContext consensusSite) {
+    protected boolean emitSite(final AssessmentType type, final VariantContext vc, final MongoVariantContext consensusSite) {
         return captureBadSites && type.isInteresting() && super.emitSite(type, vc, consensusSite);
     }
 }
