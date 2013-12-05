@@ -46,7 +46,7 @@ BAMBOO_BUILD_DIRECTORY=`basename "${BAMBOO_CLONE}"`
 BAMBOO_BUILD_ID="${BAMBOO_BUILD_DIRECTORY}-${BUILD_NUMBER}"
 COMPILE_IVY_CACHE="${BAMBOO_CLONE}/ivy_cache"
 COMPILE_TEMP_DIR="${BAMBOO_CLONE}/tmp"
-GLOBAL_PARALLEL_TESTS_DIR="/broad/hptmp/gsabamboo/parallel_tests_working_directories"
+GLOBAL_PARALLEL_TESTS_DIR="/humgen/gsa-hpprojects/GATK/testing/parallel_tests_working_directories"
 TEST_ARCHIVE_DIR="${GLOBAL_PARALLEL_TESTS_DIR}/archive"
 TEST_ROOT_WORKING_DIR="${GLOBAL_PARALLEL_TESTS_DIR}/${BAMBOO_BUILD_ID}"
 TEST_CLONE="${TEST_ROOT_WORKING_DIR}/test_clone"
@@ -256,6 +256,7 @@ echo "Dispatching jobs for ${BAMBOO_BUILD_ID}"
 bsub -P "${BAMBOO_BUILD_ID}" \
      -q "${JOB_QUEUE}" \
      -R "rusage[mem=${JOB_MEMORY}] select[tmp>100]" \
+     -W 240 \
      -o "MASTER.job.out" \
      -J "${BAMBOO_BUILD_ID}[1-${NUM_JOBS}]" \
      "${JOB_RUNNER_DIR}/\${LSB_JOBINDEX}.sh"
