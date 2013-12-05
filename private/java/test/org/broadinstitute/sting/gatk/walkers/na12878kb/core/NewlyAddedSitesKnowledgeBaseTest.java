@@ -57,8 +57,8 @@ import org.testng.annotations.Test;
 
 import java.util.*;
 
-public class NewlyAddedSitesUnitTest extends NA12878KBUnitTestBase {
-    private static Logger logger = Logger.getLogger(NewlyAddedSitesUnitTest.class);
+public class NewlyAddedSitesKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase {
+    private static Logger logger = Logger.getLogger(NewlyAddedSitesKnowledgeBaseTest.class);
 
     private List<MongoVariantContext> makeAllMVCs() {
         final MongoVariantContext mvc19_2 = MongoVariantContext.create("y", "19", 2, "A", "C", true);

@@ -60,7 +60,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class SiteIteratorUnitTest extends NA12878KBUnitTestBase {
+public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase {
     SiteIterator<MongoVariantContext> it;
 
     @BeforeMethod
@@ -232,7 +232,7 @@ public class SiteIteratorUnitTest extends NA12878KBUnitTestBase {
     public Object[][] makeBadMVCsProvider() throws CloneNotSupportedException {
         List<Object[]> tests = new ArrayList<Object[]>();
 
-        for ( final MongoVariantContext bad : MongoVariantContextUnitTest.makeBadMVCs() )
+        for ( final MongoVariantContext bad : MongoVariantContextKnowledgeBaseTest.makeBadMVCs() )
             tests.add(new Object[]{bad});
 
         return tests.toArray(new Object[][]{});

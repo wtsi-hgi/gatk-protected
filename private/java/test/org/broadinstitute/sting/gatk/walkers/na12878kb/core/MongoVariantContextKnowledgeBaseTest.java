@@ -56,7 +56,7 @@ import org.testng.annotations.Test;
 
 import java.util.*;
 
-public class MongoVariantContextUnitTest extends NA12878KBUnitTestBase {
+public class MongoVariantContextKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase {
     @DataProvider(name = "MVCBasicTest")
     public Object[][] makeMVCBasicTest() {
         List<Object[]> tests = new ArrayList<Object[]>();
