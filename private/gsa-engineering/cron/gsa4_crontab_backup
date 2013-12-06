@@ -1,0 +1,24 @@
+USEUSE=/broad/software/scripts/useuse
+GATK_CLONES=/local/gsa-engineering/cron_clones
+
+MAILTO=""
+0,30 * * * * source $USEUSE && use Git-1.7 && use Java-1.7 && exec /local/gsa-engineering/github_mirrors/spawn_github_mirrord.sh > /dev/null 2>&1 &
+0,30 * * * * source $USEUSE && use Git-1.7 && use Java-1.7 && exec /humgen/gsa-scr1/gsa-engineering/git/github_webhook_handler/spawn_webhook_handler.sh > /dev/null 2>&1 &
+0,30 * * * * exec /local/gsa-engineering/bamboo/spawn_bamboo_server.sh > /dev/null 2>&1 &
+0 3 * * * source $USEUSE && use Ant-1.8 && use Java-1.7 && use Git-1.7 && /humgen/gsa-scr1/gsa-engineering/keygen_binary/update_keygen.sh 
+MAILTO=gsa-engineering@broadinstitute.org
+0 2 * * * find /broad/hptmp/gsabamboo/parallel_tests_working_directories/archive -maxdepth 1 -mindepth 1 -type d -mtime +0 -exec rm -rf '{}' ';'
+0 2 * * * find /broad/hptmp/gsabamboo/parallel_tests_working_directories -maxdepth 1 -mindepth 1 -type d -mtime +0 -name 'GSA*' -exec rm -rf '{}' ';'
+0 2 * * * find /broad/classA-test/gsa-hpprojects/testing/parallel_tests_working_directories/archive -maxdepth 1 -mindepth 1 -type d -mtime +0 -exec rm -rf '{}' ';'
+0 2 * * * find /broad/classA-test/gsa-hpprojects/testing/parallel_tests_working_directories -maxdepth 1 -mindepth 1 -type d -mtime +0 -name 'GSA*' -exec rm -rf '{}' ';'
+0 1 * * * find /humgen/gsa-hpprojects/GATK/nightly_builds -maxdepth 1 -mindepth 1 -type f -mtime +19 -exec rm -rf '{}' ';'
+@daily find /humgen/gsa-hpprojects/GATK/validationreports/submitted -type f -atime +14 -print0 | xargs -0 xargs rm -f
+0 23 * * * source $USEUSE && use Git-1.7 && cd $GATK_CLONES/unstable && git pull --ff-only
+5 23 * * * source $USEUSE && use Git-1.7 && cd $GATK_CLONES/stable && git pull --ff-only
+10 23 * * * source $USEUSE && use Git-1.7 && cd $GATK_CLONES/gatk.git && git pull --ff-only
+40 23 * * * source $USEUSE && use Git-1.7 && $GATK_CLONES/unstable/private/shell/gitVersionNumbers.csh > /humgen/gsa-hpprojects/GATK/data/git.versions
+1 0 * * * source $USEUSE && $GATK_CLONES/unstable/private/GATKLogs/downloadGATKReportsFromS3.csh
+1 0 * * * source $USEUSE && reuse Python-2.5 && python $GATK_CLONES/unstable/private/python/gsafolkLogsForTableau.py 
+MAILTO=gsamembers@broadinstitute.org
+1 0 * * * source $USEUSE && $GATK_CLONES/unstable/private/GATKLogs/runGATKReport.csh
+0 3 * * * source $USEUSE && $GATK_CLONES/unstable/private/shell/startNA12878kbServer.csh /humgen/gsa-hpprojects/GATK/private_unstable_builds/GenomeAnalysisTK_latest_unstable.jar

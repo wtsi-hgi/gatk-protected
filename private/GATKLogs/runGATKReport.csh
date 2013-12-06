@@ -8,7 +8,7 @@ setenv DIR /humgen/gsa-hpprojects/GATK/reports
 setenv ARCHIVE_DIR $DIR/archive
 setenv DATE `date +"%m_%d_%Y"`
 setenv ARCHIVE $ARCHIVE_DIR/$DATE
-setenv GATK ~/dev/GenomeAnalysisTK/unstable/private
+setenv GATK /local/gsa-engineering/cron_clones/unstable/private
 setenv REPORT_TXT $DIR/report.txt
 
 rm -f $REPORT_TXT 

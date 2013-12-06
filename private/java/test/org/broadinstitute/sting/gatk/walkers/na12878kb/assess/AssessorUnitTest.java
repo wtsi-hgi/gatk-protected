@@ -51,6 +51,7 @@ import org.broadinstitute.sting.BaseTest;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoGenotype;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
+import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
 import org.broadinstitute.variant.variantcontext.*;
@@ -69,6 +70,11 @@ public class AssessorUnitTest extends BaseTest {
 
     private VariantContext makeVC(final int start, final String ... alleles) {
         return GATKVariantContextUtils.makeFromAlleles("vcf", "20", start, Arrays.asList(alleles));
+    }
+
+    private VariantContext makeVC(final int start, Genotype genotype) {
+        final int stop = start;
+        return new VariantContextBuilder("vcf", "20", start, stop, genotype.getAlleles()).genotypes(genotype).make();
     }
 
     private MongoVariantContext makeMVC(final VariantContext vc, final TruthStatus status) {
@@ -256,6 +262,33 @@ public class AssessorUnitTest extends BaseTest {
         Assert.assertEquals(assessor.getSNPAssessment(), oneTP);
     }
 
+    @Test (expectedExceptions = UserException.BadInput.class)
+    public void testNoNA12878InInput() {
+        final Assessor assessor = new Assessor("test");
+
+        final Genotype het = GenotypeBuilder.create("NA12878.badName", Arrays.asList(Allele.create("A", true), Allele.create("C", false)));
+        final VariantContext vcAC10 = makeVC(10, het);
+
+        final Genotype discordant = MongoGenotype.createDiscordant(het);
+        final MongoVariantContext mvcAC10 = MongoVariantContext.create("kb", vcAC10, TruthStatus.TRUE_POSITIVE, discordant);
+        assessor.assessSite(Arrays.asList(vcAC10), Arrays.asList(mvcAC10), false);
+        final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+        Assert.assertEquals(assessor.getSNPAssessment(), oneTP);
+    }
+
+    @Test
+    public void testAssessSiteWithDiscordantGTButLowGQ() {
+        final Assessor assessor = new Assessor("test");
+        final VariantContext vcAC10 = makeVC(10, "A", "C");
+        final Genotype het = new GenotypeBuilder("NA12878", vcAC10.getAlleles()).GQ(1).make();
+        final Genotype discordant = MongoGenotype.createDiscordant(het);
+        final MongoVariantContext mvcAC10 = MongoVariantContext.create("kb", vcAC10, TruthStatus.TRUE_POSITIVE, discordant);
+        assessor.assessSite(Arrays.asList(vcAC10), Arrays.asList(mvcAC10), false);
+
+        final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+        Assert.assertEquals(assessor.getSNPAssessment(), oneTP);
+    }
+
     // ------------------------------------------------------------
     // Tests for assessing a site
     // ------------------------------------------------------------
@@ -282,7 +315,7 @@ public class AssessorUnitTest extends BaseTest {
     @Test(dataProvider = "DoCSites")
     public void testFilteringSites(final File bam, final String chr, final int pos, final int expectedDoC) {
         final SAMFileReader bamReader = Assessor.makeSAMFileReaderForDoCInBAM(bam);
-        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, bamReader, 5, -1, false);
+        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, bamReader, 5, -1, -1, false);
         final int actualDoC = assessor.getDepthAtLocus(chr, pos);
         Assert.assertEquals(actualDoC, expectedDoC, "Depth of coverage at " + chr + ":" + pos + " had unexpected depth");
     }

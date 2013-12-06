@@ -1,6 +1,6 @@
 #!/bin/tcsh
 
-setenv CLEAN_DIR ~/dev/cleanSourceCopies
+setenv CLEAN_DIR /local/gsa-engineering/cron_clones
 
 foreach type (unstable stable gatk.git)
 pushd $CLEAN_DIR/$type > /dev/null

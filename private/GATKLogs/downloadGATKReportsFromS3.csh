@@ -4,7 +4,7 @@ reuse Python-2.6
 
 setenv DATE `date +"%m_%d_%Y"`
 setenv ROOT /humgen/gsa-hpprojects/GATK/reports/s3
-setenv GATK /home/radon01/depristo/dev/GenomeAnalysisTK/unstable
+setenv GATK /local/gsa-engineering/cron_clones/unstable
 setenv DOWNLOAD_ROOT /local/dev/GATKLogs
 setenv DOWNLOAD_DIR $DOWNLOAD_ROOT/$DATE
 setenv DIR $ROOT/archive/$DATE
