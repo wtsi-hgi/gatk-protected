@@ -56,7 +56,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Arrays;
 
-public class AssessNA12878IntegrationTest extends WalkerTest {
+public class AssessNA12878KnowledgeBaseTest extends WalkerTest {
 
     private final static String baseCommand = "-T AssessNA12878 -R " + b37KGReference + " -o %s";
 

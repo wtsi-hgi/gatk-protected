@@ -46,57 +46,80 @@
 
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
-import net.sf.picard.reference.IndexedFastaSequenceFile;
-import org.apache.log4j.Logger;
-import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
-import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.testng.SkipException;
-import org.testng.annotations.BeforeSuite;
+import org.broadinstitute.sting.utils.Utils;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.*;
 
-public class NA12878KBUnitTestBase extends BaseTest {
-    private final static Logger logger = Logger.getLogger(NA12878KBUnitTestBase.class);
-    protected final static String NA12878_KB_TESTFILES = privateTestDir + "/na12878kb/";
-    protected final static File testVCF = new File(NA12878_KB_TESTFILES + "test.vcf");
-    protected static IndexedFastaSequenceFile fasta;
-    protected static List<VariantContext> testVCs;
-    protected static GenomeLocParser parser;
+public class SiteSelectorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase {
+    final MongoVariantContext mvc19_2 = MongoVariantContext.create("y", "19", 2, "A", "C", true);
+    final MongoVariantContext mvc20_1 = MongoVariantContext.create("x", "20", 1, "A", "C", false);
+    final MongoVariantContext mvc20_3 = MongoVariantContext.create("x", "20", 3, "A", "C", false);
+    final MongoVariantContext mvc20_4 = MongoVariantContext.create("y", "20", 4, "A", "C", false);
+    final MongoVariantContext mvc20_5 = MongoVariantContext.create("y", "20", 5, "A", "C", true);
 
-    protected NA12878KnowledgeBase db;
+    final List<MongoVariantContext> allMVCs = Arrays.asList(mvc19_2, mvc20_1, mvc20_3, mvc20_4, mvc20_5);
 
-    @BeforeSuite
-    protected static void initialSetup() {
-        try {
-            testVCs = Collections.unmodifiableList(GATKVCFUtils.readVCF(testVCF).getSecond());
-            fasta = new IndexedFastaSequenceFile(new File(b37KGReference));
-            parser = new GenomeLocParser(fasta.getSequenceDictionary());
-        } catch ( IOException e ) {
-            throw new SkipException("Couldn't read test VCF so skipping NA12878KB unit tests");
+    @BeforeMethod
+    public void setup() {
+        setupBeforeMethod();
+
+        // note out of order adding
+        for ( final MongoVariantContext mvc : allMVCs )
+            db.addCall(mvc);
+    }
+
+    @AfterMethod
+    public void teardown() {
+        teardownMethod();
+    }
+
+    private class CompareMVCs implements Comparator<MongoVariantContext> {
+        @Override
+        public int compare(MongoVariantContext o1, MongoVariantContext o2) {
+            return o1.getLocation(parser).compareTo(o2.getLocation(parser));
         }
     }
 
-    protected void setupBeforeMethod() {
-        try {
-            final NA12878DBArgumentCollection args = new NA12878DBArgumentCollection();
-            //args.useLocal = true;
-            args.dbToUse = NA12878DBArgumentCollection.DBType.TEST;
-            args.resetDB = true;
-            db = new NA12878KnowledgeBase(parser, args);
-        } catch ( Exception e ) {
-            throw new SkipException("Failed to setup DB connection");
+    @DataProvider(name = "SiteSelectorQueryTest")
+    public Object[][] makeAt() {
+        List<Object[]> tests = new ArrayList<Object[]>();
+
+        tests.add(new Object[]{new SiteSelector(parser), allMVCs});
+
+        for ( final MongoVariantContext mvc : allMVCs )
+            tests.add(new Object[]{new SiteSelector(parser).addInterval(mvc.getChr(), mvc.getStart(), mvc.getStart()), Arrays.asList(mvc)});
+
+        tests.add(new Object[]{new SiteSelector(parser).addInterval("20", 1, 1), Arrays.asList(mvc20_1)});
+        tests.add(new Object[]{new SiteSelector(parser).addInterval("20", 1, 3), Arrays.asList(mvc20_1, mvc20_3)});
+        tests.add(new Object[]{new SiteSelector(parser).addInterval("20", 1, 4), Arrays.asList(mvc20_1, mvc20_3, mvc20_4)});
+        tests.add(new Object[]{new SiteSelector(parser).addInterval("20", 3, 4), Arrays.asList(mvc20_3, mvc20_4)});
+        tests.add(new Object[]{new SiteSelector(parser).addInterval("20", 1, 5), Arrays.asList(mvc20_1, mvc20_3, mvc20_4, mvc20_5)});
+        tests.add(new Object[]{new SiteSelector(parser).addInterval("20", 1, 100), Arrays.asList(mvc20_1, mvc20_3, mvc20_4, mvc20_5)});
+        tests.add(new Object[]{new SiteSelector(parser).addInterval("20", 1, 1).addInterval("19", 2, 2), Arrays.asList(mvc19_2, mvc20_1)});
+
+        for ( final List<MongoVariantContext> mvcs : Utils.makePermutations(allMVCs, 3, false) ) {
+            Collections.sort(mvcs, new CompareMVCs());
+            final SiteSelector selector = new SiteSelector(parser);
+            for ( final MongoVariantContext mvc : mvcs ) {
+                selector.addInterval(mvc.getChr(), mvc.getStart(), mvc.getStart());
+            }
+            tests.add(new Object[]{selector, mvcs});
         }
+
+        tests.add(new Object[]{new SiteSelector(parser).onlyReviewed(), Arrays.asList(mvc19_2, mvc20_5)});
+
+        return tests.toArray(new Object[][]{});
     }
 
-    protected void teardownMethod() {
-        if ( db != null ) {
-            db.delete();
-            db.close();
-            db = null;
-        }
+    @Test(dataProvider = "SiteSelectorQueryTest")
+    public void testSiteSelectorQuery(final SiteSelector selector, final List<MongoVariantContext> expectMVCs) {
+        final SiteIterator<MongoVariantContext> it = db.getCalls(new SiteManager(parser, selector));
+        final List<MongoVariantContext> actualMVCs = it.toList();
+        Assert.assertEquals(actualMVCs, expectMVCs, "Expected " + expectMVCs);
     }
 }
