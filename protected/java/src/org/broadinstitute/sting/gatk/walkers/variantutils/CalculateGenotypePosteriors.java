@@ -87,7 +87,7 @@ import java.util.*;
  * parameters AC1+q,AC2+q,...,(AN-AC1-AC2-...)+q, where "q" is the global frequency prior (typically q << 1). The
  * genotype priors applied then follow a Dirichlet-Multinomial distribution, where 2 alleles per sample are drawn
  * independently. This assumption of independent draws is the assumption Hardy-Weinberg Equilibrium. Thus, HWE is
- * imposed on the likelihoods as a result of CalculatePosteriors.
+ * imposed on the likelihoods as a result of CalculateGenotypePosteriors.
  *
  * <h3>Input</h3>
  * <p>
@@ -114,7 +114,7 @@ import java.util.*;
  * Inform the genotype assignment of NA12878 using the 1000G Euro panel
  * java -Xmx2g -jar GenomeAnalysisTK.jar \
  *   -R ref.fasta \
- *   -T CalculatePosteriors \
+ *   -T CalculateGenotypePosteriors \
  *   -V NA12878.wgs.HC.vcf \
  *   -VV 1000G_EUR.genotypes.combined.vcf \
  *   -o NA12878.wgs.HC.posteriors.vcf \
@@ -122,7 +122,7 @@ import java.util.*;
  * Refine the genotypes of a large panel based on the discovered allele frequency
  * java -Xmx2g -jar GenomeAnalysisTK.jar \
  *   -R ref.fasta \
- *   -T CalculatePosteriors \
+ *   -T CalculateGenotypePosteriors \
  *   -V input.vcf \
  *   -o output.withPosteriors.vcf
  *
@@ -130,7 +130,7 @@ import java.util.*;
  * in the allele frequency estimates
  * java -Xmx2g -jar GenomeAnalysisTK.jar \
  *   -R ref.fasta \
- *   -T CalculatePosteriors \
+ *   -T CalculateGenotypePosteriors \
  *   -V input.vcf \
  *   -o output.withPosteriors.vcf \
  *   --ignoreInputSamples
@@ -139,7 +139,7 @@ import java.util.*;
  * is tantamount to being AC=0, AN=100 within that panel
  * java -Xmx2g -jar GenomeAnalysisTK.jar \
  *   -R ref.fasta \
- *   -T CalculatePosteriors \
+ *   -T CalculateGenotypePosteriors \
  *   -VV external.panel.vcf \
  *   -V input.vcf \
  *   -o output.withPosteriors.vcf
@@ -148,7 +148,7 @@ import java.util.*;
  * </pre>
  *
  */
-public class CalculatePosteriors extends RodWalker<Integer,Integer> {
+public class CalculateGenotypePosteriors extends RodWalker<Integer,Integer> {
 
     /**
      * The input VCF (posteriors will be calculated for these samples, and written to the output)
@@ -235,7 +235,7 @@ public class CalculatePosteriors extends RodWalker<Integer,Integer> {
         final Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), true);
         headerLines.add(new VCFFormatHeaderLine(VCFConstants.GENOTYPE_POSTERIORS_KEY, VCFHeaderLineCount.G, VCFHeaderLineType.Integer, "Posterior Genotype Likelihoods"));
         headerLines.add(new VCFInfoHeaderLine("PG", VCFHeaderLineCount.G, VCFHeaderLineType.Integer, "Genotype Likelihood Prior"));
-        headerLines.add(new VCFHeaderLine("source", "CalculatePosteriors"));
+        headerLines.add(new VCFHeaderLine("source", "CalculateGenotypePosteriors"));
 
         vcfWriter.writeHeader(new VCFHeader(headerLines, vcfSamples));
     }
@@ -254,7 +254,7 @@ public class CalculatePosteriors extends RodWalker<Integer,Integer> {
         final int missing = supportVariants.size() - otherVCs.size();
 
         for ( VariantContext vc : vcs ) {
-            vcfWriter.add(PairHMMLikelihoodCalculationEngine.calculatePosteriorGLs(vc, otherVCs, missing * numRefIfMissing, globalPrior, !ignoreInputSamples, NO_EM, defaultToAC));
+            vcfWriter.add(PosteriorLikelihoodsUtils.calculatePosteriorGLs(vc, otherVCs, missing * numRefIfMissing, globalPrior, !ignoreInputSamples, NO_EM, defaultToAC));
         }
 
         return 1;
