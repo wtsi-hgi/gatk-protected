@@ -44,137 +44,143 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.variantrecalibration;
+package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
-import org.apache.commons.lang.ArrayUtils;
-import org.broadinstitute.sting.BaseTest;
-import org.junit.Assert;
-import org.testng.annotations.Test;
+import org.broadinstitute.sting.commandline.Argument;
+import org.broadinstitute.sting.commandline.Input;
+import org.broadinstitute.sting.commandline.Output;
+import org.broadinstitute.sting.commandline.RodBinding;
+import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
+import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.report.GATKReport;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.NA12878DBWalker;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteIterator;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
- * Created with IntelliJ IDEA.
+ * Create a ROC curve by walking over the NA12878 KB and ranking the input variants by their VQSLOD score
  * User: rpoplin
- * Date: 7/25/13
+ * Date: 12/10/13
  */
 
-public class VariantDataManagerUnitTest extends BaseTest {
+public class ROCCurveNA12878 extends NA12878DBWalker {
 
-    @Test
-    public final void testCalculateSortOrder() {
-        final double passingQual = 400.0;
-        final VariantRecalibratorArgumentCollection VRAC = new VariantRecalibratorArgumentCollection();
+    final static int SNP_INDEX = 0, INDEL_INDEX = 1;
+    final static int TP_INDEX = 0, FP_INDEX = 1;
+    final static int CALLED_INDEX = 0, TOTAL_INDEX = 1;
 
-        VariantDataManager vdm = new VariantDataManager(new ArrayList<String>(), VRAC);
+    /**
+     * Variants from these VCF files are used by this tool as input.
+     * The files must at least contain the standard VCF header lines, but
+     * can be empty (i.e., no variants are contained in the file).
+     */
+    @Input(fullName="variant", shortName = "V", doc="Input VCF file", required=true)
+    public RodBinding<VariantContext> variants;
 
-        final List<VariantDatum> theData = new ArrayList<>();
-        final VariantDatum datum1 = new VariantDatum();
-        datum1.atTrainingSite = true;
-        datum1.failingSTDThreshold = false;
-        datum1.originalQual = passingQual;
-        datum1.annotations = new double[]{0.0,-10.0,10.0};
-        datum1.isNull = new boolean[]{false, false, false};
-        theData.add(datum1);
+    @Argument(fullName="numBins", shortName = "numBins", doc="number of bins to use for making the ROC curve", required=false)
+    private int numBins = 50;
 
-        final VariantDatum datum2 = new VariantDatum();
-        datum2.atTrainingSite = true;
-        datum2.failingSTDThreshold = false;
-        datum2.originalQual = passingQual;
-        datum2.annotations = new double[]{0.0,-9.0,15.0};
-        datum2.isNull = new boolean[]{false, false, false};
-        theData.add(datum2);
+    @Output(doc="Summary GATKReport will be written here", required=false)
+    public PrintStream out;
 
-        final VariantDatum datum3 = new VariantDatum();
-        datum3.atTrainingSite = false;
-        datum3.failingSTDThreshold = false;
-        datum3.originalQual = passingQual;
-        datum3.annotations = new double[]{0.0,1.0,999.0};
-        datum3.isNull = new boolean[]{false, false, false};
-        theData.add(datum3);
+    @Argument(fullName="project", shortName = "project", doc="String project tag", required=true)
+    public String project = null;
 
-        final VariantDatum datum4 = new VariantDatum();
-        datum4.atTrainingSite = false;
-        datum4.failingSTDThreshold = false;
-        datum4.originalQual = passingQual;
-        datum4.annotations = new double[]{0.015,2.0,1001.11};
-        datum4.isNull = new boolean[]{false, false, false};
-        theData.add(datum4);
+    private SiteIterator<MongoVariantContext> consensusSiteIterator;
+    private List<ROCDatum> data = new ArrayList<>();
 
-        vdm.setData(theData);
-
-        final double[] meanVector = new double[3];
-        for( int iii = 0; iii < meanVector.length; iii++ ) {
-            meanVector[iii] = vdm.mean(iii, true);
-        }
-        final List<Integer> order = vdm.calculateSortOrder(meanVector);
-        Assert.assertArrayEquals(new int[]{2,1,0}, ArrayUtils.toPrimitive(order.toArray(new Integer[order.size()])));
+    @Override
+    public NA12878DBArgumentCollection.DBType getDefaultDB() {
+        return NA12878DBArgumentCollection.DBType.PRODUCTION;
     }
 
-    @Test
-    public final void testDownSamplingTrainingData() {
-        final int MAX_NUM_TRAINING_DATA = 5000;
-        final double passingQual = 400.0;
-        final VariantRecalibratorArgumentCollection VRAC = new VariantRecalibratorArgumentCollection();
-        VRAC.MAX_NUM_TRAINING_DATA = MAX_NUM_TRAINING_DATA;
-
-        VariantDataManager vdm = new VariantDataManager(new ArrayList<String>(), VRAC);
-        final List<VariantDatum> theData = new ArrayList<>();
-        for( int iii = 0; iii < MAX_NUM_TRAINING_DATA * 10; iii++) {
-            final VariantDatum datum = new VariantDatum();
-            datum.atTrainingSite = true;
-            datum.failingSTDThreshold = false;
-            datum.originalQual = passingQual;
-            theData.add(datum);
-        }
-
-        for( int iii = 0; iii < MAX_NUM_TRAINING_DATA * 2; iii++) {
-            final VariantDatum datum = new VariantDatum();
-            datum.atTrainingSite = false;
-            datum.failingSTDThreshold = false;
-            datum.originalQual = passingQual;
-            theData.add(datum);
-        }
-
-        vdm.setData(theData);
-        final List<VariantDatum> trainingData = vdm.getTrainingData();
-
-        Assert.assertTrue( trainingData.size() == MAX_NUM_TRAINING_DATA );
+    @Override
+    public void initialize() {
+        super.initialize();
+        consensusSiteIterator = db.getConsensusSites(makeSiteManager(false));
     }
 
-    @Test
-    public final void testDropAggregateData() {
-        final int MAX_NUM_TRAINING_DATA = 5000;
-        final double passingQual = 400.0;
-        final VariantRecalibratorArgumentCollection VRAC = new VariantRecalibratorArgumentCollection();
-        VRAC.MAX_NUM_TRAINING_DATA = MAX_NUM_TRAINING_DATA;
+    @Override
+    public Integer map(final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
+        if ( tracker == null ) return 0;
 
-        VariantDataManager vdm = new VariantDataManager(new ArrayList<String>(), VRAC);
-        final List<VariantDatum> theData = new ArrayList<>();
-        for( int iii = 0; iii < MAX_NUM_TRAINING_DATA * 10; iii++) {
-            final VariantDatum datum = new VariantDatum();
-            datum.atTrainingSite = true;
-            datum.isAggregate = false;
-            datum.failingSTDThreshold = false;
-            datum.originalQual = passingQual;
-            theData.add(datum);
+        // Does this input site overlap a KB site
+        for( final MongoVariantContext cs : consensusSiteIterator.getSitesAtLocation(context.getLocation()) ) {
+            // Is it either a SNP or indel and is it marked as either a true positive or false positive
+            if( (cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive()) ) {
+                for ( final VariantContext vc : tracker.getValues(variants, ref.getLocus()) ) {
+                    // Do the alleles match between the input site and the KB site
+                    if( cs.getVariantContext().hasSameAllelesAs(vc) ) {
+                        data.add( new ROCDatum( cs.getType().isTruePositive(), cs.getVariantContext().isSNP(), (vc.hasAttribute("VQSLOD") ? vc.getAttributeAsDouble("VQSLOD", Double.NaN) : vc.getPhredScaledQual())));
+                    }
+                }
+            }
         }
 
-        for( int iii = 0; iii < MAX_NUM_TRAINING_DATA * 2; iii++) {
-            final VariantDatum datum = new VariantDatum();
-            datum.atTrainingSite = false;
-            datum.isAggregate = true;
-            datum.failingSTDThreshold = false;
-            datum.originalQual = passingQual;
-            theData.add(datum);
+        return 1;
+    }
+
+    @Override
+    public void onTraversalDone(final Integer result) {
+        super.onTraversalDone(result);
+        final GATKReport report = calculateROCCurve(data, numBins, project, variants.getSource());
+        report.print(out);
+    }
+
+    /**
+     * Create the GATK report which holds the ROC curve information for this data
+     * @param data      the data to use
+     * @param numBins   the number of partitions for the ROC curve
+     * @param project   the project ID
+     * @param name      the name of this VCF
+     * @return          the GATK report to write out to disk
+     */
+    protected static GATKReport calculateROCCurve(final List<ROCDatum> data, final int numBins, final String project, final String name) {
+        final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR");
+        Collections.sort(data); // sort by the LOD score
+        final int[][][] rocData = new int[2][2][2]; //[SNP/INDEL][TP/FP][called/total]
+
+        // loop over the sorted data and compute a ROC curve by looking at the fraction of called TPs and FPs
+        for( final ROCDatum datum : data ) {
+            rocData[datum.isSNP ? SNP_INDEX : INDEL_INDEX][datum.isTP ? TP_INDEX : FP_INDEX][TOTAL_INDEX]++;
+        }
+        int numVariants = 0;
+        for( final ROCDatum datum : data ) {
+            rocData[datum.isSNP ? SNP_INDEX : INDEL_INDEX][datum.isTP ? TP_INDEX : FP_INDEX][CALLED_INDEX]++;
+            if( (numVariants+1) % numBins == 0 ) {
+                report.addRow(project, project+name, "SNPs", datum.lod, (double)rocData[SNP_INDEX][TP_INDEX][CALLED_INDEX]/(double)rocData[SNP_INDEX][TP_INDEX][TOTAL_INDEX],
+                        (double)rocData[SNP_INDEX][FP_INDEX][CALLED_INDEX]/(double)rocData[SNP_INDEX][FP_INDEX][TOTAL_INDEX]);
+                report.addRow(project, project+name, "Indels", datum.lod, (double)rocData[INDEL_INDEX][TP_INDEX][CALLED_INDEX]/(double)rocData[INDEL_INDEX][TP_INDEX][TOTAL_INDEX],
+                        (double)rocData[INDEL_INDEX][FP_INDEX][CALLED_INDEX]/(double)rocData[INDEL_INDEX][FP_INDEX][TOTAL_INDEX]);
+            }
+            numVariants++;
+        }
+        return report;
+    }
+
+    // private class to hold the data for use when computing ROC curves
+    protected static class ROCDatum implements Comparable<ROCDatum> {
+        public final boolean isTP;
+        public final boolean isSNP;
+        public final double lod;
+
+        public ROCDatum( final boolean isTP, final boolean isSNP, final double lod ) {
+            this.isTP = isTP;
+            this.isSNP = isSNP;
+            this.lod = lod;
         }
 
-        vdm.setData(theData);
-        vdm.dropAggregateData();
-
-        for( final VariantDatum datum : vdm.getData() ) {
-            Assert.assertFalse( datum.isAggregate );
+        @Override
+        public int compareTo(final ROCDatum datum) {
+            return Double.compare(datum.lod, this.lod);
         }
     }
 }
