@@ -135,15 +135,19 @@ final public class MongoDBManager {
         public final String sitesCollection;
         public final String callsetsCollection;
         public final String consensusCollection;
+        public final String label;
+        public final Integer specVersion;
 
         public Locator(String host, int port, String name, String sitesCollection,
-                       String callsetsCollection, String consensusCollection){
+                       String callsetsCollection, String consensusCollection, String label, Integer specVersion){
             this.host = host;
             this.port = port;
             this.name = name;
             this.sitesCollection = sitesCollection;
             this.callsetsCollection = callsetsCollection;
             this.consensusCollection = consensusCollection;
+            this.label = label;
+            this.specVersion = specVersion;
         }
 
         @Override
