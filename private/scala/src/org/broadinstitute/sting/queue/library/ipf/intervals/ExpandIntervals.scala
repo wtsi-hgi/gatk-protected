@@ -170,7 +170,7 @@ class ExpandIntervals(in : File, start: Int, size: Int, out: File, ref: File, ip
     if ( s.contains(":") ) parser.parseGenomeLoc(s) else parser.createGenomeLoc(sp(0),sp(1).toInt+offsetIn,sp(2).toInt-offsetIn)
   }
 
-  object IntervalFormatType extends Enumeration("INTERVALS","BED","TDF") {
+  object IntervalFormatType extends Enumeration() {
     type IntervalFormatType = Value
     val INTERVALS,BED,TDF = Value
 

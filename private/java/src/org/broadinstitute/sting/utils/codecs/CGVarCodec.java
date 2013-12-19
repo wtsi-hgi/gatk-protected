@@ -47,10 +47,11 @@
 package org.broadinstitute.sting.utils.codecs;
 
 import org.broad.tribble.AsciiFeatureCodec;
-import org.broadinstitute.variant.vcf.VCFConstants;
+import org.broad.tribble.readers.LineIterator;
 import org.broadinstitute.variant.variantcontext.Allele;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
+import org.broadinstitute.variant.vcf.VCFConstants;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -164,6 +165,13 @@ public class CGVarCodec extends AsciiFeatureCodec<VariantContext> {
 
         // create a new feature given the array
         return new VariantContextBuilder("CGI", array[3], start, end, alleles).id(RSID).attributes(attrs).make();
+    }
+
+    
+    @Override
+    public Object readActualHeader(LineIterator lineIterator) {
+        // No header for this format
+        return null;
     }
 
     private static final Pattern DBSNP_PATTERN = Pattern.compile("^dbsnp\\.\\d+:(.*)");

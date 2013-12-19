@@ -48,6 +48,7 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
+import org.broadinstitute.sting.utils.MathUtils;
 import org.broadinstitute.variant.variantcontext.Allele;
 import org.broadinstitute.variant.variantcontext.Genotype;
 import org.broadinstitute.variant.variantcontext.VariantContext;
@@ -86,53 +87,6 @@ public class ConsensusMaker {
         for ( final MongoVariantContext mvc : allSupportingCalls )
             ensureSafeToCombineInConsensus(firstMVC, mvc);
 
-        final LinkedHashSet<String> supportingCallSets = new LinkedHashSet<String>();
-        final Collection<MongoVariantContext> callsForConsensus = selectCallsForConsensus(allSupportingCalls);
-        final boolean isReviewed = isReviewed(callsForConsensus);
-
-        final VariantContextBuilder builder = new VariantContextBuilder();
-        final VariantContext first = firstMVC.getVariantContext();
-        builder.chr(first.getChr()).start(first.getStart()).stop(first.getEnd());
-
-        final List<Allele> alleles = first.getAlleles();
-        // iteration is over allSupportingCalls so we get the names all correct
-        for ( final MongoVariantContext vc : allSupportingCalls ) {
-            supportingCallSets.addAll(vc.getSupportingCallSets());
-        }
-        builder.alleles(alleles);
-
-        final TruthStatus type = determineTruth(callsForConsensus);
-        final PolymorphicStatus status = determinePolymorphicStatus(callsForConsensus);
-        final Genotype gt = consensusGT(type, status, new LinkedList<Allele>(alleles), callsForConsensus);
-
-        return MongoVariantContext.create(new LinkedList<String>(supportingCallSets), builder.make(), type, new Date(), gt, isReviewed);
-    }
-
-    /**
-     * Key interface: create a consensus based on joining the evidence from allSupportingCalls
-     *
-     * Looks at the supporting calls, and creates a consensus that reflects the TP/FP etc status
-     * of each and the genotypes.  Weighs the result heavily by the confidence of the individual calls.
-     * The resulting consensus is at the same site as allSupportingCalls and same alleles, and the
-     * supporting call set field will reflect the information in allSupportingCalls.
-     *
-     * For supports having multiple equivalent supporting calls (two depristo records, for instance), only
-     * the most recent result will be used.
-     *
-     * @param allSupportingCalls a non-null, non-empty collection of supporting calls
-     * @return a non-null MongoVariantContext consensus
-     */
-// TODO -- DISABLED FOR NOW
-    /*
-    public MongoVariantContext makeBayesianConsensus(final Collection<MongoVariantContext> allSupportingCalls) {
-        if ( allSupportingCalls == null || allSupportingCalls.isEmpty())
-            throw new IllegalArgumentException("allSupportingCalls must be non-null, not empty collection");
-
-        // make sure the input MVCs can be safely combined into a consensus
-        final MongoVariantContext firstMVC = allSupportingCalls.iterator().next();
-        for ( final MongoVariantContext mvc : allSupportingCalls )
-            ensureSafeToCombineInConsensus(firstMVC, mvc);
-
         // only the most recent call from each call set is used
         final Collection<MongoVariantContext> callsForConsensus = mostRecentCalls(allSupportingCalls);
 
@@ -144,7 +98,7 @@ public class ConsensusMaker {
         builder.alleles(alleles);
 
         // iteration is over allSupportingCalls so we get the names all correct
-        final LinkedHashSet<String> supportingCallSets = new LinkedHashSet<String>();
+        final LinkedHashSet<String> supportingCallSets = new LinkedHashSet<>();
         for ( final MongoVariantContext vc : allSupportingCalls ) {
             supportingCallSets.addAll(vc.getSupportingCallSets());
         }
@@ -152,11 +106,11 @@ public class ConsensusMaker {
         final TruthStatus type = determineBayesianTruthEstimate(callsForConsensus);
         final PolymorphicStatus status = determinePolymorphicStatus(callsForConsensus);
         final Genotype gt = consensusGT(type, status, new LinkedList<>(alleles), callsForConsensus);
-
         final boolean isReviewed = isReviewed(callsForConsensus);
-        return MongoVariantContext.create(new LinkedList<>(supportingCallSets), builder.make(), type, new Date(), gt, isReviewed);
+        final boolean isComplexEvent = isComplexEvent(callsForConsensus);
+
+        return MongoVariantContext.create(new LinkedList<>(supportingCallSets), builder.make(), type, new Date(), gt, isReviewed, isComplexEvent);
     }
-    */
 
     /**
      * Make sure the canon and test can be combined in a consensus
@@ -192,6 +146,19 @@ public class ConsensusMaker {
     }
 
     /**
+     * Is at least one call in individualCalls marked as complex?
+     * @param individualCalls a collection of calls to consider
+     * @return true if at least one call in individualCalls is marked as complex, false otherwise
+     */
+    @Requires("individualCalls != null")
+    protected boolean isComplexEvent(final Collection<MongoVariantContext> individualCalls) {
+        for ( final MongoVariantContext vc : individualCalls )
+            if ( vc.isComplexEvent() )
+                return true;
+        return false;
+    }
+
+    /**
      * Get the calls from individualCalls that should be used to create the consensus
      *
      * Potentially selects a subset of the calls to actually build the consensus.  The subset
@@ -204,7 +171,7 @@ public class ConsensusMaker {
     @Requires("individualCalls != null && ! individualCalls.isEmpty()")
     @Ensures("! result.isEmpty()")
     protected Collection<MongoVariantContext> selectCallsForConsensus(final Collection<MongoVariantContext> individualCalls) {
-        final List<MongoVariantContext> reviewed = new LinkedList<MongoVariantContext>();
+        final List<MongoVariantContext> reviewed = new LinkedList<>();
 
         for ( final MongoVariantContext vc : mostRecentCalls(individualCalls) )
             if ( vc.isReviewed() ) reviewed.add(vc);
@@ -221,7 +188,7 @@ public class ConsensusMaker {
     @Requires("individualCalls != null")
     @Ensures("result != null")
     protected List<MongoVariantContext> mostRecentCalls(final Collection<MongoVariantContext> individualCalls) {
-        final Map<String, List<MongoVariantContext>> byCallSet = new LinkedHashMap<String, List<MongoVariantContext>>();
+        final Map<String, List<MongoVariantContext>> byCallSet = new LinkedHashMap<>();
 
         for ( final MongoVariantContext vc : individualCalls ) {
             if ( vc.getSupportingCallSets().size() != 1 )
@@ -229,13 +196,13 @@ public class ConsensusMaker {
 
             List<MongoVariantContext> calls = byCallSet.get(vc.getCallSetName());
             if ( calls == null ) {
-                calls = new ArrayList<MongoVariantContext>();
+                calls = new ArrayList<>();
                 byCallSet.put(vc.getCallSetName(), calls);
             }
             calls.add(vc);
         }
 
-        final List<MongoVariantContext> uniques = new LinkedList<MongoVariantContext>();
+        final List<MongoVariantContext> uniques = new LinkedList<>();
         for ( final List<MongoVariantContext> callsFor1Callset : byCallSet.values() ) {
             Collections.sort(callsFor1Callset, new Comparator<MongoVariantContext>() {
                 @Override
@@ -289,18 +256,6 @@ public class ConsensusMaker {
         }
     }
 
-    private TruthStatus determineTruth(final Collection<MongoVariantContext> individualCalls) {
-        final boolean hasReview = isReviewed(individualCalls);
-        TruthStatus type = TruthStatus.UNKNOWN;
-        for ( final MongoVariantContext vc : individualCalls ) {
-            if ( ! hasReview || vc.isReviewed() )
-                // if we have some reviews, only include those, otherwise use everything
-                type = type.makeConsensus(vc.getType());
-        }
-
-        return type;
-    }
-
     private PolymorphicStatus determinePolymorphicStatus(final Collection<MongoVariantContext> individualCalls) {
         final boolean hasReview = isReviewed(individualCalls);
         PolymorphicStatus status = PolymorphicStatus.UNKNOWN;
@@ -311,6 +266,27 @@ public class ConsensusMaker {
         }
 
         return status;
+    }
+
+    /**
+     * This is the previous version of the method to determine truth status, kept around for reference.
+     * Uses only reviewed sites if they are present; otherwise uses all sites.  Calls into TruthStatus.makeConsensus()
+     * to get a consensus truth type.
+     *
+     * @param individualCalls   the calls at the site
+     * @return non-null truth status
+     */
+    @Deprecated
+    private TruthStatus determineTruth(final Collection<MongoVariantContext> individualCalls) {
+        final boolean hasReview = isReviewed(individualCalls);
+        TruthStatus type = TruthStatus.UNKNOWN;
+        for ( final MongoVariantContext vc : individualCalls ) {
+            if ( ! hasReview || vc.isReviewed() )
+                // if we have some reviews, only include those, otherwise use everything
+                type = type.makeConsensus(vc.getType());
+        }
+
+        return type;
     }
 
     private static final double CONFIDENCE_THRESHOLD = 0.8;
@@ -333,8 +309,10 @@ public class ConsensusMaker {
             status = TruthStatus.TRUE_POSITIVE;
         else if ( LofFP / totalL >= CONFIDENCE_THRESHOLD )
             status = TruthStatus.FALSE_POSITIVE;
-        else if ( LofSuspect > CONFIDENCE_THRESHOLD / 2.0 )
+        else if ( LofSuspect / totalL >= CONFIDENCE_THRESHOLD )
             status = TruthStatus.SUSPECT;
+        else if ( allStatusesAreUnknown(calls) )
+            status = TruthStatus.UNKNOWN;
         else
             status = TruthStatus.DISCORDANT;
 
@@ -354,11 +332,28 @@ public class ConsensusMaker {
 
         double confidence = 1.0;
         for ( final MongoVariantContext call : calls ) {
-            confidence *= (call.getType() == status ? call.getConfidence() : 1.0 - call.getConfidence());
+            if ( call.getType() != TruthStatus.UNKNOWN ) {
+                double callConfidence = call.getConfidence();
+                // TODO -- what should we do with an unknown confidence in the long term?
+                if ( MathUtils.compareDoubles(callConfidence, NA12878KnowledgeBase.InputCallsetConfidence.UNKNOWN.confidence) == 0 )
+                    callConfidence = NA12878KnowledgeBase.InputCallsetConfidence.REVIEW.confidence;
+                confidence *= (call.getType() == status ? callConfidence : 1.0 - callConfidence);
+            }
         }
         return confidence;
     }
 
-
-
+    /**
+     * Determines whether are calls are UNKNOWN status
+     *
+     * @param calls   the calls to assess
+     * @return true if all calls have UNKNOWN truth status
+     */
+    private boolean allStatusesAreUnknown(final Collection<MongoVariantContext> calls) {
+        for ( final MongoVariantContext call : calls ) {
+            if ( call.getType() != TruthStatus.UNKNOWN )
+                return false;
+        }
+        return true;
+    }
 }

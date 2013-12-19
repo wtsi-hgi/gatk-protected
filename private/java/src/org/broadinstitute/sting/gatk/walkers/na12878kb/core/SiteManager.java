@@ -130,6 +130,7 @@ public class SiteManager {
      *
      * @param parser  genome loc parser
      * @param allIntervals  the intervals to use, can be null (in which case iteration occurs over the entire KB)
+     * @param dictionary    the master sequence dictionary to use
      */
     public SiteManager(final GenomeLocParser parser, final GenomeLocSortedSet allIntervals, final SAMSequenceDictionary dictionary) {
         this.parser = parser;

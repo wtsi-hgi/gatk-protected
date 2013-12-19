@@ -116,7 +116,7 @@ class GeneralCallingPipeline extends QScript {
   @Argument(shortName="callingMem", doc="calling (UG/HC) memory limit.",  required=false)
   var callingMemoryLimit = 6
 
-  /************* invlude/exclude steps of the pipeline ***********************/
+  /************* include/exclude steps of the pipeline ***********************/
 
   @Argument(shortName="useBQSR.2.0", doc="turn on a first step of using 2.0 BQSR on the input bam file", required=false)
   var useBQSR2: Boolean = false
@@ -266,7 +266,7 @@ class GeneralCallingPipeline extends QScript {
   }
 
   // 3b)
-  class indelRecal(indelVCF: String) extends VQSRBase(indelVCF) with BaseCommandArguments {
+  class indelRecal(indelVCF: File) extends VQSRBase(indelVCF) with BaseCommandArguments {
     this.resource :+= new TaggedFile( indelGoldStandardCallset, "known=false,training=true,truth=true,prior=12.0" ) // known=true on the bast practices v4
     this.resource :+= new TaggedFile( latestdbSNP, "known=true,prior=2.0" )  						// not part of the bast practices v4
     this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL

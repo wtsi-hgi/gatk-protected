@@ -1,0 +1,15 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Sid": "Stmt1377105413000",
+      "Resource": [
+        "arn:aws:s3:::broad.gsa.gatk.run.reports*/*"
+      ],
+      "Effect": "Allow"
+    }
+  ]
+}

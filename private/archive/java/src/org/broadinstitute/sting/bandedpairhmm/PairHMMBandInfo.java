@@ -53,9 +53,8 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RefWalker;
-import org.broadinstitute.sting.gatk.walkers.haplotypecaller.LikelihoodCalculationEngine;
+import org.broadinstitute.sting.gatk.walkers.haplotypecaller.PairHMMLikelihoodCalculationEngine;
 import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.sting.utils.pairhmm.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -72,13 +71,13 @@ public class PairHMMBandInfo extends RefWalker<Integer,Integer> {
     public String likelihoodsFile = "likelihoods_2x250_1mb.txt.gz";
 
     @Argument(doc="", required=false)
-    public int width = LikelihoodCalculationEngine.BANDED_HMM_DEFAULT_BAND_SIZE;
+    public int width = PairHMMLikelihoodCalculationEngine.BANDED_HMM_DEFAULT_BAND_SIZE;
 
     @Argument(doc="", required=false)
-    public int initialWidth = LikelihoodCalculationEngine.BANDED_HMM_DEFAULT_INITIAL_BAND_SIZE;
+    public int initialWidth = PairHMMLikelihoodCalculationEngine.BANDED_HMM_DEFAULT_INITIAL_BAND_SIZE;
 
     @Argument(doc="", required=false)
-    public double tol = LikelihoodCalculationEngine.BANDED_HMM_DEFAULT_TOLERANCE;
+    public double tol = PairHMMLikelihoodCalculationEngine.BANDED_HMM_DEFAULT_TOLERANCE;
 
     @Argument(doc="", required=false)
     int maxRecords = -1;

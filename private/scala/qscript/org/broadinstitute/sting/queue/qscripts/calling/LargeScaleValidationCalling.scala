@@ -167,14 +167,16 @@ class LargeScaleValidationCalling extends QScript {
   }
   class SNPPC(callName: String, intervalFile: File) extends PPC(callName, intervalFile) {
     this.glm = GenotypeLikelihoodsCalculationModel.Model.SNP
-    this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
+//    this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
+    this.referenceCalls = new File("/humgen/1kg/DCC/ftp/technical/working/20130610_ceu_hc_trio/broad/CEU.wgs.UnifiedGenotyper_bi.20130520.snps_indels.high_coverage_pcr_free.genotypes.vcf.gz")
     this.max_deletion_fraction=.1
   }
 
   class IndelPC(callName: String, intervalFile: File) extends PPC(callName, intervalFile) {
     this.glm = GenotypeLikelihoodsCalculationModel.Model.INDEL
     this.minIndelFrac = Some(0.01)
-    this.referenceCalls = new File(baseDir+"inputSets/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.vcf")
+//    this.referenceCalls = new File(baseDir+"inputSets/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.vcf")
+    this.referenceCalls = new File("/humgen/1kg/DCC/ftp/technical/working/20130610_ceu_hc_trio/broad/CEU.wgs.UnifiedGenotyper_bi.20130520.snps_indels.high_coverage_pcr_free.genotypes.vcf.gz")
     this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
 
   }
@@ -187,7 +189,7 @@ class LargeScaleValidationCalling extends QScript {
     this.evalModule = List("CountVariants", "ValidationReport")
     this.doNotUseAllStandardStratifications = true
     this.stratificationModule = Seq("EvalRod", "Filter") //++ extraStrats
-    this.out = swapExt(evalVCF, ".vcf", ".eval")
+    this.out = swapExt(qscript.outputDir,evalVCF, ".vcf", ".eval")
     this.ploidy = Some(qscript.ploidy)
     this.numSamples = Some(92)
 
@@ -205,32 +207,37 @@ class LargeScaleValidationCalling extends QScript {
       this.filterExpression :+= "REFDEPTH<500"
       this.filterName :+= "LowReferenceSampleDepth"
     }
-    this.out = swapExt(inputVCF, ".vcf",".filtered.vcf")
+    this.filterExpression :+= "QUAL<100"
+    this.filterName :+= "LowQual"
+    this.filterExpression :+= "FS > 200"
+    this.filterName :+= "FisherStrand"
+
+    this.out = swapExt(qscript.outputDir,inputVCF, ".vcf",".filtered.vcf")
   }
   class SampleEval(evalVCF: File, compVCF: File) extends Eval(evalVCF, compVCF) {
     this.stratificationModule :+= "Sample"
     // this.num_threads = qscript.num_threads
     // this.memoryLimit = 8
-    this.out = swapExt(evalVCF, ".vcf", ".bySample.eval")
+    this.out = swapExt(qscript.outputDir,evalVCF, ".vcf", ".bySample.eval")
   }
 
   class ACEval(evalVCF: File, compVCF: File) extends Eval(evalVCF, compVCF) {
     this.stratificationModule :+= "AlleleCount"
-    this.out = swapExt(compVCF, ".vcf", ".byAC.eval")
+    this.out = swapExt(qscript.outputDir,compVCF, ".vcf", ".byAC.eval")
   }
 
   class Annot(inputVCF: File) extends VariantAnnotator with CommandLineGATKArgs {
     this.V = inputVCF
     this.intervals :+= inputVCF
-    this.out = swapExt(inputVCF, ".vcf",".annotated.vcf")
+    this.out = swapExt(qscript.outputDir,inputVCF, ".vcf",".annotated.vcf")
     this.resource :+= qscript.originalSites
-    this.E = Seq("resource.set","resource.ALT" )
+    this.E = Seq("resource.set","resource.ALT","oneKGAC" )
 
   }
 
   class OneKGAnnot(inputVCF: File) extends VariantAnnotator with CommandLineGATKArgs {
     this.V = inputVCF
-    this.out = swapExt(inputVCF, ".vcf",".a1000g.vcf")
+    this.out = swapExt(qscript.outputDir,inputVCF, ".vcf",".a1000g.vcf")
     this.resource :+= qscript.oneKGReleaseMinusBadPools
     this.intervals :+= inputVCF
     this.E = Seq("resource.AC" )
@@ -239,7 +246,7 @@ class LargeScaleValidationCalling extends QScript {
 
   class AxiomAnnot(inputVCF: File) extends VariantAnnotator with CommandLineGATKArgs {
     this.V = inputVCF
-    this.out = swapExt(inputVCF, ".vcf",".axiomAnnot.vcf")
+    this.out = swapExt(qscript.outputDir,inputVCF, ".vcf",".axiomAnnot.vcf")
     this.resource :+= qscript.axiomChip
     this.intervals :+= inputVCF
     this.E = Seq("resource.AxiomAC" )
@@ -247,13 +254,13 @@ class LargeScaleValidationCalling extends QScript {
 
   class OmniAnnot(inputVCF: File) extends VariantAnnotator with CommandLineGATKArgs {
     this.V = inputVCF
-    this.out = swapExt(inputVCF, ".vcf",".omniAnnot.vcf")
+    this.out = swapExt(qscript.outputDir,inputVCF, ".vcf",".omniAnnot.vcf")
     this.resource :+= qscript.omniChip
     this.E = Seq("resource.OmniAC" )
   }
   class ExomeChipAnnot(inputVCF: File) extends VariantAnnotator with CommandLineGATKArgs {
     this.V = inputVCF
-    this.out = swapExt(inputVCF, ".vcf",".exomeChipAnnot.vcf")
+    this.out = swapExt(qscript.outputDir,inputVCF, ".vcf",".exomeChipAnnot.vcf")
     this.resource :+= qscript.exomeChip
     this.intervals :+= inputVCF
     this.E = Seq("resource.ExomeChipAC" )
@@ -262,7 +269,7 @@ class LargeScaleValidationCalling extends QScript {
 
   class LOFAnnot(inputVCF: File) extends VariantAnnotator with CommandLineGATKArgs {
     this.V = inputVCF
-    this.out = swapExt(inputVCF, ".vcf",".LOF.vcf")
+    this.out = swapExt(qscript.outputDir,inputVCF, ".vcf",".LOF.vcf")
     this.resource :+= qscript.lofFile
     this.intervals :+= inputVCF
     this.E = Seq("resource.LOF" )
@@ -271,7 +278,7 @@ class LargeScaleValidationCalling extends QScript {
 
   class VToT(inputVCF: File) extends VariantsToTable with CommandLineGATKArgs {
     this.V :+= inputVCF
-    this.out = swapExt(inputVCF, ".vcf",".table")
+    this.out = swapExt(qscript.outputDir,inputVCF, ".vcf",".table")
     this.F = Seq("CHROM","POS","REF","ALT","FILTER","AC","QUAL","resource.set","DP","TYPE","NCALLED")
     this.GF :+= "MLPSAC"
     this.allowMissingData = true

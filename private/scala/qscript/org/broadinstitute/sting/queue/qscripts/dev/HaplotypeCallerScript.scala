@@ -54,23 +54,29 @@ class HaplotypeCallerScript extends QScript {
 
   @Argument(shortName="out", doc="output file", required=true)
   var out: String = _
-  @Argument(shortName="ref", doc="ref file", required=true)
+  @Argument(shortName="R", doc="ref file", required=true)
   var ref: String = _
-  @Argument(shortName="bam", doc="bam file", required=true)
+  @Argument(shortName="I", doc="bam file", required=true)
   var bam: String = _
   @Argument(shortName="interval", doc="interval file", required=false)
   var intervalString: List[String] = List()
-  @Argument(shortName="i", doc="interval file", required=false)
+  @Argument(shortName="intervalFile", doc="interval file", required=false)
   var intervalFiles: List[File] = List()
   @Argument(shortName="sc", doc="scatter count", required=false)
   var jobs: Int = 100
   @Argument(shortName="dr", doc="downsampling", required=false)
-  var downsampling: Int = 1000
+  var downsampling: Int = 250
   @Argument(shortName="lowpass", doc="lowpass", required=false)
   var lowpass: Boolean = false
+  @Argument(shortName = "stand_call_conf", doc= "standard min confidence threshold for calling", required = false)
+  var stand_call_conf: Double = _
+  @Argument(shortName = "stand_emit_conf", doc= "standard min confidence threshold for emitting", required = false)
+  var stand_emit_conf: Double = _
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     memoryLimit = 2;
+    this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
+
   }
 
   def script = {
@@ -83,6 +89,8 @@ class HaplotypeCallerScript extends QScript {
     hc.o = new File(out + ".hc.vcf")
     hc.dcov = downsampling
     hc.analysisName = "HaplotypeCaller"
+    if (qscript.stand_call_conf != null) hc.stand_call_conf = qscript.stand_call_conf
+    if (qscript.stand_emit_conf != null) hc.stand_emit_conf = qscript.stand_emit_conf
     if(lowpass) {
       hc.stand_call_conf = 4.0
       hc.stand_emit_conf = 4.0
@@ -92,13 +100,15 @@ class HaplotypeCallerScript extends QScript {
     val ug = new UnifiedGenotyper with UNIVERSAL_GATK_ARGS
     ug.reference_sequence = new File(ref)
     ug.intervalsString = intervalString
-    hc.intervals = intervalFiles
-    ug.scatterCount = jobs / 2
+    ug.intervals = intervalFiles
+    ug.scatterCount = jobs
     ug.input_file :+= new File(bam)
     ug.o = new File(out + ".ug.vcf")
     ug.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     ug.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     ug.analysisName = "UnifiedGenotyper"
+    if (qscript.stand_call_conf != null) ug.stand_call_conf = qscript.stand_call_conf
+    if (qscript.stand_emit_conf != null) ug.stand_emit_conf = qscript.stand_emit_conf
     if(lowpass) {
       ug.stand_call_conf = 4.0
       ug.stand_emit_conf = 4.0

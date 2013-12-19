@@ -51,6 +51,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import org.apache.log4j.Logger;
+import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsRemove;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.bson.types.ObjectId;
 
@@ -166,7 +167,9 @@ public class NewlyAddedSites {
             return new SiteManager(parser);
         } else {
             final SiteSelector selector = new SiteSelector(parser);
-            for ( final MongoVariantContext mvc : new SiteManager(parser, cursor).getIterator() ) {
+            final SiteIterator<MongoVariantContext> iterator = new SiteManager(parser, cursor).getIterator();
+            iterator.setErrorHandler(new InvalidRecordsRemove<>(kb.sites));
+            for ( final MongoVariantContext mvc : iterator ) {
                 selector.addInterval(mvc.getLocation(parser));
             }
             return new SiteManager(parser, selector);

@@ -46,18 +46,26 @@ BAMBOO_BUILD_DIRECTORY=`basename "${BAMBOO_CLONE}"`
 BAMBOO_BUILD_ID="${BAMBOO_BUILD_DIRECTORY}-${BUILD_NUMBER}"
 COMPILE_IVY_CACHE="${BAMBOO_CLONE}/ivy_cache"
 COMPILE_TEMP_DIR="${BAMBOO_CLONE}/tmp"
-GLOBAL_PARALLEL_TESTS_DIR="/broad/classA-test/gsa-hpprojects/testing/parallel_tests_working_directories"
+GLOBAL_PARALLEL_TESTS_DIR="/humgen/gsa-hpprojects/GATK/testing/parallel_tests_working_directories"
 TEST_ARCHIVE_DIR="${GLOBAL_PARALLEL_TESTS_DIR}/archive"
 TEST_ROOT_WORKING_DIR="${GLOBAL_PARALLEL_TESTS_DIR}/${BAMBOO_BUILD_ID}"
 TEST_CLONE="${TEST_ROOT_WORKING_DIR}/test_clone"
 TEST_TEMP_DIR="${TEST_ROOT_WORKING_DIR}/tmp"
-LOG_FILE="/broad/classA-test/gsa-hpprojects/testing/logs/parallel_tests_runtime.log"
+LOG_FILE="/local/gsa-engineering/parallel_tests_logs/parallel_tests_runtime.log"
 
 JOB_RUNNER_DIR="${TEST_ROOT_WORKING_DIR}/job_runners"
 JOB_OUTPUT_DIR="${TEST_ROOT_WORKING_DIR}/job_output"
 JOB_MEMORY="4"
 # We check job status every JOB_POLL_INTERVAL seconds
 JOB_POLL_INTERVAL=30
+
+# We attempt to cd into each of these directories before each job in an effort to avoid automount failures
+declare -a AUTOMOUNT_DIR_LIST=( "/seq/references/" \
+                                "/humgen/1kg/reference/" \
+                                "/humgen/gsa-hpprojects/" \
+                              )
+# Seconds to wait after attempting to trigger automount
+AUTOMOUNT_TRIGGER_DELAY=10
 
 
 # Print the names of any test classes that have not yet finished running
@@ -148,8 +156,29 @@ check_for_non_test_related_job_failures() {
     fi
 }
 
+create_automount_triggers_command_line() {
+    AUTOMOUNT_COMMAND_LINE=""
+
+    for automount_dir in ${AUTOMOUNT_DIR_LIST[@]}
+    do
+        AUTOMOUNT_COMMAND_LINE="${AUTOMOUNT_COMMAND_LINE} cd \"${automount_dir}\";"
+    done
+
+    AUTOMOUNT_COMMAND_LINE="${AUTOMOUNT_COMMAND_LINE} sleep ${AUTOMOUNT_TRIGGER_DELAY}"
+    echo "${AUTOMOUNT_COMMAND_LINE}"
+}
 
 # Setup working environment:
+
+if [ ! -d "${GLOBAL_PARALLEL_TESTS_DIR}" ]
+then
+    mkdir -p "${GLOBAL_PARALLEL_TESTS_DIR}"
+fi
+
+if [ ! -d "${TEST_ARCHIVE_DIR}" ]
+then
+    mkdir -p "${TEST_ARCHIVE_DIR}"
+fi
 
 if [ -d "${TEST_ROOT_WORKING_DIR}" ]
 then
@@ -203,6 +232,8 @@ do
         NUM_CLASSES_THIS_SUFFIX=`expr ${NUM_CLASSES_THIS_SUFFIX} + 1`
 
         echo "#!/bin/bash" > "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
+        echo "`create_automount_triggers_command_line`" >> "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
+        echo "cd ${TEST_CLONE}" >> "${JOB_RUNNER_DIR}/${NUM_JOBS}.sh"
         echo "ant runtestonly \
               -Dsingle=${test_class} \
               -Djava.io.tmpdir=${TEST_TEMP_DIR} \
@@ -225,6 +256,7 @@ echo "Dispatching jobs for ${BAMBOO_BUILD_ID}"
 bsub -P "${BAMBOO_BUILD_ID}" \
      -q "${JOB_QUEUE}" \
      -R "rusage[mem=${JOB_MEMORY}] select[tmp>100]" \
+     -W 240 \
      -o "MASTER.job.out" \
      -J "${BAMBOO_BUILD_ID}[1-${NUM_JOBS}]" \
      "${JOB_RUNNER_DIR}/\${LSB_JOBINDEX}.sh"

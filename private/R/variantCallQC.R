@@ -137,10 +137,12 @@ summaryPlots <- function(metricsBySites) {
   minSNPsToInclude <- 0
   if (sum(tiTvVariantEvaluator$nSNPs) > 0) {
     byACNoAll <- subset(tiTvVariantEvaluator, Novelty != "all" & AC > 0 & nSNPs > minSNPsToInclude)
-    acGraph <- ggplot(data=byACNoAll, aes(x=AC, y=tiTvRatio, color=Novelty))
+    byACNoAll$weightSNPs <- byACNoAll$nSNPs
+    byACNoAll$weightSNPs[byACNoAll$weightSNPs < 10] <- 0 # no weight given to bins with small counts
+    acGraph <- ggplot(data=byACNoAll, aes(x=AC, y=(nTi+1)/(nTv+1), color=Novelty))
     acGraph <- acGraph + scale_y_continuous("Transition / transversion ratio", limits=c(0,4))
     acGraph <- acGraph + opts(title = name)
-    acGraph <- acGraph + geom_point(aes(size=log10(nSNPs), weight=nSNPs), alpha=0.5) + geom_smooth()
+    acGraph <- acGraph + geom_point(aes(size=log10(nSNPs), weight=weightSNPs), alpha=0.5) + geom_smooth()
     distributeLogGraph(acGraph, "Allele count (AC)")
   }
   

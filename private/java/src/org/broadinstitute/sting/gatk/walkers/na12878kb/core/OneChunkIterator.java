@@ -249,10 +249,12 @@ public class OneChunkIterator<T extends MongoVariantContext> extends PeekableIte
     }
 
     private boolean occursAtUsableInterval(final GenomeLoc loc) {
-        return intervals == null || intervals.overlaps(loc);
+        return intervals == null || intervals.overlaps(loc.getStartLocation());
     }
 
     private void handleError(final T record, final MongoVariantContextException e) {
+        if ( errorHandler == null )
+            throw new IllegalStateException("No error handler was set in the iterator but we encountered an error in the DB that requires handling: " + e.getMessage());
         errorHandler.handleFailedRecord(record, e);
     }
 

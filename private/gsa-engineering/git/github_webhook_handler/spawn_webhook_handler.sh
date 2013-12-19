@@ -9,9 +9,8 @@ HANDLER="/humgen/gsa-scr1/gsa-engineering/git/github_webhook_handler/handle_webh
 HANDLER_NAME="handle_webhooks"
 HANDLER_USER="gsa-engineering"
 
-if ! ps -U "${HANDLER_USER}" -o comm | grep "${HANDLER_NAME}"
+if ! ps -U "${HANDLER_USER}" -o comm | grep -q "${HANDLER_NAME}"
 then
-    echo "Handler not found, restarting ${HANDLER}"
     nohup "${HANDLER}" > /dev/null &
     sleep 5 
 fi
