@@ -48,7 +48,6 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.google.gson.Gson;
 import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 
 import java.io.*;
@@ -85,11 +84,15 @@ public class NA12878DBArgumentCollection {
 
         Reader reader = new InputStreamReader(is);
         MongoDBManager.Locator tmpLocator = (new Gson()).fromJson(reader, MongoDBManager.Locator.class);
-        String dbName = tmpLocator.name + dbToUse.getExtension();
+        String dbName = tmpLocator.name;
+        //Missing specVersion = v1
+        if(tmpLocator.specVersion == null){
+            dbName += dbToUse.getExtension();
+        }
         try {
             reader.close();
             return new MongoDBManager.Locator(tmpLocator.host, tmpLocator.port, dbName, tmpLocator.sitesCollection,
-                    tmpLocator.callsetsCollection, tmpLocator.consensusCollection);
+                    tmpLocator.callsetsCollection, tmpLocator.consensusCollection, tmpLocator.label, tmpLocator.specVersion);
         } catch ( IOException e ) {
             throw new RuntimeException("Failed to close json reader for " + dbSpecPath, e);
         }
@@ -103,7 +106,9 @@ public class NA12878DBArgumentCollection {
         /** For unit and integration tests, not persistent */
         TEST("_test"),
         /** default one */
-        DEFAULT("_NA");
+        DEFAULT("_NA"),
+
+        BLANK("");
 
         private String extension;
 
@@ -146,15 +151,22 @@ public class NA12878DBArgumentCollection {
     }
 
     /**
-     * Uses the provided file to load database host/name/port/etc.
-     * Must be appropriate JSON format
      *
      * This *forces* the dbToUse to be the production database
      *
      * @param dbSpecPath
      */
     public NA12878DBArgumentCollection(String dbSpecPath){
+        this(dbSpecPath, DBType.PRODUCTION);
+    }
+
+    /**
+     * @param dbSpecPath File describing host/name/port/etc.
+     * Must be appropriate JSON format
+     * @param dbToUse
+     */
+    public NA12878DBArgumentCollection(String dbSpecPath, DBType dbToUse){
         this.dbSpecPath = dbSpecPath;
-        this.dbToUse = DBType.PRODUCTION;
+        this.dbToUse = dbToUse;
     }
 }

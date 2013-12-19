@@ -4,5 +4,6 @@
     "name" : "NA12878KnowledgeBase",
     "sitesCollection" : "sites",
     "callsetsCollection" : "callsets",
-    "consensusCollection" : "consensus"
+    "consensusCollection" : "consensus",
+    "label" : "NA12878 KB"
 }
