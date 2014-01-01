@@ -127,10 +127,8 @@ public class LDCorrectedDosage extends GenotypeAnnotation implements Experimenta
          if ( ! matrixPositions.contains(ref.getLocus()) ) {
 
              // check the VC for validity
-             String invalidVCReason = checkVCIsValid(vc);
-             if (invalidVCReason != null ) {
-                 throw new UserException.MalformedVCF(String.format("The input VCF is currently not usable with LDCorrectedDosage: %s",invalidVCReason));
-             }
+             if ( ! checkVCIsValid(vc) )
+                 return;
 
              // at this point, VC must be biallelic and have an alternate allele, however there must be some variance
              if ( vc.getCalledChrCount(vc.getAlternateAllele(0)) < 1 || vc.getCalledChrCount(vc.getAlternateAllele(0)) == vc.getCalledChrCount() )
@@ -349,14 +347,8 @@ public class LDCorrectedDosage extends GenotypeAnnotation implements Experimenta
         return sampleMap;
     }
 
-    private String checkVCIsValid(final VariantContext context) {
-        if ( ! context.hasGenotypes() )
-            return String.format("Context at position %s:%d does not have genotypes, which is unsupported by this annotation.",context.getChr(),context.getStart());
-        if ( context.getNoCallCount() == context.getNSamples() )
-            return String.format("Context at position %s:%d consists of entirely no calls, which is unsupported by this annotation.",context.getChr(),context.getStart());
-        if ( ! context.isBiallelic() )
-            return String.format("Context at position %s:%d is not bi-allelic, which is unsupported by this annotation.",context.getChr(),context.getStart());
-        return null;
+    private boolean checkVCIsValid(final VariantContext context) {
+        return  ( context.hasGenotypes() && context.getNoCallCount() < context.getNSamples() && context.isBiallelic() );
     }
 
 }
