@@ -44,83 +44,40 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.genotyper;
+package org.broadinstitute.sting.gatk.walkers.rnaseq;
 
 import org.broadinstitute.sting.WalkerTest;
 import org.testng.annotations.Test;
-
+import org.broadinstitute.sting.BaseTest;
 import java.util.Arrays;
 
-public class UnifiedGenotyperNormalCallingIntegrationTest extends WalkerTest{
+/**
+ * Created with IntelliJ IDEA.
+ * User: ami
+ * Date: 12/5/13
+ * Time: 1:04 PM
+ */
+public class SplitNCigarReadsIntegrationTests extends WalkerTest {
 
-    private final static String baseCommand = "-T UnifiedGenotyper --contamination_fraction_to_filter 0.05 --disableDithering -R " + b36KGReference + " --no_cmdline_in_header -glm BOTH -minIndelFrac 0.0 --dbsnp " + b36dbSNP129;
-
-    // --------------------------------------------------------------------------------------------------------------
-    //
-    // testing normal calling
-    //
-    // --------------------------------------------------------------------------------------------------------------
     @Test
-    public void testMultiSamplePilot1() {
+    // contain reads without N's, with N's and with N's and I's
+    public void testSplitWithInsertions() {
         WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
-                baseCommand + " -I " + validationDataLocation + "low_coverage_CEU.chr1.10k-11k.bam -o %s -L 1:10,022,000-10,025,000", 1,
-                Arrays.asList("710d379607129935b1b7b6960ca7b213"));
-        executeTest("test MultiSample Pilot1", spec);
+                "-T SplitNCigarReads -R " + BaseTest.b37KGReference + " -I " + BaseTest.privateTestDir + "SplitNCigarReads.integrationTest.unsplitReads.withI.bam -o %s -U ALLOW_N_CIGAR_READS", 1,
+                Arrays.asList("037c72fe1572efb63cccbe0a8dda3cb1"));
+        executeTest("test split N cigar reads with insertions", spec);
     }
 
     @Test
-    public void testWithAllelesPassedIn1() {
-        WalkerTest.WalkerTestSpec spec1 = new WalkerTest.WalkerTestSpec(
-                baseCommand + " --genotyping_mode GENOTYPE_GIVEN_ALLELES -alleles " + privateTestDir + "allelesForUG.vcf -I " + validationDataLocation + "pilot2_daughters.chr20.10k-11k.bam -o %s -L 20:10,000,000-10,025,000", 1,
-                Arrays.asList("ebfcc3dd8c1788929cb50050c5d456df"));
-        executeTest("test MultiSample Pilot2 with alleles passed in", spec1);
-    }
-
-    @Test
-    public void testWithAllelesPassedIn2() {
-        WalkerTest.WalkerTestSpec spec2 = new WalkerTest.WalkerTestSpec(
-                baseCommand + " --output_mode EMIT_ALL_SITES --genotyping_mode GENOTYPE_GIVEN_ALLELES -alleles " + privateTestDir + "allelesForUG.vcf -I " + validationDataLocation + "pilot2_daughters.chr20.10k-11k.bam -o %s -L 20:10,000,000-10,025,000", 1,
-                Arrays.asList("3e646003c5b93da80c7d8e5d0ff2ee4e"));
-        executeTest("test MultiSample Pilot2 with alleles passed in and emitting all sites", spec2);
-    }
-
-    @Test
-    public void testSingleSamplePilot2() {
+    // contain reads without N's, with N's and with N's and D's, and also with more then one N element in the cigar.
+    public void testSplitWithDeletions() {
         WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
-                baseCommand + " -I " + validationDataLocation + "NA12878.1kg.p2.chr1_10mb_11_mb.SLX.bam -o %s -L 1:10,000,000-10,100,000", 1,
-                Arrays.asList("02b521fe88a6606a29c12c0885c3debd"));
-        executeTest("test SingleSample Pilot2", spec);
+                "-T SplitNCigarReads -R " + BaseTest.b37KGReference + " -I " + BaseTest.privateTestDir + "SplitNCigarReads.integrationTest.unsplitReads.withD.bam -o %s -U ALLOW_N_CIGAR_READS", 1,
+                Arrays.asList("8472005c16353715025353d6d453faf4"));
+        executeTest("test split N cigar reads with deletions", spec);
     }
 
-    @Test
-    public void testMultipleSNPAlleles() {
-        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
-                "-T UnifiedGenotyper --contamination_fraction_to_filter 0.05 --disableDithering -R " + b37KGReference + " --no_cmdline_in_header -glm BOTH --dbsnp " + b37dbSNP129 + " -I " + privateTestDir + "multiallelic.snps.bam -o %s -L " + privateTestDir + "multiallelic.snps.intervals", 1,
-                Arrays.asList("dd5ad3beaa75319bb2ef1434d2dd9f73"));
-        executeTest("test Multiple SNP alleles", spec);
-    }
 
-    @Test
-    public void testBadRead() {
-        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
-                "-T UnifiedGenotyper --contamination_fraction_to_filter 0.05 --disableDithering -R " + b37KGReference + " --no_cmdline_in_header -glm BOTH -I " + privateTestDir + "badRead.test.bam -o %s -L 1:22753424-22753464", 1,
-                Arrays.asList("d915535c1458733f09f82670092fcab6"));
-        executeTest("test bad read", spec);
-    }
 
-    @Test
-    public void testReverseTrim() {
-        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
-                "-T UnifiedGenotyper --contamination_fraction_to_filter 0.05 --disableDithering -R " + b37KGReference + " --no_cmdline_in_header -glm INDEL -I " + validationDataLocation + "CEUTrio.HiSeq.b37.chr20.10_11mb.bam -o %s -L 20:10289124 -L 20:10090289", 1,
-                Arrays.asList("a973298b2801b80057bea88507e2858d"));
-        executeTest("test reverse trim", spec);
-    }
 
-    @Test
-    public void testMismatchedPLs() {
-        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
-                "-T UnifiedGenotyper --contamination_fraction_to_filter 0.05 --disableDithering -R " + b37KGReference + " --no_cmdline_in_header -glm INDEL -I " + privateTestDir + "mismatchedPLs.bam -o %s -L 1:24020341", 1,
-                Arrays.asList("8d91d98c4e79897690d3c6918b6ac761"));
-        executeTest("test mismatched PLs", spec);
-    }
 }

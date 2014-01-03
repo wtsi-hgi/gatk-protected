@@ -194,6 +194,7 @@ class FullProcessingPipeline extends QScript {
     val sortedBam  = new File(sampleName + ".sorted.bam")
     //val cleanedBam = swapExt(dedupIfNeeded(sortedBam), ".bam", ".clean.bam")
     val readyToRealign = dedupIfNeeded(addRGIfNeeded(sortedBam,sampleName))
+    //sampleName + ".sorted.RGadded.dedup.splitNCigarReads.bam")//
     val cleanedBam = swapExt(readyToRealign, ".bam", ".clean.bam")
     val recalBam   = swapExt(cleanedBam, ".bam", ".recal.bam")
     val reducedBam = swapExt(recalBam, ".bam", ".reduced.bam")
@@ -203,7 +204,6 @@ class FullProcessingPipeline extends QScript {
     val recalFile       = new File(sampleName + ".grp")
 
     add(
-      //sortSam(bams(0), sortedBam, SortOrder.coordinate),
       merge(bams, sortedBam),
       target(readyToRealign, targetIntervals),
       clean(readyToRealign, targetIntervals, cleanedBam),

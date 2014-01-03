@@ -173,6 +173,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         return NA12878DBArgumentCollection.DBType.PRODUCTION;
     }
 
+    @Override
     public void initialize() {
         super.initialize();
         consensusSiteIterator = db.getConsensusSites(makeSiteManager(false));
@@ -261,6 +262,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         return assessors.values().iterator().next().getSNPAssessment();
     }
 
+    @Override
     public void onTraversalDone(Integer result) {
         includeMissingCalls(consensusSiteIterator.toList());
         super.onTraversalDone(result);
