@@ -94,7 +94,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.
   for( bamIndex <- 0 until singleSampleBams.size ) {
         val singleSampleBam = singleSampleBams(bamIndex)
         val sshcVCF = swapExt(singleSampleBam, ".bam", ".vcf")
-        recalibrateSNPsAndIndels( sshcVCF, false )
+        recalibrateSNPsAndIndels( sshcVCF, false, singleSampleBams )
       }
   }
 
@@ -103,75 +103,6 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.
     this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
     this.intervalsString = intervalsFile
     this.memoryLimit = 2
-  }
-
-  case class UG( outFile: File, scatter: Int ) extends UnifiedGenotyper with BaseCommandArguments {
-    this.out = outFile
-    this.input_file :+= bamList
-    this.memoryLimit = 3
-    this.scatterCount = scatter
-    this.stand_call_conf = 30.0
-    this.stand_emit_conf = 30.0
-    this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
-    this.analysisName = "UG_JointCalling"
-  }
-
-  case class HC( bamFile: File, outFile: File, scatter: Int ) extends HaplotypeCaller with BaseCommandArguments {
-    this.out = outFile
-    this.input_file :+= bamFile
-    this.memoryLimit = 4
-    this.scatterCount = scatter
-    this.stand_call_conf = 30.0
-    this.stand_emit_conf = 30.0
-    //this.minPruning = 4
-    //this.maxNumHaplotypesInPopulation = 200
-    this.dontTrimActiveRegions = true
-    this.ERC = org.broadinstitute.sting.gatk.walkers.haplotypecaller.HaplotypeCaller.ReferenceConfidenceMode.GVCF
-    this.max_alternate_alleles = 2
-    this.analysisName = "HC_SingleSampleCalling"
-    this.A = List("DepthPerSampleHC", "StrandBiasBySample")
-  }
-
-    case class RG( inFile: File, outFile: File ) extends RegenotypeVariants with BaseCommandArguments {
-        this.out = outFile
-        this.memoryLimit = 3
-        this.scatterCount = 40
-        this.isIntermediate = true
-        this.V = inFile
-        this.analysisName = "HC_SingleSampleCalling"
-      }
-
-  case class CV( outFile: File) extends CombineVariants with BaseCommandArguments {
-    this.out = outFile
-    this.memoryLimit = 8
-    this.scatterCount = 40
-    this.setKey = "null"
-    this.combineAnnotations = true
-    this.multipleAllelesMergeType = MultipleAllelesMergeType.MIX_TYPES
-    this.excludeNonVariants = true
-    this.analysisName = "HC_SingleSampleCalling"
-  }
-
-  case class VA( inFile: File, outFile: File) extends VariantAnnotator with BaseCommandArguments {
-    this.out = outFile
-    this.V = inFile
-    this.intervalsString = List(inFile)
-    this.A = List("InbreedingCoeff", "FisherStrand", "QualByDepth")
-    this.memoryLimit = 4
-    this.scatterCount = 40
-    this.analysisName = "HC_SingleSampleCalling"
-  }
-
-  case class Assess( inFile: File ) extends AssessNA12878 with BaseCommandArguments {
-    this.V :+= inFile
-    this.excludeIntervals :+= excludeComplexIntervals
-    this.out = swapExt(inFile,".vcf",".report")
-    this.badSites = swapExt(inFile,".vcf",".interesting.sites.vcf")
-    this.memoryLimit = 2
-    this.intervalsString = List(new File("/humgen/gsa-hpprojects/dev/rpoplin/perfectCalls/chr20.5mb.intervals"))
-    this.okayToMiss = okayToMissPCRplus
-    this.analysisName = "AssessNA12878"
   }
 
 
@@ -184,7 +115,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.
       //this.nt = 4
       this.allPoly = true
       this.tranche ++= List("100.0", "99.9", "99.8", "99.7", "99.5", "99.3", "99.0", "98.5", "98.0", "97.0", "95.0", "90.0")
-      this.memoryLimit = 21
+      this.memoryLimit = 18
       this.tranches_file = swapExt(outputDir, vcf, ".vcf", ".tranches")
       this.recal_file = swapExt(outputDir, vcf, ".vcf", ".recal")
       //this.rscript_file = swapExt(outputDir, vcf, ".vcf", ".vqsr.R")
@@ -200,10 +131,9 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.
       this.resource :+= new TaggedFile( omni_bad, "bad=true" )	// not part of the bast practices v4
       this.resource :+= new TaggedFile( dbSNP_129, "known=true,training=false,truth=false,prior=2.0" )    // prior=6.0 on the bast practices v4
       this.resource :+= new TaggedFile( latestdbSNP, "known=false,training=false,truth=false,prior=7.0" )    // prior=6.0 on the bast practices v4
-      this.use_annotation ++= List("QD", "FS", "ReadPosRankSum", "MQRankSum", "HaplotypeScore")
+      this.use_annotation ++= List("QD", "FS", "ReadPosRankSum", "MQRankSum", "MQ", "HaplotypeScore", "InbreedingCoeff")
       this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
       this.maxGaussians = 6
-      this.mNG = 4
       this.maxNumTrainingData = 4000000
       this.analysisName = "VQSR"
     }
@@ -215,9 +145,8 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.
       this.resource :+= new TaggedFile( axiom_bad, "bad=true" )	// not part of the bast practices v4
       this.resource :+= new TaggedFile( latestdbSNP, "known=true,prior=2.0" )  						// not part of the bast practices v4
       this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
-      this.use_annotation ++= List("FS", "ReadPosRankSum", "MQRankSum", "HaplotypeScore")
+      this.use_annotation ++= List("FS", "ReadPosRankSum", "MQRankSum", "QD", "InbreedingCoeff")
       this.maxGaussians = 6
-      this.mNG = 4
       this.maxNumTrainingData = 4000000
       this.analysisName = "VQSR"
     }
@@ -251,7 +180,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.
       this.analysisName = "VQSR"
     }
 
-    def recalibrateSNPsAndIndels(snpsAndIndelsVCF: File, useUGAnnotations: Boolean): File = {
+    def recalibrateSNPsAndIndels(snpsAndIndelsVCF: File, useUGAnnotations: Boolean, aggregateFiles: Seq[File]): File = {
       val selectSNPs = new SelectVariants with BaseCommandArguments
       selectSNPs.V = snpsAndIndelsVCF
       selectSNPs.selectType = List(VariantContext.Type.SNP)
@@ -273,26 +202,61 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.
       val indelApplyVQSR = new applyIndelVQSR(indelRecalibrator, useUGAnnotations)
       indelApplyVQSR.isIntermediate = true
 
-      val singleSampleBams = QScriptUtils.createSeqFromFile(bamList)
-      for( bamIndex <- 0 until 50 ) {
-        val singleSampleBam = singleSampleBams(bamIndex)
-        val sshcVCF = swapExt(singleSampleBam, ".bam", ".vcf")
-        if( !sshcVCF.getName().equals(snpsAndIndelsVCF.getName()) ) {
-          snpRecalibrator.aggregate :+= sshcVCF
-          indelRecalibrator.aggregate :+= sshcVCF
-        }
-      }
-
       val recal = swapExt(outputDir, snpsAndIndelsVCF, ".unfiltered.vcf", ".recalibrated.vcf")
       val combineSNPsIndels = new CombineSNPsIndels(snpApplyVQSR.out, indelApplyVQSR.out)
       combineSNPsIndels.out = recal
 
       val roc = new ROCCurveNA12878 with BaseCommandArguments
-      roc.project = "aggregate_50"
+      roc.project = "alone"
       roc.V = combineSNPsIndels.out
       roc.out = swapExt(combineSNPsIndels.out, ".vcf", ".dat")
 
+
+
+
+      val selectSNPs_agg = new SelectVariants with BaseCommandArguments
+      selectSNPs_agg.V = snpsAndIndelsVCF
+      selectSNPs_agg.selectType = List(VariantContext.Type.SNP)
+      selectSNPs_agg.out = swapExt(outputDir, snpsAndIndelsVCF, ".vcf", ".aggregate.snps.vcf")
+      selectSNPs_agg.isIntermediate = true
+      selectSNPs_agg.analysisName = "VQSR"
+
+      val selectIndels_agg = new SelectVariants with BaseCommandArguments
+      selectIndels_agg.V = snpsAndIndelsVCF
+      selectIndels_agg.selectType = List(VariantContext.Type.INDEL, VariantContext.Type.MIXED, VariantContext.Type.MNP, VariantContext.Type.SYMBOLIC)
+      selectIndels_agg.out = swapExt(outputDir, snpsAndIndelsVCF, ".vcf", ".aggregate.indels.vcf")
+      selectIndels_agg.isIntermediate = true
+      selectIndels_agg.analysisName = "VQSR"
+
+      val snpRecalibrator_agg = new snpRecal(selectSNPs_agg.out, useUGAnnotations)
+      val snpApplyVQSR_agg = new applySnpVQSR(snpRecalibrator_agg, useUGAnnotations)
+      snpApplyVQSR_agg.isIntermediate = true
+      val indelRecalibrator_agg = new indelRecal(selectIndels_agg.out, useUGAnnotations)
+      val indelApplyVQSR_agg = new applyIndelVQSR(indelRecalibrator_agg, useUGAnnotations)
+      indelApplyVQSR_agg.isIntermediate = true
+
+      for( bamIndex <- 0 until aggregateFiles.size ) {
+        val singleSampleBam = aggregateFiles(bamIndex)
+        val sshcVCF = swapExt(singleSampleBam, ".bam", ".vcf")
+        if( !sshcVCF.getName().equals(snpsAndIndelsVCF.getName()) ) {
+          snpRecalibrator_agg.aggregate :+= sshcVCF
+          indelRecalibrator_agg.aggregate :+= sshcVCF
+        }
+      }
+
+      val recal_agg = swapExt(outputDir, snpsAndIndelsVCF, ".unfiltered.vcf", ".recalibrated.aggregate.vcf")
+      val combineSNPsIndels_agg = new CombineSNPsIndels(snpApplyVQSR_agg.out, indelApplyVQSR_agg.out)
+      combineSNPsIndels_agg.out = recal_agg
+
+      val roc_agg = new ROCCurveNA12878 with BaseCommandArguments
+      roc_agg.project = "aggregate"
+      roc_agg.V = combineSNPsIndels_agg.out
+      roc_agg.out = swapExt(combineSNPsIndels_agg.out, ".vcf", ".dat")
+
+
+
       add(selectSNPs, selectIndels, snpRecalibrator, snpApplyVQSR, indelRecalibrator, indelApplyVQSR, combineSNPsIndels, roc)
+      add(selectSNPs_agg, selectIndels_agg, snpRecalibrator_agg, snpApplyVQSR_agg, indelRecalibrator_agg, indelApplyVQSR_agg, combineSNPsIndels_agg, roc_agg)
 
       return recal
     }
