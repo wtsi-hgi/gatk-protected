@@ -70,10 +70,10 @@ public class ROCCurveNA12878UnitTest extends BaseTest {
 
         final GATKReport calculatedGATKReport = ROCCurveNA12878.calculateROCCurve(data, 2, "project", "name");
         final GATKReport expectedGATKReport = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR");
-        expectedGATKReport.addRow("project", "project"+"name", "SNPs", 10.0, 1.0, 0.0);
-        expectedGATKReport.addRow("project", "project"+"name", "Indels", 10.0, 1.0, 0.0);
-        expectedGATKReport.addRow("project", "project"+"name", "SNPs", -10.0, 1.0, 1.0);
-        expectedGATKReport.addRow("project", "project"+"name", "Indels", -10.0, 1.0, 1.0);
+        expectedGATKReport.addRow("project", "name", "SNPs", 10.0, 1.0, 0.0);
+        expectedGATKReport.addRow("project", "name", "Indels", 10.0, 1.0, 0.0);
+        expectedGATKReport.addRow("project", "name", "SNPs", -10.0, 1.0, 1.0);
+        expectedGATKReport.addRow("project", "name", "Indels", -10.0, 1.0, 1.0);
 
         Assert.assertTrue(expectedGATKReport.equals(calculatedGATKReport));
     }

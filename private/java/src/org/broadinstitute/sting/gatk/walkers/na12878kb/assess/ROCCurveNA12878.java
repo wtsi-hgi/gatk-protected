@@ -156,9 +156,9 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
         for( final ROCDatum datum : data ) {
             rocData[datum.isSNP ? SNP_INDEX : INDEL_INDEX][datum.isTP ? TP_INDEX : FP_INDEX][CALLED_INDEX]++;
             if( (numVariants+1) % numBins == 0 ) {
-                report.addRow(project, project+name, "SNPs", datum.lod, (double)rocData[SNP_INDEX][TP_INDEX][CALLED_INDEX]/(double)rocData[SNP_INDEX][TP_INDEX][TOTAL_INDEX],
+                report.addRow(project, name, "SNPs", datum.lod, (double)rocData[SNP_INDEX][TP_INDEX][CALLED_INDEX]/(double)rocData[SNP_INDEX][TP_INDEX][TOTAL_INDEX],
                         (double)rocData[SNP_INDEX][FP_INDEX][CALLED_INDEX]/(double)rocData[SNP_INDEX][FP_INDEX][TOTAL_INDEX]);
-                report.addRow(project, project+name, "Indels", datum.lod, (double)rocData[INDEL_INDEX][TP_INDEX][CALLED_INDEX]/(double)rocData[INDEL_INDEX][TP_INDEX][TOTAL_INDEX],
+                report.addRow(project, name, "Indels", datum.lod, (double)rocData[INDEL_INDEX][TP_INDEX][CALLED_INDEX]/(double)rocData[INDEL_INDEX][TP_INDEX][TOTAL_INDEX],
                         (double)rocData[INDEL_INDEX][FP_INDEX][CALLED_INDEX]/(double)rocData[INDEL_INDEX][FP_INDEX][TOTAL_INDEX]);
             }
             numVariants++;
