@@ -31,8 +31,11 @@ import com.google.java.contract.Requires;
 
 import java.util.concurrent.TimeUnit;
 
+import static java.lang.Math.abs;
+
 /**
- * A useful simple system for timing code with nano second resolution
+ * A timer using actual system time and thus supporting checkpoint/restart
+ * semantics without breaking due to differing JVM clocks.
  *
  * Note that this code is not thread-safe.  If you have a single timer
  * being started and stopped by multiple threads you will need to protect the
@@ -43,9 +46,23 @@ import java.util.concurrent.TimeUnit;
  * Date: Dec 10, 2010
  * Time: 9:07:44 AM
  */
-public class SimpleTimer implements Timer {
+public class CheckpointableTimer implements Timer {
+
     protected static final double NANO_TO_SECOND_DOUBLE = 1.0 / TimeUnit.SECONDS.toNanos(1);
+
+    /**
+     * Allowable clock drift in nanoseconds.
+     */
+    private static final double CLOCK_DRIFT = 5000000;
+
     private final String name;
+
+    /**
+     * The difference between system time and nano time at construction.
+     * This is used to detect checkpoint/restart events, and should be 
+     * reset when a checkpoint/restart is detected.
+     */
+    private long nanoTimeOffset;
 
     /**
      * The elapsedTimeNano time in nanoSeconds of this timer.  The elapsedTimeNano time is the
@@ -66,17 +83,19 @@ public class SimpleTimer implements Timer {
     /**
      * Creates an anonymous simple timer
      */
-    public SimpleTimer() {
+    public CheckpointableTimer() {
         this("Anonymous");
     }
 
     /**
-     * Creates a simple timer named name
+     * Creates a timer named name
      * @param name of the timer, must not be null
      */
-    public SimpleTimer(final String name) {
-        if ( name == null ) throw new IllegalArgumentException("SimpleTimer name cannot be null");
+    public CheckpointableTimer(final String name) {
+        if ( name == null ) throw new IllegalArgumentException("CheckpointableTimer name cannot be null");
         this.name = name;
+
+        this.nanoTimeOffset = getNanoOffset();
     }
 
     /**
@@ -93,7 +112,7 @@ public class SimpleTimer implements Timer {
      * @return this object, for programming convenience
      */
     @Ensures("elapsedTimeNano == 0l")
-    public synchronized SimpleTimer start() {
+    public synchronized CheckpointableTimer start() {
         elapsedTimeNano = 0l;
         return restart();
     }
@@ -105,7 +124,7 @@ public class SimpleTimer implements Timer {
      *
      * @return this object, for programming convenience
      */
-    public synchronized SimpleTimer restart() {
+    public synchronized CheckpointableTimer restart() {
         running = true;
         startTimeNano = currentTimeNano();
         return this;
@@ -134,16 +153,25 @@ public class SimpleTimer implements Timer {
 
     /**
      * Stops the timer.  Increases the elapsedTimeNano time by difference between start and now.
+     * This also checks that there hasn't been a massive change between the system and nano time
+     * since the initiation - this would be indicative of a C/R. If there has been a change, the
+     * elapsed time is discarded.
      *
      * It's ok to call stop on a timer that's not running.  It has no effect on the timer.
      *
      * @return this object, for programming convenience
      */
     @Requires("startTimeNano != 0l")
-    public synchronized SimpleTimer stop() {
+    public synchronized CheckpointableTimer stop() {
         if ( running ) {
             running = false;
-            elapsedTimeNano += currentTimeNano() - startTimeNano;
+            long currentOffset = getNanoOffset();
+            if (abs(currentOffset - nanoTimeOffset) > CLOCK_DRIFT) {
+                // Checkpoint/restart detected! - don't add the elapsed time.
+                this.nanoTimeOffset = currentOffset;
+            } else {
+                elapsedTimeNano += currentTimeNano() - startTimeNano;
+            }
         }
         return this;
     }
@@ -178,5 +206,12 @@ public class SimpleTimer implements Timer {
      */
     public synchronized void addElapsed(final Timer toAdd) {
         elapsedTimeNano += toAdd.getElapsedTimeNano();
+    }
+
+    /**
+     * Get the current offset of nano time from system time.
+     */
+    private static long getNanoOffset() {
+        return System.nanoTime() - System.currentTimeMillis();
     }
 }

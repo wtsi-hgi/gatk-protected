@@ -39,6 +39,16 @@ public class SimpleTimerUnitTest extends BaseTest {
     @Test
     public void testSimpleTimer() {
         SimpleTimer t = new SimpleTimer(NAME);
+        testTimer(t);
+    }
+
+    @Test
+    public void testCheckpointableTimer() {
+        CheckpointableTimer t = new CheckpointableTimer(NAME);
+        testTimer(t);
+    }
+
+    private void testTimer(Timer t) {
         Assert.assertEquals(t.getName(), NAME, "Name is not the provided one");
         Assert.assertFalse(t.isRunning(), "Initial state of the timer is running");
         Assert.assertEquals(t.getElapsedTime(), 0.0, "New timer elapsed time should be 0");

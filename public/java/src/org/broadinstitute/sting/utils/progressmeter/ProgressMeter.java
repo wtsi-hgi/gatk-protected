@@ -143,7 +143,7 @@ public class ProgressMeter {
     private final PrintStream performanceLog;
 
     /** We use the SimpleTimer to time our run */
-    private final SimpleTimer timer = new SimpleTimer();
+    private final Timer timer = new CheckpointableTimer();
 
     private GenomeLoc maxGenomeLoc = null;
     private Position position = new Position(PositionStatus.STARTING);

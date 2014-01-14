@@ -42,7 +42,8 @@ import org.broadinstitute.sting.gatk.iterators.*;
 import org.broadinstitute.sting.gatk.resourcemanagement.ThreadAllocation;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.GenomeLocSortedSet;
-import org.broadinstitute.sting.utils.SimpleTimer;
+import org.broadinstitute.sting.utils.Timer;
+import org.broadinstitute.sting.utils.CheckpointableTimer;
 import org.broadinstitute.sting.utils.baq.ReadTransformingIterator;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -819,7 +820,7 @@ public class SAMDataSource {
         public SAMReaders(Collection<SAMReaderID> readerIDs, SAMFileReader.ValidationStringency validationStringency, boolean removeProgramRecords) {
             final int totalNumberOfFiles = readerIDs.size();
             int readerNumber = 1;
-            final SimpleTimer timer = new SimpleTimer().start();
+            final Timer timer = (new CheckpointableTimer()).start();
 
             if ( totalNumberOfFiles > 0 ) logger.info("Initializing SAMRecords in serial");
             final int tickSize = 50;
@@ -923,7 +924,7 @@ public class SAMDataSource {
         final private void printReaderPerformance(final int nExecutedTotal,
                                                   final int nExecutedInTick,
                                                   final int totalNumberOfFiles,
-                                                  final SimpleTimer timer,
+                                                  final Timer timer,
                                                   final double tickDurationInSec) {
             final int pendingSize = totalNumberOfFiles - nExecutedTotal;
             final double totalTimeInSeconds = timer.getElapsedTime();
