@@ -212,6 +212,6 @@ public class CheckpointableTimer implements Timer {
      * Get the current offset of nano time from system time.
      */
     private static long getNanoOffset() {
-        return System.nanoTime() - System.currentTimeMillis();
+        return System.nanoTime() - (System.currentTimeMillis() * 1000);
     }
 }
