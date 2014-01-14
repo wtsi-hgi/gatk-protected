@@ -166,12 +166,11 @@ public class CheckpointableTimer implements Timer {
         if ( running ) {
             running = false;
             long currentOffset = getNanoOffset();
-            if (abs(currentOffset - nanoTimeOffset) > CLOCK_DRIFT) {
-                // Checkpoint/restart detected! - don't add the elapsed time.
-                this.nanoTimeOffset = currentOffset;
-            } else {
+            if (abs(currentOffset - nanoTimeOffset) <= CLOCK_DRIFT) {
                 elapsedTimeNano += currentTimeNano() - startTimeNano;
             }
+            // Reset the drift meter to stay in sync.
+            this.nanoTimeOffset = currentOffset;
         }
         return this;
     }

@@ -29,9 +29,12 @@ import org.broadinstitute.sting.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Field;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import static java.lang.Math.abs;
 
 public class SimpleTimerUnitTest extends BaseTest {
     private final static String NAME = "unit.test.timer";
@@ -94,7 +97,45 @@ public class SimpleTimerUnitTest extends BaseTest {
         for ( int i = 0; i < nanoTimes.size(); i++ )
             Assert.assertEquals(
                     SimpleTimer.nanoToSecondsAsDouble(nanoTimes.get(i)),
-                    secondTimes.get(i), 1e-1, "Nanosecond and second timer disagree");
+                    secondTimes.get(i), 1e-1, "Nanosecond and second timer disagree");       
+    }
+
+    @Test
+    public void testCheckpointRestart() throws Exception {
+        CheckpointableTimer t = new CheckpointableTimer();
+        
+        final Field offsetField = t.getClass().getDeclaredField("nanoTimeOffset");
+        offsetField.setAccessible(true);
+        long offset = ((Long) offsetField.get(t)).longValue();
+
+        t.start();
+        idleLoop();
+        // Make it as if clock has jumped into the past
+        offsetField.set(t, offset + 10000000);
+        t.stop();
+        offset = ((Long) offsetField.get(t)).longValue();
+        Assert.assertEquals(t.getElapsedTime(), 0.0, "Time over restart is not zero.");
+
+        t.start();
+        idleLoop();
+        t.stop();
+        offset = ((Long) offsetField.get(t)).longValue();
+        double elapsed = t.getElapsedTime();
+        Assert.assertTrue(elapsed >= 0.0, "Elapsed time is zero.");
+        t.restart();
+        // Make the clock jump again by just a little
+        offsetField.set(t, offset + 100000l);
+        idleLoop();
+        t.stop();
+        offset = ((Long) offsetField.get(t)).longValue();
+        Assert.assertTrue(t.getElapsedTime() > elapsed, "Small clock drift causing reset.");
+        elapsed = t.getElapsedTime();
+        // Now a bigger jump, into the future this time.
+        t.restart();
+        // Make the clock jump again by just a little
+        offsetField.set(t, offset - 10000000l);
+        t.stop();
+        Assert.assertEquals(t.getElapsedTime(), elapsed, "Time added over checkpoint/restart.");
     }
 
     @Test
