@@ -29,16 +29,23 @@ import org.broadinstitute.sting.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Field;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import static java.lang.Math.abs;
 
-public class SimpleTimerUnitTest extends BaseTest {
+public class CheckpointableTimerUnitTest extends BaseTest {
     private final static String NAME = "unit.test.timer";
 
     @Test
-    public void testSimpleTimer() {
-        SimpleTimer t = new SimpleTimer(NAME);
+    public void testCheckpointableTimer() {
+        CheckpointableTimer t = new CheckpointableTimer(NAME);
+        testTimer(t);
+    }
+
+    private void testTimer(Timer t) {
         Assert.assertEquals(t.getName(), NAME, "Name is not the provided one");
         Assert.assertFalse(t.isRunning(), "Initial state of the timer is running");
         Assert.assertEquals(t.getElapsedTime(), 0.0, "New timer elapsed time should be 0");
@@ -84,43 +91,45 @@ public class SimpleTimerUnitTest extends BaseTest {
         for ( int i = 0; i < nanoTimes.size(); i++ )
             Assert.assertEquals(
                     SimpleTimer.nanoToSecondsAsDouble(nanoTimes.get(i)),
-                    secondTimes.get(i), 1e-1, "Nanosecond and second timer disagree");
+                    secondTimes.get(i), 1e-1, "Nanosecond and second timer disagree");       
     }
 
     @Test
-    public void testNanoResolution() {
-        SimpleTimer t = new SimpleTimer(NAME);
-
-        // test the nanosecond resolution
-        long n7 = t.currentTimeNano();
-        int sum = 0;
-        for ( int i = 0; i < 100; i++) sum += i;
-        long n8 = t.currentTimeNano();
-        final long delta = n8 - n7;
-        final long oneMilliInNano = TimeUnit.MILLISECONDS.toNanos(1);
-        logger.warn("nanoTime before nano operation " + n7);
-        logger.warn("nanoTime after nano operation of summing 100 ints " + n8 + ", sum = " + sum + " time delta " + delta + " vs. 1 millsecond in nano " + oneMilliInNano);
-        Assert.assertTrue(n8 > n7, "SimpleTimer doesn't appear to have nanoSecond resolution: n8 " + n8 + " <= n7 " + n7);
-        Assert.assertTrue(delta < oneMilliInNano,
-                "SimpleTimer doesn't appear to have nanoSecond resolution: time delta is " + delta + " vs 1 millisecond in nano " + oneMilliInNano);
-    }
-
-    @Test
-    public void testMeaningfulTimes() {
-        SimpleTimer t = new SimpleTimer(NAME);
+    public void testCheckpointRestart() throws Exception {
+        CheckpointableTimer t = new CheckpointableTimer();
+        
+        final Field offsetField = t.getClass().getDeclaredField("nanoTimeOffset");
+        offsetField.setAccessible(true);
+        long offset = ((Long) offsetField.get(t)).longValue();
 
         t.start();
-        for ( int i = 0; i < 100; i++ ) ;
-        long nano = t.getElapsedTimeNano();
-        double secs = t.getElapsedTime();
+        idleLoop();
+        // Make it as if clock has jumped into the past
+        offsetField.set(t, offset + 10000000);
+        t.stop();
+        offset = ((Long) offsetField.get(t)).longValue();
+        Assert.assertEquals(t.getElapsedTime(), 0.0, "Time over restart is not zero.");
 
-        Assert.assertTrue(secs > 0, "Seconds timer doesn't appear to count properly: elapsed time is " + secs);
-        Assert.assertTrue(secs < 0.01, "Fast operation said to take longer than 10 milliseconds: elapsed time in seconds " + secs);
-
-        Assert.assertTrue(nano > 0, "Nanosecond timer doesn't appear to count properly: elapsed time is " + nano);
-        final long maxTimeInMicro = 10000;
-        final long maxTimeInNano = TimeUnit.MICROSECONDS.toNanos(maxTimeInMicro);
-        Assert.assertTrue(nano < maxTimeInNano, "Fast operation said to take longer than " + maxTimeInMicro + " microseconds: elapsed time in nano " + nano + " micro " + TimeUnit.NANOSECONDS.toMicros(nano));
+        t.start();
+        idleLoop();
+        t.stop();
+        offset = ((Long) offsetField.get(t)).longValue();
+        double elapsed = t.getElapsedTime();
+        Assert.assertTrue(elapsed >= 0.0, "Elapsed time is zero.");
+        t.restart();
+        // Make the clock jump again by just a little
+        offsetField.set(t, offset + 100000l);
+        idleLoop();
+        t.stop();
+        offset = ((Long) offsetField.get(t)).longValue();
+        Assert.assertTrue(t.getElapsedTime() > elapsed, "Small clock drift causing reset.");
+        elapsed = t.getElapsedTime();
+        // Now a bigger jump, into the future this time.
+        t.restart();
+        // Make the clock jump again by just a little
+        offsetField.set(t, offset - 10000000l);
+        t.stop();
+        Assert.assertEquals(t.getElapsedTime(), elapsed, "Time added over checkpoint/restart.");
     }
 
     private static void idleLoop() {
