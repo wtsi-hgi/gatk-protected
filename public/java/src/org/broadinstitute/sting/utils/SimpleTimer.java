@@ -29,7 +29,10 @@ package org.broadinstitute.sting.utils;
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 
+import org.apache.log4j.Logger;
+
 import java.util.concurrent.TimeUnit;
+import static java.lang.Math.abs;
 
 /**
  * A useful simple system for timing code with nano second resolution
@@ -39,13 +42,34 @@ import java.util.concurrent.TimeUnit;
  * calls to avoid meaningless results of having multiple starts and stops
  * called sequentially.
  *
+ * This timer has been modified to provide better semantics for dealing with
+ * system-level checkpoint and restarting. Such events can cause the internal JVM
+ * clock to be reset, breaking timings based upon it. Whilst this is difficult to
+ * counter without getting explicit notice of checkpoint events, we try to moderate
+ * the symptoms through tracking the offset between the system clock and the JVM clock.
+ * If this offset grows drastically (greater than CLOCK_DRIFT), we infer a JVM restart
+ * and reset the timer.
+ *
  * User: depristo
  * Date: Dec 10, 2010
  * Time: 9:07:44 AM
  */
-public class SimpleTimer implements Timer {
+public class SimpleTimer {
+    private final static Logger logger = Logger.getLogger(SimpleTimer.class);
     protected static final double NANO_TO_SECOND_DOUBLE = 1.0 / TimeUnit.SECONDS.toNanos(1);
+    protected static final long MILLI_TO_SECOND = 1 / TimeUnit.SECONDS.toMillis(1);
+    /**
+     * Allowable clock drift in nanoseconds.
+     */
+    private static final double CLOCK_DRIFT = TimeUnit.SECONDS.toNanos(5);
     private final String name;
+
+    /**
+     * The difference between system time and JVM time at last sync.
+     * This is used to detect JVM checkpoint/restart events, and should be 
+     * reset when a JVM checkpoint/restart is detected.
+     */
+    private long nanoTimeOffset;
 
     /**
      * The elapsedTimeNano time in nanoSeconds of this timer.  The elapsedTimeNano time is the
@@ -77,6 +101,8 @@ public class SimpleTimer implements Timer {
     public SimpleTimer(final String name) {
         if ( name == null ) throw new IllegalArgumentException("SimpleTimer name cannot be null");
         this.name = name;
+
+        this.nanoTimeOffset = getNanoOffset();
     }
 
     /**
@@ -108,6 +134,7 @@ public class SimpleTimer implements Timer {
     public synchronized SimpleTimer restart() {
         running = true;
         startTimeNano = currentTimeNano();
+        nanoTimeOffset = getNanoOffset();
         return this;
     }
 
@@ -134,6 +161,9 @@ public class SimpleTimer implements Timer {
 
     /**
      * Stops the timer.  Increases the elapsedTimeNano time by difference between start and now.
+     * This method calls `ensureClockSync` to make sure that the JVM and system clocks
+     * are roughly in sync since the start of the timer. If they are not, then the time
+     * elapsed since the previous 'stop' will not be added to the timer.
      *
      * It's ok to call stop on a timer that's not running.  It has no effect on the timer.
      *
@@ -143,7 +173,9 @@ public class SimpleTimer implements Timer {
     public synchronized SimpleTimer stop() {
         if ( running ) {
             running = false;
-            elapsedTimeNano += currentTimeNano() - startTimeNano;
+            if (ensureClockSync()) {
+                elapsedTimeNano += currentTimeNano() - startTimeNano;
+            }
         }
         return this;
     }
@@ -168,7 +200,11 @@ public class SimpleTimer implements Timer {
      * @return the elapsed time in nanoseconds
      */
     public synchronized long getElapsedTimeNano() {
-        return running ? (currentTimeNano() - startTimeNano + elapsedTimeNano) : elapsedTimeNano;
+        if (running && ensureClockSync()) {
+            return currentTimeNano() - startTimeNano + elapsedTimeNano;
+        } else {
+            return elapsedTimeNano;
+        }
     }
 
     /**
@@ -179,4 +215,34 @@ public class SimpleTimer implements Timer {
     public synchronized void addElapsed(final Timer toAdd) {
         elapsedTimeNano += toAdd.getElapsedTimeNano();
     }
+
+    /**
+     * Get the current offset of nano time from system time.
+     */
+    private static long getNanoOffset() {
+        return System.nanoTime() - (System.currentTimeMillis() * MILLI_TO_SECOND);
+    }
+
+    /**
+     * Ensure that the JVM time has remained in sync with system time.
+     * This will also reset the clocks to avoid gradual drift.
+     *
+     * @return true if the clocks are in sync, false otherwise
+     */
+    private boolean ensureClockSync() {
+        long currentOffset = getNanoOffset();
+        long diff = abs(currentOffset - nanoTimeOffset);
+        boolean ret = (diff <= CLOCK_DRIFT);
+        if (!ret) {
+            String msg = "Clock drift of " + diff + 
+                " nanoseconds detected, vs. max allowable drift of " +
+                CLOCK_DRIFT + ". Assuming checkpoint/restart event.";
+            // Log message
+            logger.warn(msg);
+        }
+        // Reset the drift meter to stay in sync.
+        this.nanoTimeOffset = currentOffset;
+        return ret;
+    }
+
 }
