@@ -17,7 +17,10 @@ s3_root_dir="/humgen/gsa-hpprojects/GATK/reports/s3"
 s3_config_dir="${s3_root_dir}/config"
 archive_dir="${s3_root_dir}/archive"
 download_root="/local/gsa-engineering/GATKLogs"
-script_dir="/local/gsa-engineering/cron_clones/unstable/private/GATKLogs"
+# script_dir="/local/gsa-engineering/cron_clones/unstable/private/GATKLogs"
+script_dir="${download_root}/scripts"
+s3funnel_dir="${download_root}/s3funnel_mod"
+s3funnel_threads=10
 
 log_event() {
     echo `date` " -- $1"
@@ -37,11 +40,22 @@ download_dir="${download_root}/${chunk}_files"
 raw_archive="${archive_dir}/${chunk}.raw_files.gz"
 xml_archive="${archive_dir}/${chunk}.xml.gz"
 
-cd "${download_root}"
+export AWS_ACCESS_KEY_ID=`grep access_key "${s3_config_file}" | awk -F' = ' '{ print $2; }'`
+export AWS_SECRET_ACCESS_KEY=`grep secret_key "${s3_config_file}" | awk -F' = ' '{ print $2; }'`
+export PYTHONPATH="${s3funnel_dir}:${PYTHONPATH}"
+
+mkdir "${download_dir}"
+cd "${download_dir}"
 
 log_event "Downloading files for chunk ${chunk}"
-python "${script_dir}/manageGATKS3Logs.py" -b "${s3_bucket}" -c "${s3_config_file}" -p 10 -g 100 -d "${download_dir}" move "${chunk}" "progress_${chunk}.log"
+cat "${download_root}/${chunk}" | "${s3funnel_dir}/s3funnel" --insecure -t "${s3funnel_threads}" "${s3_bucket}" GET
 log_event "Done downloading files for chunk ${chunk}"
+
+cd "${download_root}"
+
+log_event "Deleting files from bucket for chunk ${chunk}"
+cat "${chunk}" | "${s3funnel_dir}/s3funnel" --insecure -t "${s3funnel_threads}" "${s3_bucket}" DELETE
+log_event "Done deleting files from bucket for chunk ${chunk}"
 
 log_event "Archiving raw files for chunk ${chunk}"
 tar -czf "${raw_archive}" -C "${download_root}" "${chunk}_files"
@@ -56,7 +70,6 @@ python "${script_dir}/analyzeRunReports.py" loadToDB "${xml_archive}"
 log_event "Done loading reports to database for chunk ${chunk}"
 
 mv "${chunk}" "${archive_dir}/${chunk}.ls"
-rm -f "progress_${chunk}.log"
 rmdir "${download_dir}"
 
 touch "${download_root}/${chunk}.done"

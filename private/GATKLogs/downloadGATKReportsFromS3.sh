@@ -9,12 +9,16 @@ s3_root_dir="/humgen/gsa-hpprojects/GATK/reports/s3"
 s3_config_dir="${s3_root_dir}/config"
 archive_dir="${s3_root_dir}/archive"
 download_root="/local/gsa-engineering/GATKLogs"
-script_dir="/local/gsa-engineering/cron_clones/unstable/private/GATKLogs"
+# script_dir="/local/gsa-engineering/cron_clones/unstable/private/GATKLogs"
+script_dir="${download_root}/scripts"
 download_chunk_size=100000
 global_timeout_in_seconds=80000
+s3funnel_dir="${download_root}/s3funnel_mod"
+s3funnel_threads=10
 gsa_bucket="broad.gsa.gatk.run.reports"
 mark_bucket="GATK_Run_Reports"
 
+export PYTHONPATH="${s3funnel_dir}:${PYTHONPATH}"
 
 log_event() {
     echo `date` " -- $1"
@@ -35,8 +39,11 @@ do
     download_master_id="${timestamp}_${account}"
     bucket_list_file="${download_root}/${download_master_id}_ls"
 
+    export AWS_ACCESS_KEY_ID=`grep access_key "${s3_config_file}" | awk -F' = ' '{ print $2; }'`
+    export AWS_SECRET_ACCESS_KEY=`grep secret_key "${s3_config_file}" | awk -F' = ' '{ print $2; }'`
+
     log_event "Retrieving file listing for account ${account}"
-    python "${script_dir}/manageGATKS3Logs.py" -b "${s3_bucket}" -c "${s3_config_file}" -p 10 -g 100 ls "${bucket_list_file}"
+    "${s3funnel_dir}/s3funnel" --insecure -t "${s3funnel_threads}" "${s3_bucket}" LIST > "${bucket_list_file}"
     log_event "Done retrieving file listing for account ${account}"
 
     cd "${download_root}"
