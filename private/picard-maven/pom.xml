@@ -1,0 +1,404 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>edu.mit.broad</groupId>
+    <artifactId>picard-private-parts</artifactId>
+    <version>not_applicable</version>
+    <packaging>jar</packaging>
+    <name>Picard Private Parts</name>
+
+    <description>Updates parts of Picard Private required for Sting/GATK/Queue private.
+        Ensures Picard Public dependencies are also updated at the same time.</description>
+
+    <prerequisites>
+        <maven>3.0.4</maven>
+    </prerequisites>
+
+    <properties>
+        <sourceEncoding>UTF-8</sourceEncoding>
+        <project.build.sourceEncoding>${sourceEncoding}</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>${sourceEncoding}</project.reporting.outputEncoding>
+
+        <sting.basedir>${project.basedir}/../..</sting.basedir>
+        <picard.private.home>${sting.basedir}/../picard</picard.private.home>
+        <picard.public.home>${picard.private.home}/Picard-public</picard.public.home>
+
+        <sting.private.repo>${sting.basedir}/private/repo</sting.private.repo>
+        <sting.public.repo>${sting.basedir}/public/repo</sting.public.repo>
+
+        <broad.java6.home>/broad/software/free/Linux/redhat_5_x86_64/pkgs/oracle-java-jdk_1.6.0-35_x86_64</broad.java6.home>
+
+        <picard.pom.sourceDirectory>src/main/poms</picard.pom.sourceDirectory>
+        <picard.pom.outputDirectory>${project.build.directory}/poms</picard.pom.outputDirectory>
+
+        <!-- TODO: These groupIds should probably be one sub-domain lower. -->
+        <picard-private.groupId>${project.groupId}</picard-private.groupId>
+        <sam.groupId>net.sf</sam.groupId>
+        <picard.groupId>net.sf</picard.groupId>
+        <variant.groupId>org.broadinstitute</variant.groupId>
+        <tribble.groupId>org.broad</tribble.groupId>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>picard</artifactId>
+            <version>${project.version}</version>
+            <scope>system</scope>
+            <systemPath>${picard.private.home}/dist/picard-private.jar</systemPath>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <version>1.2</version>
+                <configuration>
+                    <!-- Don't allow dirty builds -->
+                    <doCheck>true</doCheck>
+                    <doUpdate>true</doUpdate>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>picard-private-version</id>
+                        <goals>
+                            <goal>create</goal>
+                        </goals>
+                        <phase>initialize</phase>
+                        <configuration>
+                            <scmDirectory>${picard.private.home}</scmDirectory>
+                            <buildNumberPropertyName>picard.private.revision</buildNumberPropertyName>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>picard-public-version</id>
+                        <goals>
+                            <goal>create</goal>
+                        </goals>
+                        <phase>initialize</phase>
+                        <configuration>
+                            <scmDirectory>${picard.public.home}</scmDirectory>
+                            <buildNumberPropertyName>picard.public.revision</buildNumberPropertyName>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>1.7</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>ant-contrib</groupId>
+                        <artifactId>ant-contrib</artifactId>
+                        <!-- NOTE: 1.0b3 doesn't run antfetch on directories: http://sourceforge.net/p/ant-contrib/bugs/192 -->
+                        <version>1.0b2</version>
+                        <exclusions>
+                            <exclusion>
+                                <groupId>ant</groupId>
+                                <artifactId>ant</artifactId>
+                            </exclusion>
+                        </exclusions>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>picard-build</id>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <phase>initialize</phase>
+                        <configuration>
+                            <exportAntProperties>true</exportAntProperties>
+                            <target>
+                                <available file="${broad.java6.home}" property="java6.home" value="${broad.java6.home}" />
+                                <exec executable="/usr/libexec/java_home" failifexecutionfails="false" outputproperty="java6.home">
+                                    <arg value="-v" />
+                                    <arg value="1.6" />
+                                </exec>
+                                <echo message="$${java6.home}:           ${java6.home}" />
+
+                                <!--
+                                NOTE: antrun uses JRE instead of JDK, making tools.jar inaccessible in the default classpath,
+                                Even when added back via a plugin dependency, it only re-enables javac, but does not put it back in the classpath.
+                                http://docs.codehaus.org/display/MAVENUSER/Running+ant+tasks+that+use+the+JDK
+                                http://www.kaczanowscy.pl/tomek/2007-12/maven-antrun-plugin-problems-with-solutions
+                                <ant dir="${picard.private.home}">
+                                    <property name="java6.home" value="${java6.home}" />
+                                </ant>
+                                -->
+                                <exec dir="${picard.private.home}" executable="ant" failonerror="true">
+                                    <arg value="-Djava6.home=${java6.home}" />
+                                </exec>
+
+                                <echo message="Picard private revision: ${picard.private.revision}" />
+                                <echo message="Picard private home:     ${picard.private.home}" />
+
+                                <echo message="Picard public revision:  ${picard.public.revision}" />
+                                <echo message="Picard public home:      ${picard.public.home}" />
+
+                                <taskdef classpathref="maven.plugin.classpath" resource="net/sf/antcontrib/antcontrib.properties" />
+                                <antfetch dir="${picard.public.home}" return="sam-version, picard-version, variant-version, tribble-version" target="init" />
+
+                                <echo message="sam-version:             ${sam-version}" />
+                                <echo message="picard-version:          ${picard-version}" />
+                                <echo message="variant-version          ${variant-version}" />
+                                <echo message="tribble-version:         ${tribble-version}" />
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>com.google.code.sortpom</groupId>
+                <artifactId>maven-sortpom-plugin</artifactId>
+                <version>2.2</version>
+                <configuration>
+                    <createBackupFile>false</createBackupFile>
+                    <predefinedSortOrder>custom_1</predefinedSortOrder>
+                    <lineSeparator>\n</lineSeparator>
+                    <encoding>${sourceEncoding}</encoding>
+                    <keepBlankLines>true</keepBlankLines>
+                    <sortDependencies>scope</sortDependencies>
+                    <nrOfIndentSpace>4</nrOfIndentSpace>
+                    <expandEmptyElements>false</expandEmptyElements>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>main</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>verify</phase>
+                    </execution>
+                    <execution>
+                        <id>picard-private</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <pomFile>src/main/poms/picard-private.pom.xml</pomFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>picard-private-parts</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <pomFile>src/main/poms/picard-private-parts.pom.xml</pomFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>sam</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <pomFile>src/main/poms/sam.pom.xml</pomFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>picard</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <pomFile>src/main/poms/picard.pom.xml</pomFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>variant</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <pomFile>src/main/poms/variant.pom.xml</pomFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>tribble</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <pomFile>src/main/poms/tribble.pom.xml</pomFile>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>2.5</version>
+                <executions>
+                    <execution>
+                        <id>filter-poms</id>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <escapeString>\</escapeString>
+                            <resources>
+                                <resource>
+                                    <directory>${picard.pom.sourceDirectory}</directory>
+                                    <filtering>true</filtering>
+                                </resource>
+                            </resources>
+                            <outputDirectory>${picard.pom.outputDirectory}</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>2.8</version>
+                <executions>
+                    <execution>
+                        <id>unpack-direct-dependencies</id>
+                        <goals>
+                            <goal>unpack-dependencies</goal>
+                        </goals>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>2.1</version>
+                <executions>
+                    <execution>
+                        <id>create-jar</id>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <finalName>picard-private-parts</finalName>
+                            <filters>
+                                <filter>
+                                    <!-- No idea why edu.mit.broad:picard-private doesn't work, but star does. -->
+                                    <artifact>${project.groupId}:*</artifact>
+                                    <includes>
+                                        <include>edu/mit/broad/picard/util/PicardAggregationFsUtil*</include>
+                                        <include>edu/mit/broad/picard/util/PicardAggregationDirectories*</include>
+                                        <include>edu/mit/broad/picard/resource/BroadFileSystem*</include>
+                                        <include>edu/mit/broad/picard/genotype/fingerprint/v2/FingerprintingSummaryMetrics*</include>
+                                        <include>edu/mit/broad/picard/genotype/concordance/DbSnpMatchMetrics*</include>
+                                    </includes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <!-- TODO: We need to generate proper poms with listed dependencies, especially if pushing to central. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <version>2.5</version>
+                <executions>
+                    <execution>
+                        <id>install-picard-private</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <pomFile>${picard.pom.outputDirectory}/picard-private.pom.xml</pomFile>
+                            <file>${picard.private.home}/dist/picard-private.jar</file>
+                            <localRepositoryPath>${sting.private.repo}</localRepositoryPath>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install-picard-private-parts</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <pomFile>${picard.pom.outputDirectory}/picard-private-parts.pom.xml</pomFile>
+                            <file>${project.build.directory}/picard-private-parts.jar</file>
+                            <localRepositoryPath>${sting.private.repo}</localRepositoryPath>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install-sam</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <pomFile>${picard.pom.outputDirectory}/sam.pom.xml</pomFile>
+                            <file>${picard.public.home}/dist/sam-${sam-version}.jar</file>
+                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install-picard</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <pomFile>${picard.pom.outputDirectory}/picard.pom.xml</pomFile>
+                            <file>${picard.public.home}/dist/picard-${picard-version}.jar</file>
+                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install-variant</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <pomFile>${picard.pom.outputDirectory}/variant.pom.xml</pomFile>
+                            <file>${picard.public.home}/dist/variant-${variant-version}.jar</file>
+                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install-tribble</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <pomFile>${picard.pom.outputDirectory}/tribble.pom.xml</pomFile>
+                            <file>${picard.public.home}/dist/tribble-${tribble-version}.jar</file>
+                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <scm>
+        <connection>scm:svn:https://svn.broadinstitute.org/picard</connection>
+    </scm>
+
+</project>
