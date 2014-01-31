@@ -40,6 +40,7 @@
             <artifactId>sting-utils</artifactId>
             <version>${project.version}</version>
             <classifier>test-utils</classifier>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -48,6 +49,7 @@
             <artifactId>gatk-framework</artifactId>
             <version>${project.version}</version>
             <classifier>test-utils</classifier>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -56,6 +58,7 @@
             <artifactId>queue-framework</artifactId>
             <version>${project.version}</version>
             <classifier>test-utils</classifier>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
