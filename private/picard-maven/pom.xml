@@ -134,6 +134,8 @@
                                 -->
                                 <exec dir="${picard.private.home}" executable="ant" failonerror="true">
                                     <arg value="-Djava6.home=${java6.home}" />
+                                    <arg value="clean" />
+                                    <arg value="all" />
                                 </exec>
 
                                 <echo message="Picard private revision: ${picard.private.revision}" />

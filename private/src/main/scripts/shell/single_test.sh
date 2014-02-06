@@ -21,11 +21,7 @@ fi
 
 echo mvn verify \
   -Dmaven.repo.local=${local_repo} \
-  -Dmaven.javadoc.skip=true \
-  -Dsting.generate-gatk-extensions.skipped=true \
-  -Dsting.jar.phase=none \
-  -Dsting.unpack.phase=none \
-  -Dsting.shade.phase=none \
+  -Dsting.packagetests.enabled=true \
   -Dsting.package${test_type}tests.skipped=false \
   -D${test_disabled}=disabled \
   -D${test_property}=${test_name}
