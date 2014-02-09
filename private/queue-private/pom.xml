@@ -31,11 +31,6 @@
         </dependency>
 
         <dependency>
-            <groupId>edu.mit.broad</groupId>
-            <artifactId>picard-private-parts</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>gatk-framework</artifactId>
             <version>${project.version}</version>

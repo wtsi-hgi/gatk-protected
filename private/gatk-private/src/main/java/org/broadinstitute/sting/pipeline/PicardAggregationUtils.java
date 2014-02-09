@@ -46,25 +46,35 @@
 
 package org.broadinstitute.sting.pipeline;
 
-import edu.mit.broad.picard.util.PicardAggregationFsUtil;
 import net.sf.picard.io.IoUtil;
+import net.sf.samtools.util.RuntimeIOException;
 import org.apache.commons.io.LineIterator;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.io.IOUtils;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+// Devils bargain: re-implement PicardAggregationDirectories, or add dependencies on picard's private code base?
+//
+// TODO: Perhaps will introduce dependency if/when picard private gets a proper artifact?
+
+/**
+ * Implements utilities for looking up the latest versions of directories, similar to PicardAggregationDirectories.
+ */
 public class PicardAggregationUtils {
     private static final Logger log = Logger.getLogger(PicardAggregationUtils.class);
 
     public static final String PICARD_AGGREGATION_DIR = "/seq/picard_aggregation/";
-    private static final PicardAggregationFsUtil aggregationFsUtil = new PicardAggregationFsUtil(new File(PICARD_AGGREGATION_DIR));
+    private static final String FINISHED_FILE = "finished.txt";
+    private static final String FINISHED_SUCCEEDED = "SUCCEEDED";
 
     public static List<PicardSample> parseSamples(File tsv) {
         return parseSamples(tsv, true);
@@ -255,7 +265,7 @@ public class PicardAggregationUtils {
         File latest = null;
 
         for (final File f : versions) {
-            if (!aggregationFsUtil.isFinished(f)) continue;
+            if (!isFinished(f, sample)) continue;
 
             final int v = Integer.parseInt(f.getName().substring(1));
             if (latest == null || v > latestVersion) {
@@ -275,6 +285,44 @@ public class PicardAggregationUtils {
      * @return true if the project sample directory contains a finished.txt
      */
     public static boolean isFinished(String project, String sample, int version) {
-        return aggregationFsUtil.isFinished(new File(getSampleDir(project, sample, version)));
+        return isFinished(new File(getSampleDir(project, sample, version)), sample);
+    }
+
+    /**
+     * Returns true if the project sample directory contains a finished.txt
+     * This is a hybrid of PicardAggregationDirectories's isFinished and isSuccessfullyFinished
+     *
+     * @param versionDirectory Version directory
+     * @param sampleName Sample name
+     * @return true if the project sample directory contains a finished.txt
+     */
+    private static boolean isFinished(File versionDirectory, String sampleName) {
+        if (getBam(versionDirectory, sampleName) == null) return false;
+        final File finishedFile = new File(versionDirectory, FINISHED_FILE);
+        if ( ! finishedFile.exists()) return false;
+
+        BufferedReader reader = null;
+        try {
+            reader = new BufferedReader(new FileReader(finishedFile));
+            final String firstLine = reader.readLine();
+            // Allow null, for an old empty file finished.txt
+            return firstLine == null || FINISHED_SUCCEEDED.equals(firstLine);
+        } catch (final Exception e) {
+            throw new RuntimeIOException("Could not read the finished file at " + finishedFile.getAbsolutePath() + ": " + e.getMessage(), e);
+        } finally {
+            if (reader != null) org.apache.commons.io.IOUtils.closeQuietly(reader);
+        }
+    }
+
+    /**
+     * Returns the bam file from the sample directory.
+     *
+     * @param versionDirectory Version directory
+     * @param sampleName Sample name
+     * @return the bam file from the sample directory
+     */
+    private static File getBam(File versionDirectory, String sampleName) {
+        final File bam = new File(versionDirectory, IoUtil.makeFileNameSafe(sampleName) + ".bam");
+        return bam.exists() ? bam : null;
     }
 }
