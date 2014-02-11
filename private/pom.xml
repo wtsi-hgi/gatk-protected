@@ -15,6 +15,7 @@
 
     <modules>
         <module>gatk-private</module>
+        <module>na12878kb-utils</module>
         <!-- queue optionally enabled as profiles -->
     </modules>
 

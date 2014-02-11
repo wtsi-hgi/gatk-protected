@@ -1,0 +1,27 @@
+<assembly xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.2 http://maven.apache.org/xsd/assembly-1.1.2.xsd">
+    <id>na12878kb-utils</id>
+    <formats>
+        <format>jar</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+    <dependencySets>
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <unpack>true</unpack>
+            <unpackOptions>
+                <includes>
+                    <include>org/broadinstitute/sting/utils/GenomeLocParser*.class</include>
+                    <include>org/broadinstitute/sting/utils/GenomeLoc.class</include>
+                    <include>org/broadinstitute/sting/utils/HasGenomeLocation.class</include>
+                    <include>org/broadinstitute/sting/utils/BaseUtils*.class</include>
+                    <include>org/broadinstitute/sting/utils/Utils.class</include>
+                    <include>org/broadinstitute/sting/utils/MRUCaching*.class</include>
+                    <include>org/broadinstitute/sting/utils/exceptions/**/*.class</include>
+                    <include>org/broadinstitute/sting/gatk/walkers/na12878kb/core/**/*.class</include>
+                    <include>net/sf/picard/reference/FastaSequenceFile.class</include>
+                    <include>org/broadinstitute/sting/gatk/walkers/na12878kb/core/resources/**/*</include>
+                </includes>
+            </unpackOptions>
+        </dependencySet>
+    </dependencySets>
+</assembly>
