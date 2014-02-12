@@ -40,29 +40,6 @@
         <plugins>
 
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>buildnumber-maven-plugin</artifactId>
-                <version>1.2</version>
-                <configuration>
-                    <!-- Allow dirty builds -->
-                    <doCheck>false</doCheck>
-                    <doUpdate>true</doUpdate>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>picard-public-version</id>
-                        <goals>
-                            <goal>create</goal>
-                        </goals>
-                        <phase>initialize</phase>
-                        <configuration>
-                            <scmDirectory>${picard.public.home}</scmDirectory>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>1.7</version>
@@ -98,11 +75,34 @@
                                 <echo message="$${java6.home}:           ${java6.home}" />
 
                                 <!-- Ensure svnversion works, since the sh -c doesn't seem to be erroring out correctly -->
-                                <exec dir="${picard.public.home}" executable="svnversion" failifexecutionfails="true" outputproperty="picard.public.svnversion" />
-                                <!-- Get the version. If it's locally modified and ends in M, add -SNAPSHOT, and bump the version. -->
-                                <exec dir="${picard.public.home}" executable="sh" failifexecutionfails="true" outputproperty="picard.public.revision">
+                                <exec dir="${picard.public.home}" executable="svnversion" failonerror="true" outputproperty="picard.public.svnversion" />
+
+                                <!--
+                                Update to the latest version
+
+                                NOTE: buildnumber-maven-plugin's doUpdate runs
+                                    cd $dir && svn update $dir
+                                versus:
+                                    cd $dir && svn update
+
+                                The former causes mixed versions in the directory sometimes, leading to version numbers like 1682:1683M.
+                                -->
+                                <echo message="Running svn update" />
+                                <exec dir="${picard.public.home}" executable="svn" failonerror="true">
+                                    <arg value="--non-interactive" />
+                                    <arg value="update" />
+                                </exec>
+
+                                <!-- Ensure version isn't mixed, like 1682:1683M -->
+                                <exec dir="${picard.public.home}" executable="sh" failonerror="true">
                                     <arg value="-c" />
-                                    <arg value="svnversion | sed 's/M$/-SNAPSHOT/' | awk -F '-' '{if ($2 == &quot;SNAPSHOT&quot;) {print ($1+1)&quot;-&quot;$2} else {print $0}}'\" />
+                                    <arg value="if [[ `svnversion` = *:* ]]; then echo ERROR: Mixed version: `svnversion`; exit 1; fi" />
+                                </exec>
+
+                                <!-- Get the version. If it's locally modified and ends in M, add -SNAPSHOT, and bump the version. -->
+                                <exec dir="${picard.public.home}" executable="sh" failonerror="true" outputproperty="picard.public.revision">
+                                    <arg value="-c" />
+                                    <arg value="svnversion | sed 's/M$/-SNAPSHOT/' | awk -F '-' '{if ($2 == &quot;SNAPSHOT&quot;) {print ($1+1)&quot;-&quot;$2} else {print $0}}'" />
                                 </exec>
 
                                 <!--
@@ -307,9 +307,5 @@
             </plugin>
         </plugins>
     </build>
-
-    <scm>
-        <connection>scm:svn:http://not_used_but_required_to_be_set_to_something</connection>
-    </scm>
 
 </project>
