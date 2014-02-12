@@ -51,6 +51,8 @@ import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 
 import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Random;
 
 /**
@@ -73,17 +75,11 @@ public class NA12878DBArgumentCollection {
     public MongoDBManager.Locator getLocator(){
         if ( dbSpecPath == null )
             dbSpecPath = getDBSpecPath(useLocal);
-        InputStream is = getClass().getResourceAsStream(dbSpecPath);
-        if(is == null){
-            try {
-                is = new FileInputStream(dbSpecPath);
-            } catch (FileNotFoundException e) {
-                throw new StingException("db spec path not found", e);
-            }
-        }
 
-        Reader reader = new InputStreamReader(is);
-        MongoDBManager.Locator tmpLocator = (new Gson()).fromJson(reader, MongoDBManager.Locator.class);
+        final InputStream is = getInputStream(dbSpecPath);
+
+        final Reader reader = new InputStreamReader(is);
+        final MongoDBManager.Locator tmpLocator = (new Gson()).fromJson(reader, MongoDBManager.Locator.class);
         String dbName = tmpLocator.name;
         //Missing specVersion = v1
         if(tmpLocator.specVersion == null){
@@ -96,6 +92,39 @@ public class NA12878DBArgumentCollection {
         } catch ( IOException e ) {
             throw new RuntimeException("Failed to close json reader for " + dbSpecPath, e);
         }
+    }
+
+    /**
+     * Retrieve an appropriate InputStream from the provided path
+     *
+     * Supports path to a resource contained in the jar, files
+     * loaded over http, and files on local filesystem (tried in that order)
+     * @param specPath path to db spec
+     * @return InputStream
+     * @throws StingException
+     */
+    private InputStream getInputStream(final String specPath) throws StingException{
+        final InputStream is = getClass().getResourceAsStream(specPath);
+        if(is != null) return is;
+
+        if(specPath.toLowerCase().startsWith("http")){
+            try {
+                final URL url = new URL(specPath);
+                return url.openStream();
+            } catch (MalformedURLException e) {
+                throw new StingException("Malformed url for db spec path", e);
+            } catch (IOException e) {
+                throw new StingException("Error opening db spec", e);
+            }
+
+        }
+
+        try {
+            return new FileInputStream(specPath);
+        } catch (FileNotFoundException e) {
+            throw new StingException("db spec path not found", e);
+        }
+
     }
 
     public enum DBType {
