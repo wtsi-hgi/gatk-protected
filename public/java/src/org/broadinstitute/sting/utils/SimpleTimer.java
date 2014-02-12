@@ -212,7 +212,7 @@ public class SimpleTimer {
      *
      * @param toAdd the timer whose elapsed time we want to add to this timer
      */
-    public synchronized void addElapsed(final Timer toAdd) {
+    public synchronized void addElapsed(final SimpleTimer toAdd) {
         elapsedTimeNano += toAdd.getElapsedTimeNano();
     }
 
