@@ -64,6 +64,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Create a ROC curve by walking over the NA12878 KB and ranking the input variants by their VQSLOD score
@@ -119,7 +120,7 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
                 for ( final VariantContext vc : tracker.getValues(variants, ref.getLocus()) ) {
                     // Do the alleles match between the input site and the KB site
                     if( cs.getVariantContext().hasSameAllelesAs(vc) ) {
-                        data.add( new ROCDatum( cs.getType().isTruePositive(), cs.getVariantContext().isSNP(), (vc.hasAttribute("VQSLOD") ? vc.getAttributeAsDouble("VQSLOD", Double.NaN) : vc.getPhredScaledQual())));
+                        data.add( new ROCDatum( cs.getType().isTruePositive(), cs.getVariantContext().isSNP(), vc.getAttributeAsDouble("VQSLOD", Double.NaN), vc.getFiltersMaybeNull() ) );
                     }
                 }
             }
@@ -144,7 +145,7 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
      * @return          the GATK report to write out to disk
      */
     protected static GATKReport calculateROCCurve(final List<ROCDatum> data, final int numBins, final String project, final String name) {
-        final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR");
+        final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR", "filter");
         Collections.sort(data); // sort by the LOD score
         final int[][][] rocData = new int[2][2][2]; //[SNP/INDEL][TP/FP][called/total]
 
@@ -157,9 +158,9 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
             rocData[datum.isSNP ? SNP_INDEX : INDEL_INDEX][datum.isTP ? TP_INDEX : FP_INDEX][CALLED_INDEX]++;
             if( (numVariants+1) % numBins == 0 ) {
                 report.addRow(project, name, "SNPs", datum.lod, (double)rocData[SNP_INDEX][TP_INDEX][CALLED_INDEX]/(double)rocData[SNP_INDEX][TP_INDEX][TOTAL_INDEX],
-                        (double)rocData[SNP_INDEX][FP_INDEX][CALLED_INDEX]/(double)rocData[SNP_INDEX][FP_INDEX][TOTAL_INDEX]);
+                        (double)rocData[SNP_INDEX][FP_INDEX][CALLED_INDEX]/(double)rocData[SNP_INDEX][FP_INDEX][TOTAL_INDEX], datum.filterField);
                 report.addRow(project, name, "Indels", datum.lod, (double)rocData[INDEL_INDEX][TP_INDEX][CALLED_INDEX]/(double)rocData[INDEL_INDEX][TP_INDEX][TOTAL_INDEX],
-                        (double)rocData[INDEL_INDEX][FP_INDEX][CALLED_INDEX]/(double)rocData[INDEL_INDEX][FP_INDEX][TOTAL_INDEX]);
+                        (double)rocData[INDEL_INDEX][FP_INDEX][CALLED_INDEX]/(double)rocData[INDEL_INDEX][FP_INDEX][TOTAL_INDEX], datum.filterField);
             }
             numVariants++;
         }
@@ -171,11 +172,13 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
         public final boolean isTP;
         public final boolean isSNP;
         public final double lod;
+        public final String filterField;
 
-        public ROCDatum( final boolean isTP, final boolean isSNP, final double lod ) {
+        public ROCDatum( final boolean isTP, final boolean isSNP, final double lod, final Set<String> filters ) {
             this.isTP = isTP;
             this.isSNP = isSNP;
             this.lod = lod;
+            filterField = ( filters == null || filters.isEmpty() ? "PASS" : filters.iterator().next() );
         }
 
         @Override
