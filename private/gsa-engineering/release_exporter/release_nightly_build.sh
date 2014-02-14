@@ -6,7 +6,8 @@ STAGE_DIR="stage"
 TEMP_MAVEN_REPO="tmp_mvn_repo"
 DESTINATION_DIR="/humgen/gsa-hpprojects/GATK/nightly_builds"
 PACKAGE_OUTPUT_DIR="public/gatk-package/target"
-GATKDOCS_OUTPUT_DIR="target/gatkdocs"
+GATKDOCS_PARENT_DIR="target"
+GATKDOCS_DIR="gatkdocs"
 
 TIMESTAMP=`date '+%Y-%m-%d'`
 HASH_PREFIX=`git describe --long | awk -F'-' '{ print $3; }'`
@@ -40,7 +41,7 @@ then
     exit 1
 fi
 
-tar -c -j -f "${STAGE_DIR}/${GATKDOCS_ARCHIVE_NAME}" "${GATKDOCS_OUTPUT_DIR}"
+tar -C "${GATKDOCS_PARENT_DIR}" -cjf "${STAGE_DIR}/${GATKDOCS_ARCHIVE_NAME}" "${GATKDOCS_DIR}"
 
 if [ $? -ne 0 ]
 then
