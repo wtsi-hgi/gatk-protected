@@ -31,6 +31,7 @@ import com.google.java.contract.Requires;
 
 import org.apache.log4j.Logger;
 
+import java.text.NumberFormat;
 import java.util.concurrent.TimeUnit;
 import static java.lang.Math.abs;
 
@@ -57,11 +58,18 @@ import static java.lang.Math.abs;
 public class SimpleTimer {
     private final static Logger logger = Logger.getLogger(SimpleTimer.class);
     protected static final double NANO_TO_SECOND_DOUBLE = 1.0 / TimeUnit.SECONDS.toNanos(1);
-    protected static final long MILLI_TO_SECOND = 1 / TimeUnit.SECONDS.toMillis(1);
+    private static final long MILLI_TO_NANO= TimeUnit.MILLISECONDS.toNanos(1);
+    private static final ThreadLocal<NumberFormat> NUMBER_FORMAT = new ThreadLocal<NumberFormat>() {
+        @Override
+        protected NumberFormat initialValue() {
+            return NumberFormat.getIntegerInstance();
+        }
+    };
+
     /**
      * Allowable clock drift in nanoseconds.
      */
-    private static final double CLOCK_DRIFT = TimeUnit.SECONDS.toNanos(5);
+    private static final long CLOCK_DRIFT = TimeUnit.SECONDS.toNanos(5);
     private final String name;
 
     /**
@@ -220,7 +228,7 @@ public class SimpleTimer {
      * Get the current offset of nano time from system time.
      */
     private static long getNanoOffset() {
-        return System.nanoTime() - (System.currentTimeMillis() * MILLI_TO_SECOND);
+        return System.nanoTime() - (System.currentTimeMillis() * MILLI_TO_NANO);
     }
 
     /**
@@ -230,13 +238,18 @@ public class SimpleTimer {
      * @return true if the clocks are in sync, false otherwise
      */
     private boolean ensureClockSync() {
-        long currentOffset = getNanoOffset();
-        long diff = abs(currentOffset - nanoTimeOffset);
-        boolean ret = (diff <= CLOCK_DRIFT);
+        final long currentOffset = getNanoOffset();
+        final long diff = abs(currentOffset - nanoTimeOffset);
+        final boolean ret = (diff <= CLOCK_DRIFT);
         if (!ret) {
-            String msg = "Clock drift of " + diff + 
-                " nanoseconds detected, vs. max allowable drift of " +
-                CLOCK_DRIFT + ". Assuming checkpoint/restart event.";
+            final NumberFormat numberFormat = NUMBER_FORMAT.get();
+            final String msg = String.format(
+                    "Clock drift of %s - %s = %s nanoseconds detected, vs. max allowable drift of %s. " +
+                            "Assuming checkpoint/restart event.",
+                    numberFormat.format(currentOffset),
+                    numberFormat.format(nanoTimeOffset),
+                    numberFormat.format(diff),
+                    numberFormat.format(CLOCK_DRIFT));
             // Log message
             logger.warn(msg);
         }
