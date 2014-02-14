@@ -6,7 +6,7 @@ STAGE_DIR="stage"
 TEMP_MAVEN_REPO="tmp_mvn_repo"
 DESTINATION_DIR="/humgen/gsa-hpprojects/GATK/nightly_builds"
 PACKAGE_OUTPUT_DIR="public/gatk-package/target"
-GATKDOCS_OUTPUT_DIR="gatkdocs"
+GATKDOCS_OUTPUT_DIR="target/gatkdocs"
 
 TIMESTAMP=`date '+%Y-%m-%d'`
 HASH_PREFIX=`git describe --long | awk -F'-' '{ print $3; }'`
