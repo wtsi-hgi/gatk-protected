@@ -44,38 +44,192 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
+package org.broadinstitute.sting.gatk.walkers.randomforest;
 
-import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.testng.Assert;
-import org.testng.annotations.Test;
+import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
- * Created by rpoplin on 12/11/13.
+ * Created with IntelliJ IDEA.
+ * User: rpoplin
+ * Date: 11/14/13
  */
 
-public class ROCCurveNA12878UnitTest extends BaseTest {
+public class RandomForestDecisionNode implements RandomForestNode {
+    private final Decision decision;
+    private final RandomForestNode leftNode;
+    private final RandomForestNode rightNode;
+    public Double accuracy = Double.NaN;
+    private static final int NUM_TRIALS = 10;
 
-    @Test
-    public final void testCalculateROCCurve() {
-        final List<ROCCurveNA12878.ROCDatum> data = new ArrayList<>();
-        data.add(new ROCCurveNA12878.ROCDatum(true, true, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, true, -10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(true, false, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, false, -10.0, Collections.<String>emptySet()));
+    /**
+     * Construct a RandomForestDecisionNode
+     * @param data      the data from which to choose a random decision
+     * @param depth     the current depth of the tree
+     * @param maxDepth  the max depth of the tree
+     */
+    public RandomForestDecisionNode( final List<RandomForestDatum> data, final int depth, final int maxDepth ) {
+        if( data.size() <= 0 ) { throw new IllegalArgumentException("data cannot be empty."); }
 
-        final GATKReport calculatedGATKReport = ROCCurveNA12878.calculateROCCurve(data, 2, "project", "name");
-        final GATKReport expectedGATKReport = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR", "filter");
-        expectedGATKReport.addRow("project", "name", "SNPs", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "SNPs", -10.0, 1.0, 1.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", -10.0, 1.0, 1.0, "PASS");
+        Decision optimalDecision = null;
+        double maxAccuracy = Double.MIN_VALUE;
 
-        Assert.assertTrue(expectedGATKReport.equals(calculatedGATKReport));
+        for( int trial = 0; trial < NUM_TRIALS; trial++ ) {
+            final RandomForestDatum rfd = data.get(GenomeAnalysisEngine.getRandomGenerator().nextInt(data.size()));
+            final Decision decision = new Decision(rfd);
+            final double accuracy = evaluateDecision(decision, data);
+            if( accuracy > maxAccuracy ) {
+                maxAccuracy = accuracy;
+                optimalDecision = decision;
+            }
+        }
+
+        decision = optimalDecision;
+
+        if( depth < maxDepth ) {
+            final List<RandomForestDatum> dataLeft = subsetData(data, true);
+            final List<RandomForestDatum> dataRight = subsetData(data, false);
+            leftNode = ( dataLeft.size() > 0 ? new RandomForestDecisionNode(dataLeft, depth+1, maxDepth) : new RandomForestTerminalNode(GenomeAnalysisEngine.getRandomGenerator().nextBoolean()) );
+            rightNode = ( dataRight.size() > 0 ? new RandomForestDecisionNode(dataRight, depth+1, maxDepth) : new RandomForestTerminalNode(GenomeAnalysisEngine.getRandomGenerator().nextBoolean()) );
+        } else {
+            final boolean leftResult = GenomeAnalysisEngine.getRandomGenerator().nextBoolean();
+            leftNode = new RandomForestTerminalNode(leftResult);
+            rightNode = new RandomForestTerminalNode(!leftResult);
+        }
+    }
+
+    /**
+     * Used to construct a tree directly for unit testing purposes
+     * @param decisionDimension     the pieces that make up the Decision at this node
+     * @param decisionPoint         the pieces that make up the Decision at this node
+     * @param decisionDirection     the pieces that make up the Decision at this node
+     * @param leftNode              what will the left node bring
+     * @param rightNode             what will the right node bring
+     * @param accuracy              the learned accuracy of this tree
+     */
+    protected RandomForestDecisionNode( final String decisionDimension, final Comparable decisionPoint, final boolean decisionDirection,
+                                        final RandomForestNode leftNode, final RandomForestNode rightNode, final Double accuracy) {
+        decision = new Decision(decisionDimension, decisionPoint, decisionDirection);
+        this.leftNode = leftNode;
+        this.rightNode = rightNode;
+        this.accuracy = accuracy;
+    }
+
+    /**
+     * Evaluate this decision point by count up the number of good/bad sites which are above/below the chosen cut point
+     * @param decision  the decision point
+     * @param data      the data to evaluate
+     * @return          accuracy of this decision point
+     */
+    private double evaluateDecision( final Decision decision, final List<RandomForestDatum> data ) {
+        int numGoodLower = 0;
+        int numBadLower = 0;
+        int numGoodUpper = 0;
+        int numBadUpper = 0;
+
+        for( final RandomForestDatum rfd : data ) {
+            final Comparable comparable = rfd.annotations.get(decision.decisionDimension);
+            if( comparable != null ) {
+                final boolean upper = comparable.compareTo(decision.decisionPoint) > 0;
+                if( upper ) {
+                    if( rfd.isGood ) {
+                        numGoodUpper++;
+                    } else {
+                        numBadUpper++;
+                    }
+                } else {
+                    if( rfd.isGood ) {
+                        numGoodLower++;
+                    } else {
+                        numBadLower++;
+                    }
+                }
+            }
+        }
+
+        return (double) Math.max(numGoodLower + numBadUpper, numBadLower + numGoodUpper) / (double) (numGoodLower + numBadUpper + numBadLower + numGoodUpper);
+    }
+
+    @Override
+    /**
+     * Classify the data point using the visitor design pattern to walk down the decision tree
+     */
+    public boolean classifyDatum( final RandomForestDatum rfd ) {
+        final Comparable comparable = rfd.annotations.get(decision.decisionDimension);
+        if( comparable != null ) {
+            if( comparable.compareTo(decision.decisionPoint) > 0 ) {
+                return (decision.decisionDirection ? leftNode : rightNode).classifyDatum(rfd);
+            } else {
+                return (decision.decisionDirection ? rightNode : leftNode).classifyDatum(rfd);
+            }
+        } else {
+            return (GenomeAnalysisEngine.getRandomGenerator().nextBoolean() ? leftNode : rightNode).classifyDatum(rfd); // TODO- better way to handle missing data?
+        }
+    }
+
+    /**
+     * Subset down the data to only that which passes the given decision direction
+     * @param data      the input data that this node saw during training
+     * @param wantLeft  do we want the left branch or the right branch
+     * @return          non-null output list
+     */
+    private List<RandomForestDatum> subsetData( final List<RandomForestDatum> data, final boolean wantLeft ) {
+        final List<RandomForestDatum> returnData = new ArrayList<>();
+        for( final RandomForestDatum rfd : data ) {
+            boolean inLeft;
+            final Comparable comparable = rfd.annotations.get(decision.decisionDimension);
+            if( comparable != null ) {
+                if( comparable.compareTo(decision.decisionPoint) > 0 ) {
+                    inLeft = decision.decisionDirection;
+                } else {
+                    inLeft = !decision.decisionDirection;
+                }
+            } else {
+                inLeft = true; // TODO- better way to handle missing data?
+            }
+
+            if( inLeft == wantLeft ) {
+                returnData.add(rfd);
+            }
+        }
+        return returnData;
+    }
+
+    /**
+     * Estimate the accuracy of this tree by classifying the test data and recording the result
+     * @param data  the testing data, every datum should be label with isGood or isBad
+     * @return  accuracy on a -1.0 to 1.0 scale
+     */
+    public double estimateAccuracy( final List<RandomForestDatum> data ) {
+        int numCorrect = 0;
+        for( final RandomForestDatum rfd : data ) {
+            final boolean answer = classifyDatum(rfd);
+            if( (answer && rfd.isGood) || (!answer && rfd.isBad) ) {
+                numCorrect++;
+            } else {
+                numCorrect--;
+            }
+        }
+        return (double) numCorrect / (double) data.size();
+    }
+
+    private class Decision {
+        public final String decisionDimension;
+        public final Comparable decisionPoint;
+        public final boolean decisionDirection;
+
+        public Decision( final RandomForestDatum rfd ) {
+            decisionDimension = rfd.keys.get(GenomeAnalysisEngine.getRandomGenerator().nextInt(rfd.keys.size()));
+            decisionPoint = rfd.annotations.get(decisionDimension);
+            decisionDirection = GenomeAnalysisEngine.getRandomGenerator().nextBoolean();
+        }
+
+        public Decision( final String decisionDimension, final Comparable decisionPoint, final boolean decisionDirection ) {
+            this.decisionDimension = decisionDimension;
+            this.decisionPoint = decisionPoint;
+            this.decisionDirection = decisionDirection;
+        }
     }
 }

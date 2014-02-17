@@ -44,38 +44,155 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
+package org.broadinstitute.sting.gatk.walkers.randomforest;
 
-import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.testng.Assert;
-import org.testng.annotations.Test;
+import org.apache.log4j.Logger;
+import org.broadinstitute.sting.utils.MathUtils;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
- * Created by rpoplin on 12/11/13.
+ * Created with IntelliJ IDEA.
+ * User: rpoplin
+ * Date: 11/14/13
  */
 
-public class ROCCurveNA12878UnitTest extends BaseTest {
+/*
+Each tree is constructed using the following algorithm:
 
-    @Test
-    public final void testCalculateROCCurve() {
-        final List<ROCCurveNA12878.ROCDatum> data = new ArrayList<>();
-        data.add(new ROCCurveNA12878.ROCDatum(true, true, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, true, -10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(true, false, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, false, -10.0, Collections.<String>emptySet()));
+        Let the number of training cases be N, and the number of variables in the classifier be M.
+        We are told the number m of input variables to be used to determine the decision at a node of the tree; m should be much less than M.
+        Choose a training set for this tree by choosing n times with replacement from all N available training cases (i.e., take a bootstrap sample). Use the rest of the cases to estimate the error of the tree, by predicting their classes.
+        For each node of the tree, randomly choose m variables on which to base the decision at that node. Calculate the best split based on these m variables in the training set.
+        Each tree is fully grown and not pruned (as may be done in constructing a normal tree classifier).
+*/
 
-        final GATKReport calculatedGATKReport = ROCCurveNA12878.calculateROCCurve(data, 2, "project", "name");
-        final GATKReport expectedGATKReport = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR", "filter");
-        expectedGATKReport.addRow("project", "name", "SNPs", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "SNPs", -10.0, 1.0, 1.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", -10.0, 1.0, 1.0, "PASS");
+public class RandomForest {
+    final List<RandomForestDecisionNode> forestClassifier = new ArrayList<>();
+    final int NUM_TREES;
+    final float PERCENT_TRAINING = 0.01f;
+    final float PERCENT_TESTING = 0.02f;
+    final int NUM_TRAINING_VARIANTS;
+    final int NUM_TESTING_VARIANTS;
+    final float PERCENT_DIMENSIONS = 0.10f;
+    final float ACCURACY_THRESHOLD = 0.40f;
+    final int MAX_TREE_DEPTH;
+    private double sumAccuracy;
 
-        Assert.assertTrue(expectedGATKReport.equals(calculatedGATKReport));
+    protected final static Logger logger = Logger.getLogger(RandomForest.class);
+
+    /**
+     * Construct a random forest classifier
+     * @param trainingData  the training data to use to make this random forest
+     * @param masterKeySet  the list of all possible annotation values to use
+     * @param numTrees      the number of iterations to run
+     */
+    public RandomForest( final List<RandomForestDatum> trainingData, final LinkedHashSet<String> masterKeySet, final int numTrees ) {
+        NUM_TREES = numTrees;
+        NUM_TRAINING_VARIANTS = Math.round( PERCENT_TRAINING * (float) trainingData.size() );
+        NUM_TESTING_VARIANTS = Math.round( PERCENT_TESTING * (float) trainingData.size() );
+        MAX_TREE_DEPTH = Math.round( PERCENT_DIMENSIONS * (float) masterKeySet.size() );
+        logger.info(String.format("Creating %d random trees each with depth %d by drawing %d examples out of %d training variants", NUM_TREES, MAX_TREE_DEPTH, NUM_TRAINING_VARIANTS, trainingData.size()));
+
+        final List<RandomForestDatum> positiveTrainingData = subsetToTruth(trainingData, true);
+        final List<RandomForestDatum> negativeTrainingData = subsetToTruth(trainingData, false);
+        for( int treeIndex = 0; treeIndex < NUM_TREES; treeIndex++ ) {
+            // Draw a training set for this tree by choosing n times with replacement from all available training cases
+            final List<RandomForestDatum> trainingSample = MathUtils.randomSample(positiveTrainingData, NUM_TRAINING_VARIANTS/2);
+            trainingSample.addAll(MathUtils.randomSample(negativeTrainingData, NUM_TRAINING_VARIANTS/2));
+            // Draw a testing set for this tree by choosing n times with replacement from all available training cases
+            final List<RandomForestDatum> testingSample = MathUtils.randomSample(positiveTrainingData, NUM_TESTING_VARIANTS / 2);
+            testingSample.addAll(MathUtils.randomSample(negativeTrainingData, NUM_TESTING_VARIANTS / 2));
+            // Build a random decision tree using this smaller training set
+            final RandomForestDecisionNode tree = new RandomForestDecisionNode(trainingSample, 0, MAX_TREE_DEPTH);
+            // Evaluate the error of this tree using the full training set by predicting their classes
+            tree.accuracy = tree.estimateAccuracy(testingSample);
+            if( Math.abs(tree.accuracy) > ACCURACY_THRESHOLD ) {
+                sumAccuracy += Math.abs(tree.accuracy);
+                forestClassifier.add( tree );
+            }
+
+            if( treeIndex > 0 && (treeIndex+1) % 200 == 0 ) {
+                logger.info("Completed iteration " + (treeIndex+1) + ". Random forest classifier contains " + forestClassifier.size() + " tree(s) which pass accuracy threshold.");
+            }
+        }
+    }
+
+    /**
+     * Used to construct a forest directly for unit testing purposes
+     * @param forestClassifier  a pre-made random forest classifier
+     */
+    protected RandomForest( List<RandomForestDecisionNode> forestClassifier ) {
+        NUM_TREES = forestClassifier.size();
+        NUM_TRAINING_VARIANTS = 0;
+        NUM_TESTING_VARIANTS = 0;
+        MAX_TREE_DEPTH = 1;
+        this.forestClassifier.clear();
+        this.forestClassifier.addAll(forestClassifier);
+        for( final RandomForestDecisionNode tree : this.forestClassifier ) {
+            sumAccuracy += Math.abs(tree.accuracy);
+        }
+    }
+
+    /**
+     * Apply the random forest classifier to test data point and return its score
+     * @param rfd   The test data point
+     * @return      a double value between -1.0 and 1.0
+     */
+    public double classifyDatum( final RandomForestDatum rfd ) {
+        double score = 0.0;
+        for( final RandomForestDecisionNode tree : forestClassifier ) {
+            score += tree.accuracy * ( tree.classifyDatum(rfd) ? 1.0 : -1.0 );
+        }
+        return score / sumAccuracy;
+    }
+
+    /**
+     * Subset the list of data points to only those with the specified truth status
+     * @param data      list of data
+     * @param isGood    the desired truth status
+     * @return          non-null output list
+     */
+    protected static List<RandomForestDatum> subsetToTruth( final List<RandomForestDatum> data, final boolean isGood ) {
+        final List<RandomForestDatum> returnData = new ArrayList<>();
+        for( final RandomForestDatum rfd : data ) {
+            if( (isGood && rfd.isGood && !rfd.isBad ) || (!isGood && rfd.isBad && !rfd.isGood) ) {
+                returnData.add(rfd);
+            }
+        }
+        return returnData;
+    }
+
+    /**
+     * Subset the list of data points to only those which are part of the training data
+     * @param data      list of data
+     * @return          non-null output list
+     */
+    protected static List<RandomForestDatum> subsetToTrainingData(final List<RandomForestDatum> data) {
+        final List<RandomForestDatum> testData = new ArrayList<>();
+        for( final RandomForestDatum rfd : data ) {
+            if( (rfd.isGood || rfd.isBad) && !(rfd.isGood && rfd.isBad) ) {
+                testData.add(rfd);
+            }
+        }
+        return testData;
+    }
+
+    /**
+     * Subset the list of data points to only those which are part of the input data
+     * @param data      list of data
+     * @return          non-null output list
+     */
+    protected static List<RandomForestDatum> subsetToInputData(final List<RandomForestDatum> data) {
+        final List<RandomForestDatum> testData = new ArrayList<>();
+        for( final RandomForestDatum rfd : data ) {
+            if( rfd.isInput ) {
+                testData.add(rfd);
+            }
+        }
+        return testData;
     }
 }

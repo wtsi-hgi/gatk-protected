@@ -44,38 +44,64 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
+package org.broadinstitute.sting.gatk.walkers.randomforest;
 
-import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.testng.Assert;
+import org.broadinstitute.sting.WalkerTest;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.Arrays;
 
 /**
- * Created by rpoplin on 12/11/13.
+ * Created by rpoplin on 2/14/14.
  */
+public class RandomForestIntegrationTest extends WalkerTest {
 
-public class ROCCurveNA12878UnitTest extends BaseTest {
+    private static class RFTest {
+        String inVCF;
+        String snpTranchesMD5;
+        String indelTranchesMD5;
+        String recalMD5;
 
-    @Test
-    public final void testCalculateROCCurve() {
-        final List<ROCCurveNA12878.ROCDatum> data = new ArrayList<>();
-        data.add(new ROCCurveNA12878.ROCDatum(true, true, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, true, -10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(true, false, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, false, -10.0, Collections.<String>emptySet()));
+        public RFTest(String inVCF, String snpTranchesMD5, String indelTranchesMD5, String recalMD5) {
+            this.inVCF = inVCF;
+            this.snpTranchesMD5 = snpTranchesMD5;
+            this.indelTranchesMD5 = indelTranchesMD5;
+            this.recalMD5 = recalMD5;
+        }
 
-        final GATKReport calculatedGATKReport = ROCCurveNA12878.calculateROCCurve(data, 2, "project", "name");
-        final GATKReport expectedGATKReport = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR", "filter");
-        expectedGATKReport.addRow("project", "name", "SNPs", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "SNPs", -10.0, 1.0, 1.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", -10.0, 1.0, 1.0, "PASS");
+        @Override
+        public String toString() {
+            return "VRTest{inVCF='" + inVCF +"'}";
+        }
+    }
 
-        Assert.assertTrue(expectedGATKReport.equals(calculatedGATKReport));
+    RFTest lowPass = new RFTest(validationDataLocation + "1kg_exomes_unfiltered.AFR.unfiltered.vcf",
+            "a2a488265c13b82ab18548e3e397239c",  // snp tranches
+            "98a3edcb2bd0698ec18168bab1007525",  // indel tranches
+            "367b8ddef2d4b57090233799e11897b2"); // recal file
+
+    @DataProvider(name = "RFTest")
+    public Object[][] createData1() {
+        return new Object[][]{ {lowPass} };
+    }
+
+    @Test(dataProvider = "RFTest")
+    public void testRandomForestWalker(RFTest params) {
+        //System.out.printf("PARAMS FOR %s is %s%n", vcf, clusterFile);
+        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
+                "-R " + b37KGReference +
+                        " -good " + comparisonDataLocation + "Validated/HapMap/3.3/sites_r27_nr.b37_fwd.vcf" +
+                        " -bad " + comparisonDataLocation + "Validated/Omni2.5_chip/Omni25_monomorphic_2141_samples.b37.vcf" +
+                        " -T RandomForestWalker" +
+                        " -V " + params.inVCF +
+                        " -L 20:1,000,000-30,000,000" +
+                        " --no_cmdline_in_header" +
+                        " -numTrees 500" +
+                        " -recalFile %s" +
+                        " -snpTranchesFile %s" +
+                        " -indelTranchesFile %s",
+                Arrays.asList(params.recalMD5, params.snpTranchesMD5, params.indelTranchesMD5));
+        executeTest("testRandomForest-"+params.inVCF, spec).getFirst();
     }
 }

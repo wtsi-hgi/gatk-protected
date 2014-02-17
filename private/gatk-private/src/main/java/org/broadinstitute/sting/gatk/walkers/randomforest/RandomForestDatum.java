@@ -44,38 +44,139 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
+package org.broadinstitute.sting.gatk.walkers.randomforest;
 
-import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.testng.Assert;
-import org.testng.annotations.Test;
+import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.sting.utils.GenomeLocParser;
+import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
- * Created by rpoplin on 12/11/13.
+ * Created with IntelliJ IDEA.
+ * User: rpoplin
+ * Date: 11/14/13
  */
 
-public class ROCCurveNA12878UnitTest extends BaseTest {
+// VariantContexts are too big, so pull out the necessary information for the RandomForestWalker and stuff it into a leaner RandomForestDatum object
 
-    @Test
-    public final void testCalculateROCCurve() {
-        final List<ROCCurveNA12878.ROCDatum> data = new ArrayList<>();
-        data.add(new ROCCurveNA12878.ROCDatum(true, true, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, true, -10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(true, false, 10.0, Collections.<String>emptySet()));
-        data.add(new ROCCurveNA12878.ROCDatum(false, false, -10.0, Collections.<String>emptySet()));
+public class RandomForestDatum {
+    public final boolean isGood;
+    public final boolean isBad;
+    public final boolean isInput;
+    public final VariantContext.Type type;
+    public final Map<String, Comparable> annotations;
+    public final List<String> keys;
+    public final GenomeLoc loc;
+    public Double score = null;
+    public final static List<String> badKeys = new ArrayList<>(Arrays.asList("AC","AF","AN","MLEAC","MLEAF","DP","DB","MQ0")); // including AC related things here is too dangerous, removing all low freq variants is an easy way to remove all the errors. This is an inherent bias in the training sets
 
-        final GATKReport calculatedGATKReport = ROCCurveNA12878.calculateROCCurve(data, 2, "project", "name");
-        final GATKReport expectedGATKReport = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR", "filter");
-        expectedGATKReport.addRow("project", "name", "SNPs", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "SNPs", -10.0, 1.0, 1.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", 10.0, 1.0, 0.0, "PASS");
-        expectedGATKReport.addRow("project", "name", "Indels", -10.0, 1.0, 1.0, "PASS");
+    /**
+     * Construct a RandomForestDatum
+     * @param vc                the input VC from which to construct this datum
+     * @param isInput           was this an input VC (as opposed to external model data)
+     * @param genomeLocParser   a parser
+     * @param good              the list of good variants which overlap this one
+     * @param bad               the list of bad variants which overlap this one
+     */
+    public RandomForestDatum( final VariantContext vc, final boolean isInput, final GenomeLocParser genomeLocParser, final List<VariantContext> good, final List<VariantContext> bad ) {
 
-        Assert.assertTrue(expectedGATKReport.equals(calculatedGATKReport));
+        this.isInput = isInput;
+
+        boolean hardFilter = false;
+        if(vc.hasAttribute("QD") && vc.getAttributeAsDouble("QD", 100.0) < 0.05) { hardFilter = true; }
+        if(vc.hasAttribute("FS") && vc.getAttributeAsDouble("FS", 0.0) > 2000.0) { hardFilter = true; }
+
+        loc = genomeLocParser.createGenomeLoc(vc);
+        isBad = hardFilter || overlapsWithMatchingAlleles(vc, bad);
+        isGood = !isBad && overlapsWithMatchingAlleles(vc, good);
+
+        type = vc.getType();
+        annotations = new LinkedHashMap<>();
+
+        for( final Map.Entry<String,Object> entry : vc.getAttributes().entrySet() ) {
+            final String key = entry.getKey();
+            if( badKeys.contains(key) ) {
+                continue;
+            }
+            if( entry.getValue() instanceof String ) {
+                try {
+                    annotations.put(key, Double.parseDouble((String) entry.getValue()));
+                } catch ( final NumberFormatException e ) {
+                    annotations.put(key, (String) entry.getValue());
+                }
+            }
+        }
+
+        annotations.put( "_TYPE", type );
+        annotations.put( "_CCC", vc.getCalledChrCount() );
+        annotations.put( "_QUAL", vc.getPhredScaledQual() );
+        annotations.put( "_NCC", vc.getNoCallCount());
+        annotations.put( "_HWP", GATKVariantContextUtils.computeHardyWeinbergPvalue(vc));
+        annotations.put("_SUBTYPE", (vc.isSNP() ? (vc.isBiallelic() ? GATKVariantContextUtils.getSNPSubstitutionType(vc).toString() : "MULTI_ALLELEIC") : "NON_SNP"));
+
+        if( vc.hasGenotypes() ) {
+            final MathUtils.RunningAverage average = new MathUtils.RunningAverage();
+            for( final Genotype g : vc.getGenotypes() ) {
+                average.add(g.hasGQ() ? g.getGQ() : 0);
+            }
+            annotations.put("_GQ_MEAN", average.mean());
+            annotations.put("_GQ_STDDEV", average.stddev());
+        }
+
+        keys = new ArrayList<>(annotations.keySet());
+    }
+
+    /**
+     * Used to construct datum for unit testing purposes only
+     * @param annotations       map of annotation values
+     * @param isInput           was this an input VC (as opposed to external model data)
+     * @param isGood            is this a good-labeled training point
+     * @param isBad             is this a bad-labeled training point
+     */
+    protected RandomForestDatum( final Map<String, Comparable> annotations, final boolean isInput, final boolean isGood, final boolean isBad ) {
+        type = VariantContext.Type.SNP;
+        this.annotations = annotations;
+        this.isInput = isInput;
+        this.isGood = isGood;
+        this.isBad = isBad;
+        this.loc = null;
+        this.keys = new ArrayList<>(this.annotations.keySet());
+    }
+
+    /**
+     * Determine if the test VC matches the alleles with any VCs in a list
+     * @param vc    the VariantContext to interrogate
+     * @param list  the list of VCs to test against
+     * @return      true if there is a matching VC with the same alleles found in the list
+     */
+    private static boolean overlapsWithMatchingAlleles(final VariantContext vc, final List<VariantContext> list) {
+        if( vc == null ) { throw new IllegalArgumentException("Input VC cannot be null"); }
+
+        for( final VariantContext testVC : list ) {
+            if( testVC != null && testVC.isNotFiltered() && (vc.getAlleles().containsAll(testVC.getAlleles()) || testVC.getAlleles().containsAll(vc.getAlleles())) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Set this datum's VQSLOD score
+     * @param inputScore    a proper double VQSLOD score
+     */
+    public void setScore( final double inputScore ) {
+        if( Double.isInfinite(inputScore) || Double.isNaN(inputScore) ) {
+            throw new IllegalArgumentException("inputScore is not a valid double, found " + inputScore);
+        }
+
+        if( score == null ) {
+            score = inputScore;
+        } else {
+            throw new IllegalStateException("Attempting to reassign variant score, should be unassigned but equals = " + score);
+        }
     }
 }
