@@ -79,6 +79,14 @@
                         <id>unlink-qscript</id>
                         <phase>clean</phase>
                     </execution>
+                    <execution>
+                        <id>link-private-qscript</id>
+                        <phase>process-test-resources</phase>
+                    </execution>
+                    <execution>
+                        <id>unlink-private-qscript</id>
+                        <phase>clean</phase>
+                    </execution>
                 </executions>
             </plugin>
             <plugin>
