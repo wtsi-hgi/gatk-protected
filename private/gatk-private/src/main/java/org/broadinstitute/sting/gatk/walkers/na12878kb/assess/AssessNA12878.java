@@ -121,8 +121,15 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Argument(fullName="detailedAssessment", shortName = "detailed", doc="If true, we will emit a very detailed report of the types of variants, otherwise we'll use a simplified version", required=false)
     public boolean detailedAssessment = false;
 
-    @Argument(fullName="ignoreFilters", shortName = "ignoreFilters", doc="If true, we will ignore the filter status of calls", required=false)
-    public boolean ignoreFilters = false;
+    /**
+     * Note that this argument is mutually exclusive with the --ignoreSpecificFilter argument.
+     */
+    @Argument(fullName="ignoreAllFilters", shortName = "ignoreAllFilters", exclusiveOf = "ignoreSpecificFilter", doc="If true, we will completely ignore the filter status of calls", required=false)
+    public boolean ignoreAllFilters = false;
+
+    @Advanced
+    @Argument(fullName="ignoreSpecificFilter", shortName="ignoreFilter", doc="If specified, the variant recalibrator will also use variants marked as filtered by the specified filter name in the input VCF file", required=false)
+    private Set<String> filtersToIgnore = Collections.emptySet();
 
     @Argument(fullName="minPNonRef", shortName = "minPNonRef", doc="Min. PL against 0/0 for a site to be considered called in NA12878; set to -1 to allow all sites", required=false)
     public int minPNonRef = -1;
@@ -190,10 +197,13 @@ public class AssessNA12878 extends NA12878DBWalker {
             sitesWriter = new BadSitesWriter(maxToWrite, AssessmentsToExclude, badSites);
         sitesWriter.initialize(GATKVCFUtils.getHeaderFields(getToolkit()));
 
+        if ( ignoreAllFilters )
+            filtersToIgnore.add(Assessor.WILDCARD_FILTER_NAME);
+
         // set up assessors for each rod binding
         for ( final RodBinding<VariantContext> rod : variants ) {
             final String rodName = rod.getName();
-            final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, sitesWriter, bamReader, minDepthForLowCoverage, minPNonRef, minGQ, ignoreFilters);
+            final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, sitesWriter, bamReader, minDepthForLowCoverage, minPNonRef, minGQ, filtersToIgnore);
             assessors.put(rodName, assessor);
         }
     }
