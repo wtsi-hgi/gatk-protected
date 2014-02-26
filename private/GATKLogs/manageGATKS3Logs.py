@@ -25,7 +25,8 @@ def s3bucket():
 
 def execS3Command(args, stdout = None):
     """Executes the S3cmd command, putting results into stdout, if provided"""
-    executionString = " ".join([OPTIONS.S3CMD] + args)
+    s3Cmd = [OPTIONS.S3CMD] if not OPTIONS.S3_CONFIG_FILE else [OPTIONS.S3CMD, "-c", OPTIONS.S3_CONFIG_FILE]
+    executionString = " ".join(s3Cmd + args)
     if OPTIONS.dryRun:
         if OPTIONS.verbose: print 'DRY-RUN:', executionString
         return
@@ -196,8 +197,11 @@ if __name__ == "__main__":
                         type='string', default='.',
                         help="Path to write local logs to")
     parser.add_option("-s", "--s3cmd", dest="S3CMD",
-                        type='string', default="/Users/depristo/Desktop/broadLocal/s3cmd-1.1.0-beta3/s3cmd",
+                        type='string', default="s3cmd",
                         help="Path to s3cmd executable")
+    parser.add_option("-c", "--s3ConfigFile", dest="S3_CONFIG_FILE",
+                        type='string', default="",
+                        help="Path to s3cmd config file")
     parser.add_option("-g", "--groupSize", dest="GROUP_SIZE",
                         type='int', default=100,
                         help="Number of elements to get at the same time")

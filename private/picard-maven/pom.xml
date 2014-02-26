@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>edu.mit.broad</groupId>
+    <artifactId>picard</artifactId>
+    <version>not_applicable</version>
+    <packaging>pom</packaging>
+    <name>Picard</name>
+
+    <description>Updates Picard Public dependencies</description>
+
+    <prerequisites>
+        <maven>3.0.4</maven>
+    </prerequisites>
+
+    <properties>
+        <sourceEncoding>UTF-8</sourceEncoding>
+        <project.build.sourceEncoding>${sourceEncoding}</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>${sourceEncoding}</project.reporting.outputEncoding>
+
+        <sting.basedir>${project.basedir}/../..</sting.basedir>
+        <picard.public.home>${project.basedir}/Picard-public</picard.public.home>
+
+        <sting.public.repo>${sting.basedir}/public/repo</sting.public.repo>
+
+        <broad.java6.home>/broad/software/free/Linux/redhat_5_x86_64/pkgs/oracle-java-jdk_1.6.0-35_x86_64</broad.java6.home>
+
+        <picard.pom.sourceDirectory>src/main/poms</picard.pom.sourceDirectory>
+        <picard.pom.outputDirectory>${project.build.directory}/poms</picard.pom.outputDirectory>
+
+        <!-- TODO: These groupIds should probably be one sub-domain lower. -->
+        <sam.groupId>net.sf</sam.groupId>
+        <picard.groupId>net.sf</picard.groupId>
+        <variant.groupId>org.broadinstitute</variant.groupId>
+        <tribble.groupId>org.broad</tribble.groupId>
+    </properties>
+
+    <build>
+        <plugins>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>1.7</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>ant-contrib</groupId>
+                        <artifactId>ant-contrib</artifactId>
+                        <!-- NOTE: 1.0b3 doesn't run antfetch on directories: http://sourceforge.net/p/ant-contrib/bugs/192 -->
+                        <version>1.0b2</version>
+                        <exclusions>
+                            <exclusion>
+                                <groupId>ant</groupId>
+                                <artifactId>ant</artifactId>
+                            </exclusion>
+                        </exclusions>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>picard-build</id>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <phase>initialize</phase>
+                        <configuration>
+                            <exportAntProperties>true</exportAntProperties>
+                            <target>
+                                <available file="${broad.java6.home}" property="java6.home" value="${broad.java6.home}" />
+                                <exec executable="/usr/libexec/java_home" failifexecutionfails="false" outputproperty="java6.home">
+                                    <arg value="-v" />
+                                    <arg value="1.6" />
+                                </exec>
+                                <echo message="$${java6.home}:           ${java6.home}" />
+
+                                <!-- Ensure svnversion works, since the sh -c doesn't seem to be erroring out correctly -->
+                                <exec dir="${picard.public.home}" executable="svnversion" failonerror="true" outputproperty="picard.public.svnversion" />
+
+                                <!--
+                                Update to the latest version
+
+                                NOTE: buildnumber-maven-plugin's doUpdate runs
+                                    cd $dir && svn update $dir
+                                versus:
+                                    cd $dir && svn update
+
+                                The former causes mixed versions in the directory sometimes, leading to version numbers like 1682:1683M.
+                                -->
+                                <echo message="Running svn update" />
+                                <exec dir="${picard.public.home}" executable="svn" failonerror="true">
+                                    <arg value="--non-interactive" />
+                                    <arg value="update" />
+                                </exec>
+
+                                <!-- Ensure version isn't mixed, like 1682:1683M -->
+                                <exec dir="${picard.public.home}" executable="sh" failonerror="true">
+                                    <arg value="-c" />
+                                    <arg value="if [[ `svnversion` = *:* ]]; then echo ERROR: Mixed version: `svnversion`; exit 1; fi" />
+                                </exec>
+
+                                <!-- Get the version. If it's locally modified and ends in M, add -SNAPSHOT, and bump the version. -->
+                                <exec dir="${picard.public.home}" executable="sh" failonerror="true" outputproperty="picard.public.revision">
+                                    <arg value="-c" />
+                                    <arg value="svnversion | sed 's/M$/-SNAPSHOT/' | awk -F '-' '{if ($2 == &quot;SNAPSHOT&quot;) {print ($1+1)&quot;-&quot;$2} else {print $0}}'" />
+                                </exec>
+
+                                <!--
+                                NOTE: antrun uses JRE instead of JDK, making tools.jar inaccessible in the default classpath,
+                                Even when added back via a plugin dependency, it only re-enables javac, but does not put it back in the classpath.
+                                http://docs.codehaus.org/display/MAVENUSER/Running+ant+tasks+that+use+the+JDK
+                                http://www.kaczanowscy.pl/tomek/2007-12/maven-antrun-plugin-problems-with-solutions
+                                <ant dir="${picard.public.home}">
+                                    <property name="java6.home" value="${java6.home}" />
+                                </ant>
+                                -->
+                                <exec dir="${picard.public.home}" executable="ant" failonerror="true">
+                                    <arg value="-Djava6.home=${java6.home}" />
+                                    <arg value="clean" />
+                                    <arg value="all" />
+                                </exec>
+
+                                <echo message="Picard public revision:  ${picard.public.revision}" />
+                                <echo message="Picard public home:      ${picard.public.home}" />
+
+                                <taskdef classpathref="maven.plugin.classpath" resource="net/sf/antcontrib/antcontrib.properties" />
+                                <antfetch dir="${picard.public.home}" return="sam-version, picard-version, variant-version, tribble-version" target="init" />
+
+                                <echo message="sam-version:             ${sam-version}" />
+                                <echo message="picard-version:          ${picard-version}" />
+                                <echo message="variant-version          ${variant-version}" />
+                                <echo message="tribble-version:         ${tribble-version}" />
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>com.google.code.sortpom</groupId>
+                <artifactId>maven-sortpom-plugin</artifactId>
+                <version>2.2</version>
+                <configuration>
+                    <createBackupFile>false</createBackupFile>
+                    <predefinedSortOrder>custom_1</predefinedSortOrder>
+                    <lineSeparator>\n</lineSeparator>
+                    <encoding>${sourceEncoding}</encoding>
+                    <keepBlankLines>true</keepBlankLines>
+                    <sortDependencies>scope</sortDependencies>
+                    <nrOfIndentSpace>4</nrOfIndentSpace>
+                    <expandEmptyElements>false</expandEmptyElements>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>main</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>verify</phase>
+                    </execution>
+                    <execution>
+                        <id>sam</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <pomFile>src/main/poms/sam.pom.xml</pomFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>picard</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <pomFile>src/main/poms/picard.pom.xml</pomFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>variant</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <pomFile>src/main/poms/variant.pom.xml</pomFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>tribble</id>
+                        <goals>
+                            <goal>sort</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <pomFile>src/main/poms/tribble.pom.xml</pomFile>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>2.5</version>
+                <executions>
+                    <execution>
+                        <id>filter-poms</id>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <escapeString>\</escapeString>
+                            <resources>
+                                <resource>
+                                    <directory>${picard.pom.sourceDirectory}</directory>
+                                    <filtering>true</filtering>
+                                </resource>
+                            </resources>
+                            <outputDirectory>${picard.pom.outputDirectory}</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <!-- TODO: We need to generate proper poms with listed dependencies, especially if pushing to central. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <version>2.5</version>
+                <executions>
+                    <execution>
+                        <id>install-sam</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <pomFile>${picard.pom.outputDirectory}/sam.pom.xml</pomFile>
+                            <file>${picard.public.home}/dist/sam-${sam-version}.jar</file>
+                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install-picard</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <pomFile>${picard.pom.outputDirectory}/picard.pom.xml</pomFile>
+                            <file>${picard.public.home}/dist/picard-${picard-version}.jar</file>
+                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install-variant</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <pomFile>${picard.pom.outputDirectory}/variant.pom.xml</pomFile>
+                            <file>${picard.public.home}/dist/variant-${variant-version}.jar</file>
+                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install-tribble</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <pomFile>${picard.pom.outputDirectory}/tribble.pom.xml</pomFile>
+                            <file>${picard.public.home}/dist/tribble-${tribble-version}.jar</file>
+                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+            Copies the sam.version to picard.public.version, only. See also: picard's build.xml
+            Thus if someone modifies the other variables in sting-root, they are left alone.
+            -->
+            <plugin>
+                <groupId>com.google.code.maven-replacer-plugin</groupId>
+                <artifactId>replacer</artifactId>
+                <version>1.5.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>replace</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <file>${sting.basedir}/public/sting-root/pom.xml</file>
+                            <token>&lt;picard.public.version&gt;.*&lt;/picard.public.version&gt;</token>
+                            <value>&lt;picard.public.version&gt;${sam-version}.${picard.public.revision}&lt;/picard.public.version&gt;</value>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
