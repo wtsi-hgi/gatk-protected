@@ -286,37 +286,6 @@ public class AssessorUnitTest extends BaseTest {
         Assert.assertEquals(assessor.getSNPAssessment(), oneTP);
     }
 
-    // ------------------------------------------------------------
-    // Tests for assessing a site
-    // ------------------------------------------------------------
-
-    // java -jar dist/GenomeAnalysisTK.jar -T DepthOfCoverage -I private/testdata/reduced.readNotFullySpanningDeletion.bam -R ~/Desktop/broadLocal/localData/human_g1k_v37.fasta -L 1:167,022,605-167,025,904 -mmq 20 -mbq 20 | grep "1:" | grep -v "-" | awk '{print $1, $2}' | awk -F ":" '{print $1, $2}' > private/testdata/reduced.readNotFullySpanningDeletion.doc
-    private final static File DoC = new File(privateTestDir + "reduced.readNotFullySpanningDeletion.doc");
-    private final static File BAM = new File(privateTestDir + "reduced.readNotFullySpanningDeletion.bam");
-
-    @DataProvider(name = "DoCSites")
-    public Object[][] makeDocSites() throws Exception {
-        List<Object[]> tests = new ArrayList<Object[]>();
-
-        for ( final String line : new XReadLines(DoC).readLines() ) {
-            final String[] parts = line.split(" ");
-            final String chr = parts[0];
-            final int pos = Integer.valueOf(parts[1]);
-            final int doc = Integer.valueOf(parts[2]);
-            tests.add(new Object[]{BAM, chr, pos, doc});
-        }
-
-        return tests.toArray(new Object[][]{});
-    }
-
-    @Test(dataProvider = "DoCSites")
-    public void testFilteringSites(final File bam, final String chr, final int pos, final int expectedDoC) {
-        final SAMFileReader bamReader = Assessor.makeSAMFileReaderForDoCInBAM(bam);
-        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, bamReader, 5, -1, -1, Collections.<String>emptySet());
-        final int actualDoC = assessor.getDepthAtLocus(chr, pos);
-        Assert.assertEquals(actualDoC, expectedDoC, "Depth of coverage at " + chr + ":" + pos + " had unexpected depth");
-    }
-
     @Test
     public void testIgnoringAllFilters() {
         final String[] filters = { "foo", "bar" };
