@@ -44,10 +44,10 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.examples;
+package org.broadinstitute.gatk.examples;
 
 import org.apache.log4j.BasicConfigurator;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
 import org.simpleframework.xml.Element;
 import org.simpleframework.xml.Root;
 import org.simpleframework.xml.Serializer;
@@ -167,7 +167,7 @@ public class SampleXmlMarshaller {
             SampleXmlMarshaller example = serializer.read(SampleXmlMarshaller.class, source);
             return example;
         } catch (Exception e) {
-            throw new ReviewedStingException("Failed to marshal the data to file " + filename,e);
+            throw new ReviewedGATKException("Failed to marshal the data to file " + filename,e);
         }
     }
 }

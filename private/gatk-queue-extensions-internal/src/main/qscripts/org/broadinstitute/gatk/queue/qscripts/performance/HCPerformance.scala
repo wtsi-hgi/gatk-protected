@@ -44,13 +44,13 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.performance
+package org.broadinstitute.gatk.queue.qscripts.performance
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.utils.PathUtils
-import org.broadinstitute.sting.commandline.ClassType
-import org.broadinstitute.sting.gatk.downsampling.DownsampleType
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.utils.PathUtils
+import org.broadinstitute.gatk.utils.commandline.ClassType
+import org.broadinstitute.gatk.engine.downsampling.DownsampleType
 
 class HCPerformance extends QScript {
   @Argument(shortName = "resources", doc="resources", required=true)
@@ -74,7 +74,7 @@ class HCPerformance extends QScript {
       if ( intervalsFile != null )
         gatkCmd.intervals :+= intervalsFile
       gatkCmd.intervalsString = intervalsString
-      gatkCmd.interval_set_rule = org.broadinstitute.sting.utils.interval.IntervalSetRule.INTERSECTION
+      gatkCmd.interval_set_rule = org.broadinstitute.gatk.utils.interval.IntervalSetRule.INTERSECTION
       gatkCmd
     }
   }
@@ -115,7 +115,7 @@ class HCPerformance extends QScript {
       HC.out = new File("/dev/null")
       HC.justDetermineActiveRegions = justProfile
       if ( ! ds )
-        HC.downsampling_type = org.broadinstitute.sting.gatk.downsampling.DownsampleType.NONE
+        HC.downsampling_type = org.broadinstitute.gatk.engine.downsampling.DownsampleType.NONE
       HC
     }
     maker

@@ -44,17 +44,17 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.misc
+package org.broadinstitute.gatk.queue.qscripts.misc
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.utils.text.XReadLines
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.utils.text.XReadLines
 import scala.collection.JavaConversions._
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.library.ipf.vcf.VCFExtractIntervals
-import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.VariantQualityScore
-import org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection
-import org.broadinstitute.sting.gatk.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotypingEngine}
-import org.broadinstitute.sting.utils.baq.BAQ
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.library.ipf.vcf.VCFExtractIntervals
+import org.broadinstitute.gatk.tools.walkers.varianteval.evaluators.VariantQualityScore
+import org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection
+import org.broadinstitute.gatk.tools.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotypingEngine}
+import org.broadinstitute.gatk.utils.baq.BAQ
 
 /**
  * Created by IntelliJ IDEA.

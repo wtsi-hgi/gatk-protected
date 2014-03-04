@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.samtools.SamtoolsIndexFunction
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.samtools.SamtoolsIndexFunction
+import org.broadinstitute.gatk.queue.QScript
 import org.apache.commons.io.FilenameUtils;
 
 class VQSR_parameterSearch extends QScript {
@@ -309,7 +309,7 @@ class VQSR_parameterSearch extends QScript {
   val FiltersToIgnore = List("DPFilter", "ABFilter", "ESPStandard", "QualByDepth", "StrandBias", "HomopolymerRun")
 
   // 3.) VQSR part1 Generate Gaussian clusters based on truth sites
-  class GenerateVariantClusters(t: Target, goldStandard: Boolean) extends org.broadinstitute.sting.queue.extensions.gatk.GenerateVariantClusters with UNIVERSAL_GATK_ARGS {
+  class GenerateVariantClusters(t: Target, goldStandard: Boolean) extends org.broadinstitute.gatk.queue.extensions.gatk.GenerateVariantClusters with UNIVERSAL_GATK_ARGS {
       val name: String = if ( goldStandard ) { t.goldStandardName } else { t.name }
       this.reference_sequence = t.reference
       this.DBSNP = new File("/humgen/gsa-hpprojects/GATK/data/dbsnp_129_" + t.rodName + ".rod")
@@ -365,7 +365,7 @@ class VQSR_parameterSearch extends QScript {
   }
 
   // 4.) VQSR part2 Calculate new LOD for all input SNPs by evaluating the Gaussian clusters
-  class VariantRecalibratorBase(t: Target, goldStandard: Boolean) extends org.broadinstitute.sting.queue.extensions.gatk.VariantRecalibrator with UNIVERSAL_GATK_ARGS {
+  class VariantRecalibratorBase(t: Target, goldStandard: Boolean) extends org.broadinstitute.gatk.queue.extensions.gatk.VariantRecalibrator with UNIVERSAL_GATK_ARGS {
       val name: String = if ( goldStandard ) { t.goldStandardName } else { t.name }
       this.reference_sequence = t.reference
       this.DBSNP = new File("/humgen/gsa-hpprojects/GATK/data/dbsnp_129_" + t.rodName + ".rod")
@@ -397,7 +397,7 @@ class VQSR_parameterSearch extends QScript {
 
   // 4b.) Choose VQSR tranches based on sensitivity to truth set
   class VariantRecalibratorNRS(t: Target, goldStandard: Boolean) extends VariantRecalibratorBase(t, goldStandard) {
-      this.sm = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibrator.SelectionMetricType.TRUTH_SENSITIVITY
+      this.sm = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibrator.SelectionMetricType.TRUTH_SENSITIVITY
       if(t.trainOmni == 0 ) {
         this.tranche ++= List("1.0")
       } else {

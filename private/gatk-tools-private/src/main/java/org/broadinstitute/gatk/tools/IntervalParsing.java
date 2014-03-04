@@ -44,18 +44,18 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.tools;
+package org.broadinstitute.gatk.tools;
 
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.CommandLineProgram;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.interval.IntervalUtils;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.CommandLineProgram;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.GenomeLocParser;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.interval.IntervalUtils;
 
 import java.io.File;
 import java.io.PrintStream;
@@ -109,14 +109,14 @@ public final class IntervalParsing extends CommandLineProgram {
         List<GenomeLoc> result = null;
         switch (action) {
             case UNION:
-                throw new ReviewedStingException("Not implemented");
+                throw new ReviewedGATKException("Not implemented");
             case DIFFERENCE:
                 result = difference(intervals);
                 break;
             case INTERSECTION:
-                throw new ReviewedStingException("Not implemented");
+                throw new ReviewedGATKException("Not implemented");
             default:
-                throw new ReviewedStingException("Not implemented");
+                throw new ReviewedGATKException("Not implemented");
         }
         for (GenomeLoc interval : result)
             out.println(interval);
@@ -130,7 +130,7 @@ public final class IntervalParsing extends CommandLineProgram {
 
     private static List<GenomeLoc> difference(List<List<GenomeLoc>> list, int index) {
         if (list.size() < index + 1)
-            throw new ReviewedStingException("Not enough elements in the interval list");
+            throw new ReviewedGATKException("Not enough elements in the interval list");
 
         List<GenomeLoc> result =  list.get(index);
         for (int i = index + 1; i < list.size(); i++) {

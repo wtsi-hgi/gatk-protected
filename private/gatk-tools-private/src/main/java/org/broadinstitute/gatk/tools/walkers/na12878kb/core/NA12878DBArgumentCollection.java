@@ -44,13 +44,13 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
+package org.broadinstitute.gatk.tools.walkers.na12878kb.core;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonSyntaxException;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -120,9 +120,9 @@ public class NA12878DBArgumentCollection {
      * loaded over http, and files on local filesystem (tried in that order)
      * @param specPath path to db spec
      * @return InputStream
-     * @throws StingException
+     * @throws GATKException
      */
-    private InputStream getInputStream(final String specPath) throws StingException{
+    private InputStream getInputStream(final String specPath) throws GATKException{
         final InputStream is = getClass().getResourceAsStream(specPath);
         if(is != null) return is;
 
@@ -135,9 +135,9 @@ public class NA12878DBArgumentCollection {
                 }
                 return conn.getInputStream();
             } catch (MalformedURLException e) {
-                throw new StingException("Malformed url for db spec path", e);
+                throw new GATKException("Malformed url for db spec path", e);
             } catch (IOException e) {
-                throw new StingException("Error opening db spec", e);
+                throw new GATKException("Error opening db spec", e);
             }
 
         }
@@ -145,7 +145,7 @@ public class NA12878DBArgumentCollection {
         try {
             return new FileInputStream(specPath);
         } catch (FileNotFoundException e) {
-            throw new StingException("db spec path not found", e);
+            throw new GATKException("db spec path not found", e);
         }
 
     }

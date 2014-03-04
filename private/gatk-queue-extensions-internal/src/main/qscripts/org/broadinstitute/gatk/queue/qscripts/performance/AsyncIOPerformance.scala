@@ -44,14 +44,14 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.performance
+package org.broadinstitute.gatk.queue.qscripts.performance
 
 import _root_.scala._
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.gatk.RodBind._
-import org.broadinstitute.sting.queue.function.ListWriterFunction
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.gatk.RodBind._
+import org.broadinstitute.gatk.queue.function.ListWriterFunction
 import scala.io._
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.gatk.queue.QScript
 
 object IOType extends Enumeration {
   type IOType = Value
@@ -106,7 +106,7 @@ class AsyncIOPerformance extends QScript {
     caller.input_file = List(bamList)
     if(interval != null)
       caller.intervalsString = List(interval)
-    caller.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+    caller.genotype_likelihoods_model = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
 
     var outputBase = "ug." + synchronicity + ".calls." + uniquifier;
     if(numCPUThreads != 1) {
@@ -149,7 +149,7 @@ class AsyncIOPerformance extends QScript {
     clean.read_buffer_size = readBufferSize
     clean.known :+= dbsnp
     clean.known :+= indels
-    clean.consensusDeterminationModel = org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel.USE_READS
+    clean.consensusDeterminationModel = org.broadinstitute.gatk.tools.walkers.indels.IndelRealigner.ConsensusDeterminationModel.USE_READS
     clean.simplifyBAM = true
     clean.bam_compression = 1
     var baseName: String = ""

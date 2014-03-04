@@ -44,9 +44,9 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.utils.dependencyanalyzer;
+package org.broadinstitute.gatk.utils.dependencyanalyzer;
 
-import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.gatk.utils.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -58,11 +58,11 @@ import java.util.List;
 public class DependencyAnalyzerOutputLoaderUnitTest extends BaseTest {
 
     private final String DEPENDENCY_ANALYZER_EXAMPLE_OUTPUT = privateTestDir + "example_dependency_analyzer_output";
-    private final List<String> classNames = Arrays.asList("org.broadinstitute.sting.gatk.walkers.bed.MergeIntervalLists",
-                                                          "org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper",
-                                                          "org.broadinstitute.sting.gatk.walkers.haplotypecaller.HaplotypeCaller",
-                                                          "org.broadinstitute.sting.gatk.walkers.na12878kb.NA12878DBWalker",
-                                                          "org.broadinstitute.sting.gatk.walkers.readutils.PrintReads");
+    private final List<String> classNames = Arrays.asList("org.broadinstitute.gatk.tools.walkers.bed.MergeIntervalLists",
+                                                          "org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotyper",
+                                                          "org.broadinstitute.gatk.tools.walkers.haplotypecaller.HaplotypeCaller",
+                                                          "org.broadinstitute.gatk.tools.walkers.na12878kb.NA12878DBWalker",
+                                                          "org.broadinstitute.gatk.tools.walkers.readutils.PrintReads");
     private final List<Boolean> expectedClassResults = Arrays.asList(true, false, false, true, false);
 
     @DataProvider(name = "dependencyAnalyzerOutputLoaderSingleClassDataProvider")

@@ -44,17 +44,17 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.qc
+package org.broadinstitute.gatk.queue.qscripts.techdev
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.picard._
-import org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel
-import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.picard._
+import org.broadinstitute.gatk.tools.walkers.indels.IndelRealigner.ConsensusDeterminationModel
+import org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode
 
 
-import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.commandline.Hidden
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.utils.commandline.Hidden
 
 class QuickProcessingPipeline extends QScript {
   qscript =>

@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.misc.chartl
+package org.broadinstitute.gatk.queue.qscripts.misc.chartl
 
-import org.broadinstitute.sting.queue.extensions.gatk.ByTranscriptEvaluator
-import org.broadinstitute.sting.queue.library.ipf.vcf.VCFExtractIntervals
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk.ByTranscriptEvaluator
+import org.broadinstitute.gatk.queue.library.ipf.vcf.VCFExtractIntervals
+import org.broadinstitute.gatk.queue.QScript
 
 /**
  * Created by IntelliJ IDEA.
@@ -185,7 +185,7 @@ class VariantEffectPipeline extends QScript {
     var vCommand : String = _
 
     def commandLine : String = {
-      val scriptPath : String = "/humgen/gsa-hphome1/chartl/sting/private/scala/qscript/org/broadinstitute/sting/queue/qscripts/misc/chartl/PredictVariantEffects.scala"
+      val scriptPath : String = "/humgen/gsa-hphome1/chartl/sting/private/scala/qscript/org/broadinstitute/gatk/queue/qscripts/misc/chartl/PredictVariantEffects.scala"
       "java -Xmx4g -Djava.io.tmpdir=%s -jar %s -S %s -V %s --numVariantsPerScatter %d -L %s --tempdir %s --vScript \"%s\" -out %s -run -bsub -jobQueue week".format(javatmp.getAbsolutePath,
         queueJar.getAbsolutePath,scriptPath,variants.getAbsolutePath,numVariantsPerScatter,
         intervals.getAbsolutePath,tempdir, vCommand, annotVCF.getAbsolutePath)

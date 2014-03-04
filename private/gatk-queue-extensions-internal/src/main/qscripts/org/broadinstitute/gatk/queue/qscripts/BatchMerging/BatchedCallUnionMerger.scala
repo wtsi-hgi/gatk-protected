@@ -44,18 +44,18 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.BatchMerging
+package org.broadinstitute.gatk.queue.qscripts.BatchMerging
 
-import org.broadinstitute.sting.commandline.Hidden
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.library.ipf.vcf.{VCFSimpleMerge, VCFExtractSites,VCFExtractIntervals}
+import org.broadinstitute.gatk.utils.commandline.Hidden
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.library.ipf.vcf.{VCFSimpleMerge, VCFExtractSites,VCFExtractIntervals}
 import collection.JavaConversions._
-import org.broadinstitute.sting.utils.baq.BAQ
-import org.broadinstitute.sting.utils.text.XReadLines
-import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.gatk.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotypingEngine}
-import org.broadinstitute.sting.gatk.downsampling.DownsampleType
+import org.broadinstitute.gatk.utils.baq.BAQ
+import org.broadinstitute.gatk.utils.text.XReadLines
+import org.broadinstitute.gatk.utils.variantcontext.VariantContextUtils
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.tools.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotypingEngine}
+import org.broadinstitute.gatk.engine.downsampling.DownsampleType
 
 class BatchedCallUnionMerger extends QScript {
   batchMerge =>
@@ -241,7 +241,7 @@ class BatchedCallUnionMerger extends QScript {
           this.jobQueue = batchMerge.VA_jobQueue
       }
 
-      class ScatteredFullVariantAnnotator(inputParam: File) extends org.broadinstitute.sting.queue.extensions.gatk.VariantAnnotator with AnnotateVariantArgs {
+      class ScatteredFullVariantAnnotator(inputParam: File) extends org.broadinstitute.gatk.queue.extensions.gatk.VariantAnnotator with AnnotateVariantArgs {
         this.scatterCount = batchMerge.scatterCount
         this.variant = inputParam
 

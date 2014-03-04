@@ -44,15 +44,15 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.performance
+package org.broadinstitute.gatk.queue.qscripts.performance
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
 import java.lang.Math
-import org.broadinstitute.sting.utils.PathUtils
-import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel
-import org.broadinstitute.sting.utils.baq.BAQ
-import org.broadinstitute.sting.commandline.ClassType
+import org.broadinstitute.gatk.utils.PathUtils
+import org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel
+import org.broadinstitute.gatk.utils.baq.BAQ
+import org.broadinstitute.gatk.utils.commandline.ClassType
 
 class GATKPerformanceOverTime extends QScript {
   @Argument(shortName = "results", doc="results", required=false)
@@ -419,7 +419,7 @@ class GATKPerformanceOverTime extends QScript {
     this.input_file :+= bamList
     this.stand_call_conf = 10.0
     this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
-    this.baq = if ( ! skipBAQ && useBaq ) org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE else org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
+    this.baq = if ( ! skipBAQ && useBaq ) org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.RECALCULATE else org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.OFF
     @Output(doc="foo") var outVCF: File = new File("/dev/null")
     this.o = outVCF
   }

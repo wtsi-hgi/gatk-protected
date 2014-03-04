@@ -44,19 +44,19 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
-import org.broadinstitute.sting.commandline.Argument._
-import org.broadinstitute.sting.commandline.Input._
-import org.broadinstitute.sting.pipeline.Pipeline
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.commandline.Input._
-import org.broadinstitute.sting.pipeline.Pipeline
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.gatk.utils.commandline.Argument._
+import org.broadinstitute.gatk.utils.commandline.Input._
+import org.broadinstitute.gatk.utils.pipeline.Pipeline
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.utils.commandline.Input._
+import org.broadinstitute.gatk.utils.pipeline.Pipeline
+import org.broadinstitute.gatk.queue.extensions.gatk._
 import java.io.File
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk.RodBind._
-import org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk.RodBind._
+import org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection
 ;
 /**
  * Created by IntelliJ IDEA.
@@ -140,9 +140,9 @@ class WholeGenomeIndelCalling extends QScript {
     // callIndels.dcov = 50
      callIndels.stand_call_conf = 4.0
      callIndels.stand_emit_conf = 4.0
-     callIndels.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
+     callIndels.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.OFF
   //   callIndels.jobName = qscript.outputTmpDir + "/calls/" + qscript.runName
-     callIndels.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
+     callIndels.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
      callIndels.dbsnp =  qscript.dbSNP
      callIndels.sites_only = false
      callIndels.scatterCount = qscript.scatterCount

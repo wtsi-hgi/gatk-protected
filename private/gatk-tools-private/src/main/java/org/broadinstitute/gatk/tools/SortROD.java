@@ -44,7 +44,7 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.tools;
+package org.broadinstitute.gatk.tools;
 
 import htsjdk.samtools.reference.ReferenceSequenceFile;
 import htsjdk.samtools.reference.ReferenceSequenceFileFactory;
@@ -57,12 +57,12 @@ import htsjdk.tribble.dbsnp.OldDbSNPCodec;
 import htsjdk.tribble.gelitext.GeliTextCodec;
 import htsjdk.tribble.readers.LineIterator;
 import htsjdk.tribble.readers.PositionalBufferedStream;
-import org.broadinstitute.sting.gatk.features.maf.MafCodec;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.codecs.CGVarCodec;
-import org.broadinstitute.sting.utils.codecs.SoapSNPCodec;
-import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.gatk.engine.features.maf.MafCodec;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.GenomeLocParser;
+import org.broadinstitute.gatk.utils.codecs.CGVarCodec;
+import org.broadinstitute.gatk.utils.codecs.SoapSNPCodec;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
 import htsjdk.variant.vcf.VCFCodec;
 
 import java.io.*;
@@ -216,7 +216,7 @@ public class SortROD {
             if (rodType.equals("geli.calls") || rodType.equals("geli") ) return new GeliTextCodec();
             if (rodType.equals("txt") ) return new SoapSNPCodec();
             if (rodType.equals("maf") ) return new MafCodec();
-            throw new StingException("Explicitly specified rod type "+rodType+" is not recognized");
+            throw new GATKException("Explicitly specified rod type "+rodType+" is not recognized");
         }
         if ( featureFile.getName().endsWith(".vcf") || featureFile.getName().endsWith(".VCF") )
             return new VCFCodec();
@@ -252,7 +252,7 @@ public class SortROD {
                 os.write(s.getBytes());
                 os.write('\n');
             } catch (IOException e) {
-                throw new StingException("SortingCollection: Write into temporary file failed",e);
+                throw new GATKException("SortingCollection: Write into temporary file failed",e);
             }
         }
 
@@ -265,7 +265,7 @@ public class SortROD {
                     c = is.read();
                 }
             } catch (IOException e) {
-                throw new StingException("SortingCollection: Read from temporary file failed",e);
+                throw new GATKException("SortingCollection: Read from temporary file failed",e);
             }
             return new String(toByteArray(l));  //To change body of implemented methods use File | Settings | File Templates.
         }

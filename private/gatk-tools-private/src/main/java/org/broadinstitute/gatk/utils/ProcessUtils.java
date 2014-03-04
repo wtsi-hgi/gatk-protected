@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.utils;
+package org.broadinstitute.gatk.utils;
 
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.utils.text.XReadLines;
 
 /**
  * A set of utilities for managing external processes.
@@ -84,7 +84,7 @@ public class ProcessUtils {
 
 			return result;
 		} catch (Exception e) {
-			throw new ReviewedStingException("Error running command:" + command, e);
+			throw new ReviewedGATKException("Error running command:" + command, e);
 		}
 	}
 }

@@ -44,19 +44,21 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.techdev
+package org.broadinstitute.gatk.queue.qscripts.techdev
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.commandline.{Output, Argument, Hidden}
-import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.picard._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.utils.commandline.{Output, Argument, Hidden}
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.picard._
 import htsjdk.samtools.{SAMReadGroupRecord, SAMFileReader, SAMFileHeader}
-import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
+import org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode
 import collection.JavaConversions._
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException
 import htsjdk.samtools.SAMFileHeader.SortOrder
-import org.broadinstitute.sting.commandline
+import org.broadinstitute.gatk.tools.walkers.indels.IndelRealigner.ConsensusDeterminationModel
+import org.broadinstitute.gatk.tools.walkers.techdev.SplitByRG
+import org.broadinstitute.gatk.engine.arguments.ValidationExclusion
 
 class FullProcessingPipeline extends QScript {
   qscript =>
@@ -187,7 +189,7 @@ class FullProcessingPipeline extends QScript {
     fullName = "fixMisencodedQualityScores", shortName = "fixQualityScores", required = false)
   var fixMisencodedQualityScores = false
 
- val cleaningModel: org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel  = org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel.USE_READS
+ val cleaningModel: ConsensusDeterminationModel = ConsensusDeterminationModel.USE_READS
 
   def script() {
     // keep a record of the number of contigs in the first bam file in the list
@@ -318,7 +320,7 @@ class FullProcessingPipeline extends QScript {
   def getSplitBAMList(bam: File) : Seq[File] = {
     var splitBAMs: Seq[File] = Seq()
     val reader: SAMFileReader = new SAMFileReader(bam)
-    for (file <- org.broadinstitute.sting.gatk.walkers.techdev.SplitByRG.getSplitFileNamesForRgs(reader.getFileHeader).values()) {
+    for (file <- SplitByRG.getSplitFileNamesForRgs(reader.getFileHeader).values()) {
       splitBAMs :+= file
     }
     splitBAMs
@@ -495,14 +497,14 @@ class FullProcessingPipeline extends QScript {
    *
    * @param bams all input bams
    * @return the sample name
-   * @throws ReviewedStingException if the sample names are not the same across all files
+   * @throws ReviewedGATKException if the sample names are not the same across all files
    */
   def getSampleName (bams:Seq[File]): String = {
     val sample = getReadGroupList(bams(0))(0).getSample  // first read group of the first bam file in the list -- happy to blow up if this fails.
     for (bam <- bams) {
       for (rg: SAMReadGroupRecord <- getReadGroupList(bam)) {
         if (rg.getSample != sample)
-          throw new ReviewedStingException(String.format("BAM file %s contains multiple samples, this pipeline cannot handle that", bam.getName))
+          throw new ReviewedGATKException(String.format("BAM file %s contains multiple samples, this pipeline cannot handle that", bam.getName))
       }
     }
     sample
@@ -520,13 +522,13 @@ class FullProcessingPipeline extends QScript {
     header.getReadGroups
   }
 
-  case class bam2fq (@Input inBam: File, @Output outFQ: File) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs {
+  case class bam2fq (@Input inBam: File, @Output outFQ: File) extends CommandLineFunction with ExternalCommonArgs {
     def commandLine = "htscmd bamshuf -uOn 128 " + inBam + " " + outFQ + ".tmp" + " | htscmd bam2fq -a - | gzip > " + outFQ
     this.memoryLimit = 8
     this.analysisName = "FastQ"
   }
 
-  case class bwa (@Input inFQ: File, inRG: String, @Output outSAM: File, threads: Int) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs{
+  case class bwa (@Input inFQ: File, inRG: String, @Output outSAM: File, threads: Int) extends CommandLineFunction with ExternalCommonArgs{
     def se_pe_option :String = if (singleEnded) "" else " -p "
     def commandLine = "bwa mem "+ se_pe_option +" -M -t " + threads + " -R '" + inRG + "' " + reference + " " + inFQ + " > " + outSAM
     this.memoryLimit = 8
@@ -534,7 +536,7 @@ class FullProcessingPipeline extends QScript {
     this.analysisName = "BWA"
   }
 
-  case class star (@Input inFQs: Seq[File], @Output outSAM: File, @Output sjFile: File, threads: Int, secondPass: Boolean, @Input dummyFile: File) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs{
+  case class star (@Input inFQs: Seq[File], @Output outSAM: File, @Output sjFile: File, threads: Int, secondPass: Boolean, @Input dummyFile: File) extends CommandLineFunction with ExternalCommonArgs{
     var genomeDir : String = ""
     if (secondPass)
       genomeDir =  "Genome-2-pass"
@@ -554,11 +556,11 @@ class FullProcessingPipeline extends QScript {
     def commandLine = starAlingerPath + "STAR --genomeDir "+genomeDir+" --readFilesIn "+fastq_string+" --outFileNamePrefix "+project+".star." + pass
   }
 
-  case class star_buildGenome_2pass (@Input sjFile: File, threads: Int, @Output dummyFile: File) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs{
+  case class star_buildGenome_2pass (@Input sjFile: File, threads: Int, @Output dummyFile: File) extends CommandLineFunction with ExternalCommonArgs{
     def commandLine = "mkdir -p Genome-2-pass ; "+ starAlingerPath + "STAR --runMode genomeGenerate --genomeDir $PWD/Genome-2-pass --genomeFastaFiles "+ qscript.reference +" --sjdbFileChrStartEnd "+sjFile+" --sjdbOverhang 75"
   }
 
-  case class mark_adaptor(@Input inBAM: File, @Output outBAM: File) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs {
+  case class mark_adaptor(@Input inBAM: File, @Output outBAM: File) extends CommandLineFunction with ExternalCommonArgs {
     def commandLine = "java -Dsamjdk.compression_level=1 -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -Xmx4000m -jar /seq/software/picard/current/bin/MarkIlluminaAdapters.jar INPUT=" + inBAM + " OUTPUT=" + outBAM + " PE=true ADAPTERS=DUAL_INDEXED M=" + outBAM + ".adapter_metrics"
     this.memoryLimit = 4
     this.analysisName = "ADAPTER"
@@ -584,7 +586,7 @@ class FullProcessingPipeline extends QScript {
     if(qscript.change255to60)
       this.read_filter :+= "ReassignOneMappingQuality"
     if(allow_N_cigar_reads)
-      this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
+      this.unsafe = ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
 
   }
 
@@ -652,7 +654,7 @@ class FullProcessingPipeline extends QScript {
     if(fixMisencodedQualityScores)
       this.fix_misencoded_quality_scores = true
     if(!allow_N_cigar_reads)  //we must allow N in the cigar string for RNA data, but we add it here just if it was not added for all the other walkers
-      this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
+      this.unsafe = ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
   }
 
   case class target (inBams: File, outIntervals: File) extends RealignerTargetCreator with CommandLineGATKArgs {

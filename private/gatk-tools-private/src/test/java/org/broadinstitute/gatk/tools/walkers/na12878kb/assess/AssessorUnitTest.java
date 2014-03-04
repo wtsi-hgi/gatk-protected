@@ -44,16 +44,16 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
+package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
 import htsjdk.samtools.SAMFileReader;
-import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoGenotype;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.text.XReadLines;
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.gatk.utils.BaseTest;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoGenotype;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoVariantContext;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.TruthStatus;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.text.XReadLines;
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils;
 import htsjdk.variant.variantcontext.*;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;

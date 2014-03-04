@@ -44,7 +44,7 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.mongodb
+package org.broadinstitute.gatk.queue.qscripts.mongodb
 
 /**
  * Created with IntelliJ IDEA.
@@ -53,10 +53,10 @@ package org.broadinstitute.sting.queue.qscripts.mongodb
  * Time: 3:00 PM
  * To change this template use File | Settings | File Templates.
  */
-import org.broadinstitute.sting.gatk.arguments.ValidationExclusion
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.utils.interval.IntervalSetRule
+import org.broadinstitute.gatk.engine.arguments.ValidationExclusion
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.utils.interval.IntervalSetRule
 
 /**
  * Tests MongoDB by running SelectVariantsFromMongo in parallel

@@ -44,10 +44,10 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
 import htsjdk.variant.variantcontext.VariantContext
 
 
@@ -168,8 +168,8 @@ class Phase3ProjectGLsHaplotypeCaller extends QScript{
     this.javaGCThreads = 4
     this.alleles = allelesFile
     this.minPruning = 5
-    this.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
-    this.gt_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
+    this.out_mode = org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    this.gt_mode = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
     //this.GENOTYPE_GIVEN_ALL_ALLELES_COMBINATORIAL = true
     this.stand_emit_conf = 0.0
     this.stand_call_conf = 0.0

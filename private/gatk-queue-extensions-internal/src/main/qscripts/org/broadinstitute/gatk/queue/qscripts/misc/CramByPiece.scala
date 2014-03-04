@@ -44,13 +44,13 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.misc
+package org.broadinstitute.gatk.queue.qscripts.misc
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.function.QFunction
-import org.broadinstitute.sting.queue.engine.JobRunInfo
-import org.broadinstitute.sting.gatk.report.GATKReport
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.function.QFunction
+import org.broadinstitute.gatk.queue.engine.JobRunInfo
+import org.broadinstitute.gatk.engine.report.GATKReport
 import java.io.{PrintStream, FileOutputStream}
 
 class CramByPiece extends QScript {

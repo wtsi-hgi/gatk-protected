@@ -16,7 +16,7 @@
             <unpack>true</unpack>
             <includes>
                 <include>org.broadinstitute.gatk:gatk-engine:tar.bz2:example-resources</include>
-                <include>org.broadinstitute.gatk:gatk-queue:tar.bz2:example-resources</include>
+                <include>org.broadinstitute.gatk:gatk-queue-extensions-public:tar.bz2:example-resources</include>
             </includes>
         </dependencySet>
     </dependencySets>

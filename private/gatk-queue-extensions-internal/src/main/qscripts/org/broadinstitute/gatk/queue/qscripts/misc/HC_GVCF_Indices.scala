@@ -44,16 +44,16 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.misc
+package org.broadinstitute.gatk.queue.qscripts.misc
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.queue.function._
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
-import org.broadinstitute.sting.utils.interval.IntervalSetRule
-import org.broadinstitute.sting.utils.variant.GATKVCFIndexType
-import org.broadinstitute.sting.gatk.walkers.haplotypecaller.ReferenceConfidenceMode
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.queue.function._
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
+import org.broadinstitute.gatk.utils.interval.IntervalSetRule
+import org.broadinstitute.gatk.utils.variant.GATKVCFIndexType
+import org.broadinstitute.gatk.tools.walkers.haplotypecaller.ReferenceConfidenceMode
 
 // based on /humgen/gsa-hpprojects/dev/rpoplin/singleSampleHC/SingleSampleHC_vs_JointCallingUG.scala
 
@@ -141,7 +141,7 @@ class HC_GVCF_Indices extends QScript {
     this.stand_emit_conf = 30.0
     this.minPruning = 4
     this.maxNumHaplotypesInPopulation = 200
-    this.ERC = org.broadinstitute.sting.gatk.walkers.haplotypecaller.HaplotypeCaller.ReferenceConfidenceMode.GVCF
+    this.ERC = org.broadinstitute.gatk.tools.walkers.haplotypecaller.HaplotypeCaller.ReferenceConfidenceMode.GVCF
     this.max_alternate_alleles = 3
     this.analysisName = "HC_%s_%d".format(indexType, binSize)
     this.A = List("DepthPerSampleHC", "StrandBiasBySample")

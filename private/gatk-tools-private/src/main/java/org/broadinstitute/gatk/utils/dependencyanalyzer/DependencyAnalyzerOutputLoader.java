@@ -44,7 +44,7 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.utils.dependencyanalyzer;
+package org.broadinstitute.gatk.utils.dependencyanalyzer;
 
 
 import java.io.File;
@@ -94,7 +94,7 @@ public class DependencyAnalyzerOutputLoader {
      * Determines whether the supplied class was found to have compile-time dependencies according to the
      * dependency analyzer results.
      *
-     * @param className fully-qualified class name as a String (eg., "org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper")
+     * @param className fully-qualified class name as a String (eg., "org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotyper")
      * @return true if the class was found to have compile-time dependencies by the dependency analyzer, otherwise false
      * @throws IllegalArgumentException if the supplied class was not present in the dependency analyzer output
      */
@@ -111,7 +111,7 @@ public class DependencyAnalyzerOutputLoader {
      * Determines whether the supplied classes were found to have compile-time dependencies according to the
      * dependency analyzer results.
      *
-     * @param classNames List of fully-qualified class names as Strings (eg., "org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper")
+     * @param classNames List of fully-qualified class names as Strings (eg., "org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotyper")
      * @return A List of booleans, with the boolean in position n of the List corresponding to the dependency analysis
      *         result for the class in position n of the supplied classNames List.
      * @throws IllegalArgumentException if any of the supplied classes were not present in the dependency analyzer output

@@ -44,15 +44,15 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.HaplotypeCalling
+package org.broadinstitute.gatk.queue.qscripts.HaplotypeCalling
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.utils.text.XReadLines
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.utils.text.XReadLines
 import collection.JavaConversions._
-import org.broadinstitute.sting.utils.{GenomeLoc, GenomeLocParser}
-import org.broadinstitute.sting.gatk.datasources.reference.ReferenceDataSource
-import org.broadinstitute.sting.queue.function.QFunction
+import org.broadinstitute.gatk.utils.{GenomeLoc, GenomeLocParser}
+import org.broadinstitute.gatk.engine.datasources.reference.ReferenceDataSource
+import org.broadinstitute.gatk.queue.function.QFunction
 import scala.math._
 import java.io.File
 
@@ -112,8 +112,8 @@ class HaplotypeCallerValidation extends QScript {
       this.input_file = samples.reverse.map(s => {if (sampleToBamSM.contains(s)) sampleToBamSM(s).bam else throw new IllegalArgumentException("Sample " + s + " not found in " + sample_bam_SM)})
       this.out = name + ".UG.vcf"
 
-      this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
-      this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+      this.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+      this.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     }
 
     def createRuns(runsFile: File) = {
@@ -159,7 +159,7 @@ class HaplotypeCallerValidation extends QScript {
           pbtRun.intervalsString = ugRun.intervalsString
           pbtRun.FatherAlleleFirst = true
           pbtRun.ped = List(pedFile)
-          pbtRun.pedigreeValidationType = org.broadinstitute.sting.gatk.samples.PedigreeValidationType.STRICT
+          pbtRun.pedigreeValidationType = org.broadinstitute.gatk.engine.samples.PedigreeValidationType.STRICT
           pbtRun.out = swapExt(ugRun.out, ".vcf", "+PBT.vcf")
           pbtRun.MendelianViolationsFile = swapExt(ugRun.out, ".vcf", "+PBT.violations.txt")
           add(pbtRun)

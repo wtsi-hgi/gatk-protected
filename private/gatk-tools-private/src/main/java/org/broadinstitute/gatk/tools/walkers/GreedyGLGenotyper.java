@@ -44,21 +44,23 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers;
+package org.broadinstitute.gatk.tools.walkers;
 
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Input;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.commandline.RodBinding;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
-import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.gatk.engine.walkers.RodWalker;
+import org.broadinstitute.gatk.engine.walkers.TreeReducible;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.Input;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.utils.commandline.RodBinding;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedArgumentCollection;
+import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotypingEngine;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.SampleUtils;
+import org.broadinstitute.gatk.utils.variant.GATKVCFUtils;
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils;
 import htsjdk.variant.vcf.VCFHeader;
 import htsjdk.variant.vcf.VCFHeaderLine;
 import htsjdk.variant.variantcontext.GenotypesContext;
@@ -71,7 +73,7 @@ import htsjdk.variant.vcf.VCFUtils;
 import java.util.*;
 
 
-public class GreedyGLGenotyper extends RodWalker<Integer, Integer>  implements TreeReducible<Integer> {
+public class GreedyGLGenotyper extends RodWalker<Integer, Integer> implements TreeReducible<Integer> {
 
     @Output(doc="File to which variants should be written")
     protected VariantContextWriter vcfWriter = null;

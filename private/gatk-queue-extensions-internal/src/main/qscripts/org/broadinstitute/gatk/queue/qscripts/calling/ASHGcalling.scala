@@ -44,17 +44,17 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
 import htsjdk.samtools.reference.FastaSequenceFile
-import org.broadinstitute.sting.gatk.downsampling.DownsampleType
-import org.broadinstitute.sting.pipeline.Pipeline
-import org.broadinstitute.sting.gatk.DownsampleType
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.samtools._
-import org.broadinstitute.sting.queue.{QException, QScript}
+import org.broadinstitute.gatk.engine.downsampling.DownsampleType
+import org.broadinstitute.gatk.utils.pipeline.Pipeline
+import org.broadinstitute.gatk.tools.DownsampleType
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.samtools._
+import org.broadinstitute.gatk.queue.{QException, QScript}
 import collection.JavaConversions._
-import org.broadinstitute.sting.utils.yaml.YamlUtils
+import org.broadinstitute.gatk.utils.yaml.YamlUtils
 
 class ASHGcalling extends QScript {
   qscript =>
@@ -130,8 +130,8 @@ class ASHGcalling extends QScript {
     combineVariants = new CombineVariants with CommandLineGATKArgs
     combineVariants.rodBind = vcfChunks
     combineVariants.out = new TaggedFile(qscript.baseName + ".chr" + qscript.chr.toString + ".filtered.vcf", "vcf")
-    combineVariants.variantmergeoption = org.broadinstitute.sting.gatk.contexts.variantcontext.VariantContextUtils.VariantMergeType.UNION
-    combineVariants.genotypemergeoption = org.broadinstitute.sting.gatk.contexts.variantcontext.VariantContextUtils.GenotypeMergeType.UNSORTED
+    combineVariants.variantmergeoption = org.broadinstitute.gatk.engine.contexts.variantcontext.VariantContextUtils.VariantMergeType.UNION
+    combineVariants.genotypemergeoption = org.broadinstitute.gatk.engine.contexts.variantcontext.VariantContextUtils.GenotypeMergeType.UNSORTED
     combineVariants.setKey = "null"
     add(combineVariants)
     */
@@ -208,7 +208,7 @@ class ASHGcalling extends QScript {
     call.standard_min_confidence_threshold_for_emitting = 30
     call.min_mapping_quality_score = 20
     call.min_base_quality_score = 20
-    call.pnrm = org.broadinstitute.sting.playground.gatk.walkers.genotyper.AlleleFrequencyCalculationModel.Model.GRID_SEARCH
+    call.pnrm = org.broadinstitute.gatk.playground.gatk.walkers.genotyper.AlleleFrequencyCalculationModel.Model.GRID_SEARCH
     call.jobName = baseName + "call"
     //call.fileSystemUsage = "iodine"
 

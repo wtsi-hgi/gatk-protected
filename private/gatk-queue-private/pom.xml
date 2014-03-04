@@ -3,31 +3,31 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.broadinstitute.sting</groupId>
-        <artifactId>sting-aggregator</artifactId>
+        <groupId>org.broadinstitute.gatk</groupId>
+        <artifactId>gatk-aggregator</artifactId>
         <version>3.2-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
-    <artifactId>queue-private</artifactId>
+    <artifactId>gatk-queue-private</artifactId>
     <packaging>jar</packaging>
-    <name>Queue Private</name>
+    <name>GATK Queue Private</name>
 
     <properties>
-        <sting.basedir>${project.basedir}/../..</sting.basedir>
-        <sting.packagetests.artifactId>queue-package</sting.packagetests.artifactId>
+        <gatk.basedir>${project.basedir}/../..</gatk.basedir>
+        <gatk.packagetests.artifactId>gatk-queue-package-internal</gatk.packagetests.artifactId>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>gatk-private</artifactId>
+            <artifactId>gatk-tools-private</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>queue-framework</artifactId>
+            <artifactId>gatk-queue</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -38,7 +38,7 @@
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>gatk-framework</artifactId>
+            <artifactId>gatk-tools-public</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>
@@ -46,21 +46,9 @@
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>queue-framework</artifactId>
+            <artifactId>gatk-queue</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.caliper</groupId>
-            <artifactId>caliper</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

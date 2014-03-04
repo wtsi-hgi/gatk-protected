@@ -44,12 +44,12 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import org.broadinstitute.sting.commandline.Hidden
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
+import org.broadinstitute.gatk.utils.commandline.Hidden
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.tools.phonehome.GATKRunReport
 
 
   // ToDos:
@@ -135,8 +135,8 @@ class Exome_call_with_1000G_samples extends QScript {
     this.input_file :+= b
     this.rodBind :+= RodBind("dbsnp", "VCF", dbSNP_b37)
     this.out = v
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
-    this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+    this.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+    this.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
   }
 
   // 3.) Variant Quality Score Recalibration - Generate Recalibration table

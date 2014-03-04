@@ -44,19 +44,19 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.genotyper;
+package org.broadinstitute.gatk.tools.walkers.genotyper;
 
-import org.broadinstitute.sting.commandline.ArgumentCollection;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.downsampling.DownsampleType;
-import org.broadinstitute.sting.gatk.iterators.ReadTransformer;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.baq.BAQ;
-import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.commandline.ArgumentCollection;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.downsampling.DownsampleType;
+import org.broadinstitute.gatk.engine.iterators.ReadTransformer;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.walkers.*;
+import org.broadinstitute.gatk.utils.SampleUtils;
+import org.broadinstitute.gatk.utils.baq.BAQ;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import htsjdk.variant.vcf.VCFConstants;
@@ -125,7 +125,7 @@ public class UGCalcLikelihoods extends LocusWalker<List<VariantCallContext>, Int
             useTrackers.add(tracker);
 
         for (RefMetaDataTracker t : useTrackers) {
-            final Map<String, org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap> perReadAlleleLikelihoodMap = new HashMap<String, org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap>();
+            final Map<String, org.broadinstitute.gatk.utils.genotyper.PerReadAlleleLikelihoodMap> perReadAlleleLikelihoodMap = new HashMap<String, org.broadinstitute.gatk.utils.genotyper.PerReadAlleleLikelihoodMap>();
             VariantContext call = UG_engine.calculateLikelihoods(t, refContext, rawContext, perReadAlleleLikelihoodMap);
             if (call != null)
                 vccList.add(new VariantCallContext(call, true));

@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts
+package org.broadinstitute.gatk.queue.qscripts.pipeline
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.function.{RetryMemoryLimit, ListWriterFunction}
-import org.broadinstitute.sting.queue.extensions.gatk.{CommandLineGATK, PrintReads}
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.function.{RetryMemoryLimit, ListWriterFunction}
+import org.broadinstitute.gatk.queue.extensions.gatk.{CommandLineGATK, PrintReads}
 
 class MergeBams extends QScript {
 
@@ -103,7 +103,7 @@ class MergeBams extends QScript {
 
         trait ChromosomeIntervals extends CommandLineGATKArgs{
           this.intervalsString :+= chr
-          this.interval_set_rule = org.broadinstitute.sting.utils.interval.IntervalSetRule.INTERSECTION
+          this.interval_set_rule = org.broadinstitute.gatk.utils.interval.IntervalSetRule.INTERSECTION
         }
 
         bamGroupNumber = 0

@@ -26,7 +26,7 @@ from net.sf.picard.analysis import AlignmentSummaryMetrics,InsertSizeMetrics
 from net.sf.picard.analysis.directed import HsMetrics
 from net.sf.picard.io import IoUtil
 from net.sf.picard.metrics import MetricsFile
-from net.sf.picard.util import TabbedTextFileWithHeaderParser
+from net.sf.htsjdk.samtools.util import TabbedTextFileWithHeaderParser
 
 import generate_preqc_database
 

@@ -44,32 +44,32 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.misc.intronloss;
+package org.broadinstitute.gatk.tools.walkers.misc.intronloss;
 
 import htsjdk.samtools.fastq.FastqRecord;
 import htsjdk.samtools.fastq.FastqWriter;
 import htsjdk.samtools.fastq.FastqWriterFactory;
 import htsjdk.tribble.Feature;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Input;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.commandline.RodBinding;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportColumn;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
-import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
-import org.broadinstitute.sting.gatk.walkers.RefWalker;
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.Input;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.utils.commandline.RodBinding;
+import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.report.GATKReport;
+import org.broadinstitute.gatk.engine.report.GATKReportColumn;
+import org.broadinstitute.gatk.engine.report.GATKReportTable;
+import org.broadinstitute.gatk.utils.codecs.refseq.RefSeqFeature;
+import org.broadinstitute.gatk.engine.walkers.RefWalker;
+import org.broadinstitute.gatk.utils.BaseUtils;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.QualityUtils;
+import org.broadinstitute.gatk.utils.collections.Pair;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.text.XReadLines;
 
 import java.io.File;
 import java.util.Arrays;
@@ -169,7 +169,7 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
                     }
                 }
             } catch ( Exception e ) {
-                throw new ReviewedStingException("Exception: ",e);
+                throw new ReviewedGATKException("Exception: ",e);
             }
 
             logger.debug(Arrays.deepToString(org.apache.commons.lang.ArrayUtils.toObject(insertSizeDistribution)));

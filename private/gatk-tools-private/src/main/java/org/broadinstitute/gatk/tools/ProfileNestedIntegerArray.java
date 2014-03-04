@@ -44,20 +44,20 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.tools;
+package org.broadinstitute.gatk.tools;
 
 import htsjdk.samtools.util.PeekableIterator;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.CommandLineProgram;
-import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.sting.utils.collections.LoggingNestedIntegerArray;
-import org.broadinstitute.sting.utils.collections.LoggingNestedIntegerArray.NestedIntegerArrayOperation;
-import org.broadinstitute.sting.utils.collections.NestedIntegerArray;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.recalibration.RecalDatum;
-import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.CommandLineProgram;
+import org.broadinstitute.gatk.utils.SimpleTimer;
+import org.broadinstitute.gatk.utils.collections.LoggingNestedIntegerArray;
+import org.broadinstitute.gatk.utils.collections.LoggingNestedIntegerArray.NestedIntegerArrayOperation;
+import org.broadinstitute.gatk.utils.collections.NestedIntegerArray;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.recalibration.RecalDatum;
+import org.broadinstitute.gatk.utils.text.XReadLines;
 
 import java.io.File;
 import java.util.*;
@@ -190,7 +190,7 @@ public class ProfileNestedIntegerArray extends CommandLineProgram {
 
             threadPool.shutdown();
             if ( ! threadPool.awaitTermination(300, TimeUnit.SECONDS) ) {
-                throw new ReviewedStingException("Final tasks in thread pool did not complete within a reasonable amount of time");
+                throw new ReviewedGATKException("Final tasks in thread pool did not complete within a reasonable amount of time");
             }
 
             logger.info(String.format("Max observed enqueued operations: %d\tAverage # of enqueued operations: %.2f",
@@ -198,7 +198,7 @@ public class ProfileNestedIntegerArray extends CommandLineProgram {
         }
         catch ( InterruptedException e ) {
             threadPool.shutdownNow();
-            throw new ReviewedStingException("Thread interrupted during execution");
+            throw new ReviewedGATKException("Thread interrupted during execution");
         }
     }
 
@@ -256,7 +256,7 @@ public class ProfileNestedIntegerArray extends CommandLineProgram {
 
             NestedIntegerArray<RecalDatum> array = arrays.get(arrayLabel);
             if ( array == null ) {
-                throw new ReviewedStingException(String.format("Attempted to access non-existent array %s", arrayLabel));
+                throw new ReviewedGATKException(String.format("Attempted to access non-existent array %s", arrayLabel));
             }
 
             switch ( operationType ) {

@@ -44,14 +44,14 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.features.maf;
+package org.broadinstitute.gatk.engine.features.maf;
 
 import org.apache.log4j.Logger;
 import htsjdk.tribble.AsciiFeatureCodec;
 import htsjdk.tribble.Feature;
 import htsjdk.tribble.readers.LineIterator;
-import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
 
 import java.lang.reflect.Field;
 import java.util.*;
@@ -111,7 +111,7 @@ public class MafCodec extends AsciiFeatureCodec<MafFeature> {
                  }
             }
          } catch (IllegalAccessException e) {
-             throw new StingException("Error in MAFCodec when trying to introspect itself, this is probably a BUG",e);
+             throw new GATKException("Error in MAFCodec when trying to introspect itself, this is probably a BUG",e);
          }
      }
 

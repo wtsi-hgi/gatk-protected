@@ -44,12 +44,12 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotypingEngine, GenotypeLikelihoodsCalculationModel}
-import org.broadinstitute.sting.gatk.downsampling.DownsampleType
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.tools.walkers.genotyper.{UnifiedGenotypingEngine, GenotypeLikelihoodsCalculationModel}
+import org.broadinstitute.gatk.engine.downsampling.DownsampleType
 
 /**
  * Created by IntelliJ IDEA.
@@ -124,7 +124,7 @@ class LargeScaleValidationCallingSingle extends QScript {
 
     this.intervals :+= new File(allelesFile)
     if(this.intervals.length + this.intervalsString.length > 1) {
-      this.isr =  org.broadinstitute.sting.utils.interval.IntervalSetRule.INTERSECTION
+      this.isr =  org.broadinstitute.gatk.utils.interval.IntervalSetRule.INTERSECTION
       this.logger.info("Setting IntervalSetRule to INTERSECTION")
     }
 

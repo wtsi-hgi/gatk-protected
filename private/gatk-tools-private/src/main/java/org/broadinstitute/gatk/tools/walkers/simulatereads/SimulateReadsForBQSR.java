@@ -44,37 +44,37 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.simulatereads;
+package org.broadinstitute.gatk.tools.walkers.simulatereads;
 
 import cern.jet.random.Poisson;
 import cern.jet.random.engine.MersenneTwister;
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMProgramRecord;
 import htsjdk.samtools.SAMReadGroupRecord;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.RefWalker;
-import org.broadinstitute.sting.gatk.walkers.Reference;
-import org.broadinstitute.sting.gatk.walkers.Window;
-import org.broadinstitute.sting.utils.QualityUtils;
-import org.broadinstitute.sting.utils.sam.GATKSAMReadGroupRecord;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
-import org.broadinstitute.sting.utils.text.TextFormattingUtils;
-import org.broadinstitute.sting.utils.BaseUtils;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.io.GATKSAMFileWriter;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.walkers.RefWalker;
+import org.broadinstitute.gatk.engine.walkers.Reference;
+import org.broadinstitute.gatk.engine.walkers.Window;
+import org.broadinstitute.gatk.utils.QualityUtils;
+import org.broadinstitute.gatk.utils.sam.GATKSAMReadGroupRecord;
+import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
+import org.broadinstitute.gatk.utils.text.TextFormattingUtils;
+import org.broadinstitute.gatk.utils.BaseUtils;
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
-import org.broadinstitute.sting.utils.collections.Pair;
+import org.broadinstitute.gatk.utils.collections.Pair;
 
 import java.util.*;
 
 @Reference(window=@Window(start=-200,stop=200))
 public class SimulateReadsForBQSR extends RefWalker<Integer, Integer> {
     @Output(doc="Write output to this BAM filename instead of STDOUT")
-    StingSAMFileWriter out;
+    GATKSAMFileWriter out;
 
     @Argument(fullName="nSamples", shortName="NS", doc="Number of samples to simulate", required=false)
     public int nSamples = 1;
@@ -157,8 +157,8 @@ public class SimulateReadsForBQSR extends RefWalker<Integer, Integer> {
         header.setReadGroups(sampleRGs);
 
         final SAMProgramRecord programRecord = new SAMProgramRecord(PROGRAM_RECORD_NAME);
-        final ResourceBundle headerInfo = TextFormattingUtils.loadResourceBundle("StingText");
-        programRecord.setProgramVersion(headerInfo.getString("org.broadinstitute.sting.gatk.version"));
+        final ResourceBundle headerInfo = TextFormattingUtils.loadResourceBundle("GATKText");
+        programRecord.setProgramVersion(headerInfo.getString("org.broadinstitute.gatk.tools.version"));
         programRecord.setCommandLine(getToolkit().createApproximateCommandLineArgumentString(getToolkit(), this));
         header.setProgramRecords(Arrays.asList(programRecord));
 

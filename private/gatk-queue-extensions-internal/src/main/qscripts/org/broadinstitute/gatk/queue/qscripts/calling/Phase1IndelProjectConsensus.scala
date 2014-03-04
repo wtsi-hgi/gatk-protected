@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.gatk.TaggedFile._
-import org.broadinstitute.sting.queue.{QException, QScript}
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.gatk.TaggedFile._
+import org.broadinstitute.gatk.queue.{QException, QScript}
 
 class Phase1IndelProjectConsensus extends QScript {
   qscript =>
@@ -113,11 +113,11 @@ class Phase1IndelProjectConsensus extends QScript {
     callIndels.dcov = 50
     callIndels.stand_call_conf = 4.0
     callIndels.stand_emit_conf = 4.0
-    callIndels.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
+    callIndels.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.OFF
     callIndels.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" +baseName + ".phase1.chr" + chr + "." + subJobNumber + ".raw.indels"
-    callIndels.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
-    callIndels.genotyping_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
-    callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    callIndels.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
+    callIndels.genotyping_mode = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
+    callIndels.out_mode = org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
     callIndels.alleles = qscript.indelAlleles
     callIndels.dbsnp = qscript.dbSNP
     //callIndels.A ++= List("TechnologyComposition")

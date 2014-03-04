@@ -8,9 +8,9 @@
 # Outputs a Java properties file, with each key/value pair indicating whether a walker has dependencies
 # on any of the changed classes. Example output file contents:
 #
-#     org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper=true
-#     org.broadinstitute.sting.gatk.walkers.haplotypecaller.HaplotypeCaller=true
-#     org.broadinstitute.sting.gatk.walkers.readutils.PrintReads=false
+#     org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotyper=true
+#     org.broadinstitute.gatk.tools.walkers.haplotypecaller.HaplotypeCaller=true
+#     org.broadinstitute.gatk.tools.walkers.readutils.PrintReads=false
 #
 # Prerequisites:
 #     -Must be run from the root directory of a clone of one of our git repositories.
@@ -21,9 +21,9 @@
 #        walker_file: A file containing a list of the walker classes to analyze, one per line. Walker class names must
 #                     be fully-qualified.
 #                         Example:
-#                         org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper
-#                         org.broadinstitute.sting.gatk.walkers.haplotypecaller.HaplotypeCaller
-#                         org.broadinstitute.sting.gatk.walkers.readutils.PrintReads
+#                         org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotyper
+#                         org.broadinstitute.gatk.tools.walkers.haplotypecaller.HaplotypeCaller
+#                         org.broadinstitute.gatk.tools.walkers.readutils.PrintReads
 #
 #        output_file: File to which to write the results. Results will be formatted as discussed above.
 #
@@ -39,7 +39,7 @@
 #                                         other than a Java class, such as a QScript. Each file must be
 #                                         provided as a relative path from the root of a git clone. Eg.,
 #
-#                                         private/scala/qscript/org/broadinstitute/sting/queue/qscripts/pipeline/GeneralCallingPipeline.scala
+#                                         private/scala/qscript/org/broadinstitute/gatk/queue/qscripts/pipeline/GeneralCallingPipeline.scala
 #
 # Author: David Roazen
 #

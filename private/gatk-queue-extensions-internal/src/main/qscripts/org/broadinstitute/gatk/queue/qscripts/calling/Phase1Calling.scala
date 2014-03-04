@@ -44,17 +44,17 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
 import htsjdk.samtools.reference.FastaSequenceFile
-import org.broadinstitute.sting.gatk.downsampling.DownsampleType
-import org.broadinstitute.sting.pipeline.Pipeline
-import org.broadinstitute.sting.gatk.DownsampleType
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.samtools._
-import org.broadinstitute.sting.queue.{QException, QScript}
+import org.broadinstitute.gatk.engine.downsampling.DownsampleType
+import org.broadinstitute.gatk.utils.pipeline.Pipeline
+import org.broadinstitute.gatk.tools.DownsampleType
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.samtools._
+import org.broadinstitute.gatk.queue.{QException, QScript}
 import collection.JavaConversions._
-import org.broadinstitute.sting.utils.yaml.YamlUtils
+import org.broadinstitute.gatk.utils.yaml.YamlUtils
 
 class Phase1Calling extends QScript {
   qscript =>
@@ -131,7 +131,7 @@ class Phase1Calling extends QScript {
       call.stand_emit_conf = 4.0
       call.input_file :+= bamList
       call.out = rawCalls
-      call.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+      call.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
       call.analysisName = baseName + "_UG"
 
       var filter = new VariantFiltration with CommandLineGATKArgs
@@ -168,7 +168,7 @@ class Phase1Calling extends QScript {
       vr.intervalsString ++= List(qscript.intervals)
       vr.ignoreFilter ++= List("HARD_TO_VALIDATE")
       vr.target_titv = 2.3
-      vr.sm = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibrator.SelectionMetricType.TRUTH_SENSITIVITY
+      vr.sm = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibrator.SelectionMetricType.TRUTH_SENSITIVITY
       vr.tranche ++= List("0.1", "1.0", "2.0", "3.0", "5.0", "10.0", "100.0")
       vr.out = recalibratedCalls
       vr.priorDBSNP = 10.0

@@ -44,27 +44,27 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.diagnostics;
+package org.broadinstitute.gatk.tools.walkers.diagnostics;
 
 import htsjdk.samtools.SAMReadGroupRecord;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.ArgumentCollection;
-import org.broadinstitute.sting.commandline.Gather;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.arguments.DbsnpArgumentCollection;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportGatherer;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
-import org.broadinstitute.sting.gatk.walkers.LocusWalker;
-import org.broadinstitute.sting.gatk.walkers.PartitionBy;
-import org.broadinstitute.sting.gatk.walkers.PartitionType;
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.pileup.ReadBackedPileup;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.ArgumentCollection;
+import org.broadinstitute.gatk.utils.commandline.Gather;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.engine.arguments.DbsnpArgumentCollection;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.report.GATKReport;
+import org.broadinstitute.gatk.engine.report.GATKReportGatherer;
+import org.broadinstitute.gatk.engine.report.GATKReportTable;
+import org.broadinstitute.gatk.engine.walkers.LocusWalker;
+import org.broadinstitute.gatk.engine.walkers.PartitionBy;
+import org.broadinstitute.gatk.engine.walkers.PartitionType;
+import org.broadinstitute.gatk.utils.BaseUtils;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.collections.Pair;
+import org.broadinstitute.gatk.utils.pileup.ReadBackedPileup;
 import htsjdk.variant.variantcontext.VariantContext;
 
 import java.io.PrintStream;

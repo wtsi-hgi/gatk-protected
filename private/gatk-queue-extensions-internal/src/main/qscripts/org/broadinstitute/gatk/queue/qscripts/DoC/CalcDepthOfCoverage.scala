@@ -44,14 +44,14 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.DoC
+package org.broadinstitute.gatk.queue.qscripts.DoC
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.commandline.Hidden
-import org.broadinstitute.sting.queue.util.VCF_BAM_utilities
-import org.broadinstitute.sting.queue.util.DoC._
-import org.broadinstitute.sting.gatk.walkers.coverage.CoverageUtils
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.utils.commandline.Hidden
+import org.broadinstitute.gatk.queue.util.VCF_BAM_utilities
+import org.broadinstitute.gatk.queue.extensions.gatk.DoC._
+import org.broadinstitute.gatk.tools.walkers.coverage.CoverageUtils
 
 class CalcDepthOfCoverage extends QScript {
   qscript =>

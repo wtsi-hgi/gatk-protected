@@ -44,10 +44,10 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
 import scala.io.Source._
 
 /**
@@ -153,7 +153,7 @@ class Downsampling extends QScript {
   case class snps (fraction: Double, outFile: File, nIntervals: Int) extends UnifiedGenotyper with CommandLineGATKArgs {
     this.memoryLimit = 6
     this.downsample_to_coverage = 600
-    this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+    this.genotype_likelihoods_model = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
     this.input_file :+= input
     this.rodBind :+= RodBind("dbsnp", "VCF", dbSNP)
     this.downsample_to_fraction = fraction

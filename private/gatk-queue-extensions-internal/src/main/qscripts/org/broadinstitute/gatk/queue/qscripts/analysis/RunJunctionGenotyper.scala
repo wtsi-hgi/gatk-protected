@@ -44,21 +44,21 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.analysis
+package org.broadinstitute.gatk.queue.qscripts.analysis
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.utils.baq.BAQ
-import org.broadinstitute.sting.queue.function.scattergather._
-import org.broadinstitute.sting.queue.function._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.utils.baq.BAQ
+import org.broadinstitute.gatk.queue.function.scattergather._
+import org.broadinstitute.gatk.queue.function._
 import java.io.File
-import org.broadinstitute.sting.utils.text.XReadLines
+import org.broadinstitute.gatk.utils.text.XReadLines
 import java.io.PrintStream
 import scala.collection.JavaConversions._
-import org.broadinstitute.sting.utils.interval.IntervalSetRule
-import org.broadinstitute.sting.commandline.Input._
-import org.broadinstitute.sting.commandline.{Output, Input, ArgumentSource}
-import org.broadinstitute.sting.commandline.Output._
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.gatk.utils.interval.IntervalSetRule
+import org.broadinstitute.gatk.utils.commandline.Input._
+import org.broadinstitute.gatk.utils.commandline.{Output, Input, ArgumentSource}
+import org.broadinstitute.gatk.utils.commandline.Output._
+import org.broadinstitute.gatk.queue.extensions.gatk._
 
 
 class RunJunctionGenotyper extends QScript {

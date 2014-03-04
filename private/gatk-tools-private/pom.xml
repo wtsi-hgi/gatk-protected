@@ -3,31 +3,25 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.broadinstitute.sting</groupId>
-        <artifactId>sting-aggregator</artifactId>
+        <groupId>org.broadinstitute.gatk</groupId>
+        <artifactId>gatk-aggregator</artifactId>
         <version>3.2-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
-    <artifactId>gatk-private</artifactId>
+    <artifactId>gatk-tools-private</artifactId>
     <packaging>jar</packaging>
-    <name>GATK Private</name>
+    <name>GATK Tools Private</name>
 
     <properties>
-        <sting.basedir>${project.basedir}/../..</sting.basedir>
-        <sting.packagetests.artifactId>gatk-package</sting.packagetests.artifactId>
+        <gatk.basedir>${project.basedir}/../..</gatk.basedir>
+        <gatk.packagetests.artifactId>gatk-package-internal</gatk.packagetests.artifactId>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>gatk-framework</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>gatk-protected</artifactId>
+            <artifactId>gatk-tools-protected</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -38,15 +32,9 @@
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>gatk-framework</artifactId>
+            <artifactId>gatk-tools-public</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -80,7 +68,6 @@
                 </executions>
             </plugin>
             <plugin>
-                <!-- TODO: All tests require access to private. For now. -->
                 <groupId>com.pyx4j</groupId>
                 <artifactId>maven-junction-plugin</artifactId>
                 <executions>

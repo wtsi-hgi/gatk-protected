@@ -44,17 +44,17 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
-import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.queue.function._
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.tools.phonehome.GATKRunReport
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.queue.function._
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
 import htsjdk.variant.variantcontext.VariantContext
-import org.broadinstitute.sting.commandline.ClassType
+import org.broadinstitute.gatk.utils.commandline.ClassType
 
 class VQSR_aggregate_model extends QScript {
 
@@ -132,7 +132,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.
       this.resource :+= new TaggedFile( dbSNP_129, "known=true,training=false,truth=false,prior=2.0" )    // prior=6.0 on the bast practices v4
       this.resource :+= new TaggedFile( latestdbSNP, "known=false,training=false,truth=false,prior=7.0" )    // prior=6.0 on the bast practices v4
       this.use_annotation ++= List("QD", "FS", "ReadPosRankSum", "MQRankSum", "MQ", "HaplotypeScore", "InbreedingCoeff")
-      this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+      this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
       this.maxGaussians = 6
       this.maxNumTrainingData = 4000000
       this.analysisName = "VQSR"
@@ -144,7 +144,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.
       this.resource :+= new TaggedFile( axiom_good, "known=false,training=true,truth=false,prior=8.0" )	// not part of the bast practices v4
       this.resource :+= new TaggedFile( axiom_bad, "bad=true" )	// not part of the bast practices v4
       this.resource :+= new TaggedFile( latestdbSNP, "known=true,prior=2.0" )  						// not part of the bast practices v4
-      this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+      this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
       this.use_annotation ++= List("FS", "ReadPosRankSum", "MQRankSum", "QD", "InbreedingCoeff")
       this.maxGaussians = 6
       this.maxNumTrainingData = 4000000
@@ -165,7 +165,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.
     }
 
     class applySnpVQSR(vqsr: VariantRecalibrator, useUGAnnotations: Boolean) extends applyVQSRBase(vqsr) with BaseCommandArguments {
-      this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+      this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
       this.ts_filter_level = 99.7
       if(useUGAnnotations)
         this.ts_filter_level = 99.5
@@ -173,7 +173,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.
     }
 
     class applyIndelVQSR(vqsr: VariantRecalibrator, useUGAnnotations: Boolean) extends applyVQSRBase(vqsr) with BaseCommandArguments {
-      this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+      this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
       this.ts_filter_level = 99.3
       if(useUGAnnotations)
         this.ts_filter_level = 99.3

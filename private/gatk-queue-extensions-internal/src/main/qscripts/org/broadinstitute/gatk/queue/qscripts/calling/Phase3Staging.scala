@@ -44,12 +44,12 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
 import scala.io.Source
-import org.broadinstitute.sting.queue.function.RetryMemoryLimit
+import org.broadinstitute.gatk.queue.function.RetryMemoryLimit
 
 /**
  * Created with IntelliJ IDEA.
@@ -265,8 +265,8 @@ class Phase3Staging extends QScript{
     this.input_file = inputBamList
     this.memoryLimit = 3
     this.scatterCount = 10
-    this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+    this.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.stand_call_conf = 10
     this.stand_emit_conf = 10
     this.dcov = 200

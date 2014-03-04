@@ -44,10 +44,10 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.validation
+package org.broadinstitute.gatk.queue.qscripts.validation
 
 
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.gatk.queue.QScript
 
 class LargeScaleValidationSiteSelector extends QScript {
   qscript =>
@@ -76,8 +76,8 @@ class LargeScaleValidationSiteSelector extends QScript {
 
     // SNP selector: 8000 based on AF
     var AFSnps = new SiteSelector
-    AFSnps.selectType:+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.SNP
-    AFSnps.freqMode = org.broadinstitute.sting.gatk.walkers.validation.validationsiteselector.ValidationSiteSelector.AF_COMPUTATION_MODE.KEEP_AF_SPECTRUM
+    AFSnps.selectType:+= org.broadinstitute.gatk.utils.variantcontext.VariantContext.Type.SNP
+    AFSnps.freqMode = org.broadinstitute.gatk.tools.walkers.validation.validationsiteselector.ValidationSiteSelector.AF_COMPUTATION_MODE.KEEP_AF_SPECTRUM
     AFSnps.numSites = 8000
     AFSnps.out = qscript.outputDir + "/"+"ALL.wgs.%d_validation_sites_AF_distributed.snp.sites.vcf".format(AFSnps.numSites)
     AFSnps.jobOutputFile = AFSnps.out + ".out"
@@ -85,9 +85,9 @@ class LargeScaleValidationSiteSelector extends QScript {
 
     // SNP Selector: 8000 sampled uniformly, polymorphic in 8 validation samples
     var USnps = new SiteSelector
-    AFSnps.selectType:+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.SNP
+    AFSnps.selectType:+= org.broadinstitute.gatk.utils.variantcontext.VariantContext.Type.SNP
     USnps.numSites = 8000
-    USnps.freqMode = org.broadinstitute.sting.gatk.walkers.validation.validationsiteselector.ValidationSiteSelector.AF_COMPUTATION_MODE.UNIFORM
+    USnps.freqMode = org.broadinstitute.gatk.tools.walkers.validation.validationsiteselector.ValidationSiteSelector.AF_COMPUTATION_MODE.UNIFORM
     USnps.sample_file:+= qscript.sampleFile
     USnps.out = qscript.outputDir + "/"+"ALL.wgs.%d_validation_sites_Uniformly_distributed.snp.sites.vcf".format(USnps.numSites)
     USnps.jobOutputFile = USnps.out + ".out"
@@ -95,8 +95,8 @@ class LargeScaleValidationSiteSelector extends QScript {
 
     // Indel selector: 5000 based on AF
     var AFIndels = new SiteSelector
-    AFIndels.selectType:+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.INDEL
-    AFIndels.freqMode = org.broadinstitute.sting.gatk.walkers.validation.validationsiteselector.ValidationSiteSelector.AF_COMPUTATION_MODE.KEEP_AF_SPECTRUM
+    AFIndels.selectType:+= org.broadinstitute.gatk.utils.variantcontext.VariantContext.Type.INDEL
+    AFIndels.freqMode = org.broadinstitute.gatk.tools.walkers.validation.validationsiteselector.ValidationSiteSelector.AF_COMPUTATION_MODE.KEEP_AF_SPECTRUM
     AFIndels.numSites = 5000
     AFIndels.out = qscript.outputDir + "/"+"ALL.wgs.%d_validation_sites_AF_distributed.indels.sites.vcf".format(AFIndels.numSites)
     AFIndels.jobOutputFile = AFIndels.out + ".out"
@@ -105,9 +105,9 @@ class LargeScaleValidationSiteSelector extends QScript {
 
     // Indel Selector: 5000 sampled uniformly, polymorphic in 8 validation samples
     var UIndels = new SiteSelector
-    UIndels.selectType:+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.INDEL
+    UIndels.selectType:+= org.broadinstitute.gatk.utils.variantcontext.VariantContext.Type.INDEL
     UIndels.numSites = 5000
-    UIndels.freqMode = org.broadinstitute.sting.gatk.walkers.validation.validationsiteselector.ValidationSiteSelector.AF_COMPUTATION_MODE.UNIFORM
+    UIndels.freqMode = org.broadinstitute.gatk.tools.walkers.validation.validationsiteselector.ValidationSiteSelector.AF_COMPUTATION_MODE.UNIFORM
     UIndels.sample_file:+= qscript.sampleFile
     UIndels.out = qscript.outputDir + "/"+"ALL.wgs.%d_validation_sites_Uniformly_distributed.indels.sites.vcf".format(UIndels.numSites)
     UIndels.jobOutputFile = UIndels.out + ".out"
@@ -131,7 +131,7 @@ class LargeScaleValidationSiteSelector extends QScript {
 
 //      this.variant :+= new File("/humgen/1kg/DCC/ftp/release/20110521/ALL.chr" +chr.toString + ".merged_beagle_mach.20101123.snps_indels_svs.genotypes.vcf.gz")
     }
-    this.sampleMode = org.broadinstitute.sting.gatk.walkers.validation.validationsiteselector.ValidationSiteSelector.SAMPLE_SELECTION_MODE.POLY_BASED_ON_GT
+    this.sampleMode = org.broadinstitute.gatk.tools.walkers.validation.validationsiteselector.ValidationSiteSelector.SAMPLE_SELECTION_MODE.POLY_BASED_ON_GT
 
   }
 

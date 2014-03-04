@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.gatk.TaggedFile._
-import org.broadinstitute.sting.queue.{QException, QScript}
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.gatk.TaggedFile._
+import org.broadinstitute.gatk.queue.{QException, QScript}
 import scala.Some
 
 class Phase1ProjectConsensus extends QScript {
@@ -85,11 +85,11 @@ class Phase1ProjectConsensus extends QScript {
     callSnps.dcov = 50
     callSnps.stand_call_conf = 4.0
     callSnps.stand_emit_conf = 4.0
-    callSnps.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE
+    callSnps.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.RECALCULATE
     callSnps.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" +baseName + ".phase1.chr" + chr + "." + jobNumber + ".raw.snps"
-    callSnps.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
-    callSnps.genotyping_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
-    //callSnps.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    callSnps.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+    callSnps.genotyping_mode = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
+    //callSnps.out_mode = org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
     callSnps.alleles = qscript.alleles
     callSnps.dbsnp = qscript.dbSNP
     callSnps.sites_only = true
@@ -184,8 +184,8 @@ class Phase1ProjectConsensus extends QScript {
       clean.intervalsString :+= interval
       clean.targetIntervals = targetIntervals
       clean.out = cleanedBam
-      clean.consensusDeterminationModel = org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel.USE_READS
-      clean.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
+      clean.consensusDeterminationModel = org.broadinstitute.gatk.tools.walkers.indels.IndelRealigner.ConsensusDeterminationModel.USE_READS
+      clean.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.OFF
       clean.simplifyBAM = true
       clean.known :+= qscript.dindelCalls
       clean.jobName = baseTmpName + "clean"

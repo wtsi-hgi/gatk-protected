@@ -44,15 +44,15 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.genotyper;
+package org.broadinstitute.gatk.tools.walkers.genotyper;
 
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.HasGenomeLocation;
-import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
-import org.broadinstitute.sting.utils.codecs.table.TableFeature;
-import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.HasGenomeLocation;
+import org.broadinstitute.gatk.utils.codecs.refseq.RefSeqFeature;
+import org.broadinstitute.gatk.utils.codecs.table.TableFeature;
+import org.broadinstitute.gatk.utils.collections.Pair;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
 
 import java.util.*;
 
@@ -75,7 +75,7 @@ public class JunctionHypothesis implements Comparable, HasGenomeLocation {
 
     public JunctionHypothesis(String transcript, RefSeqFeature feature, List<Pair<Integer,Integer>> junctions, IndexedFastaSequenceFile refReader) {
         if ( ! transcript.equals(feature.getTranscriptUniqueGeneName()) ) {
-            throw new ReviewedStingException("Attempting to form a junction sequence for a RefSeq record whose feature name does not match");
+            throw new ReviewedGATKException("Attempting to form a junction sequence for a RefSeq record whose feature name does not match");
         }
         exons = new ArrayList<GenomeLoc>(feature.getExons()); // ensures same ordering as hypothesis
         Collections.sort(exons);
@@ -92,7 +92,7 @@ public class JunctionHypothesis implements Comparable, HasGenomeLocation {
                 String exonSeq = new String(refReader.getSubsequenceAt(first.getContig(),first.getStart(),first.getStop()).getBases());
                 seqBuilder.append(exonSeq);
             } else {
-                throw new ReviewedStingException("Attempting to form a junction sequence consisting of discontinous ending and starting exons");
+                throw new ReviewedGATKException("Attempting to form a junction sequence consisting of discontinous ending and starting exons");
             }
             last = junction.second;
         }

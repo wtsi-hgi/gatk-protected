@@ -44,25 +44,25 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.misc;
+package org.broadinstitute.gatk.tools.walkers.misc;
 
 import htsjdk.samtools.reference.ReferenceSequenceFileFactory;
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMSequenceDictionary;
-import org.broadinstitute.sting.alignment.bwa.BWAConfiguration;
-import org.broadinstitute.sting.alignment.bwa.BWTFiles;
-import org.broadinstitute.sting.alignment.bwa.c.BWACAligner;
-import org.broadinstitute.sting.commandline.Input;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.commandline.RodBinding;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.Reference;
-import org.broadinstitute.sting.gatk.walkers.RodWalker;
-import org.broadinstitute.sting.gatk.walkers.Window;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.codecs.table.TableFeature;
+import org.broadinstitute.gatk.engine.alignment.bwa.BWAConfiguration;
+import org.broadinstitute.gatk.engine.alignment.bwa.BWTFiles;
+import org.broadinstitute.gatk.engine.alignment.bwa.c.BWACAligner;
+import org.broadinstitute.gatk.utils.commandline.Input;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.utils.commandline.RodBinding;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.walkers.Reference;
+import org.broadinstitute.gatk.engine.walkers.RodWalker;
+import org.broadinstitute.gatk.engine.walkers.Window;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.codecs.table.TableFeature;
 
 import java.io.File;
 import java.io.PrintStream;

@@ -44,14 +44,14 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.filters;
+package org.broadinstitute.gatk.engine.filters;
 
 import htsjdk.samtools.SAMRecord;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
+import org.broadinstitute.gatk.utils.collections.Pair;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.utils.text.XReadLines;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -78,7 +78,7 @@ public class AddAberrantInsertTagFilter extends ReadFilter {
                 xrl = null;
             }
         } catch (FileNotFoundException e) {
-            throw new ReviewedStingException("File not found: "+aif.getName(),e);
+            throw new ReviewedGATKException("File not found: "+aif.getName(),e);
         }
 
         if ( xrl == null ) {

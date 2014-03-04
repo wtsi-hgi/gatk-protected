@@ -44,13 +44,13 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.queue.qscripts.dev
 
 import org.apache.commons.io.FilenameUtils
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
-import org.broadinstitute.sting.queue.function.ListWriterFunction
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.snpeff.SnpEff
+import org.broadinstitute.gatk.queue.function.ListWriterFunction
+import org.broadinstitute.gatk.queue.QScript
 import io.Source._
 import collection.JavaConversions._
 
@@ -160,14 +160,14 @@ class ReducedReadsCalling extends QScript {
 
     // to call both at once
     if ( CALL_TOGETHER ) {
-      call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+      call.genotype_likelihoods_model = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
       call.out = projectName + ".unfiltered.vcf"
       call.jobOutputFile = call.out + ".out"
       call.scatterCount = qscript.variantCallerScatterCount
       add(call)
 
       val selectSNPs = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
-      selectSNPs.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.SNP
+      selectSNPs.selectType :+= org.broadinstitute.gatk.utils.variantcontext.VariantContext.Type.SNP
       selectSNPs.variant = call.out
       selectSNPs.out = projectName + ".snps.unfiltered.vcf"
       selectSNPs.jobOutputFile = selectSNPs.out + ".out"
@@ -175,14 +175,14 @@ class ReducedReadsCalling extends QScript {
       add(selectSNPs)
 
       val selectIndels = new SelectVariants with CommandLineGATKArgs with ExpandedIntervals
-      selectIndels.selectType :+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.INDEL
+      selectIndels.selectType :+= org.broadinstitute.gatk.utils.variantcontext.VariantContext.Type.INDEL
       selectIndels.variant = call.out
       selectIndels.out = projectName + ".indels.unfiltered.vcf"
       selectIndels.jobOutputFile = selectIndels.out + ".out"
       indelsFile = selectIndels.out
       add(selectIndels)
     } else {
-      call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+      call.genotype_likelihoods_model = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
       call.out = projectName + ".snps.unfiltered.vcf"
       call.jobOutputFile = call.out + ".out"
       call.scatterCount = qscript.variantCallerScatterCount
@@ -193,7 +193,7 @@ class ReducedReadsCalling extends QScript {
       callIndels.input_file = call.input_file
       callIndels.dbsnp = call.dbsnp
       callIndels.downsample_to_coverage = call.downsample_to_coverage
-      callIndels.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
+      callIndels.genotype_likelihoods_model = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
       callIndels.max_alternate_alleles = 2
       callIndels.out = projectName + ".indels.unfiltered.vcf"
       callIndels.jobOutputFile = callIndels.out + ".out"
@@ -255,7 +255,7 @@ class ReducedReadsCalling extends QScript {
     val combineSNPsIndels = new CombineVariants with CommandLineGATKArgs with ExpandedIntervals
     combineSNPsIndels.variant :+= TaggedFile(filterIndels.out, "indels")
     combineSNPsIndels.variant :+= TaggedFile(filteredSNPsVcf, "snps")
-    combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    combineSNPsIndels.filteredrecordsmergetype = org.broadinstitute.gatk.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     combineSNPsIndels.assumeIdenticalSamples = true
     combineSNPsIndels.out = projectName + ".unannotated.vcf"
     combineSNPsIndels.jobOutputFile = combineSNPsIndels.out + ".out"

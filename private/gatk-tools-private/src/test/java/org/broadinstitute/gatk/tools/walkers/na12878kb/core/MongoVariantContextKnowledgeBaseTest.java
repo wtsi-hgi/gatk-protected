@@ -44,10 +44,10 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
+package org.broadinstitute.gatk.tools.walkers.na12878kb.core;
 
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.errors.MongoVariantContextException;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
 import org.testng.Assert;
@@ -183,7 +183,7 @@ public class MongoVariantContextKnowledgeBaseTest extends NA12878KnowledgeBaseTe
             makeBad(bads).setGt(new MongoGenotype(0, 0, -2, -1));
             return bads;
         } catch ( CloneNotSupportedException e ) {
-            throw new ReviewedStingException("Failed to make BADMVCs", e);
+            throw new ReviewedGATKException("Failed to make BADMVCs", e);
         }
     }
 

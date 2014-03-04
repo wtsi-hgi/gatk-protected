@@ -44,19 +44,19 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
+package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
 import htsjdk.samtools.SAMFileReader;
-import org.broadinstitute.sting.commandline.*;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.NA12878DBWalker;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.NA12878DBArgumentCollection;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.SiteIterator;
-import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.gatk.utils.commandline.*;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.report.GATKReport;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.NA12878DBWalker;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoVariantContext;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.NA12878DBArgumentCollection;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.SiteIterator;
+import org.broadinstitute.gatk.utils.variant.GATKVCFUtils;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 

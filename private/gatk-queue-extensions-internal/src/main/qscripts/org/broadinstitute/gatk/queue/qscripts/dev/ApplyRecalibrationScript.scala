@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import org.broadinstitute.sting.queue.extensions.gatk.ApplyRecalibration
-import org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk.ApplyRecalibration
+import org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection
+import org.broadinstitute.gatk.queue.QScript
 
 class ApplyRecalibrationScript extends QScript {
 
@@ -64,7 +64,7 @@ class ApplyRecalibrationScript extends QScript {
     add(AR())
   }
 
-  case class AR( ) extends org.broadinstitute.sting.queue.extensions.gatk.ApplyRecalibration {
+  case class AR( ) extends org.broadinstitute.gatk.queue.extensions.gatk.ApplyRecalibration {
     this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
     this.out = output
     this.input = i

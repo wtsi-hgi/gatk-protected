@@ -44,12 +44,12 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.utils.recalibration.covariates;
+package org.broadinstitute.gatk.utils.recalibration.covariates;
 
-import org.broadinstitute.sting.utils.recalibration.ReadCovariates;
-import org.broadinstitute.sting.gatk.walkers.bqsr.RecalibrationArgumentCollection;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.gatk.utils.recalibration.ReadCovariates;
+import org.broadinstitute.gatk.tools.walkers.bqsr.RecalibrationArgumentCollection;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
 
 /**
  * Binary covariate allows BQSR to recalibrate based on a binary covariate in the BAM file. This covariate should assume values of 1 and 0.

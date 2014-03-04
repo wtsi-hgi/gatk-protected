@@ -19,11 +19,11 @@
         <project.build.sourceEncoding>${sourceEncoding}</project.build.sourceEncoding>
         <project.reporting.outputEncoding>${sourceEncoding}</project.reporting.outputEncoding>
 
-        <sting.basedir>${project.basedir}/../..</sting.basedir>
+        <gatk.basedir>${project.basedir}/../..</gatk.basedir>
         <htsjdk.home>${project.basedir}/picard/htsjdk</htsjdk.home>
         <picard.home>${project.basedir}/picard</picard.home>
 
-        <sting.public.repo>${sting.basedir}/public/repo</sting.public.repo>
+        <gatk.public.repo>${gatk.basedir}/public/repo</gatk.public.repo>
 
         <broad.java6.home>/broad/software/free/Linux/redhat_5_x86_64/pkgs/oracle-java-jdk_1.6.0-35_x86_64</broad.java6.home>
 
@@ -223,7 +223,7 @@
                         <configuration>
                             <pomFile>${picard.pom.outputDirectory}/htsjdk.pom.xml</pomFile>
                             <file>${htsjdk.home}/dist/htsjdk-${htsjdk-version}.jar</file>
-                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
+                            <localRepositoryPath>${gatk.public.repo}</localRepositoryPath>
                         </configuration>
                     </execution>
                     <execution>
@@ -235,7 +235,7 @@
                         <configuration>
                             <pomFile>${picard.pom.outputDirectory}/picard.pom.xml</pomFile>
                             <file>${picard.home}/dist/picard-${picard-version}.jar</file>
-                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
+                            <localRepositoryPath>${gatk.public.repo}</localRepositoryPath>
                         </configuration>
                     </execution>
                 </executions>
@@ -256,7 +256,7 @@
                         </goals>
                         <phase>install</phase>
                         <configuration>
-                            <file>${sting.basedir}/public/sting-root/pom.xml</file>
+                            <file>${gatk.basedir}/public/sting-root/pom.xml</file>
                             <token>&lt;htsjdk.version&gt;.*&lt;/htsjdk.version&gt;</token>
                             <value>&lt;htsjdk.version&gt;${htsjdk-version}.${htsjdk.revision}&lt;/htsjdk.version&gt;</value>
                         </configuration>
@@ -268,7 +268,7 @@
                         </goals>
                         <phase>install</phase>
                         <configuration>
-                            <file>${sting.basedir}/public/sting-root/pom.xml</file>
+                            <file>${gatk.basedir}/public/sting-root/pom.xml</file>
                             <token>&lt;picard.version&gt;.*&lt;/picard.version&gt;</token>
                             <value>&lt;picard.version&gt;${picard-version}.${picard.revision}&lt;/picard.version&gt;</value>
                         </configuration>

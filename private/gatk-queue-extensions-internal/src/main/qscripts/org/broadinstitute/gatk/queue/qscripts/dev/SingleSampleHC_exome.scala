@@ -44,17 +44,17 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
-import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.queue.function._
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.engine.phonehome.GATKRunReport
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.queue.function._
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
 import htsjdk.variant.variantcontext.VariantContext
-import org.broadinstitute.sting.commandline.ClassType
+import org.broadinstitute.gatk.utils.commandline.ClassType
 
 class SingleSampleHC_exome extends QScript {
 
@@ -122,7 +122,7 @@ class SingleSampleHC_exome extends QScript {
     //this.minPruning = 4
     //this.maxNumHaplotypesInPopulation = 200
     this.dontTrimActiveRegions = true
-    this.ERC = org.broadinstitute.sting.gatk.walkers.haplotypecaller.ReferenceConfidenceMode.GVCF
+    this.ERC = org.broadinstitute.gatk.tools.walkers.haplotypecaller.ReferenceConfidenceMode.GVCF
     this.max_alternate_alleles = 2
     this.analysisName = "HC_SingleSampleCalling"
     this.A = List("DepthPerSampleHC", "StrandBiasBySample")
@@ -175,7 +175,7 @@ class SingleSampleHC_exome extends QScript {
 
     if ( useUGAnnotations )
       this.use_annotation ++= List("HaplotypeScore")
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
     this.analysisName = "VQSR"
   }
 
@@ -183,7 +183,7 @@ class SingleSampleHC_exome extends QScript {
   class indelRecal(indelVCF: String, useUGAnnotations: Boolean) extends VQSRBase(indelVCF) with BaseCommandArguments {
     this.resource :+= new TaggedFile( indelGoldStandardCallset, "known=false,training=true,truth=true,prior=12.0" ) // known=true on the bast practices v4
     this.resource :+= new TaggedFile( latestdbSNP, "known=true,prior=2.0" )  						// not part of the bast practices v4
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
     this.use_annotation ++= List("SOR", "ReadPosRankSum", "MQRankSum", "InbreedingCoeff")
     this.maxGaussians = 4
     this.analysisName = "VQSR"
@@ -203,7 +203,7 @@ class SingleSampleHC_exome extends QScript {
   }
 
   class applySnpVQSR(vqsr: VariantRecalibrator, useUGAnnotations: Boolean) extends applyVQSRBase(vqsr) with BaseCommandArguments {
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
     this.ts_filter_level = 99.7
     if(useUGAnnotations)
       this.ts_filter_level = 99.5
@@ -211,7 +211,7 @@ class SingleSampleHC_exome extends QScript {
   }
 
   class applyIndelVQSR(vqsr: VariantRecalibrator, useUGAnnotations: Boolean) extends applyVQSRBase(vqsr) with BaseCommandArguments {
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
     this.ts_filter_level = 99.3
     if(useUGAnnotations)
       this.ts_filter_level = 99.3

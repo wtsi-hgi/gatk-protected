@@ -44,17 +44,17 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
 import htsjdk.samtools.reference.FastaSequenceFile
-import org.broadinstitute.sting.gatk.downsampling.DownsampleType
-import org.broadinstitute.sting.pipeline.Pipeline
-import org.broadinstitute.sting.gatk.DownsampleType
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.samtools._
-import org.broadinstitute.sting.queue.{QException, QScript}
+import org.broadinstitute.gatk.engine.downsampling.DownsampleType
+import org.broadinstitute.gatk.utils.pipeline.Pipeline
+import org.broadinstitute.gatk.tools.DownsampleType
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.samtools._
+import org.broadinstitute.gatk.queue.{QException, QScript}
 import collection.JavaConversions._
-import org.broadinstitute.sting.utils.yaml.YamlUtils
+import org.broadinstitute.gatk.utils.yaml.YamlUtils
 
 class Phase1Cleaning extends QScript {
   qscript =>
@@ -130,7 +130,7 @@ class Phase1Cleaning extends QScript {
       clean.targetIntervals = targetIntervals
       clean.out = cleanedBam
       clean.doNotUseSW = true
-      clean.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE
+      clean.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.RECALCULATE
       clean.rodBind :+= RodBind("dbsnp", "VCF", qscript.dbSNP)
       clean.rodBind :+= RodBind("indels1", "VCF", qscript.dindelPilotCalls)
       clean.rodBind :+= RodBind("indels2", "VCF", qscript.dindelAFRCalls)

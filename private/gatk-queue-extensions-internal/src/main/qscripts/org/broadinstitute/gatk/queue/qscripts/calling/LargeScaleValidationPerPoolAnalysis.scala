@@ -44,7 +44,7 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
 /**
  * Created with IntelliJ IDEA.
@@ -53,8 +53,8 @@ package org.broadinstitute.sting.queue.qscripts.calling
  * Time: 11:47 AM
  * To change this template use File | Settings | File Templates.
  */
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
 import collection.immutable.HashMap
 
 class LargeScaleValidationPerPoolAnalysis extends QScript {

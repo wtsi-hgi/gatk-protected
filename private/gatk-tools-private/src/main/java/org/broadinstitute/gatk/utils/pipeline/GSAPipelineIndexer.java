@@ -44,16 +44,16 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.pipeline;
+package org.broadinstitute.gatk.utils.pipeline;
 
 import htsjdk.samtools.util.IOUtil;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.CommandLineProgram;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.CommandLineProgram;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.text.XReadLines;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -99,14 +99,14 @@ import java.util.Comparator;
  *
  * -Run with default settings:
  *
- *     java -classpath dist/GenomeAnalysisTK.jar org.broadinstitute.sting.pipeline.GSAPipelineIndexer
+ *     java -classpath dist/GenomeAnalysisTK.jar org.broadinstitute.gatk.utils.pipeline.GSAPipelineIndexer
  *
  * This produces an index of the DEFAULT_ROOT_DIRECTORY, replacing the path to that directory with
  * DEFAULT_WEB_ROOT in all URLs generated, and writing the output to XML file DEFAULT_OUTPUT_FILE.
  *
  * -Run with custom settings:
  *
- *     java -classpath dist/GenomeAnalysisTK.jar org.broadinstitute.sting.pipeline.GSAPipelineIndexer \
+ *     java -classpath dist/GenomeAnalysisTK.jar org.broadinstitute.gatk.utils.pipeline.GSAPipelineIndexer \
  *          --rootDirectory directory_to_index \
  *          --webRoot web_alias_for_directory_to_index \
  *          --outputFile path_to/output.xml
@@ -232,10 +232,10 @@ public class GSAPipelineIndexer extends CommandLineProgram {
             transformer.transform(xml, output);
         }
         catch ( TransformerConfigurationException e ) {
-            throw new ReviewedStingException("Unable to initialize the XML output transformer: " + e.getMessage());
+            throw new ReviewedGATKException("Unable to initialize the XML output transformer: " + e.getMessage());
         }
         catch ( TransformerException e ) {
-            throw new ReviewedStingException("An unrecoverable error occurred while writing the XML file: " + e.getMessage());
+            throw new ReviewedGATKException("An unrecoverable error occurred while writing the XML file: " + e.getMessage());
         }
     }
 
@@ -247,7 +247,7 @@ public class GSAPipelineIndexer extends CommandLineProgram {
             documentBuilder = documentBuilderFactory.newDocumentBuilder();
         }
         catch ( ParserConfigurationException e ) {
-            throw new ReviewedStingException("Unable to initialize the XML Document Builder: " + e.getMessage());
+            throw new ReviewedGATKException("Unable to initialize the XML Document Builder: " + e.getMessage());
         }
 
         return documentBuilder.newDocument();

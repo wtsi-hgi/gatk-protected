@@ -44,13 +44,13 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.techdev
+package org.broadinstitute.gatk.queue.qscripts.techdev
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.commandline.{Hidden, Input}
-import org.broadinstitute.sting.queue.extensions.picard.{PicardBamFunction, MergeSamFiles}
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.utils.commandline.{Hidden, Input}
+import org.broadinstitute.gatk.queue.extensions.picard.{PicardBamFunction, MergeSamFiles}
 import htsjdk.samtools.SAMFileHeader
-import org.broadinstitute.sting.queue.extensions.gatk.{CommandLineGATK, UnifiedGenotyper, HaplotypeCaller}
+import org.broadinstitute.gatk.queue.extensions.gatk.{CommandLineGATK, UnifiedGenotyper, HaplotypeCaller}
 
 class MoleculoPipeline extends QScript{
   qscript =>
@@ -156,7 +156,7 @@ class MoleculoPipeline extends QScript{
     this.sortOrder = SAMFileHeader.SortOrder.coordinate
   }
 
-  case class bwa (@Input inFQ: File, inRG: String, @Output outSAM: File, threads: Int) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs{
+  case class bwa (@Input inFQ: File, inRG: String, @Output outSAM: File, threads: Int) extends org.broadinstitute.gatk.queue.function.CommandLineFunction with ExternalCommonArgs{
     def commandLine = "bwa mem -M -t " + threads + " -R '" + inRG + "' " + reference + " " + inFQ + " > " + outSAM
     this.memoryLimit = 8
     this.nCoresRequest = threads
@@ -176,8 +176,8 @@ class MoleculoPipeline extends QScript{
     this.scatterCount = 100
     this.input_file :+= new File(inBam)
     this.o = new File(qscript.sampleName + ".ug.vcf")
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
-    this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+    this.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     this.analysisName = "UnifiedGenotyper"
   }
 

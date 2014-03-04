@@ -43,10 +43,10 @@
 *  7.6 Binding Effect; Headings. This Agreement shall be binding upon and inure to the benefit of the parties and their respective permitted successors and assigns. All headings are for convenience only and shall not affect the meaning of any provision of this Agreement.
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
-package org.broadinstitute.sting.tools;
+package org.broadinstitute.gatk.tools;
 
 import htsjdk.samtools.util.IOUtil;
-import org.broadinstitute.sting.gatk.walkers.bqsr.BQSRGatherer;
+import org.broadinstitute.gatk.tools.walkers.bqsr.BQSRGatherer;
 import picard.cmdline.CommandLineProgram;
 import picard.cmdline.Option;
 import picard.cmdline.StandardOptionDefinitions;

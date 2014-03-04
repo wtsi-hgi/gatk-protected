@@ -44,13 +44,13 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
+package org.broadinstitute.gatk.tools.walkers.na12878kb.core;
 
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.Mongo;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.utils.exceptions.StingException;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
 
 import java.net.UnknownHostException;
 import java.util.HashMap;
@@ -123,7 +123,7 @@ final public class MongoDBManager {
                 callsets = mongoDB.getCollection(locator.callsetsCollection);
                 consensus = mongoDB.getCollection(locator.consensusCollection);
             } catch (UnknownHostException e) {
-                throw new StingException(e.getMessage(), e);
+                throw new GATKException(e.getMessage(), e);
             }
         }
     }

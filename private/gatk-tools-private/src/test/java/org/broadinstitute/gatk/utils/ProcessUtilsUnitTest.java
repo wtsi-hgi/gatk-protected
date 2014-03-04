@@ -44,14 +44,14 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.utils;
+package org.broadinstitute.gatk.utils;
 
 
 // the imports for unit testing.
 
 
-import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.gatk.utils.BaseTest;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -70,7 +70,7 @@ public class ProcessUtilsUnitTest extends BaseTest {
         Assert.assertFalse(result == 0, "ProcessUtils tells me that my command which had a bad argument and should have returned not zero, did in fact return properly");
     }
 
-    @Test(expectedExceptions = ReviewedStingException.class)
+    @Test(expectedExceptions = ReviewedGATKException.class)
     public void testBadCommand() {
         final String goodLs = "asfdadsfadsfa " + b37KGReference;
         final int result = ProcessUtils.runCommandAndWait(goodLs);

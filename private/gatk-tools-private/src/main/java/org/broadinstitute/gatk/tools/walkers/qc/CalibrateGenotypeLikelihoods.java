@@ -44,30 +44,30 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.qc;
+package org.broadinstitute.gatk.tools.walkers.qc;
 
 import htsjdk.samtools.SAMReadGroupRecord;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Input;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.commandline.RodBinding;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContextUtils;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.gatk.walkers.genotyper.*;
-import org.broadinstitute.sting.utils.*;
-import org.broadinstitute.sting.utils.R.RScriptExecutor;
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.Input;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.utils.commandline.RodBinding;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContextUtils;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.datasources.rmd.ReferenceOrderedDataSource;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.walkers.*;
+import org.broadinstitute.gatk.tools.walkers.genotyper.*;
+import org.broadinstitute.gatk.utils.*;
+import org.broadinstitute.gatk.utils.R.RScriptExecutor;
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils;
 import htsjdk.variant.vcf.VCFConstants;
 import htsjdk.variant.vcf.VCFHeader;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.gga.GenotypingGivenAllelesUtils;
-import org.broadinstitute.sting.utils.io.Resource;
-import org.broadinstitute.sting.utils.variant.HomoSapiensConstants;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.gga.GenotypingGivenAllelesUtils;
+import org.broadinstitute.gatk.utils.io.Resource;
+import org.broadinstitute.gatk.utils.variant.HomoSapiensConstants;
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.GenotypeLikelihoods;
 import htsjdk.variant.variantcontext.GenotypeType;
@@ -457,7 +457,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
                     break;
 
                 if ( call == null )
-                    throw new ReviewedStingException("Unexpected genotyping failure " + sample + " at " + ref.getLocus());
+                    throw new ReviewedGATKException("Unexpected genotyping failure " + sample + " at " + ref.getLocus());
 
                 final Genotype rgGT = call.getGenotype(sample);
 

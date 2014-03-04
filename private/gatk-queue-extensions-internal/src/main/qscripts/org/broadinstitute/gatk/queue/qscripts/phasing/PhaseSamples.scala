@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.phasing
+package org.broadinstitute.gatk.queue.qscripts.phasing
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.util.VCF_BAM_utilities
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.util.VCF_BAM_utilities
 
 class PhaseSamples extends QScript {
   qscript =>
@@ -136,27 +136,27 @@ class PhaseSamples extends QScript {
     return buildTargets(samples, 0)
   }
 
-  class PhaseSamples(t: Target) extends org.broadinstitute.sting.queue.extensions.gatk.ReadBackedPhasing with CommandLineGATKArgs {
+  class PhaseSamples(t: Target) extends org.broadinstitute.gatk.queue.extensions.gatk.ReadBackedPhasing with CommandLineGATKArgs {
     this.rodBind :+= RodBind("variant", "VCF", qscript.masterCalls)
     this.out = t.phasedVCFFile
     this.input_file = t.bams
     this.sampleToPhase = t.samples
   }
 
-  class CombineVariants(vcfsToCombine: List[File]) extends org.broadinstitute.sting.queue.extensions.gatk.CombineVariants with CommandLineGATKArgs {
+  class CombineVariants(vcfsToCombine: List[File]) extends org.broadinstitute.gatk.queue.extensions.gatk.CombineVariants with CommandLineGATKArgs {
     for (vcf <- vcfsToCombine) {
       this.rodBind :+= RodBind(vcf.getName, "VCF", vcf)
     }
 
     // add the master call:
     this.rodBind :+= RodBind("master", "VCF", masterCalls)
-    this.variantMergeOptions = org.broadinstitute.sting.gatk.contexts.variantcontext.VariantContextUtils.VariantMergeType.MASTER
+    this.variantMergeOptions = org.broadinstitute.gatk.engine.contexts.variantcontext.VariantContextUtils.VariantMergeType.MASTER
 
     this.out = outputPhased
   }
 
-  class PhasingByACeval() extends org.broadinstitute.sting.queue.extensions.gatk.PhasingEval with CommandLineGATKArgs {
-    this.analysis = org.broadinstitute.sting.oneoffprojects.walkers.phasing.PhasingEval.Analysis.PHASING_BY_AC
+  class PhasingByACeval() extends org.broadinstitute.gatk.queue.extensions.gatk.PhasingEval with CommandLineGATKArgs {
+    this.analysis = org.broadinstitute.gatk.oneoffprojects.walkers.phasing.PhasingEval.Analysis.PHASING_BY_AC
 
     this.rodBind :+= RodBind(outputPhased.getName, "VCF", outputPhased)
 

@@ -44,10 +44,10 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors;
+package org.broadinstitute.gatk.tools.walkers.na12878kb.core.errors;
 
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoVariantContext;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
 
 /**
  * Exception specific to MongoVariantContext formatting issues
@@ -55,7 +55,7 @@ import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
  * Date: 11/21/12
  * Time: 9:45 AM
  */
-public class MongoVariantContextException extends ReviewedStingException {
+public class MongoVariantContextException extends ReviewedGATKException {
     final MongoVariantContext mongoVariantContext;
 
     public MongoVariantContextException(String msg, MongoVariantContext mongoVariantContext) {

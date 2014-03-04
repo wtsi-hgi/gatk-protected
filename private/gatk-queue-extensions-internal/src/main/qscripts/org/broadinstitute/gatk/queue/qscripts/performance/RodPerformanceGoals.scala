@@ -44,7 +44,7 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.performance
+package org.broadinstitute.gatk.queue.qscripts.performance
 
 /*
  * Copyright (c) 2011, The Broad Institute
@@ -70,8 +70,8 @@ package org.broadinstitute.sting.queue.qscripts.performance
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
 
 class RodPerformanceGoals extends QScript {
   @Argument(shortName = "BUNDLE", doc = "Directory holding all of our data files", required=false)
@@ -211,8 +211,8 @@ class RodPerformanceGoals extends QScript {
   }
 
   def lowLevelTribbleVsGATK(iteration:Int, vcf:File) {
-    val justTribbleMode = org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE
-    val justGATKMode = org.broadinstitute.sting.gatk.walkers.performance.ProfileRodSystem.ProfileType.JUST_GATK
+    val justTribbleMode = org.broadinstitute.gatk.tools.walkers.performance.ProfileRodSystem.ProfileType.JUST_TRIBBLE_DECODE
+    val justGATKMode = org.broadinstitute.gatk.tools.walkers.performance.ProfileRodSystem.ProfileType.JUST_GATK
 
     def makeTest(name: String) = {
       val prs = new ProfileRodSystem() with UNIVERSAL_GATK_ARGS

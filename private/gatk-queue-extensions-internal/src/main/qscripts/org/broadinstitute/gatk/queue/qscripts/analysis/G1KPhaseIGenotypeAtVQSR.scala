@@ -44,7 +44,7 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.analysis
+package org.broadinstitute.gatk.queue.qscripts.analysis
 
 /*
  * Copyright (c) 2011, The Broad Institute
@@ -94,9 +94,9 @@ package org.broadinstitute.sting.queue.qscripts.analysis
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE
 
 class G1KPhaseIGenotypeAtVQSR extends QScript {
   qscript =>

@@ -44,16 +44,16 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.gatk.queue.qscripts.calling
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.gatk.CombineVariants
-import org.broadinstitute.sting.queue.extensions.gatk.CommandLineGATK
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.gatk.CombineVariants
+import org.broadinstitute.gatk.queue.extensions.gatk.CommandLineGATK
 
-import org.broadinstitute.sting.queue.{QException, QScript}
+import org.broadinstitute.gatk.queue.{QException, QScript}
 import scala.io.Source
-import org.broadinstitute.sting.queue.function.scattergather.{GatherFunction, CloneFunction, ScatterFunction}
-import org.broadinstitute.sting.commandline.ArgumentSource
+import org.broadinstitute.gatk.queue.function.scattergather.{GatherFunction, CloneFunction, ScatterFunction}
+import org.broadinstitute.gatk.utils.commandline.ArgumentSource
 
 class Phase1IndelRedoCombining extends QScript {
   qscript =>
@@ -122,7 +122,7 @@ class Phase1IndelRedoCombining extends QScript {
       //indelCombine.jobOutputFile =  indelCombine.out + ".out"
       indelCombine.jobQueue = "gsa"
       indelCombine.memoryLimit = Some(6)
-      indelCombine.genotypeMergeOptions = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.GenotypeMergeType.UNSORTED
+      indelCombine.genotypeMergeOptions = org.broadinstitute.gatk.utils.variantcontext.VariantContextUtils.GenotypeMergeType.UNSORTED
 
       for(line <- Source.fromFile(qscript.sampleBamList).getLines()) {
         val lArray =  line.split("\t")

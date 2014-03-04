@@ -44,25 +44,25 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.qc;
+package org.broadinstitute.gatk.tools.walkers.qc;
 
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import htsjdk.samtools.CigarElement;
 import htsjdk.samtools.CigarOperator;
 import htsjdk.samtools.SAMRecord;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.iterators.ReadTransformer;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.baq.BAQ;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.gatk.engine.walkers.*;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.iterators.ReadTransformer;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.MathUtils;
+import org.broadinstitute.gatk.utils.SimpleTimer;
+import org.broadinstitute.gatk.utils.Utils;
+import org.broadinstitute.gatk.utils.baq.BAQ;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
+import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
 
 import java.io.PrintStream;
 
@@ -238,7 +238,7 @@ public class ValidateBAQ extends ReadWalker<Integer, Integer> {
 
 
         if ( fail )
-            throw new StingException(String.format("BAQ from read and from HMM differ in read %s at position %d: tag qual = %d, hmm qual = %d",
+            throw new GATKException(String.format("BAQ from read and from HMM differ in read %s at position %d: tag qual = %d, hmm qual = %d",
                     read.getReadName(), badi, baqFromTag[badi], baq.bq[badi]));
     }
 
@@ -314,7 +314,7 @@ public class ValidateBAQ extends ReadWalker<Integer, Integer> {
                     readI += l;
                     break;
                 default:
-                    throw new ReviewedStingException("BUG: Unexpected CIGAR element " + elt + " in read " + read.getReadName());
+                    throw new ReviewedGATKException("BUG: Unexpected CIGAR element " + elt + " in read " + read.getReadName());
             }
         }
         return readI;

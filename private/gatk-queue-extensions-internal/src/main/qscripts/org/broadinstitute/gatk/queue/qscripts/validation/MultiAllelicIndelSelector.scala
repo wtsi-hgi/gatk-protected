@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.validation
+package org.broadinstitute.gatk.queue.qscripts.validation
 
-import org.broadinstitute.sting.pipeline.Pipeline
-import org.broadinstitute.sting.queue.{QException, QScript}
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.gatk.utils.pipeline.Pipeline
+import org.broadinstitute.gatk.queue.{QException, QScript}
+import org.broadinstitute.gatk.queue.extensions.gatk._
 
 
 class MultiAllelicIndelSelector extends QScript {
@@ -90,8 +90,8 @@ class MultiAllelicIndelSelector extends QScript {
     var selector = new ValidationSiteSelector with CommandLineGATKArgs
     selector.out = qscript.outputDir + "/"+"ALL.wgs.%d_validation_sites_multiAllelicIndels.sites.vcf".format(numSites)
     selector.jobOutputFile = selector.out + ".out"
-    selector.sampleMode = org.broadinstitute.sting.gatk.walkers.ValidationSiteSelector.ValidationSiteSelectorWalker.SAMPLE_SELECTION_MODE.POLY_BASED_ON_GT
-    selector.freqMode = org.broadinstitute.sting.gatk.walkers.ValidationSiteSelector.ValidationSiteSelectorWalker.AF_COMPUTATION_MODE.UNIFORM
+    selector.sampleMode = org.broadinstitute.gatk.tools.walkers.ValidationSiteSelector.ValidationSiteSelectorWalker.SAMPLE_SELECTION_MODE.POLY_BASED_ON_GT
+    selector.freqMode = org.broadinstitute.gatk.tools.walkers.ValidationSiteSelector.ValidationSiteSelectorWalker.AF_COMPUTATION_MODE.UNIFORM
     selector.numSites = qscript.numSites
     for(chr <- chrList) {
       // no X chr in phase 1 official release yet
@@ -103,9 +103,9 @@ class MultiAllelicIndelSelector extends QScript {
       vs.sample_file :+= qscript.sampleFile
       vs.ef = true
       vs.env = true
-      vs.selectType:+= org.broadinstitute.sting.utils.variantcontext.VariantContext.Type.INDEL
+      vs.selectType:+= org.broadinstitute.gatk.utils.variantcontext.VariantContext.Type.INDEL
       vs.out  = qscript.tmpDir + "/"+"ALL.chr%d.%d_multiAllelicIndels.sites.vcf".format(chr, selector.numSites)
-      vs.restrictAllelesTo = org.broadinstitute.sting.gatk.walkers.variantutils.SelectVariants.NumberAlleleRestriction.MULTIALLELIC
+      vs.restrictAllelesTo = org.broadinstitute.gatk.tools.walkers.variantutils.SelectVariants.NumberAlleleRestriction.MULTIALLELIC
 
       selector.variant :+= vs.out
 

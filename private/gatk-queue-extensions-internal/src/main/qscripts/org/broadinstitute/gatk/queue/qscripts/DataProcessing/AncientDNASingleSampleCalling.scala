@@ -44,18 +44,18 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.DataProcessing
+package org.broadinstitute.gatk.queue.qscripts.DataProcessing
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.commandline.{ClassType, Hidden}
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine
-import org.broadinstitute.sting.gatk.downsampling.DownsampleType
-import org.broadinstitute.sting.queue.extensions.gatk.TaggedFile
-import org.broadinstitute.sting.queue.extensions.gatk.UnifiedGenotyper
-import org.broadinstitute.sting.queue.extensions.gatk.VariantFiltration
-import org.broadinstitute.sting.queue.extensions.gatk.CommandLineGATK
-import org.broadinstitute.sting.queue.extensions.gatk.VariantEval
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.utils.commandline.{ClassType, Hidden}
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotypingEngine
+import org.broadinstitute.gatk.engine.downsampling.DownsampleType
+import org.broadinstitute.gatk.queue.extensions.gatk.TaggedFile
+import org.broadinstitute.gatk.queue.extensions.gatk.UnifiedGenotyper
+import org.broadinstitute.gatk.queue.extensions.gatk.VariantFiltration
+import org.broadinstitute.gatk.queue.extensions.gatk.CommandLineGATK
+import org.broadinstitute.gatk.queue.extensions.gatk.VariantEval
 import java.io.File
 
 /**
@@ -295,9 +295,9 @@ class AncientDNASingleSampleCalling extends QScript{
 
     this.downsample_to_coverage = 600
     if (callIndels)
-      this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+      this.genotype_likelihoods_model = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     else
-      this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+      this.genotype_likelihoods_model = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
 
      this.out_mode = UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
 

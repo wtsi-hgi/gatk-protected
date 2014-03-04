@@ -44,13 +44,13 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.pipeline
+package org.broadinstitute.gatk.queue.qscripts.pipeline
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
-import org.broadinstitute.sting.queue.function._
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.snpeff.SnpEff
+import org.broadinstitute.gatk.queue.function._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils
 
 class LargeScaleHybridSelectionPipeline extends QScript {
   qscript =>
@@ -92,7 +92,7 @@ class LargeScaleHybridSelectionPipeline extends QScript {
     trait CommandLineGATKArgs extends CommandLineGATK with RetryMemoryLimit {
       this.reference_sequence = reference
       this.intervals = Seq(intervalsFile)
-      this.interval_set_rule = org.broadinstitute.sting.utils.interval.IntervalSetRule.INTERSECTION
+      this.interval_set_rule = org.broadinstitute.gatk.utils.interval.IntervalSetRule.INTERSECTION
       this.memoryLimit = pipelineMemoryLimit
     }
 
@@ -172,7 +172,7 @@ class LargeScaleHybridSelectionPipeline extends QScript {
         call.input_file = Seq(chrMergeBamList.listFile)
         call.dbsnp = dbsnp137
         call.downsample_to_coverage = 60
-        call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+        call.genotype_likelihoods_model = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
         call.out = chrDir + chrBase + ".unfiltered." + outputFormat
         call.nct = 4
         call.maxRuntimeUnits = java.util.concurrent.TimeUnit.HOURS
@@ -201,7 +201,7 @@ class LargeScaleHybridSelectionPipeline extends QScript {
         if (filterCalls) {
           val applySNPModel = new ApplyRecalibration with ChromosomeIntervals
           applySNPModel.input :+= selectSNPs.out
-          applySNPModel.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+          applySNPModel.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
           applySNPModel.tranches_file = tranchesSNPs
           applySNPModel.recal_file = recalSNPs
           applySNPModel.ts_filter_level = 98.5
@@ -210,7 +210,7 @@ class LargeScaleHybridSelectionPipeline extends QScript {
           add(applySNPModel)
 
           val applyIndelModel = new ApplyRecalibration with ChromosomeIntervals
-          applyIndelModel.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+          applyIndelModel.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
           applyIndelModel.input :+= selectIndels.out
           applyIndelModel.tranches_file = tranchesIndels
           applyIndelModel.recal_file = recalIndels
@@ -326,7 +326,7 @@ class LargeScaleHybridSelectionPipeline extends QScript {
 
       val buildSNPModel = new VariantRecalibrator with CommandLineGATKArgs with ExpandedIntervals
       buildSNPModel.input = unfilteredSNPs
-      buildSNPModel.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+      buildSNPModel.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
       buildSNPModel.resource :+= TaggedFile(hapmap, "training=true,truth=true,prior=15.0")
       buildSNPModel.resource :+= TaggedFile(omni, "training=true,truth=true,prior=12.0")
       buildSNPModel.resource :+= TaggedFile(k1gTrainingHighQuality, "training=true,prior=12.0")
@@ -344,7 +344,7 @@ class LargeScaleHybridSelectionPipeline extends QScript {
 
       val buildIndelModel = new VariantRecalibrator with CommandLineGATKArgs with ExpandedIntervals
       buildIndelModel.input = unfilteredIndels
-      buildIndelModel.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+      buildIndelModel.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
       buildIndelModel.resource :+= TaggedFile(goldStandardIndels, "known=true,training=true,truth=true,prior=12.0")
       buildIndelModel.use_annotation = Seq("QD", "HaplotypeScore", "ReadPosRankSum", "FS", "InbreedingCoeff")
       buildIndelModel.trustAllPolymorphic = true

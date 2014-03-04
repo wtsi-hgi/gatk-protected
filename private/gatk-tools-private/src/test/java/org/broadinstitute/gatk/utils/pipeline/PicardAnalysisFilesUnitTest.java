@@ -44,14 +44,14 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.pipeline;
+package org.broadinstitute.gatk.utils.pipeline;
 
-import org.broadinstitute.sting.BaseTest;
-import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.BaseTest;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import static org.broadinstitute.sting.pipeline.PicardAggregationUtilsUnitTest.*;
+import static org.broadinstitute.gatk.utils.pipeline.PicardAggregationUtilsUnitTest.*;
 
 public class PicardAnalysisFilesUnitTest extends BaseTest {
     @Test

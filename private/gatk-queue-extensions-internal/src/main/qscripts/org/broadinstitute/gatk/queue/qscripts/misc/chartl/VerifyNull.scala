@@ -44,16 +44,16 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.misc.chartl
+package org.broadinstitute.gatk.queue.qscripts.misc.chartl
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.commandline.{Argument, Output, Input}
-import org.broadinstitute.sting.queue.function.{InProcessFunction, CommandLineFunction}
-import org.broadinstitute.sting.utils.text.XReadLines
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.utils.commandline.{Argument, Output, Input}
+import org.broadinstitute.gatk.queue.function.{InProcessFunction, CommandLineFunction}
+import org.broadinstitute.gatk.utils.text.XReadLines
 import scala.collection.JavaConversions._
 import java.io.{PrintStream, File}
 import collection.immutable.HashMap
-import org.broadinstitute.sting.utils.exceptions.UserException
+import org.broadinstitute.gatk.utils.exceptions.UserException
 
 /**
  * A script to verify that the null distribution of GCTA is as it should be, by permuting case/control labels.

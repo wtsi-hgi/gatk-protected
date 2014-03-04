@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.qc
+package org.broadinstitute.gatk.tools.walkers.qc
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.tools.phonehome.GATKRunReport
 
 class MethodsDevelopmentCallingPipeline extends QScript {
   qscript =>
@@ -271,8 +271,8 @@ class MethodsDevelopmentCallingPipeline extends QScript {
     if (qscript.deletions >= 0)
       this.max_deletion_fraction = qscript.deletions
     this.out = t.rawSnpVCF
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
-    this.baq = if (noBAQ ||  t.isExome) {org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF} else {org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY}
+    this.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+    this.baq = if (noBAQ ||  t.isExome) {org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.OFF} else {org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY}
     this.analysisName = t.name + "_UGs"
     this.jobName =  queueLogDir + t.name + ".snpcall"
   }
@@ -281,8 +281,8 @@ class MethodsDevelopmentCallingPipeline extends QScript {
   class indelCall (t: Target) extends GenotyperBase(t) {
     this.memoryLimit = 6
     this.out = t.rawIndelVCF
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
-    this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
+    this.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
+    this.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.OFF
     this.analysisName = t.name + "_UGi"
     this.jobName =  queueLogDir + t.name + ".indelcall"
   }
@@ -336,7 +336,7 @@ class MethodsDevelopmentCallingPipeline extends QScript {
     this.tranches_file = if ( goldStandard ) { t.goldStandardTranchesFile } else { t.tranchesSnpFile }
     this.recal_file = if ( goldStandard ) { t.goldStandardRecalFile } else { t.recalSnpFile }
     this.rscript_file = t.vqsrSnpRscript
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
     this.analysisName = t.name + "_VQSRs"
     this.jobName = queueLogDir + t.name + ".snprecal"
   }
@@ -351,7 +351,7 @@ class MethodsDevelopmentCallingPipeline extends QScript {
     this.tranches_file = t.tranchesIndelFile
     this.recal_file = t.recalIndelFile
     this.rscript_file = t.vqsrIndelRscript
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
     this.analysisName = t.name + "_VQSRi"
     this.jobName = queueLogDir + t.name + ".indelrecal"
   }
@@ -369,7 +369,7 @@ class MethodsDevelopmentCallingPipeline extends QScript {
     this.tranches_file = if ( goldStandard ) { t.goldStandardTranchesFile } else { t.tranchesSnpFile}
     this.recal_file = if ( goldStandard ) { t.goldStandardRecalFile } else { t.recalSnpFile }
     this.ts_filter_level = t.snpTrancheTarget
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
     this.out = t.recalibratedSnpVCF
     this.analysisName = t.name + "_AVQSRs"
     this.jobName = queueLogDir + t.name + ".snpcut"
@@ -380,7 +380,7 @@ class MethodsDevelopmentCallingPipeline extends QScript {
     this.tranches_file = t.tranchesIndelFile
     this.recal_file = t.recalIndelFile
     this.ts_filter_level = t.indelTranchTarget
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
     this.out = t.recalibratedIndelVCF
     this.analysisName = t.name + "_AVQSRi"
     this.jobName = queueLogDir + t.name + ".indelcut"

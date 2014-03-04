@@ -44,12 +44,12 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.annotations
+package org.broadinstitute.gatk.queue.qscripts.annotations
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.library.ipf.vcf.VCFExtractIntervals
-import org.broadinstitute.sting.gatk.downsampling.DownsampleType
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.library.ipf.vcf.VCFExtractIntervals
+import org.broadinstitute.gatk.engine.downsampling.DownsampleType
 
 class ScatteredFullVariantAnnotator extends QScript {
   qscript =>
@@ -108,7 +108,7 @@ class ScatteredFullVariantAnnotator extends QScript {
       this.logging_level = "INFO"
     }
 
-    class ScatteredFullVariantAnnotator() extends org.broadinstitute.sting.queue.extensions.gatk.VariantAnnotator with CommandLineGATKArgs {
+    class ScatteredFullVariantAnnotator() extends org.broadinstitute.gatk.queue.extensions.gatk.VariantAnnotator with CommandLineGATKArgs {
       this.scatterCount = qscript.scatterCount
       this.variant = qscript.variantVCF
 
@@ -123,7 +123,7 @@ class ScatteredFullVariantAnnotator extends QScript {
 
       if (qscript.downsample_to_coverage > 0) {
         this.downsample_to_coverage = qscript.downsample_to_coverage
-        this.downsampling_type = org.broadinstitute.sting.gatk.downsampling.DownsampleType.BY_SAMPLE
+        this.downsampling_type = org.broadinstitute.gatk.engine.downsampling.DownsampleType.BY_SAMPLE
       }
     }
 

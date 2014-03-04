@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.DataProcessing
+package org.broadinstitute.gatk.queue.DataProcessing
 
-import org.broadinstitute.sting.queue.pipeline.{QueueTestSpec, QueueTest}
+import org.broadinstitute.gatk.queue.pipeline.{QueueTestSpec, QueueTest}
 import org.testng.annotations.Test
-import org.broadinstitute.sting.BaseTest
+import org.broadinstitute.gatk.utils.BaseTest
 
 
 class CMIBAMProcessingQueueTest {
@@ -60,7 +60,7 @@ class CMIBAMProcessingQueueTest {
       val spec = new QueueTestSpec
       spec.name = "CMIBAMProcessingPipeline"
       spec.args = Array(
-        " -S private/scala/qscript/org/broadinstitute/sting/queue/qscripts/DataProcessing/CMIBAMProcessingPipeline.scala",
+        " -S private/scala/qscript/org/broadinstitute/gatk/queue/qscripts/DataProcessing/CMIBAMProcessingPipeline.scala",
         " -R " + BaseTest.publicTestDir + "exampleFASTA.fasta",
         " -m testdata/CMITestData/metadata.test.txt",
         " -D " + BaseTest.publicTestDir + "exampleDBSNP.vcf",

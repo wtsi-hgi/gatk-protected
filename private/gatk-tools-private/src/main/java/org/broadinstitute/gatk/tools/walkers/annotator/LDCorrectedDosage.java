@@ -44,24 +44,24 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.annotator;
+package org.broadinstitute.gatk.tools.walkers.annotator;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import org.apache.commons.math.linear.*;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.commandline.Hidden;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.AnnotatorCompatible;
-import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.ExperimentalAnnotation;
-import org.broadinstitute.sting.gatk.walkers.annotator.interfaces.GenotypeAnnotation;
-import org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap;
-import org.broadinstitute.sting.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.commandline.Hidden;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.AnnotatorCompatible;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.ExperimentalAnnotation;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.GenotypeAnnotation;
+import org.broadinstitute.gatk.utils.genotyper.PerReadAlleleLikelihoodMap;
+import org.broadinstitute.gatk.utils.GenomeLoc;
 import htsjdk.variant.vcf.*;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.GenotypeBuilder;
 import htsjdk.variant.variantcontext.VariantContext;
@@ -194,11 +194,11 @@ public class LDCorrectedDosage extends GenotypeAnnotation implements Experimenta
             logger.warn("Error in solving OLS: Decomposition takes too many iterations. Removing most recently added variant residuals.");
             predictorMatrix = removeRows(predictorMatrix,1);
             if ( predictorMatrix.getRowDimension() <= 1 ) {
-                throw new ReviewedStingException("All rows of predictor matrix removed, yet SVD not converging.");
+                throw new ReviewedGATKException("All rows of predictor matrix removed, yet SVD not converging.");
             }
             return calculateLeastSquaresResiduals(genotypeDosages);
             //logger.warn(Arrays.toString(predictorMatrix.getRow(predictorMatrix.getRowDimension() - 1)));
-            //throw new ReviewedStingException(e.getMessage(),e);
+            //throw new ReviewedGATKException(e.getMessage(),e);
         }
     }
 

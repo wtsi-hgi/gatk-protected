@@ -44,12 +44,12 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.pipeline;
+package org.broadinstitute.gatk.utils.pipeline;
 
 import org.apache.commons.io.LineIterator;
 import org.apache.commons.lang.ArrayUtils;
-import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.io.IOUtils;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
+import org.broadinstitute.gatk.utils.io.IOUtils;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -96,7 +96,7 @@ public class PicardAnalysisFiles {
                         if (index < 0)
                             continue;
                         if (values.length <= index)
-                            throw new StingException(String.format("Unable to parse line in %s: %n%s", path, line));
+                            throw new GATKException(String.format("Unable to parse line in %s: %n%s", path, line));
                         String value = values[index];
                         headerValues.get(header).add(value);
                     }

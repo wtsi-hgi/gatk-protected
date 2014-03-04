@@ -44,7 +44,7 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.mongodb
+package org.broadinstitute.gatk.queue.qscripts.mongodb
 
 /**
  * Created with IntelliJ IDEA.
@@ -54,8 +54,8 @@ package org.broadinstitute.sting.queue.qscripts.mongodb
  * To change this template use File | Settings | File Templates.
  */
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
 
 class VCFTester extends QScript {
   // Create an alias 'qscript' to be able to access variables

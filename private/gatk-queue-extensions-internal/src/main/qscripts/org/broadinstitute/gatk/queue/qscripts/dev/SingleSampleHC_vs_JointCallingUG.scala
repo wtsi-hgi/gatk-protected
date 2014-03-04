@@ -44,18 +44,18 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
-import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.queue.function._
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.tools.phonehome.GATKRunReport
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.queue.function._
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
 import htsjdk.variant.variantcontext.VariantContext
-import org.broadinstitute.sting.commandline.ClassType
-import org.broadinstitute.sting.gatk.walkers.haplotypecaller.ReferenceConfidenceMode
+import org.broadinstitute.gatk.utils.commandline.ClassType
+import org.broadinstitute.gatk.tools.walkers.haplotypecaller.ReferenceConfidenceMode
 
 class SingleSampleHC_vs_JointCallingUG extends QScript {
 
@@ -134,8 +134,8 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.
     this.scatterCount = scatter
     this.stand_call_conf = 30.0
     this.stand_emit_conf = 30.0
-    this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+    this.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.analysisName = "UG_JointCalling"
   }
 
@@ -148,7 +148,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.
     this.stand_emit_conf = 30.0
     this.minPruning = 4
     this.maxNumHaplotypesInPopulation = 200
-    this.ERC = org.broadinstitute.sting.gatk.walkers.haplotypecaller.HaplotypeCaller.ReferenceConfidenceMode.GVCF
+    this.ERC = org.broadinstitute.gatk.tools.walkers.haplotypecaller.HaplotypeCaller.ReferenceConfidenceMode.GVCF
     this.max_alternate_alleles = 3
     this.analysisName = "HC_SingleSampleCalling"
     this.A = List("DepthPerSampleHC", "StrandBiasBySample")
@@ -221,7 +221,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.
       this.use_annotation ++= List("QD", "FS", "DP", "ReadPosRankSum", "MQRankSum", "InbreedingCoeff")
       if ( useUGAnnotations )
         this.use_annotation ++= List("HaplotypeScore")
-      this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+      this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
       this.numBad = 9000
       this.analysisName = "VQSR"
     }
@@ -230,7 +230,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.
     class indelRecal(indelVCF: String, useUGAnnotations: Boolean) extends VQSRBase(indelVCF) with BaseCommandArguments {
       this.resource :+= new TaggedFile( indelGoldStandardCallset, "known=false,training=true,truth=true,prior=12.0" ) // known=true on the bast practices v4
       this.resource :+= new TaggedFile( latestdbSNP, "known=true,prior=2.0" )  						// not part of the bast practices v4
-      this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+      this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
       this.use_annotation ++= List("FS", "DP", "ReadPosRankSum", "MQRankSum", "InbreedingCoeff")
       this.maxGaussians = 4
       this.numBad = 3000
@@ -251,7 +251,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.
     }
 
     class applySnpVQSR(vqsr: VariantRecalibrator, useUGAnnotations: Boolean) extends applyVQSRBase(vqsr) with BaseCommandArguments {
-      this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+      this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
       this.ts_filter_level = 99.7
       if(useUGAnnotations)
         this.ts_filter_level = 99.5
@@ -259,7 +259,7 @@ val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.
     }
 
     class applyIndelVQSR(vqsr: VariantRecalibrator, useUGAnnotations: Boolean) extends applyVQSRBase(vqsr) with BaseCommandArguments {
-      this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+      this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
       this.ts_filter_level = 99.7
       if(useUGAnnotations)
         this.ts_filter_level = 99.3

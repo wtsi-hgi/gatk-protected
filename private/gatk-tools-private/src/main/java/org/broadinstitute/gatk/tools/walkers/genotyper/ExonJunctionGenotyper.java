@@ -44,41 +44,41 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.genotyper;
+package org.broadinstitute.gatk.tools.walkers.genotyper;
 
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import htsjdk.samtools.CigarOperator;
 import htsjdk.samtools.SAMFileHeader;
 import org.apache.commons.lang.ArrayUtils;
-import org.broadinstitute.sting.commandline.*;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;
-import org.broadinstitute.sting.gatk.filters.FailsVendorQualityCheckFilter;
-import org.broadinstitute.sting.gatk.filters.MappingQualityZeroFilter;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.report.GATKReportColumn;
-import org.broadinstitute.sting.gatk.report.GATKReportTable;
-import org.broadinstitute.sting.gatk.walkers.ReadFilters;
-import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalc;
-import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalcFactory;
-import org.broadinstitute.sting.gatk.walkers.genotyper.afcalc.AFCalcResult;
-import org.broadinstitute.sting.utils.*;
-import org.broadinstitute.sting.utils.clipping.ReadClipper;
-import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
-import org.broadinstitute.sting.utils.codecs.table.TableFeature;
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.gatk.utils.commandline.*;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.filters.DuplicateReadFilter;
+import org.broadinstitute.gatk.engine.filters.FailsVendorQualityCheckFilter;
+import org.broadinstitute.gatk.engine.filters.MappingQualityZeroFilter;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.report.GATKReport;
+import org.broadinstitute.gatk.engine.report.GATKReportColumn;
+import org.broadinstitute.gatk.engine.report.GATKReportTable;
+import org.broadinstitute.gatk.engine.walkers.ReadFilters;
+import org.broadinstitute.gatk.engine.walkers.ReadWalker;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalc;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalcFactory;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalcResult;
+import org.broadinstitute.gatk.utils.*;
+import org.broadinstitute.gatk.utils.clipping.ReadClipper;
+import org.broadinstitute.gatk.utils.codecs.refseq.RefSeqFeature;
+import org.broadinstitute.gatk.utils.codecs.table.TableFeature;
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils;
 import htsjdk.variant.vcf.VCFConstants;
 import htsjdk.variant.vcf.VCFHeader;
 import htsjdk.variant.vcf.VCFHeaderLine;
-import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.fasta.CachingIndexedFastaSequenceFile;
-import org.broadinstitute.sting.utils.sam.AlignmentUtils;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
-import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.gatk.utils.collections.Pair;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.fasta.CachingIndexedFastaSequenceFile;
+import org.broadinstitute.gatk.utils.sam.AlignmentUtils;
+import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
+import org.broadinstitute.gatk.utils.text.XReadLines;
 import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import htsjdk.variant.variantcontext.writer.VariantContextWriterFactory;
@@ -260,7 +260,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
         } catch (FileNotFoundException e) {
             throw new UserException("Histogram file not found "+e.getMessage(),e);
         } catch (IOException e) {
-            throw new StingException("IO Exception",e);
+            throw new GATKException("IO Exception",e);
         }
 
         StringBuffer debug = new StringBuffer();

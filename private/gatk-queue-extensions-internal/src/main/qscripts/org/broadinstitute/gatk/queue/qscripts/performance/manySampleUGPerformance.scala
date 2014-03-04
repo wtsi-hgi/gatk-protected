@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.performance
+package org.broadinstitute.gatk.queue.qscripts.performance
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.samtools.SamtoolsIndexFunction
-import org.broadinstitute.sting.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.samtools.SamtoolsIndexFunction
+import org.broadinstitute.gatk.queue.extensions.gatk._
 
 class ManySampleUGPerformance extends QScript {
   @Argument(doc="gatkJarFile", required=false)
@@ -104,7 +104,7 @@ class ManySampleUGPerformance extends QScript {
       add(new Call(bams, nSamples, name));
 
       val gtWithBAQ = new Call(bams, nSamples, name + "_baq");
-      gtWithBAQ.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE
+      gtWithBAQ.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.RECALCULATE
       add(gtWithBAQ)
 
       // SNP calling -- no annotations

@@ -44,22 +44,22 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.pairhmm
+package org.broadinstitute.gatk.queue.qscripts
 
 ;
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
-import org.broadinstitute.sting.queue.extensions.gatk.BaseRecalibrator
-import org.broadinstitute.sting.queue.extensions.gatk.PrintReads
-import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.queue.function._
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.tools.phonehome.GATKRunReport
+import org.broadinstitute.gatk.queue.extensions.gatk.BaseRecalibrator
+import org.broadinstitute.gatk.queue.extensions.gatk.PrintReads
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.queue.function._
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 import htsjdk.variant.variantcontext.VariantContext
-import org.broadinstitute.sting.commandline.ClassType
+import org.broadinstitute.gatk.utils.commandline.ClassType
 import scala.util.matching.Regex
-import org.broadinstitute.sting.utils.pairhmm.PairHMM
+import org.broadinstitute.gatk.utils.pairhmm.PairHMM
 
 class LkVsMLkPipeline extends QScript {
   qscript =>
@@ -283,8 +283,8 @@ class LkVsMLkPipeline extends QScript {
     if (qscript.deletions >= 0)
       this.max_deletion_fraction = qscript.deletions
     this.out = qscript.outputDir + "/" + name + ".UnifiedGenotyper.unfiltered.vcf"
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
-    this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+    this.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     this.analysisName = "UnifiedGenotyper"
     this.jobName = queueLogDir + "IlluminaBinning.ug"
     this.scatterCount = if (qscript.scatterCount == 0) 80 else qscript.scatterCount
@@ -352,7 +352,7 @@ class LkVsMLkPipeline extends QScript {
     this.minNumBad = 1000
     this.percentBad = 0.05
     this.maxGaussians = 2 
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
     this.analysisName = "CEUTrio_VQSRs"
     this.jobName = queueLogDir + "CEUTrio.snprecal"
   }
@@ -361,7 +361,7 @@ class LkVsMLkPipeline extends QScript {
   class indelRecal(indelVCF: String) extends VQSRBase(indelVCF) with BaseCommandArguments {
     this.resource :+= new TaggedFile(indelGoldStandardCallset(outputBuildName), "known=false,training=true,truth=true,prior=12.0") // known=true on the bast practices v4
     this.resource :+= new TaggedFile(dbSNP(outputBuildName), "known=true,training=false,truth=false,prior=2.0") // not part of the bast practices v4
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
     this.analysisName = "CEUTrio_VQSRi"
     this.jobName = queueLogDir + "CEUTrio.indelrecal"
     this.use_annotation ++= List("FS", "DP", "ReadPosRankSum", "MQRankSum")
@@ -392,14 +392,14 @@ class LkVsMLkPipeline extends QScript {
   }
 
   class applySnpVQSR(vqsr: VariantRecalibrator) extends applyVQSRBase(vqsr) with BaseCommandArguments {
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
     this.analysisName = "CEUTrio_AVQSRs"
     this.jobName = queueLogDir + "CEUTrio.snpcut"
     this.ts_filter_level = 99.9
   }
 
   class applyIndelVQSR(vqsr: VariantRecalibrator) extends applyVQSRBase(vqsr) with BaseCommandArguments {
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
     this.analysisName = "CEUTrio_AVQSRi"
     this.jobName = queueLogDir + "CEUTrio.indelcut"
     this.ts_filter_level = 99.9

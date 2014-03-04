@@ -44,18 +44,17 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.techdev;
+package org.broadinstitute.gatk.tools.walkers.techdev;
 
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.io.FastqFileWriter;
-import org.broadinstitute.sting.gatk.io.StingSAMFileWriter;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.walkers.ReadWalker;
-import org.broadinstitute.sting.utils.clipping.ReadClipper;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.io.FastqFileWriter;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.walkers.ReadWalker;
+import org.broadinstitute.gatk.utils.clipping.ReadClipper;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
 
 import java.util.LinkedList;
 
@@ -143,7 +142,7 @@ public class SplitReads extends ReadWalker<Integer, Integer> {
                 reads.add(read);
             }
         } else {  // neither chop or split, did you really want to run this program?
-            throw new ReviewedStingException("You sure you don't want to split or chop? Run PrintReads instead!");
+            throw new ReviewedGATKException("You sure you don't want to split or chop? Run PrintReads instead!");
         }
         return reads;
     }

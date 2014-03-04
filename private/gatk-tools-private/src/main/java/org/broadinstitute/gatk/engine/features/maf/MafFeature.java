@@ -44,14 +44,14 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.features.maf;
+package org.broadinstitute.gatk.engine.features.maf;
 
 import htsjdk.tribble.Feature;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.VariantContextAdaptors;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.refdata.VariantContextAdaptors;
 import htsjdk.variant.vcf.VCFConstants;
-import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
 import htsjdk.variant.variantcontext.*;
 
 import java.util.*;
@@ -229,7 +229,7 @@ public class MafFeature implements Feature {
             case INS:
                 return 0;
             default:
-                throw new StingException("Unrecognized event type in Maf record: "+type);
+                throw new GATKException("Unrecognized event type in Maf record: "+type);
         }
     }
 

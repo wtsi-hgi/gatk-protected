@@ -44,16 +44,16 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import org.broadinstitute.sting.queue.extensions.gatk.BaseRecalibrator
-import org.broadinstitute.sting.queue.extensions.gatk.HaplotypeCaller
-import org.broadinstitute.sting.queue.extensions.gatk.DelocalizedBaseRecalibrator
-import org.broadinstitute.sting.queue.extensions.gatk.PrintReads
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.gatk.filters.SingleReadGroupFilter
-import org.broadinstitute.sting.queue.extensions.gatk.SingleReadGroup
+import org.broadinstitute.gatk.queue.extensions.gatk.BaseRecalibrator
+import org.broadinstitute.gatk.queue.extensions.gatk.HaplotypeCaller
+import org.broadinstitute.gatk.queue.extensions.gatk.DelocalizedBaseRecalibrator
+import org.broadinstitute.gatk.queue.extensions.gatk.PrintReads
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.engine.filters.SingleReadGroupFilter
+import org.broadinstitute.gatk.queue.extensions.gatk.SingleReadGroup
 
 class delocalizedBQSR_comparison_experiment extends QScript {
 
@@ -129,8 +129,8 @@ this.scatterCount = 50
 this.javaGCThreads = 4
 this.alleles = new File(allelesFile)
 this.minPruning = 1
-this.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
-this.gt_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
+this.out_mode = org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
+this.gt_mode = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
 this.stand_emit_conf = 0.0
 this.stand_call_conf = 0.0
 

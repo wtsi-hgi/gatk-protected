@@ -44,12 +44,12 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.pipeline
+package org.broadinstitute.gatk.queue.pipeline
 
-import org.broadinstitute.sting.BaseTest
-import org.broadinstitute.sting.queue.util.Logging
+import org.broadinstitute.gatk.utils.BaseTest
+import org.broadinstitute.gatk.queue.util.Logging
 import java.io.{FileNotFoundException, File}
-import org.broadinstitute.sting.pipeline.PicardAggregationUtils
+import org.broadinstitute.gatk.utils.pipeline.PicardAggregationUtils
 
 object K1gQueueTest extends BaseTest with Logging {
 

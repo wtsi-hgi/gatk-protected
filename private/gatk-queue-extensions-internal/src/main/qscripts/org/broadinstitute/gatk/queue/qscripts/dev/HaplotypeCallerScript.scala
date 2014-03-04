@@ -44,10 +44,10 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
 
 class HaplotypeCallerScript extends QScript {
   qscript =>
@@ -79,7 +79,7 @@ class HaplotypeCallerScript extends QScript {
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     memoryLimit = 2;
-    this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
+    this.unsafe = org.broadinstitute.gatk.engine.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
 
   }
 
@@ -112,8 +112,8 @@ class HaplotypeCallerScript extends QScript {
     ug.scatterCount = jobs
     ug.input_file :+= new File(bam)
     ug.o = new File(out + ".ug.vcf")
-    ug.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
-    ug.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+    ug.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    ug.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     ug.analysisName = "UnifiedGenotyper"
     if (qscript.stand_call_conf != null) ug.stand_call_conf = qscript.stand_call_conf
     if (qscript.stand_emit_conf != null) ug.stand_emit_conf = qscript.stand_emit_conf

@@ -44,21 +44,21 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.genotyper;
+package org.broadinstitute.gatk.tools.walkers.genotyper;
 
 import com.google.java.contract.Requires;
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import htsjdk.samtools.CigarElement;
 import htsjdk.samtools.CigarOperator;
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.commandline.RodBinding;
-import org.broadinstitute.sting.utils.*;
-import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;
-import org.broadinstitute.sting.utils.collections.Pair;
-import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.smithwaterman.SWPairwiseAlignment;
+import org.broadinstitute.gatk.utils.commandline.RodBinding;
+import org.broadinstitute.gatk.utils.*;
+import org.broadinstitute.gatk.utils.codecs.refseq.RefSeqFeature;
+import org.broadinstitute.gatk.utils.collections.Pair;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
+import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
+import org.broadinstitute.gatk.utils.BaseUtils;
+import org.broadinstitute.gatk.utils.smithwaterman.SWPairwiseAlignment;
 
 import java.util.*;
 
@@ -140,7 +140,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
         // aligned reads are equipped already with necessary metrics
         double logScore = 0.0;
         if ( read == null )
-            throw new StingException("Read cannot be null here");
+            throw new GATKException("Read cannot be null here");
         if ( read.getReadUnmappedFlag() ) {
             return -50.0;
         }
@@ -235,7 +235,7 @@ public class IntronLossGenotypeLikelihoodCalculationModel {
             } else if ( elem.getOperator().equals(CigarOperator.H) ) {
                // offset -= elem.getLength();
             } else {
-                throw new StingException("Unsupported operator: "+elem.getOperator().toString());
+                throw new GATKException("Unsupported operator: "+elem.getOperator().toString());
             }
         }
 

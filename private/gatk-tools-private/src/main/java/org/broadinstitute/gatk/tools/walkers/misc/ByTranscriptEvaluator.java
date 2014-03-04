@@ -44,23 +44,23 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.misc;
+package org.broadinstitute.gatk.tools.walkers.misc;
 
 import org.apache.commons.lang.ArrayUtils;
-import org.broadinstitute.sting.commandline.*;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.walkers.RodWalker;
-import org.broadinstitute.sting.gatk.walkers.TreeReducible;
-import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
+import org.broadinstitute.gatk.utils.commandline.*;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.report.GATKReport;
+import org.broadinstitute.gatk.engine.walkers.RodWalker;
+import org.broadinstitute.gatk.engine.walkers.TreeReducible;
+import org.broadinstitute.gatk.utils.Utils;
+import org.broadinstitute.gatk.utils.variant.GATKVCFUtils;
 import htsjdk.variant.vcf.VCFHeader;
 import htsjdk.variant.vcf.VCFInfoHeaderLine;
-import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.text.XReadLines;
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.VariantContextBuilder;
@@ -334,10 +334,10 @@ public class ByTranscriptEvaluator extends RodWalker<VariantContext,ByTranscript
 
     private void assertCodeIsWorking() {
         if ( ConsequenceType.isCoding(ConsequenceType.GENE_NOT_CODING) )
-            throw new StingException("The ConsequenceType Enum is busted. GENE_NOT_CODING should not be coding.");
+            throw new GATKException("The ConsequenceType Enum is busted. GENE_NOT_CODING should not be coding.");
 
         if ( ! ConsequenceType.isCoding(ConsequenceType.SYNONYMOUS_CODING) )
-            throw new StingException("The ConsequenceType Enum is busted! Syn_Coding should be coding.");
+            throw new GATKException("The ConsequenceType Enum is busted! Syn_Coding should be coding.");
     }
 
 /*    // note: from previous incarnation that did not use bootstraps

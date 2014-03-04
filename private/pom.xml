@@ -3,24 +3,25 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.broadinstitute.sting</groupId>
-        <artifactId>sting-root</artifactId>
+        <groupId>org.broadinstitute.gatk</groupId>
+        <artifactId>gatk-root</artifactId>
         <version>3.2-SNAPSHOT</version>
-        <relativePath>../public/sting-root</relativePath>
+        <relativePath>../public/gatk-root</relativePath>
     </parent>
 
-    <artifactId>sting-private</artifactId>
+    <artifactId>gatk-aggregator-private</artifactId>
     <packaging>pom</packaging>
-    <name>Sting Private</name>
+    <name>GATK Aggregator Private</name>
 
     <modules>
-        <module>gatk-private</module>
+        <module>gatk-tools-private</module>
+        <module>gatk-package-internal</module>
         <module>na12878kb-utils</module>
         <!-- queue optionally enabled as profiles -->
     </modules>
 
     <properties>
-        <sting.basedir>${project.basedir}/..</sting.basedir>
+        <gatk.basedir>${project.basedir}/..</gatk.basedir>
     </properties>
 
     <profiles>
@@ -33,7 +34,9 @@
                 </property>
             </activation>
             <modules>
-                <module>queue-private</module>
+                <module>gatk-queue-private</module>
+                <module>gatk-queue-extensions-internal</module>
+                <module>gatk-queue-package-internal</module>
             </modules>
         </profile>
     </profiles>

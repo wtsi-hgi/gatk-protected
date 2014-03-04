@@ -44,14 +44,14 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.tools;
+package org.broadinstitute.gatk.tools;
 
 import org.apache.log4j.Logger;
-import org.broadinstitute.sting.commandline.Advanced;
-import org.broadinstitute.sting.commandline.Argument;
-import org.broadinstitute.sting.commandline.CommandLineProgram;
-import org.broadinstitute.sting.utils.crypt.CryptUtils;
-import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.commandline.Advanced;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.CommandLineProgram;
+import org.broadinstitute.gatk.utils.crypt.CryptUtils;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
 
 import java.io.File;
 import java.security.*;
@@ -84,12 +84,12 @@ import java.security.*;
  * the default encryption settings:
  *
  * ant private (if necessary)
- * java -cp dist/StingUtils.jar org.broadinstitute.sting.tools.GenerateKeyPair
+ * java -cp dist/StingUtils.jar org.broadinstitute.gatk.tools.GenerateKeyPair
  *
  * To generate a new public/private key pair in the directory /local/mykeys instead:
  *
  * ant private (if necessary)
- * java -cp dist/StingUtils.jar org.broadinstitute.sting.tools.GenerateKeyPair -o /local/mykeys
+ * java -cp dist/StingUtils.jar org.broadinstitute.gatk.tools.GenerateKeyPair -o /local/mykeys
  */
 public class GenerateKeyPair extends CommandLineProgram {
 

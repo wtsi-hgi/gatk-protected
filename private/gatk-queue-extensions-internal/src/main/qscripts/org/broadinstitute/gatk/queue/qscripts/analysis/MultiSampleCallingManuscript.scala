@@ -44,14 +44,14 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.analysis
+package org.broadinstitute.gatk.queue.qscripts.analysis
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.QScript
 import java.io.FileWriter
-import org.broadinstitute.sting.utils.exceptions.UserException
-import org.broadinstitute.sting.utils.variantcontext.VariantContext
-import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel
+import org.broadinstitute.gatk.utils.exceptions.UserException
+import org.broadinstitute.gatk.utils.variantcontext.VariantContext
+import org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel
 
 class MultiSampleCallingManuscript extends QScript {
   qscript =>
@@ -208,7 +208,7 @@ class MultiSampleCallingManuscript extends QScript {
     this.D = dbSNP_b37
     this.out = t.rawVCF
     this.glm = if ( includeIndels ) GenotypeLikelihoodsCalculationModel.Model.BOTH else GenotypeLikelihoodsCalculationModel.Model.SNP
-    this.baq = if (t.useBAQ) {org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY} else {org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF}
+    this.baq = if (t.useBAQ) {org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY} else {org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.OFF}
     this.analysisName = t.name + "_UGs"
     this.jobName =  queueLogDir + t.name + ".snpcall"
   }

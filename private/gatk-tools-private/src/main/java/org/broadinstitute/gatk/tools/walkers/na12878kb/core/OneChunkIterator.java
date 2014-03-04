@@ -44,18 +44,18 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
+package org.broadinstitute.gatk.tools.walkers.na12878kb.core;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import com.mongodb.DBCursor;
 import htsjdk.samtools.util.PeekableIterator;
 import htsjdk.samtools.util.CloseableIterator;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordHandler;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.GenomeLocSortedSet;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.errors.InvalidRecordHandler;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.errors.MongoVariantContextException;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.GenomeLocParser;
+import org.broadinstitute.gatk.utils.GenomeLocSortedSet;
 
 import java.util.Iterator;
 import java.util.LinkedList;

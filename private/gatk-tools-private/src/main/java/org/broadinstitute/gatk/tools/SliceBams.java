@@ -44,7 +44,7 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.tools;
+package org.broadinstitute.gatk.tools;
 
 import picard.PicardException;
 import picard.cmdline.CommandLineProgram;
@@ -54,10 +54,10 @@ import htsjdk.samtools.util.IOUtil;
 import htsjdk.samtools.SamFileHeaderMerger;
 import htsjdk.samtools.util.Log;
 import htsjdk.samtools.*;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.sam.SimplifyingSAMFileWriter;
-import org.broadinstitute.sting.utils.text.XReadLines;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.GenomeLocParser;
+import org.broadinstitute.gatk.utils.sam.SimplifyingSAMFileWriter;
+import org.broadinstitute.gatk.utils.text.XReadLines;
 
 import java.io.File;
 import java.io.FileNotFoundException;

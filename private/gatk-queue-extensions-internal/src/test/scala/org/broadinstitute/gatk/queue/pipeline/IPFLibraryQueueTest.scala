@@ -44,20 +44,20 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.pipeline
+package org.broadinstitute.gatk.queue.pipeline
 
 import org.testng.annotations.Test
-import org.broadinstitute.sting.BaseTest
+import org.broadinstitute.gatk.utils.BaseTest
 
 class IPFLibraryQueueTest {
-  val dir = "private/scala/qscript/org/broadinstitute/sting/queue/qscripts/inProcessFunctions/"
+  val dir = "private/scala/qscript/org/broadinstitute/gatk/queue/qscripts/inProcessFunctions/"
 
   @Test(timeOut=36000000)
   def testVCFExtractSites {
     var testOut = "vcfes.vcf"
     val spec = new QueueTestSpec
     spec.name = "vcfExtractSites"
-    spec.args = "-S " + dir + "QTools.q -T VCFExtractSites -ivcf %s -out %s".format(
+    spec.args = "-S " + dir + "QTools.scala -T VCFExtractSites -ivcf %s -out %s".format(
       BaseTest.validationDataLocation + "omni_1212.subset.b37.vcf", testOut
     )
     spec.fileMD5s += testOut -> "4f496b8cf90302428a9edda486a337f4"
@@ -69,7 +69,7 @@ class IPFLibraryQueueTest {
     var testOut = "vcf.extract.samples.vcf"
     val spec = new QueueTestSpec
     spec.name = "vcfExtractSamples"
-    spec.args = "-S " + dir + "QTools.q -T VCFExtractSamples -ivcf %s -out %s -sm HG00107,HG00500,NA18501,NA18942".format(
+    spec.args = "-S " + dir + "QTools.scala -T VCFExtractSamples -ivcf %s -out %s -sm HG00107,HG00500,NA18501,NA18942".format(
       BaseTest.validationDataLocation + "omni_1212.subset.b37.vcf", testOut
     )
 
@@ -81,7 +81,7 @@ class IPFLibraryQueueTest {
     var testOut = "vcf.extract.intervals.list"
     val spec = new QueueTestSpec
     spec.name = "vcfExtractIntervals"
-    spec.args = "-S " + dir + "QTools.q -T VCFExtractIntervals -ivcf %s -out %s".format(
+    spec.args = "-S " + dir + "QTools.scala -T VCFExtractIntervals -ivcf %s -out %s".format(
       BaseTest.validationDataLocation + "omni_1212.subset.b37.vcf", testOut
     )
 
@@ -96,7 +96,7 @@ class IPFLibraryQueueTest {
     val int1 = BaseTest.validationDataLocation + "omni.subset.interleaved.1.vcf"
     val int2 = BaseTest.validationDataLocation + "omni.subset.interleaved.2.vcf"
     spec.name = "vcfSimpleMerge"
-    spec.args = "-S " + dir + "QTools.q -T VCFSimpleMerge -vcfs %s,%s -out %s -ref %s".format(
+    spec.args = "-S " + dir + "QTools.scala -T VCFSimpleMerge -vcfs %s,%s -out %s -ref %s".format(
       int1,int2,testOut,BaseTest.b37KGReference
     )
 
@@ -109,7 +109,7 @@ class IPFLibraryQueueTest {
     val spec = new QueueTestSpec
     val unsorted = BaseTest.validationDataLocation + "omni.pos_sorted.vcf"
     spec.name = "sortByRef"
-    spec.args = "-S  " + dir + "QTools.q -T SortByRef -ivcf %s -out %s -ref %s".format(
+    spec.args = "-S  " + dir + "QTools.scala -T SortByRef -ivcf %s -out %s -ref %s".format(
       unsorted, testOut, BaseTest.b37KGReference
     )
 

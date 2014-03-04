@@ -44,13 +44,13 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.pipeline
+package org.broadinstitute.gatk.queue.qscripts.pipeline
 
 import collection.immutable.ListMap
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.utils.interval.IntervalUtils
-import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.utils.interval.IntervalUtils
+import org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model
 
 class WholeGenomePipeline extends QScript {
   @Input(doc="Bam file list", shortName = "I", required=true)
@@ -216,7 +216,7 @@ class WholeGenomePipeline extends QScript {
           call.downsample_to_coverage = 50
           call.standard_min_confidence_threshold_for_calling = 10.0
           call.standard_min_confidence_threshold_for_emitting = 10.0
-          call.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+          call.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
           call.genotype_likelihoods_model = glModel
           call.out = tmpBase + "." + glModel.toString.toLowerCase + "s.vcf"
           call.isIntermediate = true
@@ -285,7 +285,7 @@ class WholeGenomePipeline extends QScript {
           chrVcfs = snpChrVcfs
           //tranche = ...
           buildModel.input = snpChrVcfs.values.toSeq
-          buildModel.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+          buildModel.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
           buildModel.use_annotation = Seq("QD", "HaplotypeScore", "MQRankSum", "ReadPosRankSum", "FS", "MQ", "InbreedingCoeff", "DP")
           buildModel.resource :+= TaggedFile(hapmap, "training=true,truth=true,prior=15.0")
           buildModel.resource :+= TaggedFile(k1gOmni, "training=true,prior=12.0")
@@ -294,7 +294,7 @@ class WholeGenomePipeline extends QScript {
           chrVcfs = indelChrVcfs
           //tranche = ...
           buildModel.input = indelChrVcfs.values.toSeq
-          buildModel.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+          buildModel.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
           buildModel.use_annotation = Seq("QD", "FS", "HaplotypeScore", "ReadPosRankSum", "InbreedingCoeff")
           buildModel.resource :+= TaggedFile(millsK1gIndels, "known=true,training=true,truth=true,prior=12.0")
       }

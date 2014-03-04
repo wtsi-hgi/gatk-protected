@@ -44,12 +44,12 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.incrementalCaller
+package org.broadinstitute.gatk.queue.qscripts.incrementalCaller
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.function._
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.function._
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 import htsjdk.variant.variantcontext.VariantContext
 
 class AssessJointCaller extends QScript {
@@ -99,7 +99,7 @@ class AssessJointCaller extends QScript {
     this.intervals :+= exomeIntervals
     if ( qscript.intervals != null ) {
       this.intervalsString :+= qscript.intervals
-      this.interval_set_rule = org.broadinstitute.sting.utils.interval.IntervalSetRule.INTERSECTION
+      this.interval_set_rule = org.broadinstitute.gatk.utils.interval.IntervalSetRule.INTERSECTION
     }
     this.interval_padding = 50
     this.memoryLimit = 2
@@ -109,7 +109,7 @@ class AssessJointCaller extends QScript {
   // 1a.) Call SNPs with UG
   class MyUnifiedGenotyper(name: String) extends UnifiedGenotyper with BaseCommandArguments {
     this.out = qscript.outputDir + "/" + name + ".UnifiedGenotyper.unfiltered.vcf"
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.analysisName = "CEUTrio_UGs"
     if (qscript.scatterCount > 0) this.scatterCount = qscript.scatterCount
     this.D = new File(latestdbSNP)
@@ -152,7 +152,7 @@ class AssessJointCaller extends QScript {
     this.resource :+= new TaggedFile( training_1000G, "known=false,training=true,prior=10.0" )	// not part of the bast practices v4
     this.resource :+= new TaggedFile( dbSNP_129, "known=true,training=false,truth=false,prior=2.0" )    // prior=6.0 on the bast practices v4
     this.use_annotation ++= List("QD")
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
     this.analysisName = "CEUTrio_VQSRs"
   }
 
@@ -160,7 +160,7 @@ class AssessJointCaller extends QScript {
   class indelRecal(indelVCF: String) extends VQSRBase(indelVCF) with BaseCommandArguments {
     this.resource :+= new TaggedFile( indelGoldStandardCallset, "known=false,training=true,truth=true,prior=12.0" ) // known=true on the bast practices v4
     this.resource :+= new TaggedFile( latestdbSNP, "known=true,prior=2.0" )  						// not part of the bast practices v4
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
     this.analysisName = "CEUTrio_VQSRi"
     this.maxGaussians = 4
   }
@@ -179,13 +179,13 @@ class AssessJointCaller extends QScript {
   }
 
   class applySnpVQSR(vqsr: VariantRecalibrator) extends applyVQSRBase(vqsr) with BaseCommandArguments {
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.SNP
     this.analysisName = "CEUTrio_AVQSRs"
     this.ts_filter_level = 99.5
   }
 
   class applyIndelVQSR(vqsr: VariantRecalibrator) extends applyVQSRBase(vqsr) with BaseCommandArguments {
-    this.mode = org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
+    this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
     this.analysisName = "CEUTrio_AVQSRi"
     this.ts_filter_level = 99.0
   }

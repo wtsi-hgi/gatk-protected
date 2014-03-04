@@ -44,15 +44,15 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.library.ipf.intervals
+package org.broadinstitute.gatk.queue.library.ipf.intervals
 
-import org.broadinstitute.sting.queue.function.InProcessFunction
-import org.broadinstitute.sting.commandline._
+import org.broadinstitute.gatk.queue.function.InProcessFunction
+import org.broadinstitute.gatk.utils.commandline._
 import java.io.{PrintStream, File}
 import collection.JavaConversions._
-import org.broadinstitute.sting.utils.text.XReadLines
+import org.broadinstitute.gatk.utils.text.XReadLines
 import htsjdk.samtools.reference.FastaSequenceFile
-import org.broadinstitute.sting.utils.{GenomeLoc, GenomeLocParser}
+import org.broadinstitute.gatk.utils.{GenomeLoc, GenomeLocParser}
 import collection.immutable.TreeSet
 
 // todo -- this is unsafe. Need to use a reference dictionary to ensure no off-contig targets are created

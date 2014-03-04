@@ -44,16 +44,16 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.pipeline
+package org.broadinstitute.gatk.queue.qscripts.pipeline
 
 import org.apache.commons.io.FilenameUtils
-import org.broadinstitute.sting.pipeline.PicardAggregationUtils
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.extensions.snpeff.SnpEff
-import org.broadinstitute.sting.queue.function.ListWriterFunction
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.gatk.utils.pipeline.PicardAggregationUtils
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.extensions.snpeff.SnpEff
+import org.broadinstitute.gatk.queue.function.ListWriterFunction
+import org.broadinstitute.gatk.queue.QScript
 import collection.JavaConversions._
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 
 class HybridSelectionPipeline extends QScript {
   qscript =>
@@ -157,7 +157,7 @@ class HybridSelectionPipeline extends QScript {
       call.input_file :+= k1gExomesBam
     call.dbsnp = dbsnp135
     call.downsample_to_coverage = 200
-    call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    call.genotype_likelihoods_model = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     call.out = projectName + ".unfiltered.vcf"
     call.scatterCount = qscript.variantCallerScatterCount
     add(call)

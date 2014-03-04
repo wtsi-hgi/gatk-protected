@@ -44,12 +44,12 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.pipeline
+package org.broadinstitute.gatk.queue.pipeline
 
 import org.testng.annotations.{DataProvider, Test}
-import org.broadinstitute.sting.BaseTest
+import org.broadinstitute.gatk.utils.BaseTest
 import org.apache.commons.io.FileUtils
-import org.broadinstitute.sting.pipeline.PicardAggregationUtils
+import org.broadinstitute.gatk.utils.pipeline.PicardAggregationUtils
 import collection.JavaConversions._
 
 class HybridSelectionQueueTest {
@@ -85,7 +85,7 @@ class HybridSelectionQueueTest {
     // Run the pipeline with the expected inputs.
     val pipelineCommand =
       ("-retry 1" +
-        " -S private/scala/qscript/org/broadinstitute/sting/queue/qscripts/pipeline/HybridSelectionPipeline.scala" +
+        " -S private/scala/qscript/org/broadinstitute/gatk/queue/qscripts/pipeline/HybridSelectionPipeline.scala" +
         " -I %s" +
         " -L %s" +
         " -varFilter HARD")

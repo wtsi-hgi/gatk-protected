@@ -44,13 +44,13 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
+package org.broadinstitute.gatk.tools.walkers.na12878kb.core;
 
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsLogError;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsRemove;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsThrowError;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
-import org.broadinstitute.sting.utils.GenomeLocSortedSet;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.errors.InvalidRecordsLogError;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.errors.InvalidRecordsRemove;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.errors.InvalidRecordsThrowError;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.errors.MongoVariantContextException;
+import org.broadinstitute.gatk.utils.GenomeLocSortedSet;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;

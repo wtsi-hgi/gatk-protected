@@ -44,11 +44,11 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.analysis
+package org.broadinstitute.gatk.queue.qscripts.reducedreads
 
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.utils.baq.BAQ
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.utils.baq.BAQ
 
 class ReducedBAMEvaluation extends QScript {
   @Argument(shortName = "R",       fullName = "reference", doc="ref", required=false) var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37.fasta")
@@ -133,7 +133,7 @@ class ReducedBAMEvaluation extends QScript {
     this.rodBind :+= RodBind("fullBAM", "VCF", fullBAMVCF)
     this.rodBind :+= RodBind("reducedBAM", "VCF", reducedBAMVCF)
     this.rod_priority_list = "reducedBAM,fullBAM"
-    this.filteredrecordsmergetype = org.broadinstitute.sting.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    this.filteredrecordsmergetype = org.broadinstitute.gatk.utils.variantcontext.VariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
     this.out = outVCF
   }
 

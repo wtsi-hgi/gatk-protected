@@ -44,17 +44,17 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
+package org.broadinstitute.gatk.tools.walkers.na12878kb.core;
 
 import com.mongodb.ReflectionDBObject;
-import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
-import org.broadinstitute.sting.utils.BaseUtils;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.sting.utils.Utils;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.errors.MongoVariantContextException;
+import org.broadinstitute.gatk.utils.BaseUtils;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.GenomeLocParser;
+import org.broadinstitute.gatk.utils.Utils;
 import htsjdk.variant.vcf.*;
-import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
@@ -236,10 +236,10 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
                                   final boolean isReviewed,
                                   final boolean isComplexEvent) {
         if ( vc.getNAlleles() > 2 )
-            throw new ReviewedStingException("MongoVariantContext only supports single alt allele, but saw " + vc);
+            throw new ReviewedGATKException("MongoVariantContext only supports single alt allele, but saw " + vc);
 
         if ( vc.isSymbolic() )
-            throw new ReviewedStingException("MongoVariantContext doesn't support symbolic alleles but got " + vc);
+            throw new ReviewedGATKException("MongoVariantContext doesn't support symbolic alleles but got " + vc);
 
         this.supportingCallsets = supportingCallsets;
         this.chr = vc.getChr();
@@ -577,7 +577,7 @@ public class MongoVariantContext extends ReflectionDBObject implements Cloneable
     /**
      * Make sure this MongoVariantContext is valid, throwing a MongoVariantContextException if not
      *
-     * @throws org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException if this is malformed
+     * @throws org.broadinstitute.gatk.tools.walkers.na12878kb.core.errors.MongoVariantContextException if this is malformed
      * @param parser a GenomeLocParser so we know what contigs are allowed, can be null
      */
     protected void validate(final GenomeLocParser parser) {

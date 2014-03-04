@@ -44,19 +44,19 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.gatk.walkers.activeregionqc;
+package org.broadinstitute.gatk.tools.walkers.activeregionqc;
 
-import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
-import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
-import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
-import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
-import org.broadinstitute.sting.gatk.report.GATKReport;
-import org.broadinstitute.sting.gatk.walkers.ActiveRegionTraversalParameters;
-import org.broadinstitute.sting.gatk.walkers.ActiveRegionWalker;
-import org.broadinstitute.sting.gatk.walkers.NanoSchedulable;
-import org.broadinstitute.sting.utils.GenomeLoc;
-import org.broadinstitute.sting.utils.activeregion.ActivityProfileState;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.report.GATKReport;
+import org.broadinstitute.gatk.engine.walkers.ActiveRegionTraversalParameters;
+import org.broadinstitute.gatk.engine.walkers.ActiveRegionWalker;
+import org.broadinstitute.gatk.engine.walkers.NanoSchedulable;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.activeregion.ActivityProfileState;
 
 import java.io.PrintStream;
 
@@ -96,7 +96,7 @@ public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInAc
     }
 
     @Override
-    public Datum map( final org.broadinstitute.sting.utils.activeregion.ActiveRegion activeRegion, final RefMetaDataTracker tracker ) {
+    public Datum map( final org.broadinstitute.gatk.utils.activeregion.ActiveRegion activeRegion, final RefMetaDataTracker tracker ) {
         return new Datum(activeRegion.getLocation(), activeRegion.getExtendedLoc(), activeRegion.isActive(), activeRegion.size());
     }
 

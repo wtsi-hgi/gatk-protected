@@ -44,15 +44,15 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import org.broadinstitute.sting.gatk.walkers.bqsr.RecalDataManager
-import org.broadinstitute.sting.queue.extensions.gatk.BaseRecalibrator
-import org.broadinstitute.sting.queue.extensions.gatk.PrintReads
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.gatk.filters.SingleReadGroupFilter
-import org.broadinstitute.sting.queue.extensions.gatk.SingleReadGroup
+import org.broadinstitute.gatk.tools.walkers.bqsr.RecalDataManager
+import org.broadinstitute.gatk.queue.extensions.gatk.BaseRecalibrator
+import org.broadinstitute.gatk.queue.extensions.gatk.PrintReads
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.engine.filters.SingleReadGroupFilter
+import org.broadinstitute.gatk.queue.extensions.gatk.SingleReadGroup
 
 class BQSR_context_size_experiment extends QScript {
 

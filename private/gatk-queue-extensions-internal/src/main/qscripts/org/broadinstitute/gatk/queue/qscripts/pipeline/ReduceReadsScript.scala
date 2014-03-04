@@ -44,13 +44,13 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.pipeline
+package org.broadinstitute.gatk.queue.qscripts.pipeline
 
 import htsjdk.samtools.util.IOUtil
-import org.broadinstitute.sting.pipeline.{PicardSample, PicardAggregationUtils}
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.function._
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.gatk.utils.pipeline.{PicardSample, PicardAggregationUtils}
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.function._
+import org.broadinstitute.gatk.queue.QScript
 import collection.JavaConversions._
 
 class ReduceReadsScript extends QScript {
@@ -90,8 +90,8 @@ class ReduceReadsScript extends QScript {
 
           val originalBam: File = PicardAggregationUtils.getSampleBam(picardSample.getProject, picardSample.getSample, picardSample.getVersion)
           val reducedBam: File = new File(bamDir, "%1$s/%2$s/v%3$d/%2$s.reduced.bam".format(
-            IoUtil.makeFileNameSafe(picardSample.getProject),
-            IoUtil.makeFileNameSafe(picardSample.getSample),
+            IOUtil.makeFileNameSafe(picardSample.getProject),
+            IOUtil.makeFileNameSafe(picardSample.getSample),
             picardSample.getVersion))
 
           //Use the hardcoded intervals instead of the Picard specified intervals
