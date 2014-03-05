@@ -151,6 +151,29 @@ public class ReadThreadingAssemblerUnitTest extends BaseTest {
     }
 
     @Test(enabled = ! DEBUG)
+    public void testMismatchInFirstKmer() {
+        final TestAssembler assembler = new TestAssembler(3);
+        final String ref = "ACAACTGA";
+        final String alt =   "AGCTGA";
+        assembler.addSequence(ref.getBytes(), true);
+        assembler.addSequence(alt.getBytes(), false);
+
+        final SeqGraph graph = assembler.assemble();
+        graph.simplifyGraph();
+        graph.removeSingletonOrphanVertices();
+        final Set<SeqVertex> sources = graph.getSources();
+        final Set<SeqVertex> sinks = graph.getSinks();
+
+        Assert.assertEquals(sources.size(), 1);
+        Assert.assertEquals(sinks.size(), 1);
+        Assert.assertNotNull(graph.getReferenceSourceVertex());
+        Assert.assertNotNull(graph.getReferenceSinkVertex());
+
+        final List<Path<SeqVertex,BaseEdge>> paths = new KBestPaths<SeqVertex,BaseEdge>().getKBestPaths(graph);
+        Assert.assertEquals(paths.size(), 2);
+    }
+
+    @Test(enabled = ! DEBUG)
     public void testStartInMiddle() {
         final TestAssembler assembler = new TestAssembler(3);
         final String ref  = "CAAAATG";
