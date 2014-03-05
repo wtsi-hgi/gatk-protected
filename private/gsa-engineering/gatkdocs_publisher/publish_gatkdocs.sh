@@ -1,74 +1,37 @@
 #!/bin/bash
+#
+# Generate a new set of gatkdocs and upload them to a live location on the gsa-web server
+#
 
-IWWW_DIR="gsa-web:/local/software/apache2/htdocs/gatkdocs_private"
-WWW_DIR="gsa-web:/local/software/apache2/htdocs/gatk/gatkdocs"
-STAGING_DIR="/local/gsa-engineering/gatkdocs_publisher/staging_area"
-BAMBOO_CLONE=`pwd`
+WEB_SERVER="gsa-web"
+GATKDOCS_LIVE_DIR="/local/software/apache2/htdocs/gatk/gatkdocs"
+GATKDOCS_STAGING_DIR="/local/software/apache2/htdocs/gatkdocs_staging"
+GATKDOCS_LOCAL_DIR="target/gatkdocs"
+TEMP_MAVEN_REPO="tmp_mvn_repo"
+TEMP_DIR="tmp"
 
-if [ $# -ne 1 ]
-then
-    echo "Usage: $0 <repository_name>"
-    exit 1
-fi
+mkdir "${TEMP_DIR}"
 
-REPOSITORY="$1"
-
-if [ "${REPOSITORY}" == "unstable" ] 
-then 
-	DESTINATION_DIR="${IWWW_DIR}"
-    GATKDOCS_INCLUDE_HIDDEN="-Dgatkdocs.include.hidden=true"
-elif [ "${REPOSITORY}" == "release" ]
-then
-	DESTINATION_DIR="${WWW_DIR}"
-    GATKDOCS_INCLUDE_HIDDEN=""
-else
-	echo "No need to update gatkdocs for ${REPOSITORY} -- everything is fine"
-	exit 0
-fi
-
-STAGING_CLONE="${STAGING_DIR}/${REPOSITORY}"
-
-if [ -d "${STAGING_CLONE}" ]
-then
-    rm -rf "${STAGING_CLONE}"
-fi
-
-git clone "${BAMBOO_CLONE}" "${STAGING_CLONE}"
+mvn clean && \
+mvn install "-Dmaven.repo.local=${TEMP_MAVEN_REPO}" '-P!private,!queue' -Ddisable.queue "-Djava.io.tmpdir=${TEMP_DIR}" && \
+mvn site "-Dmaven.repo.local=${TEMP_MAVEN_REPO}" '-P!private,!queue' -Ddisable.queue "-Djava.io.tmpdir=${TEMP_DIR}"
 
 if [ $? -ne 0 ]
 then
-    echo "$0: Failed to clone ${BAMBOO_CLONE} into ${STAGING_CLONE}"
+    echo "Failed to generate gatkdocs"
     exit 1
 fi
 
-IVY_CACHE_DIR="${STAGING_CLONE}/ivy_cache"
-mkdir "${IVY_CACHE_DIR}"
+echo "Uploading gatkdocs to ${WEB_SERVER}"
 
-cd "${STAGING_CLONE}"
-
-printf "$0: working dir is: %s\n" `pwd`
-printf "$0: destination dir is: %s\n" "${DESTINATION_DIR}"
-
-if [ "${REPOSITORY}" == "release" ]
-then
-    rm -rf private
-fi
-
-ant clean && ant gatkdocs ${GATKDOCS_INCLUDE_HIDDEN} -Divy.home=${IVY_CACHE_DIR}
+ssh "${WEB_SERVER}" "rm -rf ${GATKDOCS_STAGING_DIR} && mkdir ${GATKDOCS_STAGING_DIR}" && \
+rsync -rvtz "${GATKDOCS_LOCAL_DIR}"/* "${WEB_SERVER}:${GATKDOCS_STAGING_DIR}" && \
+ssh "${WEB_SERVER}" "chmod -R 775 ${GATKDOCS_STAGING_DIR} && mv ${GATKDOCS_LIVE_DIR} ${GATKDOCS_LIVE_DIR}_old && mv ${GATKDOCS_STAGING_DIR} ${GATKDOCS_LIVE_DIR} && rm -rf ${GATKDOCS_LIVE_DIR}_old"
 
 if [ $? -ne 0 ]
 then
-    echo "$0: Failed to generate gatkdocs"
-    exit 1
-fi
-
-rsync -rvtz --delete gatkdocs/* ${DESTINATION_DIR} 
-
-if [ $? -ne 0 ]
-then
-    echo "Failed to copy gatkdocs into ${DESTINATION_DIR}"
+    echo "Failed to upload gatkdocs to web server"
     exit 1
 fi
 
 exit 0
-
