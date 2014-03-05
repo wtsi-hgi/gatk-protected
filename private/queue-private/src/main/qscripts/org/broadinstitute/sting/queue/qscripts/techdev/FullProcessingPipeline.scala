@@ -47,7 +47,7 @@
 package org.broadinstitute.sting.queue.qscripts.techdev
 
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.commandline.{Argument, Hidden}
+import org.broadinstitute.sting.commandline.{Hidden}
 import org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel
 import org.broadinstitute.sting.queue.util.QScriptUtils
 import org.broadinstitute.sting.queue.extensions.gatk._
@@ -100,6 +100,11 @@ class FullProcessingPipeline extends QScript {
   @Argument(doc="Mark Duplicates",
     fullName="mark_duplicates", shortName="dedup", required=false)
   var do_dedup = false
+
+  @Argument(doc="Split N Cigar Reads",
+    fullName="splitNCigarReads", shortName="splitReads", required=false)
+  var splitNCigarReads = false
+
 
   @Argument(doc="sampleName",
     fullName="sampleName", shortName="sn", required=false)
@@ -160,7 +165,7 @@ class FullProcessingPipeline extends QScript {
     fullName = "filter_N_cigar_reads", shortName = "filter_Ns", required = false, exclusiveOf = "allow_N_cigar_reads")
   var filter_N_cigar_reads = false
 
-  val cleaningModel: ConsensusDeterminationModel = ConsensusDeterminationModel.USE_READS
+ val cleaningModel: ConsensusDeterminationModel = ConsensusDeterminationModel.USE_READS
 
   def script() {
     // keep a record of the number of contigs in the first bam file in the list
@@ -192,12 +197,12 @@ class FullProcessingPipeline extends QScript {
         getSampleName(input)
 
     val sortedBam  = new File(sampleName + ".sorted.bam")
-    //val cleanedBam = swapExt(dedupIfNeeded(sortedBam), ".bam", ".clean.bam")
-    val readyToRealign = dedupIfNeeded(addRGIfNeeded(sortedBam,sampleName))
-    //sampleName + ".sorted.RGadded.dedup.splitNCigarReads.bam")//
+    val readyToRealign = splitRNAseqReadsIfNeeded(
+          dedupIfNeeded(
+           addRGIfNeeded(sortedBam,sampleName)))
     val cleanedBam = swapExt(readyToRealign, ".bam", ".clean.bam")
     val recalBam   = swapExt(cleanedBam, ".bam", ".recal.bam")
-    val reducedBam = swapExt(recalBam, ".bam", ".reduced.bam")
+    //val reducedBam = swapExt(recalBam, ".bam", ".reduced.bam")
 
     // Accessory files
     val targetIntervals = new File(sampleName + ".intervals")
@@ -211,7 +216,7 @@ class FullProcessingPipeline extends QScript {
       printreads(cleanedBam, recalFile, recalBam)
     )
 
-    if (do_RR) add(reduce(recalBam, reducedBam))
+    //if (do_RR) add(reduce(recalBam, reducedBam))
 
   }
 
@@ -239,6 +244,17 @@ class FullProcessingPipeline extends QScript {
       bam
     }
 
+  }
+
+  def splitRNAseqReadsIfNeeded(bam: File) : File ={
+    if (splitNCigarReads) {
+      val splitReadsBam = swapExt(bam,".bam",".splitReads.bam")
+      add(splitRNAseqReads(bam, splitReadsBam))
+      splitReadsBam
+    }
+    else {
+      bam
+    }
   }
 
 
@@ -439,35 +455,6 @@ class FullProcessingPipeline extends QScript {
     header.getReadGroups
   }
 
-  /****************************************************************************
-    * Classes (GATK Walkers)
-    ****************************************************************************/
-
-  // General arguments to non-GATK tools
-  trait ExternalCommonArgs extends CommandLineFunction {
-    this.memoryLimit = 4
-    if(keepIntermediateFiles)
-      this.isIntermediate = false
-    else
-      this.isIntermediate = true
-  }
-
-  // General arguments to GATK walkers
-  trait CommandLineGATKArgs extends CommandLineGATK with ExternalCommonArgs {
-    this.reference_sequence = qscript.reference
-    if(allow_N_cigar_reads)
-      this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
-
-  }
-
-  trait SAMargs extends PicardBamFunction with ExternalCommonArgs {
-    this.maxRecordsInRam = 100000
-  }
-
-  trait SplitByRGAltRefMixin extends CommandLineGATK with ExternalCommonArgs {
-    this.reference_sequence = if (qscript.alternative_reference != null) { qscript.alternative_reference} else {reference_sequence}
-  }
-
   case class bam2fq (@Input inBam: File, @Output outFQ: File) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs {
     def commandLine = "htscmd bamshuf -uOn 128 " + inBam + " " + outFQ + ".tmp" + " | htscmd bam2fq -a - | gzip > " + outFQ
     this.memoryLimit = 8
@@ -487,6 +474,39 @@ class FullProcessingPipeline extends QScript {
     this.memoryLimit = 4
     this.analysisName = "ADAPTER"
   }
+
+
+  /****************************************************************************
+    * Classes (GATK Walkers)
+    ****************************************************************************/
+
+  // General arguments to non-GATK tools
+  trait ExternalCommonArgs extends CommandLineFunction {
+    this.memoryLimit = 4
+    if(keepIntermediateFiles)
+      this.isIntermediate = false
+    else
+      this.isIntermediate = true
+  }
+
+  // General arguments to GATK walkers
+  trait CommandLineGATKArgs extends CommandLineGATK with ExternalCommonArgs {
+    this.reference_sequence = qscript.reference
+    if(qscript.change255to60)
+      this.read_filter :+= "ReassignOneMappingQuality"
+    if(allow_N_cigar_reads)
+      this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
+
+  }
+
+  trait SAMargs extends PicardBamFunction with ExternalCommonArgs {
+    this.maxRecordsInRam = 100000
+  }
+
+  trait SplitByRGAltRefMixin extends CommandLineGATK with ExternalCommonArgs {
+    this.reference_sequence = if (qscript.alternative_reference != null) { qscript.alternative_reference} else {reference_sequence}
+  }
+
 
   case class revert (inBam: File, outBam: File) extends RevertSam with SAMargs {
     this.output = outBam
@@ -530,6 +550,18 @@ class FullProcessingPipeline extends QScript {
     this.input_file :+= inBam
   }
 
+  case class dedup (inBam: File, outBam: File, metricsFile: File) extends MarkDuplicates with ExternalCommonArgs {
+    this.input :+= inBam
+    this.output = outBam
+    this.metrics = metricsFile
+  }
+
+  case class splitRNAseqReads(inBam: File, outBam: File) extends SplitNCigarReads with CommandLineGATKArgs {
+    this.input_file :+= inBam
+    this.out = outBam
+    this.scatterCount = nContigs
+  }
+
   case class target (inBams: File, outIntervals: File) extends RealignerTargetCreator with CommandLineGATKArgs {
     this.input_file :+= inBams
     this.out = outIntervals
@@ -558,12 +590,6 @@ class FullProcessingPipeline extends QScript {
     this.filter_reads_with_N_cigar = true
   }
 
-  case class dedup (inBam: File, outBam: File, metricsFile: File) extends MarkDuplicates with ExternalCommonArgs {
-    this.input :+= inBam
-    this.output = outBam
-    this.metrics = metricsFile
-  }
-
   case class bqsr (inBam: File, outRecalFile: File) extends BaseRecalibrator with CommandLineGATKArgs {
     if (qscript.dbSNP != null)
       this.knownSites ++= qscript.dbSNP
@@ -586,11 +612,11 @@ class FullProcessingPipeline extends QScript {
     this.isIntermediate = false
   }
 
-  case class reduce (inBam: File, outBam: File) extends ReduceReads with CommandLineGATKArgs {
-    this.input_file :+= inBam
-    this.out = outBam
-    this.scatterCount = nContigs
-    this.isIntermediate = false
-    this.memoryLimit = 8
-  }
+//  case class reduce (inBam: File, outBam: File) extends ReduceReads with CommandLineGATKArgs {
+//    this.input_file :+= inBam
+//    this.out = outBam
+//    this.scatterCount = nContigs
+//    this.isIntermediate = false
+//    this.memoryLimit = 8
+//  }
 }
