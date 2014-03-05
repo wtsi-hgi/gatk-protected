@@ -60,10 +60,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class AssessorUnitTest extends BaseTest {
     private final static boolean DEBUG = false;
@@ -289,34 +286,34 @@ public class AssessorUnitTest extends BaseTest {
         Assert.assertEquals(assessor.getSNPAssessment(), oneTP);
     }
 
-    // ------------------------------------------------------------
-    // Tests for assessing a site
-    // ------------------------------------------------------------
+    @Test
+    public void testIgnoringAllFilters() {
+        final String[] filters = { "foo", "bar" };
+        final VariantContext vcAC10 = new VariantContextBuilder("vcf", "20", 10, 10, Arrays.asList(Allele.create("A", true), Allele.create("C"))).filters(filters).make();
+        final Genotype het = new GenotypeBuilder("NA12878", vcAC10.getAlleles()).GQ(1).make();
+        final Genotype discordant = MongoGenotype.createDiscordant(het);
+        final MongoVariantContext mvcAC10 = MongoVariantContext.create("kb", vcAC10, TruthStatus.TRUE_POSITIVE, discordant);
 
-    // java -jar dist/GenomeAnalysisTK.jar -T DepthOfCoverage -I private/testdata/reduced.readNotFullySpanningDeletion.bam -R ~/Desktop/broadLocal/localData/human_g1k_v37.fasta -L 1:167,022,605-167,025,904 -mmq 20 -mbq 20 | grep "1:" | grep -v "-" | awk '{print $1, $2}' | awk -F ":" '{print $1, $2}' > private/testdata/reduced.readNotFullySpanningDeletion.doc
-    private final static File DoC = new File(privateTestDir + "reduced.readNotFullySpanningDeletion.doc");
-    private final static File BAM = new File(privateTestDir + "reduced.readNotFullySpanningDeletion.bam");
+        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 5, -1, -1, Collections.singleton(Assessor.WILDCARD_FILTER_NAME));
+        assessor.assessSite(Arrays.asList(vcAC10), Arrays.asList(mvcAC10), false);
 
-    @DataProvider(name = "DoCSites")
-    public Object[][] makeDocSites() throws Exception {
-        List<Object[]> tests = new ArrayList<Object[]>();
-
-        for ( final String line : new XReadLines(DoC).readLines() ) {
-            final String[] parts = line.split(" ");
-            final String chr = parts[0];
-            final int pos = Integer.valueOf(parts[1]);
-            final int doc = Integer.valueOf(parts[2]);
-            tests.add(new Object[]{BAM, chr, pos, doc});
-        }
-
-        return tests.toArray(new Object[][]{});
+        final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+        Assert.assertEquals(assessor.getSNPAssessment(), oneTP);
     }
 
-    @Test(dataProvider = "DoCSites")
-    public void testFilteringSites(final File bam, final String chr, final int pos, final int expectedDoC) {
-        final SAMFileReader bamReader = Assessor.makeSAMFileReaderForDoCInBAM(bam);
-        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, bamReader, 5, -1, -1, false);
-        final int actualDoC = assessor.getDepthAtLocus(chr, pos);
-        Assert.assertEquals(actualDoC, expectedDoC, "Depth of coverage at " + chr + ":" + pos + " had unexpected depth");
+    @Test
+    public void testIgnoringSpecificFilters() {
+        final Set<String> myFilter = new HashSet<>();
+        myFilter.add("foo");
+        final VariantContext vcAC10 = new VariantContextBuilder("vcf", "20", 10, 10, Arrays.asList(Allele.create("A", true), Allele.create("C"))).filters(myFilter).make();
+        final Genotype het = new GenotypeBuilder("NA12878", vcAC10.getAlleles()).GQ(1).make();
+        final Genotype discordant = MongoGenotype.createDiscordant(het);
+        final MongoVariantContext mvcAC10 = MongoVariantContext.create("kb", vcAC10, TruthStatus.TRUE_POSITIVE, discordant);
+
+        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 5, -1, -1, myFilter);
+        assessor.assessSite(Arrays.asList(vcAC10), Arrays.asList(mvcAC10), false);
+
+        final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
+        Assert.assertEquals(assessor.getSNPAssessment(), oneTP);
     }
 }

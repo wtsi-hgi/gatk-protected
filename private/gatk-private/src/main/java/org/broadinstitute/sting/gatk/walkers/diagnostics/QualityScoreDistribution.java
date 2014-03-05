@@ -106,8 +106,7 @@ public class QualityScoreDistribution extends ReadWalker<HashMap<Byte, Long>, Ha
             if (!qualsMap.containsKey(q))
                 throw new ReviewedStingException(String.format("Invalid quality score %d on read %s", q, read));
 
-            int count = read.isReducedRead() ? read.getReducedCount(i) : 1;
-            qualsMap.put(q, qualsMap.get(q) + count);
+            qualsMap.put(q, qualsMap.get(q) + 1);
         }
 
         return qualsMap;

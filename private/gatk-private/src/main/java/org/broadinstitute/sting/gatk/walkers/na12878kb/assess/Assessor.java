@@ -93,13 +93,16 @@ import java.util.*;
 public class Assessor {
     private final Logger logger = Logger.getLogger(Assessor.class);
 
+    protected static final String WILDCARD_FILTER_NAME = "ALL_FILTERED_SITES";
+
     private final AssessNA12878.TypesToInclude typesToInclude;
     protected final String name;
     private final SAMFileReader bamReader;
     private final int minDepthForLowCoverage;
     private final Set<String> excludeKBSitesSupportedByOnlyTheseCallset;
     private final SitesWriter badSitesWriter;
-    private final boolean ignoreFilters;
+    private final boolean ignoreAllFilters;
+    private final Set<String> filtersToIgnore;
     private final int minPNonRef;
     private final int minGQ;
 
@@ -113,7 +116,7 @@ public class Assessor {
      * @param name the name of our assessor
      */
     protected Assessor(final String name) {
-        this(name, AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 0, -1, 20, false);
+        this(name, AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 0, -1, 20, Collections.<String>emptySet());
     }
 
     /**
@@ -131,7 +134,7 @@ public class Assessor {
      *                               if its below this value
      * @param minPNonRef  if PLs against 0/0 are below this number, do not consider the site called; use -1 to ignore
      * @param minGQ  if GQ is below this number, do not consider the genotype called; use -1 to ignore
-     * @param ignoreFilters if true, ignore the filter status of calls and use them all
+     * @param ignoreFilters the set of filters which we should ignore (and allow them to pass through); if Assessor.WILDCARD_FILTER_NAME is included then all filters will be ignored
      */
     public Assessor(final String name,
                     final AssessNA12878.TypesToInclude typesToInclude,
@@ -141,7 +144,7 @@ public class Assessor {
                     final int minDepthForLowCoverage,
                     final int minPNonRef,
                     final int minGQ,
-                    final boolean ignoreFilters) {
+                    final Set<String> ignoreFilters) {
         if ( name == null ) throw new IllegalArgumentException("ROD name cannot be null");
         if ( name.equals("") ) throw new IllegalArgumentException("ROD name cannot be the empty string");
         if ( typesToInclude == null ) throw new IllegalArgumentException("typesToInclude cannot be null");
@@ -156,7 +159,8 @@ public class Assessor {
         this.minGQ = minGQ;
         this.excludeKBSitesSupportedByOnlyTheseCallset = excludeKBSitesSupportedByOnlyTheseCallset;
         this.badSitesWriter = badSitesWriter;
-        this.ignoreFilters = ignoreFilters;
+        this.filtersToIgnore = ignoreFilters;
+        ignoreAllFilters = filtersToIgnore.contains(WILDCARD_FILTER_NAME);
     }
 
     public Assessment getSNPAssessment() { return SNPAssessment; }
@@ -457,7 +461,7 @@ public class Assessor {
     }
 
     private boolean isNotUsableCall(final VariantContext vc) {
-        return ! ignoreFilters && vc.isFiltered();
+        return ! ignoreAllFilters && vc.isFiltered() && ! filtersToIgnore.containsAll(vc.getFilters());
     }
 
     /**
