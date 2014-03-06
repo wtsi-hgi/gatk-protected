@@ -72,6 +72,10 @@ class HaplotypeCallerScript extends QScript {
   var stand_call_conf: Double = _
   @Argument(shortName = "stand_emit_conf", doc= "standard min confidence threshold for emitting", required = false)
   var stand_emit_conf: Double = _
+  @Argument(shortName = "dontUseSC", doc= "do not use the soft clipped bases in HC", required = false)
+  var doNotUseSoftClippedBases = false
+  @Argument(shortName = "headMerging", doc= "recover Dangling Heads (for RNAseq data)", required = false)
+  var recoverDanglingHeads = false
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     memoryLimit = 2;
@@ -88,6 +92,10 @@ class HaplotypeCallerScript extends QScript {
     hc.input_file :+= new File(bam)
     hc.o = new File(out + ".hc.vcf")
     hc.dcov = downsampling
+    if (doNotUseSoftClippedBases)
+      hc.dontUseSoftClippedBases = true
+    if (recoverDanglingHeads)
+	    hc.recoverDanglingHeads = true
     hc.analysisName = "HaplotypeCaller"
     if (qscript.stand_call_conf != null) hc.stand_call_conf = qscript.stand_call_conf
     if (qscript.stand_emit_conf != null) hc.stand_emit_conf = qscript.stand_emit_conf
