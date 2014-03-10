@@ -51,7 +51,7 @@ import org.broadinstitute.sting.queue.util.Logging
 import java.io.{FileNotFoundException, File}
 import org.broadinstitute.sting.pipeline.PicardAggregationUtils
 
-object K1gPipelineTest extends BaseTest with Logging {
+object K1gQueueTest extends BaseTest with Logging {
 
   case class K1gBam(project: String, sample: String) {
     override val toString = project + "/" + sample

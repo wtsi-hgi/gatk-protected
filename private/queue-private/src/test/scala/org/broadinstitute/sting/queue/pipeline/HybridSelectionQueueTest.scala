@@ -44,35 +44,76 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.DataProcessing
+package org.broadinstitute.sting.queue.pipeline
 
-import org.broadinstitute.sting.queue.pipeline.{PipelineTestSpec, PipelineTest}
-import org.testng.annotations.Test
+import org.testng.annotations.{DataProvider, Test}
 import org.broadinstitute.sting.BaseTest
+import org.apache.commons.io.FileUtils
+import org.broadinstitute.sting.pipeline.PicardAggregationUtils
+import collection.JavaConversions._
 
+class HybridSelectionQueueTest {
+  def datasets = List(k1gChr20Dataset)
 
-class CMIBAMProcessingPipelineUnitTest {
+  val k1gChr20Dataset = {
+    val dataset = newK1gDataset("Barcoded_1000G_WEx_chr20", BaseTest.hg19Chr20Intervals)
 
- //   @Test
-    def testSimpleBAM {
-      val projectName = "test1"
-      val testOut = projectName + ".exampleBAM.bam.clean.dedup.recal.bam"
-      val spec = new PipelineTestSpec
-      spec.name = "CMIBAMProcessingPipeline"
-      spec.args = Array(
-        " -S private/scala/qscript/org/broadinstitute/sting/queue/qscripts/DataProcessing/CMIBAMProcessingPipeline.scala",
-        " -R " + BaseTest.publicTestDir + "exampleFASTA.fasta",
-        " -m testdata/CMITestData/metadata.test.txt",
-        " -D " + BaseTest.publicTestDir + "exampleDBSNP.vcf",
-        " -L testdata/CMITestData/exampleFASTA.interval_list",
-        " -bwa testdata/CMITestData/bwa",
-        " -call "
-        ).mkString
-      spec.fileMD5s += testOut -> "45d97df6d291695b92668e8a55c54cd0"
-      PipelineTest.executeTest(spec)
-    }
+    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.all.all", "nCalledLoci", 1483)
+    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.known.all", "nCalledLoci", 1210)
+    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.novel.all", "nCalledLoci", 273)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.all.all", "tiTvRatio", 3.56)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.known.all", "tiTvRatio", 3.81)
+    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.novel.all", "tiTvRatio", 2.65)
 
+    dataset
+  }
 
+  def newK1gDataset(projectName: String, intervals: String) = {
+    val bams = K1gQueueTest.k1gBams.map(ps => PicardAggregationUtils.getSampleBam(ps.project, ps.sample))
+    new PipelineDataset(projectName, intervals, bams)
+  }
 
+  @DataProvider(name="datasets")//, parallel=true)
+  final def convertDatasets: Array[Array[AnyRef]] =
+    datasets.map(dataset => Array(dataset.asInstanceOf[AnyRef])).toArray
 
+  @Test(dataProvider="datasets", timeOut=36000000, enabled=false)
+  def testHybridSelectionPipeline(dataset: PipelineDataset) {
+    val testName = "HybridSelectionPipeline-" + dataset.projectName
+    val bamList = writeBamList(dataset.projectName + ".bam.list", dataset.bams)
+
+    // Run the pipeline with the expected inputs.
+    val pipelineCommand =
+      ("-retry 1" +
+        " -S private/scala/qscript/org/broadinstitute/sting/queue/qscripts/pipeline/HybridSelectionPipeline.scala" +
+        " -I %s" +
+        " -L %s" +
+        " -varFilter HARD")
+        .format(bamList, dataset.intervals)
+
+    val pipelineSpec = new QueueTestSpec
+    pipelineSpec.name = testName
+    pipelineSpec.args = pipelineCommand
+    pipelineSpec.jobQueue = dataset.jobQueue
+
+    pipelineSpec.evalSpec = new QueueTestEvalSpec
+    pipelineSpec.evalSpec.evalReport = dataset.projectName + ".by_sample.eval"
+    pipelineSpec.evalSpec.validations = dataset.validations
+
+    QueueTest.executeTest(pipelineSpec)
+  }
+
+  private def writeBamList(fileName: String, bams: List[String]) = {
+    val bamList = BaseTest.tryCreateNetworkTempFile(fileName)
+    FileUtils.writeLines(bamList, bams)
+    bamList
+  }
+
+  class PipelineDataset(var projectName: String,
+                        var intervals: String,
+                        var bams: List[String],
+                        var validations: List[PipelineValidation[_]] = Nil,
+                        var jobQueue: String = null) {
+    override def toString = projectName
+  }
 }
