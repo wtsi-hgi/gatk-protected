@@ -46,74 +46,73 @@
 
 package org.broadinstitute.sting.queue.pipeline
 
-import org.testng.annotations.{DataProvider, Test}
+import org.testng.annotations.Test
 import org.broadinstitute.sting.BaseTest
-import org.apache.commons.io.FileUtils
-import org.broadinstitute.sting.pipeline.PicardAggregationUtils
-import collection.JavaConversions._
 
-class HybridSelectionPipelineTest {
-  def datasets = List(k1gChr20Dataset)
+class IPFLibraryQueueTest {
+  val dir = "private/scala/qscript/org/broadinstitute/sting/queue/qscripts/inProcessFunctions/"
 
-  val k1gChr20Dataset = {
-    val dataset = newK1gDataset("Barcoded_1000G_WEx_chr20", BaseTest.hg19Chr20Intervals)
-
-    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.all.all", "nCalledLoci", 1483)
-    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.known.all", "nCalledLoci", 1210)
-    dataset.validations :+= new IntegerValidation("CountVariants", "dbsnp.eval.all.novel.all", "nCalledLoci", 273)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.all.all", "tiTvRatio", 3.56)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.known.all", "tiTvRatio", 3.81)
-    dataset.validations :+= new DoubleValidation("TiTvVariantEvaluator", "dbsnp.eval.all.novel.all", "tiTvRatio", 2.65)
-
-    dataset
+  @Test(timeOut=36000000)
+  def testVCFExtractSites {
+    var testOut = "vcfes.vcf"
+    val spec = new QueueTestSpec
+    spec.name = "vcfExtractSites"
+    spec.args = "-S " + dir + "QTools.q -T VCFExtractSites -ivcf %s -out %s".format(
+      BaseTest.validationDataLocation + "omni_1212.subset.b37.vcf", testOut
+    )
+    spec.fileMD5s += testOut -> "4f496b8cf90302428a9edda486a337f4"
+    QueueTest.executeTest(spec)
   }
 
-  def newK1gDataset(projectName: String, intervals: String) = {
-    val bams = K1gPipelineTest.k1gBams.map(ps => PicardAggregationUtils.getSampleBam(ps.project, ps.sample))
-    new PipelineDataset(projectName, intervals, bams)
+  @Test(timeOut=36000000)
+  def testVCFExtractSamples {
+    var testOut = "vcf.extract.samples.vcf"
+    val spec = new QueueTestSpec
+    spec.name = "vcfExtractSamples"
+    spec.args = "-S " + dir + "QTools.q -T VCFExtractSamples -ivcf %s -out %s -sm HG00107,HG00500,NA18501,NA18942".format(
+      BaseTest.validationDataLocation + "omni_1212.subset.b37.vcf", testOut
+    )
+
+    spec.fileMD5s += testOut -> "180d5a2e7a1fbc5117de6705bde3a7c8"
   }
 
-  @DataProvider(name="datasets")//, parallel=true)
-  final def convertDatasets: Array[Array[AnyRef]] =
-    datasets.map(dataset => Array(dataset.asInstanceOf[AnyRef])).toArray
+  @Test(timeOut=36000000)
+  def testVCFExtractIntervals {
+    var testOut = "vcf.extract.intervals.list"
+    val spec = new QueueTestSpec
+    spec.name = "vcfExtractIntervals"
+    spec.args = "-S " + dir + "QTools.q -T VCFExtractIntervals -ivcf %s -out %s".format(
+      BaseTest.validationDataLocation + "omni_1212.subset.b37.vcf", testOut
+    )
 
-  @Test(dataProvider="datasets", timeOut=36000000)
-  def testHybridSelectionPipeline(dataset: PipelineDataset) {
-    val testName = "HybridSelectionPipeline-" + dataset.projectName
-    val bamList = writeBamList(dataset.projectName + ".bam.list", dataset.bams)
+    spec.fileMD5s += testOut ->"28589eeb28fac753577c027abf939345"
 
-    // Run the pipeline with the expected inputs.
-    val pipelineCommand =
-      ("-retry 1" +
-        " -S private/scala/qscript/org/broadinstitute/sting/queue/qscripts/pipeline/HybridSelectionPipeline.scala" +
-        " -I %s" +
-        " -L %s" +
-        " -varFilter HARD")
-        .format(bamList, dataset.intervals)
-
-    val pipelineSpec = new PipelineTestSpec
-    pipelineSpec.name = testName
-    pipelineSpec.args = pipelineCommand
-    pipelineSpec.jobQueue = dataset.jobQueue
-
-    pipelineSpec.evalSpec = new PipelineTestEvalSpec
-    pipelineSpec.evalSpec.evalReport = dataset.projectName + ".by_sample.eval"
-    pipelineSpec.evalSpec.validations = dataset.validations
-
-    PipelineTest.executeTest(pipelineSpec)
   }
 
-  private def writeBamList(fileName: String, bams: List[String]) = {
-    val bamList = BaseTest.tryCreateNetworkTempFile(fileName)
-    FileUtils.writeLines(bamList, bams)
-    bamList
+  @Test(timeOut=36000000)
+  def testVCFSimpleMerge {
+    var testOut = "vcf.simplemerge.vcf"
+    val spec = new QueueTestSpec
+    val int1 = BaseTest.validationDataLocation + "omni.subset.interleaved.1.vcf"
+    val int2 = BaseTest.validationDataLocation + "omni.subset.interleaved.2.vcf"
+    spec.name = "vcfSimpleMerge"
+    spec.args = "-S " + dir + "QTools.q -T VCFSimpleMerge -vcfs %s,%s -out %s -ref %s".format(
+      int1,int2,testOut,BaseTest.b37KGReference
+    )
+
+    spec.fileMD5s += testOut -> "c59b8de64ba787a2ca3a1734bdebf277"
   }
 
-  class PipelineDataset(var projectName: String,
-                        var intervals: String,
-                        var bams: List[String],
-                        var validations: List[PipelineValidation[_]] = Nil,
-                        var jobQueue: String = null) {
-    override def toString = projectName
+  @Test(timeOut=36000000)
+  def testSortByRef {
+    var testOut = "vcf.refsorted.vcf"
+    val spec = new QueueTestSpec
+    val unsorted = BaseTest.validationDataLocation + "omni.pos_sorted.vcf"
+    spec.name = "sortByRef"
+    spec.args = "-S  " + dir + "QTools.q -T SortByRef -ivcf %s -out %s -ref %s".format(
+      unsorted, testOut, BaseTest.b37KGReference
+    )
+
+    spec.fileMD5s += testOut -> "ee09af803bc94987d55d044c2ebbc0b8"
   }
 }

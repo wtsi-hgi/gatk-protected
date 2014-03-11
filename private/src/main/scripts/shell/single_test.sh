@@ -14,9 +14,9 @@ if [[ "${test_name}" =~ .*UnitTest ]] ; then
     # UnitTests run with -Dtest=MyUnitTest instead of it.test
     test_property="test"
     test_disabled="it.test"
-elif [[ "${test_name}" =~ .*PipelineTest ]] ; then
+elif [[ "${test_name}" =~ .*QueueTest ]] ; then
     # Pipeline tests are historically defined as separate from "commit"
-    test_type="pipeline"
+    test_type="queue"
 fi
 
 echo mvn verify \

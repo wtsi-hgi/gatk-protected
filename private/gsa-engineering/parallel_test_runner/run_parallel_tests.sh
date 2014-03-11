@@ -26,7 +26,7 @@
 if [ $# -lt 4 ]
 then
     echo "Usage: $0 job_queue timeout bamboo_build_number test_class_suffixes..." 1>&2
-    echo "Example test class suffixes: UnitTest, IntegrationTest, PipelineTest" 1>&2
+    echo "Example test class suffixes: UnitTest, IntegrationTest, QueueTest" 1>&2
     exit 1
 fi
 
