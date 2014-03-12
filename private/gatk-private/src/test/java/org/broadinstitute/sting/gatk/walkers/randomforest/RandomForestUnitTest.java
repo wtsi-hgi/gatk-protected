@@ -116,8 +116,8 @@ public class RandomForestUnitTest extends BaseTest {
         data.add(new RandomForestDatum(annotations, false, true, true));
         data.add(new RandomForestDatum(annotations, false, false, false));
 
-        final List<RandomForestDatum> subsetTrue = RandomForest.subsetToTruth(data, true);
-        final List<RandomForestDatum> subsetFalse = RandomForest.subsetToTruth(data, false);
+        final List<RandomForestDatum> subsetTrue = RandomForest.subsetToSpecificTrainingStatus(data, true);
+        final List<RandomForestDatum> subsetFalse = RandomForest.subsetToSpecificTrainingStatus(data, false);
         final List<RandomForestDatum> subsetInput = RandomForest.subsetToInputData(data);
         final List<RandomForestDatum> subsetTraining = RandomForest.subsetToTrainingData(data);
 
@@ -132,7 +132,7 @@ public class RandomForestUnitTest extends BaseTest {
         }
 
         for ( final RandomForestDatum rfd : subsetInput ) {
-            Assert.assertTrue(rfd.isInput);
+            Assert.assertTrue(rfd.isInputSite);
         }
 
         for ( final RandomForestDatum rfd : subsetTraining ) {
