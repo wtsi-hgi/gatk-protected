@@ -53,8 +53,10 @@ import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 
 import java.io.*;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.Random;
 
 /**
@@ -127,7 +129,11 @@ public class NA12878DBArgumentCollection {
         if(specPath.toLowerCase().startsWith("http")){
             try {
                 final URL url = new URL(specPath);
-                return url.openStream();
+                final URLConnection conn = url.openConnection();
+                if(conn instanceof HttpURLConnection){
+                    ((HttpURLConnection) conn).setInstanceFollowRedirects(true);
+                }
+                return conn.getInputStream();
             } catch (MalformedURLException e) {
                 throw new StingException("Malformed url for db spec path", e);
             } catch (IOException e) {
