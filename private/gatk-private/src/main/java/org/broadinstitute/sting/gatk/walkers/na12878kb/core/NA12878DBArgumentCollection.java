@@ -47,12 +47,16 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonSyntaxException;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 
 import java.io.*;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.Random;
 
 /**
@@ -78,20 +82,35 @@ public class NA12878DBArgumentCollection {
 
         final InputStream is = getInputStream(dbSpecPath);
 
-        final Reader reader = new InputStreamReader(is);
-        final MongoDBManager.Locator tmpLocator = (new Gson()).fromJson(reader, MongoDBManager.Locator.class);
-        String dbName = tmpLocator.name;
-        //Missing specVersion = v1
-        if(tmpLocator.specVersion == null){
-            dbName += dbToUse.getExtension();
-        }
+        final BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+        String jsonString = "";
+        String nextLine = null;
         try {
-            reader.close();
+            while ((nextLine = reader.readLine()) != null) {
+                jsonString += nextLine + "\n";
+            }
+            final MongoDBManager.Locator tmpLocator = (new Gson()).fromJson(jsonString, MongoDBManager.Locator.class);
+
+            String dbName = tmpLocator.name;
+            //Missing specVersion = v1
+            if(tmpLocator.specVersion == null){
+                dbName += dbToUse.getExtension();
+            }
             return new MongoDBManager.Locator(tmpLocator.host, tmpLocator.port, dbName, tmpLocator.sitesCollection,
                     tmpLocator.callsetsCollection, tmpLocator.consensusCollection, tmpLocator.label, tmpLocator.specVersion);
-        } catch ( IOException e ) {
-            throw new RuntimeException("Failed to close json reader for " + dbSpecPath, e);
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failure while reading json file " + dbSpecPath, e);
+        }catch (JsonParseException e){
+            throw new RuntimeException("Failure parsing jsonString: " + e.getMessage() + "\n" + jsonString, e);
+        }finally {
+            try {
+                reader.close();
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to close json reader for " + dbSpecPath, e);
+            }
         }
+
     }
 
     /**
@@ -110,7 +129,11 @@ public class NA12878DBArgumentCollection {
         if(specPath.toLowerCase().startsWith("http")){
             try {
                 final URL url = new URL(specPath);
-                return url.openStream();
+                final URLConnection conn = url.openConnection();
+                if(conn instanceof HttpURLConnection){
+                    ((HttpURLConnection) conn).setInstanceFollowRedirects(true);
+                }
+                return conn.getInputStream();
             } catch (MalformedURLException e) {
                 throw new StingException("Malformed url for db spec path", e);
             } catch (IOException e) {
