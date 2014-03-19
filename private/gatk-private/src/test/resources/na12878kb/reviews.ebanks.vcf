@@ -296,7 +296,7 @@
 20	10907668	.	A	AAGAAGAAGAAGAAGAAGAAG	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10907671	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
 20	10907674	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
-20	10927502	.	T	TCTTTCTTTCTTTCTTTATTT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
+20	10927502	.	C	TCTTTCTTTCTTTCTTTATTT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
 20	10927502	.	C	T	.	.	CallSetName=ebanks;Date=0;TruthStatus=FALSE_POSITIVE	GT	0/1
 20	10938347	.	G	A	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	0/1
 20	10940908	.	A	AT	.	.	CallSetName=ebanks;Date=0;TruthStatus=TRUE_POSITIVE	GT	1/1
