@@ -257,20 +257,34 @@ public class SiteManager {
             // even if there's no data left don't remove the last iterator (since it's legal to have a used up stream)
             while ( ! currentChunkIterator.hasNext() && ! myChunks.isEmpty() ) {
                 currentChunkIterator.close();
-                currentChunkIterator = makeIterator(sites, sortOrder, false);
+                currentChunkIterator = makeIterator(sites, sortOrder, true);
             }
         }
 
         @Override
         public List<T> getSitesBefore(final GenomeLoc loc) {
-            assureActiveStream();
-            return currentChunkIterator.getSitesBefore(loc);
+            return iterateAcrossChunkBoundaries(loc, true);
         }
 
         @Override
         public List<T> getSitesAtLocation(final GenomeLoc loc) {
+            return iterateAcrossChunkBoundaries(loc, false);
+        }
+
+        /**
+         * Iterate using the current chunk iterator but be sure to jump across chunk boundaries
+         * @param loc                   the loc to check
+         * @param wantSitesBeforeLoc    do we want sites before this loc or only at this loc?
+         * @return  list of sites
+         */
+        private List<T> iterateAcrossChunkBoundaries(final GenomeLoc loc, final boolean wantSitesBeforeLoc) {
             assureActiveStream();
-            return currentChunkIterator.getSitesAtLocation(loc);
+            final List<T> returnList = (wantSitesBeforeLoc ? currentChunkIterator.getSitesBefore(loc) : currentChunkIterator.getSitesAtLocation(loc));
+            while( currentChunkIterator != null && !currentChunkIterator.hasNext() && !myChunks.isEmpty() ) { // continue on to the next contig
+                assureActiveStream();
+                returnList.addAll((wantSitesBeforeLoc ? currentChunkIterator.getSitesBefore(loc) : currentChunkIterator.getSitesAtLocation(loc)));
+            }
+            return returnList;
         }
 
         @Override
