@@ -128,7 +128,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     public boolean ignoreAllFilters = false;
 
     @Advanced
-    @Argument(fullName="ignoreSpecificFilter", shortName="ignoreFilter", doc="If specified, the variant recalibrator will also use variants marked as filtered by the specified filter name in the input VCF file", required=false)
+    @Argument(fullName="ignoreSpecificFilter", shortName="ignoreFilter", doc="If specified, the assessment will also use variants marked as filtered by the specified filter name in the input VCF file", required=false)
     private Set<String> filtersToIgnore = Collections.emptySet();
 
     @Argument(fullName="minPNonRef", shortName = "minPNonRef", doc="Min. PL against 0/0 for a site to be considered called in NA12878; set to -1 to allow all sites", required=false)
