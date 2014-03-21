@@ -48,21 +48,21 @@ package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import org.broadinstitute.sting.commandline.ArgumentCollection;
 import org.broadinstitute.sting.commandline.Output;
-import org.broadinstitute.sting.gatk.downsampling.DownsampleType;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
+import org.broadinstitute.sting.gatk.downsampling.DownsampleType;
 import org.broadinstitute.sting.gatk.iterators.ReadTransformer;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.baq.BAQ;
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.variant.vcf.VCFConstants;
 import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.variant.vcf.VCFHeaderLine;
 import org.broadinstitute.variant.vcf.VCFStandardHeaderLines;
-import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 
 import java.util.*;
 
@@ -86,7 +86,7 @@ public class UGCalcLikelihoods extends LocusWalker<List<VariantCallContext>, Int
     protected VariantContextWriter writer = null;
 
     // the calculation arguments
-    private UnifiedGenotyperEngine UG_engine = null;
+    private UnifiedGenotypingEngine UG_engine = null;
 
     // enable deletions in the pileup
     public boolean includeReadsWithDeletionAtLoci() { return true; }
@@ -95,7 +95,11 @@ public class UGCalcLikelihoods extends LocusWalker<List<VariantCallContext>, Int
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
 
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, GATKVariantContextUtils.DEFAULT_PLOIDY);
+        if (UAC.samplePloidy != 2)
+            throw new UserException.BadArgumentValue("ploidy","currently UGCalcLikelihoods does not support non-diploid samples");
+
+        UG_engine = new UnifiedGenotypingEngine(getToolkit(), UAC, null, samples, null);
+        UG_engine.setLogger(logger);
 
         // initialize the header
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
@@ -113,7 +117,7 @@ public class UGCalcLikelihoods extends LocusWalker<List<VariantCallContext>, Int
 
         List<RefMetaDataTracker> useTrackers = new LinkedList<RefMetaDataTracker>();
         // Allow for multiple records in UAC.alleles, even at same locus:
-        if ( UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
+        if ( UAC.genotypingMode == GenotypingMode.GENOTYPE_GIVEN_ALLELES ) {
             for (VariantContext vc : tracker.getValues(UAC.alleles, rawContext.getLocation()))
                 useTrackers.add(new MatchFirstLocRefAltRefMetaDataTracker(tracker, vc));
         }

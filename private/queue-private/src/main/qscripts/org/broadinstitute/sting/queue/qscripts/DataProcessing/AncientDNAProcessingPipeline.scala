@@ -57,7 +57,7 @@ import org.broadinstitute.sting.commandline.Hidden
 import org.broadinstitute.sting.utils.NGSPlatform
 import org.broadinstitute.sting.queue.extensions.picard._
 import io.Source
-import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotyperEngine, GenotypeLikelihoodsCalculationModel}
+import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotypingEngine, GenotypeLikelihoodsCalculationModel}
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 import org.broadinstitute.sting.utils.baq.BAQ
@@ -560,9 +560,9 @@ class AncientDNAProcessingPipeline extends QScript {
     this.jobName = outVCF + ".singleSampleCalling"
     this.dbsnp = qscript.dbSNP(0)
     this.downsample_to_coverage = 600
-    this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
     this.scatterCount = nContigs
-    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    this.out_mode = UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
     if (qscript.targets != null)
       this.intervals :+= qscript.targets
   }

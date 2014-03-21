@@ -87,7 +87,7 @@ class Phase1ProjectConsensus extends QScript {
     callSnps.stand_emit_conf = 4.0
     callSnps.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE
     callSnps.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" +baseName + ".phase1.chr" + chr + "." + jobNumber + ".raw.snps"
-    callSnps.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+    callSnps.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.SNP
     callSnps.genotyping_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
     //callSnps.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
     callSnps.alleles = qscript.alleles

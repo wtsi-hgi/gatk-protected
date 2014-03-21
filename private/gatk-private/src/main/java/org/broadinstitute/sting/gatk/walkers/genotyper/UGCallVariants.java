@@ -55,12 +55,12 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SampleUtils;
-import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
-import org.broadinstitute.variant.vcf.*;
-import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
 import org.broadinstitute.variant.variantcontext.*;
+import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.variant.vcf.VCFHeader;
+import org.broadinstitute.variant.vcf.VCFHeaderLine;
 
 import java.util.*;
 
@@ -83,7 +83,7 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
     protected VariantContextWriter writer = null;
 
     // the calculation arguments
-    private UnifiedGenotyperEngine UG_engine = null;
+    private UnifiedGenotypingEngine UG_engine = null;
 
     // variant track names
     private Set<String> trackNames = new HashSet<String>();
@@ -93,12 +93,15 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
             trackNames.add(rb.getName());
         Set<String> samples = SampleUtils.getSampleListWithVCFHeader(getToolkit(), trackNames);
 
-        UG_engine = new UnifiedGenotyperEngine(getToolkit(), UAC, logger, null, null, samples, GATKVariantContextUtils.DEFAULT_PLOIDY);
+        if (UAC.samplePloidy != 2)
+            throw new UserException.BadArgumentValue("ploidy","currently UGCallVariants does not support non-diploid samples");
+        UG_engine = new UnifiedGenotypingEngine(getToolkit(), UAC, null, samples, null);
+        UG_engine.setLogger(logger);
 
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
 
         // If relevant, add in the alleles ROD's header fields (first, so that they can be overriden by the fields we manually add below):
-        if (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES) {
+        if (UAC.genotypingMode == GenotypingMode.GENOTYPE_GIVEN_ALLELES) {
             LinkedList<String> allelesRods = new LinkedList<String>();
             allelesRods.add(UAC.alleles.getName());
             headerInfo.addAll(GATKVCFUtils.getHeaderFields(getToolkit(), allelesRods));
@@ -118,7 +121,7 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
 
         List<RefMetaDataTracker> useTrackers = new LinkedList<RefMetaDataTracker>();
         // Allow for multiple records in variants, even at same locus:
-        if ( UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES ) {
+        if ( UAC.genotypingMode == GenotypingMode.GENOTYPE_GIVEN_ALLELES ) {
             for (VariantContext vc : tracker.getValues(variants, context.getLocation()))
                 useTrackers.add(new MatchFirstLocRefAltRefMetaDataTracker(tracker, vc));
         }
@@ -204,7 +207,7 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
         Map<String, Object> attributes = new HashMap<String, Object>();
 
         // If relevant, add the attributes from the alleles ROD first (so they can be overriden as necessary by variantVC below):
-        if (UAC.GenotypingMode == GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES) {
+        if (UAC.genotypingMode == GenotypingMode.GENOTYPE_GIVEN_ALLELES) {
             List<VariantContext> allelesVCs = tracker.getValues(UAC.alleles, context.getLocation());
             for (VariantContext alleleVC : allelesVCs) {
                 filters.addAll(alleleVC.getFilters());

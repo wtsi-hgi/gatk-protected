@@ -51,8 +51,9 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.genotyper.OutputMode;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
-import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
@@ -92,12 +93,12 @@ public class LocusMismatch extends LocusWalker<String,Integer> implements TreeRe
     @Argument(fullName="skip", doc = "Only display every skip eligable sites.  Defaults to all sites", required = false)
     int skip = 1;
 
-    private UnifiedGenotyperEngine ug;
+    private UnifiedGenotypingEngine ug;
 
     public void initialize() {
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
-        uac.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES;
-        ug = new UnifiedGenotyperEngine(getToolkit(), uac);
+        uac.outputMode = OutputMode.EMIT_ALL_SITES;
+        ug = new UnifiedGenotypingEngine(getToolkit(), uac);
 
         // print the header
         out.printf("loc ref genotype genotypeQ depth nMM qSumMM A C G T%n");

@@ -109,7 +109,7 @@ class AGBTCallsetEvaluation extends QScript {
     this.scatterCount = qscript.scatter / 2
     this.input_file :+= dataset
     this.out = output
-    this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
     this.max_deletion_fraction = 0.5
     if (bqsr == false) {
       this.useOriginalQualities = true

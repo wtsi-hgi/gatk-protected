@@ -207,7 +207,7 @@ class MultiSampleCallingManuscript extends QScript {
     this.input_file :+= t.additionalSamples
     this.D = dbSNP_b37
     this.out = t.rawVCF
-    this.glm = if ( includeIndels ) GenotypeLikelihoodsCalculationModel.Model.BOTH else GenotypeLikelihoodsCalculationModel.Model.SNP
+    this.glm = if ( includeIndels ) GenotypeLikelihoodsCalculationModel.Name.BOTH else GenotypeLikelihoodsCalculationModel.Name.SNP
     this.baq = if (t.useBAQ) {org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY} else {org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF}
     this.analysisName = t.name + "_UGs"
     this.jobName =  queueLogDir + t.name + ".snpcall"

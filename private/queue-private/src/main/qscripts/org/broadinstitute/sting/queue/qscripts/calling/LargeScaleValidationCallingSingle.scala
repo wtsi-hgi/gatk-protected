@@ -48,7 +48,7 @@ package org.broadinstitute.sting.queue.qscripts.calling
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotyperEngine, GenotypeLikelihoodsCalculationModel}
+import org.broadinstitute.sting.gatk.walkers.genotyper.{UnifiedGenotypingEngine, GenotypeLikelihoodsCalculationModel}
 import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 
 /**
@@ -119,7 +119,7 @@ class LargeScaleValidationCallingSingle extends QScript {
     }
     //      this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
     this.gt_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.DISCOVERY
-    this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_CONFIDENT_SITES
+    this.out_mode = UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_CONFIDENT_SITES
     this.max_deletion_fraction=.1
 
     this.intervals :+= new File(allelesFile)
@@ -139,17 +139,17 @@ class LargeScaleValidationCallingSingle extends QScript {
     
   }
   class SNPPC(callName: String, allelesFile: String) extends PPC(callName, allelesFile) {
-    this.glm = GenotypeLikelihoodsCalculationModel.Model.SNP
+    this.glm = GenotypeLikelihoodsCalculationModel.Name.SNP
     this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
   }
 
   class IndelPC( callName: String,  allelesFile: String) extends PPC(callName, allelesFile) {
-    this.glm = GenotypeLikelihoodsCalculationModel.Model.INDEL
+    this.glm = GenotypeLikelihoodsCalculationModel.Name.INDEL
     this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.vcf")
   }
 
   class BothPC( callName: String,  allelesFile: String) extends PPC(callName, allelesFile) {
-    this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.glm = GenotypeLikelihoodsCalculationModel.Name.BOTH
     this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.snp_indel_combined.vcf")
   }
 

@@ -176,7 +176,7 @@ class MoleculoPipeline extends QScript{
     this.scatterCount = 100
     this.input_file :+= new File(inBam)
     this.o = new File(qscript.sampleName + ".ug.vcf")
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
     this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     this.analysisName = "UnifiedGenotyper"
   }

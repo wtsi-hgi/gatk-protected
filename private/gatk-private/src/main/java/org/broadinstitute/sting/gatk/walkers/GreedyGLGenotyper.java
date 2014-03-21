@@ -54,7 +54,7 @@ import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
-import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.SampleUtils;
 import org.broadinstitute.sting.utils.variant.GATKVCFUtils;
@@ -83,10 +83,10 @@ public class GreedyGLGenotyper extends RodWalker<Integer, Integer>  implements T
     private Boolean excludeMultiallelics = false;
 
 
-    private UnifiedGenotyperEngine engine;
+    private UnifiedGenotypingEngine engine;
     public void initialize() {
         // Initialize VCF header
-        engine = new UnifiedGenotyperEngine(this.getToolkit(), new UnifiedArgumentCollection()); // dummy
+        engine = new UnifiedGenotypingEngine(this.getToolkit(), new UnifiedArgumentCollection()); // dummy
         Set<String> rodNames = SampleUtils.getRodNamesWithVCFHeader(getToolkit(), null);
 
         Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);

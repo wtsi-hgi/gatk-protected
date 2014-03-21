@@ -64,7 +64,7 @@ class SimpleVariantCalling extends QScript {
     ug.scatterCount = scatter
     ug.reference_sequence = reference
     ug.intervals = intervals
-    ug.genotype_likelihoods_model = GenotypeLikelihoodsCalculationModel.Model.SNP
+    ug.genotype_likelihoods_model = GenotypeLikelihoodsCalculationModel.Name.SNP
     ug.input_file :+= dataset
     ug.out = output
     ug.memoryLimit = 8

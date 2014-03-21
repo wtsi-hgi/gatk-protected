@@ -168,7 +168,7 @@ class Phase3ProjectGLsHaplotypeCaller extends QScript{
     this.javaGCThreads = 4
     this.alleles = allelesFile
     this.minPruning = 5
-    this.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+    this.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
     this.gt_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
     //this.GENOTYPE_GIVEN_ALL_ALLELES_COMBINATORIAL = true
     this.stand_emit_conf = 0.0

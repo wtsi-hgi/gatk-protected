@@ -89,7 +89,7 @@ class EvaluateDownsampler extends QScript {
   class Call(val prefix: String) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
     this.input_file :+= BAM
     this.stand_call_conf = 50.0
-    this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.glm = GenotypeLikelihoodsCalculationModel.Name.BOTH
     this.dcov = 60
     this.G = List()
     this.nosl = true

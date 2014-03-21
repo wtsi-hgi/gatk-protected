@@ -112,7 +112,7 @@ class HaplotypeCallerValidation extends QScript {
       this.input_file = samples.reverse.map(s => {if (sampleToBamSM.contains(s)) sampleToBamSM(s).bam else throw new IllegalArgumentException("Sample " + s + " not found in " + sample_bam_SM)})
       this.out = name + ".UG.vcf"
 
-      this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+      this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
       this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     }
 

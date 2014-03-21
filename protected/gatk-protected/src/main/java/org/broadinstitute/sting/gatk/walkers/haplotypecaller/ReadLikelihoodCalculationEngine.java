@@ -44,83 +44,51 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
+import org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
-class HaplotypeCallerScript extends QScript {
-  qscript =>
+import java.util.List;
+import java.util.Map;
 
-  @Argument(shortName="out", doc="output file", required=true)
-  var out: String = _
-  @Argument(shortName="R", doc="ref file", required=true)
-  var ref: String = _
-  @Argument(shortName="I", doc="bam file", required=true)
-  var bam: String = _
-  @Argument(shortName="interval", doc="interval file", required=false)
-  var intervalString: List[String] = List()
-  @Argument(shortName="intervalFile", doc="interval file", required=false)
-  var intervalFiles: List[File] = List()
-  @Argument(shortName="sc", doc="scatter count", required=false)
-  var jobs: Int = 100
-  @Argument(shortName="dr", doc="downsampling", required=false)
-  var downsampling: Int = 250
-  @Argument(shortName="lowpass", doc="lowpass", required=false)
-  var lowpass: Boolean = false
-  @Argument(shortName = "stand_call_conf", doc= "standard min confidence threshold for calling", required = false)
-  var stand_call_conf: Double = _
-  @Argument(shortName = "stand_emit_conf", doc= "standard min confidence threshold for emitting", required = false)
-  var stand_emit_conf: Double = _
-  @Argument(shortName = "dontUseSC", doc= "do not use the soft clipped bases in HC", required = false)
-  var doNotUseSoftClippedBases = false
-  @Argument(shortName = "headMerging", doc= "recover Dangling Heads (for RNAseq data)", required = false)
-  var recoverDanglingHeads = false
+/**
+ * Common interface for assembly-haplotype vs reads likelihood engines.
+ */
+public interface ReadLikelihoodCalculationEngine {
 
-  trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
-    memoryLimit = 2;
-    this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
+    enum Implementation {
+        /**
+         * Classic full pair-hmm all haplotypes vs all reads.
+         */
+        PairHMM,
 
-  }
+        /**
+         * Graph-base likelihoods.
+         */
+        GraphBased,
 
-  def script = {
-    val hc = new HaplotypeCaller with UNIVERSAL_GATK_ARGS
-    hc.reference_sequence = new File(ref)
-    hc.intervalsString = intervalString
-    hc.intervals = intervalFiles
-    hc.scatterCount = jobs
-    hc.input_file :+= new File(bam)
-    hc.o = new File(out + ".hc.vcf")
-    hc.dcov = downsampling
-    if (doNotUseSoftClippedBases)
-      hc.dontUseSoftClippedBases = true
-    if (recoverDanglingHeads)
-	    hc.recoverDanglingHeads = true
-    hc.analysisName = "HaplotypeCaller"
-    if (qscript.stand_call_conf != null) hc.stand_call_conf = qscript.stand_call_conf
-    if (qscript.stand_emit_conf != null) hc.stand_emit_conf = qscript.stand_emit_conf
-    if(lowpass) {
-      hc.stand_call_conf = 4.0
-      hc.stand_emit_conf = 4.0
+        /**
+         * Random likelihoods, used to establish a baseline benchmark for other meaningful implementations.
+         */
+        Random
     }
-    add(hc)
 
-    val ug = new UnifiedGenotyper with UNIVERSAL_GATK_ARGS
-    ug.reference_sequence = new File(ref)
-    ug.intervalsString = intervalString
-    ug.intervals = intervalFiles
-    ug.scatterCount = jobs
-    ug.input_file :+= new File(bam)
-    ug.o = new File(out + ".ug.vcf")
-    ug.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
-    ug.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
-    ug.analysisName = "UnifiedGenotyper"
-    if (qscript.stand_call_conf != null) ug.stand_call_conf = qscript.stand_call_conf
-    if (qscript.stand_emit_conf != null) ug.stand_emit_conf = qscript.stand_emit_conf
-    if(lowpass) {
-      ug.stand_call_conf = 4.0
-      ug.stand_emit_conf = 4.0
-    }
-    add(ug)
-  }
+
+    /**
+     * Calculates the likelihood of reads across many samples evaluated against haplotypes resulting from the
+     * active region assembly process.
+     *
+     * @param assemblyResultSet the input assembly results.
+     * @param perSampleReadList the input read sets stratified per sample.
+     *
+     * @throws NullPointerException if either parameter is {@code null}.
+     *
+     * @return never {@code null}, and with at least one entry for input sample (keys in {@code perSampleReadList}.
+     *    The value maps can be potentially empty though.
+     */
+    public Map<String, PerReadAlleleLikelihoodMap> computeReadLikelihoods(AssemblyResultSet assemblyResultSet,
+                               Map<String, List<GATKSAMRecord>> perSampleReadList);
+
+    public void close();
 }

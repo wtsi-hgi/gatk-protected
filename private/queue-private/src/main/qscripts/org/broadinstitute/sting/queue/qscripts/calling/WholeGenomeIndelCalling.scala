@@ -142,7 +142,7 @@ class WholeGenomeIndelCalling extends QScript {
      callIndels.stand_emit_conf = 4.0
      callIndels.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
   //   callIndels.jobName = qscript.outputTmpDir + "/calls/" + qscript.runName
-     callIndels.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
+     callIndels.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.INDEL
      callIndels.dbsnp =  qscript.dbSNP
      callIndels.sites_only = false
      callIndels.scatterCount = qscript.scatterCount

@@ -160,7 +160,7 @@ class ReducedReadsCalling extends QScript {
 
     // to call both at once
     if ( CALL_TOGETHER ) {
-      call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+      call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
       call.out = projectName + ".unfiltered.vcf"
       call.jobOutputFile = call.out + ".out"
       call.scatterCount = qscript.variantCallerScatterCount
@@ -182,7 +182,7 @@ class ReducedReadsCalling extends QScript {
       indelsFile = selectIndels.out
       add(selectIndels)
     } else {
-      call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+      call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.SNP
       call.out = projectName + ".snps.unfiltered.vcf"
       call.jobOutputFile = call.out + ".out"
       call.scatterCount = qscript.variantCallerScatterCount
@@ -193,7 +193,7 @@ class ReducedReadsCalling extends QScript {
       callIndels.input_file = call.input_file
       callIndels.dbsnp = call.dbsnp
       callIndels.downsample_to_coverage = call.downsample_to_coverage
-      callIndels.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
+      callIndels.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.INDEL
       callIndels.max_alternate_alleles = 2
       callIndels.out = projectName + ".indels.unfiltered.vcf"
       callIndels.jobOutputFile = callIndels.out + ".out"

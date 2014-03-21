@@ -135,7 +135,7 @@ class Exome_call_with_1000G_samples extends QScript {
     this.input_file :+= b
     this.rodBind :+= RodBind("dbsnp", "VCF", dbSNP_b37)
     this.out = v
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.SNP
     this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
   }
 

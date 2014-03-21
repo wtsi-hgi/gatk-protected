@@ -51,8 +51,9 @@ import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
+import org.broadinstitute.sting.gatk.walkers.genotyper.OutputMode;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
-import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.sting.utils.BaseUtils;
 import org.broadinstitute.sting.utils.MathUtils;
@@ -82,13 +83,13 @@ public class SnpCallRateByCoverage extends LocusWalker<List<String>, String> {
     @Argument(fullName="downsampling_repeats", shortName="repeat", doc="Number of times to repeat downsampling at each coverage level", required=false) public int downsampling_repeats=1;
     @Argument(fullName="coverage_step_size", shortName="step", doc="Coverage step size", required=false) public int step=1;
 
-    UnifiedGenotyperEngine UG;
+    UnifiedGenotypingEngine UG;
 
     public void initialize() {
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
         uac.STANDARD_CONFIDENCE_FOR_CALLING = uac.STANDARD_CONFIDENCE_FOR_EMITTING = confidence;
-        uac.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES;
-        UG = new UnifiedGenotyperEngine(getToolkit(), uac);
+        uac.outputMode = OutputMode.EMIT_ALL_SITES;
+        UG = new UnifiedGenotypingEngine(getToolkit(), uac);
 
         out.println("#locus\tid\tdownsampled_coverage\tpct_coverage\titeration\tref\teval_call\tcomp_call\tvariant_concordance\tgenotype_concordance");
     }

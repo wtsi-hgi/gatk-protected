@@ -153,7 +153,7 @@ class Downsampling extends QScript {
   case class snps (fraction: Double, outFile: File, nIntervals: Int) extends UnifiedGenotyper with CommandLineGATKArgs {
     this.memoryLimit = 6
     this.downsample_to_coverage = 600
-    this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
+    this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.SNP
     this.input_file :+= input
     this.rodBind :+= RodBind("dbsnp", "VCF", dbSNP)
     this.downsample_to_fraction = fraction

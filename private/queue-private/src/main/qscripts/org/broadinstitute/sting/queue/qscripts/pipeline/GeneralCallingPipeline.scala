@@ -208,7 +208,7 @@ class GeneralCallingPipeline extends QScript {
     if (qscript.deletions >= 0)
       this.max_deletion_fraction = qscript.deletions
     this.out = qscript.outputDir + "/" + name + ".UnifiedGenotyper.unfiltered.vcf"
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
     this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     this.analysisName = "CEUTrio_UGs"
     this.jobName =  queueLogDir + "CEU_Trio.ug"

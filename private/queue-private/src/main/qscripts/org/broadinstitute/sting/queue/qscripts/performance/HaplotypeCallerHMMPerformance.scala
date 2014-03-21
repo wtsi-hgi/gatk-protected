@@ -126,7 +126,7 @@ class HaplotypeCallerHMMPerformance extends QScript {
     ug.excludeIntervals = excludeIntervals
     ug.input_file :+= new File(INPUT_BAM_LIST)
     ug.o = new File("/dev/null")
-    ug.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    ug.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
     ug.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE
     ug.analysisName = "UnifiedGenotyper"
     ug.stand_call_conf = 8.0
