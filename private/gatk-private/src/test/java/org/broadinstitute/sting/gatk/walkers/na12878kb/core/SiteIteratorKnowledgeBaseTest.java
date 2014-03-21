@@ -50,6 +50,7 @@ import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecord
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsRemove;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsThrowError;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
+import org.broadinstitute.sting.utils.GenomeLocSortedSet;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -62,6 +63,10 @@ import java.util.List;
 
 public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase {
     SiteIterator<MongoVariantContext> it;
+
+    private SiteManager makeSiteManager() {
+        return new SiteManager(parser, GenomeLocSortedSet.createSetFromSequenceDictionary(fasta.getSequenceDictionary()), fasta.getSequenceDictionary());
+    }
 
     @BeforeMethod
     public void setup() {
@@ -79,8 +84,8 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
         // adding duplicate record to ensure that dups are filtered out on the fly
         db.addCall(MongoVariantContext.create("y", "20", 4, "A", "C", false));
 
-        it = db.getCalls();
-        it.setErrorHandler(new InvalidRecordsThrowError<MongoVariantContext>());
+        it = db.getCalls(makeSiteManager());
+        it.setErrorHandler(new InvalidRecordsThrowError<>());
     }
 
     @AfterMethod
@@ -119,7 +124,7 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
 
     @DataProvider(name = "Before")
     public Object[][] makeBefore() {
-        List<Object[]> tests = new ArrayList<Object[]>();
+        List<Object[]> tests = new ArrayList<>();
 
         tests.add(new Object[]{1, 0});
         tests.add(new Object[]{2, 1});
@@ -142,7 +147,7 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
 
     @DataProvider(name = "BeforeIndels")
     public Object[][] makeBeforeIndels() {
-        List<Object[]> tests = new ArrayList<Object[]>();
+        List<Object[]> tests = new ArrayList<>();
 
         final MongoVariantContext mvc1 = MongoVariantContext.create("x", "20", 1, "A", "C", false);
         final MongoVariantContext mvc2 = MongoVariantContext.create("x", "20", 2, "ACT", "C", false);
@@ -163,16 +168,49 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
     public void testBeforeIndels(final List<MongoVariantContext> mvcs, final int startThres, final int expectedCount) {
         db.reset();
         db.addCalls(mvcs);
-        it = db.getCalls();
+        it = db.getCalls(makeSiteManager());
         final List<MongoVariantContext> l = it.getSitesBefore(parser.createGenomeLoc("20", startThres, startThres));
-        Assert.assertEquals(l.size(), expectedCount, "Query returned more results than expected");
+        Assert.assertEquals(l.size(), expectedCount, "Query returned different results than expected");
         for ( final MongoVariantContext mvc : l )
-            Assert.assertTrue(mvc.getStart() <= startThres, "MVC " + mvc + " has start > threshold " + startThres);
+            Assert.assertTrue(parser.createGenomeLoc(mvc.getVariantContext()).startsBefore(parser.createGenomeLoc("20", startThres, startThres)), "MVC " + mvc + " has start > threshold " + startThres);
+    }
+
+    @DataProvider(name = "BeforeIndelsMultiContig")
+    public Object[][] makeBeforeIndelsMultiContig() {
+        List<Object[]> tests = new ArrayList<>();
+
+        final MongoVariantContext mvc0_1 = MongoVariantContext.create("x", "1", 1, "A", "C", false); // site before chr20
+        final MongoVariantContext mvc0_2 = MongoVariantContext.create("x", "7", 189798, "A", "C", false); // site before chr20
+        final MongoVariantContext mvc1 = MongoVariantContext.create("x", "20", 1, "A", "C", false);
+        final MongoVariantContext mvc2 = MongoVariantContext.create("x", "20", 2, "ACT", "C", false);
+        final MongoVariantContext mvc2_1 = MongoVariantContext.create("x", "20", 2, "ACTGT", "C", false);
+        final MongoVariantContext mvc3 = MongoVariantContext.create("x", "20", 3, "A", "G", false);
+        final MongoVariantContext mvc4 = MongoVariantContext.create("x", "20", 4, "A", "C", false);
+        final MongoVariantContext mvc5 = MongoVariantContext.create("x", "X", 4, "A", "C", false); // site after chr20
+        final List<MongoVariantContext> mvcs = Arrays.asList(mvc0_1, mvc0_2, mvc1, mvc2, mvc2_1, mvc3, mvc4, mvc5);
+
+        tests.add(new Object[]{mvcs, 1, 2});
+        tests.add(new Object[]{mvcs, 2, 3});
+        tests.add(new Object[]{mvcs, 3, 5});
+        tests.add(new Object[]{mvcs, 4, 6});
+
+        return tests.toArray(new Object[][]{});
+    }
+
+    @Test(enabled = true, dataProvider = "BeforeIndelsMultiContig")
+    public void testBeforeIndelsMultiContig(final List<MongoVariantContext> mvcs, final int startThres, final int expectedCount) {
+        db.reset();
+        db.addCalls(mvcs);
+        it = db.getCalls(makeSiteManager());
+        final List<MongoVariantContext> l = it.getSitesBefore(parser.createGenomeLoc("20", startThres, startThres));
+        Assert.assertEquals(l.size(), expectedCount, "Query returned different results than expected");
+        for ( final MongoVariantContext mvc : l )
+            Assert.assertTrue(parser.createGenomeLoc(mvc.getVariantContext()).startsBefore(parser.createGenomeLoc("20", startThres, startThres)), "MVC " + mvc + " has start > threshold " + startThres);
     }
 
     @DataProvider(name = "At")
     public Object[][] makeAt() {
-        List<Object[]> tests = new ArrayList<Object[]>();
+        List<Object[]> tests = new ArrayList<>();
 
         tests.add(new Object[]{1, 1});
         tests.add(new Object[]{2, 1});
@@ -187,6 +225,9 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
 
     @Test(enabled = true,dataProvider = "At")
     public void testAt(final int start, final int expectedCount) {
+        db.addCall(MongoVariantContext.create("x", "1", 4, "A", "C", false));
+        db.addCall(MongoVariantContext.create("x", "7", 1, "T", "C", false));
+        db.addCall(MongoVariantContext.create("x", "X", 2, "T", "TC", false));
         final List<MongoVariantContext> l = it.getSitesAtLocation(parser.createGenomeLoc("20", start, start));
         Assert.assertEquals(l.size(), expectedCount, "Query returned more results than expected");
         for ( final MongoVariantContext mvc : l )
@@ -195,7 +236,7 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
 
     @DataProvider(name = "BasicIteration")
     public Object[][] makeBasicIteration() {
-        List<Object[]> tests = new ArrayList<Object[]>();
+        List<Object[]> tests = new ArrayList<>();
 
         final MongoVariantContext mvc1 = MongoVariantContext.create("x", "20", 1, "A", "C", false);
         final MongoVariantContext mvc2 = MongoVariantContext.create("x", "20", 2, "A", "C", false);
@@ -217,7 +258,7 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
     public void testBasicIteration(final List<MongoVariantContext> mvcs) {
         db.reset();
         for ( final MongoVariantContext mvc : mvcs ) db.addCall(mvc);
-        final SiteIterator<MongoVariantContext> it = db.getCalls();
+        final SiteIterator<MongoVariantContext> it = db.getCalls(makeSiteManager());
 
         for ( int n = 0; n < mvcs.size(); n++ ) {
             Assert.assertTrue(it.hasNext());
@@ -230,7 +271,7 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
 
     @DataProvider(name = "BadMVCs")
     public Object[][] makeBadMVCsProvider() throws CloneNotSupportedException {
-        List<Object[]> tests = new ArrayList<Object[]>();
+        List<Object[]> tests = new ArrayList<>();
 
         for ( final MongoVariantContext bad : MongoVariantContextKnowledgeBaseTest.makeBadMVCs() )
             tests.add(new Object[]{bad});
@@ -243,7 +284,7 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
         it.close();
         db.addCall(mvc);
         it = db.getCalls();
-        it.setErrorHandler(new InvalidRecordsThrowError<MongoVariantContext>());
+        it.setErrorHandler(new InvalidRecordsThrowError<>());
         it.toList();
     }
 
@@ -253,7 +294,7 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
         it.close();
         db.addCall(bad);
         it = db.getCalls();
-        final InvalidRecordsLogError<MongoVariantContext> handler = new InvalidRecordsLogError<MongoVariantContext>();
+        final InvalidRecordsLogError<MongoVariantContext> handler = new InvalidRecordsLogError<>();
         it.setErrorHandler(handler);
         final List<MongoVariantContext> withoutBad = it.toList();
         Assert.assertEquals(withoutBad, expected);
@@ -266,7 +307,7 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
         it.close();
         db.addCall(bad);
         it = db.getCalls();
-        final InvalidRecordsRemove<MongoVariantContext> handler = new InvalidRecordsRemove<MongoVariantContext>(db.sites);
+        final InvalidRecordsRemove<MongoVariantContext> handler = new InvalidRecordsRemove<>(db.sites);
         it.setErrorHandler(handler);
         final List<MongoVariantContext> withoutBad = it.toList();
         Assert.assertEquals(withoutBad, expected);
@@ -274,7 +315,7 @@ public class SiteIteratorKnowledgeBaseTest extends NA12878KnowledgeBaseTestBase 
 
         // now that we've removed the record, we should be able to reread the db without protection and get the right answer
         it = db.getCalls();
-        final InvalidRecordsThrowError<MongoVariantContext> errorThrower = new InvalidRecordsThrowError<MongoVariantContext>();
+        final InvalidRecordsThrowError<MongoVariantContext> errorThrower = new InvalidRecordsThrowError<>();
         it.setErrorHandler(errorThrower);
         final List<MongoVariantContext> withoutBadFilter = it.toList();
         Assert.assertEquals(withoutBadFilter, expected);

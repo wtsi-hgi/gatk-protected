@@ -70,9 +70,6 @@ public class ExtractConsensusSites extends NA12878DBWalker {
     @Output
     public VariantContextWriter out;
 
-    @Argument(fullName="maxSites", shortName = "maxSites", doc="Max. number of bad sites to write out", required=false)
-    public int maxSites = 10000;
-
     @Argument(fullName="variantType", shortName = "variantType", doc="", required=false)
     public VariantContext.Type variantType = null;
 
@@ -126,13 +123,10 @@ public class ExtractConsensusSites extends NA12878DBWalker {
 
     @Override
     public void onTraversalDone(Integer result) {
-        int nWritten = 0;
         for ( final MongoVariantContext mvc : db.getConsensusSites(makeSiteManager(false))) {
             final VariantContext vc = mvc.getVariantContext();
             if ( shouldBeReviewed(mvc, vc) ) {
                 out.add(vc);
-                if ( nWritten++ > maxSites)
-                    break;
             }
         }
 
