@@ -45,7 +45,7 @@ fi
 
 cd "${QUEUE_TEST_WORKING_DIR}"
 git checkout -f HEAD
-mvn verify -Dsting.queuetests.skipped=false -Dsting.queuetests.run=true -Djava.io.tmpdir=${TEMP_DIR}
+mvn verify -Dgatk.queuetests.skipped=false -Dgatk.queuetests.run=true -Dsting.queuetests.skipped=false -Dsting.queuetests.run=true -Djava.io.tmpdir=${TEMP_DIR}
 
 if [ $? -ne 0 ]
 then
