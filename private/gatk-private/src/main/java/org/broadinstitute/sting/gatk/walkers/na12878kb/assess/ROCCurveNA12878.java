@@ -162,7 +162,7 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
             int numVariants = 0;
             final int varIndex = calcSNP? SNP_INDEX : INDEL_INDEX;
             final int total = rocData[varIndex][TP_INDEX][TOTAL_INDEX] + rocData[varIndex][FP_INDEX][TOTAL_INDEX];
-            final int stepSize = total / numBins;
+            final int stepSize = Math.max(total / numBins, 1);
             for( final ROCDatum datum : data ) {
                 if( datum.isSNP != calcSNP ) { continue; }
                 rocData[datum.isSNP ? SNP_INDEX : INDEL_INDEX][datum.isTP ? TP_INDEX : FP_INDEX][CALLED_INDEX]++;
