@@ -168,9 +168,12 @@ public class RandomForestWalker extends RodWalker<ExpandingArrayList<RandomFores
 
         boolean isTruthSite = false;
         for( final RodBinding<VariantContext> goodRod : goodTrainingLabels ) {
-            goodVCs.addAll( tracker.getValues(goodRod, context.getLocation()) );
-            if( goodRod.getTags().containsKey("tranche") && goodRod.getTags().getValue("tranche").equals("true") ) {
-                isTruthSite = true;
+            final List<VariantContext> goodVCsForThisRod = tracker.getValues(goodRod, context.getLocation());
+            if( !goodVCsForThisRod.isEmpty() ) {
+                goodVCs.addAll( goodVCsForThisRod );
+                if( goodRod.getTags().containsKey("tranche") && goodRod.getTags().getValue("tranche").equals("true") ) {
+                    isTruthSite = true;
+                }
             }
         }
         for( final RodBinding<VariantContext> badRod : badTrainingLabels ) {
