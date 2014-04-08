@@ -48,11 +48,11 @@ package org.broadinstitute.sting.gatk.walkers.randomforest;
 
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.MathUtils;
+import org.broadinstitute.variant.variantcontext.VariantContext;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Created with IntelliJ IDEA.
@@ -73,11 +73,10 @@ Each tree is constructed using the following algorithm:
 public class RandomForest {
     final List<RandomForestDecisionNode> forestClassifier = new ArrayList<>();
     final int NUM_TREES;
-    final float PERCENT_TRAINING = 0.01f;
-    final float PERCENT_TESTING = 0.02f;
+    final float PERCENT_TRAINING = 0.005f;
+    final float PERCENT_TESTING = 0.005f;
     final int NUM_TRAINING_VARIANTS;
     final int NUM_TESTING_VARIANTS;
-    final float PERCENT_DIMENSIONS = 0.10f;
     final float ACCURACY_THRESHOLD = 0.40f;
     final int MAX_TREE_DEPTH;
     private double sumAccuracy;
@@ -92,20 +91,31 @@ public class RandomForest {
      */
     public RandomForest( final List<RandomForestDatum> trainingData, final LinkedHashSet<String> masterKeySet, final int numTrees ) {
         NUM_TREES = numTrees;
-        NUM_TRAINING_VARIANTS = Math.round( PERCENT_TRAINING * (float) trainingData.size() );
-        NUM_TESTING_VARIANTS = Math.round( PERCENT_TESTING * (float) trainingData.size() );
-        MAX_TREE_DEPTH = Math.round( PERCENT_DIMENSIONS * (float) masterKeySet.size() );
+        NUM_TRAINING_VARIANTS = (int) Math.ceil( PERCENT_TRAINING * (float) trainingData.size() );
+        NUM_TESTING_VARIANTS = (int) Math.ceil( PERCENT_TESTING * (float) trainingData.size() );
+        MAX_TREE_DEPTH = (int) Math.floor( Math.log((double) masterKeySet.size()) );
         logger.info(String.format("Creating %d random trees each with depth %d by drawing %d examples out of %d training variants", NUM_TREES, MAX_TREE_DEPTH, NUM_TRAINING_VARIANTS, trainingData.size()));
 
-        final List<RandomForestDatum> positiveTrainingData = subsetToTruth(trainingData, true);
-        final List<RandomForestDatum> negativeTrainingData = subsetToTruth(trainingData, false);
+        final List<RandomForestDatum> positiveTrainingDataSNP = subsetToSNPs(subsetToSpecificTrainingStatus(trainingData, true), true);
+        final List<RandomForestDatum> negativeTrainingDataSNP = subsetToSNPs(subsetToSpecificTrainingStatus(trainingData, false), true);
+        final List<RandomForestDatum> positiveTrainingDataIndel = subsetToSNPs(subsetToSpecificTrainingStatus(trainingData, true), false);
+        final List<RandomForestDatum> negativeTrainingDataIndel = subsetToSNPs(subsetToSpecificTrainingStatus(trainingData, false), false);
         for( int treeIndex = 0; treeIndex < NUM_TREES; treeIndex++ ) {
             // Draw a training set for this tree by choosing n times with replacement from all available training cases
-            final List<RandomForestDatum> trainingSample = MathUtils.randomSample(positiveTrainingData, NUM_TRAINING_VARIANTS/2);
-            trainingSample.addAll(MathUtils.randomSample(negativeTrainingData, NUM_TRAINING_VARIANTS/2));
-            // Draw a testing set for this tree by choosing n times with replacement from all available training cases
-            final List<RandomForestDatum> testingSample = MathUtils.randomSample(positiveTrainingData, NUM_TESTING_VARIANTS / 2);
-            testingSample.addAll(MathUtils.randomSample(negativeTrainingData, NUM_TESTING_VARIANTS / 2));
+            final List<RandomForestDatum> trainingSample = MathUtils.randomSample(positiveTrainingDataSNP, NUM_TRAINING_VARIANTS / 4);
+            trainingSample.addAll(MathUtils.randomSample(negativeTrainingDataSNP, NUM_TRAINING_VARIANTS / 4));
+            trainingSample.addAll(MathUtils.randomSample(positiveTrainingDataIndel, NUM_TRAINING_VARIANTS / 4));
+            trainingSample.addAll(MathUtils.randomSample(negativeTrainingDataIndel, NUM_TRAINING_VARIANTS / 4));
+            // Draw a testing set for this tree by choosing n times without replacement from all available training cases
+            final List<RandomForestDatum> testingSample = MathUtils.randomSubset(positiveTrainingDataSNP, NUM_TESTING_VARIANTS / 4);
+            testingSample.addAll(MathUtils.randomSubset(negativeTrainingDataSNP, NUM_TESTING_VARIANTS / 4));
+            testingSample.addAll(MathUtils.randomSubset(positiveTrainingDataIndel, NUM_TESTING_VARIANTS / 4));
+            testingSample.addAll(MathUtils.randomSubset(negativeTrainingDataIndel, NUM_TESTING_VARIANTS / 4));
+
+            if( trainingSample.isEmpty() || testingSample.isEmpty() ) {
+                throw new IllegalStateException("There seems to be too little training data. Found " + trainingData.size() + " training variants.");
+            }
+
             // Build a random decision tree using this smaller training set
             final RandomForestDecisionNode tree = new RandomForestDecisionNode(trainingSample, 0, MAX_TREE_DEPTH);
             // Evaluate the error of this tree using the full training set by predicting their classes
@@ -116,7 +126,7 @@ public class RandomForest {
             }
 
             if( treeIndex > 0 && (treeIndex+1) % 200 == 0 ) {
-                logger.info("Completed iteration " + (treeIndex+1) + ". Random forest classifier contains " + forestClassifier.size() + " tree(s) which pass accuracy threshold.");
+                logger.info("Completed iteration " + (treeIndex+1) + ". Random forest classifier contains " + forestClassifier.size() + " trees which pass accuracy threshold.");
             }
         }
     }
@@ -151,15 +161,31 @@ public class RandomForest {
     }
 
     /**
-     * Subset the list of data points to only those with the specified truth status
+     * Subset the list of data points to only those with the specified training status
      * @param data      list of data
-     * @param isGood    the desired truth status
+     * @param isGood    the desired training status
      * @return          non-null output list
      */
-    protected static List<RandomForestDatum> subsetToTruth( final List<RandomForestDatum> data, final boolean isGood ) {
+    protected static List<RandomForestDatum> subsetToSpecificTrainingStatus(final List<RandomForestDatum> data, final boolean isGood) {
         final List<RandomForestDatum> returnData = new ArrayList<>();
         for( final RandomForestDatum rfd : data ) {
             if( (isGood && rfd.isGood && !rfd.isBad ) || (!isGood && rfd.isBad && !rfd.isGood) ) {
+                returnData.add(rfd);
+            }
+        }
+        return returnData;
+    }
+
+    /**
+     * Subset the list of data points to only those with the specified variant type status (SNP versus non-SNP)
+     * @param data      list of data
+     * @param isSNP     the desired variant type status
+     * @return          non-null output list
+     */
+    protected static List<RandomForestDatum> subsetToSNPs( final List<RandomForestDatum> data, final boolean isSNP ) {
+        final List<RandomForestDatum> returnData = new ArrayList<>();
+        for( final RandomForestDatum rfd : data ) {
+            if( rfd.type.equals(VariantContext.Type.SNP) == isSNP ) {
                 returnData.add(rfd);
             }
         }
@@ -189,7 +215,22 @@ public class RandomForest {
     protected static List<RandomForestDatum> subsetToInputData(final List<RandomForestDatum> data) {
         final List<RandomForestDatum> testData = new ArrayList<>();
         for( final RandomForestDatum rfd : data ) {
-            if( rfd.isInput ) {
+            if( rfd.isInputSite ) {
+                testData.add(rfd);
+            }
+        }
+        return testData;
+    }
+
+    /**
+     * Subset the list of data points to only those which are part of the truth data
+     * @param data      list of data
+     * @return          non-null output list
+     */
+    protected static List<RandomForestDatum> subsetToTruthData(final List<RandomForestDatum> data) {
+        final List<RandomForestDatum> testData = new ArrayList<>();
+        for( final RandomForestDatum rfd : data ) {
+            if( rfd.isTruthSite ) {
                 testData.add(rfd);
             }
         }

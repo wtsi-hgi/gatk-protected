@@ -48,7 +48,6 @@ package org.broadinstitute.sting.gatk.walkers.randomforest;
 
 import org.broadinstitute.sting.commandline.*;
 import org.broadinstitute.sting.gatk.CommandLineGATK;
-import org.broadinstitute.sting.gatk.GenomeAnalysisEngine;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
@@ -59,7 +58,6 @@ import org.broadinstitute.sting.gatk.walkers.TreeReducible;
 import org.broadinstitute.sting.gatk.walkers.variantrecalibration.*;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.collections.ExpandingArrayList;
-import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.help.DocumentedGATKFeature;
 import org.broadinstitute.sting.utils.help.HelpConstants;
 import org.broadinstitute.variant.variantcontext.Allele;
@@ -70,8 +68,6 @@ import org.broadinstitute.variant.vcf.VCFConstants;
 import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.variant.vcf.VCFHeaderLine;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.*;
 
@@ -167,15 +163,29 @@ public class RandomForestWalker extends RodWalker<ExpandingArrayList<RandomFores
             return mapList;
         }
 
+        final List<VariantContext> goodVCs = new ExpandingArrayList<>();
+        final List<VariantContext> badVCs = new ExpandingArrayList<>();
+
+        boolean isTruthSite = false;
+        for( final RodBinding<VariantContext> goodRod : goodTrainingLabels ) {
+            goodVCs.addAll( tracker.getValues(goodRod, context.getLocation()) );
+            if( goodRod.getTags().containsKey("tranche") && goodRod.getTags().getValue("tranche").equals("true") ) {
+                isTruthSite = true;
+            }
+        }
+        for( final RodBinding<VariantContext> badRod : badTrainingLabels ) {
+            badVCs.addAll( tracker.getValues(badRod, context.getLocation()) );
+        }
+
         for( final VariantContext vc : tracker.getValues(variants, context.getLocation()) ) {
-            if( vc != null && vc.isNotFiltered() && vc.isVariant() ) {
-                mapList.add(new RandomForestDatum(vc, true, genomeLocParser, tracker.getValues(goodTrainingLabels, context.getLocation()), tracker.getValues(badTrainingLabels, context.getLocation())));
+            if( vc != null && vc.isNotFiltered() ) {
+                mapList.add(new RandomForestDatum(vc, true, genomeLocParser, goodVCs, badVCs, isTruthSite));
             }
         }
 
         for( final VariantContext vc : tracker.getValues(aggregate, context.getLocation()) ) {
-            if( vc != null && vc.isNotFiltered() && vc.isVariant() ) {
-                mapList.add(new RandomForestDatum(vc, false, genomeLocParser, tracker.getValues(goodTrainingLabels, context.getLocation()), tracker.getValues(badTrainingLabels, context.getLocation())));
+            if( vc != null && vc.isNotFiltered() ) {
+                mapList.add(new RandomForestDatum(vc, false, genomeLocParser, goodVCs, badVCs, isTruthSite));
             }
         }
 
@@ -224,7 +234,6 @@ public class RandomForestWalker extends RodWalker<ExpandingArrayList<RandomFores
         logger.info("Master key set for all variants = " + masterKeySet);
 
         final List<RandomForestDatum> trainingData = RandomForest.subsetToTrainingData(reduceSum);
-        Collections.shuffle(trainingData, GenomeAnalysisEngine.getRandomGenerator());
         final RandomForest classifier = new RandomForest(trainingData, masterKeySet, NUM_TREES);
 
         final List<RandomForestDatum> inputData = RandomForest.subsetToInputData(reduceSum);
@@ -234,8 +243,8 @@ public class RandomForestWalker extends RodWalker<ExpandingArrayList<RandomFores
         logger.info("Writing out recalibration table...");
         writeOutRecalibrationTable(recalWriter, inputData);
         logger.info("Writing out tranches file...");
-        writeOutTranchesFile(SNPTranchesStream, RandomForest.subsetToInputData(trainingData), VariantRecalibratorArgumentCollection.Mode.SNP);
-        writeOutTranchesFile(IndelTranchesStream, RandomForest.subsetToInputData(trainingData), VariantRecalibratorArgumentCollection.Mode.INDEL);
+        writeOutTranchesFile(SNPTranchesStream, RandomForest.subsetToSNPs(RandomForest.subsetToInputData(RandomForest.subsetToTruthData(trainingData)), true), VariantRecalibratorArgumentCollection.Mode.SNP);
+        writeOutTranchesFile(IndelTranchesStream, RandomForest.subsetToSNPs(RandomForest.subsetToInputData(RandomForest.subsetToTruthData(trainingData)), false), VariantRecalibratorArgumentCollection.Mode.INDEL);
     }
 
     /**
@@ -287,28 +296,20 @@ public class RandomForestWalker extends RodWalker<ExpandingArrayList<RandomFores
      */
     private void writeOutTranchesFile( final PrintStream tranchesStream, final List<RandomForestDatum> data, VariantRecalibratorArgumentCollection.Mode mode) {
 
-        // Subset down to only the true positive data
-        final List<RandomForestDatum> dataToRemove = new ArrayList<>();
-        for( final RandomForestDatum rfd : data ) {
-            if( rfd.isBad ) { dataToRemove.add(rfd); }
-            else if( mode.equals(VariantRecalibratorArgumentCollection.Mode.SNP) && !rfd.type.equals(VariantContext.Type.SNP) ) {
-                dataToRemove.add(rfd);
-            } else if( mode.equals(VariantRecalibratorArgumentCollection.Mode.INDEL) && rfd.type.equals(VariantContext.Type.SNP) ) {
-                dataToRemove.add(rfd);
-            }
-        }
-        data.removeAll(dataToRemove);
+        final List<RandomForestDatum> goodData = RandomForest.subsetToSpecificTrainingStatus(data, true);
 
         // Sort the data by lod score
-        Collections.sort( data, new Comparator<RandomForestDatum>() {
+        Collections.sort( goodData, new Comparator<RandomForestDatum>() {
             public int compare(final RandomForestDatum vd1, final RandomForestDatum vd2) {
                 return vd1.score.compareTo(vd2.score);
             }} );
 
         final List<Tranche> tranches = new ArrayList<>();
-        if( data.size() > 0 ) {
-            for( final double sensitivity : new double[]{0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99, 0.995, 1.0} ) {
-                tranches.add(new Tranche( sensitivity * 100.0, data.get( (int)Math.floor( (1.0 - sensitivity) * data.size() ) ).score, 0, 0.0, 0, 0.0, 0, 0, mode));
+        if( goodData.size() > 0 ) {
+            for( final double sensitivity : new double[]{0.1, 0.5, 0.6, 0.625, 0.65, 0.675, 0.7, 0.725, 0.75, 0.775, 0.8, 0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99, 0.995, 1.0} ) {
+                final int varIndex = (int)Math.floor( (1.0 - sensitivity) * goodData.size() );
+                final double lod = goodData.get(varIndex).score;
+                tranches.add(new Tranche( sensitivity * 100.0, lod, 0, 0.0, 0, 0.0, goodData.size(), goodData.size() - varIndex, mode));
             }
         }
         tranchesStream.print(Tranche.tranchesString(tranches));

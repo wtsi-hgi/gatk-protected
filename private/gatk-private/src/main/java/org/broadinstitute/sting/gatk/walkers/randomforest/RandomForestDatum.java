@@ -66,33 +66,31 @@ import java.util.*;
 public class RandomForestDatum {
     public final boolean isGood;
     public final boolean isBad;
-    public final boolean isInput;
+    public final boolean isTruthSite;
+    public final boolean isInputSite;
     public final VariantContext.Type type;
     public final Map<String, Comparable> annotations;
     public final List<String> keys;
     public final GenomeLoc loc;
     public Double score = null;
-    public final static List<String> badKeys = new ArrayList<>(Arrays.asList("AC","AF","AN","MLEAC","MLEAF","DP","DB","MQ0")); // including AC related things here is too dangerous, removing all low freq variants is an easy way to remove all the errors. This is an inherent bias in the training sets
+    public final static List<String> badKeys = new ArrayList<>(Arrays.asList("AC","AF","AN","MLEAC","MLEAF","DP","DB","MQ0","HWP")); // including AC related things here is too dangerous, removing all low freq variants is an easy way to remove all the errors. This is an inherent bias in the training sets
 
     /**
      * Construct a RandomForestDatum
      * @param vc                the input VC from which to construct this datum
-     * @param isInput           was this an input VC (as opposed to external model data)
+     * @param isInputSite       was this an input VC (as opposed to external model data)
      * @param genomeLocParser   a parser
      * @param good              the list of good variants which overlap this one
      * @param bad               the list of bad variants which overlap this one
+     * @param isTruthSite       was this marked as coming from a truth VC
      */
-    public RandomForestDatum( final VariantContext vc, final boolean isInput, final GenomeLocParser genomeLocParser, final List<VariantContext> good, final List<VariantContext> bad ) {
+    public RandomForestDatum( final VariantContext vc, final boolean isInputSite, final GenomeLocParser genomeLocParser, final List<VariantContext> good, final List<VariantContext> bad, final boolean isTruthSite ) {
 
-        this.isInput = isInput;
-
-        boolean hardFilter = false;
-        if(vc.hasAttribute("QD") && vc.getAttributeAsDouble("QD", 100.0) < 0.05) { hardFilter = true; }
-        if(vc.hasAttribute("FS") && vc.getAttributeAsDouble("FS", 0.0) > 2000.0) { hardFilter = true; }
-
+        this.isInputSite = isInputSite;
+        this.isTruthSite = isTruthSite;
         loc = genomeLocParser.createGenomeLoc(vc);
-        isBad = hardFilter || overlapsWithMatchingAlleles(vc, bad);
-        isGood = !isBad && overlapsWithMatchingAlleles(vc, good);
+        isBad = overlapsWithMatchingAlleles(vc, bad);
+        isGood = overlapsWithMatchingAlleles(vc, good);
 
         type = vc.getType();
         annotations = new LinkedHashMap<>();
@@ -112,20 +110,7 @@ public class RandomForestDatum {
         }
 
         annotations.put( "_TYPE", type );
-        annotations.put( "_CCC", vc.getCalledChrCount() );
         annotations.put( "_QUAL", vc.getPhredScaledQual() );
-        annotations.put( "_NCC", vc.getNoCallCount());
-        annotations.put( "_HWP", GATKVariantContextUtils.computeHardyWeinbergPvalue(vc));
-        annotations.put("_SUBTYPE", (vc.isSNP() ? (vc.isBiallelic() ? GATKVariantContextUtils.getSNPSubstitutionType(vc).toString() : "MULTI_ALLELEIC") : "NON_SNP"));
-
-        if( vc.hasGenotypes() ) {
-            final MathUtils.RunningAverage average = new MathUtils.RunningAverage();
-            for( final Genotype g : vc.getGenotypes() ) {
-                average.add(g.hasGQ() ? g.getGQ() : 0);
-            }
-            annotations.put("_GQ_MEAN", average.mean());
-            annotations.put("_GQ_STDDEV", average.stddev());
-        }
 
         keys = new ArrayList<>(annotations.keySet());
     }
@@ -140,9 +125,10 @@ public class RandomForestDatum {
     protected RandomForestDatum( final Map<String, Comparable> annotations, final boolean isInput, final boolean isGood, final boolean isBad ) {
         type = VariantContext.Type.SNP;
         this.annotations = annotations;
-        this.isInput = isInput;
+        this.isInputSite = isInput;
         this.isGood = isGood;
         this.isBad = isBad;
+        this.isTruthSite = false;
         this.loc = null;
         this.keys = new ArrayList<>(this.annotations.keySet());
     }
