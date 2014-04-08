@@ -50,10 +50,7 @@ import org.broadinstitute.sting.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by rpoplin on 2/14/14
@@ -65,7 +62,7 @@ public class RandomForestUnitTest extends BaseTest {
     public void testClassifyDatum() throws Exception {
         final RandomForestDecisionNode tree1 = new RandomForestDecisionNode("ANN1", 50.0, true, new RandomForestTerminalNode(true), new RandomForestTerminalNode(false), 0.88);
         final RandomForestDecisionNode tree2 = new RandomForestDecisionNode("ANN1", 90.0, true, new RandomForestTerminalNode(true), new RandomForestTerminalNode(false), 0.12);
-        final ArrayList<RandomForestDecisionNode> classifier = new ArrayList<>();
+        final PriorityQueue<RandomForestDecisionNode> classifier = new PriorityQueue<>(2);
         classifier.add(tree1);
         classifier.add(tree2);
 
@@ -82,7 +79,7 @@ public class RandomForestUnitTest extends BaseTest {
     public void testClassifyDatum2D() throws Exception {
         final RandomForestDecisionNode tree1 = new RandomForestDecisionNode("ANN1", 50.0, true, new RandomForestTerminalNode(true), new RandomForestTerminalNode(false), 0.88);
         final RandomForestDecisionNode tree2 = new RandomForestDecisionNode("ANN2", 90.0, true, new RandomForestTerminalNode(true), new RandomForestTerminalNode(false), 0.12);
-        final ArrayList<RandomForestDecisionNode> classifier = new ArrayList<>();
+        final PriorityQueue<RandomForestDecisionNode> classifier = new PriorityQueue<>(2);
         classifier.add(tree1);
         classifier.add(tree2);
 

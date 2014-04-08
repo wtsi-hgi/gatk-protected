@@ -53,6 +53,7 @@ import org.broadinstitute.variant.variantcontext.VariantContext;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.PriorityQueue;
 
 /**
  * Created with IntelliJ IDEA.
@@ -71,15 +72,15 @@ Each tree is constructed using the following algorithm:
 */
 
 public class RandomForest {
-    final List<RandomForestDecisionNode> forestClassifier = new ArrayList<>();
-    final int NUM_TREES;
-    final float PERCENT_TRAINING = 0.005f;
-    final float PERCENT_TESTING = 0.005f;
+    final PriorityQueue<RandomForestDecisionNode> forestClassifier;
+    final float PERCENT_TRAINING = 0.01f;
+    final float PERCENT_TESTING = 0.01f;
     final int NUM_TRAINING_VARIANTS;
     final int NUM_TESTING_VARIANTS;
-    final float ACCURACY_THRESHOLD = 0.40f;
     final int MAX_TREE_DEPTH;
     private double sumAccuracy;
+    private double CONVERGENCE_THRESHOLD = 1E-4;
+    private int MAX_NUM_ITERATIONS = 50000;
 
     protected final static Logger logger = Logger.getLogger(RandomForest.class);
 
@@ -90,17 +91,20 @@ public class RandomForest {
      * @param numTrees      the number of iterations to run
      */
     public RandomForest( final List<RandomForestDatum> trainingData, final LinkedHashSet<String> masterKeySet, final int numTrees ) {
-        NUM_TREES = numTrees;
+        forestClassifier = new PriorityQueue<>(numTrees);
         NUM_TRAINING_VARIANTS = (int) Math.ceil( PERCENT_TRAINING * (float) trainingData.size() );
         NUM_TESTING_VARIANTS = (int) Math.ceil( PERCENT_TESTING * (float) trainingData.size() );
         MAX_TREE_DEPTH = (int) Math.floor( Math.log((double) masterKeySet.size()) );
-        logger.info(String.format("Creating %d random trees each with depth %d by drawing %d examples out of %d training variants", NUM_TREES, MAX_TREE_DEPTH, NUM_TRAINING_VARIANTS, trainingData.size()));
+        logger.info(String.format("Creating %d random trees each with depth %d by drawing %d examples out of %d training variants", numTrees, MAX_TREE_DEPTH, NUM_TRAINING_VARIANTS, trainingData.size()));
 
         final List<RandomForestDatum> positiveTrainingDataSNP = subsetToSNPs(subsetToSpecificTrainingStatus(trainingData, true), true);
         final List<RandomForestDatum> negativeTrainingDataSNP = subsetToSNPs(subsetToSpecificTrainingStatus(trainingData, false), true);
         final List<RandomForestDatum> positiveTrainingDataIndel = subsetToSNPs(subsetToSpecificTrainingStatus(trainingData, true), false);
         final List<RandomForestDatum> negativeTrainingDataIndel = subsetToSNPs(subsetToSpecificTrainingStatus(trainingData, false), false);
-        for( int treeIndex = 0; treeIndex < NUM_TREES; treeIndex++ ) {
+        int iteration = 0;
+        boolean converged = false;
+        double previousMeanAccuracy = 0.0;
+        while( !converged && iteration++ < MAX_NUM_ITERATIONS ) {
             // Draw a training set for this tree by choosing n times with replacement from all available training cases
             final List<RandomForestDatum> trainingSample = MathUtils.randomSample(positiveTrainingDataSNP, NUM_TRAINING_VARIANTS / 4);
             trainingSample.addAll(MathUtils.randomSample(negativeTrainingDataSNP, NUM_TRAINING_VARIANTS / 4));
@@ -120,31 +124,49 @@ public class RandomForest {
             final RandomForestDecisionNode tree = new RandomForestDecisionNode(trainingSample, 0, MAX_TREE_DEPTH);
             // Evaluate the error of this tree using the full training set by predicting their classes
             tree.accuracy = tree.estimateAccuracy(testingSample);
-            if( Math.abs(tree.accuracy) > ACCURACY_THRESHOLD ) {
-                sumAccuracy += Math.abs(tree.accuracy);
-                forestClassifier.add( tree );
+
+            if( forestClassifier.size() < numTrees ) {
+                forestClassifier.add(tree);
+            } else if ( tree.compareTo(forestClassifier.peek()) > 0 ) {
+                forestClassifier.poll();
+                forestClassifier.add(tree);
             }
 
-            if( treeIndex > 0 && (treeIndex+1) % 200 == 0 ) {
-                logger.info("Completed iteration " + (treeIndex+1) + ". Random forest classifier contains " + forestClassifier.size() + " trees which pass accuracy threshold.");
+            if( iteration > 1 && (iteration) % 400 == 0 ) {
+                sumAccuracy = sumAccuracy(forestClassifier);
+                final double meanAccuracy = sumAccuracy / numTrees;
+                logger.info("Completed iteration " + iteration + ". Random forest classifier contains " + forestClassifier.size() + " trees with mean accuracy = " + meanAccuracy);
+                if( forestClassifier.size() >= numTrees && meanAccuracy - previousMeanAccuracy < CONVERGENCE_THRESHOLD ) {
+                    logger.info("Convergence!");
+                    converged = true;
+                }
+                previousMeanAccuracy = meanAccuracy;
             }
         }
+        sumAccuracy = sumAccuracy(forestClassifier);
     }
 
     /**
      * Used to construct a forest directly for unit testing purposes
      * @param forestClassifier  a pre-made random forest classifier
      */
-    protected RandomForest( List<RandomForestDecisionNode> forestClassifier ) {
-        NUM_TREES = forestClassifier.size();
+    protected RandomForest( final PriorityQueue<RandomForestDecisionNode> forestClassifier ) {
         NUM_TRAINING_VARIANTS = 0;
         NUM_TESTING_VARIANTS = 0;
         MAX_TREE_DEPTH = 1;
-        this.forestClassifier.clear();
+        this.forestClassifier = new PriorityQueue<>(forestClassifier.size());
         this.forestClassifier.addAll(forestClassifier);
         for( final RandomForestDecisionNode tree : this.forestClassifier ) {
             sumAccuracy += Math.abs(tree.accuracy);
         }
+    }
+
+    private double sumAccuracy( final PriorityQueue<RandomForestDecisionNode> forestClassifier ) {
+        double accuracy = 0.0;
+        for( final RandomForestDecisionNode tree : forestClassifier ) {
+            accuracy += Math.abs(tree.accuracy);
+        }
+        return accuracy;
     }
 
     /**

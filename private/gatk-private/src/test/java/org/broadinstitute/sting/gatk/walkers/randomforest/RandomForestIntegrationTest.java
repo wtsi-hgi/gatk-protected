@@ -77,9 +77,9 @@ public class RandomForestIntegrationTest extends WalkerTest {
     }
 
     RFTest lowPass = new RFTest(validationDataLocation + "1kg_exomes_unfiltered.AFR.unfiltered.vcf",
-            "9a78dc40cb68c84a3a2e76e655805724",  // snp tranches
-            "57ca15a430e33017dd0ecd01fc435b0b",  // indel tranches
-            "85c24419a543f7fca9612968ea011a75"); // recal file
+            "59d429699b1dcdf5ce94bc5ba040a707",  // snp tranches
+            "bf59e118b94bc49e7894ed98d8895ddb",  // indel tranches
+            "2f58fe9e0b9fc26ad2679016e7262f9a"); // recal file
 
     @DataProvider(name = "RFTest")
     public Object[][] createData1() {
@@ -100,7 +100,7 @@ public class RandomForestIntegrationTest extends WalkerTest {
                         " -V " + params.inVCF +
                         " -L 20" +
                         " --no_cmdline_in_header" +
-                        " -numTrees 500" +
+                        " -numTrees 200" +
                         " -recalFile %s" +
                         " -snpTranchesFile %s" +
                         " -indelTranchesFile %s",

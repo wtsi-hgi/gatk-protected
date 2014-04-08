@@ -60,6 +60,7 @@ import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.collections.ExpandingArrayList;
 import org.broadinstitute.sting.utils.help.DocumentedGATKFeature;
 import org.broadinstitute.sting.utils.help.HelpConstants;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
 import org.broadinstitute.variant.variantcontext.Allele;
 import org.broadinstitute.variant.variantcontext.VariantContext;
 import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
@@ -119,10 +120,19 @@ public class RandomForestWalker extends RodWalker<ExpandingArrayList<RandomFores
     @Output(fullName="indel_tranches_file", shortName="indelTranchesFile", doc="The output indel tranches file used by ApplyRecalibration", required=true)
     private PrintStream IndelTranchesStream;
 
-    private GenomeLocParser genomeLocParser;
+    //---------------------------------------------------------------------------------------------------------------
+    //
+    // command line arguments
+    //
+    //---------------------------------------------------------------------------------------------------------------
 
     @Argument(fullName="numTrees", shortName = "numTrees", doc="Number of trees to build. Accuracy versus runtime tradeoff.", required=false)
-    public int NUM_TREES = 10000;
+    public int NUM_TREES = 1000;
+
+    @Argument(fullName="dontExcludeNA12878", shortName = "dontExcludeNA12878", doc="If specified, will not automatically exclude sites which are variable in the sample NA12878", required=false)
+    public boolean DONT_EXCLUDE_NA12878 = false;
+
+    private GenomeLocParser genomeLocParser;
 
     //---------------------------------------------------------------------------------------------------------------
     //
@@ -180,19 +190,34 @@ public class RandomForestWalker extends RodWalker<ExpandingArrayList<RandomFores
             badVCs.addAll( tracker.getValues(badRod, context.getLocation()) );
         }
 
-        for( final VariantContext vc : tracker.getValues(variants, context.getLocation()) ) {
-            if( vc != null && vc.isNotFiltered() ) {
-                mapList.add(new RandomForestDatum(vc, true, genomeLocParser, goodVCs, badVCs, isTruthSite));
-            }
-        }
-
-        for( final VariantContext vc : tracker.getValues(aggregate, context.getLocation()) ) {
-            if( vc != null && vc.isNotFiltered() ) {
-                mapList.add(new RandomForestDatum(vc, false, genomeLocParser, goodVCs, badVCs, isTruthSite));
-            }
-        }
+        parseInputVariantRods(tracker, context, variants, true, isTruthSite, goodVCs, badVCs, mapList);
+        parseInputVariantRods(tracker, context, aggregate, false, isTruthSite, goodVCs, badVCs, mapList);
 
         return mapList;
+    }
+
+    /**
+     * Loop over the input rods and pull out the VariantContexts that pass that are usable for the RandomForest
+     * @param tracker           the tracker from the RodWalker
+     * @param context           the AlignmentContext from the RodWalker
+     * @param rods              the input rods name
+     * @param isInput           is this an input rod (as opposed to the aggregate rod)
+     * @param isTruthSite       is this a truth site
+     * @param goodVCs           the overlapping good VCs
+     * @param badVCs            the overlapping bad VCs
+     * @param randomForestData  the list which is accumulating all the RandomForest data
+     */
+    private void parseInputVariantRods( final RefMetaDataTracker tracker, final AlignmentContext context,
+                                        final List<RodBinding<VariantContext>> rods, final boolean isInput, final boolean isTruthSite,
+                                        final List<VariantContext> goodVCs, final List<VariantContext> badVCs,
+                                        final ExpandingArrayList<RandomForestDatum> randomForestData ) {
+
+        for( final VariantContext vc : tracker.getValues(rods, context.getLocation()) ) {
+            if( vc != null && vc.isNotFiltered() ) {
+                final boolean isNA12878Variant = !DONT_EXCLUDE_NA12878 && vc.hasGenotype("NA12878") && vc.subContextFromSample("NA12878").isVariant();
+                randomForestData.add(new RandomForestDatum(vc, isInput, genomeLocParser, goodVCs, badVCs, isTruthSite, isNA12878Variant));
+            }
+        }
     }
 
     //---------------------------------------------------------------------------------------------------------------
@@ -309,7 +334,7 @@ public class RandomForestWalker extends RodWalker<ExpandingArrayList<RandomFores
 
         final List<Tranche> tranches = new ArrayList<>();
         if( goodData.size() > 0 ) {
-            for( final double sensitivity : new double[]{0.1, 0.5, 0.6, 0.625, 0.65, 0.675, 0.7, 0.725, 0.75, 0.775, 0.8, 0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99, 0.995, 1.0} ) {
+            for( final double sensitivity : new double[]{0.1, 0.5, 0.6, 0.65, 0.7, 0.75, 0.8, 0.84, 0.85, 0.86, 0.88, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99, 0.991, 0.992, 0.993, 0.994, 0.995, 0.996, 0.997, 0.998, 0.999, 1.0} ) {
                 final int varIndex = (int)Math.floor( (1.0 - sensitivity) * goodData.size() );
                 final double lod = goodData.get(varIndex).score;
                 tranches.add(new Tranche( sensitivity * 100.0, lod, 0, 0.0, 0, 0.0, goodData.size(), goodData.size() - varIndex, mode));
