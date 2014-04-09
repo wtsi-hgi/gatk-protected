@@ -77,9 +77,9 @@ public class RandomForestIntegrationTest extends WalkerTest {
     }
 
     RFTest lowPass = new RFTest(validationDataLocation + "1kg_exomes_unfiltered.AFR.unfiltered.vcf",
-            "2aa589d64244de3615b306ba514118e6",  // snp tranches
-            "20a3fbf3728d01a1a950968bca86a093",  // indel tranches
-            "1d0c8b40f73e851c86c553a2fa025f36"); // recal file
+            "9a78dc40cb68c84a3a2e76e655805724",  // snp tranches
+            "57ca15a430e33017dd0ecd01fc435b0b",  // indel tranches
+            "85c24419a543f7fca9612968ea011a75"); // recal file
 
     @DataProvider(name = "RFTest")
     public Object[][] createData1() {
@@ -92,8 +92,9 @@ public class RandomForestIntegrationTest extends WalkerTest {
         WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
                 "-R " + b37KGReference +
                         " -good:tranche=true " + comparisonDataLocation + "Validated/HapMap/3.3/sites_r27_nr.b37_fwd.vcf" +
+                        " -good " + comparisonDataLocation + "Validated/Omni2.5_chip/Omni25_sites_2141_samples.b37.vcf" +
                         " -bad " + comparisonDataLocation + "Validated/Omni2.5_chip/Omni25_monomorphic_2141_samples.b37.vcf" +
-                        " -good " + comparisonDataLocation + "Validated/Mills_Devine_Indels_2011/ALL.wgs.indels_mills_devine_hg19_leftAligned_collapsed_double_hit.sites.vcf" +
+                        " -good:tranche=true " + comparisonDataLocation + "Validated/Mills_Devine_Indels_2011/ALL.wgs.indels_mills_devine_hg19_leftAligned_collapsed_double_hit.sites.vcf" +
                         " -bad " + comparisonDataLocation + "Validated/Mills_Devine_Indels_2011/indel_genotype_data_hg19_annotated_monomorphic.lowCallRateFiltered.vcf" +
                         " -T RandomForestWalker" +
                         " -V " + params.inVCF +
