@@ -17,8 +17,7 @@ s3_root_dir="/humgen/gsa-hpprojects/GATK/reports/s3"
 s3_config_dir="${s3_root_dir}/config"
 archive_dir="${s3_root_dir}/archive"
 download_root="/local/gsa-engineering/GATKLogs"
-# script_dir="/local/gsa-engineering/cron_clones/unstable/private/GATKLogs"
-script_dir="${download_root}/scripts"
+script_dir="/local/gsa-engineering/cron_clones/unstable/private/GATKLogs"
 s3funnel_dir="${download_root}/s3funnel_mod"
 s3funnel_threads=10
 
