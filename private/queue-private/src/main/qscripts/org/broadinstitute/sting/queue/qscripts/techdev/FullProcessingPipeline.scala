@@ -47,8 +47,7 @@
 package org.broadinstitute.sting.queue.qscripts.techdev
 
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.commandline.{Hidden}
-import org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel
+import org.broadinstitute.sting.commandline.{Output, Argument, Hidden}
 import org.broadinstitute.sting.queue.util.QScriptUtils
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.picard._
@@ -57,6 +56,7 @@ import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 import collection.JavaConversions._
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException
 import net.sf.samtools.SAMFileHeader.SortOrder
+import org.broadinstitute.sting.commandline
 
 class FullProcessingPipeline extends QScript {
   qscript =>
@@ -79,7 +79,7 @@ class FullProcessingPipeline extends QScript {
 
   @Input(doc="dbsnp ROD to use (must be in VCF format)",
     fullName="dbsnp", shortName="D", required=false)
-  var dbSNP: Seq[File] = if (reference.getName.equals("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")) Seq(new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_137.b37.vcf")) else null
+  var dbSNP: Seq[File] = if (reference.getName.equals("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")) Seq(new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.vcf")) else null
 
   @Argument(doc="Final root name of the BAM file",
     fullName="project", shortName="p", required=false)
@@ -92,10 +92,6 @@ class FullProcessingPipeline extends QScript {
   @Argument(doc="single ended fastq file",
     fullName="singleEndedfastQ", shortName="se", required=false)
   var singleEnded = false
-
-  @Argument(doc="do reduce reads",
-    fullName="reduce_redeas", shortName="rr", required=false)
-  var do_RR = false
 
   @Argument(doc="Mark Duplicates",
     fullName="mark_duplicates", shortName="dedup", required=false)
@@ -116,6 +112,27 @@ class FullProcessingPipeline extends QScript {
   var skip_revert: Boolean = false
 
   @Hidden
+  @Argument (doc="use 2-pass STAR aliger",
+    fullName = "use2passStarAligner", shortName = "stars", required = false, exclusiveOf = "useStarAligner")
+  var use2PassStarAligner: Boolean = false
+
+  @Hidden
+  @Argument (doc="use 1-pass STAR aliger",
+    fullName = "useStarAligner", shortName = "star", required = false, exclusiveOf = "use2passStarAligner")
+  var use1passStarAligner: Boolean = false
+
+  @Hidden
+  @Argument (doc="the path to STAR aliger",
+    fullName = "starAlignerPath", shortName = "starPath", required = false)
+  var starAlingerPath: String = "/humgen/gsa-hpprojects/dev/ami/RNA/star/STAR_2.3.0e/"
+
+  @Hidden
+  @Argument (doc="the path to STAR genome dir",
+    fullName = "starGenomeDir", shortName = "starGenomeDir", required = false)
+  var starGenomeDir: String = "/humgen/gsa-hpprojects/dev/ami/RNA/star/hg19_broad/"
+
+
+  @Hidden
   @Argument(doc="skip converting the bam file to fastq",
     fullName = "skip_convert_to_fastq", shortName = "skip_bam2fastq", required=false)
   var skip_bam2fastq: Boolean = false
@@ -126,7 +143,7 @@ class FullProcessingPipeline extends QScript {
   var flyThrough = false
 
   @Hidden
-  @Argument(doc="Number of threads to use with BWA",
+  @Argument(doc="Number of threads to use with aligner",
     shortName="t", required=false)
   var threads = 8
 
@@ -147,7 +164,7 @@ class FullProcessingPipeline extends QScript {
 
   @Hidden
   @Argument(doc = "chang MQ 255 to 60 (for TopHat output)",
-    fullName = "change_MQ_255_to_60", shortName = "255to60", required = false)
+    fullName = "change_MQ_255_to_60", shortName = "MQ255to60", required = false)
   var change255to60 = false
 
   @Hidden
@@ -165,7 +182,12 @@ class FullProcessingPipeline extends QScript {
     fullName = "filter_N_cigar_reads", shortName = "filter_Ns", required = false, exclusiveOf = "allow_N_cigar_reads")
   var filter_N_cigar_reads = false
 
- val cleaningModel: ConsensusDeterminationModel = ConsensusDeterminationModel.USE_READS
+  @Hidden
+  @Argument(doc = "fix mis-encoded quality scores",
+    fullName = "fixMisencodedQualityScores", shortName = "fixQualityScores", required = false)
+  var fixMisencodedQualityScores = false
+
+ val cleaningModel: org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel  = org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel.USE_READS
 
   def script() {
     // keep a record of the number of contigs in the first bam file in the list
@@ -175,14 +197,19 @@ class FullProcessingPipeline extends QScript {
     val bams =
       if(!skip_bam2fastq)
       {
-        val fastqs_with_rgs = if (input(0).toString.endsWith(".bam")) {
-          convert_to_fastq(revert_bam(splitIfMultipleReadGroups(input)))
-        } else {
-         input zip rg
-        }
+        if(!use2PassStarAligner && !use1passStarAligner){
+          val fastqs_with_rgs = if (input(0).toString.endsWith(".bam")) {
+            convert_to_fastq(revert_bam(splitIfMultipleReadGroups(input)))
+          } else {
+          input zip rg
+          }
 
-        // BAM files generated by the pipeline
-        align(fastqs_with_rgs)
+          // BAM files generated by the pipeline
+          align(fastqs_with_rgs)
+        }
+        else{
+          starAlign(input)
+        }
       }
       else{
         input
@@ -196,7 +223,7 @@ class FullProcessingPipeline extends QScript {
       else
         getSampleName(input)
 
-    val sortedBam  = new File(sampleName + ".sorted.bam")
+    val sortedBam  = new File(project + ".sorted.bam")
     val readyToRealign = splitRNAseqReadsIfNeeded(
           dedupIfNeeded(
            addRGIfNeeded(sortedBam,sampleName)))
@@ -205,8 +232,8 @@ class FullProcessingPipeline extends QScript {
     //val reducedBam = swapExt(recalBam, ".bam", ".reduced.bam")
 
     // Accessory files
-    val targetIntervals = new File(sampleName + ".intervals")
-    val recalFile       = new File(sampleName + ".grp")
+    val targetIntervals = new File(project + ".intervals")
+    val recalFile       = new File(project + ".grp")
 
     add(
       merge(bams, sortedBam),
@@ -235,7 +262,7 @@ class FullProcessingPipeline extends QScript {
   }
 
   def addRGIfNeeded(bam: File, sampleName: String) : File = {
-    if(getReadGroupList(qscript.input(0)).size == 0){
+    if(use2PassStarAligner || use1passStarAligner || getReadGroupList(qscript.input(0)).size == 0){
       val bamWithRG = swapExt(bam, ".bam", ".RGadded.bam")
       add(addRGInfo(bam,bamWithRG,sampleName))
       bamWithRG
@@ -353,6 +380,21 @@ class FullProcessingPipeline extends QScript {
     sams
   }
 
+  /**
+   * alignment of 1 or 2 fastq files with star
+   *
+   * Aligns 1 or 2 fastqs (single end or pair ends)
+   *
+   * @param fqs a sequence of fsatq files
+   * @return list of aligned sam files
+   */
+  def starAlign(fqs:Seq[File]) : Seq[File] = {
+    var sams: Seq[File] = Seq()
+    //if (fqs.size > 2)
+    //  throw ("when aligning with STAR input must be one or 2 fastq files")
+    sams :+= star_align_fastq(fqs)
+    sams
+  }
 
   /**
    * convert to fastq without clipping adapters (using htslib)
@@ -361,7 +403,7 @@ class FullProcessingPipeline extends QScript {
    * @return output interleaved fastq
    */
   def htslib_fq(bam: File): File = {
-    val fq         = swapExt(bam, ".bam", ".fq.gz")
+    val fq = swapExt(bam, ".bam", ".fq.gz")
     add(bam2fq(bam, fq))
     fq
   }
@@ -402,6 +444,29 @@ class FullProcessingPipeline extends QScript {
   }
 
   /**
+   * aligns fastq file/s with STAR
+   *
+   * param fqs the fastq file/s
+   * @return the aligned sam file
+   */
+  def star_align_fastq(fqs: Seq[File]): File = {
+    val alignedSam1pass = new File(project+".star.1pass.Aligned.out.sam")
+    val SJ_file1pass = new File(project+".star.1pass.SJ.out.tab")
+    val alignedSam2pass = new File(project+".star.2pass.Aligned.out.sam")
+    val SJ_file2pass = new File(project+".star.2pass.SJ.out.tab")
+    val dummyFile = new File("dummy")
+    val star1pass = star(fqs, alignedSam1pass, SJ_file1pass, qscript.threads, false, new File("dd"))
+    val starBuildGenome = star_buildGenome_2pass(star1pass.sjFile ,qscript.threads, dummyFile)
+    val star2pass = star(fqs, alignedSam2pass, SJ_file2pass, qscript.threads, true, dummyFile)
+    add(star1pass,
+       starBuildGenome,
+       star2pass)
+    alignedSam2pass
+  }
+
+
+  /**
+   *
    * parses the read group line from a bam file and returns all it's read groups
    * in the string format used by BWA
    *
@@ -467,6 +532,30 @@ class FullProcessingPipeline extends QScript {
     this.memoryLimit = 8
     this.nCoresRequest = threads
     this.analysisName = "BWA"
+  }
+
+  case class star (@Input inFQs: Seq[File], @Output outSAM: File, @Output sjFile: File, threads: Int, secondPass: Boolean, @Input dummyFile: File) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs{
+    var genomeDir : String = ""
+    if (secondPass)
+      genomeDir =  "Genome-2-pass"
+    else
+      genomeDir = qscript.starGenomeDir
+    var fastq_string: String = ""
+    for(file:File <- inFQs){
+      logger.info("addind fastq file: "+file.getName())
+      val new_fastq_string = fastq_string + " " + file.getName()
+      fastq_string = new_fastq_string
+    }
+    var pass = ""
+    if (secondPass)
+      pass = "2pass."
+    else
+      pass = "1pass."
+    def commandLine = starAlingerPath + "STAR --genomeDir "+genomeDir+" --readFilesIn "+fastq_string+" --outFileNamePrefix "+project+".star." + pass
+  }
+
+  case class star_buildGenome_2pass (@Input sjFile: File, threads: Int, @Output dummyFile: File) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs{
+    def commandLine = "mkdir -p Genome-2-pass ; "+ starAlingerPath + "STAR --runMode genomeGenerate --genomeDir $PWD/Genome-2-pass --genomeFastaFiles "+ qscript.reference +" --sjdbFileChrStartEnd "+sjFile+" --sjdbOverhang 75"
   }
 
   case class mark_adaptor(@Input inBAM: File, @Output outBAM: File) extends org.broadinstitute.sting.queue.function.CommandLineFunction with ExternalCommonArgs {
@@ -560,6 +649,10 @@ class FullProcessingPipeline extends QScript {
     this.input_file :+= inBam
     this.out = outBam
     this.scatterCount = nContigs
+    if(fixMisencodedQualityScores)
+      this.fix_misencoded_quality_scores = true
+    if(!allow_N_cigar_reads)  //we must allow N in the cigar string for RNA data, but we add it here just if it was not added for all the other walkers
+      this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
   }
 
   case class target (inBams: File, outIntervals: File) extends RealignerTargetCreator with CommandLineGATKArgs {
@@ -584,10 +677,7 @@ class FullProcessingPipeline extends QScript {
     this.compress = 0
     this.read_filter :+= "BadCigar"
     this.filter_bases_not_stored = true
-    if(qscript.change255to60)
-      this.read_filter :+= "ReassignOneMappingQuality"
     this.scatterCount = nContigs
-    this.filter_reads_with_N_cigar = true
   }
 
   case class bqsr (inBam: File, outRecalFile: File) extends BaseRecalibrator with CommandLineGATKArgs {
