@@ -57,7 +57,7 @@ import java.util.List;
  * Date: 11/14/13
  */
 
-public class RandomForestDecisionNode implements RandomForestNode {
+public class RandomForestDecisionNode implements RandomForestNode, Comparable<RandomForestDecisionNode> {
     private final Decision decision;
     private final RandomForestNode leftNode;
     private final RandomForestNode rightNode;
@@ -167,6 +167,14 @@ public class RandomForestDecisionNode implements RandomForestNode {
         } else {
             return (GenomeAnalysisEngine.getRandomGenerator().nextBoolean() ? leftNode : rightNode).classifyDatum(rfd); // TODO- better way to handle missing data?
         }
+    }
+
+    @Override
+    /**
+     * Decision trees are ordered by the absolute value of their accuracy.
+     */
+    public int compareTo( final RandomForestDecisionNode that ) {
+        return ((Double)Math.abs(this.accuracy)).compareTo(Math.abs(that.accuracy));
     }
 
     /**

@@ -83,15 +83,15 @@ public class RandomForestDatum {
      * @param good              the list of good variants which overlap this one
      * @param bad               the list of bad variants which overlap this one
      * @param isTruthSite       was this marked as coming from a truth VC
+     * @param isNA12878Variant  was this a variant site in NA12878
      */
-    public RandomForestDatum( final VariantContext vc, final boolean isInputSite, final GenomeLocParser genomeLocParser, final List<VariantContext> good, final List<VariantContext> bad, final boolean isTruthSite ) {
+    public RandomForestDatum( final VariantContext vc, final boolean isInputSite, final GenomeLocParser genomeLocParser, final List<VariantContext> good, final List<VariantContext> bad, final boolean isTruthSite, final boolean isNA12878Variant ) {
 
         this.isInputSite = isInputSite;
-        this.isTruthSite = isTruthSite;
         loc = genomeLocParser.createGenomeLoc(vc);
-        isBad = overlapsWithMatchingAlleles(vc, bad);
-        isGood = overlapsWithMatchingAlleles(vc, good);
-
+        isBad = !isNA12878Variant && overlapsWithMatchingAlleles(vc, bad);
+        isGood = !isNA12878Variant && overlapsWithMatchingAlleles(vc, good);
+        this.isTruthSite = isTruthSite;
         type = vc.getType();
         annotations = new LinkedHashMap<>();
 
@@ -110,7 +110,6 @@ public class RandomForestDatum {
         }
 
         annotations.put( "_TYPE", type );
-        annotations.put( "_QUAL", vc.getPhredScaledQual() );
 
         keys = new ArrayList<>(annotations.keySet());
     }
