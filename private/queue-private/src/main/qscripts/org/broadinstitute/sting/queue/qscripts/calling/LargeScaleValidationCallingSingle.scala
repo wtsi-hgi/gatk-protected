@@ -139,17 +139,17 @@ class LargeScaleValidationCallingSingle extends QScript {
     
   }
   class SNPPC(callName: String, allelesFile: String) extends PPC(callName, allelesFile) {
-    this.glm = GenotypeLikelihoodsCalculationModel.Name.SNP
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.SNP
     this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
   }
 
   class IndelPC( callName: String,  allelesFile: String) extends PPC(callName, allelesFile) {
-    this.glm = GenotypeLikelihoodsCalculationModel.Name.INDEL
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.INDEL
     this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.vcf")
   }
 
   class BothPC( callName: String,  allelesFile: String) extends PPC(callName, allelesFile) {
-    this.glm = GenotypeLikelihoodsCalculationModel.Name.BOTH
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.referenceCalls = new File("/humgen/gsa-scr1/delangel/IndelGoldSet/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.snp_indel_combined.vcf")
   }
 

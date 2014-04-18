@@ -166,14 +166,14 @@ class LargeScaleValidationCalling extends QScript {
 
   }
   class SNPPC(callName: String, intervalFile: File) extends PPC(callName, intervalFile) {
-    this.glm = GenotypeLikelihoodsCalculationModel.Name.SNP
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.SNP
 //    this.referenceCalls = new File("/humgen/gsa-hpprojects/NA12878Collection/callsets/snps/NA12878.HiSeq.WGS.b37.recalibrated.99_5_cut_for_heng.vcf")
     this.referenceCalls = new File("/humgen/1kg/DCC/ftp/technical/working/20130610_ceu_hc_trio/broad/CEU.wgs.UnifiedGenotyper_bi.20130520.snps_indels.high_coverage_pcr_free.genotypes.vcf.gz")
     this.max_deletion_fraction=.1
   }
 
   class IndelPC(callName: String, intervalFile: File) extends PPC(callName, intervalFile) {
-    this.glm = GenotypeLikelihoodsCalculationModel.Name.INDEL
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.INDEL
     this.minIndelFrac = Some(0.01)
 //    this.referenceCalls = new File(baseDir+"inputSets/CEUTrio.HiSeq.WGS.b37_decoy.recal.ts_95.vcf")
     this.referenceCalls = new File("/humgen/1kg/DCC/ftp/technical/working/20130610_ceu_hc_trio/broad/CEU.wgs.UnifiedGenotyper_bi.20130520.snps_indels.high_coverage_pcr_free.genotypes.vcf.gz")

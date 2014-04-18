@@ -266,7 +266,7 @@ class Phase3Staging extends QScript{
     this.memoryLimit = 3
     this.scatterCount = 10
     this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
+    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.stand_call_conf = 10
     this.stand_emit_conf = 10
     this.dcov = 200

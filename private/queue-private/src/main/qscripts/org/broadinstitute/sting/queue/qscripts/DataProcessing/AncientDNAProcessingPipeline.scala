@@ -560,7 +560,7 @@ class AncientDNAProcessingPipeline extends QScript {
     this.jobName = outVCF + ".singleSampleCalling"
     this.dbsnp = qscript.dbSNP(0)
     this.downsample_to_coverage = 600
-    this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
+    this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.scatterCount = nContigs
     this.out_mode = UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
     if (qscript.targets != null)

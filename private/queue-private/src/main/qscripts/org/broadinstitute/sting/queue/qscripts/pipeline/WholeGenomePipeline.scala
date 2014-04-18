@@ -50,7 +50,7 @@ import collection.immutable.ListMap
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.utils.interval.IntervalUtils
-import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name
+import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model
 
 class WholeGenomePipeline extends QScript {
   @Input(doc="Bam file list", shortName = "I", required=true)
@@ -149,7 +149,7 @@ class WholeGenomePipeline extends QScript {
 
     var snpChrVcfs = ListMap.empty[Interval, File]
     var indelChrVcfs = ListMap.empty[Interval, File]
-    val glModels = Seq(Name.SNP, Name.INDEL)
+    val glModels = Seq(Model.SNP, Model.INDEL)
 
     for (interval <- callIntervals) {
       var snpChunkVcfs = Seq.empty[File]
@@ -223,9 +223,9 @@ class WholeGenomePipeline extends QScript {
           add(call)
 
           glModel match {
-            case Name.SNP =>
+            case Model.SNP =>
               snpChunkVcfs :+= call.out
-            case Name.INDEL =>
+            case Model.INDEL =>
               call.max_alternate_alleles = 2 // reduce processing time with fewer alts
               indelChunkVcfs :+= call.out
           }
@@ -237,8 +237,8 @@ class WholeGenomePipeline extends QScript {
 
       for (glModel <- glModels) {
         val chunkVcfs = glModel match {
-          case Name.SNP => snpChunkVcfs
-          case Name.INDEL => indelChunkVcfs
+          case Model.SNP => snpChunkVcfs
+          case Model.INDEL => indelChunkVcfs
         }
 
         val combineChunks = new CombineVariants with CommandLineGATKArgs
@@ -251,9 +251,9 @@ class WholeGenomePipeline extends QScript {
         add(combineChunks)
 
         glModel match {
-          case Name.SNP =>
+          case Model.SNP =>
             snpChrVcfs += interval -> combineChunks.out
-          case Name.INDEL =>
+          case Model.INDEL =>
             indelChrVcfs += interval -> combineChunks.out
         }
       }
@@ -281,7 +281,7 @@ class WholeGenomePipeline extends QScript {
       var tranche = 98.5
       var chrVcfs = ListMap.empty[Interval, File]
       glModel match {
-        case Name.SNP =>
+        case Model.SNP =>
           chrVcfs = snpChrVcfs
           //tranche = ...
           buildModel.input = snpChrVcfs.values.toSeq
@@ -290,7 +290,7 @@ class WholeGenomePipeline extends QScript {
           buildModel.resource :+= TaggedFile(hapmap, "training=true,truth=true,prior=15.0")
           buildModel.resource :+= TaggedFile(k1gOmni, "training=true,prior=12.0")
           buildModel.resource :+= TaggedFile(dbsnp135, "known=true,prior=6.0")
-        case Name.INDEL =>
+        case Model.INDEL =>
           chrVcfs = indelChrVcfs
           //tranche = ...
           buildModel.input = indelChrVcfs.values.toSeq

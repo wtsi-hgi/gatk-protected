@@ -295,9 +295,9 @@ class AncientDNASingleSampleCalling extends QScript{
 
     this.downsample_to_coverage = 600
     if (callIndels)
-      this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
+      this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     else
-      this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.SNP
+      this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
 
      this.out_mode = UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
 

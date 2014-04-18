@@ -106,7 +106,7 @@ class AsyncIOPerformance extends QScript {
     caller.input_file = List(bamList)
     if(interval != null)
       caller.intervalsString = List(interval)
-    caller.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.SNP
+    caller.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
 
     var outputBase = "ug." + synchronicity + ".calls." + uniquifier;
     if(numCPUThreads != 1) {

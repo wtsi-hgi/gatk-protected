@@ -65,7 +65,7 @@ import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.gga.GenotypingGivenAllelesUtils;
 import org.broadinstitute.sting.utils.io.Resource;
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
-import org.broadinstitute.sting.utils.variant.HomoSapiens;
+import org.broadinstitute.sting.utils.variant.HomoSapiensConstants;
 import org.broadinstitute.variant.variantcontext.Genotype;
 import org.broadinstitute.variant.variantcontext.GenotypeLikelihoods;
 import org.broadinstitute.variant.variantcontext.GenotypeType;
@@ -285,20 +285,20 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         // Filling in SNP calling arguments for UG
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
         uac.outputMode = OutputMode.EMIT_ALL_SITES;
-        uac.genotypingMode = GenotypingMode.GENOTYPE_GIVEN_ALLELES;
+        uac.genotypingOutputMode = GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES;
         if (mbq >= 0) uac.MIN_BASE_QUALTY_SCORE = mbq;
         if (deletions >= 0) uac.MAX_DELETION_FRACTION = deletions;
         uac.STANDARD_CONFIDENCE_FOR_CALLING = callConf;
         uac.CONTAMINATION_FRACTION = 0.0;
         uac.alleles = alleles;
-        uac.samplePloidy = HomoSapiens.DEFAULT_PLOIDY;
+        uac.samplePloidy = HomoSapiensConstants.DEFAULT_PLOIDY;
         // Adding the INDEL calling arguments for UG
         if (doIndels)  {
-            uac.GLmodel = GenotypeLikelihoodsCalculationModel.Name.INDEL;
+            uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
             indelEngine = new UnifiedGenotypingEngine(getToolkit(), uac, null, samples, null );
         }
         else {
-            uac.GLmodel = GenotypeLikelihoodsCalculationModel.Name.SNP;
+            uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.SNP;
             snpEngine = new UnifiedGenotypingEngine(getToolkit(), uac, null, samples, null );
 
         }

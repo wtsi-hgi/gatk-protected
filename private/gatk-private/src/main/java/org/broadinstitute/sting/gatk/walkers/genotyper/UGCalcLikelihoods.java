@@ -117,7 +117,7 @@ public class UGCalcLikelihoods extends LocusWalker<List<VariantCallContext>, Int
 
         List<RefMetaDataTracker> useTrackers = new LinkedList<RefMetaDataTracker>();
         // Allow for multiple records in UAC.alleles, even at same locus:
-        if ( UAC.genotypingMode == GenotypingMode.GENOTYPE_GIVEN_ALLELES ) {
+        if ( UAC.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES ) {
             for (VariantContext vc : tracker.getValues(UAC.alleles, rawContext.getLocation()))
                 useTrackers.add(new MatchFirstLocRefAltRefMetaDataTracker(tracker, vc));
         }

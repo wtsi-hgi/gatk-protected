@@ -172,7 +172,7 @@ class LargeScaleHybridSelectionPipeline extends QScript {
         call.input_file = Seq(chrMergeBamList.listFile)
         call.dbsnp = dbsnp137
         call.downsample_to_coverage = 60
-        call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
+        call.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
         call.out = chrDir + chrBase + ".unfiltered." + outputFormat
         call.nct = 4
         call.maxRuntimeUnits = java.util.concurrent.TimeUnit.HOURS

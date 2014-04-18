@@ -115,7 +115,7 @@ class Phase1IndelProjectConsensus extends QScript {
     callIndels.stand_emit_conf = 4.0
     callIndels.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
     callIndels.jobName = qscript.outputTmpDir + "/calls/chr" + chr + "/" +baseName + ".phase1.chr" + chr + "." + subJobNumber + ".raw.indels"
-    callIndels.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.INDEL
+    callIndels.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
     callIndels.genotyping_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
     callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
     callIndels.alleles = qscript.indelAlleles

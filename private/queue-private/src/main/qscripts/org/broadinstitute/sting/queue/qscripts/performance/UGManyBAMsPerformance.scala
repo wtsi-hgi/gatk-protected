@@ -48,7 +48,7 @@ package org.broadinstitute.sting.queue.qscripts.performance
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk.{PrintReads, CountLoci, CommandLineGATK, UnifiedGenotyper}
-import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name
+import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model
 
 class UGManyBAMsPerformance extends QScript {
   @Argument(shortName = "interval", doc="The interval to test over", required=false)
@@ -85,7 +85,7 @@ class UGManyBAMsPerformance extends QScript {
   }
 
   trait UG_ARGS extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
-    this.genotype_likelihoods_model = Name.BOTH
+    this.genotype_likelihoods_model = Model.BOTH
     this.capMaxAltAllelesForIndels = true
     this.dbsnp = dbsnpFile
   }

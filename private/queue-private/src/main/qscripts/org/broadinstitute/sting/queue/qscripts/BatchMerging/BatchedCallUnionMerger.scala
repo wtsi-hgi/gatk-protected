@@ -178,7 +178,7 @@ class BatchedCallUnionMerger extends QScript {
         this.downsampling_type = DownsampleType.BY_SAMPLE
       }
 
-      this.genotype_likelihoods_model = GenotypeLikelihoodsCalculationModel.Name.BOTH;
+      this.genotype_likelihoods_model = GenotypeLikelihoodsCalculationModel.Model.BOTH;
     }
 
     def newUGCL( bams: (List[File],Int) ) : UGCalcLikelihoods = {
@@ -204,7 +204,7 @@ class BatchedCallUnionMerger extends QScript {
         this.downsampling_type = DownsampleType.BY_SAMPLE
       }
 
-      this.genotype_likelihoods_model = GenotypeLikelihoodsCalculationModel.Name.BOTH;
+      this.genotype_likelihoods_model = GenotypeLikelihoodsCalculationModel.Model.BOTH;
 
       // The memory-intensive part is limited by the number of ALT alleles:
       this.memoryLimit = batchMerge.UG_memoryLimit

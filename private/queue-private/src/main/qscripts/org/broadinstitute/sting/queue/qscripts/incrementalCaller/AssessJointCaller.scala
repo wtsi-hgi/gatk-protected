@@ -109,7 +109,7 @@ class AssessJointCaller extends QScript {
   // 1a.) Call SNPs with UG
   class MyUnifiedGenotyper(name: String) extends UnifiedGenotyper with BaseCommandArguments {
     this.out = qscript.outputDir + "/" + name + ".UnifiedGenotyper.unfiltered.vcf"
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
+    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.analysisName = "CEUTrio_UGs"
     if (qscript.scatterCount > 0) this.scatterCount = qscript.scatterCount
     this.D = new File(latestdbSNP)

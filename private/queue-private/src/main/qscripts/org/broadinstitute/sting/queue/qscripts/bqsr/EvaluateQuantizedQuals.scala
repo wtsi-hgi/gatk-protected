@@ -95,7 +95,7 @@ class EvaluateQuantizedQuals extends QScript {
       val UG = new UnifiedGenotyper with UNIVERSAL_GATK_ARGS
       UG.input_file :+= inputBAM
       UG.dbsnp = makeResource("dbsnp_132.b37.vcf")
-      UG.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.SNP
+      UG.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
       UG.out = new File(outputRoot + ".ug.vcf")
       add(UG)
 

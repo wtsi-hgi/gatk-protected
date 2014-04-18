@@ -228,7 +228,7 @@ class GATKPerformanceOverTime extends QScript {
         ug.intervalsString :+= manyDeepExomeIntervals
         ug.configureJobReport(Map( "iteration" -> iteration, "gatk" -> gatkName, "assessment" -> "manyDeepExomes"))
         ug.jarFile = gatkJar
-        ug.glm = GenotypeLikelihoodsCalculationModel.Name.SNP
+        ug.glm = GenotypeLikelihoodsCalculationModel.Model.SNP
         ug.memoryLimit = 16
         ug
       }
@@ -418,7 +418,7 @@ class GATKPerformanceOverTime extends QScript {
   class Call(@Input(doc="foo") bamList: File, n: Int, name: String, useBaq: Boolean) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS {
     this.input_file :+= bamList
     this.stand_call_conf = 10.0
-    this.glm = GenotypeLikelihoodsCalculationModel.Name.BOTH
+    this.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
     this.baq = if ( ! skipBAQ && useBaq ) org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.RECALCULATE else org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.OFF
     @Output(doc="foo") var outVCF: File = new File("/dev/null")
     this.o = outVCF

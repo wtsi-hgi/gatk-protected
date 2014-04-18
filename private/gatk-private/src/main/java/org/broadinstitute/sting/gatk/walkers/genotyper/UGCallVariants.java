@@ -101,7 +101,7 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
 
         // If relevant, add in the alleles ROD's header fields (first, so that they can be overriden by the fields we manually add below):
-        if (UAC.genotypingMode == GenotypingMode.GENOTYPE_GIVEN_ALLELES) {
+        if (UAC.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES) {
             LinkedList<String> allelesRods = new LinkedList<String>();
             allelesRods.add(UAC.alleles.getName());
             headerInfo.addAll(GATKVCFUtils.getHeaderFields(getToolkit(), allelesRods));
@@ -121,7 +121,7 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
 
         List<RefMetaDataTracker> useTrackers = new LinkedList<RefMetaDataTracker>();
         // Allow for multiple records in variants, even at same locus:
-        if ( UAC.genotypingMode == GenotypingMode.GENOTYPE_GIVEN_ALLELES ) {
+        if ( UAC.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES ) {
             for (VariantContext vc : tracker.getValues(variants, context.getLocation()))
                 useTrackers.add(new MatchFirstLocRefAltRefMetaDataTracker(tracker, vc));
         }
@@ -207,7 +207,7 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
         Map<String, Object> attributes = new HashMap<String, Object>();
 
         // If relevant, add the attributes from the alleles ROD first (so they can be overriden as necessary by variantVC below):
-        if (UAC.genotypingMode == GenotypingMode.GENOTYPE_GIVEN_ALLELES) {
+        if (UAC.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES) {
             List<VariantContext> allelesVCs = tracker.getValues(UAC.alleles, context.getLocation());
             for (VariantContext alleleVC : allelesVCs) {
                 filters.addAll(alleleVC.getFilters());

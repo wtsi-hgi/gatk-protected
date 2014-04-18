@@ -112,7 +112,7 @@ class SingleExomeCalling extends QScript {
     val ug = new UnifiedGenotyper with UNIVERSAL_GATK_ARGS
     ug.input_file :+= NA12878_EXOME_BAM
     ug.out = "ug.vcf"
-    ug.glm = GenotypeLikelihoodsCalculationModel.Name.BOTH
+    ug.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
     add(ug)
 
     val best = new SelectVariants with UNIVERSAL_GATK_ARGS

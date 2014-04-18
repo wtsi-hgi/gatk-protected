@@ -112,7 +112,7 @@ class HaplotypeCallerScript extends QScript {
     ug.scatterCount = jobs
     ug.input_file :+= new File(bam)
     ug.o = new File(out + ".ug.vcf")
-    ug.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Name.BOTH
+    ug.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
     ug.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     ug.analysisName = "UnifiedGenotyper"
     if (qscript.stand_call_conf != null) ug.stand_call_conf = qscript.stand_call_conf

@@ -188,7 +188,7 @@ class DownsampledExome extends QScript {
       val callMultiSample = qscript.multiSample != null
       val ug = new UnifiedGenotyper with gatk_stuff
       ug.out = swapExt(bam, ".bam", ".ug.vcf")
-      ug.glm = GenotypeLikelihoodsCalculationModel.Name.BOTH
+      ug.glm = GenotypeLikelihoodsCalculationModel.Model.BOTH
       ug.input_file :+= bam
       ug.intervals = interval
       ug.scatterCount = qscript.scatter
