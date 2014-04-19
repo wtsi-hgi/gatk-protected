@@ -295,11 +295,11 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         // Adding the INDEL calling arguments for UG
         if (doIndels)  {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
-            indelEngine = new UnifiedGenotypingEngine(getToolkit(), uac, null, samples, null );
+            indelEngine = new UnifiedGenotypingEngine(getToolkit(), uac, samples);
         }
         else {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.SNP;
-            snpEngine = new UnifiedGenotypingEngine(getToolkit(), uac, null, samples, null );
+            snpEngine = new UnifiedGenotypingEngine(getToolkit(), uac, samples);
 
         }
 
