@@ -54,7 +54,7 @@ import org.broadinstitute.sting.utils.baq.BAQ
 import org.broadinstitute.sting.utils.text.XReadLines
 import org.broadinstitute.sting.utils.variantcontext.VariantContextUtils
 import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.gatk.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotyperEngine}
+import org.broadinstitute.sting.gatk.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotypingEngine}
 import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 
 class BatchedCallUnionMerger extends QScript {
@@ -170,7 +170,7 @@ class BatchedCallUnionMerger extends QScript {
       this.jarFile = batchMerge.gatkJarFile
       this.memoryLimit = 4
       this.scatterCount = 60
-      this.output_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+      this.output_mode = UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
       this.genotyping_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
 
       if (batchMerge.downsample_to_coverage > 0) {
@@ -196,7 +196,7 @@ class BatchedCallUnionMerger extends QScript {
       this.intervals :+= extractIntervals.listOut
       this.jarFile = batchMerge.gatkJarFile
       this.scatterCount = 30
-      this.output_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+      this.output_mode = UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
       this.genotyping_mode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
 
       if (batchMerge.downsample_to_coverage > 0) {

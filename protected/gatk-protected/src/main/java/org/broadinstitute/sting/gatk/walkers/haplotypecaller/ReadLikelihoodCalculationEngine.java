@@ -44,50 +44,51 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.calling
+package org.broadinstitute.sting.gatk.walkers.haplotypecaller;
 
-import org.broadinstitute.sting.queue.extensions.gatk.BaseRecalibrator
-import org.broadinstitute.sting.queue.extensions.gatk.HaplotypeCaller
-import org.broadinstitute.sting.queue.extensions.gatk.DelocalizedBaseRecalibrator
-import org.broadinstitute.sting.queue.extensions.gatk.PrintReads
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.queue.util.QScriptUtils
-import org.broadinstitute.sting.gatk.filters.SingleReadGroupFilter
-import org.broadinstitute.sting.queue.extensions.gatk.SingleReadGroup
+import org.broadinstitute.sting.utils.genotyper.PerReadAlleleLikelihoodMap;
+import org.broadinstitute.sting.utils.sam.GATKSAMRecord;
 
-class Phase2ProjectConsensusHaplotypeCaller extends QScript {
+import java.util.List;
+import java.util.Map;
 
-  @Argument(shortName = "i",  required=false, doc = "Intervals file")
-  var intervalsFile: List[File] = Nil
-  @Argument(shortName="alleles", doc="alleles file", required=true)
-  var allelesFiles: List[File] = Nil
-  @Argument(shortName="I", doc="bam list file", required=true)
-  var inputBamList: File = new File("a.bam")
+/**
+ * Common interface for assembly-haplotype vs reads likelihood engines.
+ */
+public interface ReadLikelihoodCalculationEngine {
 
+    enum Implementation {
+        /**
+         * Classic full pair-hmm all haplotypes vs all reads.
+         */
+        PairHMM,
 
-  def script() {
+        /**
+         * Graph-base likelihoods.
+         */
+        GraphBased,
 
-    for( allelesFile: File <- allelesFiles ) {
-      	add(HC(allelesFile))
+        /**
+         * Random likelihoods, used to establish a baseline benchmark for other meaningful implementations.
+         */
+        Random
     }
-  }
 
-case class HC( allelesFile: File ) extends HaplotypeCaller {
-  this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
-  this.intervalsString = intervalsFile
-  this.out = swapExt(allelesFile, ".vcf", ".gga.vcf")
-  this.memoryLimit = 5
-  this.scatterCount = 25
-  this.javaGCThreads = 4
-  this.alleles = allelesFile
-  this.minPruning = 1
-  this.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
-  this.gt_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
-  this.GENOTYPE_GIVEN_ALL_ALLELES_COMBINATORIAL = true
-  this.stand_emit_conf = 0.0
-  this.stand_call_conf = 0.0
-  this.input_file :+= inputBamList
-  this.maxAltAlleles = 10
-}
 
+    /**
+     * Calculates the likelihood of reads across many samples evaluated against haplotypes resulting from the
+     * active region assembly process.
+     *
+     * @param assemblyResultSet the input assembly results.
+     * @param perSampleReadList the input read sets stratified per sample.
+     *
+     * @throws NullPointerException if either parameter is {@code null}.
+     *
+     * @return never {@code null}, and with at least one entry for input sample (keys in {@code perSampleReadList}.
+     *    The value maps can be potentially empty though.
+     */
+    public Map<String, PerReadAlleleLikelihoodMap> computeReadLikelihoods(AssemblyResultSet assemblyResultSet,
+                               Map<String, List<GATKSAMRecord>> perSampleReadList);
+
+    public void close();
 }

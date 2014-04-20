@@ -138,7 +138,7 @@ class Phase1IndelGLRedo extends QScript {
         callIndels.jobName = qscript.outputDir + "/tmp/chr"+chrStr + "/" +sample  + ".VQSR_V3_biallelic_GLs_corrected.phase1.20101123.indels.genotypes"
         callIndels.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.INDEL
         callIndels.genotyping_mode = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES
-        callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+        callIndels.out_mode = org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
         callIndels.alleles = qscript.indelAlleles
         callIndels.dbsnp = qscript.dbSNP
         callIndels.ignoreSNPAlleles = true

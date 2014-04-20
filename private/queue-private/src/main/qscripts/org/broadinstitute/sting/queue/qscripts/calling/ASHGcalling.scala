@@ -50,7 +50,6 @@ import net.sf.picard.reference.FastaSequenceFile
 import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 import org.broadinstitute.sting.pipeline.Pipeline
 import org.broadinstitute.sting.gatk.DownsampleType
-import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeCalculationModel.Model
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.samtools._
 import org.broadinstitute.sting.queue.{QException, QScript}

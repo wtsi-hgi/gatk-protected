@@ -47,7 +47,6 @@
 package org.broadinstitute.sting.gatk.walkers.qc;
 
 import net.sf.samtools.SAMReadGroupRecord;
-import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
@@ -58,18 +57,20 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.datasources.rmd.ReferenceOrderedDataSource;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.*;
-import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
-import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
-import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
-import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
+import org.broadinstitute.sting.gatk.walkers.genotyper.*;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.R.RScriptExecutor;
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
-import org.broadinstitute.variant.variantcontext.*;
-import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
+import org.broadinstitute.sting.utils.gga.GenotypingGivenAllelesUtils;
 import org.broadinstitute.sting.utils.io.Resource;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.sting.utils.variant.HomoSapiensConstants;
+import org.broadinstitute.variant.variantcontext.Genotype;
+import org.broadinstitute.variant.variantcontext.GenotypeLikelihoods;
+import org.broadinstitute.variant.variantcontext.GenotypeType;
+import org.broadinstitute.variant.variantcontext.VariantContext;
+import org.broadinstitute.variant.vcf.VCFHeader;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -216,8 +217,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         }
     }
 
-    private UnifiedGenotyperEngine snpEngine;
-    private UnifiedGenotyperEngine indelEngine;
+    private UnifiedGenotypingEngine snpEngine;
+    private UnifiedGenotypingEngine indelEngine;
 
     //---------------------------------------------------------------------------------------------------------------
     //
@@ -283,21 +284,22 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
         // Filling in SNP calling arguments for UG
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
-        uac.OutputMode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES;
-        uac.GenotypingMode = GenotypeLikelihoodsCalculationModel.GENOTYPING_MODE.GENOTYPE_GIVEN_ALLELES;
+        uac.outputMode = OutputMode.EMIT_ALL_SITES;
+        uac.genotypingOutputMode = GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES;
         if (mbq >= 0) uac.MIN_BASE_QUALTY_SCORE = mbq;
         if (deletions >= 0) uac.MAX_DELETION_FRACTION = deletions;
         uac.STANDARD_CONFIDENCE_FOR_CALLING = callConf;
         uac.CONTAMINATION_FRACTION = 0.0;
         uac.alleles = alleles;
+        uac.samplePloidy = HomoSapiensConstants.DEFAULT_PLOIDY;
         // Adding the INDEL calling arguments for UG
         if (doIndels)  {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
-            indelEngine = new UnifiedGenotyperEngine(getToolkit(), uac, Logger.getLogger(UnifiedGenotyperEngine.class), null, null, samples, 2 * samples.size() );
+            indelEngine = new UnifiedGenotypingEngine(getToolkit(), uac, samples);
         }
         else {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.SNP;
-            snpEngine = new UnifiedGenotyperEngine(getToolkit(), uac, Logger.getLogger(UnifiedGenotyperEngine.class), null, null, samples, 2 * samples.size() );
+            snpEngine = new UnifiedGenotypingEngine(getToolkit(), uac, samples);
 
         }
 
@@ -331,8 +333,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
      * @param sample
      * @return
      */
-    private static Genotype getGenotype( final RefMetaDataTracker tracker, final ReferenceContext ref, final String sample, final UnifiedGenotyperEngine engine ) {
-        for ( final VariantContext vc : tracker.getValues(engine.getUAC().alleles, ref.getLocus()) ) {
+    private Genotype getGenotype( final RefMetaDataTracker tracker, final ReferenceContext ref, final String sample) {
+        for ( final VariantContext vc : tracker.getValues(alleles, ref.getLocus()) ) {
             if ( vc.isNotFiltered() && vc.hasGenotype(sample) )
                 return vc.getGenotype(sample);
             else
@@ -418,32 +420,28 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     }
 
     private VariantContext getVCComp( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
-        if (doIndels)
-            return UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, indelEngine.getUAC().alleles );
-        return UnifiedGenotyperEngine.getVCFromAllelesRod( tracker, ref, context.getLocation(), false, logger, snpEngine.getUAC().alleles );
+        return GenotypingGivenAllelesUtils.composeGivenAllelesVariantContextFromRod(tracker, context.getLocation(), false, logger, alleles);
     }
 
     private Data calculateGenotypeDataFromAlignments( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context, final VariantContext vcComp ) {
         final Data data = new Data();
         final Map <String,AlignmentContext> contextBySample = AlignmentContextUtils.splitContextBySampleName(context);
         for ( final Map.Entry<String,AlignmentContext> sAC : contextBySample.entrySet())  {
-            String sample = sAC.getKey();
-            AlignmentContext sampleAC = sAC.getValue();
-            Genotype compGT = getGenotype(tracker, ref, sample, snpEngine != null ? snpEngine : indelEngine);
+            final String sample = sAC.getKey();
+            final AlignmentContext sampleAC = sAC.getValue();
+            final Genotype compGT = getGenotype(tracker, ref, sample);
             if ( compGT == null || compGT.isNoCall() )
                 continue;
 
             // now split by read group
-            Map<SAMReadGroupRecord,AlignmentContext> byRG = AlignmentContextUtils.splitContextByReadGroup(sampleAC, getToolkit().getSAMFileHeader().getReadGroups());
+            final Map<SAMReadGroupRecord,AlignmentContext> byRG = AlignmentContextUtils.splitContextByReadGroup(sampleAC, getToolkit().getSAMFileHeader().getReadGroups());
             byRG.put(new SAMReadGroupRecord("ALL"), context);     // uncomment to include a synthetic RG for all RG for the sample
             for ( final Map.Entry<SAMReadGroupRecord, AlignmentContext> rgAC : byRG.entrySet() ) {
-                VariantCallContext call;
-                if ( (vcComp.isIndel() || vcComp.isMixed()) && doIndels ) {
-                    //throw new UserException.BadInput("CalibrateGenotypeLikelihoods does not currently support indel GL calibration.  This capability needs to be tested and verified to be working with the new genotyping code for indels in UG");
+                final VariantCallContext call;
+                if ( (vcComp.isIndel() || vcComp.isMixed()) && doIndels )
                     call = indelEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue()).get(0);
-                } else if (vcComp.isSNP() && !doIndels) {
+                else if (vcComp.isSNP() && !doIndels)
                     call = snpEngine.calculateLikelihoodsAndGenotypes(tracker, ref, rgAC.getValue()).get(0);
-                }
                 else
                     break;
 
@@ -452,9 +450,8 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
                 final Genotype rgGT = call.getGenotype(sample);
 
-                if ( rgGT != null && ! rgGT.isNoCall() && rgGT.hasLikelihoods() ) {
+                if ( rgGT != null && ! rgGT.isNoCall() && rgGT.hasLikelihoods() )
                     addValue(data, vcComp, ref, sample, rgAC.getKey().getReadGroupId(), rgGT, compGT);
-                }
             }
         }
 

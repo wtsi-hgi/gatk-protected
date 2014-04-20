@@ -55,6 +55,7 @@ import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRe
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
 import org.broadinstitute.variant.variantcontext.VariantContext
 import org.broadinstitute.sting.commandline.ClassType
+import org.broadinstitute.sting.gatk.walkers.haplotypecaller.ReferenceConfidenceMode
 
 class SingleSampleHC_exome extends QScript {
 

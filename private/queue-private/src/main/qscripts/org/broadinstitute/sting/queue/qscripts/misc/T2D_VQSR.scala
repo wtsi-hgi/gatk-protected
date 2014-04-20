@@ -53,7 +53,7 @@ import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.library.ipf.vcf.VCFExtractIntervals
 import org.broadinstitute.sting.gatk.walkers.varianteval.evaluators.VariantQualityScore
 import org.broadinstitute.sting.gatk.walkers.variantrecalibration.VariantRecalibratorArgumentCollection
-import org.broadinstitute.sting.gatk.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotyperEngine}
+import org.broadinstitute.sting.gatk.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotypingEngine}
 import org.broadinstitute.sting.utils.baq.BAQ
 
 /**

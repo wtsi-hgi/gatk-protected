@@ -49,7 +49,7 @@ package org.broadinstitute.sting.queue.qscripts.DataProcessing
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.commandline.{ClassType, Hidden}
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine
 import org.broadinstitute.sting.gatk.downsampling.DownsampleType
 import org.broadinstitute.sting.queue.extensions.gatk.TaggedFile
 import org.broadinstitute.sting.queue.extensions.gatk.UnifiedGenotyper
@@ -299,7 +299,7 @@ class AncientDNASingleSampleCalling extends QScript{
     else
       this.genotype_likelihoods_model = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.SNP
 
-     this.out_mode = UnifiedGenotyperEngine.OUTPUT_MODE.EMIT_ALL_SITES
+     this.out_mode = UnifiedGenotypingEngine.OUTPUT_MODE.EMIT_ALL_SITES
 
     this.stand_call_conf = Some(5.0)
     this.stand_emit_conf = Some(5.0) // will override with VF later

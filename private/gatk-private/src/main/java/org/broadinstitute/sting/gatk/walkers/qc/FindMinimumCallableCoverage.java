@@ -54,7 +54,7 @@ import org.broadinstitute.sting.gatk.report.GATKReport;
 import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedArgumentCollection;
-import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyperEngine;
+import org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotypingEngine;
 import org.broadinstitute.sting.gatk.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.variant.variantcontext.GenotypeType;
@@ -93,8 +93,8 @@ public class FindMinimumCallableCoverage extends RodWalker<Integer, Integer> {
     public int debugLevel = 0;
 
     private GATKReport report;
-    private UnifiedGenotyperEngine snpEngine;
-    private UnifiedGenotyperEngine indelEngine;
+    private UnifiedGenotypingEngine snpEngine;
+    private UnifiedGenotypingEngine indelEngine;
     private double callConf = 0.0;
     private long mapCounter = 1;
 
@@ -143,8 +143,8 @@ public class FindMinimumCallableCoverage extends RodWalker<Integer, Integer> {
         final UnifiedArgumentCollection indelUAC = new UnifiedArgumentCollection();
         snpUAC.GLmodel = GenotypeLikelihoodsCalculationModel.Model.SNP;
         indelUAC.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
-        snpEngine = new UnifiedGenotyperEngine(getToolkit(), snpUAC);
-        indelEngine = new UnifiedGenotyperEngine(getToolkit(), indelUAC);
+        snpEngine = new UnifiedGenotypingEngine(getToolkit(), snpUAC);
+        indelEngine = new UnifiedGenotypingEngine(getToolkit(), indelUAC);
         callConf = snpUAC.STANDARD_CONFIDENCE_FOR_CALLING;
         report = GATKReport.newSimpleReport("MinCov", "Position", "MinimumCallableCoverage", "EventComplexity", "VariantType", "GenotypeType");
     }

@@ -53,6 +53,7 @@ import org.broadinstitute.sting.queue.function._
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
 import org.broadinstitute.sting.utils.interval.IntervalSetRule
 import org.broadinstitute.sting.utils.variant.GATKVCFIndexType
+import org.broadinstitute.sting.gatk.walkers.haplotypecaller.ReferenceConfidenceMode
 
 // based on /humgen/gsa-hpprojects/dev/rpoplin/singleSampleHC/SingleSampleHC_vs_JointCallingUG.scala
 
