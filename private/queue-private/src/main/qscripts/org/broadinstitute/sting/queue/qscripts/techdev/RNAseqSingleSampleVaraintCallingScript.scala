@@ -50,7 +50,7 @@ import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.commandline.Argument
 
-class HaplotypeCallerScript extends QScript {
+class RNAseqSingleSampleVaraintCallingScript extends QScript {
   qscript =>
 
   @Argument(shortName="out", doc="output file", required=true)
