@@ -60,17 +60,18 @@ import org.broadinstitute.sting.gatk.walkers.*;
 import org.broadinstitute.sting.gatk.walkers.genotyper.*;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.R.RScriptExecutor;
+import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
+import org.broadinstitute.variant.vcf.VCFConstants;
+import org.broadinstitute.variant.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.gga.GenotypingGivenAllelesUtils;
 import org.broadinstitute.sting.utils.io.Resource;
-import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
 import org.broadinstitute.sting.utils.variant.HomoSapiensConstants;
 import org.broadinstitute.variant.variantcontext.Genotype;
 import org.broadinstitute.variant.variantcontext.GenotypeLikelihoods;
 import org.broadinstitute.variant.variantcontext.GenotypeType;
 import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.vcf.VCFHeader;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -142,6 +143,9 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     @Input(fullName="externalLikelihoods",shortName="el",doc="Any number of VCFs with external likelihoods for which to evaluate their calibration.",required=false)
     public List<RodBinding<VariantContext>> externalLikelihoods = Collections.emptyList();
 
+    @Input(fullName="externalProbabilities", shortName="ep",doc="Any number of VCFs with external genotype posterior probabilities for which to evaluate their calibration.", required=false)
+    public List<RodBinding<VariantContext>> externalProbabilities = Collections.emptyList();
+
     @Argument(fullName="minimum_base_quality_score", shortName="mbq", doc="Minimum base quality score for calling a genotype", required=false)
     private int mbq = -1;
 
@@ -162,6 +166,9 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
     //@Argument(fullName="standard_min_confidence_threshold_for_calling", shortName="stand_call_conf", doc="the minimum phred-scaled Qscore threshold to separate high confidence from low confidence calls", required=false)
     private double callConf = 0;
+
+    @Argument(fullName="dontApplyPriors", shortName="noPriors", doc="Don't apply genotype frequencies as priors to external likelihoods", required = false)
+    private boolean priorsOff = false;
 
     @Output(doc="The name of the output files for both tables and pdf (name will be prepended to the appropriate extensions)")
     private File moltenDatasetFileName;
@@ -322,7 +329,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         if( vcComp == null )
             return Data.EMPTY_DATA;
 
-        return ( externalLikelihoods.isEmpty() ? calculateGenotypeDataFromAlignments(tracker, ref, context, vcComp) : calculateGenotypeDataFromExternalVC(tracker, ref, context, vcComp) );
+        return ( (externalLikelihoods.isEmpty() && externalProbabilities.isEmpty()) ? calculateGenotypeDataFromAlignments(tracker, ref, context, vcComp) : calculateGenotypeDataFromExternals(tracker, ref, vcComp) );
     }
 
     /**
@@ -377,7 +384,11 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
         // determine the priors by counting all of the events we've seen in comp
         final double[] counts = new double[]{1, 1, 1};
-        for ( final Datum d : data.values ) { counts[d.genotypeType.ordinal()-1]++; }
+        if (!priorsOff) {
+            for ( final Datum d : data.values ) { counts[d.genotypeType.ordinal()-1]++; }
+        }
+
+
         double sum = MathUtils.sum(counts);
         logger.info(String.format("Types %s %s %s", GenotypeType.values()[1], GenotypeType.values()[2], GenotypeType.values()[3]));
         logger.info(String.format("Counts %.0f %.0f %.0f %.0f", counts[0], counts[1], counts[2], sum));
@@ -450,8 +461,9 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
 
                 final Genotype rgGT = call.getGenotype(sample);
 
-                if ( rgGT != null && ! rgGT.isNoCall() && rgGT.hasLikelihoods() )
-                    addValue(data, vcComp, ref, sample, rgAC.getKey().getReadGroupId(), rgGT, compGT);
+                if ( rgGT != null && ! rgGT.isNoCall() && rgGT.hasLikelihoods() ) {
+                    addValue(data, vcComp, ref, sample, rgAC.getKey().getReadGroupId(), rgGT, compGT, false);
+                }
             }
         }
 
@@ -459,7 +471,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     }
 
     private final void addValue( final Data data, final VariantContext vcComp, final ReferenceContext ref, final String sample,
-                                 final String rgID, final Genotype calledGT, final Genotype compGT) {
+                                 final String rgID, final Genotype calledGT, final Genotype compGT, final boolean useGP) {
         String refs, alts;
         boolean isRepeat = false;
         if (vcComp.isIndel()) {
@@ -471,43 +483,78 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
             alts = vcComp.getAlternateAllele(0).getBaseString();
         }
         final GenomeLoc loc = getToolkit().getGenomeLocParser().createGenomeLoc(vcComp);
-        final Datum d = new Datum(loc, refs, alts, sample, rgID, calledGT.getLikelihoods(),
+
+        GenotypeLikelihoods datumLikelihoods = null;
+
+       if (useGP && calledGT.hasExtendedAttribute(VCFConstants.GENOTYPE_POSTERIORS_KEY)) {
+           final List<Integer> GPlist = (List<Integer>) calledGT.getAnyAttribute(VCFConstants.GENOTYPE_POSTERIORS_KEY);
+           final int[] numLikelihoodsVec = new int[GPlist.size()];
+           for (int iter = 0; iter < numLikelihoodsVec.length; iter++) {
+               numLikelihoodsVec[iter] = GPlist.get(iter);
+           }
+        }
+        else
+            datumLikelihoods = calledGT.getLikelihoods();
+
+        final Datum completeDatum = new Datum(loc, refs, alts, sample, rgID, datumLikelihoods,
                 vcComp.getType(), compGT.getType(), isRepeat);
-        data.values.add(d);
+
+
+        data.values.add(completeDatum);
     }
 
-    private Data calculateGenotypeDataFromExternalVC( final RefMetaDataTracker tracker,
-                                                      final ReferenceContext ref,
-                                                      final AlignmentContext context,
-                                                      final VariantContext vcComp ) {
+    private Data calculateGenotypeDataFromExternals(final RefMetaDataTracker tracker,
+                                                    final ReferenceContext ref,
+                                                    final VariantContext vcComp) {
 
-        // the tracker should contain a VCF with external likelihoods.
+        if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0)
+            return Data.EMPTY_DATA;
+
         final Data data = new Data();
-        for( final RodBinding<VariantContext> rod : externalLikelihoods ) {
-            final VariantContext extVC = tracker.getFirstValue(rod);
-            if ( extVC == null ) {
-                return Data.EMPTY_DATA;
+        if (!externalLikelihoods.isEmpty()){
+            for( final RodBinding<VariantContext> rod : externalLikelihoods ) {
+                // the tracker should contain a VCF with external likelihoods.
+                final VariantContext extVC = tracker.getFirstValue(rod);
+
+                // skip filtered eval records, make sure there is an alternate allele and that it matches exactly the extVC allele
+                if ( extVC == null || !vcComp.hasSameAllelesAs(extVC) || (extVC.isFiltered() && skipFilteredRecords))
+                    return Data.EMPTY_DATA;
+
+                calculateGenotypeDataFromExternalVC(data, extVC, rod.getName(), ref, vcComp, false);
             }
+        }
+        if (!externalProbabilities.isEmpty()) {
+            for( final RodBinding<VariantContext> rod : externalProbabilities ) {
+                final VariantContext extVC = tracker.getFirstValue(rod);
 
-            if ( extVC.isFiltered() && skipFilteredRecords )
-                return Data.EMPTY_DATA; // skip filtered eval records
+                // skip filtered eval records, make sure there is an alternate allele and that it matches exactly the extVC allele
+                if ( extVC == null || !vcComp.hasSameAllelesAs(extVC) || (extVC.isFiltered() && skipFilteredRecords))
+                    return Data.EMPTY_DATA;
 
-            // make sure there is an alternate allele and that it matches exactly the extVC allele
-            if ( vcComp.getAlternateAlleles() == null || vcComp.getAlternateAlleles().size() == 0 || !vcComp.hasSameAllelesAs(extVC) ) {
-                return Data.EMPTY_DATA;
-            }
-    
-            for ( final Genotype genotype : extVC.getGenotypes() ) {
-                final String sample = genotype.getSampleName();
-                final Genotype compGT = vcComp.hasGenotype(sample) ? vcComp.getGenotype(sample) : null;
-                if ( compGT == null || genotype.isNoCall() || compGT.isNoCall() )
-                    continue;
-
-                addValue(data, vcComp, ref, ( dontStratifyBySample ? "all" : sample ),
-                        rod.getName() + ( dontStratifyBySample ? "" : "." + genotype.getSampleName()), genotype, compGT);
+                calculateGenotypeDataFromExternalVC(data, extVC, rod.getName(), ref, vcComp, true);
             }
         }
 
+
         return data;
     }
+
+    private void calculateGenotypeDataFromExternalVC( final Data data,
+                                                      final VariantContext extVC,
+                                                      final String rodName,
+                                                      final ReferenceContext ref,
+                                                      final VariantContext vcComp,
+                                                      final boolean useCGPannotation) {
+
+        for ( final Genotype genotype : extVC.getGenotypes() ) {
+            final String sample = genotype.getSampleName();
+            final Genotype compGT = vcComp.hasGenotype(sample) ? vcComp.getGenotype(sample) : null;
+            if ( compGT == null || genotype.isNoCall() || compGT.isNoCall() )
+                continue;
+
+            addValue(data, vcComp, ref, ( dontStratifyBySample ? "all" : sample ),
+                    rodName + ( dontStratifyBySample ? "" : "." + genotype.getSampleName()), genotype, compGT, useCGPannotation);
+        }
+    }
+
 }
