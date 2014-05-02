@@ -107,4 +107,17 @@ public class CalibrateGenotypeLikelihoodsIntegrationTest extends WalkerTest {
         executeTest("CalibrateGenotypeLikelihoods:", spec);
     }
 
+    @Test
+    public void externalLikelihoodsAndProbabilitiesTest() {
+        WalkerTestSpec spec = new WalkerTestSpec(
+                "-T CalibrateGenotypeLikelihoods -R " + b37KGReference +
+                        " --externalLikelihoods:testRG " + privateTestDir + "NA12878.hg19.example1.vcf" +
+                        " --externalProbabilities:testRG_probs " + privateTestDir + "NA12878.hg19.example1.posteriors.vcf" +
+                        " -alleles " + b37_NA12878_OMNI +
+                        " -noPriors -L 20:10,000,000-11,000,000 -o %s",
+                1,
+                Arrays.asList("737e824437a5a7431dce591f4ce42a3e"));
+        executeTest("CalibrateGenotypeLikelihoods:", spec);
+    }
+
 }

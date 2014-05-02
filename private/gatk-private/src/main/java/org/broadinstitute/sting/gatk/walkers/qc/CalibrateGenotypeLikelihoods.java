@@ -487,11 +487,14 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         GenotypeLikelihoods datumLikelihoods = null;
 
        if (useGP && calledGT.hasExtendedAttribute(VCFConstants.GENOTYPE_POSTERIORS_KEY)) {
-           final List<Integer> GPlist = (List<Integer>) calledGT.getAnyAttribute(VCFConstants.GENOTYPE_POSTERIORS_KEY);
-           final int[] numLikelihoodsVec = new int[GPlist.size()];
-           for (int iter = 0; iter < numLikelihoodsVec.length; iter++) {
-               numLikelihoodsVec[iter] = GPlist.get(iter);
+           Object GPfromVCF = calledGT.getExtendedAttribute(VCFConstants.GENOTYPE_POSTERIORS_KEY);
+           //parse the GPs into a vector of probabilities
+           final String[] likelihoodsAsVector = ((String)GPfromVCF).split(",");
+           final int[] numLikelihoodsVec = new int[likelihoodsAsVector.length];
+           for (int iter = 0; iter < likelihoodsAsVector.length; iter++) {
+               numLikelihoodsVec[iter] = Integer.parseInt(likelihoodsAsVector[iter]);
            }
+           datumLikelihoods = org.broadinstitute.variant.variantcontext.GenotypeLikelihoods.fromPLs(numLikelihoodsVec);
         }
         else
             datumLikelihoods = calledGT.getLikelihoods();
