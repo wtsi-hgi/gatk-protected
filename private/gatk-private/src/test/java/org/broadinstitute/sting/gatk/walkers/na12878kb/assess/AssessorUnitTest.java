@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
-import net.sf.samtools.SAMFileReader;
+import htsjdk.samtools.SAMFileReader;
 import org.broadinstitute.sting.BaseTest;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoGenotype;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.MongoVariantContext;
@@ -54,7 +54,7 @@ import org.broadinstitute.sting.gatk.walkers.na12878kb.core.TruthStatus;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.text.XReadLines;
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
-import org.broadinstitute.variant.variantcontext.*;
+import htsjdk.variant.variantcontext.*;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

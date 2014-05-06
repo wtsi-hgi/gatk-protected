@@ -46,8 +46,8 @@
 
 package org.broadinstitute.sting.pipeline;
 
-import net.sf.picard.metrics.MetricBase;
-import net.sf.picard.metrics.MultilevelMetrics;
+import htsjdk.samtools.metrics.MetricBase;
+import picard.metrics.MultilevelMetrics;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

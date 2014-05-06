@@ -51,11 +51,11 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.Priority;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordsRemove;
 import org.broadinstitute.sting.utils.GenomeLocParser;
-import org.broadinstitute.variant.vcf.VCFConstants;
-import org.broadinstitute.variant.vcf.VCFHeader;
-import org.broadinstitute.variant.vcf.VCFHeaderLine;
-import org.broadinstitute.variant.vcf.VCFStandardHeaderLines;
-import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import htsjdk.variant.vcf.VCFConstants;
+import htsjdk.variant.vcf.VCFHeader;
+import htsjdk.variant.vcf.VCFHeaderLine;
+import htsjdk.variant.vcf.VCFStandardHeaderLines;
+import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 
 import java.util.*;
 

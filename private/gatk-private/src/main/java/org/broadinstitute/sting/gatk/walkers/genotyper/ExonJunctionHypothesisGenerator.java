@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
-import net.sf.picard.reference.IndexedFastaSequenceFile;
+import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import org.apache.commons.lang.ArrayUtils;
 import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;

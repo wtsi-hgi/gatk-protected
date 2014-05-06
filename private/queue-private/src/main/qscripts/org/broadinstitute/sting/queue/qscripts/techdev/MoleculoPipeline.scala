@@ -49,7 +49,7 @@ package org.broadinstitute.sting.queue.qscripts.techdev
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.commandline.{Hidden, Input}
 import org.broadinstitute.sting.queue.extensions.picard.{PicardBamFunction, MergeSamFiles}
-import net.sf.samtools.SAMFileHeader
+import htsjdk.samtools.SAMFileHeader
 import org.broadinstitute.sting.queue.extensions.gatk.{CommandLineGATK, UnifiedGenotyper, HaplotypeCaller}
 
 class MoleculoPipeline extends QScript{

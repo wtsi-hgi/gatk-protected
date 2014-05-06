@@ -50,7 +50,7 @@ import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.function._
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
-import org.broadinstitute.variant.variantcontext.VariantContext
+import htsjdk.variant.variantcontext.VariantContext
 
 class AssessJointCaller extends QScript {
   qscript =>

@@ -52,7 +52,7 @@ import org.broadinstitute.sting.utils.text.XReadLines
 import org.broadinstitute.sting.commandline.Argument
 import java.io.PrintStream
 import org.broadinstitute.sting.queue.extensions.gatk._
-import net.sf.picard.reference.FastaSequenceIndex
+import htsjdk.samtools.reference.FastaSequenceIndex
 import org.broadinstitute.sting.gatk.datasources.reference.ReferenceDataSource
 import collection.mutable.HashSet
 

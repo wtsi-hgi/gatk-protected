@@ -110,9 +110,9 @@ class Phase1IndelVQSR extends QScript {
 
   val VARIANT_TYPES: List[String] = List("indels", "snps")
       /*
-  val VARIANT_TYPE_VT: Map[String, List[org.broad.tribble.util.variantcontext.VariantContext.Type]] = Map(
-    "indels" -> List(org.broad.tribble.util.variantcontext.VariantContext.Type.INDEL, org.broad.tribble.util.variantcontext.VariantContext.Type.MIXED, org.broad.tribble.util.variantcontext.VariantContext.Type.NO_VARIATION),
-    "snps" -> List(org.broad.tribble.util.variantcontext.VariantContext.Type.SNP, org.broad.tribble.util.variantcontext.VariantContext.Type.NO_VARIATION)
+  val VARIANT_TYPE_VT: Map[String, List[htsjdk.tribble.util.variantcontext.VariantContext.Type]] = Map(
+    "indels" -> List(htsjdk.tribble.util.variantcontext.VariantContext.Type.INDEL, htsjdk.tribble.util.variantcontext.VariantContext.Type.MIXED, htsjdk.tribble.util.variantcontext.VariantContext.Type.NO_VARIATION),
+    "snps" -> List(htsjdk.tribble.util.variantcontext.VariantContext.Type.SNP, htsjdk.tribble.util.variantcontext.VariantContext.Type.NO_VARIATION)
   )
          */
   val SITES_DIR: String = "sitesFiles"

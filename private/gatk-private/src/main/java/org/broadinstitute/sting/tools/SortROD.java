@@ -46,24 +46,24 @@
 
 package org.broadinstitute.sting.tools;
 
-import net.sf.picard.reference.ReferenceSequenceFile;
-import net.sf.picard.reference.ReferenceSequenceFileFactory;
-import net.sf.samtools.util.SortingCollection;
+import htsjdk.samtools.reference.ReferenceSequenceFile;
+import htsjdk.samtools.reference.ReferenceSequenceFileFactory;
+import htsjdk.samtools.util.SortingCollection;
 import org.apache.log4j.BasicConfigurator;
-import org.broad.tribble.AsciiFeatureCodec;
-import org.broad.tribble.Feature;
-import org.broad.tribble.bed.BEDCodec;
-import org.broad.tribble.dbsnp.OldDbSNPCodec;
-import org.broad.tribble.gelitext.GeliTextCodec;
-import org.broad.tribble.readers.LineIterator;
-import org.broad.tribble.readers.PositionalBufferedStream;
+import htsjdk.tribble.AsciiFeatureCodec;
+import htsjdk.tribble.Feature;
+import htsjdk.tribble.bed.BEDCodec;
+import htsjdk.tribble.dbsnp.OldDbSNPCodec;
+import htsjdk.tribble.gelitext.GeliTextCodec;
+import htsjdk.tribble.readers.LineIterator;
+import htsjdk.tribble.readers.PositionalBufferedStream;
 import org.broadinstitute.sting.gatk.features.maf.MafCodec;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.codecs.CGVarCodec;
 import org.broadinstitute.sting.utils.codecs.SoapSNPCodec;
 import org.broadinstitute.sting.utils.exceptions.StingException;
-import org.broadinstitute.variant.vcf.VCFCodec;
+import htsjdk.variant.vcf.VCFCodec;
 
 import java.io.*;
 import java.util.ArrayList;

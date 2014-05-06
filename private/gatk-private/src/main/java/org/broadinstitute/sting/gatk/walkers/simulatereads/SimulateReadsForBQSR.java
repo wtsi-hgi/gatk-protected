@@ -48,9 +48,9 @@ package org.broadinstitute.sting.gatk.walkers.simulatereads;
 
 import cern.jet.random.Poisson;
 import cern.jet.random.engine.MersenneTwister;
-import net.sf.samtools.SAMFileHeader;
-import net.sf.samtools.SAMProgramRecord;
-import net.sf.samtools.SAMReadGroupRecord;
+import htsjdk.samtools.SAMFileHeader;
+import htsjdk.samtools.SAMProgramRecord;
+import htsjdk.samtools.SAMReadGroupRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;

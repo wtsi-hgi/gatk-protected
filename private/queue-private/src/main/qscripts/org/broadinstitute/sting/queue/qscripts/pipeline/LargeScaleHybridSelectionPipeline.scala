@@ -185,14 +185,14 @@ class LargeScaleHybridSelectionPipeline extends QScript {
 
 
         val selectSNPs = new SelectVariants with ChromosomeIntervals
-        selectSNPs.selectType :+= org.broadinstitute.variant.variantcontext.VariantContext.Type.SNP
+        selectSNPs.selectType :+= htsjdk.variant.variantcontext.VariantContext.Type.SNP
         selectSNPs.variant = call.out
         selectSNPs.out = chrDir + chrBase  + ".snps.unfiltered." + outputFormat
         selectSNPs.nt = 16
         add(selectSNPs)
 
         val selectIndels = new SelectVariants with ChromosomeIntervals
-        selectIndels.selectType :+= org.broadinstitute.variant.variantcontext.VariantContext.Type.INDEL
+        selectIndels.selectType :+= htsjdk.variant.variantcontext.VariantContext.Type.INDEL
         selectIndels.variant = call.out
         selectIndels.out = chrDir + chrBase + ".indels.unfiltered." + outputFormat
         selectSNPs.nt = 16

@@ -47,9 +47,9 @@
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
 import com.google.java.contract.Requires;
-import net.sf.picard.reference.IndexedFastaSequenceFile;
-import net.sf.samtools.CigarElement;
-import net.sf.samtools.CigarOperator;
+import htsjdk.samtools.reference.IndexedFastaSequenceFile;
+import htsjdk.samtools.CigarElement;
+import htsjdk.samtools.CigarOperator;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.RodBinding;
 import org.broadinstitute.sting.utils.*;

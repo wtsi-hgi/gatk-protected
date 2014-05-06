@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.pipeline;
 
-import net.sf.picard.io.IoUtil;
+import htsjdk.samtools.util.IOUtil;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.CommandLineProgram;
@@ -347,7 +347,7 @@ public class GSAPipelineIndexer extends CommandLineProgram {
                 }
 
                 String picardProject = tsvLineTokens[0].trim();
-                String picardSample = IoUtil.makeFileNameSafe(tsvLineTokens[1].trim());
+                String picardSample = IOUtil.makeFileNameSafe(tsvLineTokens[1].trim());
 
                 String picardPathPrefix = String.format(PICARD_ROOT_DIRECTORY + "%s/%s/current/%s",
                                                        picardProject, picardSample, picardSample);

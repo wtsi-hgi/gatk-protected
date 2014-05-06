@@ -50,7 +50,7 @@ import org.broadinstitute.sting.queue.function.InProcessFunction
 import collection.JavaConversions._
 import org.broadinstitute.sting.commandline._
 import java.io.{PrintStream, File}
-import net.sf.samtools.{SAMSequenceRecord, SAMFileHeader, SAMSequenceDictionary}
+import htsjdk.samtools.{SAMSequenceRecord, SAMFileHeader, SAMSequenceDictionary}
 import org.broadinstitute.sting.utils.text.XReadLines
 import org.broadinstitute.sting.utils.{GenomeLoc, GenomeLocParser}
 

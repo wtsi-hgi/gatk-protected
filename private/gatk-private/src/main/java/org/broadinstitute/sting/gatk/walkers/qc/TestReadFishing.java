@@ -46,9 +46,9 @@
 
 package org.broadinstitute.sting.gatk.walkers.qc;
 
-import net.sf.picard.reference.IndexedFastaSequenceFile;
-import net.sf.picard.reference.ReferenceSequence;
-import net.sf.samtools.util.StringUtil;
+import htsjdk.samtools.reference.IndexedFastaSequenceFile;
+import htsjdk.samtools.reference.ReferenceSequence;
+import htsjdk.samtools.util.StringUtil;
 import org.broadinstitute.sting.alignment.Alignment;
 import org.broadinstitute.sting.alignment.bwa.BWAAligner;
 import org.broadinstitute.sting.alignment.bwa.BWAConfiguration;

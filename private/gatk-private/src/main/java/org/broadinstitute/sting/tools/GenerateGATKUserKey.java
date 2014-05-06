@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.tools;
 
-import net.sf.picard.io.IoUtil;
+import htsjdk.samtools.util.IOUtil;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.CommandLineProgram;
@@ -105,7 +105,7 @@ public class GenerateGATKUserKey extends CommandLineProgram {
                                       emailAddress);
 
         // Sanitize the email address before using it as a file name:
-        String keyFileName = IoUtil.makeFileNameSafe(String.format("%s.key", emailAddress));
+        String keyFileName = IOUtil.makeFileNameSafe(String.format("%s.key", emailAddress));
         File keyFile = new File(outputDirectory, keyFileName);
 
         if ( keyFile.exists() && ! overwriteKeys ) {

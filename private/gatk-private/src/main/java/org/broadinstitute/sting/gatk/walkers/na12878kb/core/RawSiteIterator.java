@@ -47,7 +47,7 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.mongodb.DBCursor;
-import net.sf.samtools.util.CloseableIterator;
+import htsjdk.samtools.util.CloseableIterator;
 
 /**
  * Low-level non-public iterator of MongoVariantContexts read from a MongoDB DBCursor

@@ -46,8 +46,8 @@
 
 package org.broadinstitute.sting.gatk.filters;
 
-import net.sf.picard.filter.SamRecordFilter;
-import net.sf.samtools.SAMRecord;
+import htsjdk.samtools.filter.SamRecordFilter;
+import htsjdk.samtools.SAMRecord;
 
 import java.util.Arrays;
 import java.util.HashSet;

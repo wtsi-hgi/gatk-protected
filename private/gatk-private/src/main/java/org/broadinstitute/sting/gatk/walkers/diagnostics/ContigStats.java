@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.diagnostics;
 
-import net.sf.samtools.SAMSequenceRecord;
+import htsjdk.samtools.SAMSequenceRecord;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.filters.DuplicateReadFilter;

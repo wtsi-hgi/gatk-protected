@@ -50,7 +50,7 @@ import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.utils.Utils
 import org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel
-import org.broadinstitute.variant.variantcontext.VariantContext
+import htsjdk.variant.variantcontext.VariantContext
 
 class RealignAroundIndels extends QScript {
   @Argument(shortName = "bam", doc="bams", required=true)

@@ -46,11 +46,11 @@
 
 package org.broadinstitute.sting.utils.codecs;
 
-import org.broad.tribble.AsciiFeatureCodec;
-import org.broad.tribble.readers.LineIterator;
-import org.broadinstitute.variant.variantcontext.Allele;
-import org.broadinstitute.variant.variantcontext.VariantContext;
-import org.broadinstitute.variant.variantcontext.VariantContextBuilder;
+import htsjdk.tribble.AsciiFeatureCodec;
+import htsjdk.tribble.readers.LineIterator;
+import htsjdk.variant.variantcontext.Allele;
+import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.variantcontext.VariantContextBuilder;
 
 import java.util.HashMap;
 import java.util.HashSet;

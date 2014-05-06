@@ -47,9 +47,9 @@
 package org.broadinstitute.sting.gatk.features.maf;
 
 import org.apache.log4j.Logger;
-import org.broad.tribble.AsciiFeatureCodec;
-import org.broad.tribble.Feature;
-import org.broad.tribble.readers.LineIterator;
+import htsjdk.tribble.AsciiFeatureCodec;
+import htsjdk.tribble.Feature;
+import htsjdk.tribble.readers.LineIterator;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 

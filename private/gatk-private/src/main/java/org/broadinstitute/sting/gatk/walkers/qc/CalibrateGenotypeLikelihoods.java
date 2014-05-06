@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.qc;
 
-import net.sf.samtools.SAMReadGroupRecord;
+import htsjdk.samtools.SAMReadGroupRecord;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Input;
 import org.broadinstitute.sting.commandline.Output;
@@ -61,17 +61,17 @@ import org.broadinstitute.sting.gatk.walkers.genotyper.*;
 import org.broadinstitute.sting.utils.*;
 import org.broadinstitute.sting.utils.R.RScriptExecutor;
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils;
-import org.broadinstitute.variant.vcf.VCFConstants;
-import org.broadinstitute.variant.vcf.VCFHeader;
+import htsjdk.variant.vcf.VCFConstants;
+import htsjdk.variant.vcf.VCFHeader;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
 import org.broadinstitute.sting.utils.gga.GenotypingGivenAllelesUtils;
 import org.broadinstitute.sting.utils.io.Resource;
 import org.broadinstitute.sting.utils.variant.HomoSapiensConstants;
-import org.broadinstitute.variant.variantcontext.Genotype;
-import org.broadinstitute.variant.variantcontext.GenotypeLikelihoods;
-import org.broadinstitute.variant.variantcontext.GenotypeType;
-import org.broadinstitute.variant.variantcontext.VariantContext;
+import htsjdk.variant.variantcontext.Genotype;
+import htsjdk.variant.variantcontext.GenotypeLikelihoods;
+import htsjdk.variant.variantcontext.GenotypeType;
+import htsjdk.variant.variantcontext.VariantContext;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -494,7 +494,7 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
            for (int iter = 0; iter < likelihoodsAsVector.length; iter++) {
                numLikelihoodsVec[iter] = Integer.parseInt(likelihoodsAsVector[iter]);
            }
-           datumLikelihoods = org.broadinstitute.variant.variantcontext.GenotypeLikelihoods.fromPLs(numLikelihoodsVec);
+           datumLikelihoods = htsjdk.variant.variantcontext.GenotypeLikelihoods.fromPLs(numLikelihoodsVec);
         }
         else
             datumLikelihoods = calledGT.getLikelihoods();

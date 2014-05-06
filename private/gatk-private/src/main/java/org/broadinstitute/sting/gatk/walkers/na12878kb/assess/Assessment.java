@@ -48,7 +48,7 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.assess;
 
 import com.google.java.contract.Ensures;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.variant.variantcontext.GenotypeType;
+import htsjdk.variant.variantcontext.GenotypeType;
 
 import java.util.*;
 

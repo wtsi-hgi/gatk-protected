@@ -46,12 +46,12 @@
 
 package org.broadinstitute.sting.utils.codecs;
 
-import org.broad.tribble.AsciiFeatureCodec;
-import org.broad.tribble.NameAwareCodec;
-import org.broad.tribble.TribbleException;
-import org.broad.tribble.exception.CodecLineParsingException;
-import org.broad.tribble.readers.LineIterator;
-import org.broadinstitute.variant.variantcontext.*;
+import htsjdk.tribble.AsciiFeatureCodec;
+import htsjdk.tribble.NameAwareCodec;
+import htsjdk.tribble.TribbleException;
+import htsjdk.tribble.exception.CodecLineParsingException;
+import htsjdk.tribble.readers.LineIterator;
+import htsjdk.variant.variantcontext.*;
 
 import java.util.*;
 

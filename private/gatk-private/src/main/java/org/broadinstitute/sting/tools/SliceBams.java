@@ -46,14 +46,14 @@
 
 package org.broadinstitute.sting.tools;
 
-import net.sf.picard.PicardException;
-import net.sf.picard.cmdline.CommandLineProgram;
-import net.sf.picard.cmdline.Option;
-import net.sf.picard.cmdline.Usage;
-import net.sf.picard.io.IoUtil;
-import net.sf.picard.sam.SamFileHeaderMerger;
-import net.sf.picard.util.Log;
-import net.sf.samtools.*;
+import picard.PicardException;
+import picard.cmdline.CommandLineProgram;
+import picard.cmdline.Option;
+import picard.cmdline.Usage;
+import htsjdk.samtools.util.IOUtil;
+import htsjdk.samtools.SamFileHeaderMerger;
+import htsjdk.samtools.util.Log;
+import htsjdk.samtools.*;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 import org.broadinstitute.sting.utils.sam.SimplifyingSAMFileWriter;
@@ -119,7 +119,7 @@ public class SliceBams extends CommandLineProgram {
         log.info("Reading headers");
         int fileCounter = 1;
         for (final File inFile : inputBAMs) {
-            IoUtil.assertFileIsReadable(inFile);
+            IOUtil.assertFileIsReadable(inFile);
             final SAMFileReader inReader = new SAMFileReader(inFile, null); // null because we don't want it to look for the index
             final SAMFileHeader inHeader = inReader.getFileHeader();
             log.info("  Reading header from file " + inFile + " " + fileCounter++ + " of " + inputBAMs.size());
@@ -140,7 +140,7 @@ public class SliceBams extends CommandLineProgram {
 
         // Open the files for reading and writing
         List<File> inputBAMs = parseInputFiles(INPUT_LIST);
-        IoUtil.assertFileIsWritable(OUTPUT);
+        IOUtil.assertFileIsWritable(OUTPUT);
         final SAMFileWriter out = createOutputBAM(inputBAMs);
         GenomeLocParser glParser = new GenomeLocParser(out.getFileHeader().getSequenceDictionary());
         GenomeLoc loc = glParser.parseGenomeLoc(SLICE);
@@ -149,7 +149,7 @@ public class SliceBams extends CommandLineProgram {
         long numRecords = 1;
         int fileCounter = 1;
         for (final File inFile : inputBAMs) {
-            IoUtil.assertFileIsReadable(inFile);
+            IOUtil.assertFileIsReadable(inFile);
             log.info("  Reading file " + inFile + " " + fileCounter++ + " of " + inputBAMs.size());
             final SAMFileReader reader = new SAMFileReader(inFile);
             SAMRecordIterator iterator = reader.queryOverlapping(loc.getContig(), loc.getStart(), loc.getStop());

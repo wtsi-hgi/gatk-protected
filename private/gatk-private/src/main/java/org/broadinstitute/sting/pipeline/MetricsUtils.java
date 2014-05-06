@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.pipeline;
 
-import net.sf.picard.metrics.MetricBase;
+import htsjdk.samtools.metrics.MetricBase;
 import org.broadinstitute.sting.utils.classloader.JVMUtils;
 
 import java.lang.reflect.Field;

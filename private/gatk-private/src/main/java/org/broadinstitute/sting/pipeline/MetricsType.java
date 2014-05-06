@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.pipeline;
 
-import net.sf.picard.metrics.MetricBase;
+import htsjdk.samtools.metrics.MetricBase;
 
 public class MetricsType {
     private final Class<? extends MetricBase> type;

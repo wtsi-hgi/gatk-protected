@@ -48,7 +48,7 @@ package org.broadinstitute.sting.gatk.walkers.randomforest;
 
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.MathUtils;
-import org.broadinstitute.variant.variantcontext.VariantContext;
+import htsjdk.variant.variantcontext.VariantContext;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;

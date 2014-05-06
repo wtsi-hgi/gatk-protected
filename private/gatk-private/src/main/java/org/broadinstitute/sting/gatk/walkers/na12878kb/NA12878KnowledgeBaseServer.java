@@ -51,7 +51,7 @@ import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.*;
 import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.variant.variantcontext.writer.VariantContextWriter;
+import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 
 /**
  * Run a server process that continually watches the NA12878 db and updates consensus as needed

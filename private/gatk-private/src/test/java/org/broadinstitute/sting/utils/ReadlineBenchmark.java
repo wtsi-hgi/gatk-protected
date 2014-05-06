@@ -48,8 +48,8 @@ package org.broadinstitute.sting.utils;
 
 import com.google.caliper.Param;
 import com.google.caliper.SimpleBenchmark;
-import org.broad.tribble.readers.AsciiLineReader;
-import org.broad.tribble.readers.PositionalBufferedStream;
+import htsjdk.tribble.readers.AsciiLineReader;
+import htsjdk.tribble.readers.PositionalBufferedStream;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;

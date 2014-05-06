@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.queue.qscripts.pipeline
 
-import net.sf.picard.io.IoUtil
+import htsjdk.samtools.util.IOUtil
 import org.broadinstitute.sting.pipeline.{PicardSample, PicardAggregationUtils}
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.function._
