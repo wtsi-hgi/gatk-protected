@@ -46,9 +46,9 @@
 
 package org.broadinstitute.sting.gatk.walkers.misc;
 
-import net.sf.picard.reference.ReferenceSequenceFileFactory;
-import net.sf.samtools.SAMFileHeader;
-import net.sf.samtools.SAMSequenceDictionary;
+import htsjdk.samtools.reference.ReferenceSequenceFileFactory;
+import htsjdk.samtools.SAMFileHeader;
+import htsjdk.samtools.SAMSequenceDictionary;
 import org.broadinstitute.sting.alignment.bwa.BWAConfiguration;
 import org.broadinstitute.sting.alignment.bwa.BWTFiles;
 import org.broadinstitute.sting.alignment.bwa.c.BWACAligner;

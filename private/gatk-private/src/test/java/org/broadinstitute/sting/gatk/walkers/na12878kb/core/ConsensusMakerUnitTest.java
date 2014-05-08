@@ -48,8 +48,8 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import org.broadinstitute.sting.BaseTest;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.variant.variantcontext.Allele;
-import org.broadinstitute.variant.variantcontext.Genotype;
+import htsjdk.variant.variantcontext.Allele;
+import htsjdk.variant.variantcontext.Genotype;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;

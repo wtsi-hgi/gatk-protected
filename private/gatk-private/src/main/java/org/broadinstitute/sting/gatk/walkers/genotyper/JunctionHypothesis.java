@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.genotyper;
 
-import net.sf.picard.reference.IndexedFastaSequenceFile;
+import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import org.broadinstitute.sting.utils.GenomeLoc;
 import org.broadinstitute.sting.utils.HasGenomeLocation;
 import org.broadinstitute.sting.utils.codecs.refseq.RefSeqFeature;

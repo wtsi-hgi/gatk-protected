@@ -48,7 +48,7 @@ package org.broadinstitute.sting.gatk.walkers.qc
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.util.QScriptUtils
-import net.sf.samtools.SAMFileHeader.SortOrder
+import htsjdk.samtools.SAMFileHeader.SortOrder
 import org.broadinstitute.sting.utils.exceptions.UserException
 import org.broadinstitute.sting.commandline.Hidden
 import org.broadinstitute.sting.queue.extensions.picard.{ReorderSam, SortSam, AddOrReplaceReadGroups}

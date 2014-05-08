@@ -52,7 +52,7 @@ import org.broadinstitute.sting.gatk.phonehome.GATKRunReport
 import org.broadinstitute.sting.queue.util.QScriptUtils
 import org.broadinstitute.sting.queue.function._
 import org.broadinstitute.sting.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
-import org.broadinstitute.variant.variantcontext.VariantContext
+import htsjdk.variant.variantcontext.VariantContext
 import org.broadinstitute.sting.commandline.ClassType
 
 class Phase3VariantRecalibration extends QScript {

@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.bqsr;
 
-import net.sf.samtools.TextCigarCodec;
+import htsjdk.samtools.TextCigarCodec;
 import org.broadinstitute.sting.utils.recalibration.EventType;
 import org.broadinstitute.sting.utils.sam.ArtificialSAMUtils;
 import org.broadinstitute.sting.utils.sam.GATKSAMRecord;

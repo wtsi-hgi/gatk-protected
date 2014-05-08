@@ -46,9 +46,9 @@
 
 package org.broadinstitute.sting.tools;
 
-import net.sf.picard.cmdline.CommandLineProgram;
-import net.sf.picard.cmdline.Option;
-import net.sf.picard.cmdline.Usage;
+import picard.cmdline.CommandLineProgram;
+import picard.cmdline.Option;
+import picard.cmdline.Usage;
 
 import java.io.*;
 import java.util.HashMap;

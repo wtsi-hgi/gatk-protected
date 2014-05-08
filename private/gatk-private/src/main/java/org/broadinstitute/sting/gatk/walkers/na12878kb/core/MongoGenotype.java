@@ -47,10 +47,10 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.mongodb.ReflectionDBObject;
-import org.broadinstitute.variant.variantcontext.Allele;
-import org.broadinstitute.variant.variantcontext.Genotype;
-import org.broadinstitute.variant.variantcontext.GenotypeBuilder;
-import org.broadinstitute.variant.variantcontext.VariantContext;
+import htsjdk.variant.variantcontext.Allele;
+import htsjdk.variant.variantcontext.Genotype;
+import htsjdk.variant.variantcontext.GenotypeBuilder;
+import htsjdk.variant.variantcontext.VariantContext;
 
 import java.util.Arrays;
 import java.util.List;

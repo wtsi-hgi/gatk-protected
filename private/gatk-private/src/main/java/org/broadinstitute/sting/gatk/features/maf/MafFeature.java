@@ -46,13 +46,13 @@
 
 package org.broadinstitute.sting.gatk.features.maf;
 
-import org.broad.tribble.Feature;
+import htsjdk.tribble.Feature;
 import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.VariantContextAdaptors;
-import org.broadinstitute.variant.vcf.VCFConstants;
+import htsjdk.variant.vcf.VCFConstants;
 import org.broadinstitute.sting.utils.exceptions.StingException;
 import org.broadinstitute.sting.utils.exceptions.UserException;
-import org.broadinstitute.variant.variantcontext.*;
+import htsjdk.variant.variantcontext.*;
 
 import java.util.*;
 

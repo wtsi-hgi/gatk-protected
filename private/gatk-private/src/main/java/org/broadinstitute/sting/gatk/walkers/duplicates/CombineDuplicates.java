@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.duplicates;
 
-import net.sf.samtools.SAMFileWriter;
+import htsjdk.samtools.SAMFileWriter;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;

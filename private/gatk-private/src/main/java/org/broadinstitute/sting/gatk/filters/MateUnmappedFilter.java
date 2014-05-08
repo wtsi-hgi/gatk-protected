@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.gatk.filters;
 
-import net.sf.samtools.SAMRecord;
+import htsjdk.samtools.SAMRecord;
 
 /**
  * Filter out reads that have unmapped mates

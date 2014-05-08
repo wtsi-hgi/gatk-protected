@@ -48,7 +48,7 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.mongodb.ReflectionDBObject;
 import org.broadinstitute.sting.utils.Utils;
-import org.broadinstitute.variant.vcf.VCFHeaderLine;
+import htsjdk.variant.vcf.VCFHeaderLine;
 
 import java.util.Date;
 import java.util.LinkedList;

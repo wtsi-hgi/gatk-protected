@@ -47,7 +47,7 @@
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import com.google.java.contract.Ensures;
-import net.sf.samtools.util.CloseableIterator;
+import htsjdk.samtools.util.CloseableIterator;
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.InvalidRecordHandler;
 import org.broadinstitute.sting.utils.GenomeLoc;
 

@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.tools;
 
-import net.sf.picard.util.PeekableIterator;
+import htsjdk.samtools.util.PeekableIterator;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.CommandLineProgram;

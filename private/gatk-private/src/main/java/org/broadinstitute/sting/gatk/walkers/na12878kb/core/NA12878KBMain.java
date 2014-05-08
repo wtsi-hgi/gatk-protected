@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
-import net.sf.picard.reference.FastaSequenceFile;
+import htsjdk.samtools.reference.FastaSequenceFile;
 import org.broadinstitute.sting.utils.GenomeLocParser;
 
 import java.io.File;

@@ -2,13 +2,13 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>edu.mit.broad</groupId>
-    <artifactId>picard</artifactId>
+    <groupId>picard</groupId>
+    <artifactId>picard-install</artifactId>
     <version>not_applicable</version>
     <packaging>pom</packaging>
     <name>Picard</name>
 
-    <description>Updates Picard Public dependencies</description>
+    <description>Updates Picard dependencies</description>
 
     <prerequisites>
         <maven>3.0.4</maven>
@@ -20,7 +20,8 @@
         <project.reporting.outputEncoding>${sourceEncoding}</project.reporting.outputEncoding>
 
         <sting.basedir>${project.basedir}/../..</sting.basedir>
-        <picard.public.home>${project.basedir}/Picard-public</picard.public.home>
+        <htsjdk.home>${project.basedir}/picard/htsjdk</htsjdk.home>
+        <picard.home>${project.basedir}/picard</picard.home>
 
         <sting.public.repo>${sting.basedir}/public/repo</sting.public.repo>
 
@@ -29,11 +30,8 @@
         <picard.pom.sourceDirectory>src/main/poms</picard.pom.sourceDirectory>
         <picard.pom.outputDirectory>${project.build.directory}/poms</picard.pom.outputDirectory>
 
-        <!-- TODO: These groupIds should probably be one sub-domain lower. -->
-        <sam.groupId>net.sf</sam.groupId>
-        <picard.groupId>net.sf</picard.groupId>
-        <variant.groupId>org.broadinstitute</variant.groupId>
-        <tribble.groupId>org.broad</tribble.groupId>
+        <htsjdk.groupId>samtools</htsjdk.groupId>
+        <picard.groupId>picard</picard.groupId>
     </properties>
 
     <build>
@@ -74,62 +72,61 @@
                                 </exec>
                                 <echo message="$${java6.home}:           ${java6.home}" />
 
-                                <!-- Ensure svnversion works, since the sh -c doesn't seem to be erroring out correctly -->
-                                <exec dir="${picard.public.home}" executable="svnversion" failonerror="true" outputproperty="picard.public.svnversion" />
-
                                 <!--
-                                Update to the latest version
-
-                                NOTE: buildnumber-maven-plugin's doUpdate runs
-                                    cd $dir && svn update $dir
-                                versus:
-                                    cd $dir && svn update
-
-                                The former causes mixed versions in the directory sometimes, leading to version numbers like 1682:1683M.
+                                Get the revisions and check that we're using the latest versions
                                 -->
-                                <echo message="Running svn update" />
-                                <exec dir="${picard.public.home}" executable="svn" failonerror="true">
-                                    <arg value="--non-interactive" />
-                                    <arg value="update" />
+
+                                <exec dir="${htsjdk.home}" executable="git" failonerror="true" outputproperty="htsjdk.revision.git">
+                                    <arg value="rev-list" />
+                                    <arg value="HEAD" />
+                                    <arg value="--count" />
+                                </exec>
+                                <echo message="Checking if HTSJDK matches origin/master" />
+                                <exec dir="${htsjdk.home}" executable="sh" failonerror="true" outputproperty="htsjdk.revision.modified">
+                                    <arg value="-c" />
+                                    <arg value="git diff --quiet origin/master || echo M" />
                                 </exec>
 
-                                <!-- Ensure version isn't mixed, like 1682:1683M -->
-                                <exec dir="${picard.public.home}" executable="sh" failonerror="true">
+                                <exec dir="${picard.home}" executable="git" failonerror="true" outputproperty="picard.revision.git">
+                                    <arg value="rev-list" />
+                                    <arg value="HEAD" />
+                                    <arg value="--count" />
+                                </exec>
+                                <echo message="Checking if Picard matches origin/master" />
+                                <exec dir="${picard.home}" executable="sh" failonerror="true" outputproperty="picard.revision.modified">
                                     <arg value="-c" />
-                                    <arg value="if [[ `svnversion` = *:* ]]; then echo ERROR: Mixed version: `svnversion`; exit 1; fi" />
+                                    <arg value="git diff --quiet origin/master || echo M" />
                                 </exec>
 
-                                <!-- Get the version. If it's locally modified and ends in M, add -SNAPSHOT, and bump the version. -->
-                                <exec dir="${picard.public.home}" executable="sh" failonerror="true" outputproperty="picard.public.revision">
-                                    <arg value="-c" />
-                                    <arg value="svnversion | sed 's/M$/-SNAPSHOT/' | awk -F '-' '{if ($2 == &quot;SNAPSHOT&quot;) {print ($1+1)&quot;-&quot;$2} else {print $0}}'" />
-                                </exec>
+                                <property name="htsjdk.revision" value="${htsjdk.revision.git}${htsjdk.revision.modified}" />
+                                <property name="picard.revision" value="${picard.revision.git}${picard.revision.modified}" />
 
                                 <!--
                                 NOTE: antrun uses JRE instead of JDK, making tools.jar inaccessible in the default classpath,
                                 Even when added back via a plugin dependency, it only re-enables javac, but does not put it back in the classpath.
                                 http://docs.codehaus.org/display/MAVENUSER/Running+ant+tasks+that+use+the+JDK
                                 http://www.kaczanowscy.pl/tomek/2007-12/maven-antrun-plugin-problems-with-solutions
-                                <ant dir="${picard.public.home}">
+                                <ant dir="${picard.home}">
                                     <property name="java6.home" value="${java6.home}" />
                                 </ant>
                                 -->
-                                <exec dir="${picard.public.home}" executable="ant" failonerror="true">
+                                <exec dir="${picard.home}" executable="ant" failonerror="true">
                                     <arg value="-Djava6.home=${java6.home}" />
                                     <arg value="clean" />
                                     <arg value="all" />
                                 </exec>
 
-                                <echo message="Picard public revision:  ${picard.public.revision}" />
-                                <echo message="Picard public home:      ${picard.public.home}" />
+                                <echo message="HTSJDK revision:  ${htsjdk.revision}" />
+                                <echo message="HTSJDK home:      ${htsjdk.home}" />
+                                <echo message="Picard revision:  ${picard.revision}" />
+                                <echo message="Picard home:      ${picard.home}" />
 
                                 <taskdef classpathref="maven.plugin.classpath" resource="net/sf/antcontrib/antcontrib.properties" />
-                                <antfetch dir="${picard.public.home}" return="sam-version, picard-version, variant-version, tribble-version" target="init" />
+                                <antfetch dir="${htsjdk.home}" return="htsjdk-version" target="init" />
+                                <antfetch dir="${picard.home}" return="picard-version" target="init" />
 
-                                <echo message="sam-version:             ${sam-version}" />
+                                <echo message="htsjdk-version           ${htsjdk-version}" />
                                 <echo message="picard-version:          ${picard-version}" />
-                                <echo message="variant-version          ${variant-version}" />
-                                <echo message="tribble-version:         ${tribble-version}" />
                             </target>
                         </configuration>
                     </execution>
@@ -159,13 +156,13 @@
                         <phase>verify</phase>
                     </execution>
                     <execution>
-                        <id>sam</id>
+                        <id>htsjdk</id>
                         <goals>
                             <goal>sort</goal>
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
-                            <pomFile>src/main/poms/sam.pom.xml</pomFile>
+                            <pomFile>src/main/poms/htsjdk.pom.xml</pomFile>
                         </configuration>
                     </execution>
                     <execution>
@@ -176,26 +173,6 @@
                         <phase>generate-resources</phase>
                         <configuration>
                             <pomFile>src/main/poms/picard.pom.xml</pomFile>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>variant</id>
-                        <goals>
-                            <goal>sort</goal>
-                        </goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <pomFile>src/main/poms/variant.pom.xml</pomFile>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>tribble</id>
-                        <goals>
-                            <goal>sort</goal>
-                        </goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <pomFile>src/main/poms/tribble.pom.xml</pomFile>
                         </configuration>
                     </execution>
                 </executions>
@@ -233,14 +210,19 @@
                 <version>2.5</version>
                 <executions>
                     <execution>
-                        <id>install-sam</id>
+                        <!-- Don't install this installer pom -->
+                        <id>default-install</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>install-htsjdk</id>
                         <goals>
                             <goal>install-file</goal>
                         </goals>
                         <phase>install</phase>
                         <configuration>
-                            <pomFile>${picard.pom.outputDirectory}/sam.pom.xml</pomFile>
-                            <file>${picard.public.home}/dist/sam-${sam-version}.jar</file>
+                            <pomFile>${picard.pom.outputDirectory}/htsjdk.pom.xml</pomFile>
+                            <file>${htsjdk.home}/dist/htsjdk-${htsjdk-version}.jar</file>
                             <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
                         </configuration>
                     </execution>
@@ -252,31 +234,7 @@
                         <phase>install</phase>
                         <configuration>
                             <pomFile>${picard.pom.outputDirectory}/picard.pom.xml</pomFile>
-                            <file>${picard.public.home}/dist/picard-${picard-version}.jar</file>
-                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>install-variant</id>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                        <phase>install</phase>
-                        <configuration>
-                            <pomFile>${picard.pom.outputDirectory}/variant.pom.xml</pomFile>
-                            <file>${picard.public.home}/dist/variant-${variant-version}.jar</file>
-                            <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>install-tribble</id>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                        <phase>install</phase>
-                        <configuration>
-                            <pomFile>${picard.pom.outputDirectory}/tribble.pom.xml</pomFile>
-                            <file>${picard.public.home}/dist/tribble-${tribble-version}.jar</file>
+                            <file>${picard.home}/dist/picard-${picard-version}.jar</file>
                             <localRepositoryPath>${sting.public.repo}</localRepositoryPath>
                         </configuration>
                     </execution>
@@ -284,8 +242,7 @@
             </plugin>
 
             <!--
-            Copies the sam.version to picard.public.version, only. See also: picard's build.xml
-            Thus if someone modifies the other variables in sting-root, they are left alone.
+            Copies the htsjdk.version and picard.version. See also: picard's build.xml
             -->
             <plugin>
                 <groupId>com.google.code.maven-replacer-plugin</groupId>
@@ -293,14 +250,27 @@
                 <version>1.5.2</version>
                 <executions>
                     <execution>
+                        <id>replace-htsjdk-version</id>
                         <goals>
                             <goal>replace</goal>
                         </goals>
                         <phase>install</phase>
                         <configuration>
                             <file>${sting.basedir}/public/sting-root/pom.xml</file>
-                            <token>&lt;picard.public.version&gt;.*&lt;/picard.public.version&gt;</token>
-                            <value>&lt;picard.public.version&gt;${sam-version}.${picard.public.revision}&lt;/picard.public.version&gt;</value>
+                            <token>&lt;htsjdk.version&gt;.*&lt;/htsjdk.version&gt;</token>
+                            <value>&lt;htsjdk.version&gt;${htsjdk-version}.${htsjdk.revision}&lt;/htsjdk.version&gt;</value>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>replace-picard-version</id>
+                        <goals>
+                            <goal>replace</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <file>${sting.basedir}/public/sting-root/pom.xml</file>
+                            <token>&lt;picard.version&gt;.*&lt;/picard.version&gt;</token>
+                            <value>&lt;picard.version&gt;${picard-version}.${picard.revision}&lt;/picard.version&gt;</value>
                         </configuration>
                     </execution>
                 </executions>

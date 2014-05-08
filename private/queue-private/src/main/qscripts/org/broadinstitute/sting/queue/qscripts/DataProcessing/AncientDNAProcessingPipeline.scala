@@ -50,7 +50,7 @@ import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDeterminationModel
 import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 
-import net.sf.samtools.SAMFileHeader.SortOrder
+import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import org.broadinstitute.sting.queue.function.{RetryMemoryLimit, ListWriterFunction}
 import org.broadinstitute.sting.commandline.Hidden

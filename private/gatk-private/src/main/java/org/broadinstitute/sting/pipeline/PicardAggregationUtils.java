@@ -46,8 +46,8 @@
 
 package org.broadinstitute.sting.pipeline;
 
-import net.sf.picard.io.IoUtil;
-import net.sf.samtools.util.RuntimeIOException;
+import htsjdk.samtools.util.IOUtil;
+import htsjdk.samtools.util.RuntimeIOException;
 import org.apache.commons.io.LineIterator;
 import org.apache.log4j.Logger;
 import org.broadinstitute.sting.utils.exceptions.UserException;
@@ -164,7 +164,7 @@ public class PicardAggregationUtils {
      * @return The path to the sample file.
      */
     public static String getSampleFile(String project, String sample, int version, String extension) {
-        return getSampleDir(project, sample, version) + IoUtil.makeFileNameSafe(sample) + "." + extension;
+        return getSampleDir(project, sample, version) + IOUtil.makeFileNameSafe(sample) + "." + extension;
     }
 
     /**
@@ -185,7 +185,7 @@ public class PicardAggregationUtils {
      * @return The path to the latest file.
      */
     public static String getSampleFile(String project, String sample, String extension) {
-        return getSampleDir(project, sample) + IoUtil.makeFileNameSafe(sample) + "." + extension;
+        return getSampleDir(project, sample) + IOUtil.makeFileNameSafe(sample) + "." + extension;
     }
 
     /**
@@ -196,7 +196,7 @@ public class PicardAggregationUtils {
      * @return the sample directory.
      */
     public static String getSampleDir(String project, String sample, int version) {
-        return PICARD_AGGREGATION_DIR + String.format("%s/%s/v%d/", IoUtil.makeFileNameSafe(project), IoUtil.makeFileNameSafe(sample), version);
+        return PICARD_AGGREGATION_DIR + String.format("%s/%s/v%d/", IOUtil.makeFileNameSafe(project), IOUtil.makeFileNameSafe(sample), version);
     }
 
     /**
@@ -206,7 +206,7 @@ public class PicardAggregationUtils {
      * @return the sample directory.
      */
     public static String getCurrentSampleDir(String project, String sample) {
-        return PICARD_AGGREGATION_DIR + String.format("%s/%s/current/", IoUtil.makeFileNameSafe(project), IoUtil.makeFileNameSafe(sample));
+        return PICARD_AGGREGATION_DIR + String.format("%s/%s/current/", IOUtil.makeFileNameSafe(project), IOUtil.makeFileNameSafe(sample));
     }
 
     /**
@@ -227,7 +227,7 @@ public class PicardAggregationUtils {
      * @return the sample directory.
      */
     public static String getCurrentSampleFile(String project, String sample, String extension) {
-        return PICARD_AGGREGATION_DIR + String.format("%1$s/%2$s/current/%2$s.%3$s", IoUtil.makeFileNameSafe(project), IoUtil.makeFileNameSafe(sample), extension);
+        return PICARD_AGGREGATION_DIR + String.format("%1$s/%2$s/current/%2$s.%3$s", IOUtil.makeFileNameSafe(project), IOUtil.makeFileNameSafe(sample), extension);
     }
 
     /**
@@ -250,7 +250,7 @@ public class PicardAggregationUtils {
      * @return The highest finished version directory after startVersion
      */
     public static int getLatestVersion(String project, String sample) {
-        File sampleDirectory = new File(PICARD_AGGREGATION_DIR + project + "/" + IoUtil.makeFileNameSafe(sample));
+        File sampleDirectory = new File(PICARD_AGGREGATION_DIR + project + "/" + IOUtil.makeFileNameSafe(sample));
 
         if (!sampleDirectory.exists())
             return 0;
@@ -322,7 +322,7 @@ public class PicardAggregationUtils {
      * @return the bam file from the sample directory
      */
     private static File getBam(File versionDirectory, String sampleName) {
-        final File bam = new File(versionDirectory, IoUtil.makeFileNameSafe(sampleName) + ".bam");
+        final File bam = new File(versionDirectory, IOUtil.makeFileNameSafe(sampleName) + ".bam");
         return bam.exists() ? bam : null;
     }
 }

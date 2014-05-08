@@ -51,11 +51,11 @@ import org.broadinstitute.sting.commandline.{Output, Argument, Hidden}
 import org.broadinstitute.sting.queue.util.QScriptUtils
 import org.broadinstitute.sting.queue.extensions.gatk._
 import org.broadinstitute.sting.queue.extensions.picard._
-import net.sf.samtools.{SAMReadGroupRecord, SAMFileReader, SAMFileHeader}
+import htsjdk.samtools.{SAMReadGroupRecord, SAMFileReader, SAMFileHeader}
 import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 import collection.JavaConversions._
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException
-import net.sf.samtools.SAMFileHeader.SortOrder
+import htsjdk.samtools.SAMFileHeader.SortOrder
 import org.broadinstitute.sting.commandline
 
 class FullProcessingPipeline extends QScript {

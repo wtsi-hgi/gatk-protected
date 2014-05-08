@@ -46,10 +46,10 @@
 
 package org.broadinstitute.sting.gatk.walkers.performance;
 
-import org.broad.tribble.AbstractFeatureReader;
-import org.broad.tribble.Tribble;
-import org.broad.tribble.index.Index;
-import org.broad.tribble.index.IndexFactory;
+import htsjdk.tribble.AbstractFeatureReader;
+import htsjdk.tribble.Tribble;
+import htsjdk.tribble.index.Index;
+import htsjdk.tribble.index.IndexFactory;
 import org.broadinstitute.sting.commandline.Argument;
 import org.broadinstitute.sting.commandline.Output;
 import org.broadinstitute.sting.gatk.contexts.AlignmentContext;
@@ -57,9 +57,9 @@ import org.broadinstitute.sting.gatk.contexts.ReferenceContext;
 import org.broadinstitute.sting.gatk.refdata.RefMetaDataTracker;
 import org.broadinstitute.sting.gatk.walkers.RodWalker;
 import org.broadinstitute.sting.utils.SimpleTimer;
-import org.broadinstitute.variant.vcf.VCFCodec;
-import org.broad.tribble.Feature;
-import org.broad.tribble.FeatureCodec;
+import htsjdk.variant.vcf.VCFCodec;
+import htsjdk.tribble.Feature;
+import htsjdk.tribble.FeatureCodec;
 
 import java.io.File;
 import java.io.IOException;

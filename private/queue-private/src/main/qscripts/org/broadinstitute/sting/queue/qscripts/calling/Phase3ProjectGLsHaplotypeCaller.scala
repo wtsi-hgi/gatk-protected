@@ -48,7 +48,7 @@ package org.broadinstitute.sting.queue.qscripts.calling
 
 import org.broadinstitute.sting.queue.QScript
 import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.variant.variantcontext.VariantContext
+import htsjdk.variant.variantcontext.VariantContext
 
 
 /**

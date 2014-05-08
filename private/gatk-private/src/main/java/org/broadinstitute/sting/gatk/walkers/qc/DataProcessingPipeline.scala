@@ -53,8 +53,8 @@ import org.broadinstitute.sting.gatk.walkers.indels.IndelRealigner.ConsensusDete
 import org.broadinstitute.sting.utils.baq.BAQ.CalculationMode
 
 import collection.JavaConversions._
-import net.sf.samtools.SAMFileReader
-import net.sf.samtools.SAMFileHeader.SortOrder
+import htsjdk.samtools.SAMFileReader
+import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import org.broadinstitute.sting.queue.util.QScriptUtils
 import org.broadinstitute.sting.queue.function.ListWriterFunction

@@ -48,8 +48,8 @@ package org.broadinstitute.sting.gatk.walkers.na12878kb.core;
 
 import org.broadinstitute.sting.gatk.walkers.na12878kb.core.errors.MongoVariantContextException;
 import org.broadinstitute.sting.utils.exceptions.ReviewedStingException;
-import org.broadinstitute.variant.variantcontext.Genotype;
-import org.broadinstitute.variant.variantcontext.VariantContext;
+import htsjdk.variant.variantcontext.Genotype;
+import htsjdk.variant.variantcontext.VariantContext;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

@@ -51,7 +51,7 @@ import org.broadinstitute.sting.commandline._
 import java.io.{PrintStream, File}
 import collection.JavaConversions._
 import org.broadinstitute.sting.utils.text.XReadLines
-import net.sf.picard.reference.FastaSequenceFile
+import htsjdk.samtools.reference.FastaSequenceFile
 import org.broadinstitute.sting.utils.{GenomeLoc, GenomeLocParser}
 import collection.immutable.TreeSet
 

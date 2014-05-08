@@ -46,7 +46,7 @@
 
 package org.broadinstitute.sting.tools;
 
-import net.sf.samtools.*;
+import htsjdk.samtools.*;
 
 import java.io.File;
 import java.util.Hashtable;
