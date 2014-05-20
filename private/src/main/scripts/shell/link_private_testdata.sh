@@ -1,14 +1,21 @@
 #!/bin/bash
 
 WORKING_DIR=`pwd`
-PRIVATE_TESTDATA="${WORKING_DIR}/private/gatk-private/src/test/resources"
+PRIVATE_TESTDATA="${WORKING_DIR}/private/gatk-tools-private/src/test/resources"
 
-declare -a LINK_DIR_LIST=( "private/gatk-private" \
-                           "protected/gatk-protected" \
-                           "public/gatk-framework" \
-                           "public/gatk-package" \
-                           "public/queue-framework" \
-                           "public/queue-package" \
+declare -a LINK_DIR_LIST=( "private/gatk-package-internal" \
+                           "private/gatk-queue-extensions-internal" \
+                           "private/gatk-queue-package-internal" \
+                           "private/gatk-tools-private" \
+                           "protected/gatk-package-distribution" \
+                           "protected/gatk-queue-extensions-distribution" \
+                           "protected/gatk-queue-package-distribution" \
+                           "protected/gatk-tools-protected" \
+                           "public/gatk-engine" \
+                           "public/gatk-queue" \
+                           "public/gatk-queue-extensions-public" \
+                           "public/gatk-tools-public" \
+                           "public/gatk-utils" \
                            "${WORKING_DIR}" \
                          )
 
