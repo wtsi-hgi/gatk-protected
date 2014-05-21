@@ -84,7 +84,7 @@ public class GlobalEdgeGreedySWPairwiseAlignmentUnitTest extends BaseTest {
 
     @Test(enabled = !DEBUG)
     public void testDegenerateAlignmentWithIndelsAtBothEnds() {
-        logger.warn("testDegenerateAlignmentWithIndelsAtBothEnds");
+        BaseTest.logger.warn("testDegenerateAlignmentWithIndelsAtBothEnds");
         final String ref = "TGTGTGTGTGTGTGACAGAGAGAGAGAGAGAGAGAGAGAGAGAGA";
         final String alt =               "ACAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGA";
         final int expectedStart = 0;
