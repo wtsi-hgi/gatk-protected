@@ -30,7 +30,7 @@
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>gatk-queue</artifactId>
+            <artifactId>gatk-queue-private</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
