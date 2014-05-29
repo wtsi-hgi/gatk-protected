@@ -145,7 +145,7 @@ public class FindMinimumCallableCoverage extends RodWalker<Integer, Integer> {
         indelUAC.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
         snpEngine = new UnifiedGenotypingEngine(getToolkit(), snpUAC);
         indelEngine = new UnifiedGenotypingEngine(getToolkit(), indelUAC);
-        callConf = snpUAC.STANDARD_CONFIDENCE_FOR_CALLING;
+        callConf = snpUAC.genotypeArgs.STANDARD_CONFIDENCE_FOR_CALLING;
         report = GATKReport.newSimpleReport("MinCov", "Position", "MinimumCallableCoverage", "EventComplexity", "VariantType", "GenotypeType");
     }
 

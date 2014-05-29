@@ -88,7 +88,7 @@ public class SnpCallRateByCoverage extends LocusWalker<List<String>, String> {
 
     public void initialize() {
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
-        uac.STANDARD_CONFIDENCE_FOR_CALLING = uac.STANDARD_CONFIDENCE_FOR_EMITTING = confidence;
+        uac.genotypeArgs.STANDARD_CONFIDENCE_FOR_CALLING = uac.genotypeArgs.STANDARD_CONFIDENCE_FOR_EMITTING = confidence;
         uac.outputMode = OutputMode.EMIT_ALL_SITES;
         UG = new UnifiedGenotypingEngine(getToolkit(), uac);
 

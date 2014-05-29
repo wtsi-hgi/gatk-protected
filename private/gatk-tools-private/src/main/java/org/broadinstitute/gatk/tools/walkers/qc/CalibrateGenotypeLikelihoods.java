@@ -295,10 +295,10 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         uac.genotypingOutputMode = GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES;
         if (mbq >= 0) uac.MIN_BASE_QUALTY_SCORE = mbq;
         if (deletions >= 0) uac.MAX_DELETION_FRACTION = deletions;
-        uac.STANDARD_CONFIDENCE_FOR_CALLING = callConf;
+        uac.genotypeArgs.STANDARD_CONFIDENCE_FOR_CALLING = callConf;
         uac.CONTAMINATION_FRACTION = 0.0;
         uac.alleles = alleles;
-        uac.samplePloidy = HomoSapiensConstants.DEFAULT_PLOIDY;
+        uac.genotypeArgs.samplePloidy = HomoSapiensConstants.DEFAULT_PLOIDY;
         // Adding the INDEL calling arguments for UG
         if (doIndels)  {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;

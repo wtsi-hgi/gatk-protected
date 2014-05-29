@@ -93,7 +93,7 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
             trackNames.add(rb.getName());
         Set<String> samples = SampleUtils.getSampleListWithVCFHeader(getToolkit(), trackNames);
 
-        if (UAC.samplePloidy != 2)
+        if (UAC.genotypeArgs.samplePloidy != 2)
             throw new UserException.BadArgumentValue("ploidy","currently UGCallVariants does not support non-diploid samples");
         UG_engine = new UnifiedGenotypingEngine(getToolkit(), UAC, samples);
         UG_engine.setLogger(logger);
