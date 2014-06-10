@@ -52,11 +52,12 @@ import org.broadinstitute.gatk.utils.commandline.Hidden
 import org.broadinstitute.gatk.queue.util.VCF_BAM_utilities
 import org.broadinstitute.gatk.queue.extensions.gatk.DoC._
 import org.broadinstitute.gatk.tools.walkers.coverage.CoverageUtils
+import collection.JavaConversions._
 
 class CalcDepthOfCoverage extends QScript {
   qscript =>
 
-  @Input(doc = "bam input, as .bam or as a list of files", shortName = "I", required = true)
+  @Input(doc = "bam input, as as a list of .bam files, or a list of bam files with sample IDs to be used ( as specified at https://www.broadinstitute.org/gatk/gatkdocs/org_broadinstitute_sting_gatk_CommandLineGATK.html#--sample_rename_mapping_file )", shortName = "I", required = true)
   var bams: File = _
 
   @Input(doc = "gatk jar file", shortName = "J", required = true)
@@ -113,15 +114,6 @@ class CalcDepthOfCoverage extends QScript {
 
   @Argument(doc = "Memory (in GB) required for merging the big matrix", shortName = "largeMemory", required = false)
   var largeMemory = -1
-
-  @Argument(shortName = "sampleIDsMap", doc = "File mapping BAM sample IDs to desired sample IDs", required = false)
-  var sampleIDsMap: String = ""
-
-  @Argument(shortName = "sampleIDsMapFromColumn", doc = "Column number of OLD sample IDs to map", required = false)
-  var sampleIDsMapFromColumn = 1
-
-  @Argument(shortName = "sampleIDsMapToColumn", doc = "Column number of NEW sample IDs to map", required = false)
-  var sampleIDsMapToColumn = 2
 
   @Argument(shortName = "longJobQueue", doc = "Job queue to run the 'long-running' commands", required = false)
   var longJobQueue: String = ""
@@ -188,25 +180,29 @@ class CalcDepthOfCoverage extends QScript {
       this.logging_level = "INFO"
     }
 
-    val sampleToBams: scala.collection.mutable.Map[String, scala.collection.mutable.Set[File]] = VCF_BAM_utilities.getMapOfBAMsForSample(VCF_BAM_utilities.parseBAMsInput(bams))
-    val samples: List[String] = sampleToBams.keys.toList
+    val parseMixedInputBamList = parseBamListWithOptionalSampleMappings(bams)
+
+    val processMixedInputBamList = new ProcessBamListWithOptionalSampleMappings(parseMixedInputBamList, outputBase.getPath)
+    add(processMixedInputBamList)
+
+    val samples: List[String] = parseMixedInputBamList.sampleToBams.keys.toList
     Console.out.printf("Samples are %s%n", samples)
 
-    val groups: List[Group] = buildDoCgroups(samples, sampleToBams, samplesPerJob, outputBase)
+    val groups: List[Group] = buildDoCgroups(samples, parseMixedInputBamList.sampleToBams, samplesPerJob, outputBase)
     var docs: List[DoCwithDepthOutputAtEachBase] = List[DoCwithDepthOutputAtEachBase]()
     for (group <- groups) {
       Console.out.printf("Group is %s%n", group)
-      docs ::= new DoCwithDepthOutputAtEachBase(group.bams, group.DoC_output, countType, MAX_DEPTH, minMappingQuality, minBaseQuality, scatterCountInput, START_BIN, NUM_BINS, minCoverageCalcs) with CommandLineGATKArgs
+      docs ::= new DoCwithDepthOutputAtEachBase(group.bams, group.DoC_output, countType, MAX_DEPTH, minMappingQuality, minBaseQuality, scatterCountInput, START_BIN, NUM_BINS, minCoverageCalcs, Some(processMixedInputBamList.bamSampleMap)) with CommandLineGATKArgs
     }
     addAll(docs)
 
     for (minCoverageCalc <- minCoverageCalcs) {
-      val mergeDepths = new MergeGATKdepths(docs.map(u => u.intervalSampleOut), outputBase.getPath + ".min_" + minCoverageCalc + DOC_OUTPUT_SUFFIX, "_%_above_" + minCoverageCalc, xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, None, false) with WholeMatrixMemoryLimit
+      val mergeDepths = new MergeGATKdepths(docs.map(u => u.intervalSampleOut), outputBase.getPath + ".min_" + minCoverageCalc + DOC_OUTPUT_SUFFIX, "_%_above_" + minCoverageCalc, xhmmExec, None, false) with WholeMatrixMemoryLimit
       add(mergeDepths)
     }
 
     // Want 0 precision for base counts:
-    val mergeBaseDepths = new MergeGATKdepths(docs.map(u => u.outPrefix), outputBase.getPath + BASE_DOC_OUTPUT_SUFFIX, "Depth_for_", xhmmExec, sampleIDsMap, sampleIDsMapFromColumn, sampleIDsMapToColumn, Some(0), true) with LargeMemoryLimit with LongRunTime
+    val mergeBaseDepths = new MergeGATKdepths(docs.map(u => u.outPrefix), outputBase.getPath + BASE_DOC_OUTPUT_SUFFIX, "Depth_for_", xhmmExec, Some(0), true) with LargeMemoryLimit with LongRunTime
     add(mergeBaseDepths)
   }
 }
