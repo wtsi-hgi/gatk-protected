@@ -66,6 +66,8 @@ class SingleSampleHC_exome extends QScript {
   var outputDir: String = ""
   @Argument(shortName = "sc",  required=false, doc = "base scatter count for an HC job")
   var scatterHC: Int = 2
+  @Argument(shortName = "ip",  required=false, doc = "interval padding amount")
+  var paddingBases: Int = 50
 
 
   val latestdbSNP = "/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.vcf"  // Best Practices v4
@@ -109,7 +111,7 @@ class SingleSampleHC_exome extends QScript {
     this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
     this.intervalsString = intervalsFile
     this.memoryLimit = 2
-    this.interval_padding = 50
+    this.interval_padding = paddingBases
   }
 
   case class HC( bamFile: File, outFile: File, scatter: Int ) extends HaplotypeCaller with BaseCommandArguments {
@@ -117,15 +119,9 @@ class SingleSampleHC_exome extends QScript {
     this.input_file :+= bamFile
     this.memoryLimit = 4
     this.scatterCount = scatter
-    this.stand_call_conf = 30.0
-    this.stand_emit_conf = 30.0
-    //this.minPruning = 4
-    //this.maxNumHaplotypesInPopulation = 200
-    this.dontTrimActiveRegions = true
     this.ERC = org.broadinstitute.gatk.tools.walkers.haplotypecaller.ReferenceConfidenceMode.GVCF
     this.max_alternate_alleles = 2
     this.analysisName = "HC_SingleSampleCalling"
-    this.A = List("DepthPerSampleHC", "StrandBiasBySample")
   }
 
   case class Genotyper( outFile: File) extends GenotypeGVCFs with BaseCommandArguments {
@@ -133,7 +129,6 @@ class SingleSampleHC_exome extends QScript {
     this.memoryLimit = 8
     this.scatterCount = 40
     this.analysisName = "HC_SingleSampleCalling"
-    this.annotation = List("InbreedingCoeff", "FisherStrand", "QualByDepth", "ChromosomeCounts", "GenotypeSummaries")
   }
 
   case class Assess( inFile: File ) extends AssessNA12878 with BaseCommandArguments {
@@ -142,7 +137,6 @@ class SingleSampleHC_exome extends QScript {
     this.out = swapExt(inFile,".vcf",".report")
     this.badSites = swapExt(inFile,".vcf",".interesting.sites.vcf")
     this.memoryLimit = 2
-    this.intervalsString = List(new File("/humgen/gsa-hpprojects/dev/rpoplin/perfectCalls/chr20.5mb.intervals"))
     this.okayToMiss = okayToMissPCRplus
     this.analysisName = "AssessNA12878"
   }
@@ -170,7 +164,7 @@ class SingleSampleHC_exome extends QScript {
     this.resource :+= new TaggedFile( training_1000G, "known=false,training=true,truth=false,prior=10.0" )	// not part of the bast practices v4
     this.resource :+= new TaggedFile( dbSNP_129, "known=true,training=false,truth=false,prior=2.0" )    // prior=6.0 on the bast practices v4
     this.resource :+= new TaggedFile( latestdbSNP, "known=false,training=false,truth=false,prior=7.0" )    // prior=6.0 on the bast practices v4
-    this.use_annotation ++= List("QD", "FS", "ReadPosRankSum", "MQRankSum", "InbreedingCoeff")
+    this.use_annotation ++= List("QD", "FS", "ReadPosRankSum", "MQRankSum", "InbreedingCoeff", "MQ")
 
 
     if ( useUGAnnotations )
@@ -184,7 +178,7 @@ class SingleSampleHC_exome extends QScript {
     this.resource :+= new TaggedFile( indelGoldStandardCallset, "known=false,training=true,truth=true,prior=12.0" ) // known=true on the bast practices v4
     this.resource :+= new TaggedFile( latestdbSNP, "known=true,prior=2.0" )  						// not part of the bast practices v4
     this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
-    this.use_annotation ++= List("SOR", "ReadPosRankSum", "MQRankSum", "InbreedingCoeff")
+    this.use_annotation ++= List("QD", "FS", "ReadPosRankSum", "MQRankSum", "InbreedingCoeff")
     this.maxGaussians = 4
     this.analysisName = "VQSR"
   }
