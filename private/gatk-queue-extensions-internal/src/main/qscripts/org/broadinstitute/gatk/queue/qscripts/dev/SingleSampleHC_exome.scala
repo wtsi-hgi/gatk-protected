@@ -122,6 +122,8 @@ class SingleSampleHC_exome extends QScript {
     this.ERC = org.broadinstitute.gatk.tools.walkers.haplotypecaller.ReferenceConfidenceMode.GVCF
     this.max_alternate_alleles = 2
     this.analysisName = "HC_SingleSampleCalling"
+    this.variant_index_parameter = 128000
+    this.variant_index_type = org.broadinstitute.gatk.utils.variant.GATKVCFIndexType.LINEAR
   }
 
   case class Genotyper( outFile: File) extends GenotypeGVCFs with BaseCommandArguments {
