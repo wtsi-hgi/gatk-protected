@@ -180,7 +180,7 @@ class SingleSampleHC_exome extends QScript {
     this.resource :+= new TaggedFile( indelGoldStandardCallset, "known=false,training=true,truth=true,prior=12.0" ) // known=true on the bast practices v4
     this.resource :+= new TaggedFile( latestdbSNP, "known=true,prior=2.0" )  						// not part of the bast practices v4
     this.mode = org.broadinstitute.gatk.tools.walkers.variantrecalibration.VariantRecalibratorArgumentCollection.Mode.INDEL
-    this.use_annotation ++= List("QD", "FS", "ReadPosRankSum", "MQRankSum", "InbreedingCoeff")
+    this.use_annotation ++= List("QD", "FS", "ReadPosRankSum", "InbreedingCoeff")
     this.maxGaussians = 4
     this.analysisName = "VQSR"
   }
