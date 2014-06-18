@@ -95,7 +95,7 @@ public class UGCalcLikelihoods extends LocusWalker<List<VariantCallContext>, Int
         // get all of the unique sample names
         Set<String> samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
 
-        if (UAC.samplePloidy != 2)
+        if (UAC.genotypeArgs.samplePloidy != 2)
             throw new UserException.BadArgumentValue("ploidy","currently UGCalcLikelihoods does not support non-diploid samples");
 
         UG_engine = new UnifiedGenotypingEngine(getToolkit(), UAC, samples);
