@@ -256,7 +256,7 @@
                         </goals>
                         <phase>install</phase>
                         <configuration>
-                            <file>${gatk.basedir}/public/sting-root/pom.xml</file>
+                            <file>${gatk.basedir}/public/gatk-root/pom.xml</file>
                             <token>&lt;htsjdk.version&gt;.*&lt;/htsjdk.version&gt;</token>
                             <value>&lt;htsjdk.version&gt;${htsjdk-version}.${htsjdk.revision}&lt;/htsjdk.version&gt;</value>
                         </configuration>
@@ -268,7 +268,7 @@
                         </goals>
                         <phase>install</phase>
                         <configuration>
-                            <file>${gatk.basedir}/public/sting-root/pom.xml</file>
+                            <file>${gatk.basedir}/public/gatk-root/pom.xml</file>
                             <token>&lt;picard.version&gt;.*&lt;/picard.version&gt;</token>
                             <value>&lt;picard.version&gt;${picard-version}.${picard.revision}&lt;/picard.version&gt;</value>
                         </configuration>
