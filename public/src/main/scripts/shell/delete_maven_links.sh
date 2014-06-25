@@ -7,8 +7,7 @@
 # Should be run from the root directory of your git clone.
 #
 
-find . -type l -name testdata -exec rm '{}' ';'
-find . -type l -name qscript -exec rm '{}' ';'
+find -L . -type l -name testdata -print0 | xargs -0 rm
+find -L . -type l -name qscript -print0 | xargs -0 rm
 
 exit 0
-
