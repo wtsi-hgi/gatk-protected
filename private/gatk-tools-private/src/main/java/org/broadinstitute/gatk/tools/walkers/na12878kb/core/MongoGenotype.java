@@ -230,6 +230,15 @@ public class MongoGenotype extends ReflectionDBObject {
         this.DP = DP;
     }
 
+    /**
+     * Tells whether the call is heterozygous.
+     *
+     * @return {@code true} if the call is heterozygous, {@code false} otherwise.
+     */
+    public boolean isHeterozygous() {
+        return allele1 != -1 && allele2 != -1 && allele1 != allele2;
+    }
+
     private Allele getAllele(final List<Allele> alleles, final int i) {
         return i == -1 ? Allele.NO_CALL : alleles.get(i);
     }
