@@ -52,7 +52,7 @@ import org.testng.annotations.Test;
 
 import java.util.Iterator;
 
-import static org.junit.Assert.*;
+import static org.testng.Assert.*;
 
 public class QuartetIBDStateHMMTest {
 
