@@ -46,11 +46,11 @@
 
 package org.broadinstitute.gatk.tools.walkers.siblingibd;
 
-import org.junit.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
 public class IBDRegionAccumulatorTest
 {
