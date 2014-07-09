@@ -46,11 +46,11 @@
 
 package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
-import junit.framework.Assert;
 import org.broadinstitute.gatk.engine.walkers.WalkerTest;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.text.XReadLines;
 import org.testng.annotations.Test;
+import org.testng.Assert;
 
 import java.io.File;
 import java.io.FileNotFoundException;
