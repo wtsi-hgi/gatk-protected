@@ -47,7 +47,8 @@
 package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
 import htsjdk.samtools.SAMFileReader;
-import org.broadinstitute.gatk.utils.commandline.*;
+import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
 import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
 import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
@@ -56,9 +57,9 @@ import org.broadinstitute.gatk.tools.walkers.na12878kb.NA12878DBWalker;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.SiteIterator;
+import org.broadinstitute.gatk.utils.commandline.*;
 import org.broadinstitute.gatk.utils.variant.GATKVCFUtils;
-import htsjdk.variant.variantcontext.VariantContext;
-import htsjdk.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.gatk.utils.variant.HomoSapiensConstants;
 
 import java.io.File;
 import java.io.PrintStream;
@@ -102,6 +103,9 @@ public class AssessNA12878 extends NA12878DBWalker {
 
     @Argument(fullName="excludeCallset", shortName = "excludeCallset", doc="Don't count calls that come from only these excluded callsets", required=false)
     public Set<String> excludeCallset = Collections.emptySet();
+
+    @Argument(fullName="inputPloidy", shortName = "ploidy", doc="Indicates the ploidy used to make the input calls; this is useful when evaluating Omniploidy call-sets. When provided, it must be 1 or greater", required=false, minValue = 1.0)
+    public int inputPloidy = HomoSapiensConstants.DEFAULT_PLOIDY;
 
     /**
      * An output VCF file containing the bad sites (FN/FP) that were found in the input callset w.r.t. the current NA12878 knowledge base
@@ -203,7 +207,9 @@ public class AssessNA12878 extends NA12878DBWalker {
         // set up assessors for each rod binding
         for ( final RodBinding<VariantContext> rod : variants ) {
             final String rodName = rod.getName();
-            final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, sitesWriter, bamReader, minDepthForLowCoverage, minPNonRef, minGQ, filtersToIgnore);
+            final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, sitesWriter, bamReader,
+                    minDepthForLowCoverage, minPNonRef, minGQ, filtersToIgnore);
+            assessor.setInputPloidy(inputPloidy);
             assessors.put(rodName, assessor);
         }
     }
@@ -216,12 +222,8 @@ public class AssessNA12878 extends NA12878DBWalker {
         includeMissingCalls(consensusSiteIterator.getSitesBefore(context.getLocation()));
         final List<MongoVariantContext> consensusSites = consensusSiteIterator.getSitesAtLocation(context.getLocation());
 
-        boolean siteIsOkayToMiss = false;
-        if ( okayToMiss.isBound() ) {
-            // TODO -- maybe it's worth implementing exact allele checking here?
-            if ( ! tracker.getValues(okayToMiss, ref.getLocus()).isEmpty() )
-                siteIsOkayToMiss = true;
-        }
+        // TODO -- maybe it's worth implementing exact allele checking here?
+        final boolean siteIsOkayToMiss = okayToMiss.isBound() && ! tracker.getValues(okayToMiss, ref.getLocus()).isEmpty();
 
         for ( final RodBinding<VariantContext> rod : variants ) {
             final List<VariantContext> vcs = tracker.getValues(rod, ref.getLocus());

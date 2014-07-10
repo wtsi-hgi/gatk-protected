@@ -48,24 +48,26 @@ package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
-import htsjdk.samtools.filter.FilteringIterator;
 import htsjdk.samtools.SAMFileReader;
 import htsjdk.samtools.SAMRecord;
+import htsjdk.samtools.filter.FilteringIterator;
 import htsjdk.samtools.util.CloseableIterator;
+import htsjdk.variant.variantcontext.Allele;
+import htsjdk.variant.variantcontext.Genotype;
+import htsjdk.variant.variantcontext.GenotypeType;
+import htsjdk.variant.variantcontext.VariantContext;
 import org.apache.log4j.Logger;
 import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
 import org.broadinstitute.gatk.engine.filters.BadCigarFilter;
 import org.broadinstitute.gatk.engine.filters.DuplicateReadFilter;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoVariantContext;
+import org.broadinstitute.gatk.utils.MathUtils;
 import org.broadinstitute.gatk.utils.collections.Pair;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.locusiterator.LocusIteratorByState;
 import org.broadinstitute.gatk.utils.sam.GATKSamRecordFactory;
 import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils;
-import htsjdk.variant.variantcontext.Allele;
-import htsjdk.variant.variantcontext.Genotype;
-import htsjdk.variant.variantcontext.GenotypeType;
-import htsjdk.variant.variantcontext.VariantContext;
+import org.broadinstitute.gatk.utils.variant.HomoSapiensConstants;
 
 import java.io.File;
 import java.util.*;
@@ -91,6 +93,7 @@ import java.util.*;
  * @version 0.1
  */
 public class Assessor {
+    private static final double AF_EPSILON = 0.0001;
     private final Logger logger = Logger.getLogger(Assessor.class);
 
     protected static final String WILDCARD_FILTER_NAME = "ALL_FILTERED_SITES";
@@ -105,6 +108,7 @@ public class Assessor {
     private final Set<String> filtersToIgnore;
     private final int minPNonRef;
     private final int minGQ;
+    private int inputPloidy = HomoSapiensConstants.DEFAULT_PLOIDY;
 
     Assessment SNPAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
     Assessment IndelAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
@@ -161,6 +165,21 @@ public class Assessor {
         this.badSitesWriter = badSitesWriter;
         this.filtersToIgnore = ignoreFilters;
         ignoreAllFilters = filtersToIgnore.contains(WILDCARD_FILTER_NAME);
+    }
+
+    /**
+     * Changes the assumed ploidy of the input call.
+     *
+     * <p>
+     *     By default (at the start) the ploidy default is 2 (typical for Human)
+     * </p>
+     *
+     * @param ploidy the new ploidy.
+     */
+    public void setInputPloidy(final int ploidy) {
+        if (ploidy < 1)
+            throw new IllegalArgumentException("input ploidy must 1 or greater");
+        inputPloidy = ploidy;
     }
 
     public Assessment getSNPAssessment() { return SNPAssessment; }
@@ -221,23 +240,8 @@ public class Assessor {
         } else {
             final Set<VariantContext> biallelics = new HashSet<VariantContext>();
 
-            for( final VariantContext vcRaw : vcs ) {
-                if ( vcRaw.getAlternateAlleles().isEmpty() ) // skip sites without alt allele
-                    continue;
-
-                // allow sites only VCs to be evaluated as though they are just NA12878 calls
-                final VariantContext na12878vc = subsetToNA12878(vcRaw);
-                if ( na12878vc != null && na12878vc.isVariant() ) {
-                    for ( final VariantContext biallelic : GATKVariantContextUtils.splitVariantContextToBiallelics(na12878vc, true, GATKVariantContextUtils.GenotypeAssignmentMethod.BEST_MATCH_TO_ORIGINAL)) {
-                        if ( biallelic != null && biallelic.getStart() > na12878vc.getStart() ) {
-                            // trimming the variant moved the variant forward on the genome, which can happen but
-                            // means that the input VCF had a very strange multi-allelic structure
-                            logger.warn("Biallelic split in " + name + " moved a variant into the future " + biallelic + " from " + na12878vc);
-                        } else
-                            biallelics.add(biallelic);
-                    }
-                }
-            }
+            for( final VariantContext vcRaw : vcs )
+                biallelizeVariantContext(biallelics, vcRaw);
 
             for ( final Pair<VariantContext, MongoVariantContext> match : matchCallsWithKB(biallelics, consensusSites) ) {
                 final VariantContext biallelic = match.getFirst();
@@ -246,6 +250,29 @@ public class Assessor {
                 // of MIXED type can look 0/1 instead of 1/2 (in VCF parlance), so we don't want to assess genotype concordance
                 // in such cases (hence the check for biallelics having at most 1 element).
                 assessMatchedCallWithKB(biallelic, consensusSite, onlyReviewed, okayToMiss, biallelics.size() <= 1);
+            }
+        }
+    }
+
+    /**
+     * Transform a potentially multi-alternative allele containing variant context in biallelic equivalents.
+     * @param biallelics where to place the biallelic variant context.
+     * @param vcRaw the raw/original variant context.
+     */
+    private void biallelizeVariantContext(final Set<VariantContext> biallelics, final VariantContext vcRaw) {
+        if ( vcRaw.getAlternateAlleles().isEmpty() ) // skip sites without alt allele
+            return;
+
+        // allow sites only VCs to be evaluated as though they are just NA12878 calls
+        final VariantContext na12878vc = subsetToNA12878(vcRaw);
+        if ( na12878vc != null && na12878vc.isVariant() ) {
+            for ( final VariantContext biallelic : GATKVariantContextUtils.splitVariantContextToBiallelics(na12878vc, true, GATKVariantContextUtils.GenotypeAssignmentMethod.BEST_MATCH_TO_ORIGINAL)) {
+                if ( biallelic != null && biallelic.getStart() > na12878vc.getStart() ) {
+                    // trimming the variant moved the variant forward on the genome, which can happen but
+                    // means that the input VCF had a very strange multi-allelic structure
+                    logger.warn("Biallelic split in " + name + " moved a variant into the future " + biallelic + " from " + na12878vc);
+                } else
+                    biallelics.add(biallelic);
             }
         }
     }
@@ -373,24 +400,68 @@ public class Assessor {
         assessment.inc(type);
 
         // determine if we have called the site correctly but failed to genotype it properly
-        boolean genotypeDiscordance = false;
-        if ( okayToAssessGenotypes && call != null && consensusSite != null && type == AssessmentType.TRUE_POSITIVE &&
-                call.hasGenotype("NA12878") && ! isNotUsableCall(call) && consensusSite.isPolymorphic()) {
-            final List<Allele> alleles = vc.getAlleles();
-            final Genotype consensusGT = consensusSite.getGt().toGenotype(alleles);
-            if ( consensusGT.getType() == GenotypeType.HET || consensusGT.getType() == GenotypeType.HOM_VAR ) {
-                final Genotype callGT = call.getGenotype("NA12878");
-                if ( !callGT.hasGQ() || callGT.getGQ() >= minGQ ) {
-                    final boolean concordant = consensusGT.getType() == callGT.getType();
-                    genotypeDiscordance = ! concordant;
-                    assessment.incGenotypingAccuracy(consensusGT.getType(), concordant);
-                }
-            }
-        }
+        boolean genotypeDiscordance = assessGenotypeConcordance(call, consensusSite, okayToAssessGenotypes, vc, type, assessment);
 
         if ( logger.isDebugEnabled() ) logger.debug("Assessing site " + name + " call " + call + " against consensus " + consensusSite);
 
         badSitesWriter.notifyOfSite(genotypeDiscordance ? AssessmentType.GENOTYPE_DISCORDANCE : type, vc, consensusSite);
+    }
+
+    private boolean assessGenotypeConcordance(final VariantContext call,
+                                              final MongoVariantContext consensusSite,
+                                              final boolean okayToAssessGenotypes,
+                                              final VariantContext vc,
+                                              final AssessmentType type,
+                                              final Assessment assessment) {
+        if ( ! okayToAssessGenotypes || call == null || consensusSite == null || type != AssessmentType.TRUE_POSITIVE ||
+                !call.hasGenotype("NA12878") || isNotUsableCall(call) || ! consensusSite.isPolymorphic())
+            return false;
+
+        final List<Allele> alleles = vc.getAlleles();
+        final Genotype consensusGT = consensusSite.getGt().toGenotype(alleles);
+        if ( consensusGT.getType() != GenotypeType.HET && consensusGT.getType() != GenotypeType.HOM_VAR )
+            return false;
+
+        final Genotype callGT = call.getGenotype("NA12878");
+        if ( callGT.hasGQ() && callGT.getGQ() < minGQ )
+            return false;
+
+        if ( callGT.isCalled() && callGT.getPloidy() != inputPloidy)
+            throw new UserException.BadInput("the input call ploidy at " + vc.getChr() +
+                    ":" + vc.getStart() + " is " + callGT.getPloidy() + " when we expect " + inputPloidy);
+
+        final boolean concordant;
+        if (consensusGT.getType() == callGT.getType()) {
+            if (callGT.getType() == GenotypeType.HOM_VAR)
+                concordant = true;
+            else if (callGT.getPloidy() == HomoSapiensConstants.DEFAULT_PLOIDY)
+                concordant = true;
+            else if ((callGT.getPloidy() & 1) == 0) // input ploidy is even: AF == 0.5 for concordance.
+                concordant = MathUtils.compareDoubles(referenceAlleleFrequency(callGT), 0.5, AF_EPSILON) == 0;
+            else // input ploidy is odd: abs(AC ref - AC alt) <= 1 for concordance.
+                concordant = Math.abs(callGT.getPloidy() - 2 * referenceAlleleCount(callGT)) <= 1;
+        } else if (consensusGT.getType() == GenotypeType.HOM_VAR)
+                concordant = false;
+        else if (callGT.getPloidy() == 1) // NA12878 is HET but the input is haploid so a HOM_VAR call is fine.
+                concordant = true;
+        else
+                concordant = false;
+        assessment.incGenotypingAccuracy(consensusGT.getType(), concordant);
+        return ! concordant;
+    }
+
+    private double referenceAlleleFrequency(final Genotype genotype) {
+        final int ploidy = genotype.getPloidy();
+        int refCount = referenceAlleleCount(genotype);
+        return ((double)refCount) / ((double) ploidy);
+    }
+
+    private int referenceAlleleCount(final Genotype genotype) {
+        int result = 0;
+        for (final Allele alleles : genotype.getAlleles())
+            if (alleles.isReference())
+                result++;
+        return result;
     }
 
     /**
@@ -443,7 +514,8 @@ public class Assessor {
             }
         } else if ( consensusTP ) { // call == null
             // if it's a complex event, just ignore it (because we may have called it with a different representation in the VCF)
-            if ( okayToMiss || consensusSite.isComplexEvent() )
+            // if ploidy is unknown or less than 2 (haploid), it might be ok to miss heterozygous calls.
+            if ( okayToMiss || consensusSite.isComplexEvent() || (inputPloidy < 2 && consensusSite.getGt().isHeterozygous()) )
                 return AssessmentType.NOT_RELEVANT;
 
             if ( bamReader != null ) {
