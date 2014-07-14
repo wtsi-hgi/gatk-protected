@@ -13,12 +13,12 @@ Prerequisites: -The bcel and ant-apache-bcel jars must be installed in ~/.ant/li
 
 Usage: ant -f DependencyAnalyzer.xml -Dwalker=walker_class -Dchanged.classes.file=file -Dresult.properties.file=file
 
-walker: must be the fully-qualified class name of a walker (eg., org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper)
+walker: must be the fully-qualified class name of a walker (eg., org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotyper)
 
 changed.classes.file: a file listing changed Java classes, one per line, as a set of relative paths from the package root.
                       Eg.,
-                      org/broadinstitute/sting/utils/MathUtils.class
-                      org/broadinstitute/sting/utils/crypt/CryptUtils.class
+                      org/broadinstitute/gatk/utils/MathUtils.class
+                      org/broadinstitute/gatk/utils/crypt/CryptUtils.class
                       etc.
 
 result.properties.file: A Java properties file to which to append the analysis result
@@ -37,7 +37,7 @@ Author: David Roazen
             </not>
         </condition>
         <fail unless="walker.specified"
-              message="Must specify the fully-qualified name of a walker (eg., org.broadinstitute.sting.gatk.walkers.genotyper.UnifiedGenotyper) via -Dwalker=walker" />
+              message="Must specify the fully-qualified name of a walker (eg., org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotyper) via -Dwalker=walker" />
 
         <available classname="${walker}" classpath="${gatk.staging.dir}" ignoresystemclasses="true" property="walker.class.exists" />
         <fail unless="walker.class.exists"

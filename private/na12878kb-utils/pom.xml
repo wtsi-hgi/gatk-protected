@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.broadinstitute.sting</groupId>
-        <artifactId>sting-aggregator</artifactId>
-        <version>3.1</version>
+        <groupId>org.broadinstitute.gatk</groupId>
+        <artifactId>gatk-aggregator</artifactId>
+        <version>3.2-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -20,13 +20,13 @@
     <name>NA12878 KB Utilities</name>
 
     <properties>
-        <sting.basedir>${project.basedir}/../..</sting.basedir>
+        <gatk.basedir>${project.basedir}/../..</gatk.basedir>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>gatk-private</artifactId>
+            <artifactId>gatk-tools-private</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
@@ -42,7 +42,7 @@
                         <goals>
                             <goal>single</goal>
                         </goals>
-                        <phase>${sting.jar.phase}</phase>
+                        <phase>${gatk.jar.phase}</phase>
                         <configuration>
                             <appendAssemblyId>false</appendAssemblyId>
                             <descriptors>

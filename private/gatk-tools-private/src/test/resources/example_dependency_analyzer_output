@@ -1,0 +1,5 @@
+org.broadinstitute.gatk.tools.walkers.bed.MergeIntervalLists=true
+org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotyper=false
+org.broadinstitute.gatk.tools.walkers.haplotypecaller.HaplotypeCaller=false
+org.broadinstitute.gatk.tools.walkers.na12878kb.NA12878DBWalker=true
+org.broadinstitute.gatk.tools.walkers.readutils.PrintReads=false

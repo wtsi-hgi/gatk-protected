@@ -47,7 +47,7 @@
 package org.broadinstitute.sting.utils.genotype.glf;
 
 import org.testng.Assert;
-import org.broadinstitute.sting.BaseTest;
+import org.broadinstitute.gatk.utils.BaseTest;
 
 import org.testng.annotations.Test;
 

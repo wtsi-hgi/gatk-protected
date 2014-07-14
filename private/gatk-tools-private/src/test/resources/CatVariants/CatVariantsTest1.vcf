@@ -1,0 +1,203 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=NOT_POLY_IN_1000G,Description="Alternate allele count = 0">
+##FILTER=<ID=amb,Description="Ambiguous SNP.  Could not determine true forward strand. May have ref/alt mismatches">
+##FILTER=<ID=dup,Description="Duplicate assay at same position with worse Gentrain Score">
+##FILTER=<ID=id10,Description="Within 10 bp of an known indel">
+##FILTER=<ID=id20,Description="Within 20 bp of an known indel">
+##FILTER=<ID=id5,Description="Within 5 bp of an known indel">
+##FILTER=<ID=id50,Description="Within 50 bp of an known indel">
+##FILTER=<ID=refN,Description="Reference base is N. Assay is designed for 2 alt alleles">
+##FORMAT=<ID=GC,Number=.,Type=Float,Description="Gencall Score">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FilterLiftedVariants="analysis_type=FilterLiftedVariants input_file=[] sample_metadata=[] read_buffer_size=null phone_home=STANDARD read_filter=[] intervals=null excludeIntervals=null reference_sequence=/humgen/1kg/reference/human_g1k_v37.fasta rodBind=[/gap/birdsuite/1kg/0.928975161471502.sorted.vcf] rodToIntervalTrackName=null BTI_merge_rule=UNION DBSNP=null downsampling_type=null downsample_to_fraction=null downsample_to_coverage=null baq=OFF baqGapOpenPenalty=40.0 performanceLog=null useOriginalQualities=false defaultBaseQualities=-1 validation_strictness=SILENT unsafe=null num_threads=1 interval_merging=ALL read_group_black_list=null processingTracker=null restartProcessingTracker=false processingTrackerStatusFile=null processingTrackerID=-1 allow_intervals_with_unindexed_bam=false enable_experimental_low_memory_sharding=false logging_level=INFO log_to_file=null quiet_output_mode=false debug_mode=false help=false out=org.broadinstitute.sting.gatk.io.stubs.VCFWriterStub NO_HEADER=org.broadinstitute.sting.gatk.io.stubs.VCFWriterStub sites_only=org.broadinstitute.sting.gatk.io.stubs.VCFWriterStub"
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes, for each ALT allele, in the same order as listed">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=CR,Number=.,Type=Float,Description="SNP Callrate">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth; some reads may have been filtered">
+##INFO=<ID=GentrainScore,Number=.,Type=Float,Description="Gentrain Score">
+##INFO=<ID=HW,Number=.,Type=Float,Description="Hardy-Weinberg Equilibrium">
+##SelectVariants="analysis_type=SelectVariants input_file=[] sample_metadata=[] read_buffer_size=null phone_home=STANDARD read_filter=[] intervals=null excludeIntervals=null reference_sequence=/humgen/gsa-hpprojects/GATK/bundle/current/b37/human_g1k_v37.fasta rodBind=[/humgen/gsa-hpprojects/GATK/bundle/current/b37/1000G_omni2.5.b37.vcf] rodToIntervalTrackName=null BTI_merge_rule=UNION nonDeterministicRandomSeed=false DBSNP=null downsampling_type=null downsample_to_fraction=null downsample_to_coverage=null baq=OFF baqGapOpenPenalty=40.0 performanceLog=null useOriginalQualities=false defaultBaseQualities=-1 validation_strictness=SILENT unsafe=null num_threads=1 interval_merging=ALL read_group_black_list=null processingTracker=null restartProcessingTracker=false processingTrackerStatusFile=null processingTrackerID=-1 allow_intervals_with_unindexed_bam=false disable_experimental_low_memory_sharding=false logging_level=INFO log_to_file=null help=false out=org.broadinstitute.sting.gatk.io.stubs.VCFWriterStub NO_HEADER=org.broadinstitute.sting.gatk.io.stubs.VCFWriterStub sites_only=org.broadinstitute.sting.gatk.io.stubs.VCFWriterStub sample=[NA12878] select_expressions=[] excludeNonVariants=false excludeFiltered=false discordance= concordance= family_structure= mendelianViolation=false mendelianViolationQualThreshold=0.0 select_random_number=0 select_random_fraction=0.0 selectSNPs=false selectIndels=false"
+##contig=<ID=1,length=249250621,assembly=b37>
+##contig=<ID=2,length=243199373,assembly=b37>
+##contig=<ID=3,length=198022430,assembly=b37>
+##contig=<ID=4,length=191154276,assembly=b37>
+##contig=<ID=5,length=180915260,assembly=b37>
+##contig=<ID=6,length=171115067,assembly=b37>
+##contig=<ID=7,length=159138663,assembly=b37>
+##contig=<ID=8,length=146364022,assembly=b37>
+##contig=<ID=9,length=141213431,assembly=b37>
+##contig=<ID=10,length=135534747,assembly=b37>
+##contig=<ID=11,length=135006516,assembly=b37>
+##contig=<ID=12,length=133851895,assembly=b37>
+##contig=<ID=13,length=115169878,assembly=b37>
+##contig=<ID=14,length=107349540,assembly=b37>
+##contig=<ID=15,length=102531392,assembly=b37>
+##contig=<ID=16,length=90354753,assembly=b37>
+##contig=<ID=17,length=81195210,assembly=b37>
+##contig=<ID=18,length=78077248,assembly=b37>
+##contig=<ID=19,length=59128983,assembly=b37>
+##contig=<ID=20,length=63025520,assembly=b37>
+##contig=<ID=21,length=48129895,assembly=b37>
+##contig=<ID=22,length=51304566,assembly=b37>
+##contig=<ID=X,length=155270560,assembly=b37>
+##contig=<ID=Y,length=59373566,assembly=b37>
+##contig=<ID=MT,length=16569,assembly=b37>
+##contig=<ID=GL000207.1,length=4262,assembly=b37>
+##contig=<ID=GL000226.1,length=15008,assembly=b37>
+##contig=<ID=GL000229.1,length=19913,assembly=b37>
+##contig=<ID=GL000231.1,length=27386,assembly=b37>
+##contig=<ID=GL000210.1,length=27682,assembly=b37>
+##contig=<ID=GL000239.1,length=33824,assembly=b37>
+##contig=<ID=GL000235.1,length=34474,assembly=b37>
+##contig=<ID=GL000201.1,length=36148,assembly=b37>
+##contig=<ID=GL000247.1,length=36422,assembly=b37>
+##contig=<ID=GL000245.1,length=36651,assembly=b37>
+##contig=<ID=GL000197.1,length=37175,assembly=b37>
+##contig=<ID=GL000203.1,length=37498,assembly=b37>
+##contig=<ID=GL000246.1,length=38154,assembly=b37>
+##contig=<ID=GL000249.1,length=38502,assembly=b37>
+##contig=<ID=GL000196.1,length=38914,assembly=b37>
+##contig=<ID=GL000248.1,length=39786,assembly=b37>
+##contig=<ID=GL000244.1,length=39929,assembly=b37>
+##contig=<ID=GL000238.1,length=39939,assembly=b37>
+##contig=<ID=GL000202.1,length=40103,assembly=b37>
+##contig=<ID=GL000234.1,length=40531,assembly=b37>
+##contig=<ID=GL000232.1,length=40652,assembly=b37>
+##contig=<ID=GL000206.1,length=41001,assembly=b37>
+##contig=<ID=GL000240.1,length=41933,assembly=b37>
+##contig=<ID=GL000236.1,length=41934,assembly=b37>
+##contig=<ID=GL000241.1,length=42152,assembly=b37>
+##contig=<ID=GL000243.1,length=43341,assembly=b37>
+##contig=<ID=GL000242.1,length=43523,assembly=b37>
+##contig=<ID=GL000230.1,length=43691,assembly=b37>
+##contig=<ID=GL000237.1,length=45867,assembly=b37>
+##contig=<ID=GL000233.1,length=45941,assembly=b37>
+##contig=<ID=GL000204.1,length=81310,assembly=b37>
+##contig=<ID=GL000198.1,length=90085,assembly=b37>
+##contig=<ID=GL000208.1,length=92689,assembly=b37>
+##contig=<ID=GL000191.1,length=106433,assembly=b37>
+##contig=<ID=GL000227.1,length=128374,assembly=b37>
+##contig=<ID=GL000228.1,length=129120,assembly=b37>
+##contig=<ID=GL000214.1,length=137718,assembly=b37>
+##contig=<ID=GL000221.1,length=155397,assembly=b37>
+##contig=<ID=GL000209.1,length=159169,assembly=b37>
+##contig=<ID=GL000218.1,length=161147,assembly=b37>
+##contig=<ID=GL000220.1,length=161802,assembly=b37>
+##contig=<ID=GL000213.1,length=164239,assembly=b37>
+##contig=<ID=GL000211.1,length=166566,assembly=b37>
+##contig=<ID=GL000199.1,length=169874,assembly=b37>
+##contig=<ID=GL000217.1,length=172149,assembly=b37>
+##contig=<ID=GL000216.1,length=172294,assembly=b37>
+##contig=<ID=GL000215.1,length=172545,assembly=b37>
+##contig=<ID=GL000205.1,length=174588,assembly=b37>
+##contig=<ID=GL000219.1,length=179198,assembly=b37>
+##contig=<ID=GL000224.1,length=179693,assembly=b37>
+##contig=<ID=GL000223.1,length=180455,assembly=b37>
+##contig=<ID=GL000195.1,length=182896,assembly=b37>
+##contig=<ID=GL000212.1,length=186858,assembly=b37>
+##contig=<ID=GL000222.1,length=186861,assembly=b37>
+##contig=<ID=GL000200.1,length=187035,assembly=b37>
+##contig=<ID=GL000193.1,length=189789,assembly=b37>
+##contig=<ID=GL000194.1,length=191469,assembly=b37>
+##contig=<ID=GL000225.1,length=211173,assembly=b37>
+##contig=<ID=GL000192.1,length=547496,assembly=b37>
+##reference=file:///humgen/1kg/reference/human_g1k_v37.fasta
+##source=SelectVariants
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA12878
+1	1000156	SNP1-990019	C	T	.	PASS	AC=1;AF=0.50;AN=2;CR=100.0;DP=0;GentrainScore=0.8320;HW=9.211944E-9	GT:GC	1/0:0.8614
+1	1002539	SNP1-992402	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.92126;DP=0;GentrainScore=0.8297;HW=3.6744144E-17	GT:GC	0/0:0.8584
+1	1005806	rs3934834	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.92717;DP=0;GentrainScore=0.8185;HW=0.10635967	GT:GC	0/0:0.8429
+1	1006990	SNP1-996853	G	A	.	PASS	AC=1;AF=0.50;AN=2;CR=99.78154;DP=0;GentrainScore=0.8290;HW=0.6595972	GT:GC	1/0:0.8574
+1	1007203	SNP1-997066	A	G	.	PASS	AC=1;AF=0.50;AN=2;CR=99.77477;DP=0;GentrainScore=0.7414;HW=0.88553053	GT:GC	0/1:0.7166
+1	1009234	SNP1-999097	T	C	.	PASS	AC=1;AF=0.50;AN=2;CR=99.44521;DP=0;GentrainScore=0.8036;HW=8.3057757E-4	GT:GC	0/1:0.8211
+1	1011006	SNP1-1000869	T	G	.	NOT_POLY_IN_1000G;id50	AC=0;AF=0.00;AN=2;CR=99.47541;DP=0;GentrainScore=0.6922;HW=1.0	GT:GC	0/0:0.6244
+1	1015126	SNP1-1004989	A	G	.	PASS	AC=1;AF=0.50;AN=2;CR=99.812645;DP=0;GentrainScore=0.8010;HW=0.007873404	GT:GC	0/1:0.8172
+1	1016967	SNP1-1006830	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=97.91316;DP=0;GentrainScore=0.6521;HW=9.896534E-4	GT:GC	0/0:0.5480
+1	1017197	rs3766192	C	T	.	PASS	AC=1;AF=0.50;AN=2;CR=100.0;DP=0;GentrainScore=0.8749;HW=3.34565E-19	GT:GC	1/0:0.9121
+1	1017587	rs3766191	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.85775;DP=0;GentrainScore=0.7910;HW=0.7624424	GT:GC	0/0:0.8016
+1	1017706	SNP1-1007569	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.93351;DP=0;GentrainScore=0.7748;HW=0.6367417	GT:GC	0/0:0.7751
+1	1017897	SNP1-1007760	C	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.73306;DP=0;GentrainScore=0.7304;HW=0.2021911	GT:GC	0/0:0.6964
+1	1018704	rs9442372	A	G	.	PASS	AC=1;AF=0.50;AN=2;CR=99.339;DP=0;GentrainScore=0.8050;HW=0.03582472	GT:GC	0/1:0.8232
+1	1018950	SNP1-1008813	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.93426;DP=0;GentrainScore=0.6882;HW=1.0	GT:GC	0/0:0.6167
+1	1020406	SNP1-1010269	T	C	.	PASS	AC=1;AF=0.50;AN=2;CR=99.59616;DP=0;GentrainScore=0.7661;HW=3.1214935E-5	GT:GC	0/1:0.7604
+1	1021249	SNP1-1011112	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.73641;DP=0;GentrainScore=0.8208;HW=1.0	GT:GC	0/0:0.7833
+1	1021346	rs10907177	A	G	.	PASS	AC=0;AF=0.00;AN=2;CR=99.92816;DP=0;GentrainScore=0.7539;HW=0.342584	GT:GC	0/0:0.7391
+1	1021415	rs3737728	A	G	.	PASS	AC=1;AF=0.50;AN=2;CR=100.0;DP=0;GentrainScore=0.7669;HW=1.0	GT:GC	0/1:0.7617
+1	1021583	rs10907178	A	C	.	PASS	AC=0;AF=0.00;AN=2;CR=99.78541;DP=0;GentrainScore=0.8279;HW=0.53076255	GT:GC	0/0:0.8559
+1	1021695	rs9442398	A	G	.	PASS	AC=1;AF=0.50;AN=2;CR=99.89749;DP=0;GentrainScore=0.8445;HW=0.0017717691	GT:GC	0/1:0.8775
+1	1023145	SNP1-1013008	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=100.0;DP=0;GentrainScore=0.7629;HW=0.9942433	GT:GC	0/0:0.7548
+1	1023310	SNP1-1013173	T	C	.	PASS	AC=0;AF=0.00;AN=2;CR=99.28238;DP=0;GentrainScore=0.7469;HW=0.5733575	GT:GC	0/0:0.7266
+1	1025301	rs9442400	T	C	.	PASS	AC=2;AF=1.00;AN=2;CR=99.76919;DP=0;GentrainScore=0.7260;HW=0.96225685	GT:GC	1/1:0.6883
+1	1026071	SNP1-1015934	A	C	.	PASS	AC=0;AF=0.00;AN=2;CR=99.73466;DP=0;GentrainScore=0.7842;HW=1.0	GT:GC	0/0:0.7231
+1	1026707	rs4074137	C	A	.	PASS	AC=1;AF=0.50;AN=2;CR=99.52153;DP=0;GentrainScore=0.7914;HW=3.735184E-12	GT:GC	1/0:0.8021
+1	1030565	rs6687776	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.92367;DP=0;GentrainScore=0.8265;HW=2.7424474E-7	GT:GC	0/0:0.8540
+1	1030633	SNP1-1020496	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=100.0;DP=0;GentrainScore=0.9043;HW=3.3411186E-7	GT:GC	0/0:0.9398
+1	1031540	SNP1-1021403	A	G	.	PASS	AC=1;AF=0.50;AN=2;CR=99.769455;DP=0;GentrainScore=0.8372;HW=1.217677E-6	GT:GC	0/1:0.8683
+1	1035530	SNP1-1025393	T	C	.	id50	AC=0;AF=0.00;AN=2;CR=99.93426;DP=0;GentrainScore=0.7572;HW=0.06804283	GT:GC	0/0:0.6759
+1	1036959	rs11579015	T	C	.	PASS	AC=0;AF=0.00;AN=2;CR=99.929054;DP=0;GentrainScore=0.7678;HW=0.8760219	GT:GC	0/0:0.7632
+1	1037477	SNP1-1027340	C	A	.	id5	AC=0;AF=0.00;AN=2;CR=98.567116;DP=0;GentrainScore=0.8064;HW=1.3980938E-8	GT:GC	0/0:0.8253
+1	1039817	SNP1-1029680	A	G	.	id20	AC=0;AF=0.00;AN=2;CR=99.77333;DP=0;GentrainScore=0.8021;HW=9.579937E-6	GT:GC	0/0:0.8189
+1	1040026	rs6671356	T	C	.	PASS	AC=0;AF=0.00;AN=2;CR=99.848946;DP=0;GentrainScore=0.8304;HW=1.3937708E-5	GT:GC	0/0:0.8593
+1	1045538	SNP1-1035401	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=100.0;DP=0;GentrainScore=0.7940;HW=0.024177423	GT:GC	0/0:0.7398
+1	1047028	SNP1-1036891	A	G	.	PASS	AC=0;AF=0.00;AN=2;CR=99.86737;DP=0;GentrainScore=0.7862;HW=0.07310096	GT:GC	0/0:0.7940
+1	1048724	SNP1-1038587	A	C	.	PASS	AC=0;AF=0.00;AN=2;CR=99.93094;DP=0;GentrainScore=0.8058;HW=2.6406568E-9	GT:GC	0/0:0.8245
+1	1053570	SNP1-1043433	G	T	.	PASS	AC=0;AF=0.00;AN=2;CR=98.6166;DP=0;GentrainScore=0.7005;HW=0.2382264	GT:GC	0/0:0.6402
+1	1054212	SNP1-1044075	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.654335;DP=0;GentrainScore=0.7635;HW=2.155734E-9	GT:GC	0/0:0.7560
+1	1054552	SNP1-1044415	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.7195;DP=0;GentrainScore=0.8142;HW=0.27962238	GT:GC	0/0:0.8367
+1	1054638	SNP1-1044501	T	C	.	PASS	AC=0;AF=0.00;AN=2;CR=100.0;DP=0;GentrainScore=0.7619;HW=1.0	GT:GC	0/0:0.6843
+1	1055442	SNP1-1045305	A	G	.	PASS	AC=0;AF=0.00;AN=2;CR=99.78999;DP=0;GentrainScore=0.7748;HW=6.398514E-21	GT:GC	0/0:0.7751
+1	1055542	SNP1-1045405	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=100.0;DP=0;GentrainScore=0.8347;HW=1.0	GT:GC	0/0:0.8046
+1	1056296	SNP1-1046159	A	C	.	id5	AC=0;AF=0.00;AN=2;CR=100.0;DP=0;GentrainScore=0.8212;HW=0.004115637	GT:GC	0/0:0.8467
+1	1056715	SNP1-1046578	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=97.8844;DP=0;GentrainScore=0.7884;HW=4.7951104E-5	GT:GC	0/0:0.7975
+1	1057524	SNP1-1047387	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.92978;DP=0;GentrainScore=0.8460;HW=0.28699094	GT:GC	0/0:0.8794
+1	1058514	SNP1-1048377	C	T	.	id50	AC=0;AF=0.00;AN=2;CR=99.93401;DP=0;GentrainScore=0.8190;HW=0.41651973	GT:GC	0/0:0.7806
+1	1059673	SNP1-1049536	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.86799;DP=0;GentrainScore=0.7975;HW=0.43676654	GT:GC	0/0:0.7457
+1	1060174	rs7548798	C	T	.	PASS	AC=1;AF=0.50;AN=2;CR=99.78166;DP=0;GentrainScore=0.8043;HW=9.93715E-5	GT:GC	1/0:0.8222
+1	1060175	SNP1-1050038	T	C	.	PASS	AC=1;AF=0.50;AN=2;CR=99.39446;DP=0;GentrainScore=0.6824;HW=3.2813054E-22	GT:GC	0/1:0.6056
+1	1060235	rs7540009	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.59596;DP=0;GentrainScore=0.7999;HW=0.0995698	GT:GC	0/0:0.8154
+1	1060355	SNP1-1050218	G	C	.	amb	AC=1;AF=0.50;AN=2;CR=99.28966;DP=0;GentrainScore=0.7861;HW=0.20930006	GT:GC	1/0:0.7938
+1	1061262	rs12757754	A	G	.	PASS	AC=0;AF=0.00;AN=2;CR=99.92963;DP=0;GentrainScore=0.8190;HW=0.76234454	GT:GC	0/0:0.8436
+1	1061513	SNP1-1051376	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.20477;DP=0;GentrainScore=0.7005;HW=0.9873317	GT:GC	0/0:0.5734
+1	1062638	rs9442373	C	A	.	PASS	AC=1;AF=0.50;AN=2;CR=99.90893;DP=0;GentrainScore=0.7778;HW=0.041281134	GT:GC	1/0:0.7801
+1	1063241	SNP1-1053104	G	T	.	PASS	AC=1;AF=0.50;AN=2;CR=99.058624;DP=0;GentrainScore=0.8240;HW=2.6551039E-8	GT:GC	1/0:0.8506
+1	1063492	SNP1-1053355	G	A	.	PASS	AC=1;AF=0.50;AN=2;CR=100.0;DP=0;GentrainScore=0.7925;HW=1.0	GT:GC	1/0:0.7373
+1	1064535	SNP1-1054398	G	C	.	amb	AC=1;AF=0.50;AN=2;CR=99.70444;DP=0;GentrainScore=0.8378;HW=0.03066452	GT:GC	1/0:0.8690
+1	1064802	SNP1-1054665	T	C	.	PASS	AC=2;AF=1.00;AN=2;CR=99.78355;DP=0;GentrainScore=0.7817;HW=4.5738607E-6	GT:GC	1/1:0.7866
+1	1064979	rs2298217	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.71025;DP=0;GentrainScore=0.8058;HW=3.4984234E-7	GT:GC	0/0:0.8244
+1	1065296	SNP1-1055159	T	C	.	PASS	AC=2;AF=1.00;AN=2;CR=99.5992;DP=0;GentrainScore=0.8394;HW=0.015325713	GT:GC	1/1:0.8711
+1	1065800	SNP1-1055663	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.24007;DP=0;GentrainScore=0.7115;HW=0.03619689	GT:GC	0/0:0.6611
+1	1066403	rs10907182	T	C	.	id20	AC=2;AF=1.00;AN=2;CR=99.91091;DP=0;GentrainScore=0.8084;HW=0.0017625234	GT:GC	1/1:0.8283
+1	1067143	SNP1-1057006	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.862305;DP=0;GentrainScore=0.8025;HW=0.005966134	GT:GC	0/0:0.8194
+1	1067396	SNP1-1057259	A	G	.	PASS	AC=0;AF=0.00;AN=2;CR=100.0;DP=0;GentrainScore=0.7873;HW=1.0	GT:GC	0/0:0.7285
+1	1067719	SNP1-1057582	G	A	.	id50	AC=0;AF=0.00;AN=2;CR=99.93421;DP=0;GentrainScore=0.7877;HW=1.0	GT:GC	0/0:0.7291
+1	1067865	SNP1-1057728	A	C	.	id50	AC=2;AF=1.00;AN=2;CR=100.0;DP=0;GentrainScore=0.7829;HW=1.2238096E-6	GT:GC	1/1:0.7885
+1	1069187	SNP1-1059050	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.85931;DP=0;GentrainScore=0.8327;HW=9.305567E-10	GT:GC	0/0:0.8624
+1	1069482	SNP1-1059345	G	A	.	id50	AC=2;AF=1.00;AN=2;CR=100.0;DP=0;GentrainScore=0.8020;HW=2.3876366E-5	GT:GC	1/1:0.8187
+1	1069653	SNP1-1059516	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.28699;DP=0;GentrainScore=0.7665;HW=0.015273057	GT:GC	0/0:0.7610
+1	1070092	SNP1-1059955	G	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.061035;DP=0;GentrainScore=0.7972;HW=2.1933601E-4	GT:GC	0/0:0.8113
+1	1070441	SNP1-1060304	C	T	.	PASS	AC=2;AF=1.00;AN=2;CR=99.78226;DP=0;GentrainScore=0.7442;HW=0.035473723	GT:GC	1/1:0.7218
+1	1074256	SNP1-1064119	T	C	.	PASS	AC=0;AF=0.00;AN=2;CR=99.7076;DP=0;GentrainScore=0.8552;HW=0.020866178	GT:GC	0/0:0.8904
+1	1079191	SNP1-1069054	T	C	.	PASS	AC=0;AF=0.00;AN=2;CR=99.92393;DP=0;GentrainScore=0.8381;HW=2.027147E-13	GT:GC	0/0:0.8694
+1	1080927	SNP1-1070790	T	C	.	PASS	AC=2;AF=1.00;AN=2;CR=98.78172;DP=0;GentrainScore=0.5080;HW=0.019461699	GT:GC	1/1:0.3104
+1	1081052	SNP1-1070915	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=98.7308;DP=0;GentrainScore=0.5965;HW=0.7568348	GT:GC	0/0:0.4468
+1	1081434	SNP1-1071297	C	T	.	id50	AC=0;AF=0.00;AN=2;CR=100.0;DP=0;GentrainScore=0.8366;HW=1.0	GT:GC	0/0:0.8075
+1	1083159	SNP1-1073022	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=97.96438;DP=0;GentrainScore=0.5482;HW=8.255126E-5	GT:GC	0/0:0.3680
+1	1083877	SNP1-1073740	T	C	.	PASS	AC=0;AF=0.00;AN=2;CR=99.080154;DP=0;GentrainScore=0.7798;HW=1.0	GT:GC	0/0:0.7156
+1	1083950	SNP1-1073813	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.868164;DP=0;GentrainScore=0.7605;HW=0.30343413	GT:GC	0/0:0.7508
+1	1083999	SNP1-1073862	G	T	.	id20	AC=0;AF=0.00;AN=2;CR=99.80126;DP=0;GentrainScore=0.7534;HW=0.005687979	GT:GC	0/0:0.7381
+1	1084179	SNP1-1074042	T	C	.	PASS	AC=0;AF=0.00;AN=2;CR=100.0;DP=0;GentrainScore=0.8402;HW=0.8700284	GT:GC	0/0:0.8721
+1	1084615	SNP1-1074478	T	G	.	PASS	AC=0;AF=0.00;AN=2;CR=99.8002;DP=0;GentrainScore=0.7445;HW=0.8503771	GT:GC	0/0:0.7223
+1	1085156	SNP1-1075019	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.933334;DP=0;GentrainScore=0.6758;HW=0.97896844	GT:GC	0/0:0.5930
+1	1086617	SNP1-1076480	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=100.0;DP=0;GentrainScore=0.8062;HW=1.0	GT:GC	0/0:0.7600
+1	1087255	SNP1-1077118	G	A	.	PASS	AC=0;AF=NaN;AN=0;CR=30.118889;DP=0;GentrainScore=0.0000;HW=4.2785474E-4	GT:GC	./.
+1	1087452	SNP1-1077315	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.73235;DP=0;GentrainScore=0.8220;HW=4.6186155E-8	GT:GC	0/0:0.8479
+1	1087683	rs9442380	T	C	.	PASS	AC=2;AF=1.00;AN=2;CR=99.77337;DP=0;GentrainScore=0.8378;HW=2.1188686E-11	GT:GC	1/1:0.8690
+1	1089699	rs6686003	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.65683;DP=0;GentrainScore=0.8197;HW=1.3519268E-9	GT:GC	0/0:0.8446
+1	1091233	SNP1-1081096	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.933975;DP=0;GentrainScore=0.7041;HW=0.49805853	GT:GC	0/0:0.6470
+1	1092367	SNP1-1082230	C	T	.	PASS	AC=0;AF=0.00;AN=2;CR=99.85617;DP=0;GentrainScore=0.7581;HW=3.3659962E-4	GT:GC	0/0:0.7465
+1	1095130	SNP1-1084993	T	C	.	PASS	AC=0;AF=0.00;AN=2;CR=100.0;DP=0;GentrainScore=0.8830;HW=1.7762411E-4	GT:GC	0/0:0.9204
+1	1097335	rs9442385	T	G	.	PASS	AC=2;AF=1.00;AN=2;CR=99.889626;DP=0;GentrainScore=0.7315;HW=1.2362665E-7	GT:GC	1/1:0.6985
+1	1098421	SNP1-1088284	C	T	.	PASS	AC=2;AF=1.00;AN=2;CR=99.418365;DP=0;GentrainScore=0.7788;HW=1.165633E-6	GT:GC	1/1:0.7819
+1	1099342	rs9660710	A	C	.	PASS	AC=2;AF=1.00;AN=2;CR=99.66906;DP=0;GentrainScore=0.7923;HW=2.0907088E-7	GT:GC	1/1:0.8036
+1	1099437	SNP1-1089300	G	A	.	PASS	AC=0;AF=0.00;AN=2;CR=99.8574;DP=0;GentrainScore=0.7330;HW=4.7366958E-4	GT:GC	0/0:0.7014

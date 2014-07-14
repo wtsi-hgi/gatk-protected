@@ -5,7 +5,7 @@ TEMP_DIR="tmp"
 STAGE_DIR="stage"
 TEMP_MAVEN_REPO="tmp_mvn_repo"
 DESTINATION_DIR="/humgen/gsa-hpprojects/GATK/nightly_builds"
-PACKAGE_OUTPUT_DIR="public/gatk-package/target"
+PACKAGE_OUTPUT_DIR="protected/gatk-package-distribution/target"
 GATKDOCS_PARENT_DIR="target"
 GATKDOCS_DIR="gatkdocs"
 

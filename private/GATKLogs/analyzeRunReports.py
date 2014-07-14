@@ -667,10 +667,12 @@ class InsertRecordIntoTable(SQLRecordHandler):
 
                 return val
 
-            values = [ oneField(field) for field in self.getFields() ]            
+            columns = [ field.replace("-", "_") for field in self.getFields() ]
+            values = [ oneField(field) for field in self.getFields() ]
+            #print >> self.out, "\t".join(columns)
             #print >> self.out, "\t".join(values)
-            
-            self.execute("INSERT INTO " + self.name + " VALUES(" + ", ".join(values) + ")")
+
+            self.execute("INSERT INTO " + self.name + " (" + ", ".join(columns) + ") VALUES(" + ", ".join(values) + ")")
         except Exception, inst:
             print 'Skipping excepting record', id, inst
             if OPTIONS.verbose: 
@@ -678,45 +680,51 @@ class InsertRecordIntoTable(SQLRecordHandler):
                 traceback.print_exception(exc_type, exc_value, exc_traceback)
             pass
 
-DEFAULT_SIZE = 128
-SIZE_OVERRIDES = {
-    "domain-name" : 256, 
-    "exception-class" : 1024, 
-    "exception-at-brief" : 1024, 
-    "stacktrace" : 8192, 
-    "exception-msg" : 2048, 
-    "command-line" : 8192}            
-class SQLSetupTable(SQLRecordHandler):
-    def __init__(self, name, out):
-        SQLRecordHandler.__init__(self, name, out)
-        
-    def initialize(self, args):
-        SQLRecordHandler.initialize(self, args)
-
-        self.execute("DROP TABLE " + self.name)
-        self.execute("CREATE TABLE " + self.name + " (" + ", ".join(map(self.fieldDescription, self.getFields())) + ")")
-        self.execute("CREATE INDEX EndTimeIndex on " + self.name + " (end_time)")
-        # initialize database
-        SQLRecordHandler.finalize(self, args)
-        sys.exit(0)
-
-    def fieldDescription(self, field):
-        desc = field.replace("-", "_")
-
-        size = DEFAULT_SIZE
-        #print 'field', field, SIZE_OVERRIDES
-        if field in SIZE_OVERRIDES:
-            size = SIZE_OVERRIDES[field]
-        desc = desc + " VARCHAR(%d)" % size
-
-        if field == "id":
-            desc = desc + " PRIMARY KEY"
-
-        return desc
+# NOTE: This setup does not properly handle the insert_time_utc column, used for tableau incremental updates.
+# The indexed column is not populated by this script, but by a trigger, that must be installed by a superuser.
+#
+# DEFAULT_SIZE = 128
+# SIZE_OVERRIDES = {
+#     "domain-name" : 256,
+#     "exception-class" : 1024,
+#     "exception-at-brief" : 1024,
+#     "stacktrace" : 8192,
+#     "exception-msg" : 2048,
+#     "command-line" : 8192}
+# class SQLSetupTable(SQLRecordHandler):
+#     def __init__(self, name, out):
+#         SQLRecordHandler.__init__(self, name, out)
+#
+#     def initialize(self, args):
+#         SQLRecordHandler.initialize(self, args)
+#
+#         self.execute("DROP TABLE " + self.name)
+#         self.execute("CREATE TABLE " + self.name + " (" + ", ".join(map(self.fieldDescription, self.getFields())) + ")")
+#         self.execute("CREATE INDEX EndTimeIndex on " + self.name + " (end_time)")
+#
+#         # initialize database
+#         SQLRecordHandler.finalize(self, args)
+#         sys.exit(0)
+#
+#
+#     def fieldDescription(self, field):
+#         desc = field.replace("-", "_")
+#
+#         size = DEFAULT_SIZE
+#         #print 'field', field, SIZE_OVERRIDES
+#         if field in SIZE_OVERRIDES:
+#             size = SIZE_OVERRIDES[field]
+#         desc = desc + " VARCHAR(%d)" % size
+#
+#         if field == "id":
+#             desc = desc + " PRIMARY KEY"
+#
+#         return desc
+#
+# addHandler('setupDB', SQLSetupTable)
 
 addHandler('loadToDB', InsertRecordIntoTable)
-addHandler('setupDB', SQLSetupTable)
-        
+
 #
 # utilities
 #
