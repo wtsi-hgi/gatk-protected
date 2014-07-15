@@ -47,6 +47,7 @@
 package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
 import htsjdk.samtools.SAMFileReader;
+import htsjdk.variant.variantcontext.GenotypeType;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
@@ -58,6 +59,7 @@ import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.SiteIterator;
 import org.broadinstitute.gatk.utils.commandline.*;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.variant.GATKVCFUtils;
 import org.broadinstitute.gatk.utils.variant.HomoSapiensConstants;
 
@@ -106,6 +108,9 @@ public class AssessNA12878 extends NA12878DBWalker {
 
     @Argument(fullName="inputPloidy", shortName = "ploidy", doc="Indicates the ploidy used to make the input calls; this is useful when evaluating Omniploidy call-sets. When provided, it must be 1 or greater", required=false, minValue = 1.0)
     public int inputPloidy = HomoSapiensConstants.DEFAULT_PLOIDY;
+
+    @Argument(fullName="genotypeTypesToInclude", shortName="gtType", doc="Genotype types to report on (HET, HOM_VAR, HOM_REF, NO_CALL or MIXED). By default all GT types are considered", required = false)
+    final List<GenotypeType> genotypeTypesToInclude = new ArrayList<>();
 
     /**
      * An output VCF file containing the bad sites (FN/FP) that were found in the input callset w.r.t. the current NA12878 knowledge base
@@ -204,12 +209,16 @@ public class AssessNA12878 extends NA12878DBWalker {
         if ( ignoreAllFilters )
             filtersToIgnore.add(Assessor.WILDCARD_FILTER_NAME);
 
+        if (inputPloidy < 1)
+            throw new UserException.BadArgumentValue("ploidy","it must be greater than 0: " + inputPloidy);
+
         // set up assessors for each rod binding
         for ( final RodBinding<VariantContext> rod : variants ) {
             final String rodName = rod.getName();
             final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, sitesWriter, bamReader,
                     minDepthForLowCoverage, minPNonRef, minGQ, filtersToIgnore);
             assessor.setInputPloidy(inputPloidy);
+            assessor.setGenotypeTypesToConsider(genotypeTypesToInclude);
             assessors.put(rodName, assessor);
         }
     }

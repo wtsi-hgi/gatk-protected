@@ -112,6 +112,7 @@ public class Assessor {
 
     Assessment SNPAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
     Assessment IndelAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
+    private Set<GenotypeType> genotypeTypesToConsider = Collections.EMPTY_SET;
 
 
     /**
@@ -177,8 +178,8 @@ public class Assessor {
      * @param ploidy the new ploidy.
      */
     public void setInputPloidy(final int ploidy) {
-        if (ploidy < 1)
-            throw new IllegalArgumentException("input ploidy must 1 or greater");
+        if (ploidy <= 0)
+            throw new IllegalArgumentException("input ploidy must be 1 or greater");
         inputPloidy = ploidy;
     }
 
@@ -485,6 +486,10 @@ public class Assessor {
         final boolean consensusTP = consensusSite != null && !excludeConsensusSite(consensusSite) && consensusSite.getType().isTruePositive()
                 && !consensusSite.getPolymorphicStatus().isMonomorphic(); // discordant genotypes should be allowed through (since it means at least one call must be polymorphic)
         final boolean consensusFP = consensusSite != null && !excludeConsensusSite(consensusSite) && consensusSite.getType().isFalsePositive();
+        final boolean monoInNA12878 = consensusSite != null && consensusSite.getType().isTruePositive() && consensusSite.getPolymorphicStatus().isMonomorphic();
+
+        if (!genotypeTypeIsRelevant(call,consensusSite,consensusFP,consensusTP,monoInNA12878))
+            return AssessmentType.NOT_RELEVANT;
 
         if ( call != null ) {
             if ( consensusTP ) {
@@ -496,7 +501,7 @@ public class Assessor {
                     //return AssessmentType.FALSE_NEGATIVE_CALLED_BUT_WOULD_BE_FILTERED;
                 else
                     return AssessmentType.TRUE_POSITIVE;
-            } else if (consensusSite != null && consensusSite.getType().isTruePositive() && consensusSite.getPolymorphicStatus().isMonomorphic() ) {
+            } else if ( monoInNA12878 ) {
                 return AssessmentType.FALSE_POSITIVE_MONO_IN_NA12878;
             } else if ( consensusFP ) {
                 if ( isNotUsableCall(call) )
@@ -513,9 +518,7 @@ public class Assessor {
                 return AssessmentType.NOT_RELEVANT;
             }
         } else if ( consensusTP ) { // call == null
-            // if it's a complex event, just ignore it (because we may have called it with a different representation in the VCF)
-            // if ploidy is unknown or less than 2 (haploid), it might be ok to miss heterozygous calls.
-            if ( okayToMiss || consensusSite.isComplexEvent() || (inputPloidy < 2 && consensusSite.getGt().isHeterozygous()) )
+            if ( okayToMiss || consensusSite.isComplexEvent() )
                 return AssessmentType.NOT_RELEVANT;
 
             if ( bamReader != null ) {
@@ -530,6 +533,39 @@ public class Assessor {
         } else {
             return AssessmentType.NOT_RELEVANT;
         }
+    }
+
+    /**
+     * Determines if the site is relevant considering the genotype types of interest.
+     *
+     * <p>
+     *     The type is determined, first by the KB consensus call or the input only if there is no call from KB
+     *     (most likely resulting an CALLED_NOT_IN_DB). A KB consensus call must be deemed TP, FP or MONO in NA12878 (another form of FP) to be considered at this point.
+     * </p>
+     * <p>
+     * By neither KB nor the input contain a genotype on NA12878 the site is considered relevant.
+     * </p>
+     *
+     * @param call the input call.
+     * @param consensusSite the KB call.
+     * @param consensusFP whether the consensus call is a FP. If consensusSite is {@code null}, this value is undefined and irrelevant.
+     * @param consensusTP whether the consensus call is a TP. If consensusSite is {@code null}, this value is undefined and irrelevant.
+     * @param monoInNA12878 whether the consensus call is a MONO (HOM_REF) in NA12878.
+     *
+     * @throws IllegalArgumentException if {@code consensusSite} is not {@code null} and marked as TP, FP simultaneously.
+     *
+     * @return {@code true} if the site is relevant based on the genotype type, false otherwise.
+     */
+    private boolean genotypeTypeIsRelevant(final VariantContext call, final MongoVariantContext consensusSite, final boolean consensusFP, final boolean consensusTP, final boolean monoInNA12878) {
+        if (consensusSite != null && consensusFP && consensusTP)
+            throw new IllegalArgumentException("the consensus call cannot be TP and FP at the same time!!!");
+        if (genotypeTypesToConsider.isEmpty()) // no explicit types means every type is relevant.
+            return true;
+        if (monoInNA12878)
+            return genotypeTypesToConsider.contains(GenotypeType.HOM_REF);
+        if ((consensusFP || consensusTP))  // the type of the KB call takes preference.
+            return genotypeTypesToConsider.contains(consensusTP ? consensusSite.getGt().getType() : GenotypeType.HOM_REF);
+        return call == null || !call.hasGenotype("NA12878") || genotypeTypesToConsider.contains(call.getGenotype("NA12878").getType());
     }
 
     private boolean isNotUsableCall(final VariantContext vc) {
@@ -637,4 +673,15 @@ public class Assessor {
             return FS > 200 || QD < 2;
         }
     }
+
+    /**
+     * Genotype types to consider for evaluation.
+     *
+     * @param types the types to consider. An empty collection that are types are to be considered.
+     */
+    public void setGenotypeTypesToConsider(final Collection<GenotypeType> types) {
+        this.genotypeTypesToConsider = types.isEmpty() ? Collections.EMPTY_SET : new HashSet<>(types);
+    }
+
+
 }

@@ -47,10 +47,7 @@
 package org.broadinstitute.gatk.tools.walkers.na12878kb.core;
 
 import com.mongodb.ReflectionDBObject;
-import htsjdk.variant.variantcontext.Allele;
-import htsjdk.variant.variantcontext.Genotype;
-import htsjdk.variant.variantcontext.GenotypeBuilder;
-import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.variantcontext.*;
 
 import java.util.Arrays;
 import java.util.List;
@@ -86,6 +83,7 @@ public class MongoGenotype extends ReflectionDBObject {
     int allele1 = -1, allele2 = -1;
     int GQ = -1;
     int DP = -1;
+    private GenotypeType type;
 
     public static Genotype create(final VariantContext vc, int allele1, int allele2) {
         return new MongoGenotype(allele1, allele2).toGenotype(vc.getAlleles());
@@ -285,5 +283,23 @@ public class MongoGenotype extends ReflectionDBObject {
         result = 31 * result + GQ;
         result = 31 * result + DP;
         return result;
+    }
+
+    /**
+     * Returns the corresponding genotype-type.
+     *
+     * It follows the same definition as in {@link Genotype#getType()}.
+     *
+     * @return never {@code null}.
+     */
+    public GenotypeType getType() {
+        if (allele1 == -1)
+            return allele2 == -1 ? GenotypeType.NO_CALL : GenotypeType.MIXED;
+        else if (allele2 == -1)
+            return GenotypeType.MIXED;
+        else if (allele1 == allele2)
+            return allele1 == 0 ? GenotypeType.HOM_REF : GenotypeType.HOM_VAR;
+        else
+            return GenotypeType.HET;
     }
 }
