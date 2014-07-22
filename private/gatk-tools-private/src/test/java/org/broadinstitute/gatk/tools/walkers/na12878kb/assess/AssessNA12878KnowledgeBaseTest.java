@@ -46,11 +46,14 @@
 
 package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
+import htsjdk.variant.variantcontext.Genotype;
+import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.vcf.VCFFileReader;
 import org.broadinstitute.gatk.engine.walkers.WalkerTest;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.text.XReadLines;
-import org.testng.annotations.Test;
 import org.testng.Assert;
+import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -92,4 +95,123 @@ public class AssessNA12878KnowledgeBaseTest extends WalkerTest {
             throw new UserException.CouldNotReadInputFile(report, e);
         }
     }
+
+    @Test
+    public void testHetGenotypeType() {
+        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
+                baseCommand + " -V " + privateTestDir + "empty.vcf -L " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -badSites %s -gtType HET",
+                2,
+                Arrays.asList("",""));  // No MD5s; we only want to check on the bad-sites output
+        spec.disableShadowBCF();
+        final File badSiteFile = executeTest("test -gtType HET", spec).first.get(1);
+        final VCFFileReader badSitesReader = new VCFFileReader(badSiteFile);
+
+        try {
+            for (final VariantContext vc : badSitesReader) {
+                final Genotype genotype = vc.getGenotype(0);
+                final AssessmentType why = AssessmentType.valueOf(vc.getAttributeAsString("WHY", "NOT_RELEVANT"));
+                switch (why) {
+                    case GENOTYPE_DISCORDANCE:
+                        final String expectedGenotype = vc.getAttributeAsString("ExpectedGenotype","missing");
+                        if (expectedGenotype.equals("missing"))
+                            Assert.fail("Missing expected genotype in " + vc.toString());
+                        else
+                            Assert.assertEquals(expectedGenotype,"0/1");
+                        break;
+                    case FALSE_NEGATIVE:
+                    case FALSE_NEGATIVE_CALLED_BUT_FILTERED:
+                    case FALSE_NEGATIVE_NOT_CALLED_BUT_LOW_COVERAGE:
+                    case FALSE_NEGATIVE_NOT_CALLED_AT_ALL:
+                        Assert.assertTrue(genotype.isHet());
+                        break;
+                    case REASONABLE_FILTERS_WOULD_FILTER_FP_SITE:
+                    case CALLED_IN_DB_UNKNOWN_STATUS:
+                    case CALLED_NOT_IN_DB_AT_ALL:
+                    case TRUE_POSITIVE:
+                        Assert.assertTrue(genotype.isHet());
+                        break;
+                    case CORRECTLY_UNCALLED:
+                        Assert.fail();
+                    case CORRECTLY_FILTERED:
+                    case TRUE_NEGATIVE: // make no sense here... but it won't be a problem with the functionality being tested.
+                    case NOT_RELEVANT:  // ignore
+                }
+            }
+        } finally {
+            badSitesReader.close();
+        }
+    }
+
+    @Test
+    public void testHomVarGenotypeType() {
+        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
+                baseCommand + " -V " + privateTestDir + "empty.vcf -L " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -badSites %s -gtType HOM_VAR",
+                2,
+                Arrays.asList("",""));  // No MD5s; we only want to check on the bad-sites output
+        spec.disableShadowBCF();
+        final File badSiteFile = executeTest("test -gtType HET", spec).first.get(1);
+        final VCFFileReader badSitesReader = new VCFFileReader(badSiteFile);
+
+        try {
+            for (final VariantContext vc : badSitesReader) {
+                final Genotype genotype = vc.getGenotype(0);
+                final AssessmentType why = AssessmentType.valueOf(vc.getAttributeAsString("WHY", "NOT_RELEVANT"));
+                switch (why) {
+                    case GENOTYPE_DISCORDANCE:
+                        final String expectedGenotype = vc.getAttributeAsString("ExpectedGenotype","missing");
+                        if (expectedGenotype.equals("missing"))
+                            Assert.fail("Missing expected genotype in " + vc.toString());
+                        else
+                            Assert.assertEquals(expectedGenotype,"1/1", "" + vc);
+                        break;
+                    case FALSE_NEGATIVE:
+                    case FALSE_NEGATIVE_CALLED_BUT_FILTERED:
+                    case FALSE_NEGATIVE_NOT_CALLED_BUT_LOW_COVERAGE:
+                    case FALSE_NEGATIVE_NOT_CALLED_AT_ALL:
+                        Assert.assertTrue(genotype.isHomVar(),"" + vc);
+                        break;
+                    case REASONABLE_FILTERS_WOULD_FILTER_FP_SITE:
+                    case CALLED_IN_DB_UNKNOWN_STATUS:
+                    case CALLED_NOT_IN_DB_AT_ALL:
+                    case TRUE_POSITIVE:
+                        Assert.assertTrue(genotype.isHomVar(),"" + vc);
+                        break;
+                    case CORRECTLY_UNCALLED:
+                        Assert.fail();
+                    case CORRECTLY_FILTERED:
+                    case TRUE_NEGATIVE: // make no sense here... but it won't be a problem with the functionality being tested.
+                    case NOT_RELEVANT:  // ignore
+                }
+            }
+        } finally {
+            badSitesReader.close();
+        }
+    }
+
+    @Test
+    public void testHomRefGenotypeType() {
+        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
+                baseCommand + " -V " + privateTestDir + "empty.vcf -L " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -badSites %s -gtType HOM_REF",
+                2,
+                Arrays.asList("",""));  // No MD5s; we only want to check on the bad-sites output
+        spec.disableShadowBCF();
+        final File badSiteFile = executeTest("test -gtType HET", spec).first.get(1);
+        final VCFFileReader badSitesReader = new VCFFileReader(badSiteFile);
+
+        try {
+            for (final VariantContext vc : badSitesReader) {
+                final AssessmentType why = AssessmentType.valueOf(vc.getAttributeAsString("WHY", "NOT_RELEVANT"));
+                switch (why) {
+                    case FALSE_POSITIVE:
+                    case FALSE_POSITIVE_SITE_IS_FP:
+                        // good.
+                    default:
+                        Assert.fail("there must be no calls nor TP in NA12878 when we ask for HOM_REF calls");
+                }
+            }
+        } finally {
+            badSitesReader.close();
+        }
+    }
+
 }
