@@ -135,7 +135,7 @@ public class SliceBams extends CommandLineProgram {
     /** Combines multiple SAM/BAM files into one. */
     @Override
 	protected int doWork() {
-        SAMFileReader.setDefaultValidationStringency(SAMFileReader.ValidationStringency.SILENT);
+        SAMFileReader.setDefaultValidationStringency(ValidationStringency.SILENT);
         SAMFileWriterFactory.setDefaultCreateIndexWhileWriting(true);
 
         // Open the files for reading and writing
