@@ -48,6 +48,7 @@ package org.broadinstitute.gatk.tools;
 
 import htsjdk.samtools.SAMFileReader;
 import htsjdk.samtools.SAMRecord;
+import htsjdk.samtools.ValidationStringency;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.CommandLineProgram;
 
@@ -80,7 +81,7 @@ public class CompareBAMAlignments extends CommandLineProgram {
             for ( String filename : filenames ) {
                 final File file = new File(filename);
                 SAMFileReader reader = new SAMFileReader(file);
-                reader.setValidationStringency(SAMFileReader.ValidationStringency.SILENT);
+                reader.setValidationStringency(ValidationStringency.SILENT);
                 readers.add(reader.iterator());
             }
 

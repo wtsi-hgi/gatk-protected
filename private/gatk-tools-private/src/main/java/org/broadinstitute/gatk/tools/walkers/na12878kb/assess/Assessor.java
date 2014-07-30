@@ -50,6 +50,7 @@ import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
 import htsjdk.samtools.SAMFileReader;
 import htsjdk.samtools.SAMRecord;
+import htsjdk.samtools.ValidationStringency;
 import htsjdk.samtools.filter.FilteringIterator;
 import htsjdk.samtools.util.CloseableIterator;
 import htsjdk.variant.variantcontext.Allele;
@@ -592,7 +593,7 @@ public class Assessor {
     public static SAMFileReader makeSAMFileReaderForDoCInBAM(final File bam) {
         final SAMFileReader bamReader = new SAMFileReader(bam);
         bamReader.setSAMRecordFactory(new GATKSamRecordFactory());
-        bamReader.setValidationStringency(SAMFileReader.ValidationStringency.SILENT);
+        bamReader.setValidationStringency(ValidationStringency.SILENT);
         return bamReader;
     }
 
