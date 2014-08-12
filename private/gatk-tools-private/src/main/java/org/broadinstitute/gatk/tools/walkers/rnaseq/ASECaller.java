@@ -49,155 +49,166 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.queue.qscripts.tecdev
+package org.broadinstitute.gatk.tools.walkers.rnaseq;
 
-import org.broadinstitute.gatk.queue.QScript
-import org.broadinstitute.gatk.queue.extensions.gatk._
-import org.broadinstitute.gatk.queue.function.RetryMemoryLimit
+import htsjdk.variant.variantcontext.Genotype;
+import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.gatk.engine.walkers.RodWalker;
+import org.broadinstitute.gatk.tools.walkers.annotator.FisherStrand;
+import org.broadinstitute.gatk.utils.QualityUtils;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.Input;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.utils.commandline.RodBinding;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 
-class RNAseqSingleSampleVaraintCallingScript extends QScript{
-  qscript =>
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
-  @Argument(shortName="out", doc="output file", required=true)
-  var out: String = _
-  @Argument(shortName="R", doc="ref file", required=true)
-  var ref: String = _
-  @Argument(shortName="I", doc="bam file", required=true)
-  var bam: String = _
-  @Argument(shortName="interval", doc="interval file", required=false)
-  var intervalString: List[String] = List()
-  @Argument(shortName="isr", doc="interval set rule", required=false)
-  var intervalSetRule: org.broadinstitute.gatk.utils.interval.IntervalSetRule = org.broadinstitute.gatk.utils.interval.IntervalSetRule.UNION
-  @Argument(shortName="intervalFile", doc="interval file", required=false)
-  var intervalFiles: List[File] = List()
-  @Argument(shortName="sc", doc="scatter count", required=false)
-  var jobs: Int = 100
-  @Argument(shortName="dr", doc="downsampling", required=false)
-  var downsampling: Int = 250
-  @Argument(shortName = "stand_call_conf", doc= "standard min confidence threshold for calling", required = false)
-  var stand_call_conf: Double = 20
-  @Argument(shortName = "stand_emit_conf", doc= "standard min confidence threshold for emitting", required = false)
-  var stand_emit_conf: Double = 20
-  @Argument(shortName = "dontUseSC", doc= "do not use the soft clipped bases in HC", required = false)
-  var doNotUseSoftClippedBases = false
-  @Argument(shortName = "headMerging", doc= "recover Dangling Heads (for RNAseq data)", required = false)
-  var recoverDanglingHeads = false
-  @Argument(shortName = "assess", doc="run AssessNA12878 on the VCF files", required = false)
-  var assessNA12878 = false
-  @Argument(shortName = "hc", doc="run HC", required = false)
-  var useHC = true
-  @Argument(shortName = "ug", doc="run UG", required = false)
-  var useUG = false
-  @Argument(shortName = "gvcf", doc= "run HC in gVCF mode", required = false)
-  var useGVCF = false
-  @Argument(shortName = "perBase", doc= "run HC in perBase gvcf output", required = false)
-  var perBase = false
+/**
+ * Created by ami on 8/6/14.
+ */
+public class ASECaller extends RodWalker<Integer, Integer> {
 
 
-//  trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
-//    memoryLimit = 2
-//    //this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
-//
-//  }
+    @Input(fullName="dnaVariant", shortName = "dna", doc="Input DNA VCF file", required=true)
+    public RodBinding<VariantContext> dnaVariants;
 
-  def script = {
+    @Input(fullName="rnaVariant", shortName = "rna", doc="Input RNA VCF file", required=true)
+    public RodBinding<VariantContext> rnaVariants;
 
-      val hc = new hc_rnaMode(new File(qscript.out + ".hc.vcf"))
-      val hc_filter = new filter(hc.out, swapExt(hc.out, ".vcf", ".hardFiltered.vcf"))
+    @Output(doc="File to which all variants with allele specific expression should be written")
+    protected VariantContextWriter vcfWriter = null;
 
-    if(useHC) {
-      add(hc)
-      add(hc_filter)
+    @Argument(fullName = "sampleName", shortName = "sn", doc = "sample of interest", required = false)
+    protected String sampleName = "NA12878";
+
+    @Argument(fullName = "emitGQdifferances", shortName = "GQdiff", doc = "only emit sites where the different between the QC is higher then this threshold; default 0 ", required = false)
+    protected int gqDiff = 0;
+
+    @Argument(fullName = "emitQDdifferances", shortName = "GDdiff", doc = "only emit sites where QD is not more then X times the other QD this threshold; default 2  ", required = false)
+    protected int dpDiff = 2;
+
+    @Argument(fullName = "minGQ", shortName = "minGQ", doc = "only emit sites where both GQ is at least this threshold; default 20  ", required = false)
+    protected int minGQ = 20;
+
+    @Argument(fullName = "onlyHet", shortName = "het", doc = "only emit sites where the genotype is het; default true  ", required = false)
+    protected boolean onlyHet = true;
+
+    @Argument(fullName = "differentGenotypes", shortName = "diffGenotype", doc = "emit also sites where the genotypes are different; default true  ", required = false)
+    protected boolean diffGenotypes = true;
+
+    private static final double MIN_PVALUE = 1E-320;
+
+
+    public void initialize() {
+       //todo get a header
     }
 
-      val ug = new ug_rnaMode(new File(qscript.out + ".ug.vcf"))
-      val ug_filter = new filter(ug.out, swapExt(ug.out, ".vcf", ".hardFiltered.vcf"))
+    @Override
+    public Integer map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
+        if ( tracker == null )
+            return 0;
 
-    if(useUG) {
-      add(ug)
-      add(ug_filter)
+        final String contig = context.getLocation().getContig();
+        final long position = context.getPosition();
+
+        List<RodBinding<VariantContext>> vatiants = new ArrayList<>();
+        vatiants.add(dnaVariants);
+        vatiants.add(rnaVariants);
+        Collection<VariantContext> vcs = tracker.getValues(vatiants, context.getLocation());
+        int numOfVCs = vcs.size();
+        if (numOfVCs == 0) {
+            logger.warn(contig+ ":"+position+" does not contain any VC");
+            return 0;
+        }
+        if (numOfVCs > 2)
+            logger.warn(contig+":"+position+" has more then 2 VC");
+        if(numOfVCs == 1) {
+            logger.warn(contig + ":" + position + " has only one VC");
+            return 0;
+        }
+        VariantContext dnaVC = null, rnaVC= null;
+        int countVC = 1;
+        for(final VariantContext vc : vcs){
+            if (numOfVCs == 2 && countVC == 1)
+                dnaVC = vc;
+            else if (numOfVCs == 2 && countVC == 2)
+                rnaVC = vc;
+            else{
+                logger.warn(contig+":"+position+" strange number of VC: "+vc);
+            }
+            countVC++;
+        }
+        if(numOfVCs > 2)
+            return 0;
+
+        Genotype dnaGenotype, rnaGenotype;
+        int dnaDP, rnaDP;
+        int[] dnaADs, rnaADs;
+        double dnaGQ, rnaGQ;
+        if(dnaVC != null && dnaVC.hasGenotype(sampleName)) {
+            dnaGenotype = dnaVC.getGenotype(sampleName);
+            dnaDP = dnaGenotype.getDP();
+            dnaGQ = dnaGenotype.getGQ();
+            dnaADs = dnaGenotype.getAD();
+        }
+        else
+            throw new UserException("no dna genotype or no matching sample name for "+sampleName);
+
+        if(rnaVC != null && rnaVC.hasGenotype(sampleName)) {
+            rnaGenotype = rnaVC.getGenotype(sampleName);
+            rnaDP = rnaGenotype.getDP();
+            rnaGQ = rnaGenotype.getGQ();
+            rnaADs = rnaGenotype.getAD();
+        }
+        else
+            throw new UserException("no rna genotype or no matching sample name for "+sampleName);
+
+        if(dnaGenotype.sameGenotype(rnaGenotype) ){//&& dnaGQ >= minGQ && rnaGQ >= minGQ && (dnaDP/rnaDP) < dpDiff && (dnaDP/rnaDP) > 1/ dpDiff && (dnaGQ - rnaGQ > gqDiff || dnaGQ - rnaGQ < -gqDiff)) {
+            if (!onlyHet || dnaGenotype.isHet()) {
+                //if(dnaGQ >= lowDnaGQ){
+                //    System.out.println("different genotype: possible ASE: " + contig + ":" + position + "\t" + dnaGenotype.toString() + "\t" + rnaGenotype.toString());
+                //}
+
+                int[][] table = new int[2][2];
+                table[0][0] = dnaADs[0];
+                table[0][1] = dnaADs[1];
+                table[1][0] = rnaADs[0];
+                table[1][1] = rnaADs[1];
+                double pValue = FisherStrand.pValueForContingencyTable(table);
+                final Object value = String.format("%.3f", QualityUtils.phredScaleErrorRate(Math.max(pValue, MIN_PVALUE)));
+                double dnaRatio = (double)(dnaADs[0])/(dnaADs[1]+dnaADs[0]);
+                double rnaRatio = (double)(rnaADs[0])/(rnaADs[1]+rnaADs[0]);
+                System.out.println("same genotype: " + contig + ":" + position + "\t" + dnaGenotype.toString() + "\t" + rnaGenotype.toString() +"\t"+dnaRatio+"\t"+rnaRatio+"\t"+value);
+            }
+        }
+
+        if(!dnaGenotype.sameGenotype(rnaGenotype) && diffGenotypes && dnaGQ >= minGQ && rnaGQ >= minGQ) {
+            if(rnaGenotype.isHomVar() && dnaGenotype.isHet())
+                System.out.println("different genotype: possible ASE: " + contig + ":" + position + "\t" + dnaGenotype.toString() + "\t" + rnaGenotype.toString());
+            else if(dnaGenotype.isHomRef() && !rnaGenotype.isHomRef())
+                System.out.println("different genotype: possible RNA editing: " + contig + ":" + position + "\t" + dnaGenotype.toString() + "\t" + rnaGenotype.toString());
+            else
+                System.out.println("different genotype: unknown case: " + contig + ":" + position + "\t" + dnaGenotype.toString() + "\t" + rnaGenotype.toString());
+        }
+        return 1;
+
+
     }
 
-    if(assessNA12878){
-      val hc_assess = new assess(hc_filter.out)
-      add(hc_assess)
-      val ug_assess = new assess(ug_filter.out)
-      add(ug_assess)
+    @Override
+    public Integer reduceInit() {
+        return null;
     }
-  }
 
-  case class assess (inVCF: File) extends AssessNA12878{
-    this.memoryLimit = 2
-    this.variant :+= inVCF
-    this.reference_sequence = new File(qscript.ref)
-    this.intervalsString :+= "20:10000000-24000000"
-    this.intervals :+= new File("/seq/references/HybSelOligos/whole_exome_illumina_coding_v1/whole_exome_illumina_coding_v1.Homo_sapiens_assembly19.targets.interval_list")
-    this.excludeIntervals :+= new File("/humgen/gsa-hpprojects/NA12878Collection/knowledgeBase/complexRegions.doNotAssess.interval_list")
-    this.detailed = true
-    this.allSites = true
-    this.badSites = new File("allSites."+inVCF.getName())
-    this.BAM = qscript.bam
-    this.o = new File ("assess."+swapExt(inVCF,".vcf",".txt").getName())
-  }
-
-  case class filter (inVCF: File, outVCF: File) extends VariantFiltration{
-    this.memoryLimit = 4
-    this.reference_sequence = new File(qscript.ref)
-    this.intervalsString = qscript.intervalString
-    this.interval_set_rule = qscript.intervalSetRule
-    this.intervals = qscript.intervalFiles
-    this.variant = inVCF
-    this.out = outVCF
-    this.analysisName = "VarinatFiltration"
-    this.filterName = Seq("FS","QD")
-    this.filterExpression = Seq("FS > 30.0", "QD < 2.0")
-    this.clusterWindowSize = 35
-    this.clusterSize = 3
-  }
-  
-  case class ug_rnaMode(outVCF: File) extends UnifiedGenotyper {
-    this.memoryLimit = 2
-    this.reference_sequence = new File(qscript.ref)
-    this.intervalsString = qscript.intervalString
-    this.interval_set_rule = qscript.intervalSetRule
-    this.intervals = qscript.intervalFiles
-    this.scatterCount = qscript.jobs
-    this.input_file :+= new File(qscript.bam)
-    this.out = outVCF
-    this.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
-    this.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
-    this.analysisName = "UnifiedGenotyper"
-    this.stand_call_conf = qscript.stand_call_conf
-    this.stand_emit_conf = qscript.stand_emit_conf  
-  }
-
-  
-  
-  case class hc_rnaMode(outVCF: File) extends HaplotypeCaller with RetryMemoryLimit{
-    this.memoryLimit = 4
-    this.reference_sequence = new File(qscript.ref)
-    this.intervalsString = qscript.intervalString
-    this.interval_set_rule = qscript.intervalSetRule
-    this.intervals = qscript.intervalFiles
-    this.scatterCount = qscript.jobs
-    this.input_file :+= new File(qscript.bam)
-    this.out = outVCF
-    this.downsample_to_coverage = qscript.downsampling
-    if (qscript.doNotUseSoftClippedBases)
-      this.dontUseSoftClippedBases = true
-    if (qscript.recoverDanglingHeads)
-      this.recoverDanglingHeads = true
-    if (qscript.useGVCF){
-      this.emitRefConfidence = org.broadinstitute.gatk.tools.walkers.haplotypecaller.ReferenceConfidenceMode.GVCF
-      this.variant_index_type = org.broadinstitute.gatk.utils.variant.GATKVCFIndexType.LINEAR
-      this.variant_index_parameter = 128000
-      if(perBase)
-        this.emitRefConfidence = org.broadinstitute.gatk.tools.walkers.haplotypecaller.ReferenceConfidenceMode.BP_RESOLUTION
+    @Override
+    public Integer reduce(Integer value, Integer sum) {
+        return null;
     }
-    this.analysisName = "HaplotypeCaller"
-    this.stand_call_conf = qscript.stand_call_conf
-    this.stand_emit_conf = qscript.stand_emit_conf
-    this.isIntermediate = false
-  }
 }
-
