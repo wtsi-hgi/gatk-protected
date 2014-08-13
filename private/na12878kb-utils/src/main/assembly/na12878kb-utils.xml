@@ -10,16 +10,13 @@
             <unpack>true</unpack>
             <unpackOptions>
                 <includes>
-                    <include>org/broadinstitute/gatk/utils/GenomeLocParser*.class</include>
-                    <include>org/broadinstitute/gatk/utils/GenomeLoc.class</include>
-                    <include>org/broadinstitute/gatk/utils/HasGenomeLocation.class</include>
-                    <include>org/broadinstitute/gatk/utils/BaseUtils*.class</include>
-                    <include>org/broadinstitute/gatk/utils/Utils.class</include>
-                    <include>org/broadinstitute/gatk/utils/MRUCaching*.class</include>
-                    <include>org/broadinstitute/gatk/utils/exceptions/**/*.class</include>
-                    <include>org/broadinstitute/gatk/gatk/walkers/na12878kb/core/**/*.class</include>
-                    <include>net/sf/picard/reference/FastaSequenceFile.class</include>
-                    <include>org/broadinstitute/gatk/gatk/walkers/na12878kb/core/resources/**/*</include>
+                    <include>org/broadinstitute/gatk/tools/*.class</include>
+                    <include>org/broadinstitute/gatk/utils/**/*.class</include>
+                    <include>htsjdk/samtools/GATK*.class</include>
+                    <include>htsjdk/samtools/PicardNamespaceUtils.class</include>
+                    <include>org/broadinstitute/gatk/tools/walkers/na12878kb/core/**/*.class</include>
+                    <include>htsjdk/samtools/reference/FastaSequenceFile.class</include>
+                    <include>org/broadinstitute/gatk/tools/walkers/na12878kb/core/resources/**/*</include>
                 </includes>
             </unpackOptions>
         </dependencySet>
