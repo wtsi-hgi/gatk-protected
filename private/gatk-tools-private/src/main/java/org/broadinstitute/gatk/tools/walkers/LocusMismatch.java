@@ -102,7 +102,7 @@ public class LocusMismatch extends LocusWalker<String,Integer> implements TreeRe
     public void initialize() {
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
         uac.outputMode = OutputMode.EMIT_ALL_SITES;
-        ug = new UnifiedGenotypingEngine(getToolkit(), uac);
+        ug = new UnifiedGenotypingEngine(uac,getToolkit());
 
         // print the header
         out.printf("loc ref genotype genotypeQ depth nMM qSumMM A C G T%n");
