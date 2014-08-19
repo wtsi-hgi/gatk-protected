@@ -47,6 +47,9 @@
 package org.broadinstitute.gatk.tools.walkers.qc;
 
 import htsjdk.samtools.SAMReadGroupRecord;
+import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
+import org.broadinstitute.gatk.tools.walkers.genotyper.IndexedSampleList;
+import org.broadinstitute.gatk.tools.walkers.genotyper.SampleList;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Input;
 import org.broadinstitute.gatk.utils.commandline.Output;
@@ -174,7 +177,9 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
     private File moltenDatasetFileName;
 
     PrintStream moltenDataset;
-    Set<String> samples;
+
+    private SampleList samples;
+
     String SCRIPT_FILE = "CalibrateGenotypeLikelihoods.R";
 
     /**
@@ -246,24 +251,17 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         } catch (FileNotFoundException e) {
             throw new UserException.CouldNotCreateOutputFile(moltenDatasetFileName, e);
         }
+
+        final GenomeAnalysisEngine toolkit = getToolkit();
         
         // Get the samples from the VCF file
-        Set<String> vcfSamples = null;
-        List<ReferenceOrderedDataSource> rods = getToolkit().getRodDataSources();
-        for (ReferenceOrderedDataSource rod : rods) {
-            VCFHeader header =  (VCFHeader) rod.getHeader();
-            vcfSamples = new HashSet<String>();
-            vcfSamples.addAll(header.getGenotypeSamples());
-        }
+        final Set<String> vcfSamples = new HashSet<>();
+        final List<ReferenceOrderedDataSource> rods = toolkit.getRodDataSources();
 
-        // Get the samples from the BAM file
-        if( externalLikelihoods.isEmpty() ) {
-            samples = SampleUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
-            if (samples.isEmpty())
-                throw new UserException.BadInput("Bam file has no samples in the ReadGroup tag");
-            logger.info("Samples in your BAM file: " + samples);
-        } else {
-            samples = vcfSamples;
+        for (final ReferenceOrderedDataSource rod : rods) {
+            final VCFHeader header =  (VCFHeader) rod.getHeader();
+            vcfSamples.clear();
+            vcfSamples.addAll(header.getGenotypeSamples());
         }
 
         // Assert that the user provided a VCF (not some other tribble format)
@@ -274,23 +272,23 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         if (vcfSamples.isEmpty())
             throw new UserException.MalformedVCFHeader("The VCF must have samples so we can find the correct genotype for the samples in the BAM file");
 
-        // This is the list of samples represented in both the BAM and the VCF
-        vcfSamples.retainAll(samples);
-
-        // An empty list means the VCF doesn't have any samples from the BAM file
-        if (vcfSamples.isEmpty())
-            throw new UserException.BadInput("The VCF file does not contain any of the samples in your BAM file");
-
-        // Uneven sets means there are some samples missing from the BAM in the VCF -- warn the user but don't throw exception
-        if (vcfSamples.size() < samples.size()) {
-            Set<String> samplesPresent = new HashSet<String>();
-            samplesPresent.addAll(samples);
-            samplesPresent.removeAll(vcfSamples);
-            logger.warn("VCF file does not contain ALL samples in your BAM file.  Missing samples: " + Utils.join(", ", samplesPresent));
+        // Get the samples from the BAM file
+        if( externalLikelihoods.isEmpty() ) {
+            final Set<String> samFileSamples = SampleUtils.getSAMFileSamples(toolkit.getSAMFileHeader());
+            checkSamFileAndVCFSampleSetConsistency(vcfSamples, samFileSamples);
+            samples = new IndexedSampleList(samFileSamples);
+            if (samples.sampleCount() == 0)
+                throw new UserException.BadInput("Bam file has no samples in the ReadGroup tag");
+            logger.info("Samples in your BAM file: " + samples);
+        } else {
+            samples = new IndexedSampleList(vcfSamples);
         }
 
+
+
+
         // Filling in SNP calling arguments for UG
-        UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
+        final UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
         uac.outputMode = OutputMode.EMIT_ALL_SITES;
         uac.genotypingOutputMode = GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES;
         if (mbq >= 0) uac.MIN_BASE_QUALTY_SCORE = mbq;
@@ -302,16 +300,33 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         // Adding the INDEL calling arguments for UG
         if (doIndels)  {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
-            indelEngine = new UnifiedGenotypingEngine(getToolkit(), uac, samples);
+            indelEngine = new UnifiedGenotypingEngine(uac, samples, toolkit.getGenomeLocParser(), toolkit.getArguments().BAQMode);
         }
         else {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.SNP;
-            snpEngine = new UnifiedGenotypingEngine(getToolkit(), uac, samples);
+            snpEngine = new UnifiedGenotypingEngine(uac, samples, toolkit.getGenomeLocParser(), toolkit.getArguments().BAQMode);
 
         }
 
         if (doRepeats)
             SCRIPT_FILE = "CalibrateGenotypeLikelihoodsByRepeat.R";
+    }
+
+    private void checkSamFileAndVCFSampleSetConsistency(Set<String> vcfSamples, Set<String> samFileSamples) {
+        // This is the list of samples represented in both the BAM and the VCF
+        vcfSamples.retainAll(samFileSamples);
+
+        // An empty list means the VCF doesn't have any samples from the BAM file
+        if (vcfSamples.isEmpty())
+            throw new UserException.BadInput("The VCF file does not contain any of the samples in your BAM file");
+
+        // Uneven sets means there are some samples missing from the BAM in the VCF -- warn the user but don't throw exception
+        if (vcfSamples.size() < samFileSamples.size()) {
+            final Set<String> samplesAbsentInVCF = new HashSet<>();
+            samplesAbsentInVCF.addAll(samFileSamples);
+            samplesAbsentInVCF.removeAll(vcfSamples);
+            logger.warn("VCF file does not contain ALL samples in your BAM file.  Missing samples: " + Utils.join(", ", samplesAbsentInVCF));
+        }
     }
 
     //---------------------------------------------------------------------------------------------------------------

@@ -46,33 +46,34 @@
 
 package org.broadinstitute.gatk.tools.walkers;
 
-import org.broadinstitute.gatk.engine.walkers.RodWalker;
-import org.broadinstitute.gatk.engine.walkers.TreeReducible;
-import org.broadinstitute.gatk.utils.commandline.Argument;
-import org.broadinstitute.gatk.utils.commandline.Input;
-import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.utils.commandline.RodBinding;
-import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
-import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedArgumentCollection;
-import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotypingEngine;
-import org.broadinstitute.gatk.utils.GenomeLoc;
-import org.broadinstitute.gatk.utils.SampleUtils;
-import org.broadinstitute.gatk.utils.variant.GATKVCFUtils;
-import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils;
-import htsjdk.variant.vcf.VCFHeader;
-import htsjdk.variant.vcf.VCFHeaderLine;
 import htsjdk.variant.variantcontext.GenotypesContext;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.VariantContextBuilder;
 import htsjdk.variant.variantcontext.VariantContextUtils;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
+import htsjdk.variant.vcf.VCFHeader;
+import htsjdk.variant.vcf.VCFHeaderLine;
 import htsjdk.variant.vcf.VCFUtils;
+import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
+import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.engine.walkers.RodWalker;
+import org.broadinstitute.gatk.engine.walkers.TreeReducible;
+import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedArgumentCollection;
+import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotypingEngine;
+import org.broadinstitute.gatk.utils.GenomeLoc;
+import org.broadinstitute.gatk.utils.SampleUtils;
+import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.Input;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.utils.commandline.RodBinding;
+import org.broadinstitute.gatk.utils.variant.GATKVCFUtils;
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils;
 
 import java.util.*;
 
-
+@SuppressWarnings("unused")
 public class GreedyGLGenotyper extends RodWalker<Integer, Integer> implements TreeReducible<Integer> {
 
     @Output(doc="File to which variants should be written")
@@ -88,10 +89,11 @@ public class GreedyGLGenotyper extends RodWalker<Integer, Integer> implements Tr
     private UnifiedGenotypingEngine engine;
     public void initialize() {
         // Initialize VCF header
-        engine = new UnifiedGenotypingEngine(this.getToolkit(), new UnifiedArgumentCollection()); // dummy
+        final GenomeAnalysisEngine toolkit = getToolkit();
+        engine = new UnifiedGenotypingEngine(new UnifiedArgumentCollection(),toolkit); // dummy
         Set<String> rodNames = SampleUtils.getRodNamesWithVCFHeader(getToolkit(), null);
 
-        Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(getToolkit(), rodNames);
+        Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(toolkit, rodNames);
         TreeSet<String> vcfSamples = new TreeSet<String>(SampleUtils.getSampleList(vcfRods, GATKVariantContextUtils.GenotypeMergeType.REQUIRE_UNIQUE));
         Set<VCFHeaderLine> headerLines = VCFUtils.smartMergeHeaders(vcfRods.values(), true);
 

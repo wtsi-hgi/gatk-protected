@@ -46,21 +46,22 @@
 
 package org.broadinstitute.gatk.tools.walkers.genotyper;
 
-import org.broadinstitute.gatk.utils.commandline.ArgumentCollection;
-import org.broadinstitute.gatk.utils.commandline.Input;
-import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.utils.commandline.RodBinding;
+import htsjdk.variant.variantcontext.*;
+import htsjdk.variant.variantcontext.writer.VariantContextWriter;
+import htsjdk.variant.vcf.VCFHeader;
+import htsjdk.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
 import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
 import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
 import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.engine.walkers.RodWalker;
 import org.broadinstitute.gatk.utils.SampleUtils;
+import org.broadinstitute.gatk.utils.commandline.ArgumentCollection;
+import org.broadinstitute.gatk.utils.commandline.Input;
+import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.utils.commandline.RodBinding;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.variant.GATKVCFUtils;
-import htsjdk.variant.variantcontext.*;
-import htsjdk.variant.variantcontext.writer.VariantContextWriter;
-import htsjdk.variant.vcf.VCFHeader;
-import htsjdk.variant.vcf.VCFHeaderLine;
 
 import java.util.*;
 
@@ -91,11 +92,13 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
     public void initialize() {
         for ( RodBinding<VariantContext> rb : variants )
             trackNames.add(rb.getName());
-        Set<String> samples = SampleUtils.getSampleListWithVCFHeader(getToolkit(), trackNames);
+        final GenomeAnalysisEngine toolkit = getToolkit();
+        final Set<String> sampleNameSet = SampleUtils.getSampleListWithVCFHeader(toolkit, trackNames);
+        final SampleList samples = new IndexedSampleList(sampleNameSet);
 
         if (UAC.genotypeArgs.samplePloidy != 2)
             throw new UserException.BadArgumentValue("ploidy","currently UGCallVariants does not support non-diploid samples");
-        UG_engine = new UnifiedGenotypingEngine(getToolkit(), UAC, samples);
+        UG_engine = new UnifiedGenotypingEngine(UAC,samples,toolkit.getGenomeLocParser(),toolkit.getArguments().BAQMode);
         UG_engine.setLogger(logger);
 
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();
@@ -110,7 +113,7 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
         headerInfo.addAll(UnifiedGenotyper.getHeaderInfo(UAC, null, null));
 
         // initialize the header
-        writer.writeHeader(new VCFHeader(headerInfo, samples));
+        writer.writeHeader(new VCFHeader(headerInfo, sampleNameSet));
     }
 
     public List<VariantContext> map(RefMetaDataTracker tracker, ReferenceContext ref, AlignmentContext context) {
