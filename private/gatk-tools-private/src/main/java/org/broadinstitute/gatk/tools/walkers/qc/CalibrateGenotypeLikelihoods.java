@@ -48,8 +48,8 @@ package org.broadinstitute.gatk.tools.walkers.qc;
 
 import htsjdk.samtools.SAMReadGroupRecord;
 import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
-import org.broadinstitute.gatk.genotyping.IndexedSampleList;
-import org.broadinstitute.gatk.genotyping.SampleList;
+import org.broadinstitute.gatk.tools.walkers.genotyper.IndexedSampleList;
+import org.broadinstitute.gatk.tools.walkers.genotyper.SampleList;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Input;
 import org.broadinstitute.gatk.utils.commandline.Output;

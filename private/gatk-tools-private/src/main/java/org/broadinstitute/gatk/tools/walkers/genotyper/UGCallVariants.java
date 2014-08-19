@@ -55,8 +55,6 @@ import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
 import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
 import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.engine.walkers.RodWalker;
-import org.broadinstitute.gatk.genotyping.IndexedSampleList;
-import org.broadinstitute.gatk.genotyping.SampleList;
 import org.broadinstitute.gatk.utils.SampleUtils;
 import org.broadinstitute.gatk.utils.commandline.ArgumentCollection;
 import org.broadinstitute.gatk.utils.commandline.Input;
