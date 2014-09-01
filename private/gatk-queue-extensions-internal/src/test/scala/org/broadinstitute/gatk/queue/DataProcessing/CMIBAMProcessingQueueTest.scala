@@ -60,7 +60,7 @@ class CMIBAMProcessingQueueTest {
       val spec = new QueueTestSpec
       spec.name = "CMIBAMProcessingPipeline"
       spec.args = Array(
-        " -S private/scala/qscript/org/broadinstitute/gatk/queue/qscripts/DataProcessing/CMIBAMProcessingPipeline.scala",
+        " -S " + QueueTest.privateQScriptsPackageDir + "DataProcessing/CMIBAMProcessingPipeline.scala",
         " -R " + BaseTest.publicTestDir + "exampleFASTA.fasta",
         " -m testdata/CMITestData/metadata.test.txt",
         " -D " + BaseTest.publicTestDir + "exampleDBSNP.vcf",
