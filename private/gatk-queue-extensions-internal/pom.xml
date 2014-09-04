@@ -139,31 +139,6 @@
                 <artifactId>maven-junction-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>link-public-qscript</id>
-                        <phase>process-test-resources</phase>
-                    </execution>
-                    <execution>
-                        <id>unlink-public-qscript</id>
-                        <phase>clean</phase>
-                    </execution>
-                    <!-- TODO: All tests require access to private. For now. -->
-                    <execution>
-                        <id>link-private-testdata</id>
-                        <phase>process-test-resources</phase>
-                    </execution>
-                    <execution>
-                        <id>unlink-private-testdata</id>
-                        <phase>clean</phase>
-                    </execution>
-                    <execution>
-                        <id>link-private-qscript</id>
-                        <phase>process-test-resources</phase>
-                    </execution>
-                    <execution>
-                        <id>unlink-private-qscript</id>
-                        <phase>clean</phase>
-                    </execution>
-                    <execution>
                         <id>link-extensions-sources</id>
                         <phase>generate-sources</phase>
                     </execution>

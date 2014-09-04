@@ -63,14 +63,14 @@ public class ReferenceBiasIntegrationTest extends WalkerTest {
 
     @Test
     public void testReferenceBiasNoAD() {
-        String gatk_args = commonArgs + "-R " + b36KGReference + " -V private/testdata/vcfexample2.vcf";
+        String gatk_args = commonArgs + "-R " + b36KGReference + " -V " + privateTestDir + "vcfexample2.vcf";
         WalkerTestSpec spec = new WalkerTestSpec(gatk_args, Arrays.asList("5185c9ee3a11a4b467b064bbdbed1426"));
         executeTest("test NO AD field -- vcfexampl2.vcf", spec);
     }
 
     @Test
     public void testReferenceBiasWithAD() {
-        String gatk_args = commonArgs + "-R " + hg19Reference + " -V private/testdata/NA12878.hg19.example1.vcf";
+        String gatk_args = commonArgs + "-R " + hg19Reference + " -V " + privateTestDir + "NA12878.hg19.example1.vcf";
         WalkerTestSpec spec = new WalkerTestSpec(gatk_args, Arrays.asList("5e518091daab2c534a7287840f6c6af2"));
         executeTest("test NO AD field -- vcfexampl2.vcf", spec);
     }

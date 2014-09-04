@@ -85,7 +85,7 @@ class HybridSelectionQueueTest {
     // Run the pipeline with the expected inputs.
     val pipelineCommand =
       ("-retry 1" +
-        " -S private/scala/qscript/org/broadinstitute/gatk/queue/qscripts/pipeline/HybridSelectionPipeline.scala" +
+        " -S " + QueueTest.privateQScriptsPackageDir + "pipeline/HybridSelectionPipeline.scala" +
         " -I %s" +
         " -L %s" +
         " -varFilter HARD")
