@@ -50,7 +50,7 @@ import org.testng.annotations.Test
 import org.broadinstitute.gatk.utils.BaseTest
 
 class IPFLibraryQueueTest {
-  val dir = "private/scala/qscript/org/broadinstitute/gatk/queue/qscripts/inProcessFunctions/"
+  val dir = QueueTest.privateQScriptsPackageDir + "inProcessFunctions/"
 
   @Test(timeOut=36000000)
   def testVCFExtractSites {
