@@ -70,9 +70,6 @@ public class IOCrusher extends ReadWalker<GATKSAMRecord, ArrayList<SAMFileWriter
     @Argument(shortName="outputBase",doc="output base",required=true)
     public String outputBase;
 
-    @Argument(fullName = "bam_compression", shortName = "compress", doc = "Compression level to use for writing BAM files", required = false)
-    public Integer BAMcompression = 5;    
-
     public long nReadsRead = 0;
     public long nReadsWritten = 0;
 
@@ -88,10 +85,10 @@ public class IOCrusher extends ReadWalker<GATKSAMRecord, ArrayList<SAMFileWriter
      * 
      */
     public ArrayList<SAMFileWriter> reduceInit() {
-        ArrayList<SAMFileWriter> outputs = new ArrayList<SAMFileWriter>(nWaysOut);
+        ArrayList<SAMFileWriter> outputs = new ArrayList<>(nWaysOut);
         for ( int i = 0; i < nWaysOut; i++ ) {
             SAMFileHeader header = this.getToolkit().getSAMFileHeader();
-            outputs.add(ReadUtils.createSAMFileWriterWithCompression(header, true, outputBase + "." + i + ".bam", BAMcompression));
+            outputs.add(ReadUtils.createSAMFileWriter(outputBase + "." + i + ".bam", getToolkit(), header));
         }
         return outputs;
     }
