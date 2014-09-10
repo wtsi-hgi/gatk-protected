@@ -55,6 +55,8 @@ import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
 import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
 import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.engine.walkers.RodWalker;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorProvider;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.FixedAFCalculatorProvider;
 import org.broadinstitute.gatk.utils.SampleUtils;
 import org.broadinstitute.gatk.utils.commandline.ArgumentCollection;
 import org.broadinstitute.gatk.utils.commandline.Input;
@@ -98,7 +100,9 @@ public class UGCallVariants extends RodWalker<List<VariantContext>, Integer> {
 
         if (UAC.genotypeArgs.samplePloidy != 2)
             throw new UserException.BadArgumentValue("ploidy","currently UGCallVariants does not support non-diploid samples");
-        UG_engine = new UnifiedGenotypingEngine(UAC,samples,toolkit.getGenomeLocParser(),toolkit.getArguments().BAQMode);
+        final AFCalculatorProvider afCalculatorProvider = FixedAFCalculatorProvider.createThreadSafeProvider(getToolkit(), UAC, logger);
+
+        UG_engine = new UnifiedGenotypingEngine(UAC,samples,toolkit.getGenomeLocParser(),afCalculatorProvider,toolkit.getArguments().BAQMode);
         UG_engine.setLogger(logger);
 
         Set<VCFHeaderLine> headerInfo = new HashSet<VCFHeaderLine>();

@@ -50,6 +50,8 @@ import org.broadinstitute.gatk.engine.walkers.By;
 import org.broadinstitute.gatk.engine.walkers.DataSource;
 import org.broadinstitute.gatk.engine.walkers.LocusWalker;
 import org.broadinstitute.gatk.engine.walkers.TreeReducible;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorProvider;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.FixedAFCalculatorProvider;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Output;
 import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
@@ -102,7 +104,9 @@ public class LocusMismatch extends LocusWalker<String,Integer> implements TreeRe
     public void initialize() {
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
         uac.outputMode = OutputMode.EMIT_ALL_SITES;
-        ug = new UnifiedGenotypingEngine(uac,getToolkit());
+
+        final AFCalculatorProvider afCalculatorProvider = FixedAFCalculatorProvider.createThreadSafeProvider(getToolkit(), uac, logger);
+        ug = new UnifiedGenotypingEngine(uac,afCalculatorProvider,getToolkit());
 
         // print the header
         out.printf("loc ref genotype genotypeQ depth nMM qSumMM A C G T%n");

@@ -48,6 +48,8 @@ package org.broadinstitute.gatk.tools.walkers.qc;
 
 import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
 import org.broadinstitute.gatk.engine.walkers.*;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorProvider;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.FixedAFCalculatorProvider;
 import org.broadinstitute.gatk.utils.commandline.*;
 import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
 import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
@@ -146,8 +148,11 @@ public class FindMinimumCallableCoverage extends RodWalker<Integer, Integer> {
         final GenomeAnalysisEngine toolkit = getToolkit();
         snpUAC.GLmodel = GenotypeLikelihoodsCalculationModel.Model.SNP;
         indelUAC.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
-        snpEngine = new UnifiedGenotypingEngine(snpUAC, toolkit);
-        indelEngine = new UnifiedGenotypingEngine(indelUAC, toolkit);
+        final AFCalculatorProvider snpAFCalculatorProvider = FixedAFCalculatorProvider.createThreadSafeProvider(getToolkit(), snpUAC, logger);
+        final AFCalculatorProvider indelAFCalculatorProvider = FixedAFCalculatorProvider.createThreadSafeProvider(getToolkit(), indelUAC, logger);
+
+        snpEngine = new UnifiedGenotypingEngine(snpUAC, snpAFCalculatorProvider, toolkit);
+        indelEngine = new UnifiedGenotypingEngine(indelUAC, indelAFCalculatorProvider, toolkit);
         callConf = snpUAC.genotypeArgs.STANDARD_CONFIDENCE_FOR_CALLING;
         report = GATKReport.newSimpleReport("MinCov", "Position", "MinimumCallableCoverage", "EventComplexity", "VariantType", "GenotypeType");
     }

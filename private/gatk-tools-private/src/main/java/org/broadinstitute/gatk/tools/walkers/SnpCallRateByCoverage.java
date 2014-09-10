@@ -47,6 +47,8 @@
 package org.broadinstitute.gatk.tools.walkers;
 
 import org.broadinstitute.gatk.engine.walkers.LocusWalker;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorProvider;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.FixedAFCalculatorProvider;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Output;
 import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
@@ -90,7 +92,9 @@ public class SnpCallRateByCoverage extends LocusWalker<List<String>, String> {
         UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
         uac.genotypeArgs.STANDARD_CONFIDENCE_FOR_CALLING = uac.genotypeArgs.STANDARD_CONFIDENCE_FOR_EMITTING = confidence;
         uac.outputMode = OutputMode.EMIT_ALL_SITES;
-        UG = new UnifiedGenotypingEngine(uac,getToolkit());
+        final AFCalculatorProvider afCalculatorProvider = FixedAFCalculatorProvider.createThreadSafeProvider(getToolkit(), uac, logger);
+
+        UG = new UnifiedGenotypingEngine(uac,afCalculatorProvider,getToolkit());
 
         out.println("#locus\tid\tdownsampled_coverage\tpct_coverage\titeration\tref\teval_call\tcomp_call\tvariant_concordance\tgenotype_concordance");
     }
