@@ -50,9 +50,9 @@ import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import htsjdk.samtools.CigarOperator;
 import htsjdk.samtools.SAMFileHeader;
 import org.apache.commons.lang.ArrayUtils;
-import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalc;
-import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalcFactory;
-import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalcResult;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculator;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorFactory;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculationResult;
 import org.broadinstitute.gatk.utils.commandline.*;
 import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
 import org.broadinstitute.gatk.engine.filters.DuplicateReadFilter;
@@ -396,8 +396,8 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             GenotypesContext genAssigned = GATKVariantContextUtils.assignDiploidGenotypes(asCon);
             vcb.genotypes(genAssigned);
 
-            final AFCalc AFCalculator = AFCalcFactory.createCalculatorForDiploidBiAllelicAnalysis();
-            final AFCalcResult result = AFCalculator.getLog10PNonRef(vcb.make(), HomoSapiensConstants.DEFAULT_PLOIDY, alleles.size() - 1, prior);
+            final AFCalculator AFCalculator = AFCalculatorFactory.createCalculatorForDiploidBiAllelicAnalysis();
+            final AFCalculationResult result = AFCalculator.getLog10PNonRef(vcb.make(), HomoSapiensConstants.DEFAULT_PLOIDY, alleles.size() - 1, prior);
 
             final double log10POfF0 = result.getLog10PosteriorOfAFGT0();
             logger.debug(log10POfF0);
