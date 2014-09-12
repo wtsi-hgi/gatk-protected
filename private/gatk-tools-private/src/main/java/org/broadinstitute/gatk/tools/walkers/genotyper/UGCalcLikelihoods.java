@@ -47,6 +47,8 @@
 package org.broadinstitute.gatk.tools.walkers.genotyper;
 
 import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorProvider;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.FixedAFCalculatorProvider;
 import org.broadinstitute.gatk.utils.commandline.ArgumentCollection;
 import org.broadinstitute.gatk.utils.commandline.Output;
 import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
@@ -102,7 +104,8 @@ public class UGCalcLikelihoods extends LocusWalker<List<VariantCallContext>, Int
         if (UAC.genotypeArgs.samplePloidy != 2)
             throw new UserException.BadArgumentValue("ploidy","currently UGCalcLikelihoods does not support non-diploid samples");
 
-        UG_engine = new UnifiedGenotypingEngine(UAC, samples, toolkit.getGenomeLocParser(), toolkit.getArguments().BAQMode);
+        final AFCalculatorProvider afCalculatorProvider = FixedAFCalculatorProvider.createThreadSafeProvider(getToolkit(),UAC,logger);
+        UG_engine = new UnifiedGenotypingEngine(UAC, samples, toolkit.getGenomeLocParser(), afCalculatorProvider, toolkit.getArguments().BAQMode);
         UG_engine.setLogger(logger);
 
         // initialize the header

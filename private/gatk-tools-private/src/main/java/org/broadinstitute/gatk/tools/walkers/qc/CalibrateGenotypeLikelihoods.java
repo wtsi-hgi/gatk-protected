@@ -50,6 +50,8 @@ import htsjdk.samtools.SAMReadGroupRecord;
 import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
 import org.broadinstitute.gatk.tools.walkers.genotyper.IndexedSampleList;
 import org.broadinstitute.gatk.tools.walkers.genotyper.SampleList;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorProvider;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.FixedAFCalculatorProvider;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Input;
 import org.broadinstitute.gatk.utils.commandline.Output;
@@ -298,14 +300,15 @@ public class CalibrateGenotypeLikelihoods extends RodWalker<CalibrateGenotypeLik
         uac.alleles = alleles;
         uac.genotypeArgs.samplePloidy = HomoSapiensConstants.DEFAULT_PLOIDY;
         // Adding the INDEL calling arguments for UG
+
+        final AFCalculatorProvider afCalculatorProvider = FixedAFCalculatorProvider.createThreadSafeProvider(getToolkit(), uac, logger);
+
         if (doIndels)  {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.INDEL;
-            indelEngine = new UnifiedGenotypingEngine(uac, samples, toolkit.getGenomeLocParser(), toolkit.getArguments().BAQMode);
-        }
-        else {
+            indelEngine = new UnifiedGenotypingEngine(uac, samples, toolkit.getGenomeLocParser(), afCalculatorProvider, toolkit.getArguments().BAQMode);
+        } else {
             uac.GLmodel = GenotypeLikelihoodsCalculationModel.Model.SNP;
-            snpEngine = new UnifiedGenotypingEngine(uac, samples, toolkit.getGenomeLocParser(), toolkit.getArguments().BAQMode);
-
+            snpEngine = new UnifiedGenotypingEngine(uac, samples, toolkit.getGenomeLocParser(), afCalculatorProvider, toolkit.getArguments().BAQMode);
         }
 
         if (doRepeats)

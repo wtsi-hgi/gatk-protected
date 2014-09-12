@@ -62,6 +62,8 @@ import org.broadinstitute.gatk.engine.walkers.RodWalker;
 import org.broadinstitute.gatk.engine.walkers.TreeReducible;
 import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotypingEngine;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorProvider;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.FixedAFCalculatorProvider;
 import org.broadinstitute.gatk.utils.GenomeLoc;
 import org.broadinstitute.gatk.utils.SampleUtils;
 import org.broadinstitute.gatk.utils.commandline.Argument;
@@ -90,7 +92,10 @@ public class GreedyGLGenotyper extends RodWalker<Integer, Integer> implements Tr
     public void initialize() {
         // Initialize VCF header
         final GenomeAnalysisEngine toolkit = getToolkit();
-        engine = new UnifiedGenotypingEngine(new UnifiedArgumentCollection(),toolkit); // dummy
+        final UnifiedArgumentCollection uac = new UnifiedArgumentCollection();
+        final AFCalculatorProvider afCalculatorProvider = FixedAFCalculatorProvider.createThreadSafeProvider(getToolkit(), uac, logger);
+
+        engine = new UnifiedGenotypingEngine(uac, afCalculatorProvider, toolkit); // dummy
         Set<String> rodNames = SampleUtils.getRodNamesWithVCFHeader(getToolkit(), null);
 
         Map<String, VCFHeader> vcfRods = GATKVCFUtils.getVCFHeadersFromRods(toolkit, rodNames);

@@ -50,6 +50,9 @@ import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import htsjdk.samtools.CigarOperator;
 import htsjdk.samtools.SAMFileHeader;
 import org.apache.commons.lang.ArrayUtils;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculator;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorFactory;
+import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculationResult;
 import org.broadinstitute.gatk.utils.commandline.*;
 import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
 import org.broadinstitute.gatk.engine.filters.DuplicateReadFilter;
@@ -61,9 +64,6 @@ import org.broadinstitute.gatk.engine.report.GATKReportColumn;
 import org.broadinstitute.gatk.engine.report.GATKReportTable;
 import org.broadinstitute.gatk.engine.walkers.ReadFilters;
 import org.broadinstitute.gatk.engine.walkers.ReadWalker;
-import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalc;
-import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalcFactory;
-import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalcResult;
 import org.broadinstitute.gatk.utils.*;
 import org.broadinstitute.gatk.utils.clipping.ReadClipper;
 import org.broadinstitute.gatk.utils.codecs.refseq.RefSeqFeature;
@@ -82,6 +82,7 @@ import org.broadinstitute.gatk.utils.text.XReadLines;
 import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import htsjdk.variant.variantcontext.writer.VariantContextWriterFactory;
+import org.broadinstitute.gatk.utils.variant.HomoSapiensConstants;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -123,7 +124,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
 
     public final static byte MIN_TAIL_QUALITY = 6;
 
-    private Map<String,byte[]> insertQualsByRG = new HashMap<String,byte[]>();
+    private Map<String,byte[]> insertQualsByRG = new HashMap<>();
 
     private boolean initialized = false;
     private IndexedFastaSequenceFile referenceReader;
@@ -395,8 +396,8 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
             GenotypesContext genAssigned = GATKVariantContextUtils.assignDiploidGenotypes(asCon);
             vcb.genotypes(genAssigned);
 
-            final AFCalc AFCalculator = AFCalcFactory.createAFCalc(samples.size());
-            final AFCalcResult result = AFCalculator.getLog10PNonRef(vcb.make(), prior);
+            final AFCalculator AFCalculator = AFCalculatorFactory.createCalculatorForDiploidBiAllelicAnalysis();
+            final AFCalculationResult result = AFCalculator.getLog10PNonRef(vcb.make(), HomoSapiensConstants.DEFAULT_PLOIDY, alleles.size() - 1, prior);
 
             final double log10POfF0 = result.getLog10PosteriorOfAFGT0();
             logger.debug(log10POfF0);
