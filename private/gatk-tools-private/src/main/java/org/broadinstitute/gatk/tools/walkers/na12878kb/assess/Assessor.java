@@ -71,7 +71,6 @@ import org.broadinstitute.gatk.utils.MathUtils;
 import org.broadinstitute.gatk.utils.collections.Pair;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.locusiterator.LocusIteratorByState;
-import org.broadinstitute.gatk.utils.sam.GATKSamRecordFactory;
 import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils;
 import org.broadinstitute.gatk.utils.variant.HomoSapiensConstants;
 
@@ -597,7 +596,6 @@ public class Assessor {
      */
     public static SAMFileReader makeSAMFileReaderForDoCInBAM(final File bam) {
         final SAMFileReader bamReader = new SAMFileReader(bam);
-        bamReader.setSAMRecordFactory(new GATKSamRecordFactory());
         bamReader.setValidationStringency(ValidationStringency.SILENT);
         return bamReader;
     }
