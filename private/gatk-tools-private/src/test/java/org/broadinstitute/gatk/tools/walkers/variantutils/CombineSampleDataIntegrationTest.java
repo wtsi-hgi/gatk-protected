@@ -49,163 +49,33 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.annotator;
+package org.broadinstitute.gatk.tools.walkers.variantutils;
 
-import htsjdk.variant.variantcontext.Allele;
-import org.apache.log4j.Logger;
-import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
-import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
-import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
-import org.broadinstitute.gatk.engine.walkers.Walker;
-import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.ActiveRegionBasedAnnotation;
-import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.AnnotatorCompatible;
-import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.InfoFieldAnnotation;
-import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.StandardAnnotation;
-import org.broadinstitute.gatk.utils.genotyper.PerReadAlleleLikelihoodMap;
-import org.broadinstitute.gatk.utils.MathUtils;
-import htsjdk.variant.vcf.VCFInfoHeaderLine;
-import htsjdk.variant.variantcontext.Genotype;
-import htsjdk.variant.variantcontext.GenotypesContext;
-import htsjdk.variant.variantcontext.VariantContext;
-import org.broadinstitute.gatk.utils.variant.GATKVCFConstants;
-import org.broadinstitute.gatk.utils.variant.GATKVCFHeaderLines;
+import org.broadinstitute.gatk.engine.walkers.WalkerTest;
+import org.testng.annotations.Test;
+import java.util.Arrays;
 
-import java.util.*;
+public class CombineSampleDataIntegrationTest extends WalkerTest {
 
-
-/**
- * Likelihood-based test for the inbreeding among samples
- *
- * <p>This annotation estimates whether there is evidence of inbreeding in a population. The higher the score, the higher the chance that there is inbreeding.</p>
- *
- * <h3>Statistical notes</h3>
- * <p>The calculation is a continuous generalization of the Hardy-Weinberg test for disequilibrium that works well with limited coverage per sample. The output is a Phred-scaled p-value derived from running the HW test for disequilibrium with PL values. See the <a href="http://www.broadinstitute.org/gatk/guide/article?id=4732">method document on statistical tests</a> for a more detailed explanation of this statistical test.</p>
- *
- * <h3>Caveats</h3>
- * <h4>Note that the Inbreeding Coefficient can only be calculated for cohorts containing at least 10 founder samples.</h4>
- *
- */
-public class InbreedingCoeff extends InfoFieldAnnotation implements StandardAnnotation, ActiveRegionBasedAnnotation {
-
-    private final static Logger logger = Logger.getLogger(InbreedingCoeff.class);
-    private static final int MIN_SAMPLES = 10;
-    private Set<String> founderIds;
-    private int sampleCount;
-    private boolean pedigreeCheckWarningLogged = false;
-    private boolean didUniquifiedSampleNameCheck = false;
-
-    @Override
-    public Map<String, Object> annotate(final RefMetaDataTracker tracker,
-                                        final AnnotatorCompatible walker,
-                                        final ReferenceContext ref,
-                                        final Map<String, AlignmentContext> stratifiedContexts,
-                                        final VariantContext vc,
-                                        final Map<String, PerReadAlleleLikelihoodMap> perReadAlleleLikelihoodMap ) {
-        //If available, get the founder IDs and cache them. the IC will only be computed on founders then.
-        if(founderIds == null && walker != null) {
-            founderIds = ((Walker) walker).getSampleDB().getFounderIds();
-        }
-        //if none of the "founders" are in the vc samples, assume we uniquified the samples upstream and they are all founders
-        if (!didUniquifiedSampleNameCheck) {
-            checkSampleNames(vc);
-            didUniquifiedSampleNameCheck = true;
-        }
-        if ( founderIds == null || founderIds.isEmpty() ) {
-            if ( !pedigreeCheckWarningLogged ) {
-                logger.warn("Annotation will not be calculated, must provide a valid PED file (-ped) from the command line.");
-                pedigreeCheckWarningLogged = true;
-            }
-            return null;
-        }
-        else{
-            return makeCoeffAnnotation(vc);
-        }
+    private static String baseTestString(String args, String ref) {
+        return "-T CombineSampleData --no_cmdline_in_header -o %s -R " + ref + args;
     }
 
-    protected double calculateIC(final VariantContext vc, final GenotypesContext genotypes) {
-
-        final boolean doMultiallelicMapping = !vc.isBiallelic();
-
-        int idxAA = 0, idxAB = 1, idxBB = 2;
-
-        double refCount = 0.0;
-        double hetCount = 0.0;
-        double homCount = 0.0;
-        sampleCount = 0; // number of samples that have likelihoods
-
-        for ( final Genotype g : genotypes ) {
-            if ( g.isCalled() && g.hasLikelihoods() && g.getPloidy() == 2)  // only work for diploid samples
-                sampleCount++;
-            else
-                continue;
-            final double[] normalizedLikelihoods = MathUtils.normalizeFromLog10( g.getLikelihoods().getAsVector() );
-            if (doMultiallelicMapping)
-            {
-                if (g.isHetNonRef()) {
-                    //all likelihoods go to homCount
-                    homCount++;
-                    continue;
-                }
-
-                //get alternate allele for each sample
-                final Allele a1 = g.getAllele(0);
-                final Allele a2 = g.getAllele(1);
-                if (a2.isNonReference()) {
-                    final int[] idxVector = vc.getGLIndecesOfAlternateAllele(a2);
-                    idxAA = idxVector[0];
-                    idxAB = idxVector[1];
-                    idxBB = idxVector[2];
-                }
-                //I expect hets to be reference first, but there are no guarantees (e.g. phasing)
-                else if (a1.isNonReference()) {
-                    final int[] idxVector = vc.getGLIndecesOfAlternateAllele(a1);
-                    idxAA = idxVector[0];
-                    idxAB = idxVector[1];
-                    idxBB = idxVector[2];
-                }
-            }
-
-            refCount += normalizedLikelihoods[idxAA];
-            hetCount += normalizedLikelihoods[idxAB];
-            homCount += normalizedLikelihoods[idxBB];
-        }
-
-        final double p = ( 2.0 * refCount + hetCount ) / ( 2.0 * (refCount + hetCount + homCount) ); // expected reference allele frequency
-        final double q = 1.0 - p; // expected alternative allele frequency
-        final double F = 1.0 - ( hetCount / ( 2.0 * p * q * (double) sampleCount) ); // inbreeding coefficient
-
-        return F;
+    @Test(enabled = true)
+    public void testCombineAllSamples() {
+        WalkerTestSpec spec = new WalkerTestSpec(
+                baseTestString(" -V " + privateTestDir + "uniquifiedSamples.vcf", b37KGReference),
+                1,
+                Arrays.asList("beea145d8cce4b481b119eca95da6fb8"));
+        executeTest("testCombineAllSamples", spec);
     }
 
-    protected Map<String, Object> makeCoeffAnnotation(final VariantContext vc) {
-        final GenotypesContext genotypes = (founderIds == null || founderIds.isEmpty()) ? vc.getGenotypes() : vc.getGenotypes(founderIds);
-        if (genotypes == null || genotypes.size() < MIN_SAMPLES || !vc.isVariant())
-            return null;
-        double F = calculateIC(vc, genotypes);
-        if (sampleCount < MIN_SAMPLES)
-            return null;
-        return Collections.singletonMap(getKeyNames().get(0), (Object)String.format("%.4f", F));
+    @Test(enabled = true)
+    public void testCombineSelectedSamples() {
+        WalkerTestSpec spec = new WalkerTestSpec(
+                baseTestString(" -V " + privateTestDir + "uniquifiedSamples.vcf -usn NA12878.variant102 -usn NA12878.variant51 ", b37KGReference),
+                1,
+                Arrays.asList("9408b821585fb8c24fc2f05afcdb42ef"));
+        executeTest("testCombineAllSamples", spec);
     }
-
-    //this method is intended to reconcile uniquified sample names
-    // it comes into play when calling this annotation from GenotypeGVCFs with --uniquifySamples because founderIds
-    // is derived from the sampleDB, which comes from the input sample names, but vc will have uniquified (i.e. different)
-    // sample names. Without this check, the founderIds won't be found in the vc and the annotation won't be calculated.
-    protected void checkSampleNames(final VariantContext vc) {
-        Set<String> vcSamples = new HashSet<>();
-        vcSamples.addAll(vc.getSampleNames());
-        if (!vcSamples.isEmpty()) {
-            if (founderIds!=null) {
-                vcSamples.removeAll(founderIds);
-                if (vcSamples.equals(vc.getSampleNames()))
-                    founderIds = vc.getSampleNames();
-            }
-        }
-    }
-
-    @Override
-    public List<String> getKeyNames() { return Collections.singletonList(GATKVCFConstants.INBREEDING_COEFFICIENT_KEY); }
-
-    @Override
-    public List<VCFInfoHeaderLine> getDescriptions() { return Collections.singletonList(GATKVCFHeaderLines.getInfoLine(getKeyNames().get(0))); }
 }
