@@ -296,7 +296,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         if ( ! detailedAssessment ) simplifyAssessments();
 
         if ( variants.size() == 1 ) {
-            final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets",
+            final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callset "+variants.get(0).getSource(),
                     "Name", "VariantType", "AssessmentType", "Count");
             for( final RodBinding rod : variants ) {
                 for ( final TypesToInclude variantType : Arrays.asList(TypesToInclude.SNPS, TypesToInclude.INDELS) ) {
