@@ -124,7 +124,7 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
                     for ( final VariantContext vc : tracker.getValues(variants, ref.getLocus()) ) {
                         // Do the alleles match between the input site and the KB site
                         if( cs.getVariantContext().hasSameAllelesAs(vc) ) {
-                            data.add( new ROCDatum( cs.getType().isTruePositive(), cs.getVariantContext().isSNP(), vc.getAttributeAsDouble("VQSLOD", Double.NaN), vc.getFiltersMaybeNull() ) );
+                            data.add( new ROCDatum( cs.getType().isTruePositive(), cs.getVariantContext().isSNP(), (vc.hasAttribute("VQSLOD") ? vc.getAttributeAsDouble("VQSLOD", Double.NaN) : vc.getPhredScaledQual()), vc.getFiltersMaybeNull() ) );
                         }
                     }
                 }
