@@ -1,3 +1,5 @@
+# This script is not meant to be run manually. To check licenses, use the shell script in shell/.
+
 import sys
 import logging
 import os
