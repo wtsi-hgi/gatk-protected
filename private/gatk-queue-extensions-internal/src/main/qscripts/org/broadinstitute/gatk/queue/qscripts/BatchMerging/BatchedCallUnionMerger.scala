@@ -56,11 +56,11 @@ import org.broadinstitute.gatk.queue.extensions.gatk._
 import org.broadinstitute.gatk.queue.library.ipf.vcf.{VCFSimpleMerge, VCFExtractSites,VCFExtractIntervals}
 import collection.JavaConversions._
 import org.broadinstitute.gatk.utils.baq.BAQ
+import org.broadinstitute.gatk.utils.downsampling.DownsampleType
 import org.broadinstitute.gatk.utils.text.XReadLines
 import org.broadinstitute.gatk.utils.variantcontext.VariantContextUtils
 import org.broadinstitute.gatk.queue.QScript
 import org.broadinstitute.gatk.tools.walkers.genotyper.{GenotypeLikelihoodsCalculationModel, UnifiedGenotypingEngine}
-import org.broadinstitute.gatk.engine.downsampling.DownsampleType
 
 class BatchedCallUnionMerger extends QScript {
   batchMerge =>

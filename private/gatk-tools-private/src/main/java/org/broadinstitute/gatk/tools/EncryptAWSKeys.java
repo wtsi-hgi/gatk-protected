@@ -56,7 +56,7 @@ import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.CommandLineProgram;
 import org.broadinstitute.gatk.engine.phonehome.GATKRunReport;
 import org.broadinstitute.gatk.utils.Utils;
-import org.broadinstitute.gatk.utils.crypt.CryptUtils;
+import org.broadinstitute.gatk.engine.crypt.CryptUtils;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.io.IOUtils;
 

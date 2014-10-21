@@ -51,12 +51,12 @@
 
 package org.broadinstitute.gatk.tools.walkers.activeregionqc;
 
+import org.broadinstitute.gatk.utils.Utils;
 import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
-import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
-import org.broadinstitute.gatk.engine.report.GATKReport;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.report.GATKReport;
 import org.broadinstitute.gatk.engine.walkers.ActiveRegionTraversalParameters;
 import org.broadinstitute.gatk.engine.walkers.ActiveRegionWalker;
 import org.broadinstitute.gatk.engine.walkers.NanoSchedulable;
@@ -94,7 +94,7 @@ public class CountReadsInActiveRegions extends ActiveRegionWalker<CountReadsInAc
 
     @Override
     public ActivityProfileState isActive( final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context ) {
-        if( GenomeAnalysisEngine.getRandomGenerator().nextDouble() > 0.995 ) {
+        if( Utils.getRandomGenerator().nextDouble() > 0.995 ) {
             coinFlip = !coinFlip;
         }
         return new ActivityProfileState( ref.getLocus(), coinFlip ? 0.999 : 0.0 );

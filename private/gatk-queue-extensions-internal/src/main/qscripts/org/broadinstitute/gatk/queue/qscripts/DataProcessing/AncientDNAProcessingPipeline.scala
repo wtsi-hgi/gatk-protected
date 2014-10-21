@@ -59,12 +59,12 @@ import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import org.broadinstitute.gatk.queue.function.{RetryMemoryLimit, ListWriterFunction}
 import org.broadinstitute.gatk.utils.commandline.Hidden
+import org.broadinstitute.gatk.utils.downsampling.DownsampleType
 import org.broadinstitute.gatk.utils.NGSPlatform
 import org.broadinstitute.gatk.queue.extensions.picard._
 import io.Source
 import org.broadinstitute.gatk.tools.walkers.genotyper.{UnifiedGenotypingEngine, GenotypeLikelihoodsCalculationModel}
 import org.broadinstitute.gatk.queue.QScript
-import org.broadinstitute.gatk.engine.downsampling.DownsampleType
 import org.broadinstitute.gatk.utils.baq.BAQ
 
 class AncientDNAProcessingPipeline extends QScript {

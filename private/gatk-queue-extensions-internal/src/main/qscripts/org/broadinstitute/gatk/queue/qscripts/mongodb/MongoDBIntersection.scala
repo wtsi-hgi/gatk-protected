@@ -58,10 +58,10 @@ package org.broadinstitute.gatk.queue.qscripts.mongodb
  * Time: 3:00 PM
  * To change this template use File | Settings | File Templates.
  */
-import org.broadinstitute.gatk.engine.arguments.ValidationExclusion
 import org.broadinstitute.gatk.queue.QScript
 import org.broadinstitute.gatk.queue.extensions.gatk._
 import org.broadinstitute.gatk.utils.interval.IntervalSetRule
+import org.broadinstitute.gatk.utils.ValidationExclusion
 
 /**
  * Tests MongoDB by running SelectVariantsFromMongo in parallel

@@ -54,7 +54,7 @@ package org.broadinstitute.gatk.queue.qscripts.calling
 import org.broadinstitute.gatk.queue.QScript
 import org.broadinstitute.gatk.queue.extensions.gatk._
 import org.broadinstitute.gatk.tools.walkers.genotyper.{UnifiedGenotypingEngine, GenotypeLikelihoodsCalculationModel}
-import org.broadinstitute.gatk.engine.downsampling.DownsampleType
+import org.broadinstitute.gatk.utils.downsampling.DownsampleType
 
 /**
  * Created by IntelliJ IDEA.

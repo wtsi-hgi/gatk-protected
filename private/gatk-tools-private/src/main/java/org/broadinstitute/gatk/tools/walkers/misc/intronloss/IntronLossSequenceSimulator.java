@@ -55,17 +55,17 @@ import htsjdk.samtools.fastq.FastqRecord;
 import htsjdk.samtools.fastq.FastqWriter;
 import htsjdk.samtools.fastq.FastqWriterFactory;
 import htsjdk.tribble.Feature;
+import org.broadinstitute.gatk.utils.Utils;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Input;
 import org.broadinstitute.gatk.utils.commandline.Output;
 import org.broadinstitute.gatk.utils.commandline.RodBinding;
-import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
-import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
-import org.broadinstitute.gatk.engine.report.GATKReport;
-import org.broadinstitute.gatk.engine.report.GATKReportColumn;
-import org.broadinstitute.gatk.engine.report.GATKReportTable;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.report.GATKReport;
+import org.broadinstitute.gatk.utils.report.GATKReportColumn;
+import org.broadinstitute.gatk.utils.report.GATKReportTable;
 import org.broadinstitute.gatk.utils.codecs.refseq.RefSeqFeature;
 import org.broadinstitute.gatk.engine.walkers.RefWalker;
 import org.broadinstitute.gatk.utils.BaseUtils;
@@ -288,7 +288,7 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
 
         for ( int offset = 0; offset < normal.length()-READ_SIZE_BP; offset++ ) {
             for ( int normChrom = 0; normChrom < ploidy-nVar; normChrom++ ) {
-                if ( GenomeAnalysisEngine.getRandomGenerator().nextDouble() < pSeq ) {
+                if ( Utils.getRandomGenerator().nextDouble() < pSeq ) {
                     FastqRecord[] records = generateFastqFromSequence(normal, offset,outputSequences,false);
                     if ( records.length > 1 ) {
                         readWriter.write(records[0]);
@@ -305,7 +305,7 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
         pSeq = ( (double) AVG_CVG_PER_CHR_POISSON*loss.length())/( (double) READ_SIZE_BP*nReadPool*2 );
         for ( int offset = 0; offset < loss.length()-READ_SIZE_BP; offset++) {
             for ( int varChrom = 0; varChrom < nVar; varChrom++ ) {
-                if ( GenomeAnalysisEngine.getRandomGenerator().nextDouble() > pSeq ) { continue; }
+                if ( Utils.getRandomGenerator().nextDouble() > pSeq ) { continue; }
                 FastqRecord[] records = generateFastqFromSequence(loss,offset,outputSequences,true);
                 if ( records.length > 1 ) {
                     readWriter.write(records[0]);
@@ -339,9 +339,9 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
 
     private int generateInsertSize() {
         if (insertSizeDistribution == null ) {
-            int symmetricUnderlying = (int)( 260.5 +  GenomeAnalysisEngine.getRandomGenerator().nextGaussian()*30);
-            int chiSquareAdd = (int) ( 0.5 + Math.pow(GenomeAnalysisEngine.getRandomGenerator().nextGaussian()*8,2) );
-            return (GenomeAnalysisEngine.getRandomGenerator().nextBoolean() ? 1 : -1 ) * (symmetricUnderlying + chiSquareAdd);
+            int symmetricUnderlying = (int)( 260.5 +  Utils.getRandomGenerator().nextGaussian()*30);
+            int chiSquareAdd = (int) ( 0.5 + Math.pow(Utils.getRandomGenerator().nextGaussian()*8,2) );
+            return (Utils.getRandomGenerator().nextBoolean() ? 1 : -1 ) * (symmetricUnderlying + chiSquareAdd);
         } else {
             return drawFromCumulativeHistogram(insertSizeDistribution);
         }
@@ -357,7 +357,7 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
         for ( char b : rawSeq.toCharArray() ) {
             byte qual = generateQualityScore(charOffset);
             char observedB;
-            if ( GenomeAnalysisEngine.getRandomGenerator().nextDouble() < QualityUtils.qualToErrorProb(qual) ) {
+            if ( Utils.getRandomGenerator().nextDouble() < QualityUtils.qualToErrorProb(qual) ) {
                 observedB = (char) BaseUtils.baseIndexToSimpleBase(BaseUtils.getRandomBaseIndex(BaseUtils.simpleBaseToBaseIndex((byte) b)));
             } else {
                 observedB = b;
@@ -383,12 +383,12 @@ public class IntronLossSequenceSimulator extends RefWalker<Pair<Byte,Boolean>,Pa
             return (byte) drawFromCumulativeHistogram(qualHist);
         } else {
             // qual: normal with mean 25, SD 10, quantized by rounding to nearest number
-            return (byte) ( Math.min(40, Math.max(2, (int) 25.5 + GenomeAnalysisEngine.getRandomGenerator().nextGaussian() * 5)));
+            return (byte) ( Math.min(40, Math.max(2, (int) 25.5 + Utils.getRandomGenerator().nextGaussian() * 5)));
         }
     }
 
     private int drawFromCumulativeHistogram(double[] histogram) {
-        double q = GenomeAnalysisEngine.getRandomGenerator().nextDouble();
+        double q = Utils.getRandomGenerator().nextDouble();
         int offset = 0;
         double cumsum = 0.0;
         do {

@@ -53,9 +53,9 @@ package org.broadinstitute.gatk.tools.walkers.techdev;
 
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
 import org.broadinstitute.gatk.engine.io.FastqFileWriter;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.engine.walkers.ReadWalker;
 import org.broadinstitute.gatk.utils.clipping.ReadClipper;
 import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;

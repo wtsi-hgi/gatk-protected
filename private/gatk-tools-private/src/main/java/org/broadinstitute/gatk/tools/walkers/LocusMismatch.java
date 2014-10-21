@@ -59,9 +59,9 @@ import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorProvid
 import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.FixedAFCalculatorProvider;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.tools.walkers.genotyper.OutputMode;
 import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedArgumentCollection;
 import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotypingEngine;

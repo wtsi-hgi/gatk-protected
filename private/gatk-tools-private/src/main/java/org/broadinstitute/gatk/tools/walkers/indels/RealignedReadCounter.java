@@ -51,8 +51,8 @@
 
 package org.broadinstitute.gatk.tools.walkers.indels;
 
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.engine.walkers.By;
 import org.broadinstitute.gatk.engine.walkers.DataSource;
 import org.broadinstitute.gatk.engine.walkers.ReadWalker;

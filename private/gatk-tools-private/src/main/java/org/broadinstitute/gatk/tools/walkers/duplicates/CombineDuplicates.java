@@ -54,7 +54,7 @@ package org.broadinstitute.gatk.tools.walkers.duplicates;
 import htsjdk.samtools.SAMFileWriter;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
 import org.broadinstitute.gatk.engine.walkers.DuplicateWalker;
 import org.broadinstitute.gatk.utils.GenomeLoc;
 import org.broadinstitute.gatk.utils.duplicates.DupUtils;

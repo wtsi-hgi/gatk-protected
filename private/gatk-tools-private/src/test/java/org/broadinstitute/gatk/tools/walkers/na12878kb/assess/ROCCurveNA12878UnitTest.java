@@ -52,7 +52,7 @@
 package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
 import org.broadinstitute.gatk.utils.BaseTest;
-import org.broadinstitute.gatk.engine.report.GATKReport;
+import org.broadinstitute.gatk.utils.report.GATKReport;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 

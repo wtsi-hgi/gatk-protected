@@ -56,13 +56,15 @@ import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorProvid
 import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.FixedAFCalculatorProvider;
 import org.broadinstitute.gatk.utils.commandline.ArgumentCollection;
 import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.downsampling.DownsampleType;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.downsampling.DownsampleType;
 import org.broadinstitute.gatk.engine.iterators.ReadTransformer;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.genotyper.IndexedSampleList;
+import org.broadinstitute.gatk.utils.genotyper.SampleList;
+import org.broadinstitute.gatk.utils.genotyper.SampleListUtils;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.engine.walkers.*;
-import org.broadinstitute.gatk.utils.SampleUtils;
 import org.broadinstitute.gatk.utils.baq.BAQ;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import htsjdk.variant.variantcontext.VariantContext;
@@ -71,6 +73,7 @@ import htsjdk.variant.vcf.VCFConstants;
 import htsjdk.variant.vcf.VCFHeader;
 import htsjdk.variant.vcf.VCFHeaderLine;
 import htsjdk.variant.vcf.VCFStandardHeaderLines;
+import org.broadinstitute.gatk.utils.sam.ReadUtils;
 
 import java.util.*;
 
@@ -104,7 +107,7 @@ public class UGCalcLikelihoods extends LocusWalker<List<VariantCallContext>, Int
         // get all of the unique sample names
         final GenomeAnalysisEngine toolkit = getToolkit();
 
-        final SampleList samples = new IndexedSampleList(SampleUtils.getSAMFileSamples(toolkit.getSAMFileHeader()));
+        final SampleList samples = new IndexedSampleList(ReadUtils.getSAMFileSamples(toolkit.getSAMFileHeader()));
 
         if (UAC.genotypeArgs.samplePloidy != 2)
             throw new UserException.BadArgumentValue("ploidy","currently UGCalcLikelihoods does not support non-diploid samples");

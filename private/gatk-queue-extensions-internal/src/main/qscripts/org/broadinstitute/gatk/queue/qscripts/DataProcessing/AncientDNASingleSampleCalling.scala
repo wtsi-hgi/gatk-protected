@@ -55,13 +55,13 @@ import org.broadinstitute.gatk.queue.QScript
 import org.broadinstitute.gatk.utils.commandline.{ClassType, Hidden}
 import org.broadinstitute.gatk.queue.extensions.gatk._
 import org.broadinstitute.gatk.tools.walkers.genotyper.UnifiedGenotypingEngine
-import org.broadinstitute.gatk.engine.downsampling.DownsampleType
 import org.broadinstitute.gatk.queue.extensions.gatk.TaggedFile
 import org.broadinstitute.gatk.queue.extensions.gatk.UnifiedGenotyper
 import org.broadinstitute.gatk.queue.extensions.gatk.VariantFiltration
 import org.broadinstitute.gatk.queue.extensions.gatk.CommandLineGATK
 import org.broadinstitute.gatk.queue.extensions.gatk.VariantEval
 import java.io.File
+import org.broadinstitute.gatk.utils.downsampling.DownsampleType
 
 /**
  * Created with IntelliJ IDEA.

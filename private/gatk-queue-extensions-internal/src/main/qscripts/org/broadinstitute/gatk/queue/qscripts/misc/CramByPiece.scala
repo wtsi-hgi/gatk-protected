@@ -55,7 +55,7 @@ import org.broadinstitute.gatk.queue.QScript
 import org.broadinstitute.gatk.queue.extensions.gatk._
 import org.broadinstitute.gatk.queue.function.QFunction
 import org.broadinstitute.gatk.queue.engine.JobRunInfo
-import org.broadinstitute.gatk.engine.report.GATKReport
+import org.broadinstitute.gatk.utils.report.GATKReport
 import java.io.{PrintStream, FileOutputStream}
 
 class CramByPiece extends QScript {
