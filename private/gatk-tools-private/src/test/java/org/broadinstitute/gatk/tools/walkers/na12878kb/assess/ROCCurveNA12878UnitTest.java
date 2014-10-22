@@ -74,7 +74,8 @@ public class ROCCurveNA12878UnitTest extends BaseTest {
         data.add(new ROCCurveNA12878.ROCDatum(true, false, 10.0, Collections.<String>emptySet()));
         data.add(new ROCCurveNA12878.ROCDatum(false, false, -10.0, Collections.<String>emptySet()));
 
-        final GATKReport calculatedGATKReport = ROCCurveNA12878.calculateROCCurve(data, 2, "project", "name");
+        final ROCCurveNA12878 walker = new ROCCurveNA12878();
+        final GATKReport calculatedGATKReport = walker.calculateROCCurve(data, 2, "project", "name");
         final GATKReport expectedGATKReport = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR", "filter");
         expectedGATKReport.addRow("project", "name", "SNPs", 10.0, 1.0, 0.0, "PASS");
         expectedGATKReport.addRow("project", "name", "SNPs", -10.0, 1.0, 1.0, "PASS");

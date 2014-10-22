@@ -101,10 +101,15 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     public String project = null;
 
     @Argument(fullName="requireReviewed", shortName = "requireReviewed", doc="If specified will only use reviewed sites in the knowledgebase for the assessment", required=false)
-    public boolean requireReviewed = false;
+    public boolean REQUIRE_REVIEWED = false;
+
+    @Argument(fullName="totalSensitivity", shortName = "totalSensitivity", doc="If specified will count TPs/FPs that aren't called in the input callset in order to calculated total sensitivity/specificity instead of relative covered sensitivity/specificity", required=false)
+    public boolean TOTAL_SENSITIVITY_MODE = false;
 
     private SiteIterator<MongoVariantContext> consensusSiteIterator;
     private List<ROCDatum> data = new ArrayList<>();
+    private int[][] uncalledSites = {{0,0},{0,0}};
+
 
     @Override
     public NA12878DBArgumentCollection.DBType getDefaultDB() {
@@ -121,16 +126,32 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     public Integer map(final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
         if ( tracker == null ) return 0;
 
+        // If in total sensitivity mode we need to check for missed sites
+        if( TOTAL_SENSITIVITY_MODE ) {
+            for( final MongoVariantContext cs : consensusSiteIterator.getSitesBefore(context.getLocation()) ) {
+                if( (cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive()) ) {
+                    if( !REQUIRE_REVIEWED || cs.isReviewed() ) {
+                        uncalledSites[cs.getVariantContext().isSNP() ? SNP_INDEX : INDEL_INDEX][cs.getType().isTruePositive() ? TP_INDEX : FP_INDEX]++;
+                    }
+                }
+            }
+        }
+
         // Does this input site overlap a KB site
         for( final MongoVariantContext cs : consensusSiteIterator.getSitesAtLocation(context.getLocation()) ) {
             // Is it either a SNP or indel and is it marked as either a true positive or false positive
             if( (cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive()) ) {
-                if( !requireReviewed || cs.isReviewed() ) {
+                if( !REQUIRE_REVIEWED || cs.isReviewed() ) {
+                    boolean foundMatchingAllele = false;
                     for ( final VariantContext vc : tracker.getValues(variants, ref.getLocus()) ) {
                         // Do the alleles match between the input site and the KB site
                         if( cs.getVariantContext().hasSameAllelesAs(vc) ) {
+                            foundMatchingAllele = true;
                             data.add( new ROCDatum( cs.getType().isTruePositive(), cs.getVariantContext().isSNP(), (vc.hasAttribute("VQSLOD") ? vc.getAttributeAsDouble("VQSLOD", Double.NaN) : vc.getPhredScaledQual()), vc.getFiltersMaybeNull() ) );
                         }
+                    }
+                    if (!foundMatchingAllele && TOTAL_SENSITIVITY_MODE) {
+                        uncalledSites[cs.getVariantContext().isSNP() ? SNP_INDEX : INDEL_INDEX][cs.getType().isTruePositive() ? TP_INDEX : FP_INDEX]++;
                     }
                 }
             }
@@ -154,7 +175,7 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
      * @param name      the name of this VCF
      * @return          the GATK report to write out to disk
      */
-    protected static GATKReport calculateROCCurve(final List<ROCDatum> data, final int numBins, final String project, final String name) {
+    protected GATKReport calculateROCCurve(final List<ROCDatum> data, final int numBins, final String project, final String name) {
         final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR", "filter");
         Collections.sort(data); // sort by the LOD score
         final int[][][] rocData = new int[2][2][2]; //[SNP/INDEL][TP/FP][called/total]
@@ -173,8 +194,10 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
                 rocData[datum.isSNP ? SNP_INDEX : INDEL_INDEX][datum.isTP ? TP_INDEX : FP_INDEX][CALLED_INDEX]++;
                 if( (numVariants+1) % stepSize == 0 ) {
 
-                    report.addRow(project, name, calcSNP ? "SNPs" : "Indels", datum.lod, (double)rocData[varIndex][TP_INDEX][CALLED_INDEX]/(double)rocData[varIndex][TP_INDEX][TOTAL_INDEX],
-                            (double)rocData[varIndex][FP_INDEX][CALLED_INDEX]/(double)rocData[varIndex][FP_INDEX][TOTAL_INDEX], datum.filterField);
+                    report.addRow(project, name, calcSNP ? "SNPs" : "Indels", datum.lod,
+                            (double)rocData[varIndex][TP_INDEX][CALLED_INDEX]/(double)(rocData[varIndex][TP_INDEX][TOTAL_INDEX] + (TOTAL_SENSITIVITY_MODE ? uncalledSites[varIndex][TP_INDEX] : 0)),
+                            (double)rocData[varIndex][FP_INDEX][CALLED_INDEX]/(double)(rocData[varIndex][FP_INDEX][TOTAL_INDEX] + (TOTAL_SENSITIVITY_MODE ? uncalledSites[varIndex][FP_INDEX] : 0)),
+                            datum.filterField);
                 }
                 numVariants++;
             }
