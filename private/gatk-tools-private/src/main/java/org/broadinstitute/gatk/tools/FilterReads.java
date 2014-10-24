@@ -52,8 +52,8 @@
 package org.broadinstitute.gatk.tools;
 
 import picard.cmdline.CommandLineProgram;
+import picard.cmdline.CommandLineProgramProperties;
 import picard.cmdline.Option;
-import picard.cmdline.Usage;
 import htsjdk.samtools.SAMFileReader;
 import htsjdk.samtools.SAMFileWriter;
 import htsjdk.samtools.SAMFileWriterFactory;
@@ -68,8 +68,11 @@ import java.io.File;
  * Time: 5:13:58 PM
  * To change this template use File | Settings | File Templates.
  */
+@CommandLineProgramProperties(
+        usage = "Filters reads: the output file will contain only reads satisfying all the selected criteria",
+        usageShort = "Filters reads: the output file will contain only reads satisfying all the selected criteria"
+)
 public class FilterReads extends CommandLineProgram {
-        @Usage(programVersion="1.0") public String USAGE = "Filters reads: the output file will contain only reads satisfying all the selected criteria";
         @Option(shortName="I", doc="Input file (bam or sam) to extract reads from.",
                 optional=false) public File IN = null;
         @Option(shortName="O",doc="Output file (bam or sam) to write extracted reads to.",
