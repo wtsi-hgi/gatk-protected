@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.broadinstitute.gatk</groupId>
         <artifactId>gatk-aggregator</artifactId>
-        <version>3.2</version>
+        <version>3.3-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -55,28 +55,6 @@
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>com.pyx4j</groupId>
-                <artifactId>maven-junction-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>link-qscript</id>
-                        <phase>process-test-resources</phase>
-                    </execution>
-                    <execution>
-                        <id>unlink-qscript</id>
-                        <phase>clean</phase>
-                    </execution>
-                    <execution>
-                        <id>link-private-qscript</id>
-                        <phase>process-test-resources</phase>
-                    </execution>
-                    <execution>
-                        <id>unlink-private-qscript</id>
-                        <phase>clean</phase>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>org.scala-tools</groupId>
                 <artifactId>maven-scala-plugin</artifactId>

@@ -1,11 +1,11 @@
 #!/bin/bash
 #
-# Generate a new set of gatkdocs and upload them to a live location on the gsa-web server
+# Generate a new set of gatkdocs and upload them to a live location on the gsaweb server
 #
 
-WEB_SERVER="gsa-web"
-GATKDOCS_LIVE_DIR="/local/software/apache2/htdocs/gatk/gatkdocs"
-GATKDOCS_STAGING_DIR="/local/software/apache2/htdocs/gatkdocs_staging"
+WEB_SERVER="gsaweb"
+GATKDOCS_LIVE_DIR="/local/htdocs/gatk/guide/tooldocs"
+GATKDOCS_STAGING_DIR="/local/htdocs/staging/gatkdocs"
 GATKDOCS_LOCAL_DIR="target/gatkdocs"
 TEMP_MAVEN_REPO="tmp_mvn_repo"
 TEMP_DIR="tmp"
@@ -33,5 +33,6 @@ then
     echo "Failed to upload gatkdocs to web server"
     exit 1
 fi
+
 
 exit 0
