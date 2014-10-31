@@ -234,7 +234,7 @@
                         <phase>install</phase>
                         <configuration>
                             <pomFile>${picard.pom.outputDirectory}/picard.pom.xml</pomFile>
-                            <file>${picard.home}/dist/picard-${picard-version}.jar</file>
+                            <file>${picard.home}/dist/picard-lib.jar</file>
                             <localRepositoryPath>${gatk.public.repo}</localRepositoryPath>
                         </configuration>
                     </execution>

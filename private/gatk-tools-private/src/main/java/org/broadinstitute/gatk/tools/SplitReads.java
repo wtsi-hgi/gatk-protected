@@ -52,17 +52,20 @@
 package org.broadinstitute.gatk.tools;
 
 import picard.cmdline.CommandLineProgram;
+import picard.cmdline.CommandLineProgramProperties;
 import picard.cmdline.Option;
-import picard.cmdline.Usage;
 import htsjdk.samtools.*;
 
 import java.io.File;
 import java.util.*;
 
+@CommandLineProgramProperties(
+        usage = "Splits reads: extracts sub-sequences of the specified length(s) from left "+
+                "and/or right ends of all the reads into the specified output bam file(s). For the reads in the input that are mapped, "+
+                "the subsequences in the output bam(s) will have appropriately adjusted alignment positions and chopped cigars.",
+        usageShort = "Splits reads: extracts sub-sequences of the specified length(s) from left and/or right ends of all reads"
+)
 public class SplitReads extends CommandLineProgram {
-    @Usage(programVersion="1.0") public String USAGE = "Splits reads: extracts sub-sequences of the specified length(s) from left "+
-            "and/or right ends of all the reads into the specified output bam file(s). For the reads in the input that are mapped, "+
-            "the subsequences in the output bam(s) will have appropriately adjusted alignment positions and chopped cigars.";
     @Option(shortName="I",
             doc="Input file (bam or sam) with read sequences to split.",
             optional=false)
