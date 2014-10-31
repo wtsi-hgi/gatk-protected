@@ -52,7 +52,7 @@
 package org.broadinstitute.gatk.queue.qscripts.calling
 
 import htsjdk.samtools.reference.FastaSequenceFile
-import org.broadinstitute.gatk.engine.downsampling.DownsampleType
+import org.broadinstitute.gatk.utils.downsampling.DownsampleType
 import org.broadinstitute.gatk.utils.pipeline.Pipeline
 import org.broadinstitute.gatk.tools.DownsampleType
 import org.broadinstitute.gatk.queue.extensions.gatk._

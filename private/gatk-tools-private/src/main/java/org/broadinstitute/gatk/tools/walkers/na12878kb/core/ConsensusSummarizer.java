@@ -52,7 +52,7 @@
 package org.broadinstitute.gatk.tools.walkers.na12878kb.core;
 
 import com.google.java.contract.Ensures;
-import org.broadinstitute.gatk.engine.report.GATKReport;
+import org.broadinstitute.gatk.utils.report.GATKReport;
 
 import java.util.Date;
 import java.util.EnumMap;

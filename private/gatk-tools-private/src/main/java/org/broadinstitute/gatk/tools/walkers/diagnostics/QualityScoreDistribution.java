@@ -52,10 +52,10 @@
 package org.broadinstitute.gatk.tools.walkers.diagnostics;
 
 import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
-import org.broadinstitute.gatk.engine.report.GATKReport;
-import org.broadinstitute.gatk.engine.report.GATKReportTable;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.report.GATKReport;
+import org.broadinstitute.gatk.utils.report.GATKReportTable;
 import org.broadinstitute.gatk.engine.walkers.ReadWalker;
 import org.broadinstitute.gatk.utils.QualityUtils;
 import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;

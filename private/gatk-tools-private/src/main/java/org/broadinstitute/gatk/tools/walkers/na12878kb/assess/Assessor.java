@@ -63,7 +63,7 @@ import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.GenotypeType;
 import htsjdk.variant.variantcontext.VariantContext;
 import org.apache.log4j.Logger;
-import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
 import org.broadinstitute.gatk.engine.filters.BadCigarFilter;
 import org.broadinstitute.gatk.engine.filters.DuplicateReadFilter;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoVariantContext;

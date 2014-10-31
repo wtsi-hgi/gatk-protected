@@ -55,7 +55,7 @@ import org.apache.log4j.Logger;
 import org.broadinstitute.gatk.utils.commandline.Advanced;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.CommandLineProgram;
-import org.broadinstitute.gatk.utils.crypt.CryptUtils;
+import org.broadinstitute.gatk.engine.crypt.CryptUtils;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 
 import java.io.File;

@@ -53,12 +53,12 @@ package org.broadinstitute.gatk.tools.walkers.diagnostics;
 
 import htsjdk.samtools.SAMSequenceRecord;
 import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
 import org.broadinstitute.gatk.engine.filters.DuplicateReadFilter;
 import org.broadinstitute.gatk.engine.filters.FailsVendorQualityCheckFilter;
 import org.broadinstitute.gatk.engine.filters.NotPrimaryAlignmentFilter;
 import org.broadinstitute.gatk.engine.filters.UnmappedReadFilter;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.engine.walkers.ReadFilters;
 import org.broadinstitute.gatk.engine.walkers.ReadWalker;
 import org.broadinstitute.gatk.utils.ContigComparator;

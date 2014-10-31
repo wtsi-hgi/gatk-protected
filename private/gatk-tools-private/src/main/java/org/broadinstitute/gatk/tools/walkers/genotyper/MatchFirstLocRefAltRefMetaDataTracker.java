@@ -53,7 +53,7 @@ package org.broadinstitute.gatk.tools.walkers.genotyper;
 
 import htsjdk.tribble.Feature;
 import org.broadinstitute.gatk.utils.commandline.RodBinding;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.utils.GenomeLoc;
 import htsjdk.variant.variantcontext.VariantContext;
 

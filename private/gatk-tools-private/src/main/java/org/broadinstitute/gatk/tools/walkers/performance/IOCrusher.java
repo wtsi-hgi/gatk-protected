@@ -53,12 +53,12 @@ package org.broadinstitute.gatk.tools.walkers.performance;
 
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMFileWriter;
+import org.broadinstitute.gatk.engine.io.stubs.SAMFileWriterStub;
 import org.broadinstitute.gatk.utils.commandline.Argument;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.engine.walkers.ReadWalker;
 import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
-import org.broadinstitute.gatk.utils.sam.ReadUtils;
 
 import java.util.ArrayList;
 
@@ -93,7 +93,7 @@ public class IOCrusher extends ReadWalker<GATKSAMRecord, ArrayList<SAMFileWriter
         ArrayList<SAMFileWriter> outputs = new ArrayList<>(nWaysOut);
         for ( int i = 0; i < nWaysOut; i++ ) {
             SAMFileHeader header = this.getToolkit().getSAMFileHeader();
-            outputs.add(ReadUtils.createSAMFileWriter(outputBase + "." + i + ".bam", getToolkit(), header));
+            outputs.add(SAMFileWriterStub.createSAMFileWriter(outputBase + "." + i + ".bam", getToolkit(), header));
         }
         return outputs;
     }

@@ -51,7 +51,7 @@
 
 package org.broadinstitute.gatk.queue.qscripts.bqsr
 
-import org.broadinstitute.gatk.utils.recalibration.RecalUtils
+import org.broadinstitute.gatk.engine.recalibration.RecalUtils
 import org.broadinstitute.gatk.tools.walkers.bqsr.RecalUtils
 import org.broadinstitute.gatk.queue.extensions.gatk.BaseQualityScoreRecalibrator
 import org.broadinstitute.gatk.queue.QScript

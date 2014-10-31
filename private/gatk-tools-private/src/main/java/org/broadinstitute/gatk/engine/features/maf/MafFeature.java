@@ -52,8 +52,8 @@
 package org.broadinstitute.gatk.engine.features.maf;
 
 import htsjdk.tribble.Feature;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.VariantContextAdaptors;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.refdata.VariantContextAdaptors;
 import htsjdk.variant.vcf.VCFConstants;
 import org.broadinstitute.gatk.utils.exceptions.GATKException;
 import org.broadinstitute.gatk.utils.exceptions.UserException;

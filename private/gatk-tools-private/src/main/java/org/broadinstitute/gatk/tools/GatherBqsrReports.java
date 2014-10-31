@@ -52,7 +52,7 @@
 package org.broadinstitute.gatk.tools;
 
 import htsjdk.samtools.util.IOUtil;
-import org.broadinstitute.gatk.tools.walkers.bqsr.BQSRGatherer;
+import org.broadinstitute.gatk.engine.recalibration.BQSRGatherer;
 import picard.cmdline.CommandLineProgram;
 import picard.cmdline.Option;
 import picard.cmdline.StandardOptionDefinitions;

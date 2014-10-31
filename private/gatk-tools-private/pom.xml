@@ -29,10 +29,22 @@
             <groupId>org.mongodb</groupId>
             <artifactId>mongo-java-driver</artifactId>
         </dependency>
+        <dependency>
+            <groupId>picard</groupId>
+            <artifactId>picard</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>gatk-tools-public</artifactId>
+            <artifactId>gatk-utils</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>gatk-engine</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>

@@ -55,7 +55,7 @@ import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import org.apache.log4j.Logger;
 import org.broadinstitute.gatk.utils.BaseTest;
 import org.broadinstitute.gatk.utils.GenomeLocParser;
-import org.broadinstitute.gatk.utils.variant.GATKVCFUtils;
+import org.broadinstitute.gatk.engine.GATKVCFUtils;
 import htsjdk.variant.variantcontext.VariantContext;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeSuite;

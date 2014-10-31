@@ -21,7 +21,7 @@
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>gatk-tools-private</artifactId>
+            <artifactId>gatk-utils</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -38,7 +38,7 @@
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>gatk-tools-public</artifactId>
+            <artifactId>gatk-utils</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>

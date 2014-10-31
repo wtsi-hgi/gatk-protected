@@ -63,7 +63,7 @@ import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException
 import htsjdk.samtools.SAMFileHeader.SortOrder
 import org.broadinstitute.gatk.tools.walkers.indels.IndelRealigner.ConsensusDeterminationModel
 import org.broadinstitute.gatk.tools.walkers.techdev.SplitByRG
-import org.broadinstitute.gatk.engine.arguments.ValidationExclusion
+import org.broadinstitute.gatk.utils.ValidationExclusion
 
 class FullProcessingPipeline extends QScript {
   qscript =>

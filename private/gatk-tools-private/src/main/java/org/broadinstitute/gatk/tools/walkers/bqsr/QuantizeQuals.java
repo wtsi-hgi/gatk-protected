@@ -56,13 +56,13 @@ import htsjdk.samtools.SAMRecord;
 import org.apache.log4j.Logger;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
-import org.broadinstitute.gatk.engine.report.GATKReport;
-import org.broadinstitute.gatk.engine.report.GATKReportTable;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.report.GATKReport;
+import org.broadinstitute.gatk.utils.report.GATKReportTable;
 import org.broadinstitute.gatk.engine.walkers.ReadWalker;
 import org.broadinstitute.gatk.utils.QualityUtils;
-import org.broadinstitute.gatk.utils.recalibration.QualQuantizer;
+import org.broadinstitute.gatk.engine.recalibration.QualQuantizer;
 import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
 
 import java.io.File;

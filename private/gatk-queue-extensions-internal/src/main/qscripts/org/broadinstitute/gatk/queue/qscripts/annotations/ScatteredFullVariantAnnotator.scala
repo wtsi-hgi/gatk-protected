@@ -54,7 +54,8 @@ package org.broadinstitute.gatk.queue.qscripts.annotations
 import org.broadinstitute.gatk.queue.extensions.gatk._
 import org.broadinstitute.gatk.queue.QScript
 import org.broadinstitute.gatk.queue.library.ipf.vcf.VCFExtractIntervals
-import org.broadinstitute.gatk.engine.downsampling.DownsampleType
+import org.broadinstitute.gatk.utils.downsampling
+import org.broadinstitute.gatk.utils.downsampling.DownsampleType
 
 class ScatteredFullVariantAnnotator extends QScript {
   qscript =>
@@ -128,7 +129,7 @@ class ScatteredFullVariantAnnotator extends QScript {
 
       if (qscript.downsample_to_coverage > 0) {
         this.downsample_to_coverage = qscript.downsample_to_coverage
-        this.downsampling_type = org.broadinstitute.gatk.engine.downsampling.DownsampleType.BY_SAMPLE
+        this.downsampling_type = downsampling.DownsampleType.BY_SAMPLE
       }
     }
 
