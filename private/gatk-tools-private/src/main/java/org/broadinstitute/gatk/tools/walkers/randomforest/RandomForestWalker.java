@@ -72,6 +72,7 @@ import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import htsjdk.variant.vcf.VCFConstants;
 import htsjdk.variant.vcf.VCFHeader;
 import htsjdk.variant.vcf.VCFHeaderLine;
+import org.broadinstitute.gatk.utils.variant.GATKVCFConstants;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -310,11 +311,11 @@ public class RandomForestWalker extends RodWalker<ExpandingArrayList<RandomFores
         for( final RandomForestDatum datum : data ) {
             final VariantContextBuilder builder = new VariantContextBuilder("VQSR", datum.loc.getContig(), datum.loc.getStart(), datum.loc.getStop(), alleles);
             builder.attribute(VCFConstants.END_KEY, datum.loc.getStop());
-            builder.attribute(VariantRecalibrator.VQS_LOD_KEY, String.format("%.4f", datum.score));
-            builder.attribute(VariantRecalibrator.CULPRIT_KEY, "NULL"); // TODO -- something meaningful to put here?
+            builder.attribute(GATKVCFConstants.VQS_LOD_KEY, String.format("%.4f", datum.score));
+            builder.attribute(GATKVCFConstants.CULPRIT_KEY, "NULL"); // TODO -- something meaningful to put here?
 
-            if ( datum.isGood && !datum.isBad ) builder.attribute(VariantRecalibrator.POSITIVE_LABEL_KEY, true);
-            if ( datum.isBad && !datum.isGood ) builder.attribute(VariantRecalibrator.NEGATIVE_LABEL_KEY, true);
+            if ( datum.isGood && !datum.isBad ) builder.attribute(GATKVCFConstants.POSITIVE_LABEL_KEY, true);
+            if ( datum.isBad && !datum.isGood ) builder.attribute(GATKVCFConstants.NEGATIVE_LABEL_KEY, true);
 
             recalWriter.add(builder.make());
         }
