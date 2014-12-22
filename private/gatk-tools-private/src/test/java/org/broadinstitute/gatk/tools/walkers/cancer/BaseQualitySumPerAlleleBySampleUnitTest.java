@@ -49,40 +49,32 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.haplotypecaller;
+package org.broadinstitute.gatk.tools.walkers.cancer;
 
-import org.broadinstitute.gatk.tools.walkers.genotyper.StandardCallerArgumentCollection;
-import org.broadinstitute.gatk.utils.commandline.Advanced;
-import org.broadinstitute.gatk.utils.commandline.Argument;
+import htsjdk.samtools.SAMFileHeader;
+import org.broadinstitute.gatk.utils.QualityUtils;
+import org.broadinstitute.gatk.utils.sam.ArtificialSAMUtils;
+import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
-/**
- * Set of arguments for the {@link HaplotypeCaller}
- *
- * @author Valentin Ruano-Rubio &lt;valentin@broadinstitute.org&gt;
- */
-public class HaplotypeCallerArgumentCollection extends StandardCallerArgumentCollection {
+public class BaseQualitySumPerAlleleBySampleUnitTest {
+    @Test
+    public void BasicTest() {
+        BaseQualitySumPerAlleleBySample a = new BaseQualitySumPerAlleleBySample();
 
-    @Advanced
-    @Argument(fullName="debug", shortName="debug", doc="Print out very verbose debug information about each triggering active region", required = false)
-    public boolean DEBUG;
+        final SAMFileHeader header = ArtificialSAMUtils.createArtificialSamHeader(5, 1, 10000);
+        final GATKSAMRecord read = ArtificialSAMUtils.createArtificialRead(header, "myRead", 0, 1, 76);
 
-    @Advanced
-    @Argument(fullName="useFilteredReadsForAnnotations", shortName="useFilteredReadsForAnnotations", doc = "Use the contamination-filtered read maps for the purposes of annotating variants", required=false)
-    public boolean USE_FILTERED_READ_MAP_FOR_ANNOTATIONS = false;
+        read.setMappingQuality(60);
+        Assert.assertTrue(a.isUsableRead(read));
 
-    /**
-     * The reference confidence mode makes it possible to emit a per-bp or summarized confidence estimate for a site being strictly homozygous-reference.
-     * See http://www.broadinstitute.org/gatk/guide/article?id=2940 for more details of how this works.
-     * Note that if you set -ERC GVCF, you also need to set -variant_index_type LINEAR and -variant_index_parameter 128000 (with those exact values!).
-     * This requirement is a temporary workaround for an issue with index compression.
-     */
-    @Advanced
-    @Argument(fullName="emitRefConfidence", shortName="ERC", doc="Mode for emitting reference confidence scores", required = false)
-    protected ReferenceConfidenceMode emitReferenceConfidence = ReferenceConfidenceMode.NONE;
+        read.setMappingQuality(0);
+        Assert.assertFalse(a.isUsableRead(read));
 
-    @Override
-    public HaplotypeCallerArgumentCollection clone() {
-        return (HaplotypeCallerArgumentCollection) super.clone();
+        read.setMappingQuality(QualityUtils.MAPPING_QUALITY_UNAVAILABLE);
+        Assert.assertFalse(a.isUsableRead(read));
+
     }
-
+    
 }

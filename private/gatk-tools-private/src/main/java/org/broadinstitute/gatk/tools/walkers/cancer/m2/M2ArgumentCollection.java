@@ -49,40 +49,71 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.haplotypecaller;
+package org.broadinstitute.gatk.tools.walkers.cancer.m2;
 
-import org.broadinstitute.gatk.tools.walkers.genotyper.StandardCallerArgumentCollection;
 import org.broadinstitute.gatk.utils.commandline.Advanced;
 import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.Hidden;
 
-/**
- * Set of arguments for the {@link HaplotypeCaller}
- *
- * @author Valentin Ruano-Rubio &lt;valentin@broadinstitute.org&gt;
- */
-public class HaplotypeCallerArgumentCollection extends StandardCallerArgumentCollection {
-
+public class M2ArgumentCollection {
     @Advanced
-    @Argument(fullName="debug", shortName="debug", doc="Print out very verbose debug information about each triggering active region", required = false)
-    public boolean DEBUG;
+    @Argument(fullName="m2debug", shortName="m2debug", doc="If specified, print out very verbose M2 debug information", required = false)
+    public boolean M2_DEBUG = false;
 
-    @Advanced
-    @Argument(fullName="useFilteredReadsForAnnotations", shortName="useFilteredReadsForAnnotations", doc = "Use the contamination-filtered read maps for the purposes of annotating variants", required=false)
-    public boolean USE_FILTERED_READ_MAP_FOR_ANNOTATIONS = false;
+    @Argument(fullName = "initial_tumor_lod", required = false, doc = "Initial LOD threshold for calling tumor variant")
+    public float INITIAL_TUMOR_LOD_THRESHOLD = 4.0f;
 
-    /**
-     * The reference confidence mode makes it possible to emit a per-bp or summarized confidence estimate for a site being strictly homozygous-reference.
-     * See http://www.broadinstitute.org/gatk/guide/article?id=2940 for more details of how this works.
-     * Note that if you set -ERC GVCF, you also need to set -variant_index_type LINEAR and -variant_index_parameter 128000 (with those exact values!).
-     * This requirement is a temporary workaround for an issue with index compression.
-     */
-    @Advanced
-    @Argument(fullName="emitRefConfidence", shortName="ERC", doc="Mode for emitting reference confidence scores", required = false)
-    protected ReferenceConfidenceMode emitReferenceConfidence = ReferenceConfidenceMode.NONE;
+    @Argument(fullName = "tumor_lod", required = false, doc = "LOD threshold for calling tumor variant")
+    public float TUMOR_LOD_THRESHOLD = 6.3f;
 
-    @Override
-    public HaplotypeCallerArgumentCollection clone() {
-        return (HaplotypeCallerArgumentCollection) super.clone();
-    }
+    @Argument(fullName = "fraction_contamination", required = false, doc = "estimate of fraction (0-1) of physical contamination with other unrelated samples")
+    public float FRACTION_CONTAMINATION = 0.02f;
 
+    @Argument(fullName = "normal_lod", required = false, doc = "LOD threshold for calling normal non-germline")
+    public float NORMAL_LOD_THRESHOLD = 2.2f;
+
+    @Hidden
+    @Argument(fullName = "strand_artifact_lod", required = false, doc = "LOD threshold for calling strand bias")
+    public float STRAND_ARTIFACT_LOD_THRESHOLD = 2.0f;
+
+    @Hidden
+    @Argument(fullName = "strand_artifact_power_threshold", required = false, doc = "power threshold for calling strand bias")
+    public float STRAND_ARTIFACT_POWER_THRESHOLD = 0.9f;
+
+    @Argument(fullName = "dbsnp_normal_lod", required = false, doc = "LOD threshold for calling normal non-variant at dbsnp sites")
+    public float NORMAL_DBSNP_LOD_THRESHOLD = 5.5f;
+
+    @Argument(fullName = "minimum_normal_allele_fraction", required = false, doc = "minimum allele fraction to be considered in normal, useful for normal sample contaminated with tumor")
+    public float MINIMUM_NORMAL_ALLELE_FRACTION = 0.00f;
+
+    @Argument(fullName = "tumor_f_pretest", required = false, doc = "for computational efficiency, reject sites with allelic fraction below this threshold")
+    public float TUMOR_F_PRETEST = 0.005f;
+
+    @Argument(fullName = "min_qscore", required = false, doc = "threshold for minimum base quality score")
+    public int MIN_QSCORE = 5;
+
+    @Argument(fullName = "heavily_clipped_read_fraction", required = false, doc = "if this fraction or more of the bases in a read are soft/hard clipped, do not use this read for mutation calling")
+    public float HEAVILY_CLIPPED_READ_FRACTION = 0.30f;
+
+    @Argument(fullName = "fraction_mapq0_threshold", required = false, doc = "threshold for determining if there is relatedness between the alt and ref allele read piles")
+    public float FRACTION_MAPQ0_THRESHOLD = 0.5f;
+
+    @Argument(fullName = "pir_median_threshold", required = false, doc="threshold for clustered read position artifact median")
+    public double PIR_MEDIAN_THRESHOLD = 10;
+
+    @Argument(fullName = "pir_mad_threshold", required = false, doc="threshold for clustered read position artifact MAD")
+    public double PIR_MAD_THRESHOLD = 3;
+
+    @Argument(fullName = "required_maximum_alt_allele_mapping_quality_score", required = false, doc="required minimum value for tumor alt allele maximum mapping quality score")
+    public int REQUIRED_MAXIMUM_ALT_ALLELE_MAPPING_QUALITY_SCORE = 20;
+
+    /** Parameters for ALT ALLELE IN NORMAL filter **/
+    @Argument(fullName = "max_alt_alleles_in_normal_count", required = false, doc="threshold for maximum alternate allele counts in normal")
+    public int MAX_ALT_ALLELES_IN_NORMAL_COUNT = 2;
+
+    @Argument(fullName = "max_alt_alleles_in_normal_qscore_sum", required = false, doc="threshold for maximum alternate allele quality score sum in normal")
+    public int MAX_ALT_ALLELES_IN_NORMAL_QSCORE_SUM = 20;
+
+    @Argument(fullName = "max_alt_allele_in_normal_fraction", required = false, doc="threshold for maximum alternate allele fraction in normal")
+    public double MAX_ALT_ALLELE_IN_NORMAL_FRACTION = 0.03;
 }
