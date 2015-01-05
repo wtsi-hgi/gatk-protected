@@ -157,7 +157,7 @@ class SingleSampleHC_exome extends QScript {
     this.input :+= vcf
     this.nt = 4
     this.allPoly = true
-    this.tranche ++= List("100.0", "99.9", "99.8", "99.7", "99.5", "99.3", "99.0", "98.5", "98.0", "97.0", "95.0", "90.0")
+    this.tranche ++= List(100.0, 99.9, 99.8, 99.7, 99.5, 99.3, 99.0, 98.5, 98.0, 97.0, 95.0, 90.0)
     this.memoryLimit = 8
     this.tranches_file = swapExt(outputDir, vcf, ".vcf", ".tranches")
     this.recal_file = swapExt(outputDir, vcf, ".vcf", ".recal")
