@@ -186,7 +186,7 @@ public class BaseRecalibratorUnitTest {
 
     @Test(dataProvider = "CalculateIsIndelData")
     public void testCalculateIsIndel(final String cigar, final boolean negStrand, final EventType mode, final int[] expected) {
-        final GATKSAMRecord read = ArtificialSAMUtils.createArtificialRead(TextCigarCodec.getSingleton().decode(cigar));
+        final GATKSAMRecord read = ArtificialSAMUtils.createArtificialRead(TextCigarCodec.decode(cigar));
         read.setReadNegativeStrandFlag(negStrand);
         final int[] actual = BaseRecalibrator.calculateIsIndel(read, mode);
         Assert.assertEquals(actual, expected, "CalculateIsIndel failed with " + mode + " and cigar " + cigar + " Expected " + Arrays.toString(expected) + " but got " + Arrays.toString(actual));
