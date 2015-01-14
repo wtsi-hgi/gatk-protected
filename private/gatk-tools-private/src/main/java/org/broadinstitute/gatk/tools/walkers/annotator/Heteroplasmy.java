@@ -57,13 +57,13 @@ import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.AnnotatorCompatible;
 import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.InfoFieldAnnotation;
 import org.broadinstitute.gatk.utils.genotyper.PerReadAlleleLikelihoodMap;
-import htsjdk.variant.vcf.VCFConstants;
 import htsjdk.variant.vcf.VCFHeaderLineCount;
 import htsjdk.variant.vcf.VCFHeaderLineType;
 import htsjdk.variant.vcf.VCFInfoHeaderLine;
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.GenotypesContext;
 import htsjdk.variant.variantcontext.VariantContext;
+import org.broadinstitute.gatk.utils.variant.GATKVCFConstants;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -100,13 +100,13 @@ public class Heteroplasmy extends InfoFieldAnnotation {
         double heteroplasmySum = 0.0;
         
         for (Genotype g: genotypes) {
-            if (g.hasExtendedAttribute(VCFConstants.MLE_ALLELE_COUNT_KEY)) {
-                String s = g.getAttributeAsString(VCFConstants.MLE_ALLELE_COUNT_KEY,"");
+            if (g.hasExtendedAttribute(GATKVCFConstants.MLE_ALLELE_COUNT_KEY)) {
+                String s = g.getAttributeAsString(GATKVCFConstants.MLE_ALLELE_COUNT_KEY,"");
                 int numAlts = Integer.valueOf(s);
                 if (numAlts>0) numVariantSamples++;
 
                 // AF will be per-pool heteroplasmy
-                s = g.getAttributeAsString(VCFConstants.MLE_ALLELE_FREQUENCY_KEY,"");
+                s = g.getAttributeAsString(GATKVCFConstants.MLE_ALLELE_FREQUENCY_KEY,"");
                 double af = Double.valueOf(s);
                 if (numAlts>0) heteroplasmySum += af;
          }
