@@ -311,15 +311,12 @@ public class ValidateBAQ extends ReadWalker<Integer, Integer> {
                 case H : case P : // ignore pads and hard clips
                     break;
                 case S :
-                case I :
-                    readI += l;
-                    break;
                 case D : break;
-                case M :
+                case M: case EQ: case I: case X:
                     readI += l;
                     break;
                 default:
-                    throw new ReviewedGATKException("BUG: Unexpected CIGAR element " + elt + " in read " + read.getReadName());
+                    throw new ReviewedGATKException("BUG: Unexpected CIGAR element " + elt.getOperator() + " in read " + read.getReadName());
             }
         }
         return readI;
