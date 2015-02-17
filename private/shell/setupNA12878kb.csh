@@ -5,7 +5,8 @@
 set args = ""
 #set source = ~/Desktop/broadLocal/localData/na12878.db/
 set source = /humgen/gsa-hpprojects/NA12878Collection/knowledgeBase
-
+set BUNDLE = /humgen/gsa-hpprojects/GATK/bundle/current
+set jarPath = target/GenomeAnalysisTK-internal.jar
 #if ( ! -e $source ) then
 #endif
 
@@ -30,7 +31,7 @@ endif
 #set root = "echo java -Xmx2g -jar dist/GenomeAnalysisTK.jar -R $BUNDLE/b37/human_g1k_v37.fasta -L $loc $args"
 
 set gencode = /humgen/gsa-hpprojects/NA12878Collection/knowledgeBase/gencode.v12_broad.agilent_merged.50bpPadding.interval_list
-set root = "java -Xmx2g -jar dist/GenomeAnalysisTK.jar -R $BUNDLE/b37/human_g1k_v37.fasta -L 20 -L $gencode $args"
+set root = "java -Xmx2g -jar $jarPath -R $BUNDLE/b37/human_g1k_v37.fasta -L 20 -L $gencode $args"
 
 # import all callsets
 #   - must enumerate each call set individually from $source
@@ -53,7 +54,7 @@ $import -callSetName 1000G_exomeIndels -assumedCallTruth TRUE_POSITIVE -howToTre
 $import -callSetName MiSeqLargeIndels -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/largeIndels.HC.GGA.MiSeq.chr20.raw.na12878.kbInterval.vcf
 $import -callSetName largeScaleValidationPools_POLY -assumedCallTruth UNKNOWN -howToTreatFilteredSites SKIP -howToTreatAC0 SKIP -V $source/largeScaleValidationSites_pools_run20121030EASFix.POLYMORPHIC.sites.na12878.kbInterval.vcf
 $import -callSetName largeScaleValidationPools_MONO -assumedCallTruth FALSE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/largeScaleValidationSites_pools_run20121030EASFix.MONOMORPHIC.sites.na12878.kbInterval.vcf
-$import -callSetName NIST_GenomesInABottle -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 SKIP -V $source/NISTIntegratedCalls_v2.17.na12878.kbInterval.vcf
+$import -callSetName NIST_GenomesInABottle -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 SKIP -V $source/NISTIntegratedCalls_v2.18.na12878.leftAligned.allConf.kbInterval.vcf
 $import -callSetName AffyExomePlus_POLY -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 MARK_AS_NON_POLYMORPHIC -V $source/Axiom_Exome_Plus.genotypes.NA12878.poly.vcf
 $import -callSetName AffyExomePlus_MONO -assumedCallTruth FALSE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 FALSE_POSITIVE -V $source/Axiom_Exome_Plus.genotypes.all_populations.monomorphic.biallelic.vcf
 $import -callSetName BroadExomeLOF_POLY -assumedCallTruth TRUE_POSITIVE -howToTreatFilteredSites FALSE_POSITIVE -howToTreatAC0 MARK_AS_NON_POLYMORPHIC -V $source/ALL.wex.broad_lof_exome_chip_beadstudio.20130703.snps_and_indels.chip.genotypes.NA12878.poly.vcf
