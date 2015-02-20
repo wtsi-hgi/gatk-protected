@@ -441,6 +441,9 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
 
         final List<Haplotype> haplotypes = assemblyResult.getHaplotypeList();
         final Map<String,List<GATKSAMRecord>> reads = splitReadsBySample( regionForGenotyping.getReads() );
+        for (List<GATKSAMRecord> rec : reads.values()) {
+            logReadInfo(DEBUG_READ_NAME, rec, "Present after splitting assemblyResult by sample");
+        }
 
         // modify MAPQ scores in normal to be high so that we don't do any base quality score capping
         for(GATKSAMRecord rec : regionForGenotyping.getReads()) {
@@ -824,7 +827,9 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     @Advanced
     @Argument(fullName="annotation", shortName="A", doc="One or more specific annotations to apply to variant calls", required=false)
 //    protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"ClippingRankSumTest", "DepthPerSampleHC"}));
-    protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"DepthPerAlleleBySample", "BaseQualitySumPerAlleleBySample"}));
+    //protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"DepthPerAlleleBySample", "BaseQualitySumPerAlleleBySample", "TandemRepeatAnnotator",
+    //    "RMSMappingQuality","MappingQualityRankSumTest","FisherStrand","StrandOddsRatio","ReadPosRankSumTest","QualByDepth", "Coverage"}));
+    protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"DepthPerAlleleBySample", "BaseQualitySumPerAlleleBySample", "TandemRepeatAnnotator"}));
 
     /**
      * Which annotations to exclude from output in the VCF file.  Note that this argument has higher priority than the -A or -G arguments,
@@ -832,13 +837,13 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
      */
     @Advanced
     @Argument(fullName="excludeAnnotation", shortName="XA", doc="One or more specific annotations to exclude", required=false)
-    protected List<String> annotationsToExclude = new ArrayList<>(Arrays.asList(new String[]{"SpanningDeletions", "TandemRepeatAnnotator"}));
+    protected List<String> annotationsToExclude = new ArrayList<>(Arrays.asList(new String[]{"SpanningDeletions"}));
 
     /**
      * Which groups of annotations to add to the output VCF file. See the VariantAnnotator -list argument to view available groups.
      */
     @Argument(fullName="group", shortName="G", doc="One or more classes/groups of annotations to apply to variant calls", required=false)
-//    protected String[] annotationClassesToUse = { "Standard" };
+    //protected String[] annotationClassesToUse = { "Standard" };
     protected String[] annotationClassesToUse = { };
 
     /// HC-Related Parameters

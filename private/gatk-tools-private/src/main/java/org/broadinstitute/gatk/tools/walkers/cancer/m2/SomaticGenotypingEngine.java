@@ -62,6 +62,7 @@ import org.broadinstitute.gatk.tools.walkers.haplotypecaller.HaplotypeCallerGeno
 import org.broadinstitute.gatk.utils.GenomeLoc;
 import org.broadinstitute.gatk.utils.GenomeLocParser;
 import org.broadinstitute.gatk.utils.commandline.RodBinding;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
 import org.broadinstitute.gatk.utils.genotyper.MostLikelyAllele;
 import org.broadinstitute.gatk.utils.genotyper.PerReadAlleleLikelihoodMap;
 import org.broadinstitute.gatk.utils.genotyper.ReadLikelihoods;
@@ -197,6 +198,10 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
 
                 ReadLikelihoods<Allele> readAlleleLikelihoods = readLikelihoods.marginalize(alleleMapper, genomeLocParser.createPaddedGenomeLoc(genomeLocParser.createGenomeLoc(mergedVC), ALLELE_EXTENSION));
 
+                //LDG: do we want to do this before or after pulling out overlapping reads?
+                //if (MTAC.isSampleContaminationPresent())
+                //    readAlleleLikelihoods.contaminationDownsampling(MTAC.getSampleContamination());
+
                 if (!mergedVC.isBiallelic()) {
                     logger.info("[UNSUPPORTED] Detected non-Biallelic VC" + mergedVC.toString());
                     continue;
@@ -297,7 +302,8 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                     readAlleleLikelihoods = prepareReadAlleleLikelihoodsForAnnotation(readLikelihoods, perSampleFilteredReadList,
                             genomeLocParser, emitReferenceConfidence, alleleMapper, readAlleleLikelihoods, call);
 
-                    VariantContext annotatedCall = annotationEngine.annotateContextForActiveRegion(tracker, readAlleleLikelihoods, call);
+                    ReferenceContext referenceContext = new ReferenceContext(genomeLocParser, genomeLocParser.createGenomeLoc(mergedVC.getChr(), mergedVC.getStart(), mergedVC.getEnd()), refLoc, ref);
+                    VariantContext annotatedCall = annotationEngine.annotateContextForActiveRegion(referenceContext, tracker, readAlleleLikelihoods, call);
 
                     if( call.getAlleles().size() != mergedVC.getAlleles().size() )
                         annotatedCall = GATKVariantContextUtils.reverseTrimAlleles(annotatedCall);
