@@ -410,7 +410,8 @@ public class Assessor {
 
         if ( logger.isDebugEnabled() ) logger.debug("Assessing site " + name + " call " + call + " against consensus " + consensusSite);
 
-        badSitesWriter.notifyOfSite(genotypeDiscordance ? AssessmentType.GENOTYPE_DISCORDANCE : type, vc, consensusSite);
+        //badSitesWriter.notifyOfSite(genotypeDiscordance ? AssessmentType.GENOTYPE_DISCORDANCE : type, vc, consensusSite);
+        badSitesWriter.notifyOfSite( type, vc, consensusSite);
     }
 
     private boolean assessGenotypeConcordance(final VariantContext call,
@@ -515,7 +516,9 @@ public class Assessor {
                     return AssessmentType.REASONABLE_FILTERS_WOULD_FILTER_FP_SITE;
                 else
                     return AssessmentType.FALSE_POSITIVE_SITE_IS_FP;
-            } else if ( consensusSite != null && consensusSite.getType().isUnknown() ) {
+            }
+            //since CALLED_IN_DB_UNKNOWN_STATUS simplifies to TRUE_POSITIVE, only assess this if the site is not filtered
+            else if ( consensusSite != null && consensusSite.getType().isUnknown() && ! isNotUsableCall(call)) {
                 return AssessmentType.CALLED_IN_DB_UNKNOWN_STATUS;
             } else if ( consensusSite == null && ! isNotUsableCall(call) ) {
                 return AssessmentType.CALLED_NOT_IN_DB_AT_ALL;
