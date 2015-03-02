@@ -54,6 +54,7 @@ package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFFileReader;
+import org.apache.commons.io.FileUtils;
 import org.broadinstitute.gatk.engine.walkers.WalkerTest;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.text.XReadLines;
@@ -62,7 +63,9 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 
 public class AssessNA12878KnowledgeBaseTest extends WalkerTest {
 
@@ -76,6 +79,51 @@ public class AssessNA12878KnowledgeBaseTest extends WalkerTest {
                 Arrays.asList("", "")); // DO NOT PUT MD5s HERE AS THE KB CHANGES DAILY!  This is just a test that it doesn't blow up.
         spec.disableShadowBCF(); // BCF output does not work with -badSites because of the way Mongo constructs the MVCs
         executeTest("test basic query", spec);
+    }
+
+    @Test
+    public void testSampleNameToCompare() {
+        // run command
+        WalkerTest.WalkerTestSpec specDefault = new WalkerTest.WalkerTestSpec(
+                baseCommand + " -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -rpr",
+                1,
+                Arrays.asList("")); // No MD5s
+
+        WalkerTest.WalkerTestSpec specAlternateName = new WalkerTest.WalkerTestSpec(
+                baseCommand + " -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.altSampleName.vcf --sampleNameToCompare NA12878AltName -rpr",
+                1,
+                Arrays.asList("")); // No MD5s
+
+        final File reportDefault = executeTest("test sampleNameToCompare default name", specDefault).first.get(0);
+        final File reportAlternateName = executeTest("test sampleNameToCompare alternate name", specAlternateName).first.get(0);
+
+        List<String> linesDefault, linesAlternateName;
+        try {
+            linesDefault = FileUtils.readLines(reportDefault);
+        }
+        catch(IOException e) {
+            throw new UserException.CouldNotReadInputFile(reportDefault, e);
+        }
+        try {
+            linesAlternateName = FileUtils.readLines(reportAlternateName);
+        }
+        catch(IOException e) {
+            throw new UserException.CouldNotReadInputFile(reportAlternateName, e);
+        }
+
+        // Count the number of header lines
+        int headerLines;
+        for(headerLines = 0;headerLines < linesDefault.size();headerLines++) {
+            if(!linesDefault.get(headerLines).startsWith("#"))
+                break;
+        }
+
+        // Compare the two files ignoring the headers
+        for(int i = headerLines;i < linesDefault.size();i++) {
+            if(!linesDefault.get(i).equals(linesAlternateName.get(i))) {
+                Assert.fail("sampleNameToCompare produces differing output from default usage");
+            }
+        }
     }
 
     @Test

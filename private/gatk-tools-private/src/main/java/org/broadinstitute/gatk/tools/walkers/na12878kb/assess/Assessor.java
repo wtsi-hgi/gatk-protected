@@ -114,6 +114,7 @@ public class Assessor {
     private final int minPNonRef;
     private final int minGQ;
     private int inputPloidy = HomoSapiensConstants.DEFAULT_PLOIDY;
+    private String sampleID;
 
     Assessment SNPAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
     Assessment IndelAssessment = new Assessment(AssessmentType.DETAILED_ASSESSMENTS);
@@ -126,7 +127,7 @@ public class Assessor {
      * @param name the name of our assessor
      */
     protected Assessor(final String name) {
-        this(name, AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 0, -1, 20, Collections.<String>emptySet());
+        this(name, AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 0, -1, 20, Collections.<String>emptySet(), "NA12878");
     }
 
     /**
@@ -145,6 +146,7 @@ public class Assessor {
      * @param minPNonRef  if PLs against 0/0 are below this number, do not consider the site called; use -1 to ignore
      * @param minGQ  if GQ is below this number, do not consider the genotype called; use -1 to ignore
      * @param ignoreFilters the set of filters which we should ignore (and allow them to pass through); if Assessor.WILDCARD_FILTER_NAME is included then all filters will be ignored
+     * @param sampleID the ID of the sample to be considered as NA12878
      */
     public Assessor(final String name,
                     final AssessNA12878.TypesToInclude typesToInclude,
@@ -154,7 +156,8 @@ public class Assessor {
                     final int minDepthForLowCoverage,
                     final int minPNonRef,
                     final int minGQ,
-                    final Set<String> ignoreFilters) {
+                    final Set<String> ignoreFilters,
+                    final String sampleID) {
         if ( name == null ) throw new IllegalArgumentException("ROD name cannot be null");
         if ( name.equals("") ) throw new IllegalArgumentException("ROD name cannot be the empty string");
         if ( typesToInclude == null ) throw new IllegalArgumentException("typesToInclude cannot be null");
@@ -170,6 +173,7 @@ public class Assessor {
         this.excludeKBSitesSupportedByOnlyTheseCallset = excludeKBSitesSupportedByOnlyTheseCallset;
         this.badSitesWriter = badSitesWriter;
         this.filtersToIgnore = ignoreFilters;
+        this.sampleID = sampleID;
         ignoreAllFilters = filtersToIgnore.contains(WILDCARD_FILTER_NAME);
     }
 
@@ -285,10 +289,10 @@ public class Assessor {
 
     private VariantContext subsetToNA12878(final VariantContext vcRaw) {
         if ( vcRaw.hasGenotypes() ) {
-            final VariantContext vcNA12878 = GATKVariantContextUtils.trimAlleles(vcRaw.subContextFromSample("NA12878"), false, true);
-            if (!vcNA12878.hasGenotype("NA12878"))
-                throw new UserException.BadInput("The input file does not contain NA12878. VCFs with genotypes must have NA12878 as one of the samples present, otherwise you must use a sites-only VCF. If your VCF is from NA12878 make sure that the sample name is actually 'NA12878'.");
-            final Genotype na12878 = vcNA12878.getGenotype("NA12878");
+            final VariantContext vcNA12878 = GATKVariantContextUtils.trimAlleles(vcRaw.subContextFromSample(sampleID), false, true);
+            if (!vcNA12878.hasGenotype(sampleID))
+                throw new UserException.BadInput("The input file does not contain " + sampleID + ". VCFs with genotypes must have " + sampleID + " as one of the samples present, otherwise you must use a sites-only VCF. If NA12878 is named something else, make sure you pass the appropriate name to the assessing program.");
+            final Genotype na12878 = vcNA12878.getGenotype(sampleID);
             if (na12878.hasPL() && na12878.getPL()[0] < minPNonRef)
                 return null;
             else {
@@ -421,7 +425,7 @@ public class Assessor {
                                               final AssessmentType type,
                                               final Assessment assessment) {
         if ( ! okayToAssessGenotypes || call == null || consensusSite == null || type != AssessmentType.TRUE_POSITIVE ||
-                !call.hasGenotype("NA12878") || isNotUsableCall(call) || ! consensusSite.isPolymorphic())
+                !call.hasGenotype(sampleID) || isNotUsableCall(call) || ! consensusSite.isPolymorphic())
             return false;
 
         final List<Allele> alleles = vc.getAlleles();
@@ -429,7 +433,7 @@ public class Assessor {
         if ( consensusGT.getType() != GenotypeType.HET && consensusGT.getType() != GenotypeType.HOM_VAR )
             return false;
 
-        final Genotype callGT = call.getGenotype("NA12878");
+        final Genotype callGT = call.getGenotype(sampleID);
         if ( callGT.hasGQ() && callGT.getGQ() < minGQ )
             return false;
 
