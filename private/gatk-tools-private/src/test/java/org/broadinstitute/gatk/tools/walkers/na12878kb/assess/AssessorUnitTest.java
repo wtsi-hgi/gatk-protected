@@ -299,7 +299,7 @@ public class AssessorUnitTest extends BaseTest {
         final Genotype discordant = MongoGenotype.createDiscordant(het);
         final MongoVariantContext mvcAC10 = MongoVariantContext.create("kb", vcAC10, TruthStatus.TRUE_POSITIVE, discordant);
 
-        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 5, -1, -1, Collections.singleton(Assessor.WILDCARD_FILTER_NAME));
+        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 5, -1, -1, Collections.singleton(Assessor.WILDCARD_FILTER_NAME), "NA12878");
         assessor.assessSite(Arrays.asList(vcAC10), Arrays.asList(mvcAC10), false);
 
         final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);
@@ -315,7 +315,7 @@ public class AssessorUnitTest extends BaseTest {
         final Genotype discordant = MongoGenotype.createDiscordant(het);
         final MongoVariantContext mvcAC10 = MongoVariantContext.create("kb", vcAC10, TruthStatus.TRUE_POSITIVE, discordant);
 
-        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 5, -1, -1, myFilter);
+        final Assessor assessor = new Assessor("test", AssessNA12878.TypesToInclude.BOTH, Collections.<String>emptySet(), BadSitesWriter.NOOP_WRITER, null, 5, -1, -1, myFilter, "NA12878");
         assessor.assessSite(Arrays.asList(vcAC10), Arrays.asList(mvcAC10), false);
 
         final Assessment oneTP = new Assessment(AssessmentType.DETAILED_ASSESSMENTS, AssessmentType.TRUE_POSITIVE);

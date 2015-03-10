@@ -157,6 +157,9 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Argument(fullName="typesToInclude", shortName = "typesToInclude", doc="Should we analyze SNPs, INDELs, or both?", required=false)
     public TypesToInclude typesToInclude = TypesToInclude.BOTH;
 
+    @Argument(fullName="sampleNameToCompare", shortName = "sample", doc="Specifies the sample name in the VCF that will be compared to the knowledgebase.", required=false)
+    public String sampleNameToCompare = "NA12878";
+
     public enum TypesToInclude {
         SNPS,
         INDELS,
@@ -221,7 +224,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         for ( final RodBinding<VariantContext> rod : variants ) {
             final String rodName = rod.getName();
             final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, sitesWriter, bamReader,
-                    minDepthForLowCoverage, minPNonRef, minGQ, filtersToIgnore);
+                    minDepthForLowCoverage, minPNonRef, minGQ, filtersToIgnore, sampleNameToCompare);
             assessor.setInputPloidy(inputPloidy);
             assessor.setGenotypeTypesToConsider(genotypeTypesToInclude);
             assessors.put(rodName, assessor);
