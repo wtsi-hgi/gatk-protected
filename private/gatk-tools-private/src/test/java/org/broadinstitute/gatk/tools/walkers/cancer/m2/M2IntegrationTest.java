@@ -49,40 +49,72 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.haplotypecaller;
+package org.broadinstitute.gatk.tools.walkers.cancer.m2;
 
-import org.broadinstitute.gatk.tools.walkers.genotyper.StandardCallerArgumentCollection;
-import org.broadinstitute.gatk.utils.commandline.Advanced;
-import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.engine.walkers.WalkerTest;
+import org.testng.annotations.Test;
 
-/**
- * Set of arguments for the {@link HaplotypeCaller}
- *
- * @author Valentin Ruano-Rubio &lt;valentin@broadinstitute.org&gt;
- */
-public class HaplotypeCallerArgumentCollection extends StandardCallerArgumentCollection {
+import java.util.*;
 
-    @Advanced
-    @Argument(fullName="debug", shortName="debug", doc="Print out very verbose debug information about each triggering active region", required = false)
-    public boolean DEBUG;
+public class M2IntegrationTest extends WalkerTest {
+    final static String REF = hg19Reference;
 
-    @Advanced
-    @Argument(fullName="useFilteredReadsForAnnotations", shortName="useFilteredReadsForAnnotations", doc = "Use the contamination-filtered read maps for the purposes of annotating variants", required=false)
-    public boolean USE_FILTERED_READ_MAP_FOR_ANNOTATIONS = false;
+    final static String CCLE_MICRO_TUMOR_BAM = privateTestDir + "HCC1143.cghub.ccle.micro.bam";
+    final static String CCLE_MICRO_NORMAL_BAM = privateTestDir + "HCC1143_BL.cghub.ccle.micro.bam";
+    final static String CCLE_MICRO_INTERVALS_FILE = privateTestDir + "HCC1143.cghub.ccle.micro.intervals";
+
+    final static String DBSNP=b37dbSNP132;
+    final static String COSMIC="/xchip/cga/reference/hg19/hg19_cosmic_v54_120711.vcf";
+    final static String PON="/xchip/cga/reference/hg19/refseq_exome_10bp_hg19_300_1kg_normal_panel.vcf";
+
+    final static String DREAM3_TUMOR_BAM = validationDataLocation + "cancer/dream3.integrationtest.tumor.bam";
+    final static String DREAM3_NORMAL_BAM = validationDataLocation + "cancer/dream3.integrationtest.normal.bam";
+    final static String DREAM3_TP_INTERVALS_FILE = privateTestDir + "m2_dream3.tp.intervals";
+    final static String DREAM3_FP_INTERVALS_FILE = privateTestDir + "m2_dream3.fp.intervals";
+
+
+
+    private void M2Test(String tumorBam, String normalBam, String intervals, String args, String md5) {
+        final String base = String.format(
+                "-T M2 --no_cmdline_in_header -ip 50 -R %s --dbsnp %s --cosmic %s --normal_panel %s -I:tumor %s -I:normal %s -L %s",
+                REF, DBSNP, COSMIC, PON, tumorBam, normalBam, intervals) +
+                " -o %s ";
+
+        final WalkerTestSpec spec = new WalkerTestSpec(base + " " + args, Arrays.asList(md5));
+
+        // TODO: do we want to enable this and why?  It explodes with
+        // java.lang.RuntimeException: java.lang.ClassCastException: java.lang.Double cannot be cast to java.lang.String
+        //    at htsjdk.variant.variantcontext.writer.BCF2FieldEncoder$StringOrCharacter.javaStringToBCF2String(BCF2FieldEncoder.java:312)
+        spec.disableShadowBCF();
+        executeTest("testM2: args=" + args, spec);
+    }
+
+    @Test
+    public void testMicroRegression() {
+        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "", "3b670574c0df1906a2324442dfb8b23d");
+    }
 
     /**
-     * The reference confidence mode makes it possible to emit a per-bp or summarized confidence estimate for a site being strictly homozygous-reference.
-     * See http://www.broadinstitute.org/gatk/guide/article?id=2940 for more details of how this works.
-     * Note that if you set -ERC GVCF, you also need to set -variant_index_type LINEAR and -variant_index_parameter 128000 (with those exact values!).
-     * This requirement is a temporary workaround for an issue with index compression.
+     * Tests all the True Positive sites in the DREAM 3 data set.  We don't necessarily call
+     * all of these (e.g. we have some FNs) but it's the full set of things we want to be able
+     * to call, and not regress
      */
-    @Advanced
-    @Argument(fullName="emitRefConfidence", shortName="ERC", doc="Mode for emitting reference confidence scores", required = false)
-    protected ReferenceConfidenceMode emitReferenceConfidence = ReferenceConfidenceMode.NONE;
+    @Test
+    public void testTruePositivesDream3() {
+        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_TP_INTERVALS_FILE, "", "e36c430cf1ccb59aef196c8efdf9f49c");
+    }
 
-    @Override
-    public HaplotypeCallerArgumentCollection clone() {
-        return (HaplotypeCallerArgumentCollection) super.clone();
+    /**
+     * Tests a number of False Positive calls from the DREAM 3 data set.  Some of them are not rejected
+     * (e.g. we have some FPs!) but most are rejected.
+     *
+     * NOTE: this test seems to produce a different MD5 when run on different machines, which is a known occurrence
+     * in some HC-based test.  To generate the integration MD5, run the tests on gsa4 which is the same architecture as
+     * the gsabamboo server
+     */
+    @Test
+    public void testFalsePositivesDream3() {
+        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_FP_INTERVALS_FILE, "", "0837abd281e8cbdb08f926efc766c7f8");
     }
 
 }

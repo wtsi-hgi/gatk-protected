@@ -49,40 +49,113 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.haplotypecaller;
+package org.broadinstitute.gatk.tools.walkers.cancer;
 
-import org.broadinstitute.gatk.tools.walkers.genotyper.StandardCallerArgumentCollection;
-import org.broadinstitute.gatk.utils.commandline.Advanced;
-import org.broadinstitute.gatk.utils.commandline.Argument;
+import htsjdk.variant.variantcontext.Allele;
+import htsjdk.variant.variantcontext.Genotype;
+import htsjdk.variant.variantcontext.GenotypeBuilder;
+import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.vcf.VCFFormatHeaderLine;
+import htsjdk.variant.vcf.VCFHeaderLineCount;
+import htsjdk.variant.vcf.VCFHeaderLineType;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.AnnotatorCompatible;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.GenotypeAnnotation;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.StandardAnnotation;
+import org.broadinstitute.gatk.utils.QualityUtils;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
+import org.broadinstitute.gatk.utils.genotyper.MostLikelyAllele;
+import org.broadinstitute.gatk.utils.genotyper.PerReadAlleleLikelihoodMap;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
+import org.broadinstitute.gatk.utils.sam.ReadUtils;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
 
 /**
- * Set of arguments for the {@link HaplotypeCaller}
  *
- * @author Valentin Ruano-Rubio &lt;valentin@broadinstitute.org&gt;
  */
-public class HaplotypeCallerArgumentCollection extends StandardCallerArgumentCollection {
+public class BaseQualitySumPerAlleleBySample extends GenotypeAnnotation implements StandardAnnotation {
+    public static final String QUALITY_SCORE_SUMS = "QSS";
+    public List<String> getKeyNames() { return Arrays.asList(QUALITY_SCORE_SUMS); }
 
-    @Advanced
-    @Argument(fullName="debug", shortName="debug", doc="Print out very verbose debug information about each triggering active region", required = false)
-    public boolean DEBUG;
 
-    @Advanced
-    @Argument(fullName="useFilteredReadsForAnnotations", shortName="useFilteredReadsForAnnotations", doc = "Use the contamination-filtered read maps for the purposes of annotating variants", required=false)
-    public boolean USE_FILTERED_READ_MAP_FOR_ANNOTATIONS = false;
+    public void annotate(final RefMetaDataTracker tracker,
+                         final AnnotatorCompatible walker,
+                         final ReferenceContext ref,
+                         final AlignmentContext stratifiedContext,
+                         final VariantContext vc,
+                         final Genotype g,
+                         final GenotypeBuilder gb,
+                         final PerReadAlleleLikelihoodMap alleleLikelihoodMap) {
 
-    /**
-     * The reference confidence mode makes it possible to emit a per-bp or summarized confidence estimate for a site being strictly homozygous-reference.
-     * See http://www.broadinstitute.org/gatk/guide/article?id=2940 for more details of how this works.
-     * Note that if you set -ERC GVCF, you also need to set -variant_index_type LINEAR and -variant_index_parameter 128000 (with those exact values!).
-     * This requirement is a temporary workaround for an issue with index compression.
-     */
-    @Advanced
-    @Argument(fullName="emitRefConfidence", shortName="ERC", doc="Mode for emitting reference confidence scores", required = false)
-    protected ReferenceConfidenceMode emitReferenceConfidence = ReferenceConfidenceMode.NONE;
+        if ( g == null || !g.isCalled() || ( stratifiedContext == null && alleleLikelihoodMap == null) )
+            return;
 
-    @Override
-    public HaplotypeCallerArgumentCollection clone() {
-        return (HaplotypeCallerArgumentCollection) super.clone();
+        if (alleleLikelihoodMap != null) {
+            annotateWithLikelihoods(alleleLikelihoodMap, vc, gb);
+        } else {
+            throw new GATKException("BaseQualitySumPerAlleleBySample not supported");
+        }
+    }
+
+    protected void annotateWithLikelihoods(final PerReadAlleleLikelihoodMap perReadAlleleLikelihoodMap, final VariantContext vc, final GenotypeBuilder gb) {
+        final ArrayList<Double> refQuals = new ArrayList<>();
+        final ArrayList<Double> altQuals = new ArrayList<>();
+
+        // clean up
+        fillQualsFromLikelihoodMap(vc.getAlleles(), vc.getStart(), perReadAlleleLikelihoodMap, refQuals, altQuals);
+        double refQualSum = 0;
+        for(Double d : refQuals) { refQualSum += d; }
+
+        double altQualSum = 0;
+        for(Double d : altQuals) { altQualSum += d; }
+
+        gb.attribute(QUALITY_SCORE_SUMS, new Integer[]{ (int) refQualSum, (int) altQualSum});
+    }
+
+    public List<VCFFormatHeaderLine> getDescriptions() {
+        return Arrays.asList(new VCFFormatHeaderLine(getKeyNames().get(0), VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Sum of base quality scores for each allele"));
+    }
+
+    // from rank sum test */
+    protected void fillQualsFromLikelihoodMap(final List<Allele> alleles,
+                                            final int refLoc,
+                                            final PerReadAlleleLikelihoodMap likelihoodMap,
+                                            final List<Double> refQuals,
+                                            final List<Double> altQuals) {
+        for ( final Map.Entry<GATKSAMRecord, Map<Allele,Double>> el : likelihoodMap.getLikelihoodReadMap().entrySet() ) {
+            final MostLikelyAllele a = PerReadAlleleLikelihoodMap.getMostLikelyAllele(el.getValue());
+            if ( ! a.isInformative() )
+                continue; // read is non-informative
+
+            final GATKSAMRecord read = el.getKey();
+            if ( isUsableRead(read) ) {
+                final Double value = getBaseQualityForRead(read, refLoc);
+                if ( value == null )
+                    continue;
+
+                if ( a.getMostLikelyAllele().isReference() )
+                    refQuals.add(value);
+                else if ( alleles.contains(a.getMostLikelyAllele()) )
+                    altQuals.add(value);
+            }
+        }
+    }
+
+    protected boolean isUsableRead(final GATKSAMRecord read) {
+        return !( read.getMappingQuality() == 0 ||
+                read.getMappingQuality() == QualityUtils.MAPPING_QUALITY_UNAVAILABLE );
+    }
+
+
+    protected Double getBaseQualityForRead(final GATKSAMRecord read, final int refLoc) {
+        return (double)read.getBaseQualities()[ReadUtils.getReadCoordinateForReferenceCoordinateUpToEndOfRead(read, refLoc, ReadUtils.ClippingTail.RIGHT_TAIL)];
     }
 
 }
