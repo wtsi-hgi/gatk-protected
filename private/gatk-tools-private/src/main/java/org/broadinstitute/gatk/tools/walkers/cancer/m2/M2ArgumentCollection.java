@@ -61,42 +61,42 @@ public class M2ArgumentCollection {
     public boolean M2_DEBUG = false;
 
     @Argument(fullName = "initial_tumor_lod", required = false, doc = "Initial LOD threshold for calling tumor variant")
-    public float INITIAL_TUMOR_LOD_THRESHOLD = 4.0f;
+    public double INITIAL_TUMOR_LOD_THRESHOLD = 4.0;
 
     @Argument(fullName = "tumor_lod", required = false, doc = "LOD threshold for calling tumor variant")
-    public float TUMOR_LOD_THRESHOLD = 6.3f;
+    public double TUMOR_LOD_THRESHOLD = 6.3;
 
     @Argument(fullName = "fraction_contamination", required = false, doc = "estimate of fraction (0-1) of physical contamination with other unrelated samples")
-    public float FRACTION_CONTAMINATION = 0.02f;
+    public double FRACTION_CONTAMINATION = 0.02;
 
     @Argument(fullName = "normal_lod", required = false, doc = "LOD threshold for calling normal non-germline")
-    public float NORMAL_LOD_THRESHOLD = 2.2f;
+    public double NORMAL_LOD_THRESHOLD = 2.2;
 
     @Hidden
     @Argument(fullName = "strand_artifact_lod", required = false, doc = "LOD threshold for calling strand bias")
-    public float STRAND_ARTIFACT_LOD_THRESHOLD = 2.0f;
+    public double STRAND_ARTIFACT_LOD_THRESHOLD = 2.0;
 
     @Hidden
     @Argument(fullName = "strand_artifact_power_threshold", required = false, doc = "power threshold for calling strand bias")
-    public float STRAND_ARTIFACT_POWER_THRESHOLD = 0.9f;
+    public double STRAND_ARTIFACT_POWER_THRESHOLD = 0.9;
 
     @Argument(fullName = "dbsnp_normal_lod", required = false, doc = "LOD threshold for calling normal non-variant at dbsnp sites")
-    public float NORMAL_DBSNP_LOD_THRESHOLD = 5.5f;
+    public double NORMAL_DBSNP_LOD_THRESHOLD = 5.5;
 
     @Argument(fullName = "minimum_normal_allele_fraction", required = false, doc = "minimum allele fraction to be considered in normal, useful for normal sample contaminated with tumor")
-    public float MINIMUM_NORMAL_ALLELE_FRACTION = 0.00f;
+    public double MINIMUM_NORMAL_ALLELE_FRACTION = 0.00;
 
     @Argument(fullName = "tumor_f_pretest", required = false, doc = "for computational efficiency, reject sites with allelic fraction below this threshold")
-    public float TUMOR_F_PRETEST = 0.005f;
+    public double TUMOR_F_PRETEST = 0.005;
 
     @Argument(fullName = "min_qscore", required = false, doc = "threshold for minimum base quality score")
     public int MIN_QSCORE = 5;
 
     @Argument(fullName = "heavily_clipped_read_fraction", required = false, doc = "if this fraction or more of the bases in a read are soft/hard clipped, do not use this read for mutation calling")
-    public float HEAVILY_CLIPPED_READ_FRACTION = 0.30f;
+    public double HEAVILY_CLIPPED_READ_FRACTION = 0.30;
 
     @Argument(fullName = "fraction_mapq0_threshold", required = false, doc = "threshold for determining if there is relatedness between the alt and ref allele read piles")
-    public float FRACTION_MAPQ0_THRESHOLD = 0.5f;
+    public double FRACTION_MAPQ0_THRESHOLD = 0.5;
 
     @Argument(fullName = "pir_median_threshold", required = false, doc="threshold for clustered read position artifact median")
     public double PIR_MEDIAN_THRESHOLD = 10;
