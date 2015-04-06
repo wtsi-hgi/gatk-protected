@@ -58,7 +58,6 @@ import htsjdk.variant.variantcontext.VariantContextBuilder;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import htsjdk.variant.vcf.*;
 import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
-import org.broadinstitute.gatk.engine.SampleUtils;
 import org.broadinstitute.gatk.engine.arguments.DbsnpArgumentCollection;
 import org.broadinstitute.gatk.engine.filters.BadMateFilter;
 import org.broadinstitute.gatk.engine.io.DirectOutputTracker;
@@ -94,11 +93,9 @@ import org.broadinstitute.gatk.utils.pairhmm.PairHMM;
 import org.broadinstitute.gatk.utils.pileup.PileupElement;
 import org.broadinstitute.gatk.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
-import org.broadinstitute.gatk.utils.report.GATKReport;
 import org.broadinstitute.gatk.utils.sam.*;
 
 import java.io.FileNotFoundException;
-import java.io.PrintStream;
 import java.util.*;
 
 import static java.lang.Math.pow;
@@ -138,6 +135,13 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     @ArgumentCollection
     protected M2ArgumentCollection MTAC = new M2ArgumentCollection();
 
+    @ArgumentCollection
+    protected ReadThreadingAssemblerArgumentCollection RTAC = new ReadThreadingAssemblerArgumentCollection();
+
+    @ArgumentCollection
+    protected LikelihoodEngineArgumentCollection LEAC = new LikelihoodEngineArgumentCollection();
+
+
     @Argument(fullName = "debug_read_name", required = false, doc="trace this read name through the calling process")
     public String DEBUG_READ_NAME = null;
 
@@ -150,6 +154,8 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
 
     @Input(fullName="normal_panel", shortName = "PON", doc="VCF file of sites observed in normal", required=false)
     public List<RodBinding<VariantContext>> normalPanelRod = Collections.emptyList();
+
+    private HaplotypeBAMWriter haplotypeBAMWriter;
 
     @Override
     public void initialize() {
@@ -201,29 +207,29 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         }
 
         // create and setup the assembler
-        assemblyEngine = new ReadThreadingAssembler(maxNumHaplotypesInPopulation, kmerSizes, dontIncreaseKmerSizesForCycles, allowNonUniqueKmersInRef, numPruningSamples);
+        assemblyEngine = new ReadThreadingAssembler(RTAC.maxNumHaplotypesInPopulation, RTAC.kmerSizes, RTAC.dontIncreaseKmerSizesForCycles, RTAC.allowNonUniqueKmersInRef, RTAC.numPruningSamples);
 
-        assemblyEngine.setErrorCorrectKmers(errorCorrectKmers);
-        assemblyEngine.setPruneFactor(MIN_PRUNE_FACTOR);
-        assemblyEngine.setDebug(SCAC.DEBUG);
-        assemblyEngine.setDebugGraphTransformations(debugGraphTransformations);
-        assemblyEngine.setAllowCyclesInKmerGraphToGeneratePaths(allowCyclesInKmerGraphToGeneratePaths);
-        assemblyEngine.setRecoverDanglingBranches(!doNotRecoverDanglingBranches);
+        assemblyEngine.setErrorCorrectKmers(RTAC.errorCorrectKmers);
+        assemblyEngine.setPruneFactor(RTAC.MIN_PRUNE_FACTOR);
+        assemblyEngine.setDebug(MTAC.DEBUG);
+        assemblyEngine.setDebugGraphTransformations(RTAC.debugGraphTransformations);
+        assemblyEngine.setAllowCyclesInKmerGraphToGeneratePaths(RTAC.allowCyclesInKmerGraphToGeneratePaths);
+        assemblyEngine.setRecoverDanglingBranches(!RTAC.doNotRecoverDanglingBranches);
         assemblyEngine.setMinBaseQualityToUseInAssembly(MIN_BASE_QUALTY_SCORE);
 
         MIN_TAIL_QUALITY = (byte)(MIN_BASE_QUALTY_SCORE - 1);
 
-        if ( graphWriter != null ) assemblyEngine.setGraphWriter(graphWriter);
+        if ( RTAC.graphWriter != null ) assemblyEngine.setGraphWriter(RTAC.graphWriter);
 
         // setup the likelihood calculation engine
-        if ( phredScaledGlobalReadMismappingRate < 0 ) phredScaledGlobalReadMismappingRate = -1;
+        if ( LEAC.phredScaledGlobalReadMismappingRate < 0 ) LEAC.phredScaledGlobalReadMismappingRate = -1;
 
         // configure the global mismapping rate
-        if ( phredScaledGlobalReadMismappingRate < 0 ) {
+        if ( LEAC.phredScaledGlobalReadMismappingRate < 0 ) {
             log10GlobalReadMismappingRate = - Double.MAX_VALUE;
         } else {
-            log10GlobalReadMismappingRate = QualityUtils.qualToErrorProbLog10(phredScaledGlobalReadMismappingRate);
-            logger.info("Using global mismapping rate of " + phredScaledGlobalReadMismappingRate + " => " + log10GlobalReadMismappingRate + " in log10 likelihood units");
+            log10GlobalReadMismappingRate = QualityUtils.qualToErrorProbLog10(LEAC.phredScaledGlobalReadMismappingRate);
+            logger.info("Using global mismapping rate of " + LEAC.phredScaledGlobalReadMismappingRate + " => " + log10GlobalReadMismappingRate + " in log10 likelihood units");
         }
 
         //static member function - set number of threads
@@ -236,22 +242,22 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         final GenomeAnalysisEngine toolkit = getToolkit();
         final GenomeLocParser genomeLocParser = toolkit.getGenomeLocParser();
 
-        genotypingEngine = new SomaticGenotypingEngine( SCAC, samplesList, genomeLocParser, FixedAFCalculatorProvider.createThreadSafeProvider(getToolkit(), SCAC, logger), !doNotRunPhysicalPhasing, MTAC);
+        genotypingEngine = new SomaticGenotypingEngine( MTAC, samplesList, genomeLocParser, FixedAFCalculatorProvider.createThreadSafeProvider(getToolkit(), MTAC, logger), !doNotRunPhysicalPhasing, MTAC);
 
         genotypingEngine.setCrossHaplotypeEventMerger(variantMerger);
         genotypingEngine.setAnnotationEngine(annotationEngine);
 
 
-        if ( bamWriter != null ) {
+        if ( MTAC.bamWriter != null ) {
             // we currently do not support multi-threaded BAM writing, so exception out
             if ( getToolkit().getTotalNumberOfThreads() > 1 )
                 throw new UserException.BadArgumentValue("bamout", "Currently cannot emit a BAM file from the HaplotypeCaller in multi-threaded mode.");
-            haplotypeBAMWriter = HaplotypeBAMWriter.create(bamWriterType, bamWriter, getToolkit().getSAMFileHeader());
+            haplotypeBAMWriter = HaplotypeBAMWriter.create(MTAC.bamWriterType, MTAC.bamWriter, getToolkit().getSAMFileHeader());
         }
 
         // why isn't this a constructor (instead of initialize)?  Since the method is package-friendly
-        trimmer.initialize(getToolkit().getGenomeLocParser(), SCAC.DEBUG,
-                SCAC.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES, false);
+        trimmer.initialize(getToolkit().getGenomeLocParser(), MTAC.DEBUG,
+                MTAC.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES, false);
 
         // KCIBUL: what's the right way to set this sensible default for somatic mutation calling from here?
         trimmer.snpPadding = 50;
@@ -491,9 +497,9 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
                 DEBUG_READ_NAME
                 );
 
-        if ( bamWriter != null ) {
+        if ( MTAC.bamWriter != null ) {
             final Set<Haplotype> calledHaplotypeSet = new HashSet<>(calledHaplotypes.getCalledHaplotypes());
-            if (disableOptimizations)
+            if (MTAC.disableOptimizations)
                 calledHaplotypeSet.add(assemblyResult.getReferenceHaplotype());
             haplotypeBAMWriter.writeReadsAlignedToHaplotypes(
                     haplotypes,
@@ -503,7 +509,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
                     readLikelihoods);
         }
 
-        if( SCAC.DEBUG ) { logger.info("----------------------------------------------------------------------------------"); }
+        if( MTAC.DEBUG ) { logger.info("----------------------------------------------------------------------------------"); }
 
 
         List<VariantContext> annotatedCalls = new ArrayList<>();
@@ -728,7 +734,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
      * @return never {@code null}.
      */
     private ReadLikelihoodCalculationEngine createLikelihoodCalculationEngine() {
-        return new PairHMMLikelihoodCalculationEngine( (byte)gcpHMM, pairHMM, pairHMMSub, alwaysLoadVectorLoglessPairHMMLib, log10GlobalReadMismappingRate, noFpga, pcrErrorModel );
+        return new PairHMMLikelihoodCalculationEngine( (byte)LEAC.gcpHMM, LEAC.pairHMM, LEAC.pairHMMSub, LEAC.alwaysLoadVectorLoglessPairHMMLib, log10GlobalReadMismappingRate, LEAC.noFpga, pcrErrorModel );
     }
 
     /**
@@ -846,16 +852,11 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     //protected String[] annotationClassesToUse = { "Standard" };
     protected String[] annotationClassesToUse = { };
 
-    /// HC-Related Parameters
-
     /**
      * A raw, unfiltered, highly sensitive callset in VCF format.
      */
     @Output(doc="File to which variants should be written")
     protected VariantContextWriter vcfWriter = null;
-
-    @ArgumentCollection
-    protected HaplotypeCallerArgumentCollection SCAC = new HaplotypeCallerArgumentCollection();
 
     /**
      * Active region trimmer reference.
@@ -869,22 +870,6 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
 
 
 
-    /// Assembler parameters
-
-    /**
-     * Assembly graph can be quite complex, and could imply a very large number of possible haplotypes.  Each haplotype
-     * considered requires N PairHMM evaluations if there are N reads across all samples.  In order to control the
-     * run of the haplotype caller we only take maxNumHaplotypesInPopulation paths from the graph, in order of their
-     * weights, no matter how many paths are possible to generate from the graph.  Putting this number too low
-     * will result in dropping true variation because paths that include the real variant are not even considered.
-     */
-    @Advanced
-    @Argument(fullName="maxNumHaplotypesInPopulation", shortName="maxNumHaplotypesInPopulation", doc="Maximum number of haplotypes to consider for your population. This number will probably need to be increased when calling organisms with high heterozygosity.", required = false)
-    protected int maxNumHaplotypesInPopulation = 128;
-
-    @Hidden
-    @Argument(fullName="errorCorrectKmers", shortName="errorCorrectKmers", doc = "Use an exploratory algorithm to error correct the kmers used during assembly.  May cause fundamental problems with the assembly graph itself", required=false)
-    protected boolean errorCorrectKmers = false;
 
     /**
      * The minimum confidence needed for a given base for it to be used in variant calling.
@@ -892,187 +877,18 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     @Argument(fullName = "min_base_quality_score", shortName = "mbq", doc = "Minimum base quality required to consider a base for calling", required = false)
     public byte MIN_BASE_QUALTY_SCORE = 10;
 
-    /**
-     * Users should be aware that this argument can really affect the results of the variant calling and should exercise caution.
-     * Using a prune factor of 1 (or below) will prevent any pruning from the graph which is generally not ideal; it can make the
-     * calling much slower and even less accurate (because it can prevent effective merging of "tails" in the graph).  Higher values
-     * tend to make the calling much faster, but also lowers the sensitivity of the results (because it ultimately requires higher
-     * depth to produce calls).
-     */
-    @Advanced
-    @Argument(fullName="minPruning", shortName="minPruning", doc = "The minimum allowed pruning factor in assembly graph. Paths with < X supporting kmers are pruned from the graph", required = false)
-    protected int MIN_PRUNE_FACTOR = 2;
-
-    @Hidden
-    @Argument(fullName="allowCyclesInKmerGraphToGeneratePaths", shortName="allowCyclesInKmerGraphToGeneratePaths", doc="If specified, we will allow cycles in the kmer graphs to generate paths with multiple copies of the path sequenece rather than just the shortest paths", required = false)
-    protected boolean allowCyclesInKmerGraphToGeneratePaths = false;
-
-    @Hidden
-    @Argument(fullName="debugGraphTransformations", shortName="debugGraphTransformations", doc="If specified, we will write DOT formatted graph files out of the assembler for only this graph size", required = false)
-    protected boolean debugGraphTransformations = false;
-    /**
-     * By default, the read threading assembler will attempt to recover dangling heads and tails. See the `minDanglingBranchLength` argument documentation for more details.
-     */
-    @Hidden
-    @Argument(fullName="doNotRecoverDanglingBranches", shortName="doNotRecoverDanglingBranches", doc="Disable dangling head and tail recovery", required = false)
-    protected boolean doNotRecoverDanglingBranches = false;
-
-
-
-
-
-
-    // -----------------------------------------------------------------------------------------------
-    // arguments to control internal behavior of the read threading assembler
-    // -----------------------------------------------------------------------------------------------
-
-    @Advanced
-    @Argument(fullName="kmerSize", shortName="kmerSize", doc="Kmer size to use in the read threading assembler", required = false)
-    protected List<Integer> kmerSizes = Arrays.asList(10, 25);
-
-    @Advanced
-    @Argument(fullName="dontIncreaseKmerSizesForCycles", shortName="dontIncreaseKmerSizesForCycles", doc="Should we disable the iterating over kmer sizes when graph cycles are detected?", required = false)
-    protected boolean dontIncreaseKmerSizesForCycles = false;
-
-    @Advanced
-    @Argument(fullName="allowNonUniqueKmersInRef", shortName="allowNonUniqueKmersInRef", doc="Should we allow graphs which have non-unique kmers in the reference?", required = false)
-    protected boolean allowNonUniqueKmersInRef = false;
-
-    @Advanced
-    @Argument(fullName="numPruningSamples", shortName="numPruningSamples", doc="The number of samples that must pass the minPuning factor in order for the path to be kept", required = false)
-    protected int numPruningSamples = 1;
-
-
-
-
-    @Output(fullName="graphOutput", shortName="graph", doc="File to which debug assembly graph information should be written", required = false, defaultToStdout = false)
-    protected PrintStream graphWriter = null;
-
-    /**
-     * If set, certain "early exit" optimizations in HaplotypeCaller, which aim to save compute and time by skipping
-     * calculations if an ActiveRegion is determined to contain no variants, will be disabled. This is most likely to be useful if
-     * you're using the -bamout argument to examine the placement of reads following reassembly and are interested in seeing the mapping of
-     * reads in regions with no variations. Setting the -forceActive and -dontTrimActiveRegions flags may also be necessary.
-     */
-    @Advanced
-    @Argument(fullName = "disableOptimizations", shortName="disableOptimizations", doc="Don't skip calculations in ActiveRegions with no variants",
-            required = false)
-    private boolean disableOptimizations = false;
-
-    /**
-     * The assembled haplotypes will be written as BAM to this file if requested.  Really for debugging purposes only.
-     * Note that the output here does not include uninformative reads so that not every input read is emitted to the bam.
-     *
-     * Turning on this mode may result in serious performance cost for the HC.  It's really only appropriate to
-     * use in specific areas where you want to better understand why the HC is making specific calls.
-     *
-     * The reads are written out containing a HC tag (integer) that encodes which haplotype each read best matches
-     * according to the haplotype caller's likelihood calculation.  The use of this tag is primarily intended
-     * to allow good coloring of reads in IGV.  Simply go to Color Alignments By > Tag and enter HC to more
-     * easily see which reads go with these haplotype.
-     *
-     * Note that the haplotypes (called or all, depending on mode) are emitted as single reads covering the entire
-     * active region, coming from read HC and a special read group.
-     *
-     * Note that only reads that are actually informative about the haplotypes are emitted.  By informative we mean
-     * that there's a meaningful difference in the likelihood of the read coming from one haplotype compared to
-     * its next best haplotype.
-     *
-     * The best way to visualize the output of this mode is with IGV.  Tell IGV to color the alignments by tag,
-     * and give it the HC tag, so you can see which reads support each haplotype.  Finally, you can tell IGV
-     * to group by sample, which will separate the potential haplotypes from the reads.  All of this can be seen
-     * in the following screenshot: https://www.dropbox.com/s/xvy7sbxpf13x5bp/haplotypecaller%20bamout%20for%20docs.png
-     *
-     */
-    @Advanced
-    @Output(fullName="bamOutput", shortName="bamout", doc="File to which assembled haplotypes should be written", required = false, defaultToStdout = false)
-    protected GATKSAMFileWriter bamWriter = null;
-    protected HaplotypeBAMWriter haplotypeBAMWriter;
-
-    /**
-     * The type of BAM output we want to see.
-     */
-    @Advanced
-    @Argument(fullName="bamWriterType", shortName="bamWriterType", doc="How should haplotypes be written to the BAM?", required = false)
-    public HaplotypeBAMWriter.Type bamWriterType = HaplotypeBAMWriter.Type.CALLED_HAPLOTYPES;
 
 
 // PAIR-HMM-Related Goodness
-
-
-    /**
-     * The phredScaledGlobalReadMismappingRate reflects the average global mismapping rate of all reads, regardless of their
-     * mapping quality.  This term effects the probability that a read originated from the reference haplotype, regardless of
-     * its edit distance from the reference, in that the read could have originated from the reference haplotype but
-     * from another location in the genome.  Suppose a read has many mismatches from the reference, say like 5, but
-     * has a very high mapping quality of 60.  Without this parameter, the read would contribute 5 * Q30 evidence
-     * in favor of its 5 mismatch haplotype compared to reference, potentially enough to make a call off that single
-     * read for all of these events.  With this parameter set to Q30, though, the maximum evidence against the reference
-     * that this (and any) read could contribute against reference is Q30.
-     *
-     * Set this term to any negative number to turn off the global mapping rate
-     */
-    @Advanced
-    @Argument(fullName="phredScaledGlobalReadMismappingRate", shortName="globalMAPQ", doc="The global assumed mismapping rate for reads", required = false)
-    protected int phredScaledGlobalReadMismappingRate = 45;
-
-    @Hidden
-    @Argument(fullName="noFpga", shortName="noFpga", doc="If provided, disables the use of the FPGA HMM implementation", required = false)
-    protected boolean noFpga = false;
 
 //    public PairHMMLikelihoodCalculationEngine.PCR_ERROR_MODEL pcrErrorModel = PairHMMLikelihoodCalculationEngine.PCR_ERROR_MODEL.CONSERVATIVE;
 //    public PairHMMLikelihoodCalculationEngine.PCR_ERROR_MODEL pcrErrorModel = PairHMMLikelihoodCalculationEngine.PCR_ERROR_MODEL.AGGRESSIVE;
     public PairHMMLikelihoodCalculationEngine.PCR_ERROR_MODEL pcrErrorModel = PairHMMLikelihoodCalculationEngine.PCR_ERROR_MODEL.HOSTILE;
 
-    /**
-     * The PairHMM implementation to use for genotype likelihood calculations. The various implementations balance a tradeoff of accuracy and runtime.
-     */
-    @Hidden
-    @Argument(fullName = "pair_hmm_implementation", shortName = "pairHMM", doc = "The PairHMM implementation to use for genotype likelihood calculations", required = false)
-    public PairHMM.HMM_IMPLEMENTATION pairHMM = PairHMM.HMM_IMPLEMENTATION.VECTOR_LOGLESS_CACHING;
-
-    @Advanced
-    @Argument(fullName="gcpHMM", shortName="gcpHMM", doc="Flat gap continuation penalty for use in the Pair HMM", required = false)
-    protected int gcpHMM = 10;
-
-
-    /**
-     * This argument is intended for use in the test suite only. It gives developers the ability to select of the
-     * hardware dependent vectorized implementation of the vectorized PairHMM library (pairHMM=VECTOR_LOGLESS_CACHING).
-     * For normal usage, you should rely on the architecture auto-detection.
-     */
-    @Hidden
-    @Advanced
-    @Argument(fullName = "pair_hmm_sub_implementation", shortName = "pairHMMSub", doc = "The PairHMM machine-dependent sub-implementation to use for genotype likelihood calculations", required = false)
-    public PairHMM.HMM_SUB_IMPLEMENTATION pairHMMSub = PairHMM.HMM_SUB_IMPLEMENTATION.ENABLE_ALL;
-
-    /**
-     * This argument is intended for use in the test suite only. It gives developers the ability to load different
-     * hardware dependent sub-implementations (-pairHMMSub) of the vectorized PairHMM library (-pairHMM=VECTOR_LOGLESS_CACHING)
-     * for each test. Without this option, the library is only loaded once (for the first test executed in the suite) even if
-     * subsequent tests specify a different implementation.
-     * Each test will output the corresponding library loading messages.
-     */
-    @Hidden
-    @Advanced
-    @Argument(fullName = "always_load_vector_logless_PairHMM_lib", shortName = "alwaysloadVectorHMM", doc = "Load the vector logless PairHMM library each time a GATK run is initiated in the test suite", required = false)
-    public boolean alwaysLoadVectorLoglessPairHMMLib = false;
-
-
-    // CODE TO RUN LOCAL ASSEMBLY -- SHOULD BE PACKAGED OUT OF GATK!!!
-
     // Parameters to control read error correction
     @Hidden
     @Argument(fullName="errorCorrectReads", shortName="errorCorrectReads", doc = "Use an exploratory algorithm to error correct the kmers used during assembly.  May cause fundamental problems with the assembly graph itself", required=false)
     protected boolean errorCorrectReads = false;
-
-    @Hidden
-    @Argument(fullName="kmerLengthForReadErrorCorrection", shortName="kmerLengthForReadErrorCorrection", doc = "Use an exploratory algorithm to error correct the kmers used during assembly.  May cause fundamental problems with the assembly graph itself", required=false)
-    protected int kmerLengthForReadErrorCorrection = 25;
-
-    @Hidden
-    @Argument(fullName="minObservationsForKmerToBeSolid", shortName="minObservationsForKmerToBeSolid", doc = "A k-mer must be seen at least these times for it considered to be solid", required=false)
-    protected int minObservationsForKmerToBeSolid = 20;
 
     @Hidden
     @Argument(fullName="captureAssemblyFailureBAM", shortName="captureAssemblyFailureBAM", doc="If specified, we will write a BAM called assemblyFailure.bam capturing all of the reads that were in the active region when the assembler failed for any reason", required = false)
@@ -1081,7 +897,6 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     @Advanced
     @Argument(fullName="dontUseSoftClippedBases", shortName="dontUseSoftClippedBases", doc="If specified, we will not analyze soft clipped bases in the reads", required = false)
     protected boolean dontUseSoftClippedBases = false;
-
 
     @Hidden
     @Argument(fullName="justDetermineActiveRegions", shortName="justDetermineActiveRegions", doc = "If specified, the HC won't actually do any assembly or calling, it'll just run the upfront active region determination code.  Useful for benchmarking and scalability testing", required=false)
@@ -1119,7 +934,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         // Create ReadErrorCorrector object if requested - will be used within assembly engine.
         ReadErrorCorrector readErrorCorrector = null;
         if (errorCorrectReads)
-            readErrorCorrector = new ReadErrorCorrector(kmerLengthForReadErrorCorrection, MIN_TAIL_QUALITY_WITH_ERROR_CORRECTION, minObservationsForKmerToBeSolid, SCAC.DEBUG, fullReferenceWithPadding);
+            readErrorCorrector = new ReadErrorCorrector(RTAC.kmerLengthForReadErrorCorrection, MIN_TAIL_QUALITY_WITH_ERROR_CORRECTION, RTAC.minObservationsForKmerToBeSolid, MTAC.DEBUG, fullReferenceWithPadding);
 
         try {
             final AssemblyResultSet assemblyResultSet = assemblyEngine.runLocalAssembly( activeRegion, referenceHaplotype, fullReferenceWithPadding, paddedReferenceLoc, giveAlleles,readErrorCorrector );
@@ -1143,7 +958,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     private void finalizeActiveRegion( final ActiveRegion activeRegion ) {
         if (activeRegion.isFinalized()) return;
 
-        if( SCAC.DEBUG ) { logger.info("Assembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:    (with overlap region = " + activeRegion.getExtendedLoc() + ")"); }
+        if( MTAC.DEBUG ) { logger.info("Assembling " + activeRegion.getLocation() + " with " + activeRegion.size() + " reads:    (with overlap region = " + activeRegion.getExtendedLoc() + ")"); }
 
         // Loop through the reads hard clipping the adaptor and low quality tails
         final List<GATKSAMRecord> readsToUse = new ArrayList<>(activeRegion.getReads().size());
@@ -1276,8 +1091,6 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     @Argument(fullName="doNotRunPhysicalPhasing", shortName="doNotRunPhysicalPhasing", doc="Disable physical phasing", required = false)
     protected boolean doNotRunPhysicalPhasing = false;
 
-    public static final String HAPLOTYPE_CALLER_PHASING_ID_KEY = "PID";
-    public static final String HAPLOTYPE_CALLER_PHASING_GT_KEY = "PGT";
 }
 
 
