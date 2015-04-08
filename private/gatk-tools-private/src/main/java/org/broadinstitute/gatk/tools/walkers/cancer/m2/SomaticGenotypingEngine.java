@@ -86,8 +86,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
 
     private final static Logger logger = Logger.getLogger(SomaticGenotypingEngine.class);
 
-    // TODO: understand and remove if possible dependency on HCAC
-    public SomaticGenotypingEngine(final HaplotypeCallerArgumentCollection configuration, final SampleList samples, final GenomeLocParser genomeLocParser, final AFCalculatorProvider afCalculatorProvider, final boolean doPhysicalPhasing, final M2ArgumentCollection MTAC) {
+    public SomaticGenotypingEngine(final M2ArgumentCollection configuration, final SampleList samples, final GenomeLocParser genomeLocParser, final AFCalculatorProvider afCalculatorProvider, final boolean doPhysicalPhasing, final M2ArgumentCollection MTAC) {
         super(configuration, samples, genomeLocParser, afCalculatorProvider, doPhysicalPhasing);
         this.MTAC = MTAC;
     }

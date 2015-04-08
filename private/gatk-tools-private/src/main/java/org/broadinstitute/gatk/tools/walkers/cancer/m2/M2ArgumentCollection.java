@@ -51,11 +51,11 @@
 
 package org.broadinstitute.gatk.tools.walkers.cancer.m2;
 
+import org.broadinstitute.gatk.tools.walkers.haplotypecaller.AssemblyBasedCallerArgumentCollection;
 import org.broadinstitute.gatk.utils.commandline.Advanced;
 import org.broadinstitute.gatk.utils.commandline.Argument;
-import org.broadinstitute.gatk.utils.commandline.Hidden;
 
-public class M2ArgumentCollection {
+public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection {
     @Advanced
     @Argument(fullName="m2debug", shortName="m2debug", doc="If specified, print out very verbose M2 debug information", required = false)
     public boolean M2_DEBUG = false;
@@ -66,46 +66,11 @@ public class M2ArgumentCollection {
     @Argument(fullName = "tumor_lod", required = false, doc = "LOD threshold for calling tumor variant")
     public double TUMOR_LOD_THRESHOLD = 6.3;
 
-    @Argument(fullName = "fraction_contamination", required = false, doc = "estimate of fraction (0-1) of physical contamination with other unrelated samples")
-    public double FRACTION_CONTAMINATION = 0.02;
-
     @Argument(fullName = "normal_lod", required = false, doc = "LOD threshold for calling normal non-germline")
     public double NORMAL_LOD_THRESHOLD = 2.2;
 
-    @Hidden
-    @Argument(fullName = "strand_artifact_lod", required = false, doc = "LOD threshold for calling strand bias")
-    public double STRAND_ARTIFACT_LOD_THRESHOLD = 2.0;
-
-    @Hidden
-    @Argument(fullName = "strand_artifact_power_threshold", required = false, doc = "power threshold for calling strand bias")
-    public double STRAND_ARTIFACT_POWER_THRESHOLD = 0.9;
-
     @Argument(fullName = "dbsnp_normal_lod", required = false, doc = "LOD threshold for calling normal non-variant at dbsnp sites")
     public double NORMAL_DBSNP_LOD_THRESHOLD = 5.5;
-
-    @Argument(fullName = "minimum_normal_allele_fraction", required = false, doc = "minimum allele fraction to be considered in normal, useful for normal sample contaminated with tumor")
-    public double MINIMUM_NORMAL_ALLELE_FRACTION = 0.00;
-
-    @Argument(fullName = "tumor_f_pretest", required = false, doc = "for computational efficiency, reject sites with allelic fraction below this threshold")
-    public double TUMOR_F_PRETEST = 0.005;
-
-    @Argument(fullName = "min_qscore", required = false, doc = "threshold for minimum base quality score")
-    public int MIN_QSCORE = 5;
-
-    @Argument(fullName = "heavily_clipped_read_fraction", required = false, doc = "if this fraction or more of the bases in a read are soft/hard clipped, do not use this read for mutation calling")
-    public double HEAVILY_CLIPPED_READ_FRACTION = 0.30;
-
-    @Argument(fullName = "fraction_mapq0_threshold", required = false, doc = "threshold for determining if there is relatedness between the alt and ref allele read piles")
-    public double FRACTION_MAPQ0_THRESHOLD = 0.5;
-
-    @Argument(fullName = "pir_median_threshold", required = false, doc="threshold for clustered read position artifact median")
-    public double PIR_MEDIAN_THRESHOLD = 10;
-
-    @Argument(fullName = "pir_mad_threshold", required = false, doc="threshold for clustered read position artifact MAD")
-    public double PIR_MAD_THRESHOLD = 3;
-
-    @Argument(fullName = "required_maximum_alt_allele_mapping_quality_score", required = false, doc="required minimum value for tumor alt allele maximum mapping quality score")
-    public int REQUIRED_MAXIMUM_ALT_ALLELE_MAPPING_QUALITY_SCORE = 20;
 
     /** Parameters for ALT ALLELE IN NORMAL filter **/
     @Argument(fullName = "max_alt_alleles_in_normal_count", required = false, doc="threshold for maximum alternate allele counts in normal")
