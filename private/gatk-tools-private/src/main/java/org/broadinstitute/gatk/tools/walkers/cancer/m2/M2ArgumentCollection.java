@@ -60,6 +60,10 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     @Argument(fullName="m2debug", shortName="m2debug", doc="If specified, print out very verbose M2 debug information", required = false)
     public boolean M2_DEBUG = false;
 
+    @Advanced
+    @Argument(fullName = "artifact_detection_mode", required = false, doc="disable all pragmatic filters, used for artifact detection in panels of normals")
+    public boolean ARTIFACT_DETECTION_MODE = false;
+
     @Argument(fullName = "initial_tumor_lod", required = false, doc = "Initial LOD threshold for calling tumor variant")
     public double INITIAL_TUMOR_LOD_THRESHOLD = 4.0;
 
