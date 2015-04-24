@@ -74,6 +74,10 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     @Argument(fullName = "initial_tumor_lod", required = false, doc = "Initial LOD threshold for calling tumor variant")
     public double INITIAL_TUMOR_LOD_THRESHOLD = 4.0;
 
+
+    @Argument(fullName = "initial_normal_lod", required = false, doc = "Initial LOD threshold for calling normal variant")
+    public double INITIAL_NORMAL_LOD_THRESHOLD = 0.5;
+
     /**
      * Only variants with tumor LODs exceeding this thresholds can pass filtration
      */
