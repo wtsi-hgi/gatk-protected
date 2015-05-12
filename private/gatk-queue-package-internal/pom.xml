@@ -52,7 +52,7 @@
         </dependency>
         <!-- Picard -->
         <dependency>
-            <groupId>picard</groupId>
+            <groupId>com.github.broadinstitute</groupId>
             <artifactId>picard</artifactId>
         </dependency>
         <!-- JavaMail -->
