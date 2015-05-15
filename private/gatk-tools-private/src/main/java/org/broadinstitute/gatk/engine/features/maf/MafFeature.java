@@ -281,14 +281,22 @@ public class MafFeature implements Feature {
      * the required getting and setter methods
      */
 
+    @Override
     public String getChr() {
+        return getContig();
+    }
+
+    @Override
+    public String getContig() {
         return contig;
     }
 
+    @Override
     public int getStart() {
         return start;
     }
 
+    @Override
     public int getEnd() {
         return stop;
     }
