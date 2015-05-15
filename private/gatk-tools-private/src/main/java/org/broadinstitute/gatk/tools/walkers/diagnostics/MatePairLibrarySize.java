@@ -53,8 +53,8 @@ package org.broadinstitute.gatk.tools.walkers.diagnostics;
 
 import htsjdk.samtools.SAMReadGroupRecord;
 import org.broadinstitute.gatk.utils.commandline.Argument;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.engine.walkers.ReadWalker;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;

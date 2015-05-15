@@ -53,8 +53,8 @@ package org.broadinstitute.gatk.tools;
 
 import picard.PicardException;
 import picard.cmdline.CommandLineProgram;
+import picard.cmdline.CommandLineProgramProperties;
 import picard.cmdline.Option;
-import picard.cmdline.Usage;
 import htsjdk.samtools.util.IOUtil;
 import htsjdk.samtools.SamFileHeaderMerger;
 import htsjdk.samtools.util.Log;
@@ -76,13 +76,15 @@ import java.util.List;
  *
  * @author Mark DePristo
  */
+@CommandLineProgramProperties(
+        usage = "Reads a list of BAM files and slices all of them into a single merged BAM file " +
+                "containing reads in overlapping chr:start-stop interval.",
+        usageShort = "Merges multiple SAM/BAM files into one BAM overlapping chr:start-stop interval"
+)
 public class SliceBams extends CommandLineProgram {
     private static final Log log = Log.getInstance(SliceBams.class);
 
-    // Usage and parameters
-    @Usage
-    public String USAGE = "Merges multiple SAM/BAM files into one BAM overlapping chr:start-stop interval .\n";
-
+    // Parameters
     @Option(shortName="I", doc="List of input BAM files")
     public File INPUT_LIST;
 

@@ -51,7 +51,7 @@
 
 package org.broadinstitute.gatk.tools.walkers.randomforest;
 
-import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
+import org.broadinstitute.gatk.utils.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -82,7 +82,7 @@ public class RandomForestDecisionNode implements RandomForestNode, Comparable<Ra
         double maxAccuracy = Double.MIN_VALUE;
 
         for( int trial = 0; trial < NUM_TRIALS; trial++ ) {
-            final RandomForestDatum rfd = data.get(GenomeAnalysisEngine.getRandomGenerator().nextInt(data.size()));
+            final RandomForestDatum rfd = data.get(Utils.getRandomGenerator().nextInt(data.size()));
             final Decision decision = new Decision(rfd);
             final double accuracy = evaluateDecision(decision, data);
             if( accuracy > maxAccuracy ) {
@@ -96,10 +96,10 @@ public class RandomForestDecisionNode implements RandomForestNode, Comparable<Ra
         if( depth < maxDepth ) {
             final List<RandomForestDatum> dataLeft = subsetData(data, true);
             final List<RandomForestDatum> dataRight = subsetData(data, false);
-            leftNode = ( dataLeft.size() > 0 ? new RandomForestDecisionNode(dataLeft, depth+1, maxDepth) : new RandomForestTerminalNode(GenomeAnalysisEngine.getRandomGenerator().nextBoolean()) );
-            rightNode = ( dataRight.size() > 0 ? new RandomForestDecisionNode(dataRight, depth+1, maxDepth) : new RandomForestTerminalNode(GenomeAnalysisEngine.getRandomGenerator().nextBoolean()) );
+            leftNode = ( dataLeft.size() > 0 ? new RandomForestDecisionNode(dataLeft, depth+1, maxDepth) : new RandomForestTerminalNode(Utils.getRandomGenerator().nextBoolean()) );
+            rightNode = ( dataRight.size() > 0 ? new RandomForestDecisionNode(dataRight, depth+1, maxDepth) : new RandomForestTerminalNode(Utils.getRandomGenerator().nextBoolean()) );
         } else {
-            final boolean leftResult = GenomeAnalysisEngine.getRandomGenerator().nextBoolean();
+            final boolean leftResult = Utils.getRandomGenerator().nextBoolean();
             leftNode = new RandomForestTerminalNode(leftResult);
             rightNode = new RandomForestTerminalNode(!leftResult);
         }
@@ -170,7 +170,7 @@ public class RandomForestDecisionNode implements RandomForestNode, Comparable<Ra
                 return (decision.decisionDirection ? rightNode : leftNode).classifyDatum(rfd);
             }
         } else {
-            return (GenomeAnalysisEngine.getRandomGenerator().nextBoolean() ? leftNode : rightNode).classifyDatum(rfd); // TODO- better way to handle missing data?
+            return (Utils.getRandomGenerator().nextBoolean() ? leftNode : rightNode).classifyDatum(rfd); // TODO- better way to handle missing data?
         }
     }
 
@@ -234,9 +234,9 @@ public class RandomForestDecisionNode implements RandomForestNode, Comparable<Ra
         public final boolean decisionDirection;
 
         public Decision( final RandomForestDatum rfd ) {
-            decisionDimension = rfd.keys.get(GenomeAnalysisEngine.getRandomGenerator().nextInt(rfd.keys.size()));
+            decisionDimension = rfd.keys.get(Utils.getRandomGenerator().nextInt(rfd.keys.size()));
             decisionPoint = rfd.annotations.get(decisionDimension);
-            decisionDirection = GenomeAnalysisEngine.getRandomGenerator().nextBoolean();
+            decisionDirection = Utils.getRandomGenerator().nextBoolean();
         }
 
         public Decision( final String decisionDimension, final Comparable decisionPoint, final boolean decisionDirection ) {

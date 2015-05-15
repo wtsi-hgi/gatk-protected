@@ -52,9 +52,9 @@
 package org.broadinstitute.gatk.tools.walkers.na12878kb;
 
 import org.broadinstitute.gatk.utils.commandline.ArgumentCollection;
-import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.engine.walkers.RodWalker;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.NA12878KnowledgeBase;

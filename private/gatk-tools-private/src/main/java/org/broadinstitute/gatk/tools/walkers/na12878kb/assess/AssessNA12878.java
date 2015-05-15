@@ -55,17 +55,17 @@ import htsjdk.samtools.SAMFileReader;
 import htsjdk.variant.variantcontext.GenotypeType;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
-import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
-import org.broadinstitute.gatk.engine.report.GATKReport;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.report.GATKReport;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.NA12878DBWalker;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.SiteIterator;
 import org.broadinstitute.gatk.utils.commandline.*;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
-import org.broadinstitute.gatk.utils.variant.GATKVCFUtils;
+import org.broadinstitute.gatk.engine.GATKVCFUtils;
 import org.broadinstitute.gatk.utils.variant.HomoSapiensConstants;
 
 import java.io.File;
@@ -157,6 +157,9 @@ public class AssessNA12878 extends NA12878DBWalker {
     @Argument(fullName="typesToInclude", shortName = "typesToInclude", doc="Should we analyze SNPs, INDELs, or both?", required=false)
     public TypesToInclude typesToInclude = TypesToInclude.BOTH;
 
+    @Argument(fullName="sampleNameToCompare", shortName = "sample", doc="Specifies the sample name in the VCF that will be compared to the knowledgebase.", required=false)
+    public String sampleNameToCompare = "NA12878";
+
     public enum TypesToInclude {
         SNPS,
         INDELS,
@@ -221,7 +224,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         for ( final RodBinding<VariantContext> rod : variants ) {
             final String rodName = rod.getName();
             final Assessor assessor = new Assessor(rodName, typesToInclude, excludeCallset, sitesWriter, bamReader,
-                    minDepthForLowCoverage, minPNonRef, minGQ, filtersToIgnore);
+                    minDepthForLowCoverage, minPNonRef, minGQ, filtersToIgnore, sampleNameToCompare);
             assessor.setInputPloidy(inputPloidy);
             assessor.setGenotypeTypesToConsider(genotypeTypesToInclude);
             assessors.put(rodName, assessor);
@@ -296,7 +299,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         if ( ! detailedAssessment ) simplifyAssessments();
 
         if ( variants.size() == 1 ) {
-            final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets",
+            final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callset "+variants.get(0).getSource(),
                     "Name", "VariantType", "AssessmentType", "Count");
             for( final RodBinding rod : variants ) {
                 for ( final TypesToInclude variantType : Arrays.asList(TypesToInclude.SNPS, TypesToInclude.INDELS) ) {

@@ -54,7 +54,7 @@ package org.broadinstitute.gatk.tools.walkers.siblingibd;
 
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
-import org.broadinstitute.gatk.utils.MendelianViolation;
+import org.broadinstitute.gatk.engine.samples.MendelianViolation;
 
 import java.io.PrintStream;
 import java.util.*;

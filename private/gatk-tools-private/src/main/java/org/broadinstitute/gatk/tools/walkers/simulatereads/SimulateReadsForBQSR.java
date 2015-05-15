@@ -57,18 +57,18 @@ import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMProgramRecord;
 import htsjdk.samtools.SAMReadGroupRecord;
 import org.broadinstitute.gatk.utils.commandline.Argument;
+import org.broadinstitute.gatk.utils.commandline.CommandLineProgram;
 import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.engine.contexts.AlignmentContext;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
-import org.broadinstitute.gatk.engine.io.GATKSAMFileWriter;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.sam.GATKSAMFileWriter;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.engine.walkers.RefWalker;
 import org.broadinstitute.gatk.engine.walkers.Reference;
 import org.broadinstitute.gatk.engine.walkers.Window;
 import org.broadinstitute.gatk.utils.QualityUtils;
 import org.broadinstitute.gatk.utils.sam.GATKSAMReadGroupRecord;
 import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
-import org.broadinstitute.gatk.utils.text.TextFormattingUtils;
 import org.broadinstitute.gatk.utils.BaseUtils;
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
@@ -162,8 +162,7 @@ public class SimulateReadsForBQSR extends RefWalker<Integer, Integer> {
         header.setReadGroups(sampleRGs);
 
         final SAMProgramRecord programRecord = new SAMProgramRecord(PROGRAM_RECORD_NAME);
-        final ResourceBundle headerInfo = TextFormattingUtils.loadResourceBundle("GATKText");
-        programRecord.setProgramVersion(headerInfo.getString("org.broadinstitute.gatk.tools.version"));
+        programRecord.setProgramVersion(CommandLineProgram.getVersionNumber());
         programRecord.setCommandLine(getToolkit().createApproximateCommandLineArgumentString(getToolkit(), this));
         header.setProgramRecords(Arrays.asList(programRecord));
 

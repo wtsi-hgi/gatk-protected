@@ -61,7 +61,7 @@ import org.broadinstitute.gatk.utils.collections.LoggingNestedIntegerArray.Neste
 import org.broadinstitute.gatk.utils.collections.NestedIntegerArray;
 import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
-import org.broadinstitute.gatk.utils.recalibration.RecalDatum;
+import org.broadinstitute.gatk.engine.recalibration.RecalDatum;
 import org.broadinstitute.gatk.utils.text.XReadLines;
 
 import java.io.File;

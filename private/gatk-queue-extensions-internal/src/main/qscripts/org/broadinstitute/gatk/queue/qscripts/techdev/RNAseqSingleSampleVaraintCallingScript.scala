@@ -49,13 +49,13 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.tecdev
+package org.broadinstitute.gatk.queue.qscripts.tecdev
 
-import org.broadinstitute.sting.queue.extensions.gatk._
-import org.broadinstitute.sting.queue.QScript
-import org.broadinstitute.sting.commandline.Argument
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.function.RetryMemoryLimit
 
-class RNAseqSingleSampleVaraintCallingScript extends QScript {
+class RNAseqSingleSampleVaraintCallingScript extends QScript{
   qscript =>
 
   @Argument(shortName="out", doc="output file", required=true)
@@ -66,6 +66,8 @@ class RNAseqSingleSampleVaraintCallingScript extends QScript {
   var bam: String = _
   @Argument(shortName="interval", doc="interval file", required=false)
   var intervalString: List[String] = List()
+  @Argument(shortName="isr", doc="interval set rule", required=false)
+  var intervalSetRule: org.broadinstitute.gatk.utils.interval.IntervalSetRule = org.broadinstitute.gatk.utils.interval.IntervalSetRule.UNION
   @Argument(shortName="intervalFile", doc="interval file", required=false)
   var intervalFiles: List[File] = List()
   @Argument(shortName="sc", doc="scatter count", required=false)
@@ -82,28 +84,39 @@ class RNAseqSingleSampleVaraintCallingScript extends QScript {
   var recoverDanglingHeads = false
   @Argument(shortName = "assess", doc="run AssessNA12878 on the VCF files", required = false)
   var assessNA12878 = false
+  @Argument(shortName = "hc", doc="run HC", required = false)
+  var useHC = true
+  @Argument(shortName = "ug", doc="run UG", required = false)
+  var useUG = false
+  @Argument(shortName = "gvcf", doc= "run HC in gVCF mode", required = false)
+  var useGVCF = false
+  @Argument(shortName = "perBase", doc= "run HC in perBase gvcf output", required = false)
+  var perBase = false
 
 
-  trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
-    memoryLimit = 2
-    //this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
-
-  }
+//  trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
+//    memoryLimit = 2
+//    //this.unsafe = org.broadinstitute.sting.gatk.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
+//
+//  }
 
   def script = {
 
+      val hc = new hc_rnaMode(new File(qscript.out + ".hc.vcf"))
+      val hc_filter = new filter(hc.out, swapExt(hc.out, ".vcf", ".hardFiltered.vcf"))
 
-    val hc = new hc_rnaMode(new File(qscript.out + ".hc.vcf"))
-    add(hc)
+    if(useHC) {
+      add(hc)
+      add(hc_filter)
+    }
 
-    val ug = new ug_rnaMode(new File(qscript.out + ".ug.vcf"))
-    add(ug)
+      val ug = new ug_rnaMode(new File(qscript.out + ".ug.vcf"))
+      val ug_filter = new filter(ug.out, swapExt(ug.out, ".vcf", ".hardFiltered.vcf"))
 
-    val ug_filter = new filter(ug.out, swapExt(ug.out,".vcf",".hardFiltered.vcf"))
-    add(ug_filter)
-
-    val hc_filter = new filter(hc.out, swapExt(hc.out,".vcf", ".hardFiltered.vcf"))
-    add(hc_filter)
+    if(useUG) {
+      add(ug)
+      add(ug_filter)
+    }
 
     if(assessNA12878){
       val hc_assess = new assess(hc_filter.out)
@@ -113,7 +126,8 @@ class RNAseqSingleSampleVaraintCallingScript extends QScript {
     }
   }
 
-  case class assess (inVCF: File) extends AssessNA12878 with UNIVERSAL_GATK_ARGS{
+  case class assess (inVCF: File) extends AssessNA12878{
+    this.memoryLimit = 2
     this.variant :+= inVCF
     this.reference_sequence = new File(qscript.ref)
     this.intervalsString :+= "20:10000000-24000000"
@@ -126,9 +140,11 @@ class RNAseqSingleSampleVaraintCallingScript extends QScript {
     this.o = new File ("assess."+swapExt(inVCF,".vcf",".txt").getName())
   }
 
-  case class filter (inVCF: File, outVCF: File) extends VariantFiltration with UNIVERSAL_GATK_ARGS{
+  case class filter (inVCF: File, outVCF: File) extends VariantFiltration{
+    this.memoryLimit = 4
     this.reference_sequence = new File(qscript.ref)
     this.intervalsString = qscript.intervalString
+    this.interval_set_rule = qscript.intervalSetRule
     this.intervals = qscript.intervalFiles
     this.variant = inVCF
     this.out = outVCF
@@ -139,24 +155,29 @@ class RNAseqSingleSampleVaraintCallingScript extends QScript {
     this.clusterSize = 3
   }
   
-  case class ug_rnaMode(outVCF: File) extends UnifiedGenotyper with UNIVERSAL_GATK_ARGS{
+  case class ug_rnaMode(outVCF: File) extends UnifiedGenotyper {
+    this.memoryLimit = 2
     this.reference_sequence = new File(qscript.ref)
     this.intervalsString = qscript.intervalString
+    this.interval_set_rule = qscript.intervalSetRule
     this.intervals = qscript.intervalFiles
     this.scatterCount = qscript.jobs
     this.input_file :+= new File(qscript.bam)
     this.out = outVCF
-    this.glm = org.broadinstitute.sting.gatk.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
-    this.baq = org.broadinstitute.sting.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
+    this.glm = org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel.Model.BOTH
+    this.baq = org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode.CALCULATE_AS_NECESSARY
     this.analysisName = "UnifiedGenotyper"
     this.stand_call_conf = qscript.stand_call_conf
     this.stand_emit_conf = qscript.stand_emit_conf  
   }
+
   
   
-  case class hc_rnaMode(outVCF: File) extends HaplotypeCaller with UNIVERSAL_GATK_ARGS{
+  case class hc_rnaMode(outVCF: File) extends HaplotypeCaller with RetryMemoryLimit{
+    this.memoryLimit = 4
     this.reference_sequence = new File(qscript.ref)
     this.intervalsString = qscript.intervalString
+    this.interval_set_rule = qscript.intervalSetRule
     this.intervals = qscript.intervalFiles
     this.scatterCount = qscript.jobs
     this.input_file :+= new File(qscript.bam)
@@ -166,6 +187,13 @@ class RNAseqSingleSampleVaraintCallingScript extends QScript {
       this.dontUseSoftClippedBases = true
     if (qscript.recoverDanglingHeads)
       this.recoverDanglingHeads = true
+    if (qscript.useGVCF){
+      this.emitRefConfidence = org.broadinstitute.gatk.tools.walkers.haplotypecaller.ReferenceConfidenceMode.GVCF
+      this.variant_index_type = org.broadinstitute.gatk.utils.variant.GATKVCFIndexType.LINEAR
+      this.variant_index_parameter = 128000
+      if(perBase)
+        this.emitRefConfidence = org.broadinstitute.gatk.tools.walkers.haplotypecaller.ReferenceConfidenceMode.BP_RESOLUTION
+    }
     this.analysisName = "HaplotypeCaller"
     this.stand_call_conf = qscript.stand_call_conf
     this.stand_emit_conf = qscript.stand_emit_conf

@@ -52,15 +52,18 @@
 package org.broadinstitute.gatk.tools;
 
 import picard.cmdline.CommandLineProgram;
+import picard.cmdline.CommandLineProgramProperties;
 import picard.cmdline.Option;
-import picard.cmdline.Usage;
 
 import java.io.*;
 import java.util.HashMap;
 import java.util.StringTokenizer;
 
+@CommandLineProgramProperties(
+        usage = "Converts VCF files to simple Geli text files.",
+        usageShort = "Converts VCF files to simple Geli text files."
+)
 public class VcfToGeliText extends CommandLineProgram {
-    @Usage(programVersion="1.0") public String USAGE = "Converts VCF files to simple Geli text files.";
     @Option(shortName="I", doc="Input file (vcf) to convert.", optional=false) public File IN = null;
     @Option(shortName="O",doc="Output file (gelitext). If not specified, output is printed to stdout.", optional=true) public File OUT = null;
     @Option(shortName="sample",doc="Sample number to extract from the VCF. If not specified, it takes the firt one.", optional=true) public Integer sample = 1;

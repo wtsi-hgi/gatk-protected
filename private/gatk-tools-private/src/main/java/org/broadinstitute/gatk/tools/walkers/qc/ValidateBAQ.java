@@ -58,9 +58,9 @@ import htsjdk.samtools.SAMRecord;
 import org.broadinstitute.gatk.engine.walkers.*;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Output;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
 import org.broadinstitute.gatk.engine.iterators.ReadTransformer;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.utils.MathUtils;
 import org.broadinstitute.gatk.utils.SimpleTimer;
 import org.broadinstitute.gatk.utils.Utils;
@@ -311,15 +311,12 @@ public class ValidateBAQ extends ReadWalker<Integer, Integer> {
                 case H : case P : // ignore pads and hard clips
                     break;
                 case S :
-                case I :
-                    readI += l;
-                    break;
                 case D : break;
-                case M :
+                case M: case EQ: case I: case X:
                     readI += l;
                     break;
                 default:
-                    throw new ReviewedGATKException("BUG: Unexpected CIGAR element " + elt + " in read " + read.getReadName());
+                    throw new ReviewedGATKException("BUG: Unexpected CIGAR element " + elt.getOperator() + " in read " + read.getReadName());
             }
         }
         return readI;

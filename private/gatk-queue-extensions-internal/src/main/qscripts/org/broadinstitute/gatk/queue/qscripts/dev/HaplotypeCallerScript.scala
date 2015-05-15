@@ -53,6 +53,7 @@ package org.broadinstitute.gatk.queue.qscripts.dev
 
 import org.broadinstitute.gatk.queue.extensions.gatk._
 import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.utils.ValidationExclusion
 
 class HaplotypeCallerScript extends QScript {
   qscript =>
@@ -84,7 +85,7 @@ class HaplotypeCallerScript extends QScript {
 
   trait UNIVERSAL_GATK_ARGS extends CommandLineGATK {
     memoryLimit = 2;
-    this.unsafe = org.broadinstitute.gatk.engine.arguments.ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
+    this.unsafe = ValidationExclusion.TYPE.ALLOW_N_CIGAR_READS
 
   }
 

@@ -51,9 +51,9 @@
 
 package org.broadinstitute.gatk.tools.walkers.bqsr;
 
-import org.broadinstitute.gatk.engine.report.GATKReport;
-import org.broadinstitute.gatk.utils.recalibration.ContextDatum;
-import org.broadinstitute.gatk.utils.recalibration.RecalDatumNode;
+import org.broadinstitute.gatk.utils.report.GATKReport;
+import org.broadinstitute.gatk.engine.recalibration.ContextDatum;
+import org.broadinstitute.gatk.engine.recalibration.RecalDatumNode;
 
 import java.io.PrintStream;
 

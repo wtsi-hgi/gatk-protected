@@ -59,20 +59,21 @@ import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculator;
 import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorFactory;
 import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculationResult;
 import org.broadinstitute.gatk.utils.commandline.*;
-import org.broadinstitute.gatk.engine.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
 import org.broadinstitute.gatk.engine.filters.DuplicateReadFilter;
 import org.broadinstitute.gatk.engine.filters.FailsVendorQualityCheckFilter;
 import org.broadinstitute.gatk.engine.filters.MappingQualityZeroFilter;
-import org.broadinstitute.gatk.engine.refdata.RefMetaDataTracker;
-import org.broadinstitute.gatk.engine.report.GATKReport;
-import org.broadinstitute.gatk.engine.report.GATKReportColumn;
-import org.broadinstitute.gatk.engine.report.GATKReportTable;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.report.GATKReport;
+import org.broadinstitute.gatk.utils.report.GATKReportColumn;
+import org.broadinstitute.gatk.utils.report.GATKReportTable;
 import org.broadinstitute.gatk.engine.walkers.ReadFilters;
 import org.broadinstitute.gatk.engine.walkers.ReadWalker;
 import org.broadinstitute.gatk.utils.*;
 import org.broadinstitute.gatk.utils.clipping.ReadClipper;
 import org.broadinstitute.gatk.utils.codecs.refseq.RefSeqFeature;
 import org.broadinstitute.gatk.utils.codecs.table.TableFeature;
+import org.broadinstitute.gatk.utils.sam.ReadUtils;
 import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils;
 import htsjdk.variant.vcf.VCFConstants;
 import htsjdk.variant.vcf.VCFHeader;
@@ -244,7 +245,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
     @Override
     public void initialize() {
 
-        Set<String> sampleStr = SampleUtils.getSAMFileSamples(getToolkit());
+        Set<String> sampleStr = ReadUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         ilglcm.setSamples(sampleStr);
 
         vcfWriter = VariantContextWriterFactory.sortOnTheFly(vcfWriterBase,1500000);
@@ -291,7 +292,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
 
         samples = new HashSet<String>(128);
         for (SAMFileHeader h : getToolkit().getSAMFileHeaders() ) {
-            samples.addAll(SampleUtils.getSAMFileSamples(h));
+            samples.addAll(ReadUtils.getSAMFileSamples(h));
         }
 
         activeHypotheses = new HashMap<String,JunctionHypothesis>();

@@ -53,9 +53,9 @@ package org.broadinstitute.gatk.tools.walkers.readutils;
 
 import org.apache.log4j.Logger;
 import org.broadinstitute.gatk.utils.BaseTest;
-import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
 import org.broadinstitute.gatk.engine.walkers.Walker;
 import org.broadinstitute.gatk.utils.BaseUtils;
+import org.broadinstitute.gatk.utils.Utils;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -67,7 +67,7 @@ import java.util.Random;
 
 
 public class ReadAdaptorTrimmerUnitTest extends BaseTest {
-    final Random rnd = GenomeAnalysisEngine.getRandomGenerator();
+    final Random rnd = Utils.getRandomGenerator();
     final Logger logger = Logger.getLogger(Walker.class);
 
     private static final String P5 = "AATGATACGGCGACCACCGA";

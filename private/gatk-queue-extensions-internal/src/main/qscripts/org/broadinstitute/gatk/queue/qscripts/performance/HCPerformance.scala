@@ -53,9 +53,9 @@ package org.broadinstitute.gatk.queue.qscripts.performance
 
 import org.broadinstitute.gatk.queue.QScript
 import org.broadinstitute.gatk.queue.extensions.gatk._
-import org.broadinstitute.gatk.utils.PathUtils
+import org.broadinstitute.gatk.utils.downsampling.DownsampleType
+import org.broadinstitute.gatk.utils.{downsampling, PathUtils}
 import org.broadinstitute.gatk.utils.commandline.ClassType
-import org.broadinstitute.gatk.engine.downsampling.DownsampleType
 
 class HCPerformance extends QScript {
   @Argument(shortName = "resources", doc="resources", required=true)
@@ -120,7 +120,7 @@ class HCPerformance extends QScript {
       HC.out = new File("/dev/null")
       HC.justDetermineActiveRegions = justProfile
       if ( ! ds )
-        HC.downsampling_type = org.broadinstitute.gatk.engine.downsampling.DownsampleType.NONE
+        HC.downsampling_type = downsampling.DownsampleType.NONE
       HC
     }
     maker

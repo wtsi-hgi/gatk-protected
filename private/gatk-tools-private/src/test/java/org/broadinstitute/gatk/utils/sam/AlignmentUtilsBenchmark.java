@@ -92,11 +92,11 @@ public class AlignmentUtilsBenchmark extends SimpleBenchmark {
             for ( int i = 0; i < nCigars; i++ ) {
                 switch ( dataSet ) {
                     case EMPTY_CIGAR: elts.add(new Cigar()); break;
-                    case SINGLETON_CIGAR: elts.add(TextCigarCodec.getSingleton().decode("75M")); break;
-                    case LONG_CIGAR_NO_COMBINE: elts.add(TextCigarCodec.getSingleton().decode("10M3D10M2I10M2D10M2D10M2D10M2D10M2D10M2D10M2D10M2D")); break;
-                    case LONG_CIGARS_TO_COMBINE: elts.add(TextCigarCodec.getSingleton().decode("10M2M3D5D2I3I4I10M2M3D5D2I3I4I10M2M3D5D2I3I4I10M2M3D5D2I3I4I10M2M3D5D2I3I4I")); break;
-                    case SHORT_CIGAR_TO_COMBINE: elts.add(TextCigarCodec.getSingleton().decode("10M2D3D10M")); break;
-                    case SHORT_CIGAR_NO_COMBINE: elts.add(TextCigarCodec.getSingleton().decode("10M5D10M")); break;
+                    case SINGLETON_CIGAR: elts.add(TextCigarCodec.decode("75M")); break;
+                    case LONG_CIGAR_NO_COMBINE: elts.add(TextCigarCodec.decode("10M3D10M2I10M2D10M2D10M2D10M2D10M2D10M2D10M2D10M2D")); break;
+                    case LONG_CIGARS_TO_COMBINE: elts.add(TextCigarCodec.decode("10M2M3D5D2I3I4I10M2M3D5D2I3I4I10M2M3D5D2I3I4I10M2M3D5D2I3I4I10M2M3D5D2I3I4I")); break;
+                    case SHORT_CIGAR_TO_COMBINE: elts.add(TextCigarCodec.decode("10M2D3D10M")); break;
+                    case SHORT_CIGAR_NO_COMBINE: elts.add(TextCigarCodec.decode("10M5D10M")); break;
                     default:
                         throw new IllegalArgumentException("Bad dataset " + dataSet);
                 }
