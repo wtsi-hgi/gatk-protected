@@ -75,8 +75,8 @@ public class M2IntegrationTest extends WalkerTest {
 
 
     private void M2Test(String tumorBam, String normalBam, String intervals, String args, String md5) {
-        final String base = String.format(
-                "-T M2 --no_cmdline_in_header -ip 50 -R %s --dbsnp %s --cosmic %s --normal_panel %s -I:tumor %s -I:normal %s -L %s",
+                final String base = String.format(
+                "-T M2 --no_cmdline_in_header -dt NONE --disableDithering -alwaysloadVectorHMM -pairHMM LOGLESS_CACHING -ip 50 -R %s --dbsnp %s --cosmic %s --normal_panel %s -I:tumor %s -I:normal %s -L %s",
                 REF, DBSNP, COSMIC, PON, tumorBam, normalBam, intervals) +
                 " -o %s ";
 
@@ -91,7 +91,7 @@ public class M2IntegrationTest extends WalkerTest {
 
     @Test
     public void testMicroRegression() {
-        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "", "e994dc61f18b3272810d3adc2059b067");
+        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "", "af072269b10de233845f45fbc574f335");
     }
 
     /**
@@ -101,20 +101,16 @@ public class M2IntegrationTest extends WalkerTest {
      */
     @Test
     public void testTruePositivesDream3() {
-        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_TP_INTERVALS_FILE, "", "84a0aa151cbe41e35806bd0fdd12c83a");
+        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_TP_INTERVALS_FILE, "", "cffdca9b975d9e77376839dbd4c30882");
     }
 
     /**
      * Tests a number of False Positive calls from the DREAM 3 data set.  Some of them are not rejected
      * (e.g. we have some FPs!) but most are rejected.
-     *
-     * NOTE: this test seems to produce a different MD5 when run on different machines, which is a known occurrence
-     * in some HC-based test.  To generate the integration MD5, run the tests on gsa4 which is the same architecture as
-     * the gsabamboo server
      */
     @Test
     public void testFalsePositivesDream3() {
-        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_FP_INTERVALS_FILE, "", "3f60be51331ea9d594bf1f2bd8feb845");
+        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_FP_INTERVALS_FILE, "", "f0f188ba022c97a6570651f89716b2d6");
     }
 
 }

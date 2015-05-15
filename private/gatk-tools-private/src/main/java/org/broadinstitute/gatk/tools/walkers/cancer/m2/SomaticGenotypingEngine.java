@@ -57,7 +57,6 @@ import htsjdk.variant.variantcontext.*;
 import org.apache.log4j.Logger;
 import org.broadinstitute.gatk.tools.walkers.genotyper.GenotypeLikelihoodsCalculationModel;
 import org.broadinstitute.gatk.tools.walkers.genotyper.afcalc.AFCalculatorProvider;
-import org.broadinstitute.gatk.tools.walkers.haplotypecaller.HaplotypeCallerArgumentCollection;
 import org.broadinstitute.gatk.tools.walkers.haplotypecaller.HaplotypeCallerGenotypingEngine;
 import org.broadinstitute.gatk.utils.GenomeLoc;
 import org.broadinstitute.gatk.utils.GenomeLocParser;
@@ -77,10 +76,6 @@ import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils;
 import java.util.*;
 
 public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
-
-    public static final String TUMOR_LOD = "TLOD";
-    public static final String NORMAL_LOD = "NLOD";
-    public static final String HAPLOTYPE_COUNT = "HCNT";
 
     protected M2ArgumentCollection MTAC;
 
@@ -254,23 +249,23 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                     VariantContextBuilder callVcb = new VariantContextBuilder(mergedVC);
 
                     if (normalLod < NORMAL_LOD_THRESHOLD) {
-                        callVcb.filter("germline_risk");
+                        callVcb.filter(GATKVCFConstants.GERMLINE_RISK_FILTER_NAME);
                     }
 
                     // FIXME: can simply get first alternate since above we only deal with Bi-allelic sites...
                     int haplotypeCount = alleleMapper.get(mergedVC.getAlternateAllele(0)).size();
-                    callVcb.attribute(HAPLOTYPE_COUNT, haplotypeCount);
-                    callVcb.attribute(TUMOR_LOD, tumorLod);
-                    callVcb.attribute(NORMAL_LOD, normalLod);
+                    callVcb.attribute(GATKVCFConstants.HAPLOTYPE_COUNT_KEY, haplotypeCount);
+                    callVcb.attribute(GATKVCFConstants.TUMOR_LOD_KEY, tumorLod);
+                    callVcb.attribute(GATKVCFConstants.NORMAL_LOD_KEY, normalLod);
 
                     if (normalLod < NORMAL_LOD_THRESHOLD) {
-                        callVcb.filter("germline_risk");
+                        callVcb.filter(GATKVCFConstants.GERMLINE_RISK_FILTER_NAME);
                     }
 
                     GenotypeBuilder tumorGenotype =
                             new GenotypeBuilder(tumorSampleName, mergedVC.getAlleles());
 
-                    tumorGenotype.attribute("AF", f);
+                    tumorGenotype.attribute(GATKVCFConstants.ALLELE_FRACTION_KEY, f);
 
                     // how should we set the genotype properly here?
                     List<Allele> refAlleles = new ArrayList<>();
@@ -288,7 +283,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
 
                         GenotypeBuilder normalGenotype =
                                 new GenotypeBuilder(matchedNormalSampleName, refAlleles).AD(normalCounts);
-                        normalGenotype.attribute("AF", normalF);
+                        normalGenotype.attribute(GATKVCFConstants.ALLELE_FRACTION_KEY, normalF);
                         genotypes.add(normalGenotype.make());
                     }
 
