@@ -193,8 +193,8 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                 ReadLikelihoods<Allele> readAlleleLikelihoods = readLikelihoods.marginalize(alleleMapper, genomeLocParser.createPaddedGenomeLoc(genomeLocParser.createGenomeLoc(mergedVC), ALLELE_EXTENSION));
 
                 //LDG: do we want to do this before or after pulling out overlapping reads?
-                //if (MTAC.isSampleContaminationPresent())
-                //    readAlleleLikelihoods.contaminationDownsampling(MTAC.getSampleContamination());
+                if (MTAC.isSampleContaminationPresent())
+                    readAlleleLikelihoods.contaminationDownsampling(MTAC.getSampleContamination());
 
                 if (!mergedVC.isBiallelic()) {
                     logger.info("[UNSUPPORTED] Detected non-Biallelic VC" + mergedVC.toString());
@@ -316,9 +316,9 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
         }
 
         // TODO: understand effect of enabling this for somatic calling...
-        //final List<VariantContext> phasedCalls = doPhysicalPhasing ? phaseCalls(returnCalls, calledHaplotypes) : returnCalls;
-        // return new CalledHaplotypes(phasedCalls, calledHaplotypes);
-        return new CalledHaplotypes(returnCalls, calledHaplotypes);
+        final List<VariantContext> phasedCalls = doPhysicalPhasing ? phaseCalls(returnCalls, calledHaplotypes) : returnCalls;
+         return new CalledHaplotypes(phasedCalls, calledHaplotypes);
+        //return new CalledHaplotypes(returnCalls, calledHaplotypes);
     }
 
     private void verifySamplePresence(String sampleName, List<String> samples) {

@@ -58,9 +58,11 @@ import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFFormatHeaderLine;
 import htsjdk.variant.vcf.VCFHeaderLineCount;
 import htsjdk.variant.vcf.VCFHeaderLineType;
+import org.apache.log4j.Logger;
 import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.AnnotatorCompatible;
 import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.GenotypeAnnotation;
 import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.StandardAnnotation;
+import org.broadinstitute.gatk.tools.walkers.cancer.m2.M2;
 import org.broadinstitute.gatk.utils.QualityUtils;
 import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
 import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
@@ -79,9 +81,26 @@ import java.util.Map;
 
 
 /**
+ * Sum of evidence in reads supporting each allele for each sample
  *
+ * <p>In the domain of somatic variants, a variant call can be supported by a few high quality reads. The
+ * BaseQualitySumPerAlleleBySample annotation aims to give the user an estimate of the quality of the evidence supporting
+ * a variant.</p>
+ *
+ * <h3>Notes</h3>
+ * BaseQualitySumPerAlleleBySample is called and used by M2 for variant filtering. This annotation is applied to SNPs
+ * and INDELs. Qualities are not literal base qualities, but instead are derived from the per-allele likelihoods derived
+ * from the assembly engine.
+ *
+ * <h3>Caveats</h3>
+ * <ul>
+ *     <li>At this time, BaseQualitySumPerAlleleBySample can only be called from M2</li>
+ * </ul>
  */
 public class BaseQualitySumPerAlleleBySample extends GenotypeAnnotation implements StandardAnnotation {
+    private final static Logger logger = Logger.getLogger(BaseQualitySumPerAlleleBySample.class);
+    private boolean walkerIdentityCheckWarningLogged = false;
+
     public List<String> getKeyNames() { return Arrays.asList(GATKVCFConstants.QUALITY_SCORE_SUM_KEY); }
 
 
@@ -94,13 +113,23 @@ public class BaseQualitySumPerAlleleBySample extends GenotypeAnnotation implemen
                          final GenotypeBuilder gb,
                          final PerReadAlleleLikelihoodMap alleleLikelihoodMap) {
 
+        // Can only call from MuTect2 (M2)
+        if ( !(walker instanceof M2) ) {
+            if ( !walkerIdentityCheckWarningLogged ) {
+                if ( walker != null )
+                    logger.warn("Annotation will not be calculated, must be called from M2, not " + walker.getClass().getName());
+                else
+                    logger.warn("Annotation will not be calculated, must be called from M2");
+                walkerIdentityCheckWarningLogged = true;
+            }
+            return;
+        }
+
         if ( g == null || !g.isCalled() || ( stratifiedContext == null && alleleLikelihoodMap == null) )
             return;
 
         if (alleleLikelihoodMap != null) {
             annotateWithLikelihoods(alleleLikelihoodMap, vc, gb);
-        } else {
-            throw new GATKException("BaseQualitySumPerAlleleBySample not supported");
         }
     }
 
