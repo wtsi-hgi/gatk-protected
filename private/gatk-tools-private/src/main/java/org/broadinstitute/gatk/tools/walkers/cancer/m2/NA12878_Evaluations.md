@@ -9,30 +9,28 @@ All scripts referenced here are relative to the current working directory of ```
 
 ### Current M2 Performance
 
-(gsa-unstable 5/11/15, commit:1e59971474623540d8f6347d95158b3b90fb9161)
+(gsa-unstable 6/2/15, commit:8c2df43a6df316fac629d54eccaad1447af1343b)
 
 | type | # of false positives |
 |------|----------------------|
-|SNP|93|
-|INDEL|25|
+|SNP|99|
+|INDEL|15|
 
 
 TODO: write a simple tool to do this more easily
 
-To calculate per pair-counts, and manually apply M2 PAAD Panel Of Normals, run:
+To calculate per pair-counts, run:
 ```
-export M2_PON=/dsde/working/mutect/panel_of_normals/panel_of_normals_m2_paad/agilent_hg19_m2_paad_149_normal_panel.vcf
-
 # for SNPs
 for vcf in *.bam.vcf 
 do     
-    /dsde/working/tools/bedtools2/bin/bedtools subtract -A -a $vcf -b $M2_PON | grep PASS | awk '{ if ( length($4) + length($5) == 2) print $0 }' | wc -l 
+    cat $vcf | grep PASS | awk '{ if ( length($4) + length($5) == 2) print $0 }' | wc -l 
 done
 
 # for INDELs
 for vcf in *.bam.vcf 
 do     
-    /dsde/working/tools/bedtools2/bin/bedtools subtract -A -a $vcf -b $M2_PON | grep PASS | awk '{ if ( length($4) + length($5) != 2) print $0 }' | wc -l 
+    cat $vcf | grep PASS | awk '{ if ( length($4) + length($5) != 2) print $0 }' | wc -l 
 done
 ```
 
