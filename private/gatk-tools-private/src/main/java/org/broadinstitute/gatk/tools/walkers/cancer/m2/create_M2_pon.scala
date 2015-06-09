@@ -51,20 +51,33 @@
 
 package org.broadinstitute.gatk.tools.walkers.cancer.m2
 
+import java.io.File
+
 import org.broadinstitute.gatk.queue.QScript
 import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.function.CommandLineFunction
 import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.utils.commandline.{Input, Output}
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 
-class run_M2_ICE_NN extends QScript {
+import scala.collection.mutable.ListBuffer
+
+class create_M2_pon extends QScript {
 
   @Argument(shortName = "bams", required = true, doc = "file of all BAM files")
   var allBams: String = ""
 
-  @Argument(shortName = "o", required = false, doc = "Output prefix")
+  @Argument(shortName = "o", required = true, doc = "Output prefix")
   var outputPrefix: String = ""
 
-  @Argument(shortName = "pon", required = false, doc = "Normal PON")
-  var panelOfNormals: String = "/dsde/working/mutect/panel_of_normals/panel_of_normals_m2_ice/m2_406_ice_normals_ice+agilent_10bp.vcf"
+  @Argument(shortName = "minN", required = false, doc = "minimum number of sample observations to include in PON")
+  var minN: Int = 2
+
+  @Argument(doc="Reference fasta file to process with", fullName="reference", shortName="R", required=false)
+  var reference = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
+
+  @Argument(doc="Intervals file to process with", fullName="intervals", shortName="L", required=true)
+  var intervals : File = ""
 
   @Argument(shortName = "sc", required = false, doc = "base scatter count")
   var scatter: Int = 10
@@ -72,31 +85,56 @@ class run_M2_ICE_NN extends QScript {
 
   def script() {
     val bams = QScriptUtils.createSeqFromFile(allBams)
+    val genotypesVcf = outputPrefix + ".genotypes.vcf"
+    val finalVcf = outputPrefix + ".vcf"
 
-    for (tumor <- bams) {
-      for (normal <- bams) {
-        if (tumor != normal) add( createM2Config(tumor, normal, new File(panelOfNormals), outputPrefix))
-      }
+    val perSampleVcfs = new ListBuffer[File]()
+    for (bam <- bams) {
+      val outputVcf = "sample-vcfs/" + bam.getName + ".vcf"
+      add( createM2Config(bam, outputVcf))
+      perSampleVcfs += outputVcf
     }
+
+    val cv = new CombineVariants()
+    cv.reference_sequence = reference
+    cv.memoryLimit = 2
+    cv.setKey = "null"
+    cv.minimumN = minN
+    cv.memoryLimit = 16
+    cv.filteredrecordsmergetype = FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    cv.filteredAreUncalled = true
+    cv.variant = perSampleVcfs
+    cv.out = genotypesVcf
+
+    // using this instead of "sites_only" because we want to keep the AC info
+    val vc = new VcfCutter()
+    vc.inVcf = genotypesVcf
+    vc.outVcf = finalVcf
+
+    add (cv, vc)
+
   }
 
 
-  def createM2Config(tumorBAM : File, normalBAM : File, panelOfNormals : File, outputPrefix : String): M2 = {
-    val mutect2 = new M2
+  def createM2Config(bam : File, outputVcf : File): org.broadinstitute.gatk.queue.extensions.gatk.M2 = {
+    val mutect2 = new org.broadinstitute.gatk.queue.extensions.gatk.M2
 
-    mutect2.reference_sequence = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
-    mutect2.cosmic :+= new File("/xchip/cga/reference/hg19/hg19_cosmic_v54_120711.vcf")
-    mutect2.dbsnp = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.vcf")
-    mutect2.normal_panel :+= panelOfNormals
-
-    mutect2.intervalsString :+= new File("/dsde/working/mutect/crsp_nn/whole_exome_illumina_coding_v1.Homo_sapiens_assembly19.targets.no_empty.interval_list")
+    mutect2.reference_sequence = reference
+    mutect2.artifact_detection_mode = true
+    mutect2.intervalsString :+= intervals
     mutect2.memoryLimit = 2
-    mutect2.input_file = List(new TaggedFile(normalBAM, "normal"), new TaggedFile(tumorBAM, "tumor"))
+    mutect2.input_file = List(new TaggedFile(bam, "tumor"))
 
     mutect2.scatterCount = scatter
-    mutect2.out = outputPrefix + tumorBAM.getName + "-vs-" + normalBAM.getName + ".vcf"
+    mutect2.out = outputVcf
 
-    println("Adding " + tumorBAM + " vs " + normalBAM + " as " + mutect2.out)
     mutect2
   }
+}
+
+class VcfCutter extends CommandLineFunction {
+  @Input(doc = "vcf to cut") var inVcf: File = _
+  @Output(doc = "output vcf") var outVcf: File = _
+
+  def commandLine = "cat %s | cut -f1-8 > %s".format(inVcf, outVcf)
 }
