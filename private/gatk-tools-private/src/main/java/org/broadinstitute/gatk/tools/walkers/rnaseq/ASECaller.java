@@ -55,7 +55,7 @@ import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.gatk.engine.walkers.RodWalker;
-import org.broadinstitute.gatk.tools.walkers.annotator.FisherStrand;
+import org.broadinstitute.gatk.tools.walkers.annotator.StrandBiasTableUtils;
 import org.broadinstitute.gatk.utils.QualityUtils;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Input;
@@ -181,7 +181,7 @@ public class ASECaller extends RodWalker<Integer, Integer> {
                 table[0][1] = dnaADs[1];
                 table[1][0] = rnaADs[0];
                 table[1][1] = rnaADs[1];
-                double pValue = FisherStrand.pValueForContingencyTable(table);
+                double pValue = StrandBiasTableUtils.FisherExactPValueForContingencyTable(table);
                 final Object value = String.format("%.3f", QualityUtils.phredScaleErrorRate(Math.max(pValue, MIN_PVALUE)));
                 double dnaRatio = (double)(dnaADs[0])/(dnaADs[1]+dnaADs[0]);
                 double rnaRatio = (double)(rnaADs[0])/(rnaADs[1]+rnaADs[0]);

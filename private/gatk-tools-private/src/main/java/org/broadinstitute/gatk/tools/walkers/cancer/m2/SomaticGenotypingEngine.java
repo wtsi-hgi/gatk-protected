@@ -342,8 +342,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                             genomeLocParser, emitReferenceConfidence, alleleMapper, readAlleleLikelihoods, call);
 
                     ReferenceContext referenceContext = new ReferenceContext(genomeLocParser, genomeLocParser.createGenomeLoc(mergedVC.getChr(), mergedVC.getStart(), mergedVC.getEnd()), refLoc, ref);
-                    //TODO: extend QSS for multiallelic calls
-                    VariantContext annotatedCall = annotationEngine.annotateContextForActiveRegion(referenceContext, tracker, readAlleleLikelihoods, call);
+                    VariantContext annotatedCall = annotationEngine.annotateContextForActiveRegion(referenceContext, tracker, readAlleleLikelihoods, call, false);
 
                     if( call.getAlleles().size() != mergedVC.getAlleles().size() )
                         annotatedCall = GATKVariantContextUtils.reverseTrimAlleles(annotatedCall);
