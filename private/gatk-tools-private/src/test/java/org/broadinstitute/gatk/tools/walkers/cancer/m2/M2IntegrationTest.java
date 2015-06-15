@@ -91,7 +91,7 @@ public class M2IntegrationTest extends WalkerTest {
 
     @Test
     public void testMicroRegression() {
-        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "", "af072269b10de233845f45fbc574f335");
+        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "", "20c46356a1a556ba4e1fab762523c2b1");
     }
 
     /**
@@ -101,7 +101,7 @@ public class M2IntegrationTest extends WalkerTest {
      */
     @Test
     public void testTruePositivesDream3() {
-        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_TP_INTERVALS_FILE, "", "cffdca9b975d9e77376839dbd4c30882");
+        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_TP_INTERVALS_FILE, "", "d8c5806094220bad41fbc19c0ff249a6");
     }
 
     /**
@@ -110,7 +110,15 @@ public class M2IntegrationTest extends WalkerTest {
      */
     @Test
     public void testFalsePositivesDream3() {
-        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_FP_INTERVALS_FILE, "", "f0f188ba022c97a6570651f89716b2d6");
+        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_FP_INTERVALS_FILE, "", "36fe5fff86f34fff862c57b87a6ec2e1");
+    }
+
+    /*
+     * Test that contamination downsampling reduces tumor LOD, rejects more variants
+     */
+    @Test
+    public void testContaminationCorrection() {
+        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "-contamination 0.1", "466a854a544dbf8729f12f739bdb95bc");
     }
 
 }

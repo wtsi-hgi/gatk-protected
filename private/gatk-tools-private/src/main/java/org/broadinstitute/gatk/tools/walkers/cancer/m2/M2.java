@@ -52,11 +52,10 @@
 package org.broadinstitute.gatk.tools.walkers.cancer.m2;
 
 import htsjdk.samtools.SAMFileWriter;
-import htsjdk.variant.variantcontext.Genotype;
-import htsjdk.variant.variantcontext.VariantContext;
-import htsjdk.variant.variantcontext.VariantContextBuilder;
+import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import htsjdk.variant.vcf.*;
+import org.broadinstitute.gatk.engine.CommandLineGATK;
 import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
 import org.broadinstitute.gatk.engine.arguments.DbsnpArgumentCollection;
 import org.broadinstitute.gatk.engine.filters.BadMateFilter;
@@ -81,6 +80,7 @@ import org.broadinstitute.gatk.utils.commandline.*;
 import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
 import org.broadinstitute.gatk.utils.contexts.AlignmentContextUtils;
 import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.downsampling.AlleleBiasedDownsamplingUtils;
 import org.broadinstitute.gatk.utils.downsampling.DownsamplingUtils;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.fasta.CachingIndexedFastaSequenceFile;
@@ -89,6 +89,8 @@ import org.broadinstitute.gatk.utils.fragments.FragmentUtils;
 import org.broadinstitute.gatk.utils.genotyper.*;
 import org.broadinstitute.gatk.utils.haplotype.Haplotype;
 import org.broadinstitute.gatk.utils.haplotypeBAMWriter.HaplotypeBAMWriter;
+import org.broadinstitute.gatk.utils.help.DocumentedGATKFeature;
+import org.broadinstitute.gatk.utils.help.HelpConstants;
 import org.broadinstitute.gatk.utils.pairhmm.PairHMM;
 import org.broadinstitute.gatk.utils.pileup.PileupElement;
 import org.broadinstitute.gatk.utils.pileup.ReadBackedPileup;
@@ -102,6 +104,73 @@ import java.util.*;
 
 import static java.lang.Math.pow;
 
+/**
+ * Call somatic SNPs and indels simultaneously via local re-assembly of haplotypes in an active region
+ *
+ * <p>The basic operation of M2 proceeds similarly to that of the <a href="https://www.broadinstitute.org/gatk/guide/tooldocs/org_broadinstitute_gatk_tools_walkers_haplotypecaller_HaplotypeCaller.php">HaplotypeCaller</a>   </p>
+ *
+ * <h3>Differences from HaplotypeCaller</h3>
+ * <p>While the HaplotypeCaller relies on a ploidy assumption (diploid by default) to inform its genotype likelihood and
+ * variant quality calculations, M2 allows for a varying allelic fraction for each variant, as is often seen in tumors with purity less
+ * than 100%, multiple subclones, and/or copy number variation (either local or aneuploidy). M2 also differs from the HaplotypeCaller in that it does apply some hard filters
+ * to variants before producing output.</p>
+ *
+ * <h3>Usage examples</h3>
+ * <p>These are example commands that show how to run M2 for typical use cases. Square brackets ("[ ]")
+ * indicate optional arguments. Note that parameter values shown here may not be the latest recommended; see the
+ * Best Practices documentation for detailed recommendations. </p>
+ *
+ * <br />
+ * <h4>Tumor/Normal variant calling</h4>
+ * <pre>
+ *   java
+ *     -jar GenomeAnalysisTK.jar \
+ *     -T M2 \
+ *     -R reference.fasta \
+ *     -I:tumor tumor.bam \
+ *     -I:normal normal.bam \
+ *     [--dbsnp dbSNP.vcf] \
+ *     [--cosmic COSMIC.vcf] \
+ *     [-L targets.interval_list] \
+ *     -o output.vcf
+ * </pre>
+ *
+ * <h4>Normal-only calling for panel of normals creation</h4>
+ * <pre>
+ *   java
+ *     -jar GenomeAnalysisTK.jar
+ *     -T HaplotypeCaller
+ *     -R reference.fasta
+ *     -I:tumor normal1.bam \
+ *     [--dbsnp dbSNP.vcf] \
+ *     [--cosmic COSMIC.vcf] \
+ *     --artifact_detection_mode \
+ *     [-L targets.interval_list] \
+ *     -o output.normal1.vcf
+ * </pre>
+ * <br />
+ * For full PON creation, call each of your normals separately in artifact detection mode. Then use CombineVariants to
+ * output only sites where a variant was seen in at least two samples:
+ * <pre>
+ * java -jar GenomeAnalysisTK.jar
+ *     -T CombineVariants
+ *     -R reference.fasta
+ *     -V output.normal1.vcf -V output.normal2.vcf [-V output.normal2.vcf ...] \
+ *     -minN 2 \
+ *     --setKey "null" \
+ *     --filteredAreUncalled \
+ *     --filteredrecordsmergetype KEEP_IF_ANY_UNFILTERED \
+ *     [-L targets.interval_list] \
+ *     -o M2_PON.vcf
+ * </pre>
+ *
+ * <h3>Caveats</h3>
+ * <ul>
+ * <li>M2 currently only supports the calling of a single tumor-normal pair at a time</li>
+ * </ul>
+ *
+ */
+@DocumentedGATKFeature( groupName = HelpConstants.DOCS_CAT_VARDISC, extraDocs = {CommandLineGATK.class} )
 @PartitionBy(PartitionType.LOCUS)
 @BAQMode(ApplicationTime = ReadTransformer.ApplicationTime.FORBIDDEN)
 @ActiveRegionTraversalParameters(extension=100, maxRegion=300)
@@ -115,6 +184,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     protected String normalSampleName;
 
     protected SampleList samplesList;
+    protected boolean printTCGAsampleHeader = false;
 
     // fasta reference reader to supplement the edges of the reference sequence
     protected CachingIndexedFastaSequenceFile referenceReader;
@@ -151,9 +221,17 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     /***************************************/
     // Reference Metadata inputs
     /***************************************/
+    /**
+     * M2 has the ability to use COSMIC data in conjunction with dbSNP to adjust the threshold for evidence of a variant
+     * in the normal.  If a variant is present in dbSNP, but not in COSMIC, then more evidence is required from the normal
+     * sample to prove the variant is not present in germline.
+     */
     @Input(fullName="cosmic", shortName = "cosmic", doc="VCF file of COSMIC sites", required=false)
     public List<RodBinding<VariantContext>> cosmicRod = Collections.emptyList();
 
+    /**
+     * A panel of normals can be a useful (optional) input to help filter out commonly seen sequencing noise that may appear as low allele-fraction somatic variants.
+     */
     @Input(fullName="normal_panel", shortName = "PON", doc="VCF file of sites observed in normal", required=false)
     public List<RodBinding<VariantContext>> normalPanelRod = Collections.emptyList();
 
@@ -198,6 +276,10 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
                 }
             }
         }
+
+        //If the samples specified are exactly one normal and one tumor, use the TCGA VCF sample header format
+        if (samplesList.sampleCount() == 2 && normalSampleName != null && tumorSampleName != null && ReadUtils.getSAMFileSamples(getToolkit().getSAMFileHeader()).size() == 2)
+            printTCGAsampleHeader = true;
 
         final VariantAnnotatorEngine annotationEngine = initializeVCFOutput();
 
@@ -264,7 +346,11 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         // KCIBUL: what's the right way to set this sensible default for somatic mutation calling from here?
         trimmer.snpPadding = 50;
 
+        samplesList = toolkit.getReadSampleList();
+        Set<String> sampleSet = SampleListUtils.asSet(samplesList);
 
+        if( MTAC.CONTAMINATION_FRACTION_FILE != null )
+            MTAC.setSampleContamination(AlleleBiasedDownsamplingUtils.loadContaminationFile(MTAC.CONTAMINATION_FRACTION_FILE, MTAC.CONTAMINATION_FRACTION, sampleSet, logger));
 
     }
 
@@ -285,7 +371,18 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
                 VCFConstants.DEPTH_KEY,
                 VCFConstants.GENOTYPE_PL_KEY);
 
-        // MuTect
+        headerInfo.addAll(getM2HeaderLines());
+        headerInfo.addAll(getSampleHeaderLines());
+
+        List<String> outputSampleNames = getOutputSampleNames();
+
+        vcfWriter.writeHeader(new VCFHeader(headerInfo, outputSampleNames));
+
+        return annotationEngine;
+    }
+
+    private Set<VCFHeaderLine> getM2HeaderLines(){
+        Set<VCFHeaderLine> headerInfo = new HashSet<>();
         headerInfo.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.NORMAL_LOD_KEY));
         headerInfo.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.TUMOR_LOD_KEY));
         headerInfo.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.PANEL_OF_NORMALS_COUNT_KEY));
@@ -305,9 +402,47 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.TUMOR_LOD_FILTER_NAME));
         headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.GERMLINE_RISK_FILTER_NAME));
 
-        vcfWriter.writeHeader(new VCFHeader(headerInfo, SampleListUtils.asList(samplesList)));
+        if ( ! doNotRunPhysicalPhasing ) {
+            headerInfo.add(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_ID_KEY));
+            headerInfo.add(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_GT_KEY));
+        }
+        return headerInfo;
+    }
 
-        return annotationEngine;
+    private Set<VCFHeaderLine> getSampleHeaderLines(){
+        Set<VCFHeaderLine> sampleLines = new HashSet<>();
+        if (printTCGAsampleHeader) {
+            //NOTE: This will only list the first bam file for each tumor/normal sample if there is more than one
+            Map<String, String> normalSampleHeaderAttributes = new HashMap<>();
+            normalSampleHeaderAttributes.put("ID", "NORMAL");
+            normalSampleHeaderAttributes.put("SampleName", normalSampleName);
+            if (normalSAMReaderIDs.iterator().hasNext() && !getToolkit().getArguments().disableCommandLineInVCF)
+                normalSampleHeaderAttributes.put("File", normalSAMReaderIDs.iterator().next().getSamFilePath());
+            VCFSimpleHeaderLine normalSampleHeader = new VCFSimpleHeaderLine("SAMPLE", normalSampleHeaderAttributes);
+            Map<String, String> tumorSampleHeaderAttributes = new HashMap<>();
+            tumorSampleHeaderAttributes.put("ID", "TUMOR");
+            tumorSampleHeaderAttributes.put("SampleName", tumorSampleName);
+            if (tumorSAMReaderIDs.iterator().hasNext() && !getToolkit().getArguments().disableCommandLineInVCF)
+                tumorSampleHeaderAttributes.put("File", tumorSAMReaderIDs.iterator().next().getSamFilePath());
+            VCFSimpleHeaderLine tumorSampleHeader = new VCFSimpleHeaderLine("SAMPLE", tumorSampleHeaderAttributes);
+
+            sampleLines.add(normalSampleHeader);
+            sampleLines.add(tumorSampleHeader);
+        }
+        return sampleLines;
+    }
+
+    private List<String> getOutputSampleNames(){
+        if (printTCGAsampleHeader) {
+         //Already checked for exactly 1 tumor and 1 normal in printTCGAsampleHeader assignment in initialize()
+            List<String> sampleNamePlaceholders = new ArrayList<>(2);
+            sampleNamePlaceholders.add("TUMOR");
+            sampleNamePlaceholders.add("NORMAL");
+            return sampleNamePlaceholders;
+        }
+        else {
+            return SampleListUtils.asList(samplesList);
+        }
     }
 
     @Override
@@ -564,6 +699,19 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
             } else {
                 vcb.passFilters();
             }
+
+            if (printTCGAsampleHeader) {
+                GenotypesContext genotypesWithBamSampleNames = originalVC.getGenotypes();
+                List<Genotype> renamedGenotypes = new ArrayList<>();
+                GenotypeBuilder GTbuilder = new GenotypeBuilder(genotypesWithBamSampleNames.get(tumorSampleName));
+                GTbuilder.name("TUMOR");
+                renamedGenotypes.add(GTbuilder.make());
+                GTbuilder = new GenotypeBuilder(genotypesWithBamSampleNames.get(normalSampleName));
+                GTbuilder.name("NORMAL");
+                renamedGenotypes.add(GTbuilder.make());
+                vcb.genotypes(renamedGenotypes);
+            }
+
             annotatedCalls.add(vcb.make());
         }
 
@@ -753,7 +901,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
                 }
             }
         }
-        activeRegion.removeAll( readsToRemove );
+        activeRegion.removeAll(readsToRemove);
         return readsToRemove;
     }
 
@@ -844,7 +992,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
 
     /**
      * rsIDs from this file are used to populate the ID column of the output.  Also, the DB INFO flag will be set when appropriate.
-     * dbSNP is not used in any way for the calculations themselves.
+     * dbSNP overlap is only used to require more evidence of absence in the normal if the variant in question has been seen before in germline.
      */
     @ArgumentCollection
     protected DbsnpArgumentCollection dbsnp = new DbsnpArgumentCollection();
@@ -871,7 +1019,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
 //    protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"ClippingRankSumTest", "DepthPerSampleHC"}));
     //protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"DepthPerAlleleBySample", "BaseQualitySumPerAlleleBySample", "TandemRepeatAnnotator",
     //    "RMSMappingQuality","MappingQualityRankSumTest","FisherStrand","StrandOddsRatio","ReadPosRankSumTest","QualByDepth", "Coverage"}));
-    protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"DepthPerAlleleBySample", "BaseQualitySumPerAlleleBySample", "TandemRepeatAnnotator"}));
+    protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"DepthPerAlleleBySample", "BaseQualitySumPerAlleleBySample", "TandemRepeatAnnotator", "OxoGReadCounts"}));
 
     /**
      * Which annotations to exclude from output in the VCF file.  Note that this argument has higher priority than the -A or -G arguments,

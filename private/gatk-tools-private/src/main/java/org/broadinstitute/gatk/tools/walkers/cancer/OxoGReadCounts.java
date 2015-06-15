@@ -49,65 +49,149 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.cancer.m2;
+package org.broadinstitute.gatk.tools.walkers.cancer;
 
-import org.broadinstitute.gatk.tools.walkers.haplotypecaller.AssemblyBasedCallerArgumentCollection;
-import org.broadinstitute.gatk.utils.commandline.Advanced;
-import org.broadinstitute.gatk.utils.commandline.Argument;
+import htsjdk.variant.variantcontext.Allele;
+import htsjdk.variant.variantcontext.Genotype;
+import htsjdk.variant.variantcontext.GenotypeBuilder;
+import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.vcf.VCFFormatHeaderLine;
+import htsjdk.variant.vcf.VCFHeaderLineCount;
+import htsjdk.variant.vcf.VCFHeaderLineType;
+import org.apache.log4j.Logger;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.AnnotatorCompatible;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.GenotypeAnnotation;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.StandardAnnotation;
+import org.broadinstitute.gatk.tools.walkers.cancer.m2.M2;
+import org.broadinstitute.gatk.utils.QualityUtils;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
+import org.broadinstitute.gatk.utils.genotyper.MostLikelyAllele;
+import org.broadinstitute.gatk.utils.genotyper.PerReadAlleleLikelihoodMap;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
+import org.broadinstitute.gatk.utils.sam.ReadUtils;
+import org.broadinstitute.gatk.utils.variant.GATKVCFConstants;
+import org.broadinstitute.gatk.utils.variant.GATKVCFHeaderLines;
 
-public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection {
-    @Advanced
-    @Argument(fullName="m2debug", shortName="m2debug", doc="Print out very verbose M2 debug information", required = false)
-    public boolean M2_DEBUG = false;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
-    /**
-     * Artifact detection mode is used to prepare a panel of normals. This maintains the specified tumor LOD threshold,
-     * but disables the remaining pragmatic filters. See M2 usage examples for more information.
-     */
-    @Advanced
-    @Argument(fullName = "artifact_detection_mode", required = false, doc="Enable artifact detection for creating panels of normals")
-    public boolean ARTIFACT_DETECTION_MODE = false;
 
-    /**
-     * This is the tumor LOD threshold to output the variant in the VCF, although it may be filtered
-     */
-    @Argument(fullName = "initial_tumor_lod", required = false, doc = "Initial LOD threshold for calling tumor variant")
-    public double INITIAL_TUMOR_LOD_THRESHOLD = 4.0;
+/**
+ *  Count of read pairs in the F1R2 and F2R1 configurations supporting the reference and alternate alleles
+ *
+ *  <p>This is an annotation that gathers information about the read pair configuration for the reads supporting each
+ *  allele. It can be used along with downstream filtering steps to identify and filter out erroneous variants that occur
+ *  with higher frequency in one read pair orientation.</p>
+ *
+ *  <h3>References</h3>
+ *  <p>For more details about the mechanism of oxoG artifact generation, see <a href='http://www.ncbi.nlm.nih.gov/pubmed/23303777' target='_blank'>
+ *      "Discovery and characterization of artefactual mutations in deep coverage targeted capture sequencing data due to oxidative DNA damage during sample preparation."
+ *  by Costello et al.</a></p>
+ *
+ *  <h3>Caveats</h3>
+ *  <ul>
+ *      <li>At present, this annotation can only be called from M2</li>
+ *      <li>This annotation is only applied to SNPs</li>
+ *  </ul>
+ */
+public class OxoGReadCounts extends GenotypeAnnotation {
+    private final static Logger logger = Logger.getLogger(OxoGReadCounts.class);
+    private boolean walkerIdentityCheckWarningLogged = false;
+    Allele refAllele;
+    Allele altAllele;
 
-    /**
-     * Only variants with tumor LODs exceeding this thresholds can pass filtration
-     */
-    @Argument(fullName = "tumor_lod", required = false, doc = "LOD threshold for calling tumor variant")
-    public double TUMOR_LOD_THRESHOLD = 6.3;
+    public List<String> getKeyNames() {
+        return Arrays.asList(GATKVCFConstants.OXOG_ALT_F1R2_KEY, GATKVCFConstants.OXOG_ALT_F2R1_KEY, GATKVCFConstants.OXOG_REF_F1R2_KEY, GATKVCFConstants.OXOG_REF_F2R1_KEY, GATKVCFConstants.OXOG_FRACTION_KEY);
+    }
 
-    /**
-     * This is a measure of the minimum evidence to show that a variant observed in the tumor is not also present in its normal
-     */
-    @Argument(fullName = "normal_lod", required = false, doc = "LOD threshold for calling normal non-germline")
-    public double NORMAL_LOD_THRESHOLD = 2.2;
 
-    /**
-     * The LOD threshold for the normal is typically made more strict if the variant has been seen in dbSNP (i.e. another
-     * normal sample). We thus require MORE evidence that a variant is NOT seen in this tumor's normal if it has been observed as a germline variant before.
-     */
-    @Argument(fullName = "dbsnp_normal_lod", required = false, doc = "LOD threshold for calling normal non-variant at dbsnp sites")
-    public double NORMAL_DBSNP_LOD_THRESHOLD = 5.5;
+    public void annotate(final RefMetaDataTracker tracker,
+                         final AnnotatorCompatible walker,
+                         final ReferenceContext ref,
+                         final AlignmentContext stratifiedContext,
+                         final VariantContext vc,
+                         final Genotype g,
+                         final GenotypeBuilder gb,
+                         final PerReadAlleleLikelihoodMap alleleLikelihoodMap) {
 
-    /**
-     * This argument is used for the M2 internal "alt_allele_in_normal" filter
-     **/
-    @Argument(fullName = "max_alt_alleles_in_normal_count", required = false, doc="Threshold for maximum alternate allele counts in normal")
-    public int MAX_ALT_ALLELES_IN_NORMAL_COUNT = 2;
+        // Can only call from MuTect2 (M2)
+        if ( !(walker instanceof M2) ) {
+            if ( !walkerIdentityCheckWarningLogged ) {
+                if ( walker != null )
+                    logger.warn("Annotation will not be calculated, must be called from M2, not " + walker.getClass().getName());
+                else
+                    logger.warn("Annotation will not be calculated, must be called from M2");
+                walkerIdentityCheckWarningLogged = true;
+            }
+            return;
+        }
 
-    /**
-     * This argument is used for the M2 internal "alt_allele_in_normal" filter
-     */
-    @Argument(fullName = "max_alt_alleles_in_normal_qscore_sum", required = false, doc="Threshold for maximum alternate allele quality score sum in normal")
-    public int MAX_ALT_ALLELES_IN_NORMAL_QSCORE_SUM = 20;
+        if (g == null || !g.isCalled() || (stratifiedContext == null && alleleLikelihoodMap == null))
+            return;
 
-    /**
-     * This argument is used for the M2 internal "alt_allele_in_normal" filter
-     */
-    @Argument(fullName = "max_alt_allele_in_normal_fraction", required = false, doc="Threshold for maximum alternate allele fraction in normal")
-    public double MAX_ALT_ALLELE_IN_NORMAL_FRACTION = 0.03;
+        if (!vc.isSNP())
+            return;
+
+        refAllele = vc.getReference();
+        altAllele = vc.getAlternateAllele(0);
+
+        if (alleleLikelihoodMap != null) {
+            annotateWithLikelihoods(alleleLikelihoodMap, vc, gb);
+        }
+    }
+
+    protected void annotateWithLikelihoods(final PerReadAlleleLikelihoodMap perReadAlleleLikelihoodMap, final VariantContext vc, final GenotypeBuilder gb) {
+        int ALT_F1R2, ALT_F2R1, REF_F1R2, REF_F2R1;
+        ALT_F1R2 = ALT_F2R1 = REF_F1R2 = REF_F2R1 = 0;
+        double fraction, numerator, denominator;
+
+        for ( final Map.Entry<GATKSAMRecord, Map<Allele,Double>> el : perReadAlleleLikelihoodMap.getLikelihoodReadMap().entrySet() ) {
+            final MostLikelyAllele a = PerReadAlleleLikelihoodMap.getMostLikelyAllele(el.getValue());
+            if ( ! a.isInformative() || ! isUsableRead(el.getKey()))
+                continue; // read is non-informative or MQ0
+            if (a.getAlleleIfInformative().equals(refAllele, true) && el.getKey().getReadPairedFlag()) {
+                if (el.getKey().getReadNegativeStrandFlag() == el.getKey().getFirstOfPairFlag())
+                    REF_F2R1++;
+                else
+                    REF_F1R2++;
+            }
+            else if (a.getAlleleIfInformative().equals(altAllele,true) && el.getKey().getReadPairedFlag()){
+                if (el.getKey().getReadNegativeStrandFlag() == el.getKey().getFirstOfPairFlag())
+                    ALT_F2R1++;
+                else
+                    ALT_F1R2++;
+            }
+        }
+
+        denominator =  ALT_F1R2 + ALT_F2R1;
+        if (refAllele.equals(Allele.create((byte)'C',true)) || refAllele.equals(Allele.create((byte)'A',true)))
+            numerator = ALT_F2R1;
+        else
+            numerator = ALT_F1R2;
+        fraction = (float)numerator/denominator;
+
+        gb.attribute(GATKVCFConstants.OXOG_ALT_F1R2_KEY, new Integer(ALT_F1R2));
+        gb.attribute(GATKVCFConstants.OXOG_ALT_F2R1_KEY, new Integer(ALT_F2R1));
+        gb.attribute(GATKVCFConstants.OXOG_REF_F1R2_KEY, new Integer(REF_F1R2));
+        gb.attribute(GATKVCFConstants.OXOG_REF_F2R1_KEY, new Integer(REF_F2R1));
+        gb.attribute(GATKVCFConstants.OXOG_FRACTION_KEY, new Double(fraction));
+    }
+
+    public List<VCFFormatHeaderLine> getDescriptions() {
+        return Arrays.asList(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.OXOG_ALT_F1R2_KEY),
+            GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.OXOG_ALT_F2R1_KEY),
+           GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.OXOG_REF_F1R2_KEY),
+           GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.OXOG_REF_F2R1_KEY),
+           GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.OXOG_FRACTION_KEY));
+    }
+
+    protected boolean isUsableRead(final GATKSAMRecord read) {
+        return !( read.getMappingQuality() == 0 ||
+                read.getMappingQuality() == QualityUtils.MAPPING_QUALITY_UNAVAILABLE );
+    }
 }
