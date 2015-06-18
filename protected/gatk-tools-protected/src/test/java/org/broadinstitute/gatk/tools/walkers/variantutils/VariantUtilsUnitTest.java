@@ -49,20 +49,26 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.engine.features.maf;
+package org.broadinstitute.gatk.tools.walkers.variantutils;
 
+import org.broadinstitute.gatk.engine.GATKVCFUtils;
+import org.broadinstitute.gatk.utils.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-public class MafCodecUnitTest {
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+
+public class VariantUtilsUnitTest extends BaseTest {
 
     @Test
-    public void testCanDecode() {
-        final String EXTRA_CHAR = "1";
-        MafCodec codec = new MafCodec();
-        Assert.assertTrue(codec.canDecode("filename." + MafCodec.FILE_EXT));
-        Assert.assertTrue(codec.canDecode("filename" + EXTRA_CHAR + "." + MafCodec.FILE_EXT));
-        Assert.assertFalse(codec.canDecode("filename." + MafCodec.FILE_EXT + EXTRA_CHAR));
-        Assert.assertFalse(codec.canDecode("filename" + MafCodec.FILE_EXT));
+    public void testgetAttributeValues() throws IOException {
+        String pathname = privateTestDir + "261_S01_raw_variants_gvcf.vcf";
+        String attributeName = "SAC";
+        File vcfFile = new File(pathname);
+        List<String> attributeValues = VariantUtils.getAttributeValues(vcfFile, attributeName);
+        Assert.assertEquals(attributeValues, Arrays.asList("33,43,25,23,0,0,0,0"));
     }
 }

@@ -49,20 +49,51 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.engine.features.maf;
+package org.broadinstitute.gatk.tools.walkers.variantutils;
 
-import org.testng.Assert;
-import org.testng.annotations.Test;
+import htsjdk.tribble.readers.LineIterator;
+import htsjdk.tribble.readers.PositionalBufferedStream;
+import htsjdk.variant.variantcontext.Genotype;
+import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.vcf.VCFCodec;
 
-public class MafCodecUnitTest {
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-    @Test
-    public void testCanDecode() {
-        final String EXTRA_CHAR = "1";
-        MafCodec codec = new MafCodec();
-        Assert.assertTrue(codec.canDecode("filename." + MafCodec.FILE_EXT));
-        Assert.assertTrue(codec.canDecode("filename" + EXTRA_CHAR + "." + MafCodec.FILE_EXT));
-        Assert.assertFalse(codec.canDecode("filename." + MafCodec.FILE_EXT + EXTRA_CHAR));
-        Assert.assertFalse(codec.canDecode("filename" + MafCodec.FILE_EXT));
+public class VariantUtils {
+
+    /**
+     * Returns a list of attribute values from a VCF file
+     *
+     * @param vcfFile VCF file
+     * @param attributeName attribute name
+     *
+     * @throws IOException if the file does not exist or can not be opened
+     *
+     * @return list of attribute values
+     */
+    public static List<String> getAttributeValues(final File vcfFile, final String attributeName) throws IOException {
+        final VCFCodec codec = new VCFCodec();
+        final FileInputStream s = new FileInputStream(vcfFile);
+        final LineIterator lineIteratorVCF = codec.makeSourceFromStream(new PositionalBufferedStream(s));
+        codec.readHeader(lineIteratorVCF);
+
+        List<String> attributeValues = new ArrayList<String>();
+        while (lineIteratorVCF.hasNext()) {
+            final String line = lineIteratorVCF.next();
+            final VariantContext vc = codec.decode(line);
+
+            for (final Genotype g : vc.getGenotypes()) {
+                if (g.hasExtendedAttribute(attributeName)) {
+                    attributeValues.add((String) g.getExtendedAttribute(attributeName));
+                }
+            }
+        }
+
+        s.close();
+        return attributeValues;
     }
 }
