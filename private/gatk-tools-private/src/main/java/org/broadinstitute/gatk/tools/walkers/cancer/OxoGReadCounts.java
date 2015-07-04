@@ -96,7 +96,7 @@ import java.util.Map;
  *  <h3>Caveats</h3>
  *  <ul>
  *      <li>At present, this annotation can only be called from M2</li>
- *      <li>This annotation is only applied to SNPs</li>
+ *      <li>The FOXOG annotation is only calculated for SNPs</li>
  *  </ul>
  */
 public class OxoGReadCounts extends GenotypeAnnotation {
@@ -134,9 +134,6 @@ public class OxoGReadCounts extends GenotypeAnnotation {
         if (g == null || !g.isCalled() || (stratifiedContext == null && alleleLikelihoodMap == null))
             return;
 
-        if (!vc.isSNP())
-            return;
-
         refAllele = vc.getReference();
         altAllele = vc.getAlternateAllele(0);
 
@@ -148,7 +145,7 @@ public class OxoGReadCounts extends GenotypeAnnotation {
     protected void annotateWithLikelihoods(final PerReadAlleleLikelihoodMap perReadAlleleLikelihoodMap, final VariantContext vc, final GenotypeBuilder gb) {
         int ALT_F1R2, ALT_F2R1, REF_F1R2, REF_F2R1;
         ALT_F1R2 = ALT_F2R1 = REF_F1R2 = REF_F2R1 = 0;
-        double fraction, numerator, denominator;
+        double numerator, denominator;
 
         for ( final Map.Entry<GATKSAMRecord, Map<Allele,Double>> el : perReadAlleleLikelihoodMap.getLikelihoodReadMap().entrySet() ) {
             final MostLikelyAllele a = PerReadAlleleLikelihoodMap.getMostLikelyAllele(el.getValue());
@@ -169,17 +166,20 @@ public class OxoGReadCounts extends GenotypeAnnotation {
         }
 
         denominator =  ALT_F1R2 + ALT_F2R1;
-        if (refAllele.equals(Allele.create((byte)'C',true)) || refAllele.equals(Allele.create((byte)'A',true)))
-            numerator = ALT_F2R1;
-        else
-            numerator = ALT_F1R2;
-        fraction = (float)numerator/denominator;
+        Double fOxoG = null;
+        if (vc.isSNP() && denominator > 0) {
+            if (refAllele.equals(Allele.create((byte) 'C', true)) || refAllele.equals(Allele.create((byte) 'A', true)))
+                numerator = ALT_F2R1;
+            else
+                numerator = ALT_F1R2;
+            fOxoG = (float) numerator / denominator;
+        }
 
         gb.attribute(GATKVCFConstants.OXOG_ALT_F1R2_KEY, new Integer(ALT_F1R2));
         gb.attribute(GATKVCFConstants.OXOG_ALT_F2R1_KEY, new Integer(ALT_F2R1));
         gb.attribute(GATKVCFConstants.OXOG_REF_F1R2_KEY, new Integer(REF_F1R2));
         gb.attribute(GATKVCFConstants.OXOG_REF_F2R1_KEY, new Integer(REF_F2R1));
-        gb.attribute(GATKVCFConstants.OXOG_FRACTION_KEY, new Double(fraction));
+        gb.attribute(GATKVCFConstants.OXOG_FRACTION_KEY, fOxoG);
     }
 
     public List<VCFFormatHeaderLine> getDescriptions() {
