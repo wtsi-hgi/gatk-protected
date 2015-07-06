@@ -95,7 +95,7 @@ import java.util.*;
  * as input, typically HapMap 3 sites and those sites found to be polymorphic on the Omni 2.5M SNP chip array. This adaptive
  * error model can then be applied to both known and novel variation discovered in the call set of interest to evaluate the
  * probability that each call is real. The score that gets added to the INFO field of each variant is called the VQSLOD. It is
- * the log odds ratio of being a true variant versus being false under the trained Gaussian mixture model.
+ * the log odds of being a true variant versus being false under the trained Gaussian mixture model.
  *
  * <p>
  * NOTE: Please see our <a href="http://www.broadinstitute.org/gsa/wiki/index.php/Best_Practice_Variant_Detection_with_the_GATK_v3">best practices wiki page</a> for our recommendations on which annotations to use for specific project designs.
@@ -139,7 +139,7 @@ import java.util.*;
 @PartitionBy(PartitionType.NONE)
 public class VariantRecalibratorV3 extends RodWalker<ExpandingArrayList<VariantDatum>, ExpandingArrayList<VariantDatum>> implements TreeReducible<ExpandingArrayList<VariantDatum>> {
 
-    public static final String VQS_LOD_KEY = "VQSLOD"; // Log odds ratio of being a true variant versus being false under the trained gaussian mixture model
+    public static final String VQS_LOD_KEY = "VQSLOD"; // Log odds of being a true variant versus being false under the trained gaussian mixture model
     public static final String CULPRIT_KEY = "culprit"; // The annotation which was the worst performing in the Gaussian mixture model, likely the reason why the variant was filtered out
     private static final String PLOT_TRANCHES_RSCRIPT = "plot_Tranches.R";
 
