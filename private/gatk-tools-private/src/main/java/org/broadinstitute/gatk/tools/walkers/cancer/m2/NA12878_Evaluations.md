@@ -9,12 +9,12 @@ All scripts referenced here are relative to the current working directory of ```
 
 ### Current M2 Performance
 
-(gsa-unstable 6/2/15, commit:8c2df43a6df316fac629d54eccaad1447af1343b)
+(gsa-unstable 6/16/15, commit:8c2df43a6df316fac629d54eccaad1447af1343b)
 
 | type | # of false positives |
 |------|----------------------|
 |SNP|99|
-|INDEL|15|
+|INDEL|14|
 
 
 TODO: write a simple tool to do this more easily

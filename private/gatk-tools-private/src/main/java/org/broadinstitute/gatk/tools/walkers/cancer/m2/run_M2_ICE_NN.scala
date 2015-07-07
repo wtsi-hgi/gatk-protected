@@ -64,7 +64,7 @@ class run_M2_ICE_NN extends QScript {
   var outputPrefix: String = ""
 
   @Argument(shortName = "pon", required = false, doc = "Normal PON")
-  var panelOfNormals: String = "/dsde/working/mutect/panel_of_normals/panel_of_normals_m2_ice/m2_406_ice_normals_ice+agilent_10bp.vcf"
+  var panelOfNormals: String = "/dsde/working/mutect/panel_of_normals/panel_of_normals_m2_ice_wgs_territory/m2_406_ice_normals_wgs_calling_regions.vcf";
 
   @Argument(shortName = "sc", required = false, doc = "base scatter count")
   var scatter: Int = 10
