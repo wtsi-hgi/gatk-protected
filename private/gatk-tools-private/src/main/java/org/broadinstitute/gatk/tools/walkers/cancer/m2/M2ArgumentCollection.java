@@ -57,28 +57,57 @@ import org.broadinstitute.gatk.utils.commandline.Argument;
 
 public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection {
     @Advanced
-    @Argument(fullName="m2debug", shortName="m2debug", doc="If specified, print out very verbose M2 debug information", required = false)
+    @Argument(fullName="m2debug", shortName="m2debug", doc="Print out very verbose M2 debug information", required = false)
     public boolean M2_DEBUG = false;
 
+    /**
+     * Artifact detection mode is used to prepare a panel of normals. This maintains the specified tumor LOD threshold,
+     * but disables the remaining pragmatic filters. See M2 usage examples for more information.
+     */
+    @Advanced
+    @Argument(fullName = "artifact_detection_mode", required = false, doc="Enable artifact detection for creating panels of normals")
+    public boolean ARTIFACT_DETECTION_MODE = false;
+
+    /**
+     * This is the tumor LOD threshold to output the variant in the VCF, although it may be filtered
+     */
     @Argument(fullName = "initial_tumor_lod", required = false, doc = "Initial LOD threshold for calling tumor variant")
     public double INITIAL_TUMOR_LOD_THRESHOLD = 4.0;
 
+    /**
+     * Only variants with tumor LODs exceeding this thresholds can pass filtration
+     */
     @Argument(fullName = "tumor_lod", required = false, doc = "LOD threshold for calling tumor variant")
     public double TUMOR_LOD_THRESHOLD = 6.3;
 
+    /**
+     * This is a measure of the minimum evidence to show that a variant observed in the tumor is not also present in its normal
+     */
     @Argument(fullName = "normal_lod", required = false, doc = "LOD threshold for calling normal non-germline")
     public double NORMAL_LOD_THRESHOLD = 2.2;
 
+    /**
+     * The LOD threshold for the normal is typically made more strict if the variant has been seen in dbSNP (i.e. another
+     * normal sample). We thus require MORE evidence that a variant is NOT seen in this tumor's normal if it has been observed as a germline variant before.
+     */
     @Argument(fullName = "dbsnp_normal_lod", required = false, doc = "LOD threshold for calling normal non-variant at dbsnp sites")
     public double NORMAL_DBSNP_LOD_THRESHOLD = 5.5;
 
-    /** Parameters for ALT ALLELE IN NORMAL filter **/
-    @Argument(fullName = "max_alt_alleles_in_normal_count", required = false, doc="threshold for maximum alternate allele counts in normal")
+    /**
+     * This argument is used for the M2 internal "alt_allele_in_normal" filter
+     **/
+    @Argument(fullName = "max_alt_alleles_in_normal_count", required = false, doc="Threshold for maximum alternate allele counts in normal")
     public int MAX_ALT_ALLELES_IN_NORMAL_COUNT = 2;
 
-    @Argument(fullName = "max_alt_alleles_in_normal_qscore_sum", required = false, doc="threshold for maximum alternate allele quality score sum in normal")
+    /**
+     * This argument is used for the M2 internal "alt_allele_in_normal" filter
+     */
+    @Argument(fullName = "max_alt_alleles_in_normal_qscore_sum", required = false, doc="Threshold for maximum alternate allele quality score sum in normal")
     public int MAX_ALT_ALLELES_IN_NORMAL_QSCORE_SUM = 20;
 
-    @Argument(fullName = "max_alt_allele_in_normal_fraction", required = false, doc="threshold for maximum alternate allele fraction in normal")
+    /**
+     * This argument is used for the M2 internal "alt_allele_in_normal" filter
+     */
+    @Argument(fullName = "max_alt_allele_in_normal_fraction", required = false, doc="Threshold for maximum alternate allele fraction in normal")
     public double MAX_ALT_ALLELE_IN_NORMAL_FRACTION = 0.03;
 }

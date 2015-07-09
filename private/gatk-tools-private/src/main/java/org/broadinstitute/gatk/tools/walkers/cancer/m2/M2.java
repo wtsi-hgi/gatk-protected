@@ -52,11 +52,10 @@
 package org.broadinstitute.gatk.tools.walkers.cancer.m2;
 
 import htsjdk.samtools.SAMFileWriter;
-import htsjdk.variant.variantcontext.Genotype;
-import htsjdk.variant.variantcontext.VariantContext;
-import htsjdk.variant.variantcontext.VariantContextBuilder;
+import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import htsjdk.variant.vcf.*;
+import org.broadinstitute.gatk.engine.CommandLineGATK;
 import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
 import org.broadinstitute.gatk.engine.arguments.DbsnpArgumentCollection;
 import org.broadinstitute.gatk.engine.filters.BadMateFilter;
@@ -81,6 +80,7 @@ import org.broadinstitute.gatk.utils.commandline.*;
 import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
 import org.broadinstitute.gatk.utils.contexts.AlignmentContextUtils;
 import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.downsampling.AlleleBiasedDownsamplingUtils;
 import org.broadinstitute.gatk.utils.downsampling.DownsamplingUtils;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.fasta.CachingIndexedFastaSequenceFile;
@@ -89,17 +89,88 @@ import org.broadinstitute.gatk.utils.fragments.FragmentUtils;
 import org.broadinstitute.gatk.utils.genotyper.*;
 import org.broadinstitute.gatk.utils.haplotype.Haplotype;
 import org.broadinstitute.gatk.utils.haplotypeBAMWriter.HaplotypeBAMWriter;
+import org.broadinstitute.gatk.utils.help.DocumentedGATKFeature;
+import org.broadinstitute.gatk.utils.help.HelpConstants;
 import org.broadinstitute.gatk.utils.pairhmm.PairHMM;
 import org.broadinstitute.gatk.utils.pileup.PileupElement;
 import org.broadinstitute.gatk.utils.pileup.ReadBackedPileup;
 import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.utils.sam.*;
+import org.broadinstitute.gatk.utils.variant.GATKVCFConstants;
+import org.broadinstitute.gatk.utils.variant.GATKVCFHeaderLines;
 
 import java.io.FileNotFoundException;
 import java.util.*;
 
 import static java.lang.Math.pow;
 
+/**
+ * Call somatic SNPs and indels simultaneously via local re-assembly of haplotypes in an active region
+ *
+ * <p>The basic operation of M2 proceeds similarly to that of the <a href="https://www.broadinstitute.org/gatk/guide/tooldocs/org_broadinstitute_gatk_tools_walkers_haplotypecaller_HaplotypeCaller.php">HaplotypeCaller</a>   </p>
+ *
+ * <h3>Differences from HaplotypeCaller</h3>
+ * <p>While the HaplotypeCaller relies on a ploidy assumption (diploid by default) to inform its genotype likelihood and
+ * variant quality calculations, M2 allows for a varying allelic fraction for each variant, as is often seen in tumors with purity less
+ * than 100%, multiple subclones, and/or copy number variation (either local or aneuploidy). M2 also differs from the HaplotypeCaller in that it does apply some hard filters
+ * to variants before producing output.</p>
+ *
+ * <h3>Usage examples</h3>
+ * <p>These are example commands that show how to run M2 for typical use cases. Square brackets ("[ ]")
+ * indicate optional arguments. Note that parameter values shown here may not be the latest recommended; see the
+ * Best Practices documentation for detailed recommendations. </p>
+ *
+ * <br />
+ * <h4>Tumor/Normal variant calling</h4>
+ * <pre>
+ *   java
+ *     -jar GenomeAnalysisTK.jar \
+ *     -T M2 \
+ *     -R reference.fasta \
+ *     -I:tumor tumor.bam \
+ *     -I:normal normal.bam \
+ *     [--dbsnp dbSNP.vcf] \
+ *     [--cosmic COSMIC.vcf] \
+ *     [-L targets.interval_list] \
+ *     -o output.vcf
+ * </pre>
+ *
+ * <h4>Normal-only calling for panel of normals creation</h4>
+ * <pre>
+ *   java
+ *     -jar GenomeAnalysisTK.jar
+ *     -T HaplotypeCaller
+ *     -R reference.fasta
+ *     -I:tumor normal1.bam \
+ *     [--dbsnp dbSNP.vcf] \
+ *     [--cosmic COSMIC.vcf] \
+ *     --artifact_detection_mode \
+ *     [-L targets.interval_list] \
+ *     -o output.normal1.vcf
+ * </pre>
+ * <br />
+ * For full PON creation, call each of your normals separately in artifact detection mode. Then use CombineVariants to
+ * output only sites where a variant was seen in at least two samples:
+ * <pre>
+ * java -jar GenomeAnalysisTK.jar
+ *     -T CombineVariants
+ *     -R reference.fasta
+ *     -V output.normal1.vcf -V output.normal2.vcf [-V output.normal2.vcf ...] \
+ *     -minN 2 \
+ *     --setKey "null" \
+ *     --filteredAreUncalled \
+ *     --filteredrecordsmergetype KEEP_IF_ANY_UNFILTERED \
+ *     [-L targets.interval_list] \
+ *     -o M2_PON.vcf
+ * </pre>
+ *
+ * <h3>Caveats</h3>
+ * <ul>
+ * <li>M2 currently only supports the calling of a single tumor-normal pair at a time</li>
+ * </ul>
+ *
+ */
+@DocumentedGATKFeature( groupName = HelpConstants.DOCS_CAT_VARDISC, extraDocs = {CommandLineGATK.class} )
 @PartitionBy(PartitionType.LOCUS)
 @BAQMode(ApplicationTime = ReadTransformer.ApplicationTime.FORBIDDEN)
 @ActiveRegionTraversalParameters(extension=100, maxRegion=300)
@@ -113,6 +184,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     protected String normalSampleName;
 
     protected SampleList samplesList;
+    protected boolean printTCGAsampleHeader = false;
 
     // fasta reference reader to supplement the edges of the reference sequence
     protected CachingIndexedFastaSequenceFile referenceReader;
@@ -149,9 +221,17 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     /***************************************/
     // Reference Metadata inputs
     /***************************************/
+    /**
+     * M2 has the ability to use COSMIC data in conjunction with dbSNP to adjust the threshold for evidence of a variant
+     * in the normal.  If a variant is present in dbSNP, but not in COSMIC, then more evidence is required from the normal
+     * sample to prove the variant is not present in germline.
+     */
     @Input(fullName="cosmic", shortName = "cosmic", doc="VCF file of COSMIC sites", required=false)
     public List<RodBinding<VariantContext>> cosmicRod = Collections.emptyList();
 
+    /**
+     * A panel of normals can be a useful (optional) input to help filter out commonly seen sequencing noise that may appear as low allele-fraction somatic variants.
+     */
     @Input(fullName="normal_panel", shortName = "PON", doc="VCF file of sites observed in normal", required=false)
     public List<RodBinding<VariantContext>> normalPanelRod = Collections.emptyList();
 
@@ -196,6 +276,10 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
                 }
             }
         }
+
+        //If the samples specified are exactly one normal and one tumor, use the TCGA VCF sample header format
+        if (samplesList.sampleCount() == 2 && normalSampleName != null && tumorSampleName != null && ReadUtils.getSAMFileSamples(getToolkit().getSAMFileHeader()).size() == 2)
+            printTCGAsampleHeader = true;
 
         final VariantAnnotatorEngine annotationEngine = initializeVCFOutput();
 
@@ -262,7 +346,11 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         // KCIBUL: what's the right way to set this sensible default for somatic mutation calling from here?
         trimmer.snpPadding = 50;
 
+        samplesList = toolkit.getReadSampleList();
+        Set<String> sampleSet = SampleListUtils.asSet(samplesList);
 
+        if( MTAC.CONTAMINATION_FRACTION_FILE != null )
+            MTAC.setSampleContamination(AlleleBiasedDownsamplingUtils.loadContaminationFile(MTAC.CONTAMINATION_FRACTION_FILE, MTAC.CONTAMINATION_FRACTION, sampleSet, logger));
 
     }
 
@@ -283,29 +371,78 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
                 VCFConstants.DEPTH_KEY,
                 VCFConstants.GENOTYPE_PL_KEY);
 
-        // MuTect
-        headerInfo.add(new VCFInfoHeaderLine(SomaticGenotypingEngine.NORMAL_LOD, 1, VCFHeaderLineType.String, "Normal LOD score"));
-        headerInfo.add(new VCFInfoHeaderLine(SomaticGenotypingEngine.TUMOR_LOD, 1, VCFHeaderLineType.String, "Tumor LOD score"));
-        headerInfo.add(new VCFInfoHeaderLine("PON", 1, VCFHeaderLineType.String, "Count from Panel of Normals"));
+        headerInfo.addAll(getM2HeaderLines());
+        headerInfo.addAll(getSampleHeaderLines());
 
-        headerInfo.add(new VCFInfoHeaderLine(SomaticGenotypingEngine.HAPLOTYPE_COUNT, 1, VCFHeaderLineType.String, "Number of haplotypes that support this variant"));
-        headerInfo.add(new VCFInfoHeaderLine("ECNT", 1, VCFHeaderLineType.String, "Number of events in this haplotype"));
-        headerInfo.add(new VCFInfoHeaderLine("MIN_ED", 1, VCFHeaderLineType.Integer, "Minimum distance between events in this active region"));
-        headerInfo.add(new VCFInfoHeaderLine("MAX_ED", 1, VCFHeaderLineType.Integer, "Maximum distance between events in this active region"));
-        headerInfo.add(new VCFFormatHeaderLine("AF", 1, VCFHeaderLineType.Float, "Allele fraction of the event in the tumor"));
+        List<String> outputSampleNames = getOutputSampleNames();
 
-        headerInfo.add(new VCFFilterHeaderLine("panel_of_normals", "Seen in at least 2 samples in the panel of normals"));
-        headerInfo.add(new VCFFilterHeaderLine("alt_allele_in_normal", "Evidence seen in the normal sample"));
-        headerInfo.add(new VCFFilterHeaderLine("multi_event_alt_allele_in_normal", "TBD"));
-        headerInfo.add(new VCFFilterHeaderLine("homologous_mapping_event", "TBD"));
-        headerInfo.add(new VCFFilterHeaderLine("clustered_events", "TBD"));
-
-        headerInfo.add(new VCFFilterHeaderLine("t_lod_fstar", "TBD"));
-        headerInfo.add(new VCFFilterHeaderLine("germline_risk", "TBD"));
-
-        vcfWriter.writeHeader(new VCFHeader(headerInfo, SampleListUtils.asList(samplesList)));
+        vcfWriter.writeHeader(new VCFHeader(headerInfo, outputSampleNames));
 
         return annotationEngine;
+    }
+
+    private Set<VCFHeaderLine> getM2HeaderLines(){
+        Set<VCFHeaderLine> headerInfo = new HashSet<>();
+        headerInfo.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.NORMAL_LOD_KEY));
+        headerInfo.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.TUMOR_LOD_KEY));
+        headerInfo.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.PANEL_OF_NORMALS_COUNT_KEY));
+        headerInfo.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.HAPLOTYPE_COUNT_KEY));
+        headerInfo.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.EVENT_COUNT_IN_HAPLOTYPE_KEY));
+        headerInfo.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.EVENT_DISTANCE_MIN_KEY));
+        headerInfo.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.EVENT_DISTANCE_MAX_KEY));
+
+        headerInfo.add(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.ALLELE_FRACTION_KEY));
+
+        headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.STR_CONTRACTION_FILTER_NAME));
+        headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.PON_FILTER_NAME));
+        headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.ALT_ALLELE_IN_NORMAL_FILTER_NAME));
+        headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.MULTI_EVENT_ALT_ALLELE_IN_NORMAL_FILTER_NAME));
+        headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.HOMOLOGOUS_MAPPING_EVENT_FILTER_NAME));
+        headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.CLUSTERED_EVENTS_FILTER_NAME));
+        headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.TUMOR_LOD_FILTER_NAME));
+        headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.GERMLINE_RISK_FILTER_NAME));
+
+        if ( ! doNotRunPhysicalPhasing ) {
+            headerInfo.add(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_ID_KEY));
+            headerInfo.add(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_GT_KEY));
+        }
+        return headerInfo;
+    }
+
+    private Set<VCFHeaderLine> getSampleHeaderLines(){
+        Set<VCFHeaderLine> sampleLines = new HashSet<>();
+        if (printTCGAsampleHeader) {
+            //NOTE: This will only list the first bam file for each tumor/normal sample if there is more than one
+            Map<String, String> normalSampleHeaderAttributes = new HashMap<>();
+            normalSampleHeaderAttributes.put("ID", "NORMAL");
+            normalSampleHeaderAttributes.put("SampleName", normalSampleName);
+            if (normalSAMReaderIDs.iterator().hasNext() && !getToolkit().getArguments().disableCommandLineInVCF)
+                normalSampleHeaderAttributes.put("File", normalSAMReaderIDs.iterator().next().getSamFilePath());
+            VCFSimpleHeaderLine normalSampleHeader = new VCFSimpleHeaderLine("SAMPLE", normalSampleHeaderAttributes);
+            Map<String, String> tumorSampleHeaderAttributes = new HashMap<>();
+            tumorSampleHeaderAttributes.put("ID", "TUMOR");
+            tumorSampleHeaderAttributes.put("SampleName", tumorSampleName);
+            if (tumorSAMReaderIDs.iterator().hasNext() && !getToolkit().getArguments().disableCommandLineInVCF)
+                tumorSampleHeaderAttributes.put("File", tumorSAMReaderIDs.iterator().next().getSamFilePath());
+            VCFSimpleHeaderLine tumorSampleHeader = new VCFSimpleHeaderLine("SAMPLE", tumorSampleHeaderAttributes);
+
+            sampleLines.add(normalSampleHeader);
+            sampleLines.add(tumorSampleHeader);
+        }
+        return sampleLines;
+    }
+
+    private List<String> getOutputSampleNames(){
+        if (printTCGAsampleHeader) {
+         //Already checked for exactly 1 tumor and 1 normal in printTCGAsampleHeader assignment in initialize()
+            List<String> sampleNamePlaceholders = new ArrayList<>(2);
+            sampleNamePlaceholders.add("TUMOR");
+            sampleNamePlaceholders.add("NORMAL");
+            return sampleNamePlaceholders;
+        }
+        else {
+            return SampleListUtils.asList(samplesList);
+        }
     }
 
     @Override
@@ -530,79 +667,51 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
                 }
             }
         }
+        Map<String, Object> eventDistanceAttributes = new HashMap<>();
+        eventDistanceAttributes.put(GATKVCFConstants.EVENT_COUNT_IN_HAPLOTYPE_KEY, eventCount);
+        eventDistanceAttributes.put(GATKVCFConstants.EVENT_DISTANCE_MIN_KEY, minEventDistance);
+        eventDistanceAttributes.put(GATKVCFConstants.EVENT_DISTANCE_MAX_KEY, maxEventDistance);
+
 
         // can we do this with the Annotation classes instead?
         for (VariantContext originalVC : calledHaplotypes.getCalls()) {
-
-            // TODO: clean up filtering logic... there must be a better way...
-            boolean wasFiltered = originalVC.getFilters().size() > 0;
             VariantContextBuilder vcb = new VariantContextBuilder(originalVC);
 
-            vcb.attribute("ECNT", eventCount);
-            vcb.attribute("MIN_ED", minEventDistance);
-            vcb.attribute("MAX_ED", maxEventDistance);
+            Map<String, Object> attributes = new HashMap<>(originalVC.getAttributes());
+            attributes.putAll(eventDistanceAttributes);
+            vcb.attributes(attributes);
 
-            Collection<VariantContext> panelOfNormalsVC = metaDataTracker.getValues(normalPanelRod,
-                    getToolkit().getGenomeLocParser().createGenomeLoc(originalVC.getChr(), originalVC.getStart()));
-            VariantContext ponVc = panelOfNormalsVC.isEmpty()?null:panelOfNormalsVC.iterator().next();
+            Set<String> filters = new HashSet<>(originalVC.getFilters());
 
-            if (ponVc != null) {
-                vcb.filter("panel_of_normals");
-                wasFiltered = true;
-            }
-
-            // FIXME: how do we sum qscores here?
-            // FIXME: parameterize thresholds
-            // && sum of alt likelihood scores > 20
-
-            // TODO: make the change to have only a single normal sample (but multiple tumors is ok...)
-            int normalAltCounts = 0;
-            double normalF = 0;
-            int normalAltQualityScoreSum = 0;
-            if (hasNormal()) {
-                Genotype normalGenotype = originalVC.getGenotype(normalSampleName);
-
-                // NOTE: how do we get the non-ref depth here?
-                normalAltCounts = normalGenotype.getAD()[1];
-                normalF = (Double) normalGenotype.getExtendedAttribute("AF");
-
-                Object qss = normalGenotype.getExtendedAttribute("QSS");
-                if (qss == null) {
-                    logger.error("Null qss at " + originalVC.getStart());
-                }
-                normalAltQualityScoreSum = (Integer) ((Object[]) qss)[1];
-            }
-
-            if ( (normalAltCounts >= MTAC.MAX_ALT_ALLELES_IN_NORMAL_COUNT || normalF >= MTAC.MAX_ALT_ALLELE_IN_NORMAL_FRACTION ) && normalAltQualityScoreSum > MTAC.MAX_ALT_ALLELES_IN_NORMAL_QSCORE_SUM) {
-                vcb.filter("alt_allele_in_normal");
-                wasFiltered = true;
-            } else {
-
-                // NOTE: does normal alt counts presume the normal had all these events in CIS?
-                if ( eventCount > 1 && normalAltCounts >= 1) {
-                    vcb.filter("multi_event_alt_allele_in_normal");
-                    wasFiltered = true;
-                } else if (eventCount >= 3) {
-                    vcb.filter("homologous_mapping_event");
-                    wasFiltered = true;
-                }
-
-            }
-
-            // NOTE: what if there is a 3bp indel followed by a snp... we are comparing starts
-            // so it would be thrown but it's really an adjacent event
-            if ( eventCount >= 2 && maxEventDistance >= 3) {
-                vcb.filter("clustered_events");
-                wasFiltered = true;
-            }
-
-            double tumorLod = (Double) originalVC.getAttributeAsDouble(SomaticGenotypingEngine.TUMOR_LOD, -1);
+            double tumorLod = originalVC.getAttributeAsDouble(GATKVCFConstants.TUMOR_LOD_KEY, -1);
             if (tumorLod < MTAC.TUMOR_LOD_THRESHOLD) {
-                vcb.filter("t_lod_fstar");
-                wasFiltered = true;
+                filters.add(GATKVCFConstants.TUMOR_LOD_FILTER_NAME);
             }
 
-            if (!wasFiltered) vcb.passFilters();
+            // if we are in artifact detection mode,  apply the thresholds for the LOD scores
+            if (!MTAC.ARTIFACT_DETECTION_MODE) {
+                 filters.addAll(calculateFilters(metaDataTracker, originalVC, eventDistanceAttributes));
+            }
+
+
+            if (filters.size() > 0) {
+                vcb.filters(filters);
+            } else {
+                vcb.passFilters();
+            }
+
+            if (printTCGAsampleHeader) {
+                GenotypesContext genotypesWithBamSampleNames = originalVC.getGenotypes();
+                List<Genotype> renamedGenotypes = new ArrayList<>();
+                GenotypeBuilder GTbuilder = new GenotypeBuilder(genotypesWithBamSampleNames.get(tumorSampleName));
+                GTbuilder.name("TUMOR");
+                renamedGenotypes.add(GTbuilder.make());
+                GTbuilder = new GenotypeBuilder(genotypesWithBamSampleNames.get(normalSampleName));
+                GTbuilder.name("NORMAL");
+                renamedGenotypes.add(GTbuilder.make());
+                vcb.genotypes(renamedGenotypes);
+            }
+
             annotatedCalls.add(vcb.make());
         }
 
@@ -612,6 +721,81 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
 
 
         return annotatedCalls;
+    }
+
+    private Set<String> calculateFilters(RefMetaDataTracker metaDataTracker, VariantContext vc, Map<String, Object> eventDistanceAttributes) {
+        Set<String> filters = new HashSet<>();
+
+        Integer eventCount = (Integer) eventDistanceAttributes.get(GATKVCFConstants.EVENT_COUNT_IN_HAPLOTYPE_KEY);
+        Integer maxEventDistance = (Integer) eventDistanceAttributes.get(GATKVCFConstants.EVENT_DISTANCE_MAX_KEY);
+
+        Collection<VariantContext> panelOfNormalsVC = metaDataTracker.getValues(normalPanelRod,
+                getToolkit().getGenomeLocParser().createGenomeLoc(vc.getChr(), vc.getStart()));
+        VariantContext ponVc = panelOfNormalsVC.isEmpty()?null:panelOfNormalsVC.iterator().next();
+
+        if (ponVc != null) {
+            filters.add(GATKVCFConstants.PON_FILTER_NAME);
+        }
+
+        // FIXME: how do we sum qscores here?
+        // FIXME: parameterize thresholds
+        // && sum of alt likelihood scores > 20
+
+        // TODO: make the change to have only a single normal sample (but multiple tumors is ok...)
+        int normalAltCounts = 0;
+        double normalF = 0;
+        int normalAltQualityScoreSum = 0;
+        if (hasNormal()) {
+            Genotype normalGenotype = vc.getGenotype(normalSampleName);
+
+            // NOTE: how do we get the non-ref depth here?
+            normalAltCounts = normalGenotype.getAD()[1];
+            normalF = (Double) normalGenotype.getExtendedAttribute(GATKVCFConstants.ALLELE_FRACTION_KEY);
+
+            Object qss = normalGenotype.getExtendedAttribute(GATKVCFConstants.QUALITY_SCORE_SUM_KEY);
+            if (qss != null) {
+                normalAltQualityScoreSum = (Integer) ((Object[]) qss)[1];
+            } else {
+                logger.error("Null qss at " + vc.getStart());
+            }
+        }
+
+        if ( (normalAltCounts >= MTAC.MAX_ALT_ALLELES_IN_NORMAL_COUNT || normalF >= MTAC.MAX_ALT_ALLELE_IN_NORMAL_FRACTION ) && normalAltQualityScoreSum > MTAC.MAX_ALT_ALLELES_IN_NORMAL_QSCORE_SUM) {
+            filters.add(GATKVCFConstants.ALT_ALLELE_IN_NORMAL_FILTER_NAME);
+        } else {
+
+            // NOTE: does normal alt counts presume the normal had all these events in CIS?
+            if ( eventCount > 1 && normalAltCounts >= 1) {
+                filters.add(GATKVCFConstants.MULTI_EVENT_ALT_ALLELE_IN_NORMAL_FILTER_NAME);
+            } else if (eventCount >= 3) {
+                filters.add(GATKVCFConstants.HOMOLOGOUS_MAPPING_EVENT_FILTER_NAME);
+            }
+
+        }
+
+        // STR contractions, that is the deletion of one repeat unit of a short repeat (>1bp repeat unit)
+        // such as ACTACTACT -> ACTACT, are overwhelmingly false positives so we
+        // hard filter them out by default
+        if (vc.isIndel()) {
+            ArrayList rpa = (ArrayList) vc.getAttribute(GATKVCFConstants.REPEATS_PER_ALLELE_KEY);
+            String ru = vc.getAttributeAsString(GATKVCFConstants.REPEAT_UNIT_KEY, "");
+            if (rpa != null && rpa.size() > 1 && ru.length() > 1) {
+                int refCount = (Integer) rpa.get(0);
+                int altCount = (Integer) rpa.get(1);
+
+                if (refCount - altCount == 1) {
+                    filters.add(GATKVCFConstants.STR_CONTRACTION_FILTER_NAME);
+                }
+            }
+        }
+
+        // NOTE: what if there is a 3bp indel followed by a snp... we are comparing starts
+        // so it would be thrown but it's really an adjacent event
+        if ( eventCount >= 2 && maxEventDistance >= 3) {
+            filters.add(GATKVCFConstants.CLUSTERED_EVENTS_FILTER_NAME);
+        }
+
+        return filters;
     }
 
 
@@ -717,7 +901,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
                 }
             }
         }
-        activeRegion.removeAll( readsToRemove );
+        activeRegion.removeAll(readsToRemove);
         return readsToRemove;
     }
 
@@ -808,7 +992,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
 
     /**
      * rsIDs from this file are used to populate the ID column of the output.  Also, the DB INFO flag will be set when appropriate.
-     * dbSNP is not used in any way for the calculations themselves.
+     * dbSNP overlap is only used to require more evidence of absence in the normal if the variant in question has been seen before in germline.
      */
     @ArgumentCollection
     protected DbsnpArgumentCollection dbsnp = new DbsnpArgumentCollection();
@@ -835,7 +1019,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
 //    protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"ClippingRankSumTest", "DepthPerSampleHC"}));
     //protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"DepthPerAlleleBySample", "BaseQualitySumPerAlleleBySample", "TandemRepeatAnnotator",
     //    "RMSMappingQuality","MappingQualityRankSumTest","FisherStrand","StrandOddsRatio","ReadPosRankSumTest","QualByDepth", "Coverage"}));
-    protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"DepthPerAlleleBySample", "BaseQualitySumPerAlleleBySample", "TandemRepeatAnnotator"}));
+    protected List<String> annotationsToUse = new ArrayList<>(Arrays.asList(new String[]{"DepthPerAlleleBySample", "BaseQualitySumPerAlleleBySample", "TandemRepeatAnnotator", "OxoGReadCounts"}));
 
     /**
      * Which annotations to exclude from output in the VCF file.  Note that this argument has higher priority than the -A or -G arguments,

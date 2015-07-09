@@ -1,0 +1,41 @@
+##fileformat=VCFv4.1
+##ALT=<ID=NON_REF,Description="Represents any possible alternative allele at this location">
+##FILTER=<ID=LowQual,Description="Low quality">
+##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (reads with MQ=255 or with bad mates are filtered)">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=MIN_DP,Number=1,Type=Integer,Description="Minimum DP observed within the GVCF block">
+##FORMAT=<ID=PGT,Number=1,Type=String,Description="Physical phasing haplotype information, describing how the alternate alleles are phased in relation to one another">
+##FORMAT=<ID=PID,Number=1,Type=String,Description="Physical phasing ID information, where each unique ID within a given sample (but not across samples) connects records within a phasing group">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
+##FORMAT=<ID=SB,Number=4,Type=Integer,Description="Per-sample component statistics which comprise the Fisher's Exact Test to detect strand bias.">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes, for each ALT allele, in the same order as listed">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=BaseQRankSum,Number=1,Type=Float,Description="Z-score from Wilcoxon rank sum test of Alt Vs. Ref base qualities">
+##INFO=<ID=ClippingRankSum,Number=1,Type=Float,Description="Z-score From Wilcoxon rank sum test of Alt vs. Ref number of hard clipped bases">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth; some reads may have been filtered">
+##INFO=<ID=DS,Number=0,Type=Flag,Description="Were any of the samples downsampled?">
+##INFO=<ID=END,Number=1,Type=Integer,Description="Stop position of the interval">
+##INFO=<ID=HaplotypeScore,Number=1,Type=Float,Description="Consistency of the site with at most two segregating haplotypes">
+##INFO=<ID=InbreedingCoeff,Number=1,Type=Float,Description="Inbreeding coefficient as estimated from the genotype likelihoods per-sample when compared against the Hardy-Weinberg expectation">
+##INFO=<ID=MLEAC,Number=A,Type=Integer,Description="Maximum likelihood expectation (MLE) for the allele counts (not necessarily the same as the AC), for each ALT allele, in the same order as listed">
+##INFO=<ID=MLEAF,Number=A,Type=Float,Description="Maximum likelihood expectation (MLE) for the allele frequency (not necessarily the same as the AF), for each ALT allele, in the same order as listed">
+##INFO=<ID=MQ,Number=1,Type=Float,Description="RMS Mapping Quality">
+##INFO=<ID=MQRankSum,Number=1,Type=Float,Description="Z-score From Wilcoxon rank sum test of Alt vs. Ref read mapping qualities">
+##INFO=<ID=ReadPosRankSum,Number=1,Type=Float,Description="Z-score from Wilcoxon rank sum test of Alt vs. Ref read position bias">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA1	NA2	NA3
+1	8029500	.	TG	T,<NON_REF>	.	.	BaseQRankSum=1.21;ClippingRankSum=-2.800e-01;DP=137;MQ=59.49;MQRankSum=1.06;ReadPosRankSum=-7.320e-01	GT:AD:DP:GQ:MIN_DP:PL:SB	./.:30,1,0:31:71:.:0,71,1014,97,1017,1042:1,29,0,1	./.:23,6,0:29:85:.:85,0,559,154,577,731:0,23,0,6	./.:.:42:60:41:0,60,900,60,900,900
+1	8029501	.	G	*,<NON_REF>	.	.	DP=140	GT:AD:DP:GQ:MIN_DP:PL:SB	./.:30,1,0:31:71:.:0,71,1014,97,1017,1042:1,29,0,1	./.:23,6,0:29:85:.:85,0,559,154,577,731:0,23,0,6	./.:.:44:75:44:0,75,1125,75,1125,1125
+1	8029502	.	G	<NON_REF>	.	.	.	GT:DP:GQ:MIN_DP:PL	./.:45:81:45:0,81,1215	./.:43:0:43:0,0,1106	./.:49:87:49:0,87,1305
+1	8029503	.	G	<NON_REF>	.	.	END=8029505	GT:DP:GQ:MIN_DP:PL	./.:45:81:45:0,81,1215	./.:42:99:41:0,102,1530	./.:45:99:41:0,99,1485
+1	8029506	.	G	<NON_REF>	.	.	END=8029507	GT:DP:GQ:MIN_DP:PL	./.:46:90:42:0,90,1350	./.:42:99:41:0,102,1530	./.:45:99:41:0,99,1485
+1	8029508	.	G	<NON_REF>	.	.	.	GT:DP:GQ:MIN_DP:PL	./.:46:90:42:0,90,1350	./.:42:99:41:0,102,1530	./.:38:96:33:0,96,1440
+1	8029509	.	GGA	G,<NON_REF>	.	.	BaseQRankSum=1.64;ClippingRankSum=0.091;DP=117;MQ=56.58;MQRankSum=1.19;ReadPosRankSum=0.456	GT:AD:DP:GQ:MIN_DP:PL:SB	./.:37,1,0:38:85:.:0,85,1335,111,1339,1365:1,36,0,1	./.:.:39:93:38:0,93,1395,93,1395,1395	./.:.:38:96:33:0,96,1440,96,1440,1440
+1	8029510	.	GA	G,<NON_REF>	.	.	BaseQRankSum=1.71;ClippingRankSum=-5.940e-01;DP=116;MQ=56.50;MQRankSum=-1.337e+00;ReadPosRankSum=0.297	GT:AD:DP:GQ:MIN_DP:PL:SB	./.:25,3,0:28:0:.:0,0,703,76,712,788:0,25,0,3	./.:.:39:93:38:0,93,1395,93,1395,1395	./.:.:38:96:33:0,96,1440,96,1440,1440
+1	8029511	.	A	G,<NON_REF>	.	.	BaseQRankSum=0.899;ClippingRankSum=0.00;DP=115;MQ=56.49;MQRankSum=-5.530e-01;ReadPosRankSum=0.00	GT:AD:DP:GQ:MIN_DP:PL:SB	./.:27,3,0:30:13:.:0,13,851,82,860,929:1,26,0,3	./.:.:39:93:38:0,93,1395,93,1395,1395	./.:.:38:96:33:0,96,1440,96,1440,1440
+1	8029512	.	A	<NON_REF>	.	.	.	GT:DP:GQ:MIN_DP:PL	./.:45:20:45:0,20,1407	./.:39:84:38:0,84,1260	./.:35:84:34:0,84,1260
+1	8029513	.	A	<NON_REF>	.	.	END=8029514	GT:DP:GQ:MIN_DP:PL	./.:46:99:43:0,102,1530	./.:39:84:38:0,84,1260	./.:35:84:34:0,84,1260
+1	8029515	.	A	<NON_REF>	.	.	.	GT:DP:GQ:MIN_DP:PL	./.:42:93:42:0,93,1449	./.:39:84:38:0,84,1260	./.:35:84:34:0,84,1260
+1	8029516	.	C	<NON_REF>	.	.	.	GT:DP:GQ:MIN_DP:PL	./.:41:99:41:0,99,1485	./.:39:78:39:0,78,1170	./.:35:84:34:0,84,1260
