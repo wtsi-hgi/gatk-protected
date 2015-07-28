@@ -92,8 +92,8 @@
 		<dependency org="com.google.inject" name="guice" rev="3.0"/>
 
         <!-- Contracts for Java and dependencies -->
-        <dependency org="com.google.code.cofoja" name="cofoja" rev="1.0-r139"/>
-        <dependency org="asm" name="asm-all" rev="3.3.1"/>
+        <dependency org="com.google.code.cofoja" name="cofoja" rev="1.2-20140817"/>
+        <dependency org="org.ow2.asm" name="asm-all" rev="5.0.4"/>
 
         <!-- POI, for reading pipeline files -->
         <dependency org="org.apache.poi" name="poi" rev="3.8-beta3"/>
