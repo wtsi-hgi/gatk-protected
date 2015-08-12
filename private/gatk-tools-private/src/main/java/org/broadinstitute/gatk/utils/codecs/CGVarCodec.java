@@ -102,6 +102,8 @@ public class CGVarCodec extends AsciiFeatureCodec<VariantContext> {
     private static final String DELETION_TYPE = "del";
     private static final String INSERTION_TYPE = "ins";
     private static final String SUBSTITUTION_TYPE = "sub";
+    // codec file extension
+    protected static final String FILE_EXT = "var";
 
     // the minimum number of features in the CG file line
     private static final int minimumFeatureCount = 8;
@@ -115,6 +117,7 @@ public class CGVarCodec extends AsciiFeatureCodec<VariantContext> {
      * @param line the input line to decode
      * @return a VariantContext
      */
+    @Override
     public VariantContext decode(String line) {
         String[] array = line.split("\\s+");
 
@@ -172,6 +175,13 @@ public class CGVarCodec extends AsciiFeatureCodec<VariantContext> {
         return new VariantContextBuilder("CGI", array[3], start, end, alleles).id(RSID).attributes(attrs).make();
     }
 
+    /**
+     * Can the file be decoded?
+     * @param path path the file to test for parsability with this codec
+     * @return true if the path has the correct file extension, false otherwise
+     */
+    @Override
+    public boolean canDecode(final String path) { return path.endsWith("." + FILE_EXT); }
     
     @Override
     public Object readActualHeader(LineIterator lineIterator) {
