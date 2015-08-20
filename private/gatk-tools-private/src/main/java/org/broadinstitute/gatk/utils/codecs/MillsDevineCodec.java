@@ -89,6 +89,8 @@ public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
 
     private static final String DELETION_TYPE = "DEL";
     private static final String INSERTION_TYPE = "INS";
+    // codec file extension
+    protected static final String FILE_EXT = "md";
 
     // the minimum number of features in the CG file line
     private static final int minimumFeatureCount = 10;
@@ -103,6 +105,7 @@ public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
      * @param line the input line to decode
      * @return a VariantContext
      */
+    @Override
     public VariantContext decode(String line) {
         String[] array = line.split("\\t");
 
@@ -121,7 +124,7 @@ public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
         String DOUBLE_CENTER= array[7];
         String MEMBER       = array[8];
         String REF_TYPE     = array[9];
-	       String CHIMP_TYPE   = array[10];
+        String CHIMP_TYPE   = array[10];
         String CELERA_TYPE  = array[11];
         String CHIMP_CHR    = array[12];
         String CHIMP_START  = array[13];
@@ -209,8 +212,17 @@ public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
 	*/  return vc;
     }
 
+    /**
+     * Can the file be decoded?
+     * @param path path the file to test for parsability with this codec
+     * @return true if the path has the correct file extension, false otherwise
+     */
+    @Override
+    public boolean canDecode(final String path) { return path.endsWith("." + FILE_EXT); }
+
     // There's no spec and no character to distinguish header lines...
     private final static int NUM_HEADER_LINES = 1;
+    @Override
     public Object readActualHeader(final LineIterator reader) {
         String headerLine = null;
         for (int i = 0; i < NUM_HEADER_LINES; i++)

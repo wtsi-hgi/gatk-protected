@@ -47,13 +47,13 @@ public class ReadAdaptorTrimmerIntegrationTest extends WalkerTest {
 
     @Test
     public void testBasicTrimmer() {
-        WalkerTestSpec spec = new WalkerTestSpec( getBaseCommand("shortInsertTest.bam"),  1, Arrays.asList("1d42414e12b45d44e6f396d97d0f60fe"));
+        WalkerTestSpec spec = new WalkerTestSpec( getBaseCommand("shortInsertTest.bam"),  1, Arrays.asList("c7d7f69e6b532ec693bfbd821c2e9766"));
         executeTest(String.format("testBasicTrimmer"), spec);
     }
 
     @Test
     public void testSkippingBadPairs() {
-        WalkerTestSpec spec = new WalkerTestSpec( getBaseCommand("shortInsertTest2.bam")+" -removeUnpairedReads",  1, Arrays.asList("5e796345502fbfc31134f7736ce68868"));
+        WalkerTestSpec spec = new WalkerTestSpec( getBaseCommand("shortInsertTest2.bam")+" -removeUnpairedReads",  1, Arrays.asList("f7aa76d1a2535774764e06ba610c21de"));
         executeTest(String.format("testSkippingBadPairs"), spec);
     }
 

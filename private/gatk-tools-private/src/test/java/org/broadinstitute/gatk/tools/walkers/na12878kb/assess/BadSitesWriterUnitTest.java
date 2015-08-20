@@ -77,6 +77,7 @@ public class BadSitesWriterUnitTest extends BaseTest {
             count++;
             lastVC = variantContext;
         }
+        public boolean checkError(){ return false; }
     }
 
     @DataProvider(name = "MyDataProvider")
