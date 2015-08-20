@@ -25,7 +25,7 @@
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
-* Copyright 2012-2015 Broad Institute, Inc.
+* Copyright 2012-2014 Broad Institute, Inc.
 * Notice of attribution: The GATK3 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
 * LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
 * 
@@ -49,152 +49,57 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.variantrecalibration;
+package org.broadinstitute.gatk.queue.qscripts.palantir
 
-import org.broadinstitute.gatk.utils.commandline.Advanced;
-import org.broadinstitute.gatk.utils.commandline.Argument;
-import org.broadinstitute.gatk.utils.commandline.Hidden;
-import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.utils.interval.IntervalSetRule
 
-/**
- * Created by IntelliJ IDEA.
- * User: rpoplin
- * Date: Mar 4, 2011
- */
+class HaplotypeCallerSingleSampleScript extends QScript {
+  // Required arguments
+  @Argument(shortName = "I", required = true, doc = "List of BAM files") var bamList: List[File] = _
+  @Argument(shortName = "R", required = false, doc = "Reference sequence") var referenceFile: File = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
+  @Argument(shortName = "o", required = false, doc = "output file name") var hc_output: File = new File("queue.hc.vcf")
 
-public class VariantRecalibratorArgumentCollection {
+  // Script arguments
+  @Argument(shortName = "sc", required = false, doc = "Scatter count") var jobs: Int = 50
+  @Argument(shortName = "isr", required = false, doc = "interval set rule") var intervalSetRule = IntervalSetRule.UNION
+  @Argument(shortName = "ds", required = false, doc = "downsampling fractions") var downsamplingFraction = 1.0
+  @Argument(shortName = "mem", required = false, doc = "memory for the jvm") var memoryLimit = 4
+  @Argument(shortName = "assess", required = false, doc = "run NA12878 assessment") var assess: Boolean = false
 
-    public enum Mode {
-        SNP,
-        INDEL,
-        BOTH
+  // Walker optional arguments
+  @Argument(shortName = "L", required = false, doc = "Intervals file") var intervalsFile: File = _
+  @Argument(shortName = "rf", required = false, doc = "Read Filter") var readFilter: Seq[String] = _
+
+  def script() {
+
+    val hc = new HaplotypeCaller()
+    // Required arguments
+    hc.read_filter = readFilter
+    hc.input_file = bamList
+    hc.reference_sequence = referenceFile
+    hc.out = hc_output
+
+    // Script arguments
+    hc.intervals = List(intervalsFile)
+    hc.scatterCount = jobs
+    hc.interval_set_rule = intervalSetRule
+    hc.dfrac = downsamplingFraction
+    hc.memoryLimit = memoryLimit
+
+    // Walker optional arguments
+
+    add(hc)
+
+    if (assess) {
+      val kb = new AssessNA12878
+      kb.variant :+= hc_output
+      kb.reference_sequence = referenceFile
+      kb.out = swapExt(hc_output, ".vcf", ".assessment.vcf")
+      kb.memoryLimit = memoryLimit
+      add(kb)
     }
+  }
 
-    static Mode parseString(final String input) {
-        if( input.equals("SNP") ) { return Mode.SNP; }
-        if( input.equals("INDEL") ) { return Mode.INDEL; }
-        if( input.equals("BOTH") ) { return Mode.BOTH; }
-        throw new ReviewedGATKException("VariantRecalibrator mode string is unrecognized, input = " + input);
-    }
-    /**
-     * Use either SNP for recalibrating only SNPs (emitting indels untouched in the output VCF) or INDEL for indels (emitting SNPs untouched in the output VCF).
-     * There is also a BOTH option for recalibrating both SNPs and indels simultaneously, but this is meant for testing purposes only and should not be used in actual analyses.
-     */
-    @Argument(fullName = "mode", shortName = "mode", doc = "Recalibration mode to employ", required = true)
-    public VariantRecalibratorArgumentCollection.Mode MODE = VariantRecalibratorArgumentCollection.Mode.SNP;
-
-    /**
-     * This parameter determines the maximum number of Gaussians that should be used when building a positive model
-     * using the variational Bayes algorithm.
-     */
-    @Advanced
-    @Argument(fullName="maxGaussians", shortName="mG", doc="Max number of Gaussians for the positive model", required=false)
-    public int MAX_GAUSSIANS = 8;
-
-    /**
-     * This parameter determines the maximum number of Gaussians that should be used when building a negative model
-     * using the variational Bayes algorithm. The actual maximum used is the smaller value between the mG and mNG
-     * arguments, meaning that if -mG is smaller than -mNG, -mG will be used for both. Note that this number should
-     * be small (e.g. 4) to achieve the best results.
-     */
-    @Advanced
-    @Argument(fullName="maxNegativeGaussians", shortName="mNG", doc="Max number of Gaussians for the negative model", required=false)
-    public int MAX_GAUSSIANS_FOR_NEGATIVE_MODEL = 2;
-
-    /**
-     * This parameter determines the maximum number of VBEM iterations to be performed in the variational Bayes algorithm.
-     * The procedure will normally end when convergence is detected.
-     */
-    @Advanced
-    @Argument(fullName="maxIterations", shortName="mI", doc="Maximum number of VBEM iterations", required=false)
-    public int MAX_ITERATIONS = 150;
-
-    /**
-     * This parameter determines the number of k-means iterations to perform in order to initialize the means of
-     * the Gaussians in the Gaussian mixture model.
-     */
-    @Advanced
-    @Argument(fullName="numKMeans", shortName="nKM", doc="Number of k-means iterations", required=false)
-    public int NUM_KMEANS_ITERATIONS = 100;
-
-    /**
-     * If a variant has annotations more than -std standard deviations away from mean, it won't be used for building
-     * the Gaussian mixture model.
-     */
-    @Advanced
-    @Argument(fullName="stdThreshold", shortName="std", doc="Annotation value divergence threshold (number of standard deviations from the means) ", required=false)
-    public double STD_THRESHOLD = 10.0;
-
-    @Advanced
-    @Argument(fullName="shrinkage", shortName="shrinkage", doc="The shrinkage parameter in the variational Bayes algorithm.", required=false)
-    public double SHRINKAGE = 1.0;
-
-    @Advanced
-    @Argument(fullName="dirichlet", shortName="dirichlet", doc="The dirichlet parameter in the variational Bayes algorithm.", required=false)
-    public double DIRICHLET_PARAMETER = 0.001;
-
-    @Advanced
-    @Argument(fullName="priorCounts", shortName="priorCounts", doc="The number of prior counts to use in the variational Bayes algorithm.", required=false)
-    public double PRIOR_COUNTS = 20.0;
-
-    /**
-     * The number of variants to use in building the Gaussian mixture model. Training sets larger than this will be randomly downsampled.
-     */
-    @Advanced
-    @Argument(fullName="maxNumTrainingData", shortName="maxNumTrainingData", doc="Maximum number of training data", required=false)
-    protected int MAX_NUM_TRAINING_DATA = 2500000;
-
-    /**
-     * This parameter determines the minimum number of variants that will be selected from the list of worst scoring
-     * variants to use for building the Gaussian mixture model of bad variants.
-     */
-    @Advanced
-    @Argument(fullName="minNumBadVariants", shortName="minNumBad", doc="Minimum number of bad variants", required=false)
-    public int MIN_NUM_BAD_VARIANTS = 1000;
-
-    /**
-     * Variants scoring lower than this threshold will be used to build the Gaussian model of bad variants.
-     */
-    @Advanced
-    @Argument(fullName="badLodCutoff", shortName="badLodCutoff", doc="LOD score cutoff for selecting bad variants", required=false)
-    public double BAD_LOD_CUTOFF = -5.0;
-
-    @Advanced
-    @Argument(fullName="MQCapForLogitJitterTransform", shortName = "MQCap", doc="MQ is capped at a \"max\" value (60 for bwa-mem) when the alignment is considered perfect." +
-            "Since often a huge proportion of reads are perfectly mapped, this yields a distribution with a blob < max and a huge peak at max" +
-            "This is not good for the mixture of Gaussian VQSR model and has been observed to yield a ROC curve with a jump." +
-            "Using MQCap = X has 2 effects:  (1) MQs are transformed by a scaled logit on [0,X] (+ epsilon to avoid division by zero)" +
-            "to make the blob more Gaussian-like and (2) The transformed MQ=X are jittered to break the peak into a narrow Gaussian." +
-            "Beware that IndelRealigner, if used, adds 10 to MQ for successfully realigned indels." +
-            "We recommend to use --read-filter ReassignOriginalMQAfterIndelRealignment with HaplotypeCaller, but if not, use a MQCap=max+10 to take that into account." +
-            "If this option is not used, or if MQCap is set to 0, MQ will not be transformed.")
-    public int MQ_CAP = 0;
-    /**
-     * The following 2 arguments are hidden because they are only for testing different jitter amounts with and without logit transform.
-     * Once this will have been tested, and the correct jitter amount chosen (perhaps as a function of the logit range [0,max]) they can be removed.
-     */
-    @Hidden
-    @Advanced
-    @Argument(fullName = "no_MQ_logit", shortName = "NoMQLogit", doc="MQ is by default transformed to log[(MQ_cap + epsilon - MQ)/(MQ + epsilon)] to make it more Gaussian-like.  Use this flag to not do that.", required = false)
-    public boolean NO_MQ_LOGIT = false;
-
-    @Hidden
-    @Advanced
-    @Argument(fullName="MQ_jitter", shortName="MQJitt", doc="Amount of jitter (as a factor to a Normal(0,1) noise) to add to the MQ capped values", required = false)
-    public double MQ_JITTER = 0.05;
-
-    /////////////////////////////
-    // Deprecated Arguments
-    // Keeping them here is meant to provide users with error messages that are more informative than "arg not defined" when they use an argument that has been put out of service
-    /////////////////////////////
-
-    @Hidden
-    @Deprecated
-    @Argument(fullName="percentBadVariants", shortName="percentBad", doc="This argument is no longer used in GATK versions 2.7 and newer. Please see the online documentation for the latest usage recommendations.", required=false)
-    public double PERCENT_BAD_VARIANTS = 0.03;
-
-    @Hidden
-    @Deprecated
-    @Argument(fullName="numBadVariants", shortName="numBad", doc="This argument is no longer used in GATK versions 2.8 and newer. Please see the online documentation for the latest usage recommendations.", required=false)
-    public int NUM_BAD_VARIANTS = 1000;
 }
