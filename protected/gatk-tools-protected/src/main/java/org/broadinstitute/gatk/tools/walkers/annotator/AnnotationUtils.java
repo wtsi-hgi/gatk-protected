@@ -60,9 +60,13 @@ import org.broadinstitute.gatk.tools.walkers.haplotypecaller.HaplotypeCaller;
 
 public class AnnotationUtils {
 
+    public static final String ANNOTATION_HC_WARN_MSG = " annotation will not be calculated, must be called from HaplotyepCaller";
+    public static final int WARNINGS_LOGGED_SIZE = 3;
+
     /**
      * Checks if the input data is appropriate
      *
+     * @param annotation the input genotype annotation key name(s)
      * @param walker input walker
      * @param map input map for each read, holds underlying alleles represented by an aligned read, and corresponding relative likelihood.
      * @param g input genotype
@@ -70,20 +74,38 @@ public class AnnotationUtils {
      * @param logger logger specific for each caller
      *
      * @return true if the walker is a HaplotypeCaller, the likelihood map is non-null and the genotype is non-null and called, false otherwise
-     * @throws ReviewedGATKException if the size of warningsLogged is less than 4.
+     * @throws IllegalArgumentException if annotation, walker, g, warningsLogged, or logger are null.
+     * @throws ReviewedGATKException if the size of warningsLogged is less than 3.
      */
-    public static boolean isAppropriateInput(final AnnotatorCompatible walker, final PerReadAlleleLikelihoodMap map, final Genotype g, final boolean[] warningsLogged, final Logger logger) {
+    public static boolean isAppropriateInput(final String annotation, final AnnotatorCompatible walker, final PerReadAlleleLikelihoodMap map, final Genotype g, final boolean[] warningsLogged, final Logger logger) {
 
-        if ( warningsLogged.length < 4 ){
-            throw new ReviewedGATKException("Warnings logged array must have at last 4 elements, but has " + warningsLogged.length);
+        if ( annotation == null ){
+            throw new IllegalArgumentException("The input annotation cannot be null");
+        }
+
+        if ( walker == null ) {
+            throw new IllegalArgumentException("The input walker cannot be null");
+        }
+
+        if ( g == null ) {
+            throw new IllegalArgumentException("The input genotype cannot be null");
+        }
+
+        if ( warningsLogged == null ){
+            throw new IllegalArgumentException("The input warnings logged cannot be null");
+        }
+
+        if ( logger == null ){
+            throw new IllegalArgumentException("The input logger cannot be null");
+        }
+
+        if ( warningsLogged.length < WARNINGS_LOGGED_SIZE ){
+            throw new ReviewedGATKException("Warnings logged array must have at least " + WARNINGS_LOGGED_SIZE + " elements, but has " + warningsLogged.length);
         }
 
         if ( !(walker instanceof HaplotypeCaller) ) {
             if ( !warningsLogged[0] ) {
-                if ( walker != null )
-                    logger.warn("Annotation will not be calculated, must be called from HaplotyepCaller, not " + walker.getClass().getName());
-                else
-                    logger.warn("Annotation will not be calculated, must be called from HaplotyepCaller");
+                logger.warn(annotation + ANNOTATION_HC_WARN_MSG + ", not " + walker.getClass().getSimpleName());
                 warningsLogged[0] = true;
             }
             return false;
@@ -97,18 +119,10 @@ public class AnnotationUtils {
             return false;
         }
 
-        if ( g == null ){
-            if ( !warningsLogged[2] ) {
-                logger.warn("Annotation will not be calculated, missing genotype");
-                warningsLogged[2]= true;
-            }
-            return false;
-        }
-
         if ( !g.isCalled() ){
-            if ( !warningsLogged[3] ) {
+            if ( !warningsLogged[2] ) {
                 logger.warn("Annotation will not be calculated, genotype is not called");
-                warningsLogged[3] = true;
+                warningsLogged[2] = true;
             }
             return false;
         }
