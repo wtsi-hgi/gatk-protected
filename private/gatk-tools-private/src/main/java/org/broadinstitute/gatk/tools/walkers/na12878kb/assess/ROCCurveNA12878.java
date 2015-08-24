@@ -51,12 +51,15 @@
 
 package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
+import org.broadinstitute.gatk.utils.Utils;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Input;
 import org.broadinstitute.gatk.utils.commandline.Output;
 import org.broadinstitute.gatk.utils.commandline.RodBinding;
 import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
 import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.exceptions.UserException;
+import org.broadinstitute.gatk.utils.io.Resource;
 import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.utils.report.GATKReport;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.NA12878DBWalker;
@@ -64,8 +67,9 @@ import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoVariantContext;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.NA12878DBArgumentCollection;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.SiteIterator;
 import htsjdk.variant.variantcontext.VariantContext;
+import org.broadinstitute.gatk.utils.R.RScriptExecutor;
 
-import java.io.PrintStream;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -91,11 +95,14 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     @Input(fullName="variant", shortName = "V", doc="Input VCF file", required=true)
     public RodBinding<VariantContext> variants;
 
-    @Argument(fullName="numBins", shortName = "numBins", doc="number of bins to use for making the ROC curve", required=false)
-    private int numBins = 100;
+    @Argument(fullName="N_SNP_Bins", shortName = "n_snp_bins", doc="number of bins to use for SNPs in making the ROC curve", required=false)
+    private int n_bin_snp = 100;
+
+    @Argument(fullName="N_Indel_Bins", shortName = "n_indel_bins", doc="number of bins to use for Indels in making the ROC curve", required=false)
+    private int n_bin_indel = 50;
 
     @Output(doc="Summary GATKReport will be written here", required=false)
-    public PrintStream out;
+    public static File report_file;
 
     @Argument(fullName="project", shortName = "project", doc="String project tag", required=true)
     public String project = null;
@@ -103,15 +110,13 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     @Argument(fullName="requireReviewed", shortName = "requireReviewed", doc="If specified will only use reviewed sites in the knowledgebase for the assessment", required=false)
     public boolean REQUIRE_REVIEWED = false;
 
-    @Argument(fullName="totalSensitivity", shortName = "totalSensitivity", doc="If specified will count TPs/FPs that aren't called in the input callset in order to calculated total sensitivity/specificity instead of relative covered sensitivity/specificity", required=false)
-    public boolean TOTAL_SENSITIVITY_MODE = false;
+    @Output(fullName="plot_files", shortName="plotFiles", doc="The base name of two plots files (TP vs FP counts and ratio) output by the R-script", required=false, defaultToStdout=false)
+    private static String PLOTS_BASENAME = null;
 
     private SiteIterator<MongoVariantContext> consensusSiteIterator;
     private List<ROCDatum> data = new ArrayList<>();
     private int[][] uncalledSites = {{0,0},{0,0}};
-
-
-    @Override
+    private static final String PLOT_RSCRIPT = "roc_Plot.R";
     public NA12878DBArgumentCollection.DBType getDefaultDB() {
         return NA12878DBArgumentCollection.DBType.PRODUCTION;
     }
@@ -120,19 +125,21 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     public void initialize() {
         super.initialize();
         consensusSiteIterator = db.getConsensusSites(makeSiteManager(false));
+
+        if (PLOTS_BASENAME != null && !RScriptExecutor.RSCRIPT_EXISTS)
+            Utils.warnUser(logger, String.format(
+                    "Rscript %s not found in environment path. Plots %s will not be generated.",
+                    PLOT_RSCRIPT, PLOTS_BASENAME));
     }
 
     @Override
     public Integer map(final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
         if ( tracker == null ) return 0;
 
-        // If in total sensitivity mode we need to check for missed sites
-        if( TOTAL_SENSITIVITY_MODE ) {
-            for( final MongoVariantContext cs : consensusSiteIterator.getSitesBefore(context.getLocation()) ) {
-                if( (cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive()) ) {
-                    if( !REQUIRE_REVIEWED || cs.isReviewed() ) {
-                        uncalledSites[cs.getVariantContext().isSNP() ? SNP_INDEX : INDEL_INDEX][cs.getType().isTruePositive() ? TP_INDEX : FP_INDEX]++;
-                    }
+        for( final MongoVariantContext cs : consensusSiteIterator.getSitesBefore(context.getLocation()) ) {
+            if( (cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive()) ) {
+                if( !REQUIRE_REVIEWED || cs.isReviewed() ) {
+                    uncalledSites[cs.getVariantContext().isSNP() ? SNP_INDEX : INDEL_INDEX][cs.getType().isTruePositive() ? TP_INDEX : FP_INDEX]++;
                 }
             }
         }
@@ -150,7 +157,7 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
                             data.add( new ROCDatum( cs.getType().isTruePositive(), cs.getVariantContext().isSNP(), (vc.hasAttribute("VQSLOD") ? vc.getAttributeAsDouble("VQSLOD", Double.NaN) : vc.getPhredScaledQual()), vc.getFiltersMaybeNull() ) );
                         }
                     }
-                    if (!foundMatchingAllele && TOTAL_SENSITIVITY_MODE) {
+                    if (!foundMatchingAllele) {
                         uncalledSites[cs.getVariantContext().isSNP() ? SNP_INDEX : INDEL_INDEX][cs.getType().isTruePositive() ? TP_INDEX : FP_INDEX]++;
                     }
                 }
@@ -163,20 +170,30 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     @Override
     public void onTraversalDone(final Integer result) {
         super.onTraversalDone(result);
-        final GATKReport report = calculateROCCurve(data, numBins, project, variants.getSource());
-        report.print(out);
+        final GATKReport report = calculateROCCurve(data, n_bin_snp, n_bin_indel, project, variants.getSource());
+        try {
+            PrintStream out_stream = new PrintStream(report_file);
+            report.print(out_stream);
+            out_stream.close();
+        } catch (FileNotFoundException e) {
+            throw new UserException.CouldNotCreateOutputFile(report_file, e);
+        }
+        if (PLOTS_BASENAME != null) {
+            plotROCCurves(report_file);
+        }
     }
 
     /**
-     * Create the GATK report which holds the ROC curve information for this data
+     * Create the GATK report which holds the ROC-like curve information for this data
      * @param data      the data to use
-     * @param numBins   the number of partitions for the ROC curve
+     * @param n_bin_snp   the number of partitions for the snps in the ROC curve
+     * @param n_bin_indel   the number of partitions for the indels in the ROC curve
      * @param project   the project ID
-     * @param name      the name of this VCF
-     * @return          the GATK report to write out to disk
+     * @param vcf_name      the name of the input VCF
+     * @return          the GATK report written to report_file
      */
-    protected GATKReport calculateROCCurve(final List<ROCDatum> data, final int numBins, final String project, final String name) {
-        final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR", "filter");
+    protected GATKReport calculateROCCurve(final List<ROCDatum> data, final int n_bin_snp, final int n_bin_indel, final String project, final String vcf_name) {
+        final GATKReport report = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "vcf_name", "variation", "vqslod", "N_TP", "N_FP", "filter");
         Collections.sort(data); // sort by the LOD score
         final int[][][] rocData = new int[2][2][2]; //[SNP/INDEL][TP/FP][called/total]
 
@@ -184,19 +201,20 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
         for( final ROCDatum datum : data ) {
             rocData[datum.isSNP ? SNP_INDEX : INDEL_INDEX][datum.isTP ? TP_INDEX : FP_INDEX][TOTAL_INDEX]++;
         }
+        report.addRow(project, vcf_name, "uncalled_SNPs", "NA", uncalledSites[SNP_INDEX][TP_INDEX], uncalledSites[SNP_INDEX][FP_INDEX],"NA");
+        report.addRow(project, vcf_name, "uncalled_Indels", "NA", uncalledSites[INDEL_INDEX][TP_INDEX], uncalledSites[INDEL_INDEX][FP_INDEX],"NA");
         for( final boolean calcSNP : new boolean[]{true, false} ) {
             int numVariants = 0;
             final int varIndex = calcSNP? SNP_INDEX : INDEL_INDEX;
             final int total = rocData[varIndex][TP_INDEX][TOTAL_INDEX] + rocData[varIndex][FP_INDEX][TOTAL_INDEX];
-            final int stepSize = Math.max(total / numBins, 1);
+            final int stepSize = Math.max(total / (calcSNP? n_bin_snp : n_bin_indel), 1);
             for( final ROCDatum datum : data ) {
                 if( datum.isSNP != calcSNP ) { continue; }
                 rocData[datum.isSNP ? SNP_INDEX : INDEL_INDEX][datum.isTP ? TP_INDEX : FP_INDEX][CALLED_INDEX]++;
                 if( (numVariants+1) % stepSize == 0 ) {
-
-                    report.addRow(project, name, calcSNP ? "SNPs" : "Indels", datum.lod,
-                            (double)rocData[varIndex][TP_INDEX][CALLED_INDEX]/(double)(rocData[varIndex][TP_INDEX][TOTAL_INDEX] + (TOTAL_SENSITIVITY_MODE ? uncalledSites[varIndex][TP_INDEX] : 0)),
-                            (double)rocData[varIndex][FP_INDEX][CALLED_INDEX]/(double)(rocData[varIndex][FP_INDEX][TOTAL_INDEX] + (TOTAL_SENSITIVITY_MODE ? uncalledSites[varIndex][FP_INDEX] : 0)),
+                    report.addRow(project, vcf_name, calcSNP ? "SNPs" : "Indels", datum.lod,
+                            (double)rocData[varIndex][TP_INDEX][CALLED_INDEX],
+                            (double)rocData[varIndex][FP_INDEX][CALLED_INDEX],
                             datum.filterField);
                 }
                 numVariants++;
@@ -205,12 +223,28 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
 
         logger.info("SNPs");
         logger.info("\tTotal # of true positives: " + rocData[SNP_INDEX][TP_INDEX][TOTAL_INDEX]);
-        logger.info("\tTotal # of false positives: "+ rocData[SNP_INDEX][FP_INDEX][TOTAL_INDEX]);
+        logger.info("\tTotal # of false positives: " + rocData[SNP_INDEX][FP_INDEX][TOTAL_INDEX]);
         logger.info("Indels");
         logger.info("\tTotal # of true positives: " + rocData[INDEL_INDEX][TP_INDEX][TOTAL_INDEX]);
-        logger.info("\tTotal # of false positives: "+ rocData[INDEL_INDEX][FP_INDEX][TOTAL_INDEX]);
+        logger.info("\tTotal # of false positives: " + rocData[INDEL_INDEX][FP_INDEX][TOTAL_INDEX]);
 
         return report;
+    }
+
+    protected void plotROCCurves(final File report_file) {
+        String RATIO_PLOT_FNAME = new String(PLOTS_BASENAME + "_ratio.png");
+        String COUNT_PLOT_FNAME = new String(PLOTS_BASENAME + "_count.png");
+        String[] fileNames = new String[2];
+        if (!RScriptExecutor.RSCRIPT_EXISTS) {
+            logger.info("RScript exists but executor not found.");
+            logger.info("Plots will  not be generated.");
+        } else {
+            RScriptExecutor executor = new RScriptExecutor();
+            executor.addScript(new Resource(PLOT_RSCRIPT, ROCCurveNA12878.class));
+            executor.addArgs(report_file.getAbsoluteFile(), COUNT_PLOT_FNAME, RATIO_PLOT_FNAME);
+            logger.info("Executing: " + executor.getApproximateCommandLine());
+            executor.exec();
+        }
     }
 
     // private class to hold the data for use when computing ROC curves
@@ -231,5 +265,7 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
         public int compareTo(final ROCDatum datum) {
             return Double.compare(datum.lod, this.lod);
         }
+
     }
+
 }
