@@ -8,16 +8,18 @@ All scripts referenced here are relative to the current working directory of ```
 ### Current Performance (Unmasked)
 From the output of the evaluation method 
 
-(gsa-unstable 5/11/15, commit:1e59971474623540d8f6347d95158b3b90fb9161)
+(gsa-unstable 7/13/15, commit:9e93a70)
 
 |set | subset | type | sensitivity | specificity | accuracy |
 |----|--------|------|-------------|-------------|----------|
-|SMC 3|chr21|SNP|0.935897435897|0.924050632911|0.929974034404|
-|SMC 3|chr21|INDEL|0.904255319149|0.955056179775|0.929655749462|
-|SMC 3|chr21|INDEL|0.904255319149|1.0|0.952127659574|
-|SMC 3|wgs|INDEL|0.901639344262|0.975098118825|0.938368731544|
+|SMC 3|chr21|SNP|0.935897435897|0.935897435897|0.935897435897|
+|SMC 3|chr21|INDEL|0.904255319149|0.977011494253|0.940633406701|
+|SMC 3|wgs|SNP|0.930532709098|0.955188985583|0.94286084734|
+|SMC 3|wgs|INDEL|0.902139907396|0.970516962843|0.93632843512|
 |SMC 4|chr21|SNP|0.769607843137|0.969135802469|0.869371822803|
 |SMC 4|chr21|INDEL|0.771241830065|0.991596638655|0.88141923436|
+|SMC 4|wgs|SNP|0.764507007622|0.975374480433|0.869940744028|
+|SMC 4|wgs|INDEL|0.768634634353|0.989389679877|0.879012157115|
 
 
  
@@ -31,7 +33,7 @@ OUT_VCF=<your-output-vcf>
 GSA_UNSTABLE_HOME=<path-to-your-gsa-unstable-checkout>
 
 # for Dream 3
-NORMAL_BAM=/dsde/working/dream_smc/bams/synthetic.challenge.set3.normal.bam
+NORMAL_BAM=/dsde/working/mutect/dream_smc/bams/synthetic.challenge.set3.normal.bam
 TUMOR_BAM=/dsde/working/mutect/dream_smc/bams/synthetic.challenge.set3.tumor.bam
 
 # for Dream 4
@@ -39,7 +41,7 @@ NORMAL_BAM=/dsde/working/mutect/dream_smc/bams/synthetic.challenge.set4.normal.b
 TUMOR_BAM=/dsde/working/mutect/dream_smc/bams/synthetic.challenge.set4.tumor.bam
 
 # for WGS
-INTERVALS=wgs_calling_regions.v1.interval_list
+INTERVALS=/dsde/working/mutect/dream_smc/bams/wgs_calling_regions.v1.interval_list
 
 # for chromosome 21 only
 INTERVALS=/dsde/working/mutect/ts/c21_wgs_calling_regions.v1.interval_list

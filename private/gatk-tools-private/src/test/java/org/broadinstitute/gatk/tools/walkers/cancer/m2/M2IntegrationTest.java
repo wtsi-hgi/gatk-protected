@@ -91,7 +91,7 @@ public class M2IntegrationTest extends WalkerTest {
 
     @Test
     public void testMicroRegression() {
-        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "", "6b1395cb632ab6c585ca2b6daddae6c0");
+        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "", "617054c6d056cad7448a463cb8d04a55");
     }
 
     /**
@@ -101,7 +101,7 @@ public class M2IntegrationTest extends WalkerTest {
      */
     @Test
     public void testTruePositivesDream3() {
-        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_TP_INTERVALS_FILE, "", "f4b1c440159ebab3fb11e173038a4913");
+        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_TP_INTERVALS_FILE, "", "f856432679e43445d2939772be4326cf");
     }
 
     /**
@@ -110,7 +110,7 @@ public class M2IntegrationTest extends WalkerTest {
      */
     @Test
     public void testFalsePositivesDream3() {
-        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_FP_INTERVALS_FILE, "", "92f68400662de5dea235b2cd69c7104a");
+        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_FP_INTERVALS_FILE, "", "11357aa543e7c6b2725cd330adba23a0");
     }
 
     /*
@@ -118,7 +118,7 @@ public class M2IntegrationTest extends WalkerTest {
      */
     @Test
     public void testContaminationCorrection() {
-        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "-contamination 0.1", "d867ded77ea46ff9e701849f2c01cf91");
+        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "-contamination 0.1", "d7947ddf0240fe06a44621312831f44c");
     }
 
 }

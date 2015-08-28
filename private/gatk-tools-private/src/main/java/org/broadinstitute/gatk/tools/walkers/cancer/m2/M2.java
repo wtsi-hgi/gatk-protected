@@ -217,6 +217,11 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     @Argument(fullName = "debug_read_name", required = false, doc="trace this read name through the calling process")
     public String DEBUG_READ_NAME = null;
 
+    @Hidden
+    @Advanced
+    @Argument(fullName = "MQ_filtering_level", shortName = "MQthreshold", required = false, doc="Set an alternate MQ threshold for debugging")
+    final public int MQthreshold = 20;
+
 
     /***************************************/
     // Reference Metadata inputs
@@ -401,6 +406,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.CLUSTERED_EVENTS_FILTER_NAME));
         headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.TUMOR_LOD_FILTER_NAME));
         headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.GERMLINE_RISK_FILTER_NAME));
+        headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.TRIALLELIC_SITE_FILTER_NAME));
 
         if ( ! doNotRunPhysicalPhasing ) {
             headerInfo.add(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_ID_KEY));
@@ -461,7 +467,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         }
 
         // KCIBUL -- this method was inlined and modified from ReferenceConfidenceModel
-        ReadBackedPileup tumorPileup = tumorContext.getBasePileup().getMappingFilteredPileup(20);
+        ReadBackedPileup tumorPileup = tumorContext.getBasePileup().getMappingFilteredPileup(MQthreshold);
         final double[] tumorGLs = calcGenotypeLikelihoodsOfRefVsAny(tumorPileup, ref.getBase(), MIN_BASE_QUALTY_SCORE);
         final double tumorLod = tumorGLs[1] - tumorGLs[0];
 
@@ -515,7 +521,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         // quality reads in the PairHMM (and especially in the normal) later, so we can't use a ReadFilter
         ActiveRegion assemblyActiveRegion = new ActiveRegion(originalActiveRegion.getLocation(), originalActiveRegion.getSupportingStates(),originalActiveRegion.isActive(), getToolkit().getGenomeLocParser(), originalActiveRegion.getExtension());
         for (GATKSAMRecord rec : originalActiveRegion.getReads()) {
-            if (rec.getMappingQuality() >= 20 ) {
+            if (rec.getMappingQuality() >= MQthreshold ) {
                 assemblyActiveRegion.add(rec);
             }
         }
@@ -563,11 +569,10 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         //TODO - on the originalActiveRegion?
         //TODO - if you move this up you might have to consider to change referenceModelForNoVariation
         //TODO - that does also filter reads.
-        final Collection<GATKSAMRecord> filteredReads = filterNonPassingReads( regionForGenotyping );
+        final Collection<GATKSAMRecord> filteredReads = filterNonPassingReads(regionForGenotyping);
+        final Map<String, List<GATKSAMRecord>> perSampleFilteredReadList = splitReadsBySample(filteredReads);
 
         logReadInfo(DEBUG_READ_NAME, regionForGenotyping.getReads(), "Present in region for genotyping after filtering reads");
-
-        final Map<String, List<GATKSAMRecord>> perSampleFilteredReadList = splitReadsBySample( filteredReads );
 
         // abort early if something is out of the acceptable range
         // TODO is this ever true at this point??? perhaps GGA. Need to check.
@@ -586,6 +591,11 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         final Map<String,List<GATKSAMRecord>> reads = splitReadsBySample( regionForGenotyping.getReads() );
         for (List<GATKSAMRecord> rec : reads.values()) {
             logReadInfo(DEBUG_READ_NAME, rec, "Present after splitting assemblyResult by sample");
+        }
+
+        final HashMap<String, Integer> ARreads_origNormalMQ = new HashMap<>();
+        for (GATKSAMRecord read : regionForGenotyping.getReads()) {
+            ARreads_origNormalMQ.put(read.getReadName(), read.getMappingQuality());
         }
 
         // modify MAPQ scores in normal to be high so that we don't do any base quality score capping
@@ -620,6 +630,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
         final HaplotypeCallerGenotypingEngine.CalledHaplotypes calledHaplotypes = ((SomaticGenotypingEngine)genotypingEngine).callMutations(
                 haplotypes,
                 readLikelihoods,
+                ARreads_origNormalMQ,
                 perSampleFilteredReadList,
                 assemblyResult.getFullReferenceWithPadding(),
                 assemblyResult.getPaddedReferenceLoc(),
@@ -692,7 +703,6 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
             if (!MTAC.ARTIFACT_DETECTION_MODE) {
                  filters.addAll(calculateFilters(metaDataTracker, originalVC, eventDistanceAttributes));
             }
-
 
             if (filters.size() > 0) {
                 vcb.filters(filters);
@@ -891,9 +901,8 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
             } else {
 
 
-
                 if( rec.getReadLength() < MIN_READ_LENGTH ||
-                    rec.getMappingQuality() < 20 ||
+                    rec.getMappingQuality() < MQthreshold ||
                     BadMateFilter.hasBadMate(rec) ||
 
                     (keepRG != null && !rec.getReadGroup().getId().equals(keepRG)) ) {
