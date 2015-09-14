@@ -120,7 +120,7 @@ public class PicardAggregationUtilsUnitTest {
         Assert.assertEquals(PicardAggregationUtils.getLatestVersion(MISSING_PROJECT, MISSING_SAMPLE), 0);
     }
 
-    @Test
+    @Test(enabled=false)
     public void testSafeFileNames() throws FileNotFoundException {
         int slashLatest = PicardAggregationUtils.getLatestVersion(SLASH_PROJECT, SLASH_SAMPLE);
         int spaceLatest = PicardAggregationUtils.getLatestVersion(SPACE_PROJECT, SPACE_SAMPLE);
