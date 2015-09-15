@@ -51,10 +51,10 @@
 
 package org.broadinstitute.gatk.tools.walkers.qc;
 
-import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import htsjdk.samtools.CigarElement;
 import htsjdk.samtools.CigarOperator;
 import htsjdk.samtools.SAMRecord;
+import htsjdk.samtools.reference.ReferenceSequenceFile;
 import org.broadinstitute.gatk.engine.walkers.*;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Output;
@@ -126,16 +126,16 @@ public class ValidateBAQ extends ReadWalker<Integer, Integer> {
 
     long goodReads = 0, badReads = 0;
 
-    public Integer map(ReferenceContext ref, GATKSAMRecord read, RefMetaDataTracker tracker) {
+    public Integer map(final ReferenceContext ref, final GATKSAMRecord read, final RefMetaDataTracker tracker) {
 
         if ( (readName == null || readName.equals(read.getReadName())) && read.getReadLength() <= maxReadLen && (includeReadsWithoutBAQTag || BAQ.hasBAQTag(read) ) ) {
             if ( baqHMM.excludeReadFromBAQ(read) )
                 return 0;
 
             if ( profile ) {
-                profileBAQ(ref, read);
+                profileBAQ(read);
             } else {
-                validateBAQ(ref, read);
+                validateBAQ(read);
             }
 
             return 1;
@@ -148,9 +148,8 @@ public class ValidateBAQ extends ReadWalker<Integer, Integer> {
     SimpleTimer baqReadTimer = new SimpleTimer("baq.read");
     SimpleTimer glocalTimer = new SimpleTimer("hmm.glocal");
 
-    private void profileBAQ(ReferenceContext ref, SAMRecord read) {
-        IndexedFastaSequenceFile refReader = this.getToolkit().getReferenceDataSource().getReference();
-        BAQ.BAQCalculationResult baq = null;
+    private void profileBAQ(final SAMRecord read) {
+        final ReferenceSequenceFile refReader = this.getToolkit().getReferenceDataSource().getReference();
 
         tagTimer.restart();
         for ( int i = 0; i < magnification; i++ ) { BAQ.calcBAQFromTag(read, false, includeReadsWithoutBAQTag); }
@@ -167,8 +166,8 @@ public class ValidateBAQ extends ReadWalker<Integer, Integer> {
     }
 
 
-    private void validateBAQ(ReferenceContext ref, SAMRecord read) {
-        IndexedFastaSequenceFile refReader = this.getToolkit().getReferenceDataSource().getReference();
+    private void validateBAQ(final  SAMRecord read) {
+        final ReferenceSequenceFile refReader = this.getToolkit().getReferenceDataSource().getReference();
         byte[] baqFromTag = BAQ.calcBAQFromTag(read, false, includeReadsWithoutBAQTag);
         if (counter++ % 1000 == 0 || printEachRead) out.printf("Checking read %s (%d)%n", read.getReadName(), counter);
 
