@@ -82,6 +82,16 @@ public class AssessNA12878KnowledgeBaseTest extends WalkerTest {
     }
 
     @Test
+    public void testIgnoreAllFilters() {
+        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
+                baseCommand + " -V " + privateTestDir + "NA12878.hg19.HiSeq.WGS.cleaned.ug.snpfiltered.indelfiltered.optimized.cut.subset.vcf -L 20:1-1,000,000 -allSites -badSites %s -ignoreAllFilters",
+                2,
+                Arrays.asList("", ""));
+        spec.disableShadowBCF();
+        executeTest("test ignoreAllFilters", spec);
+    }
+
+    @Test
     public void testSampleNameToCompare() {
         // run command
         WalkerTest.WalkerTestSpec specDefault = new WalkerTest.WalkerTestSpec(

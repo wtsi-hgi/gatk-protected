@@ -215,7 +215,7 @@ public class AssessNA12878 extends NA12878DBWalker {
         sitesWriter.initialize(GATKVCFUtils.getHeaderFields(getToolkit()));
 
         if ( ignoreAllFilters )
-            filtersToIgnore.add(Assessor.WILDCARD_FILTER_NAME);
+            filtersToIgnore = new HashSet<>(Arrays.asList(Assessor.WILDCARD_FILTER_NAME));
 
         if (inputPloidy < 1)
             throw new UserException.BadArgumentValue("ploidy","it must be greater than 0: " + inputPloidy);
