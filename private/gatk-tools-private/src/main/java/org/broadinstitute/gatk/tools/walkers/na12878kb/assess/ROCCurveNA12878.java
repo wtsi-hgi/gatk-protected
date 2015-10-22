@@ -51,6 +51,7 @@
 
 package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
+import org.broadinstitute.gatk.utils.GenomeLoc;
 import org.broadinstitute.gatk.utils.Utils;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Input;
@@ -60,6 +61,7 @@ import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
 import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
 import org.broadinstitute.gatk.utils.exceptions.UserException;
 import org.broadinstitute.gatk.utils.io.Resource;
+import org.broadinstitute.gatk.utils.pileup.ReadBackedPileupImpl;
 import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
 import org.broadinstitute.gatk.utils.report.GATKReport;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.NA12878DBWalker;
@@ -70,10 +72,7 @@ import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.gatk.utils.R.RScriptExecutor;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Create a ROC curve by walking over the NA12878 KB and ranking the input variants by their VQSLOD score
@@ -86,6 +85,7 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     final static int SNP_INDEX = 0, INDEL_INDEX = 1;
     final static int TP_INDEX = 0, FP_INDEX = 1;
     final static int CALLED_INDEX = 0, TOTAL_INDEX = 1;
+    final static AlignmentContext lastLoc = new AlignmentContext(GenomeLoc.END_OF_GENOME, new ReadBackedPileupImpl(GenomeLoc.END_OF_GENOME));
 
     /**
      * Variants from these VCF files are used by this tool as input.
@@ -110,10 +110,13 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     @Argument(fullName="requireReviewed", shortName = "requireReviewed", doc="If specified will only use reviewed sites in the knowledgebase for the assessment", required=false)
     public boolean REQUIRE_REVIEWED = false;
 
-    @Output(fullName="plot_files", shortName="plotFiles", doc="The base name of two plots files (TP vs FP counts and ratio) output by the R-script", required=false, defaultToStdout=false)
+    @Argument(fullName="highConfidenceMode", shortName = "hiConf", doc="The name of the database that should be used if running within a high confidence region given by -L", required=false)
+    public String hiConf = null;
+
+    @Output(fullName="plotFiles", shortName="plotFiles", doc="The base name of two plots files (TP vs FP counts and ratio) output by the R-script", required=false, defaultToStdout=false)
     private static String PLOTS_BASENAME = null;
 
-    private SiteIterator<MongoVariantContext> consensusSiteIterator;
+    private SiteIterator<MongoVariantContext> siteIterator;
     private List<ROCDatum> data = new ArrayList<>();
     private int[][] uncalledSites = {{0,0},{0,0}};
     private static final String PLOT_RSCRIPT = "roc_Plot.R";
@@ -124,7 +127,22 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     @Override
     public void initialize() {
         super.initialize();
-        consensusSiteIterator = db.getConsensusSites(makeSiteManager(false));
+
+        if(hiConf!=null){
+            if(db.getCallSet(hiConf)==null){
+                throw new UserException(hiConf + "callset name is not included in the database.");
+            }
+
+            if(this.getToolkit().getIntervals() == null){
+                throw new UserException("hiConfMode set but no interval list given. An interval list must be provided with -L of the high confidence region.");
+            }
+
+            // We need to get calls here instead of consensus sites because even if a site has a supporting callset of
+            // hiConf, its result might disagree with the consensus.
+            siteIterator = db.getCalls(makeSiteManager(false));
+        }else{
+            siteIterator = db.getConsensusSites(makeSiteManager(false));
+        }
 
         if (PLOTS_BASENAME != null && !RScriptExecutor.RSCRIPT_EXISTS)
             Utils.warnUser(logger, String.format(
@@ -136,16 +154,16 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     public Integer map(final RefMetaDataTracker tracker, final ReferenceContext ref, final AlignmentContext context) {
         if ( tracker == null ) return 0;
 
-        for( final MongoVariantContext cs : consensusSiteIterator.getSitesBefore(context.getLocation()) ) {
-            if( (cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive()) ) {
-                if( !REQUIRE_REVIEWED || cs.isReviewed() ) {
-                    uncalledSites[cs.getVariantContext().isSNP() ? SNP_INDEX : INDEL_INDEX][cs.getType().isTruePositive() ? TP_INDEX : FP_INDEX]++;
-                }
-            }
-        }
+        countUncalledBefore(context);
 
+        List<MongoVariantContext> kbSitesAtThisLoc = siteIterator.getSitesAtLocation(context.getLocation());
         // Does this input site overlap a KB site
-        for( final MongoVariantContext cs : consensusSiteIterator.getSitesAtLocation(context.getLocation()) ) {
+        for( final MongoVariantContext cs : kbSitesAtThisLoc ) {
+            //Check if we are in hiConf mode that this MongoVariantContext is from the correct callSet
+            if(hiConf!=null && !cs.getSupportingCallSets().contains(hiConf)){
+                continue;
+            }
+
             // Is it either a SNP or indel and is it marked as either a true positive or false positive
             if( (cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive()) ) {
                 if( !REQUIRE_REVIEWED || cs.isReviewed() ) {
@@ -156,6 +174,11 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
                             foundMatchingAllele = true;
                             data.add( new ROCDatum( cs.getType().isTruePositive(), cs.getVariantContext().isSNP(), (vc.hasAttribute("VQSLOD") ? vc.getAttributeAsDouble("VQSLOD", Double.NaN) : vc.getPhredScaledQual()), vc.getFiltersMaybeNull() ) );
                         }
+                        // Don't add this unmatched allele to the uncalled Sites because it is actually a false positive in hiConf mode since it exists in
+                        // the input file but not in the KB
+                        if(hiConf!=null){
+                            foundMatchingAllele = true;
+                        }
                     }
                     if (!foundMatchingAllele) {
                         uncalledSites[cs.getVariantContext().isSNP() ? SNP_INDEX : INDEL_INDEX][cs.getType().isTruePositive() ? TP_INDEX : FP_INDEX]++;
@@ -164,11 +187,51 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
             }
         }
 
+        // Find sites that are not in the KB and make them false positives if we are in a high confidence region
+        if(hiConf!=null){
+            for( final VariantContext vc : tracker.getValues(variants, ref.getLocus())){
+                boolean foundMatchingAllele = false;
+                for( final MongoVariantContext cs : kbSitesAtThisLoc ) {
+                    //If this MongoVariantContext is not from the correct callset ignore it
+                    if(!cs.getSupportingCallSets().contains(hiConf)){
+                        continue;
+                    }
+                    if ((cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive())) {
+                        if (!REQUIRE_REVIEWED || cs.isReviewed() ) {
+                            if( cs.getVariantContext().hasSameAllelesAs(vc) ) {
+                                foundMatchingAllele = true;
+                            }
+                        }
+                    }
+                }
+                if(!foundMatchingAllele){
+                    data.add( new ROCDatum( false, vc.isSNP(), (vc.hasAttribute("VQSLOD") ? vc.getAttributeAsDouble("VQSLOD", Double.NaN) : vc.getPhredScaledQual()), vc.getFiltersMaybeNull()));
+                }
+            }
+        }
+
+
         return 1;
+    }
+
+    private void countUncalledBefore(final AlignmentContext context) {
+        for( final MongoVariantContext cs : siteIterator.getSitesBefore(context.getLocation()) ) {
+            //Check if we are in hiConf mode that this MongoVariantContext is from the correct callSet
+            if(hiConf!=null && !cs.getSupportingCallSets().contains(hiConf)){
+                continue;
+            }
+
+            if( (cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive()) ) {
+                if( !REQUIRE_REVIEWED || cs.isReviewed() ) {
+                    uncalledSites[cs.getVariantContext().isSNP() ? SNP_INDEX : INDEL_INDEX][cs.getType().isTruePositive() ? TP_INDEX : FP_INDEX]++;
+                }
+            }
+        }
     }
 
     @Override
     public void onTraversalDone(final Integer result) {
+        countUncalledBefore(lastLoc);
         super.onTraversalDone(result);
         final GATKReport report = calculateROCCurve(data, n_bin_snp, n_bin_indel, project, variants.getSource());
         try {
