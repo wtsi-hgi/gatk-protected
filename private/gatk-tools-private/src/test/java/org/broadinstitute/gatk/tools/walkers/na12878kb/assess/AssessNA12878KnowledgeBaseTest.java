@@ -95,12 +95,12 @@ public class AssessNA12878KnowledgeBaseTest extends WalkerTest {
     public void testSampleNameToCompare() {
         // run command
         WalkerTest.WalkerTestSpec specDefault = new WalkerTest.WalkerTestSpec(
-                baseCommand + " -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -rpr",
+                baseCommand + " -L 20:1-1,000,000 -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -rpr",
                 1,
                 Arrays.asList("")); // No MD5s
 
         WalkerTest.WalkerTestSpec specAlternateName = new WalkerTest.WalkerTestSpec(
-                baseCommand + " -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.altSampleName.vcf --sampleNameToCompare NA12878AltName -rpr",
+                baseCommand + " -L 20:1-1,000,000 -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.altSampleName.vcf --sampleNameToCompare NA12878AltName -rpr",
                 1,
                 Arrays.asList("")); // No MD5s
 
