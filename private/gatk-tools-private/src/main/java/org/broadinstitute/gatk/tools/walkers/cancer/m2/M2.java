@@ -1042,7 +1042,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
      * Which groups of annotations to add to the output VCF file. See the VariantAnnotator -list argument to view available groups.
      */
     @Argument(fullName="group", shortName="G", doc="One or more classes/groups of annotations to apply to variant calls", required=false)
-    //protected String[] annotationClassesToUse = { "Standard" };
+    //protected String[] annotationGroupsToUse = { "Standard" };
     protected String[] annotationClassesToUse = { };
 
     /**
