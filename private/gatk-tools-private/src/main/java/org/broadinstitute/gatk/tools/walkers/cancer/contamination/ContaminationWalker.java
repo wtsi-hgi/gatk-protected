@@ -93,7 +93,7 @@ import java.util.*;
  *     -T ContaminationWalker \
  *     -R reference.fasta \
  *     -I tumor.bam \
- *     --genoptypes normalGenotypes.vcf \
+ *     --genotypes normalGenotypes.vcf \
  *     --popFile populationAlleleFrequencies.vcf \
  *     -L populationSites.interval_list
  *     [-L targets.interval_list] \
@@ -109,7 +109,7 @@ import java.util.*;
  *     -T ContaminationWalker \
  *     -R reference.fasta \
  *     -I:eval tumor.bam \
- *     -I:genoptype normal.bam \
+ *     -I:genotype normal.bam \
  *     --popFile populationAlleleFrequencies.vcf \
  *     -L populationSites.interval_list
  *     [-L targets.interval_list] \
