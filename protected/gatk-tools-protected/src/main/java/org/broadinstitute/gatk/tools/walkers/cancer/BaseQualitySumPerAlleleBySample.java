@@ -49,86 +49,142 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.cancer.contamination;
+package org.broadinstitute.gatk.tools.walkers.cancer;
 
-import htsjdk.samtools.SAMFileHeader;
-import org.broadinstitute.gatk.utils.cancer.TestingReadUtils;
-import org.broadinstitute.gatk.utils.BaseTest;
-import org.broadinstitute.gatk.engine.GenomeAnalysisEngine;
-import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
-import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
-import org.broadinstitute.gatk.utils.GenomeLoc;
-import org.broadinstitute.gatk.utils.GenomeLocParser;
-import org.broadinstitute.gatk.utils.sam.ArtificialSAMUtils;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.Genotype;
-import org.testng.annotations.Test;
+import htsjdk.variant.variantcontext.GenotypeBuilder;
+import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.vcf.VCFFormatHeaderLine;
+import htsjdk.variant.vcf.VCFHeaderLineCount;
+import htsjdk.variant.vcf.VCFHeaderLineType;
+import org.apache.log4j.Logger;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.AnnotatorCompatible;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.GenotypeAnnotation;
+import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.StandardSomaticAnnotation;
+import org.broadinstitute.gatk.tools.walkers.cancer.m2.MuTect2;
+import org.broadinstitute.gatk.utils.QualityUtils;
+import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
+import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
+import org.broadinstitute.gatk.utils.exceptions.GATKException;
+import org.broadinstitute.gatk.utils.genotyper.MostLikelyAllele;
+import org.broadinstitute.gatk.utils.genotyper.PerReadAlleleLikelihoodMap;
+import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
+import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
+import org.broadinstitute.gatk.utils.sam.ReadUtils;
+import org.broadinstitute.gatk.utils.variant.GATKVCFConstants;
 
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
-import static org.testng.AssertJUnit.assertTrue;
 
 /**
- * Created by IntelliJ IDEA.
- * User: aaron
- * Date: 2/18/12
- * Time: 4:05 PM
- * To change this template use File | Settings | File Templates.
+ * Sum of evidence in reads supporting each allele for each sample
+ *
+ * <p>In the domain of somatic variants, a variant call can be supported by a few high quality reads. The
+ * BaseQualitySumPerAlleleBySample annotation aims to give the user an estimate of the quality of the evidence supporting
+ * a variant.</p>
+ *
+ * <h3>Notes</h3>
+ * BaseQualitySumPerAlleleBySample is called and used by MuTect2 for variant filtering. This annotation is applied to SNPs
+ * and INDELs. Qualities are not literal base qualities, but instead are derived from the per-allele likelihoods derived
+ * from the assembly engine.
+ *
+ * <h3>Caveats</h3>
+ * <ul>
+ *     <li>At this time, BaseQualitySumPerAlleleBySample can only be called from MuTect2</li>
+ * </ul>
  */
-public class ContaminationWalkerUnitTest extends BaseTest {
-    SAMFileHeader header = ArtificialSAMUtils.createArtificialSamHeader(1,1,2000);
-    GenomeLocParser parser = new GenomeLocParser(header.getSequenceDictionary());
-    private static final Map<Integer,Allele> alleles = new HashMap<Integer,Allele>();
-    String primaryRG = new String("genotype");
-    static {
-        alleles.put(0,Allele.create((byte) 'A'));
-        alleles.put(1,Allele.create((byte) 'C'));
-        alleles.put(2,Allele.create((byte) 'G'));
-        alleles.put(3,Allele.create((byte) 'T'));
-    }
-    @Test
-    public void testGettingGenotypes() {
-        // test that we can get a
-        Genotype g = testContaminationGenotype(20,80,0.8);
-        assertTrue(g.isHomVar());
-        assertTrue("T".equals(g.getGenotypeString()));
+public class BaseQualitySumPerAlleleBySample extends GenotypeAnnotation implements StandardSomaticAnnotation {
+    private final static Logger logger = Logger.getLogger(BaseQualitySumPerAlleleBySample.class);
+    private boolean walkerIdentityCheckWarningLogged = false;
 
-        g = testContaminationGenotype(19,81,0.8);
-        assertTrue(g.isHomVar());
-        assertTrue("T".equals(g.getGenotypeString()));
+    public List<String> getKeyNames() { return Arrays.asList(GATKVCFConstants.QUALITY_SCORE_SUM_KEY); }
 
-        g = testContaminationGenotype(21,79,0.8);
-        assertTrue(g == null);
-    }
 
-    private Genotype testContaminationGenotype(int aBases, int tBases, double minGenotypeRatio) {
-        // setup all the parameters
-        AlignmentContext context = TestingReadUtils.generateAlignmentContext(aBases + tBases, tBases, header, parser, primaryRG, primaryRG);
-        GenomeLoc loc = parser.createGenomeLoc(header.getSequenceDictionary().getSequence(0).getSequenceName(),1,1);
-        ReferenceContext referenceContext = new ReferenceContext(parser,loc,(byte)'A');
-        ContaminationWalker.SeqGenotypeMode genotypeMode = ContaminationWalker.SeqGenotypeMode.HARD_THRESHOLD;
-        int minGenotypingDepth = 50;
-        double minGenotypingLOD = 5;
-        Map<String,HashSet<String>> bamReadGroupMapping = new HashMap<String, HashSet<String>>();
-        HashSet<String> brgm = new HashSet<String>();
-        brgm.add(primaryRG);
+    public void annotate(final RefMetaDataTracker tracker,
+                         final AnnotatorCompatible walker,
+                         final ReferenceContext ref,
+                         final AlignmentContext stratifiedContext,
+                         final VariantContext vc,
+                         final Genotype g,
+                         final GenotypeBuilder gb,
+                         final PerReadAlleleLikelihoodMap alleleLikelihoodMap) {
 
-        bamReadGroupMapping.put(ContaminationWalker.GENOTYPE_BAM_TAG,brgm);
-        String sampleName = "sample";
-        GenomeAnalysisEngine toolKit = null;
-        return ContaminationWalker.getGenotypeFromSeq(context,
-                referenceContext,
-                alleles,
-                genotypeMode,
-                minGenotypeRatio,
-                minGenotypingDepth,
-                minGenotypingLOD,
-                sampleName,
-                sampleName,
-                toolKit);
+        // Can only call from MuTect2
+        if ( !(walker instanceof MuTect2) ) {
+            if ( !walkerIdentityCheckWarningLogged ) {
+                if ( walker != null )
+                    logger.warn("Annotation will not be calculated, can only be called from MuTect2, not " + walker.getClass().getName());
+                else
+                    logger.warn("Annotation will not be calculated, can only be called from MuTect2");
+                walkerIdentityCheckWarningLogged = true;
+            }
+            return;
+        }
+
+        if ( g == null || !g.isCalled() || ( stratifiedContext == null && alleleLikelihoodMap == null) )
+            return;
+
+        if (alleleLikelihoodMap != null) {
+            annotateWithLikelihoods(alleleLikelihoodMap, vc, gb);
+        }
     }
 
+    protected void annotateWithLikelihoods(final PerReadAlleleLikelihoodMap perReadAlleleLikelihoodMap, final VariantContext vc, final GenotypeBuilder gb) {
+        final ArrayList<Double> refQuals = new ArrayList<>();
+        final ArrayList<Double> altQuals = new ArrayList<>();
+
+        // clean up
+        fillQualsFromLikelihoodMap(vc.getAlleles(), vc.getStart(), perReadAlleleLikelihoodMap, refQuals, altQuals);
+        double refQualSum = 0;
+        for(Double d : refQuals) { refQualSum += d; }
+
+        double altQualSum = 0;
+        for(Double d : altQuals) { altQualSum += d; }
+
+        gb.attribute(GATKVCFConstants.QUALITY_SCORE_SUM_KEY, new Integer[]{ (int) refQualSum, (int) altQualSum});
+    }
+
+    public List<VCFFormatHeaderLine> getDescriptions() {
+        return Arrays.asList(new VCFFormatHeaderLine(getKeyNames().get(0), VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Sum of base quality scores for each allele"));
+    }
+
+    // from rank sum test */
+    protected void fillQualsFromLikelihoodMap(final List<Allele> alleles,
+                                            final int refLoc,
+                                            final PerReadAlleleLikelihoodMap likelihoodMap,
+                                            final List<Double> refQuals,
+                                            final List<Double> altQuals) {
+        for ( final Map.Entry<GATKSAMRecord, Map<Allele,Double>> el : likelihoodMap.getLikelihoodReadMap().entrySet() ) {
+            final MostLikelyAllele a = PerReadAlleleLikelihoodMap.getMostLikelyAllele(el.getValue());
+            if ( ! a.isInformative() )
+                continue; // read is non-informative
+
+            final GATKSAMRecord read = el.getKey();
+            if ( isUsableRead(read) ) {
+                final Double value = getBaseQualityForRead(read, refLoc);
+                if ( value == null )
+                    continue;
+
+                if ( a.getMostLikelyAllele().isReference() )
+                    refQuals.add(value);
+                else if ( alleles.contains(a.getMostLikelyAllele()) )
+                    altQuals.add(value);
+            }
+        }
+    }
+
+    protected boolean isUsableRead(final GATKSAMRecord read) {
+        return !( read.getMappingQuality() == 0 ||
+                read.getMappingQuality() == QualityUtils.MAPPING_QUALITY_UNAVAILABLE );
+    }
+
+
+    protected Double getBaseQualityForRead(final GATKSAMRecord read, final int refLoc) {
+        return (double)read.getBaseQualities()[ReadUtils.getReadCoordinateForReferenceCoordinateUpToEndOfRead(read, refLoc, ReadUtils.ClippingTail.RIGHT_TAIL)];
+    }
 
 }

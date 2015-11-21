@@ -49,92 +49,76 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.cancer.m2
+package org.broadinstitute.gatk.tools.walkers.cancer.m2;
 
-import java.io.File
+import org.broadinstitute.gatk.engine.walkers.WalkerTest;
+import org.testng.annotations.Test;
 
-import org.broadinstitute.gatk.queue.QScript
-import org.broadinstitute.gatk.queue.extensions.gatk._
-import org.broadinstitute.gatk.queue.function.CommandLineFunction
-import org.broadinstitute.gatk.queue.util.QScriptUtils
-import org.broadinstitute.gatk.utils.commandline.{Input, Output}
-import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
+import java.util.*;
 
-import scala.collection.mutable.ListBuffer
+public class MuTect2IntegrationTest extends WalkerTest {
+    final static String REF = hg19Reference;
 
-class create_M2_pon extends QScript {
+    final static String CCLE_MICRO_TUMOR_BAM = privateTestDir + "HCC1143.cghub.ccle.micro.bam";
+    final static String CCLE_MICRO_NORMAL_BAM = privateTestDir + "HCC1143_BL.cghub.ccle.micro.bam";
+    final static String CCLE_MICRO_INTERVALS_FILE = privateTestDir + "HCC1143.cghub.ccle.micro.intervals";
 
-  @Argument(shortName = "bams", required = true, doc = "file of all BAM files")
-  var allBams: String = ""
+    final static String DBSNP=b37dbSNP132;
+    final static String COSMIC="/xchip/cga/reference/hg19/hg19_cosmic_v54_120711.vcf";
+    final static String PON="/xchip/cga/reference/hg19/refseq_exome_10bp_hg19_300_1kg_normal_panel.vcf";
 
-  @Argument(shortName = "o", required = true, doc = "Output prefix")
-  var outputPrefix: String = ""
-
-  @Argument(shortName = "minN", required = false, doc = "minimum number of sample observations to include in PON")
-  var minN: Int = 2
-
-  @Argument(doc="Reference fasta file to process with", fullName="reference", shortName="R", required=false)
-  var reference = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
-
-  @Argument(doc="Intervals file to process with", fullName="intervals", shortName="L", required=true)
-  var intervals : File = ""
-
-  @Argument(shortName = "sc", required = false, doc = "base scatter count")
-  var scatter: Int = 10
+    final static String DREAM3_TUMOR_BAM = validationDataLocation + "cancer/dream3.integrationtest.tumor.bam";
+    final static String DREAM3_NORMAL_BAM = validationDataLocation + "cancer/dream3.integrationtest.normal.bam";
+    final static String DREAM3_TP_INTERVALS_FILE = privateTestDir + "m2_dream3.tp.intervals";
+    final static String DREAM3_FP_INTERVALS_FILE = privateTestDir + "m2_dream3.fp.intervals";
 
 
-  def script() {
-    val bams = QScriptUtils.createSeqFromFile(allBams)
-    val genotypesVcf = outputPrefix + ".genotypes.vcf"
-    val finalVcf = outputPrefix + ".vcf"
 
-    val perSampleVcfs = new ListBuffer[File]()
-    for (bam <- bams) {
-      val outputVcf = "sample-vcfs/" + bam.getName + ".vcf"
-      add( createM2Config(bam, outputVcf))
-      perSampleVcfs += outputVcf
+    private void M2Test(String tumorBam, String normalBam, String intervals, String args, String md5) {
+                final String base = String.format(
+                "-T MuTect2 --no_cmdline_in_header -dt NONE --disableDithering -alwaysloadVectorHMM -pairHMM LOGLESS_CACHING -ip 50 -R %s --dbsnp %s --cosmic %s --normal_panel %s -I:tumor %s -I:normal %s -L %s",
+                REF, DBSNP, COSMIC, PON, tumorBam, normalBam, intervals) +
+                " -o %s ";
+
+        final WalkerTestSpec spec = new WalkerTestSpec(base + " " + args, Arrays.asList(md5));
+
+        // TODO: do we want to enable this and why?  It explodes with
+        // java.lang.RuntimeException: java.lang.ClassCastException: java.lang.Double cannot be cast to java.lang.String
+        //    at htsjdk.variant.variantcontext.writer.BCF2FieldEncoder$StringOrCharacter.javaStringToBCF2String(BCF2FieldEncoder.java:312)
+        spec.disableShadowBCF();
+        executeTest("testM2: args=" + args, spec);
     }
 
-    val cv = new CombineVariants()
-    cv.reference_sequence = reference
-    cv.memoryLimit = 2
-    cv.setKey = "null"
-    cv.minimumN = minN
-    cv.memoryLimit = 16
-    cv.filteredrecordsmergetype = FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
-    cv.filteredAreUncalled = true
-    cv.variant = perSampleVcfs
-    cv.out = genotypesVcf
+    @Test
+    public void testMicroRegression() {
+        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "", "617054c6d056cad7448a463cb8d04a55");
+    }
 
-    // using this instead of "sites_only" because we want to keep the AC info
-    val vc = new VcfCutter()
-    vc.inVcf = genotypesVcf
-    vc.outVcf = finalVcf
+    /**
+     * Tests all the True Positive sites in the DREAM 3 data set.  We don't necessarily call
+     * all of these (e.g. we have some FNs) but it's the full set of things we want to be able
+     * to call, and not regress
+     */
+    @Test
+    public void testTruePositivesDream3() {
+        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_TP_INTERVALS_FILE, "", "f856432679e43445d2939772be4326cf");
+    }
 
-    add (cv, vc)
+    /**
+     * Tests a number of False Positive calls from the DREAM 3 data set.  Some of them are not rejected
+     * (e.g. we have some FPs!) but most are rejected.
+     */
+    @Test
+    public void testFalsePositivesDream3() {
+        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_FP_INTERVALS_FILE, "", "11357aa543e7c6b2725cd330adba23a0");
+    }
 
-  }
+    /*
+     * Test that contamination downsampling reduces tumor LOD, rejects more variants
+     */
+    @Test
+    public void testContaminationCorrection() {
+        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "-contamination 0.1", "d7947ddf0240fe06a44621312831f44c");
+    }
 
-
-  def createM2Config(bam : File, outputVcf : File): org.broadinstitute.gatk.queue.extensions.gatk.M2 = {
-    val mutect2 = new org.broadinstitute.gatk.queue.extensions.gatk.M2
-
-    mutect2.reference_sequence = reference
-    mutect2.artifact_detection_mode = true
-    mutect2.intervalsString :+= intervals
-    mutect2.memoryLimit = 2
-    mutect2.input_file = List(new TaggedFile(bam, "tumor"))
-
-    mutect2.scatterCount = scatter
-    mutect2.out = outputVcf
-
-    mutect2
-  }
-}
-
-class VcfCutter extends CommandLineFunction {
-  @Input(doc = "vcf to cut") var inVcf: File = _
-  @Output(doc = "output vcf") var outVcf: File = _
-
-  def commandLine = "cat %s | cut -f1-8 > %s".format(inVcf, outVcf)
 }

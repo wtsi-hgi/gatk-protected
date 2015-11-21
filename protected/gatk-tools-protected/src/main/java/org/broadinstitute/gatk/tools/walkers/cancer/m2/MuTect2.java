@@ -105,18 +105,20 @@ import java.util.*;
 import static java.lang.Math.pow;
 
 /**
- * Call somatic SNPs and indels simultaneously via local re-assembly of haplotypes in an active region
+ * Call somatic SNPs and indels via local re-assembly of haplotypes
  *
- * <p>The basic operation of M2 proceeds similarly to that of the <a href="https://www.broadinstitute.org/gatk/guide/tooldocs/org_broadinstitute_gatk_tools_walkers_haplotypecaller_HaplotypeCaller.php">HaplotypeCaller</a>   </p>
+ * <p>MuTect2 is a somatic SNP and indel caller that combines the DREAM challenge-winning somatic genotyping engine of the original MuTect (<a href='http://www.nature.com/nbt/journal/v31/n3/full/nbt.2514.html'>Cibulskis et al., 2013</a>) with the assembly-based machinery of HaplotypeCaller.</p>
+ *
+ * <p>The basic operation of MuTect2 proceeds similarly to that of the <a href="https://www.broadinstitute.org/gatk/guide/tooldocs/org_broadinstitute_gatk_tools_walkers_haplotypecaller_HaplotypeCaller.php">HaplotypeCaller</a>   </p>
  *
  * <h3>Differences from HaplotypeCaller</h3>
  * <p>While the HaplotypeCaller relies on a ploidy assumption (diploid by default) to inform its genotype likelihood and
- * variant quality calculations, M2 allows for a varying allelic fraction for each variant, as is often seen in tumors with purity less
- * than 100%, multiple subclones, and/or copy number variation (either local or aneuploidy). M2 also differs from the HaplotypeCaller in that it does apply some hard filters
+ * variant quality calculations, MuTect2 allows for a varying allelic fraction for each variant, as is often seen in tumors with purity less
+ * than 100%, multiple subclones, and/or copy number variation (either local or aneuploidy). MuTect2 also differs from the HaplotypeCaller in that it does apply some hard filters
  * to variants before producing output.</p>
  *
  * <h3>Usage examples</h3>
- * <p>These are example commands that show how to run M2 for typical use cases. Square brackets ("[ ]")
+ * <p>These are example commands that show how to run MuTect2 for typical use cases. Square brackets ("[ ]")
  * indicate optional arguments. Note that parameter values shown here may not be the latest recommended; see the
  * Best Practices documentation for detailed recommendations. </p>
  *
@@ -125,7 +127,7 @@ import static java.lang.Math.pow;
  * <pre>
  *   java
  *     -jar GenomeAnalysisTK.jar \
- *     -T M2 \
+ *     -T MuTect2 \
  *     -R reference.fasta \
  *     -I:tumor tumor.bam \
  *     -I:normal normal.bam \
@@ -161,12 +163,12 @@ import static java.lang.Math.pow;
  *     --filteredAreUncalled \
  *     --filteredrecordsmergetype KEEP_IF_ANY_UNFILTERED \
  *     [-L targets.interval_list] \
- *     -o M2_PON.vcf
+ *     -o MuTect2_PON.vcf
  * </pre>
  *
  * <h3>Caveats</h3>
  * <ul>
- * <li>M2 currently only supports the calling of a single tumor-normal pair at a time</li>
+ * <li>MuTect2 currently only supports the calling of a single tumor-normal pair at a time</li>
  * </ul>
  *
  */
@@ -174,7 +176,7 @@ import static java.lang.Math.pow;
 @PartitionBy(PartitionType.LOCUS)
 @BAQMode(ApplicationTime = ReadTransformer.ApplicationTime.FORBIDDEN)
 @ActiveRegionTraversalParameters(extension=100, maxRegion=300)
-public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implements AnnotatorCompatible, NanoSchedulable {
+public class MuTect2 extends ActiveRegionWalker<List<VariantContext>, Integer> implements AnnotatorCompatible, NanoSchedulable {
     public static final String BAM_TAG_TUMOR = "tumor";
     public static final String BAM_TAG_NORMAL = "normal";
 
@@ -227,7 +229,7 @@ public class M2 extends ActiveRegionWalker<List<VariantContext>, Integer> implem
     // Reference Metadata inputs
     /***************************************/
     /**
-     * M2 has the ability to use COSMIC data in conjunction with dbSNP to adjust the threshold for evidence of a variant
+     * MuTect2 has the ability to use COSMIC data in conjunction with dbSNP to adjust the threshold for evidence of a variant
      * in the normal.  If a variant is present in dbSNP, but not in COSMIC, then more evidence is required from the normal
      * sample to prove the variant is not present in germline.
      */

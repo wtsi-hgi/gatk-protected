@@ -78,19 +78,20 @@ import java.io.*;
 import java.util.*;
 
 /**
- * Determine the percent contamination of an input bam by sample, by lane, or in aggregate across all the input reads
+ * Estimate cross-sample contamination
+ *
+ * This tool determine the percent contamination of an input bam by sample, by lane, or in aggregate across all the input reads.
  *
  * <h3>Usage examples</h3>
- * <p>These are example commands that show how to run the ContaminationWalker (a.k.a. ContEst) for typical use cases. Square brackets ("[ ]")
- * indicate optional arguments. Note that parameter values and/or resources shown here may not be the latest recommended; see the
- * online documentation for detailed recommendations. </p>
+ * <p>These are example commands that show how to run ContEst for typical use cases. Square brackets ("[ ]")
+ * indicate optional arguments. Note that parameter values and/or resources shown here may not be the latest recommended; see the Best Practices documentation for detailed recommendations. </p>
  *
  * <br />
  * <h4>Contamination estimation using a VCF containing the normal sample's genotypes (as might be derived from a genotyping array)</h4>
  * <pre>
  *   java
  *     -jar GenomeAnalysisTK.jar \
- *     -T ContaminationWalker \
+ *     -T ContEst \
  *     -R reference.fasta \
  *     -I tumor.bam \
  *     --genotypes normalGenotypes.vcf \
@@ -106,7 +107,7 @@ import java.util.*;
  * <pre>
  *   java
  *     -jar GenomeAnalysisTK.jar \
- *     -T ContaminationWalker \
+ *     -T ContEst \
  *     -R reference.fasta \
  *     -I:eval tumor.bam \
  *     -I:genotype normal.bam \
@@ -118,7 +119,7 @@ import java.util.*;
  * </pre>
  *
  *<h3>Output</h3>
- * The product of the contamination walker is a text file containing estimated percent contamination, as well as error bars on this estimate.
+ * A text file containing estimated percent contamination, as well as error bars on this estimate.
  *
  * <h3>Notes</h3>
  * Multiple modes are supported simultaneously, e.g. contamination by sample and readgroup can be computed in the same run.
@@ -127,7 +128,7 @@ import java.util.*;
 @Allows(value = {DataSource.READS, DataSource.REFERENCE})
 @Requires(value = {DataSource.READS, DataSource.REFERENCE}, referenceMetaData = @RMD(name = "genotypes", type = VariantContext.class))
 @By(DataSource.READS)
-public class ContaminationWalker extends RodWalker<Map<String, Map<String, ContaminationStats>>, ContaminationResults> {
+public class ContEst extends RodWalker<Map<String, Map<String, ContaminationStats>>, ContaminationResults> {
 
     // ------------------------------------------------------------------------------------------------------------------------------------------------------
     // Some constants we use

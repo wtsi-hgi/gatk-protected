@@ -49,149 +49,92 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.cancer;
+package org.broadinstitute.gatk.tools.walkers.cancer.m2
 
-import htsjdk.variant.variantcontext.Allele;
-import htsjdk.variant.variantcontext.Genotype;
-import htsjdk.variant.variantcontext.GenotypeBuilder;
-import htsjdk.variant.variantcontext.VariantContext;
-import htsjdk.variant.vcf.VCFFormatHeaderLine;
-import htsjdk.variant.vcf.VCFHeaderLineCount;
-import htsjdk.variant.vcf.VCFHeaderLineType;
-import org.apache.log4j.Logger;
-import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.AnnotatorCompatible;
-import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.GenotypeAnnotation;
-import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.StandardAnnotation;
-import org.broadinstitute.gatk.tools.walkers.cancer.m2.M2;
-import org.broadinstitute.gatk.utils.QualityUtils;
-import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
-import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
-import org.broadinstitute.gatk.utils.exceptions.GATKException;
-import org.broadinstitute.gatk.utils.genotyper.MostLikelyAllele;
-import org.broadinstitute.gatk.utils.genotyper.PerReadAlleleLikelihoodMap;
-import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
-import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
-import org.broadinstitute.gatk.utils.sam.ReadUtils;
-import org.broadinstitute.gatk.utils.variant.GATKVCFConstants;
-import org.broadinstitute.gatk.utils.variant.GATKVCFHeaderLines;
+import java.io.File
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.function.CommandLineFunction
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.utils.commandline.{Input, Output}
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
+
+import scala.collection.mutable.ListBuffer
+
+class create_M2_pon extends QScript {
+
+  @Argument(shortName = "bams", required = true, doc = "file of all BAM files")
+  var allBams: String = ""
+
+  @Argument(shortName = "o", required = true, doc = "Output prefix")
+  var outputPrefix: String = ""
+
+  @Argument(shortName = "minN", required = false, doc = "minimum number of sample observations to include in PON")
+  var minN: Int = 2
+
+  @Argument(doc="Reference fasta file to process with", fullName="reference", shortName="R", required=false)
+  var reference = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
+
+  @Argument(doc="Intervals file to process with", fullName="intervals", shortName="L", required=true)
+  var intervals : File = ""
+
+  @Argument(shortName = "sc", required = false, doc = "base scatter count")
+  var scatter: Int = 10
 
 
-/**
- *  Count of read pairs in the F1R2 and F2R1 configurations supporting the reference and alternate alleles
- *
- *  <p>This is an annotation that gathers information about the read pair configuration for the reads supporting each
- *  allele. It can be used along with downstream filtering steps to identify and filter out erroneous variants that occur
- *  with higher frequency in one read pair orientation.</p>
- *
- *  <h3>References</h3>
- *  <p>For more details about the mechanism of oxoG artifact generation, see <a href='http://www.ncbi.nlm.nih.gov/pubmed/23303777' target='_blank'>
- *      "Discovery and characterization of artefactual mutations in deep coverage targeted capture sequencing data due to oxidative DNA damage during sample preparation."
- *  by Costello et al.</a></p>
- *
- *  <h3>Caveats</h3>
- *  <ul>
- *      <li>At present, this annotation can only be called from M2</li>
- *      <li>The FOXOG annotation is only calculated for SNPs</li>
- *  </ul>
- */
-public class OxoGReadCounts extends GenotypeAnnotation {
-    private final static Logger logger = Logger.getLogger(OxoGReadCounts.class);
-    private boolean walkerIdentityCheckWarningLogged = false;
-    Allele refAllele;
-    Allele altAllele;
+  def script() {
+    val bams = QScriptUtils.createSeqFromFile(allBams)
+    val genotypesVcf = outputPrefix + ".genotypes.vcf"
+    val finalVcf = outputPrefix + ".vcf"
 
-    public List<String> getKeyNames() {
-        return Arrays.asList(GATKVCFConstants.OXOG_ALT_F1R2_KEY, GATKVCFConstants.OXOG_ALT_F2R1_KEY, GATKVCFConstants.OXOG_REF_F1R2_KEY, GATKVCFConstants.OXOG_REF_F2R1_KEY, GATKVCFConstants.OXOG_FRACTION_KEY);
+    val perSampleVcfs = new ListBuffer[File]()
+    for (bam <- bams) {
+      val outputVcf = "sample-vcfs/" + bam.getName + ".vcf"
+      add( createM2Config(bam, outputVcf))
+      perSampleVcfs += outputVcf
     }
 
+    val cv = new CombineVariants()
+    cv.reference_sequence = reference
+    cv.memoryLimit = 2
+    cv.setKey = "null"
+    cv.minimumN = minN
+    cv.memoryLimit = 16
+    cv.filteredrecordsmergetype = FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    cv.filteredAreUncalled = true
+    cv.variant = perSampleVcfs
+    cv.out = genotypesVcf
 
-    public void annotate(final RefMetaDataTracker tracker,
-                         final AnnotatorCompatible walker,
-                         final ReferenceContext ref,
-                         final AlignmentContext stratifiedContext,
-                         final VariantContext vc,
-                         final Genotype g,
-                         final GenotypeBuilder gb,
-                         final PerReadAlleleLikelihoodMap alleleLikelihoodMap) {
+    // using this instead of "sites_only" because we want to keep the AC info
+    val vc = new VcfCutter()
+    vc.inVcf = genotypesVcf
+    vc.outVcf = finalVcf
 
-        // Can only call from MuTect2 (M2)
-        if ( !(walker instanceof M2) ) {
-            if ( !walkerIdentityCheckWarningLogged ) {
-                if ( walker != null )
-                    logger.warn("Annotation will not be calculated, must be called from M2, not " + walker.getClass().getName());
-                else
-                    logger.warn("Annotation will not be calculated, must be called from M2");
-                walkerIdentityCheckWarningLogged = true;
-            }
-            return;
-        }
+    add (cv, vc)
 
-        if (g == null || !g.isCalled() || (stratifiedContext == null && alleleLikelihoodMap == null))
-            return;
+  }
 
-        refAllele = vc.getReference();
-        altAllele = vc.getAlternateAllele(0);
 
-        if (alleleLikelihoodMap != null) {
-            annotateWithLikelihoods(alleleLikelihoodMap, vc, gb);
-        }
-    }
+  def createM2Config(bam : File, outputVcf : File): org.broadinstitute.gatk.queue.extensions.gatk.MuTect2 = {
+    val mutect2 = new org.broadinstitute.gatk.queue.extensions.gatk.MuTect2
 
-    protected void annotateWithLikelihoods(final PerReadAlleleLikelihoodMap perReadAlleleLikelihoodMap, final VariantContext vc, final GenotypeBuilder gb) {
-        int ALT_F1R2, ALT_F2R1, REF_F1R2, REF_F2R1;
-        ALT_F1R2 = ALT_F2R1 = REF_F1R2 = REF_F2R1 = 0;
-        double numerator, denominator;
+    mutect2.reference_sequence = reference
+    mutect2.artifact_detection_mode = true
+    mutect2.intervalsString :+= intervals
+    mutect2.memoryLimit = 2
+    mutect2.input_file = List(new TaggedFile(bam, "tumor"))
 
-        for ( final Map.Entry<GATKSAMRecord, Map<Allele,Double>> el : perReadAlleleLikelihoodMap.getLikelihoodReadMap().entrySet() ) {
-            final MostLikelyAllele a = PerReadAlleleLikelihoodMap.getMostLikelyAllele(el.getValue());
-            if ( ! a.isInformative() || ! isUsableRead(el.getKey()))
-                continue; // read is non-informative or MQ0
-            if (a.getAlleleIfInformative().equals(refAllele, true) && el.getKey().getReadPairedFlag()) {
-                if (el.getKey().getReadNegativeStrandFlag() == el.getKey().getFirstOfPairFlag())
-                    REF_F2R1++;
-                else
-                    REF_F1R2++;
-            }
-            else if (a.getAlleleIfInformative().equals(altAllele,true) && el.getKey().getReadPairedFlag()){
-                if (el.getKey().getReadNegativeStrandFlag() == el.getKey().getFirstOfPairFlag())
-                    ALT_F2R1++;
-                else
-                    ALT_F1R2++;
-            }
-        }
+    mutect2.scatterCount = scatter
+    mutect2.out = outputVcf
 
-        denominator =  ALT_F1R2 + ALT_F2R1;
-        Double fOxoG = null;
-        if (vc.isSNP() && denominator > 0) {
-            if (refAllele.equals(Allele.create((byte) 'C', true)) || refAllele.equals(Allele.create((byte) 'A', true)))
-                numerator = ALT_F2R1;
-            else
-                numerator = ALT_F1R2;
-            fOxoG = (float) numerator / denominator;
-        }
+    mutect2
+  }
+}
 
-        gb.attribute(GATKVCFConstants.OXOG_ALT_F1R2_KEY, new Integer(ALT_F1R2));
-        gb.attribute(GATKVCFConstants.OXOG_ALT_F2R1_KEY, new Integer(ALT_F2R1));
-        gb.attribute(GATKVCFConstants.OXOG_REF_F1R2_KEY, new Integer(REF_F1R2));
-        gb.attribute(GATKVCFConstants.OXOG_REF_F2R1_KEY, new Integer(REF_F2R1));
-        gb.attribute(GATKVCFConstants.OXOG_FRACTION_KEY, fOxoG);
-    }
+class VcfCutter extends CommandLineFunction {
+  @Input(doc = "vcf to cut") var inVcf: File = _
+  @Output(doc = "output vcf") var outVcf: File = _
 
-    public List<VCFFormatHeaderLine> getDescriptions() {
-        return Arrays.asList(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.OXOG_ALT_F1R2_KEY),
-            GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.OXOG_ALT_F2R1_KEY),
-           GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.OXOG_REF_F1R2_KEY),
-           GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.OXOG_REF_F2R1_KEY),
-           GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.OXOG_FRACTION_KEY));
-    }
-
-    protected boolean isUsableRead(final GATKSAMRecord read) {
-        return !( read.getMappingQuality() == 0 ||
-                read.getMappingQuality() == QualityUtils.MAPPING_QUALITY_UNAVAILABLE );
-    }
+  def commandLine = "cat %s | cut -f1-8 > %s".format(inVcf, outVcf)
 }
