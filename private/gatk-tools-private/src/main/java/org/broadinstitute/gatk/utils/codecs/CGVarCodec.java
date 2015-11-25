@@ -25,7 +25,7 @@
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
-* Copyright 2012-2014 Broad Institute, Inc.
+* Copyright 2012-2015 Broad Institute, Inc.
 * Notice of attribution: The GATK3 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
 * LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
 * 
@@ -102,6 +102,8 @@ public class CGVarCodec extends AsciiFeatureCodec<VariantContext> {
     private static final String DELETION_TYPE = "del";
     private static final String INSERTION_TYPE = "ins";
     private static final String SUBSTITUTION_TYPE = "sub";
+    // codec file extension
+    protected static final String FILE_EXT = "var";
 
     // the minimum number of features in the CG file line
     private static final int minimumFeatureCount = 8;
@@ -115,6 +117,7 @@ public class CGVarCodec extends AsciiFeatureCodec<VariantContext> {
      * @param line the input line to decode
      * @return a VariantContext
      */
+    @Override
     public VariantContext decode(String line) {
         String[] array = line.split("\\s+");
 
@@ -172,6 +175,13 @@ public class CGVarCodec extends AsciiFeatureCodec<VariantContext> {
         return new VariantContextBuilder("CGI", array[3], start, end, alleles).id(RSID).attributes(attrs).make();
     }
 
+    /**
+     * Can the file be decoded?
+     * @param path path the file to test for parsability with this codec
+     * @return true if the path has the correct file extension, false otherwise
+     */
+    @Override
+    public boolean canDecode(final String path) { return path.endsWith("." + FILE_EXT); }
     
     @Override
     public Object readActualHeader(LineIterator lineIterator) {

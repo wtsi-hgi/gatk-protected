@@ -25,7 +25,7 @@
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
-* Copyright 2012-2014 Broad Institute, Inc.
+* Copyright 2012-2015 Broad Institute, Inc.
 * Notice of attribution: The GATK3 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
 * LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
 * 
@@ -82,15 +82,25 @@ public class AssessNA12878KnowledgeBaseTest extends WalkerTest {
     }
 
     @Test
+    public void testIgnoreAllFilters() {
+        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
+                baseCommand + " -V " + privateTestDir + "NA12878.hg19.HiSeq.WGS.cleaned.ug.snpfiltered.indelfiltered.optimized.cut.subset.vcf -L 20:1-1,000,000 -allSites -badSites %s -ignoreAllFilters",
+                2,
+                Arrays.asList("", ""));
+        spec.disableShadowBCF();
+        executeTest("test ignoreAllFilters", spec);
+    }
+
+    @Test
     public void testSampleNameToCompare() {
         // run command
         WalkerTest.WalkerTestSpec specDefault = new WalkerTest.WalkerTestSpec(
-                baseCommand + " -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -rpr",
+                baseCommand + " -L 20:1-1,000,000 -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.vcf -rpr",
                 1,
                 Arrays.asList("")); // No MD5s
 
         WalkerTest.WalkerTestSpec specAlternateName = new WalkerTest.WalkerTestSpec(
-                baseCommand + " -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.altSampleName.vcf --sampleNameToCompare NA12878AltName -rpr",
+                baseCommand + " -L 20:1-1,000,000 -V " + privateTestDir + "NA12878.WGS.b37.chr20.firstMB.altSampleName.vcf --sampleNameToCompare NA12878AltName -rpr",
                 1,
                 Arrays.asList("")); // No MD5s
 

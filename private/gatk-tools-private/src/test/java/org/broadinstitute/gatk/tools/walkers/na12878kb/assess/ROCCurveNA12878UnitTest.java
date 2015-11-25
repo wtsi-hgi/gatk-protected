@@ -25,7 +25,7 @@
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
-* Copyright 2012-2014 Broad Institute, Inc.
+* Copyright 2012-2015 Broad Institute, Inc.
 * Notice of attribution: The GATK3 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
 * LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
 * 
@@ -75,8 +75,10 @@ public class ROCCurveNA12878UnitTest extends BaseTest {
         data.add(new ROCCurveNA12878.ROCDatum(false, false, -10.0, Collections.<String>emptySet()));
 
         final ROCCurveNA12878 walker = new ROCCurveNA12878();
-        final GATKReport calculatedGATKReport = walker.calculateROCCurve(data, 2, "project", "name");
-        final GATKReport expectedGATKReport = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "name", "variation", "vqslod", "TPR", "FPR", "filter");
+        final GATKReport calculatedGATKReport = walker.calculateROCCurve(data, 2, 2, "project", "name");
+        final GATKReport expectedGATKReport = GATKReport.newSimpleReportWithDescription("NA12878Assessment", "Evaluation of input variant callsets", "project", "vcf_name", "variation", "vqslod", "N_TP", "N_FP", "filter");
+        expectedGATKReport.addRow("project", "name", "uncalled_SNPs", "NA", 0, 0, "NA");
+        expectedGATKReport.addRow("project", "name", "uncalled_Indels", "NA", 0, 0, "NA");
         expectedGATKReport.addRow("project", "name", "SNPs", 10.0, 1.0, 0.0, "PASS");
         expectedGATKReport.addRow("project", "name", "SNPs", -10.0, 1.0, 1.0, "PASS");
         expectedGATKReport.addRow("project", "name", "Indels", 10.0, 1.0, 0.0, "PASS");

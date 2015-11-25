@@ -25,7 +25,7 @@
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
-* Copyright 2012-2014 Broad Institute, Inc.
+* Copyright 2012-2015 Broad Institute, Inc.
 * Notice of attribution: The GATK3 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
 * LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
 * 
@@ -55,7 +55,7 @@ import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.gatk.engine.walkers.RodWalker;
-import org.broadinstitute.gatk.tools.walkers.annotator.FisherStrand;
+import org.broadinstitute.gatk.tools.walkers.annotator.StrandBiasTableUtils;
 import org.broadinstitute.gatk.utils.QualityUtils;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.Input;
@@ -181,7 +181,7 @@ public class ASECaller extends RodWalker<Integer, Integer> {
                 table[0][1] = dnaADs[1];
                 table[1][0] = rnaADs[0];
                 table[1][1] = rnaADs[1];
-                double pValue = FisherStrand.pValueForContingencyTable(table);
+                double pValue = StrandBiasTableUtils.FisherExactPValueForContingencyTable(table);
                 final Object value = String.format("%.3f", QualityUtils.phredScaleErrorRate(Math.max(pValue, MIN_PVALUE)));
                 double dnaRatio = (double)(dnaADs[0])/(dnaADs[1]+dnaADs[0]);
                 double rnaRatio = (double)(rnaADs[0])/(rnaADs[1]+rnaADs[0]);

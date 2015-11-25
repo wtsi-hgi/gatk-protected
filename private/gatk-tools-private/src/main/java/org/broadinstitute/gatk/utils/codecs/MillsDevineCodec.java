@@ -25,7 +25,7 @@
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
-* Copyright 2012-2014 Broad Institute, Inc.
+* Copyright 2012-2015 Broad Institute, Inc.
 * Notice of attribution: The GATK3 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
 * LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
 * 
@@ -89,6 +89,8 @@ public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
 
     private static final String DELETION_TYPE = "DEL";
     private static final String INSERTION_TYPE = "INS";
+    // codec file extension
+    protected static final String FILE_EXT = "md";
 
     // the minimum number of features in the CG file line
     private static final int minimumFeatureCount = 10;
@@ -103,6 +105,7 @@ public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
      * @param line the input line to decode
      * @return a VariantContext
      */
+    @Override
     public VariantContext decode(String line) {
         String[] array = line.split("\\t");
 
@@ -121,7 +124,7 @@ public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
         String DOUBLE_CENTER= array[7];
         String MEMBER       = array[8];
         String REF_TYPE     = array[9];
-	       String CHIMP_TYPE   = array[10];
+        String CHIMP_TYPE   = array[10];
         String CELERA_TYPE  = array[11];
         String CHIMP_CHR    = array[12];
         String CHIMP_START  = array[13];
@@ -209,8 +212,17 @@ public class MillsDevineCodec extends AsciiFeatureCodec<VariantContext> {
 	*/  return vc;
     }
 
+    /**
+     * Can the file be decoded?
+     * @param path path the file to test for parsability with this codec
+     * @return true if the path has the correct file extension, false otherwise
+     */
+    @Override
+    public boolean canDecode(final String path) { return path.endsWith("." + FILE_EXT); }
+
     // There's no spec and no character to distinguish header lines...
     private final static int NUM_HEADER_LINES = 1;
+    @Override
     public Object readActualHeader(final LineIterator reader) {
         String headerLine = null;
         for (int i = 0; i < NUM_HEADER_LINES; i++)

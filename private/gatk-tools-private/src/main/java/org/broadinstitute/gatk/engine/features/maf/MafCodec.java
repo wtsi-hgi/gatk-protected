@@ -25,7 +25,7 @@
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
-* Copyright 2012-2014 Broad Institute, Inc.
+* Copyright 2012-2015 Broad Institute, Inc.
 * Notice of attribution: The GATK3 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
 * LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
 * 
@@ -93,17 +93,19 @@ public class MafCodec extends AsciiFeatureCodec<MafFeature> {
         UNKNOWN,LITE, ANNOTATED
      }
 
-     private static String INS ="INS";
-     private static String DEL ="DEL";
-     private static String SNP ="SNP";
-     private static String MNP ="MNP";
+     private static final String INS ="INS";
+     private static final String DEL ="DEL";
+     private static final String SNP ="SNP";
+     private static final String MNP ="MNP";
+     // codec file extension
+     protected static final String FILE_EXT = "maf";
 
      private MAF_TYPE mafType=MAF_TYPE.UNKNOWN;
 
      private List<Column> allColumns = null; /// filled dynamically by constructor through introspection. Slow but less typing.
 
-    private boolean tooManyColsWarned = false;
-    private boolean tooFewColsWarned = false;
+     private boolean tooManyColsWarned = false;
+     private boolean tooFewColsWarned = false;
 
      public MafCodec() {
          super(MafFeature.class);
@@ -139,9 +141,18 @@ public class MafCodec extends AsciiFeatureCodec<MafFeature> {
      * @return  Return the FeatureLoc encoded by the line, or null if the line does not represent a feature (e.g. is
      * a comment)
      */
+    @Override
     public MafFeature decode(String line) {
         return reallyDecode(line,true);
     }
+
+    /**
+     * Can the file be decoded?
+     * @param path path the file to test for parsability with this codec
+     * @return true if the path has the correct file extension, false otherwise
+     */
+    @Override
+    public boolean canDecode(final String path) { return path.endsWith("." + FILE_EXT); }
 
     @Override
     public Object readActualHeader(LineIterator lineIterator) {

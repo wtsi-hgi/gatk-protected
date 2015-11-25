@@ -25,7 +25,7 @@
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
-* Copyright 2012-2014 Broad Institute, Inc.
+* Copyright 2012-2015 Broad Institute, Inc.
 * Notice of attribution: The GATK3 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
 * LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
 * 
@@ -56,6 +56,7 @@ import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.ArgumentCollection;
 import org.broadinstitute.gatk.utils.commandline.Gather;
 import org.broadinstitute.gatk.utils.commandline.Output;
+import org.broadinstitute.gatk.engine.CommandLineGATK;
 import org.broadinstitute.gatk.engine.arguments.DbsnpArgumentCollection;
 import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
 import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
@@ -71,6 +72,8 @@ import org.broadinstitute.gatk.utils.GenomeLoc;
 import org.broadinstitute.gatk.utils.collections.Pair;
 import org.broadinstitute.gatk.utils.pileup.ReadBackedPileup;
 import htsjdk.variant.variantcontext.VariantContext;
+import org.broadinstitute.gatk.utils.help.HelpConstants;
+import org.broadinstitute.gatk.utils.help.DocumentedGATKFeature;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -88,7 +91,7 @@ import java.util.*;
  * <p/>
  * <h3>Output</h3>
  * <p>
- * Tab-deliminated text file showing average coverage per read group per interval.
+ * Tab-delimited text file showing average coverage per read group per interval.
  * </p>
  * <p/>
  * <h3>Examples</h3>
@@ -112,6 +115,7 @@ import java.util.*;
  *   -L input.intervals
  * </pre>
  */
+@DocumentedGATKFeature( groupName = HelpConstants.DOCS_CAT_QC, extraDocs = {CommandLineGATK.class} )
 @PartitionBy(PartitionType.INTERVAL)
 public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, LinkedHashMap<String, Long>> /*implements TreeReducible<LinkedHashMap<String, Long>> */ {
 
@@ -125,7 +129,6 @@ public class CoverageByRG extends LocusWalker<LinkedHashMap<String, Long>, Linke
 
     @ArgumentCollection
     protected DbsnpArgumentCollection dbsnp = new DbsnpArgumentCollection();
-
 
     GATKReportTable reportTable;
 

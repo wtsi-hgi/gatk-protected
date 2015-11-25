@@ -95,7 +95,7 @@
     <!-- Disabled by default -->
     <!-- To enable, run with -Duse.contracts=true -->
     <property name="java.contracts.dir" value="${build.dir}/java/contracts" />
-    <property name="contracts.version" value="1.0-r139" />
+    <property name="contracts.version" value="1.2-20140817" />
     <property name="cofoja.jar" value="${lib.dir}/cofoja-${contracts.version}.jar"/>
     <property name="contract.dump.dir" value="dump" />
 

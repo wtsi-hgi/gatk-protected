@@ -25,7 +25,7 @@
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
-* Copyright 2012-2014 Broad Institute, Inc.
+* Copyright 2012-2015 Broad Institute, Inc.
 * Notice of attribution: The GATK3 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
 * LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
 * 
@@ -84,7 +84,7 @@ public class RandomForestIntegrationTest extends WalkerTest {
     RFTest lowPass = new RFTest(validationDataLocation + "1kg_exomes_unfiltered.AFR.unfiltered.vcf",
             "59d429699b1dcdf5ce94bc5ba040a707",  // snp tranches
             "bf59e118b94bc49e7894ed98d8895ddb",  // indel tranches
-            "95de1ff7f3c533bba67e69496ff27f5a"); // recal file
+            "21a0b2470c4d7e9fd87bc73528beb2a2"); // recal file
 
     @DataProvider(name = "RFTest")
     public Object[][] createData1() {
