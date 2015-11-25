@@ -94,8 +94,8 @@ class Qscript_VariantAnnotator extends QScript {
    
   }
 
-def createM2Config(tumorBAM : File, normalBAM : File, panelOfNormals : File, outputPrefix : String, contan: Double): M2 = {
-    val mutect2 = new M2
+def createM2Config(tumorBAM : File, normalBAM : File, panelOfNormals : File, outputPrefix : String, contan: Double): MuTect2 = {
+    val mutect2 = new MuTect2
 
     mutect2.reference_sequence = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
     mutect2.cosmic :+= new File("/xchip/cga/reference/hg19/hg19_cosmic_v54_120711.vcf")

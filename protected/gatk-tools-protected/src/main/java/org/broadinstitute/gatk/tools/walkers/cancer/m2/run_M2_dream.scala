@@ -49,55 +49,41 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.cancer.contamination;
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import org.broadinstitute.gatk.engine.walkers.WalkerTest;
-import org.testng.annotations.Test;
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+class run_M2_dream extends QScript {
 
-/**
- * Test ContEst with and without a "genotyping array" VCF
- *
- * @author gauthier
- */
-public class ContaminationWalkerIntegrationTest extends WalkerTest {
-    public static final String DREAMBamsDirectory = new String("/dsde/working/mutect/dream_smc/bams/");
-    public static final String ContaminatedBamsDirectory = new String("/dsde/working/mutect/contamination/bams/");
-    public static final String NormalBamsDirectory = new String("/humgen/gsa-hpprojects/NA12878Collection/bams/crsp_ice_validation/");
-    public static final String ICEexomeIntervals = new String("/seq/references/HybSelOligos/HybSelOligos/whole_exome_illumina_coding_v1/whole_exome_illumina_coding_v1.Homo_sapiens_assembly19.targets.interval_list");
+  @Argument(shortName = "L",  required=false, doc = "Intervals file")
+  var intervalsFile: List[File] = Nil
+  @Argument(shortName = "normal",  required=true, doc = "Normal sample BAM")
+  var normalBAM: String = ""
+  @Argument(shortName = "tumor", required=true, doc = "Tumor sample BAM")
+  var tumorBAM: String = ""
+  @Argument(shortName = "o",  required=true, doc = "Output file")
+  var outputFile: String = ""
+  @Argument(shortName = "sc",  required=false, doc = "base scatter count")
+  var scatter: Int = 10 
 
-    @Test(enabled = true)
-    public void testWithArray() {
-        List<String> md5sums = Arrays.asList("d41d8cd98f00b204e9800998ecf8427e");
-        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
-                "-T ContaminationWalker" +
-                " -I " + DREAMBamsDirectory + "synthetic.challenge.set4.tumor.bam" +
-                " -R " + b37KGReference +
-                " --popfile " + validationDataLocation + "cancer/hg19_population_stratified_af_hapmap_3.3.fixed.vcf" +
-                " --genotypes " + validationDataLocation + "cancer/Dream.set3.tumorGTs.vcf" +
-                " -L " + validationDataLocation + "cancer/SNP6.hg19.interval_list" +
-                " -L " + ICEexomeIntervals +
-                " -L 1" +
-                " -isr INTERSECTION",md5sums);
-        executeTest("testWithArray",spec);
-    }
 
-    @Test(enabled = true)
-    public void testArrayFree(){
-        List<String> md5sums = Arrays.asList("d41d8cd98f00b204e9800998ecf8427e");
-        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
-                "-T ContaminationWalker" +
-                        " -I:eval " + ContaminatedBamsDirectory + "HCC1143_BL.small.0.05.contaminated.with.SM-612V3.small.0.95.bam" +
-                        " -I:genotype " + NormalBamsDirectory + "SM-612V4.bam" +
-                        " -R " + b37KGReference +
-                        " --popfile " + validationDataLocation + "hg19_population_stratified_af_hapmap_3.3.fixed.vcf" +
-                        " -L " + validationDataLocation + "SNP6.hg19.interval_list" +
-                        " -L " + ICEexomeIntervals +
-                        " -L 1" +
-                        " -isr INTERSECTION",md5sums);
-        executeTest("testArrayFree",spec);
-    }
+    def script() {
+
+    val mutect2 = new MuTect2
+
+    mutect2.reference_sequence = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
+    mutect2.cosmic :+= new File("/xchip/cga/reference/hg19/hg19_cosmic_v54_120711.vcf")
+    mutect2.dbsnp = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.vcf")
+    mutect2.normal_panel :+= new File("/xchip/cga/reference/hg19/wgs_hg19_125_cancer_blood_normal_panel.vcf")
+
+    mutect2.intervalsString = intervalsFile
+    mutect2.memoryLimit = 2
+    mutect2.input_file = List(new TaggedFile(normalBAM, "normal"), new TaggedFile(tumorBAM, "tumor"))
+
+    mutect2.scatterCount = scatter
+    mutect2.out = outputFile
+    add(mutect2)
+  }
+
 }

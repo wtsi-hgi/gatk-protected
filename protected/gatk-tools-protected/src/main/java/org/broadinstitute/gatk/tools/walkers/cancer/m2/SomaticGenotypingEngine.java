@@ -209,7 +209,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                 // TODO: CONFIRM WITH GSA IF IT IS OK TO REMOVE READS FROM THE PRALM (should be... they do it in filterPoorlyModeledReads!)
                 PerReadAlleleLikelihoodMap tumorPRALM = readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(readAlleleLikelihoods.sampleIndex(tumorSampleName));
                 filterPRALMForOverlappingReads(tumorPRALM, mergedVC.getReference(), loc, false);
-                M2.logReadInfo(DEBUG_READ_NAME, tumorPRALM.getLikelihoodReadMap().keySet(), "Present after filtering for overlapping reads");
+                MuTect2.logReadInfo(DEBUG_READ_NAME, tumorPRALM.getLikelihoodReadMap().keySet(), "Present after filtering for overlapping reads");
                 // extend to multiple samples
 
                 //handle existence of secondary alts
@@ -229,7 +229,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                 if (hasNormal) {
                     normalPRALM = readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(readAlleleLikelihoods.sampleIndex(matchedNormalSampleName));
                     filterPRALMForOverlappingReads(normalPRALM, mergedVC.getReference(), loc, true);
-                    M2.logReadInfo(DEBUG_READ_NAME, normalPRALM.getLikelihoodReadMap().keySet(), "Present after filtering for overlapping reads");
+                    MuTect2.logReadInfo(DEBUG_READ_NAME, normalPRALM.getLikelihoodReadMap().keySet(), "Present after filtering for overlapping reads");
 
                     double[] diploidAFarray = new double[numAlts];
                     Arrays.fill(diploidAFarray, 0.5d);

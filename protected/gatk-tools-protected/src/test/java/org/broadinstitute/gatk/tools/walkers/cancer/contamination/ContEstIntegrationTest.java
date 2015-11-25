@@ -49,76 +49,55 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.cancer.m2;
+package org.broadinstitute.gatk.tools.walkers.cancer.contamination;
 
 import org.broadinstitute.gatk.engine.walkers.WalkerTest;
 import org.testng.annotations.Test;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
-public class M2IntegrationTest extends WalkerTest {
-    final static String REF = hg19Reference;
+/**
+ * Test ContEst with and without a "genotyping array" VCF
+ *
+ * @author gauthier
+ */
+public class ContEstIntegrationTest extends WalkerTest {
+    public static final String DREAMBamsDirectory = new String("/dsde/working/mutect/dream_smc/bams/");
+    public static final String ContaminatedBamsDirectory = new String("/dsde/working/mutect/contamination/bams/");
+    public static final String NormalBamsDirectory = new String("/humgen/gsa-hpprojects/NA12878Collection/bams/crsp_ice_validation/");
+    public static final String ICEexomeIntervals = new String("/seq/references/HybSelOligos/HybSelOligos/whole_exome_illumina_coding_v1/whole_exome_illumina_coding_v1.Homo_sapiens_assembly19.targets.interval_list");
 
-    final static String CCLE_MICRO_TUMOR_BAM = privateTestDir + "HCC1143.cghub.ccle.micro.bam";
-    final static String CCLE_MICRO_NORMAL_BAM = privateTestDir + "HCC1143_BL.cghub.ccle.micro.bam";
-    final static String CCLE_MICRO_INTERVALS_FILE = privateTestDir + "HCC1143.cghub.ccle.micro.intervals";
-
-    final static String DBSNP=b37dbSNP132;
-    final static String COSMIC="/xchip/cga/reference/hg19/hg19_cosmic_v54_120711.vcf";
-    final static String PON="/xchip/cga/reference/hg19/refseq_exome_10bp_hg19_300_1kg_normal_panel.vcf";
-
-    final static String DREAM3_TUMOR_BAM = validationDataLocation + "cancer/dream3.integrationtest.tumor.bam";
-    final static String DREAM3_NORMAL_BAM = validationDataLocation + "cancer/dream3.integrationtest.normal.bam";
-    final static String DREAM3_TP_INTERVALS_FILE = privateTestDir + "m2_dream3.tp.intervals";
-    final static String DREAM3_FP_INTERVALS_FILE = privateTestDir + "m2_dream3.fp.intervals";
-
-
-
-    private void M2Test(String tumorBam, String normalBam, String intervals, String args, String md5) {
-                final String base = String.format(
-                "-T M2 --no_cmdline_in_header -dt NONE --disableDithering -alwaysloadVectorHMM -pairHMM LOGLESS_CACHING -ip 50 -R %s --dbsnp %s --cosmic %s --normal_panel %s -I:tumor %s -I:normal %s -L %s",
-                REF, DBSNP, COSMIC, PON, tumorBam, normalBam, intervals) +
-                " -o %s ";
-
-        final WalkerTestSpec spec = new WalkerTestSpec(base + " " + args, Arrays.asList(md5));
-
-        // TODO: do we want to enable this and why?  It explodes with
-        // java.lang.RuntimeException: java.lang.ClassCastException: java.lang.Double cannot be cast to java.lang.String
-        //    at htsjdk.variant.variantcontext.writer.BCF2FieldEncoder$StringOrCharacter.javaStringToBCF2String(BCF2FieldEncoder.java:312)
-        spec.disableShadowBCF();
-        executeTest("testM2: args=" + args, spec);
+    @Test(enabled = true)
+    public void testWithArray() {
+        List<String> md5sums = Arrays.asList("d41d8cd98f00b204e9800998ecf8427e");
+        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
+                "-T ContEst" +
+                " -I " + DREAMBamsDirectory + "synthetic.challenge.set4.tumor.bam" +
+                " -R " + b37KGReference +
+                " --popfile " + validationDataLocation + "cancer/hg19_population_stratified_af_hapmap_3.3.fixed.vcf" +
+                " --genotypes " + validationDataLocation + "cancer/Dream.set3.tumorGTs.vcf" +
+                " -L " + validationDataLocation + "cancer/SNP6.hg19.interval_list" +
+                " -L " + ICEexomeIntervals +
+                " -L 1" +
+                " -isr INTERSECTION",md5sums);
+        executeTest("testWithArray",spec);
     }
 
-    @Test
-    public void testMicroRegression() {
-        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "", "617054c6d056cad7448a463cb8d04a55");
+    @Test(enabled = true)
+    public void testArrayFree(){
+        List<String> md5sums = Arrays.asList("d41d8cd98f00b204e9800998ecf8427e");
+        WalkerTest.WalkerTestSpec spec = new WalkerTest.WalkerTestSpec(
+                "-T ContEst" +
+                        " -I:eval " + ContaminatedBamsDirectory + "HCC1143_BL.small.0.05.contaminated.with.SM-612V3.small.0.95.bam" +
+                        " -I:genotype " + NormalBamsDirectory + "SM-612V4.bam" +
+                        " -R " + b37KGReference +
+                        " --popfile " + validationDataLocation + "hg19_population_stratified_af_hapmap_3.3.fixed.vcf" +
+                        " -L " + validationDataLocation + "SNP6.hg19.interval_list" +
+                        " -L " + ICEexomeIntervals +
+                        " -L 1" +
+                        " -isr INTERSECTION",md5sums);
+        executeTest("testArrayFree",spec);
     }
-
-    /**
-     * Tests all the True Positive sites in the DREAM 3 data set.  We don't necessarily call
-     * all of these (e.g. we have some FNs) but it's the full set of things we want to be able
-     * to call, and not regress
-     */
-    @Test
-    public void testTruePositivesDream3() {
-        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_TP_INTERVALS_FILE, "", "f856432679e43445d2939772be4326cf");
-    }
-
-    /**
-     * Tests a number of False Positive calls from the DREAM 3 data set.  Some of them are not rejected
-     * (e.g. we have some FPs!) but most are rejected.
-     */
-    @Test
-    public void testFalsePositivesDream3() {
-        M2Test(DREAM3_TUMOR_BAM, DREAM3_NORMAL_BAM, DREAM3_FP_INTERVALS_FILE, "", "11357aa543e7c6b2725cd330adba23a0");
-    }
-
-    /*
-     * Test that contamination downsampling reduces tumor LOD, rejects more variants
-     */
-    @Test
-    public void testContaminationCorrection() {
-        M2Test(CCLE_MICRO_TUMOR_BAM, CCLE_MICRO_NORMAL_BAM, CCLE_MICRO_INTERVALS_FILE, "-contamination 0.1", "d7947ddf0240fe06a44621312831f44c");
-    }
-
 }
