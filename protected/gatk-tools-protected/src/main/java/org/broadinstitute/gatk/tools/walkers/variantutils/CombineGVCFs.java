@@ -293,9 +293,16 @@ public class CombineGVCFs extends RodWalker<CombineGVCFs.PositionalState, Combin
      * @return true if we should ensure that bands should be broken at the given position, false otherwise
      */
     private boolean breakBand(final GenomeLoc loc) {
-        return USE_BP_RESOLUTION ||
-                (loc != null && multipleAtWhichToBreakBands > 0 && (loc.getStart()+1) % multipleAtWhichToBreakBands == 0) || // add +1 to the loc because we want to break BEFORE this base
-                (loc != null && breakBandsAt.contains(loc.getContig()+":"+(loc.getStart()+1)));
+        if ( USE_BP_RESOLUTION ) {
+            return true;
+        } else if ( loc != null && multipleAtWhichToBreakBands > 0 && (loc.getStart()+1) % multipleAtWhichToBreakBands == 0 ) { // add +1 to the loc because we want to break BEFORE this base
+            logger.debug("breaking band at multiple of " + multipleAtWhichToBreakBands + ":" + loc.getContig()+":"+(loc.getStart()+1));
+            return true;
+        } else if (loc != null && breakBandsAt.contains(loc.getContig()+":"+(loc.getStart()+1))) {
+            logger.info("breaking band at " + loc.getContig()+":"+(loc.getStart()+1));
+            return true;
+        }
+        return false;
     }
 
     /**
