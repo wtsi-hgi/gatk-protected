@@ -361,6 +361,7 @@ public class CombineGVCFs extends RodWalker<CombineGVCFs.PositionalState, Combin
      */
     private void endPreviousStates(final OverallState state, final GenomeLoc pos, final PositionalState startingStates, boolean atCurrentPosition) {
 
+        logger.debug("endPreviousStates state.prevPos=" + state.prevPos.getContig() + ":" + state.prevPos.getStart() + " pos=" + pos.getContig() + ":" + pos.getStart());
         final byte refBase = startingStates.refBases[0];
         //if we're in BP resolution mode or a VC ends at the current position then the reference for the next output VC (refNextBase)
         // will be advanced one base
