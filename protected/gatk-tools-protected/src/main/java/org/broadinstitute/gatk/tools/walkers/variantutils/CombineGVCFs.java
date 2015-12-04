@@ -319,7 +319,11 @@ public class CombineGVCFs extends RodWalker<CombineGVCFs.PositionalState, Combin
         intersection.retainAll(previousState.samples);
 
         //if there's a starting VC with a sample that's already in a current VC, don't skip this position
-        return lastPosRun != null && thisPos == lastPosRun.getStart() + 1 && intersection.isEmpty();
+        if ( lastPosRun != null && thisPos == lastPosRun.getStart() + 1 && intersection.isEmpty() ) {
+            logger.debug("okayToSkipThisSite: skipping at pos " + thisPos );
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -361,7 +365,8 @@ public class CombineGVCFs extends RodWalker<CombineGVCFs.PositionalState, Combin
      */
     private void endPreviousStates(final OverallState state, final GenomeLoc pos, final PositionalState startingStates, boolean atCurrentPosition) {
 
-        logger.debug("endPreviousStates state.prevPos=" + state.prevPos.getContig() + ":" + state.prevPos.getStart() + " pos=" + pos.getContig() + ":" + pos.getStart());
+        if ( state.prevPos != null && pos != null )
+            logger.debug("endPreviousStates state.prevPos=" + state.prevPos.getContig() + ":" + state.prevPos.getStart() + " pos=" + pos.getContig() + ":" + pos.getStart());
         final byte refBase = startingStates.refBases[0];
         //if we're in BP resolution mode or a VC ends at the current position then the reference for the next output VC (refNextBase)
         // will be advanced one base
@@ -373,21 +378,29 @@ public class CombineGVCFs extends RodWalker<CombineGVCFs.PositionalState, Combin
             final VariantContext vc = state.VCs.get(i);
             //the VC for the previous state will be stopped if its position is previous to the current position or it we've moved to a new contig
             if ( vc.getStart() <= pos.getStart() || !vc.getChr().equals(pos.getContig())) {
-
+                logger.debug("endPreviousStates: adding vc to stopped for sample(s) " + vc.getSampleNames() + " at " + pos.getStart());
                 stoppedVCs.add(vc);
 
                 // if it was ending anyways, then remove it from the future state
                 if ( vc.getEnd() == pos.getStart()) {
+                    logger.debug("endPreviousStates: removing ending vc for sample(s) " + vc.getSampleNames() + " at " + pos.getStart());
                     state.samples.removeAll(vc.getSampleNames());
                     state.VCs.remove(i);
                     continue; //don't try to remove twice
+                } else {
+                    logger.debug("endPreviousStates: vc not ending for sample(s) " + vc.getSampleNames() + " at " + pos.getStart() + " (ends at " + vc.getEnd() + ")");
                 }
 
                 //if ending vc is the same sample as a starting VC, then remove it from the future state
                 if(startingStates.VCs.size() > 0 && !atCurrentPosition && startingStates.samples.containsAll(vc.getSampleNames())) {
+                    logger.debug("endPreviousStates: removing ending vc same as starting state for sample(s) " + vc.getSampleNames() + " at " + pos.getStart());
                     state.samples.removeAll(vc.getSampleNames());
                     state.VCs.remove(i);
+                } else {
+                    logger.debug("endPreviousStates: not removing ending vc same as starting state for sample(s) " + vc.getSampleNames() + " at " + pos.getStart());
                 }
+            } else {
+                logger.debug("endPreviousStates: not adding vc to stopped for sample(s) " + vc.getSampleNames() + " at " + pos.getStart() + " vc starts at " + vc.getChr() + ":" + vc.getStart());
             }
         }
 
@@ -397,6 +410,7 @@ public class CombineGVCFs extends RodWalker<CombineGVCFs.PositionalState, Combin
         if ( !stoppedVCs.isEmpty() &&  (state.prevPos == null || pos.isPast(state.prevPos) )) {
             final GenomeLoc gLoc = genomeLocParser.createGenomeLoc(stoppedVCs.get(0).getChr(), pos.getStart());
 
+            logger.debug("endPreviousStates: merging and outputting stopped vcs");
             // we need the specialized merge if the site contains anything other than ref blocks
             final VariantContext mergedVC;
             if ( containsTrueAltAllele(stoppedVCs) )
@@ -407,6 +421,10 @@ public class CombineGVCFs extends RodWalker<CombineGVCFs.PositionalState, Combin
             vcfWriter.add(mergedVC);
             state.prevPos = gLoc;
             state.refAfterPrevPos = refNextBase;
+        } else {
+            if (!(state.prevPos == null || pos.isPast(state.prevPos))) {
+                logger.debug("endPreviousStates: not merging or outputting stopped vcs as our current pos " + pos.getStart() + " is not past previous pos " + state.prevPos.getStart());
+            }
         }
     }
 
