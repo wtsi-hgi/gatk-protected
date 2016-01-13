@@ -5,7 +5,7 @@
 * SOFTWARE LICENSE AGREEMENT
 * FOR ACADEMIC NON-COMMERCIAL RESEARCH PURPOSES ONLY
 * 
-* This Agreement is made between the Broad Institute, Inc. with a principal address at 415 Main Street, Cambridge, MA 02142 (“BROAD”) and the LICENSEE and is effective at the date the downloading is completed (“EFFECTIVE DATE”).
+* This Agreement is made between the Broad Institute, Inc. with a principal address at 415 Main Street, Cambridge, MA 02142 ("BROAD") and the LICENSEE and is effective at the date the downloading is completed ("EFFECTIVE DATE").
 * 
 * WHEREAS, LICENSEE desires to license the PROGRAM, as defined hereinafter, and BROAD wishes to have this PROGRAM utilized in the public interest, subject only to the royalty-free, nonexclusive, nontransferable license rights of the United States Government pursuant to 48 CFR 52.227-14; and
 * WHEREAS, LICENSEE desires to license the PROGRAM and BROAD desires to grant a license on the following terms and conditions.
@@ -21,11 +21,11 @@
 * 2.3 License Limitations. Nothing in this Agreement shall be construed to confer any rights upon LICENSEE by implication, estoppel, or otherwise to any computer software, trademark, intellectual property, or patent rights of BROAD, or of any other entity, except as expressly granted herein. LICENSEE agrees that the PROGRAM, in whole or part, shall not be used for any commercial purpose, including without limitation, as the basis of a commercial software or hardware product or to provide services. LICENSEE further agrees that the PROGRAM shall not be copied or otherwise adapted in order to circumvent the need for obtaining a license for use of the PROGRAM.
 * 
 * 3. PHONE-HOME FEATURE
-* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system (“PHONE-HOME”) which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE’S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
+* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system ("PHONE-HOME") which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE’S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
-* Copyright 2012-2014 Broad Institute, Inc.
+* Copyright 2012-2016 Broad Institute, Inc.
 * Notice of attribution: The GATK3 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
 * LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
 * 
@@ -49,126 +49,41 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.cancer.m2;
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import htsjdk.variant.variantcontext.Allele;
-import htsjdk.variant.variantcontext.VariantContext;
-import htsjdk.variant.vcf.VCFHeaderLineType;
-import htsjdk.variant.vcf.VCFInfoHeaderLine;
-import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.ActiveRegionBasedAnnotation;
-import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.AnnotatorCompatible;
-import org.broadinstitute.gatk.tools.walkers.annotator.interfaces.InfoFieldAnnotation;
-import org.broadinstitute.gatk.utils.QualityUtils;
-import org.broadinstitute.gatk.utils.collections.PrimitivePair;
-import org.broadinstitute.gatk.utils.contexts.AlignmentContext;
-import org.broadinstitute.gatk.utils.contexts.ReferenceContext;
-import org.broadinstitute.gatk.utils.genotyper.MostLikelyAllele;
-import org.broadinstitute.gatk.utils.genotyper.PerReadAlleleLikelihoodMap;
-import org.broadinstitute.gatk.utils.refdata.RefMetaDataTracker;
-import org.broadinstitute.gatk.utils.sam.AlignmentUtils;
-import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
-import org.broadinstitute.gatk.utils.sam.ReadUtils;
-import org.broadinstitute.gatk.utils.variant.GATKVCFConstants;
-import org.broadinstitute.gatk.utils.variant.GATKVCFHeaderLines;
-import org.broadinstitute.gatk.tools.walkers.cancer.mutect.MuTectStats;
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
 
-import java.util.*;
+class run_M2_dream extends QScript {
 
-/**
- * Created by gauthier on 7/27/15.
- */
-public class ClusteredEventsAnnotator extends InfoFieldAnnotation implements ActiveRegionBasedAnnotation {
+  @Argument(shortName = "L",  required=false, doc = "Intervals file")
+  var intervalsFile: List[File] = Nil
+  @Argument(shortName = "normal",  required=true, doc = "Normal sample BAM")
+  var normalBAM: String = ""
+  @Argument(shortName = "tumor", required=true, doc = "Tumor sample BAM")
+  var tumorBAM: String = ""
+  @Argument(shortName = "o",  required=true, doc = "Output file")
+  var outputFile: String = ""
+  @Argument(shortName = "sc",  required=false, doc = "base scatter count")
+  var scatter: Int = 10 
 
-    @Override
-    public List<String> getKeyNames() { return Arrays.asList("tumorForwardOffsetMedian","tumorReverseOffsetMedian","tumorForwardOffsetMAD","tumorReverseOffsetMAD"); }
 
-    @Override
-    public List<VCFInfoHeaderLine> getDescriptions() {
-        //TODO: this needs a lot of re-phrasing
-        return Arrays.asList(new VCFInfoHeaderLine("TUMOR_FWD_POS_MEDIAN", 1, VCFHeaderLineType.Integer, "Median offset of tumor variant position from positive read end"),
-        new VCFInfoHeaderLine("TUMOR_FWD_POS_MAD", 1, VCFHeaderLineType.Integer, "Median absolute deviation from the median for tumor forward read positions"),
-        new VCFInfoHeaderLine("TUMOR_REV_POS_MEDIAN", 1, VCFHeaderLineType.Integer, "Median offset of tumor variant position from negative read end"),
-        new VCFInfoHeaderLine("TUMOR_REV_POS_MAD", 1, VCFHeaderLineType.Integer, "Median absolute deviation from the median for tumor reverse read positions"));
-    }
+    def script() {
 
-    public Map<String, Object> annotate(final RefMetaDataTracker tracker,
-                                        final AnnotatorCompatible walker,
-                                        final ReferenceContext ref,
-                                        final Map<String, AlignmentContext> stratifiedContexts,
-                                        final VariantContext vc,
-                                        final Map<String, PerReadAlleleLikelihoodMap> stratifiedPerReadAlleleLikelihoodMap) {
-        final Map<String, Object> map = new HashMap<>();
-        Integer fwdMedian = null;
-        Integer fwdMAD = null;
-        Integer revMedian = null;
-        Integer revMAD = null;
-        if ( stratifiedPerReadAlleleLikelihoodMap != null ) {
-            final PerReadAlleleLikelihoodMap likelihoodMap = stratifiedPerReadAlleleLikelihoodMap.get("tumor");
-            if ( likelihoodMap != null && !likelihoodMap.isEmpty() ) {
-                fillQualsFromLikelihoodMap(vc.getStart(), likelihoodMap, fwdMedian, fwdMAD, revMedian, revMAD);
-            }
-        }
-        map.put("TUMOR_FWD_POS_MEDIAN", fwdMedian);
-        map.put("TUMOR_REV_POS_MEDIAN", revMedian);
-        map.put("TUMOR_FWD_POS_MAD", fwdMAD);
-        map.put("TUMOR_REF_POS_MAD", revMAD);
-        return map;
-    }
+    val mutect2 = new MuTect2
 
-    private void fillQualsFromLikelihoodMap(final int refLoc,
-                                            final PerReadAlleleLikelihoodMap likelihoodMap,
-                                            double fwdMedian,
-                                            double fwdMAD,
-                                            double revMedian,
-                                            double revMAD) {
-        final ArrayList<Double> tumorFwdOffset = new ArrayList<>();
-        final ArrayList<Double> tumorRevOffset = new ArrayList<>();
-        for ( final Map.Entry<GATKSAMRecord, Map<Allele,Double>> el : likelihoodMap.getLikelihoodReadMap().entrySet() ) {
-            final MostLikelyAllele a = PerReadAlleleLikelihoodMap.getMostLikelyAllele(el.getValue());
-            if ( ! a.isInformative() )
-                continue; // read is non-informative
+    mutect2.reference_sequence = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
+    mutect2.cosmic :+= new File("/xchip/cga/reference/hg19/hg19_cosmic_v54_120711.vcf")
+    mutect2.dbsnp = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.vcf")
+    mutect2.normal_panel :+= new File("/xchip/cga/reference/hg19/wgs_hg19_125_cancer_blood_normal_panel.vcf")
 
-            final GATKSAMRecord read = el.getKey();
-            if ( isUsableRead(read, refLoc) ) {
-                if ( a.getMostLikelyAllele().isReference() )
-                    continue;
-                final Double valueRight = getElementForRead(read, refLoc, ReadUtils.ClippingTail.RIGHT_TAIL);
-                if ( valueRight == null )
-                    continue;
-                tumorFwdOffset.add(valueRight);
-                final Double valueLeft = getElementForRead(read, refLoc, ReadUtils.ClippingTail.LEFT_TAIL);
-                if ( valueLeft == null )
-                    continue;
-                tumorRevOffset.add(valueLeft);
-            }
-        }
-        fwdMedian = MuTectStats.getMedian(tumorFwdOffset);
-        revMedian = MuTectStats.getMedian(tumorRevOffset);
-        fwdMAD = MuTectStats.calculateMAD(tumorFwdOffset, fwdMedian);
-        revMAD = MuTectStats.calculateMAD(tumorRevOffset, revMedian);
-    }
+    mutect2.intervalsString = intervalsFile
+    mutect2.memoryLimit = 2
+    mutect2.input_file = List(new TaggedFile(normalBAM, "normal"), new TaggedFile(tumorBAM, "tumor"))
 
-   protected Double getElementForRead(final GATKSAMRecord read, final int refLoc, final ReadUtils.ClippingTail tail) {
-        final int offset = ReadUtils.getReadCoordinateForReferenceCoordinate(read.getSoftStart(), read.getCigar(), refLoc, tail, true);
-        if ( offset == ReadUtils.CLIPPING_GOAL_NOT_REACHED )
-            return null;
+    mutect2.scatterCount = scatter
+    mutect2.out = outputFile
+    add(mutect2)
+  }
 
-        int readPos = AlignmentUtils.calcAlignmentByteArrayOffset(read.getCigar(), offset, false, 0, 0);
-        final int numAlignedBases = AlignmentUtils.getNumAlignedBasesCountingSoftClips( read );
-        if (readPos > numAlignedBases / 2)
-            readPos = numAlignedBases - (readPos + 1);
-        return (double)readPos;
-    }
-
-    /**
-     * Can the read be used in comparative tests between ref / alt bases?
-     *
-     * @param read   the read to consider
-     * @param refLoc the reference location
-     * @return true if this read is meaningful for comparison, false otherwise
-     */
-    protected boolean isUsableRead(final GATKSAMRecord read, final int refLoc) {
-        return !( read.getMappingQuality() == 0 ||
-                read.getMappingQuality() == QualityUtils.MAPPING_QUALITY_UNAVAILABLE );
-    }
 }

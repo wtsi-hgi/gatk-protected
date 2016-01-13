@@ -84,24 +84,24 @@ class ReportMaker extends InProcessFunction {
 	var truthIndelCounts: File = new File("")
 
 	def run {
-	var truthSnpList = io.Source.fromFile(truthSnpCounts).getLines.toList 
-	var truthIndelList = io.Source.fromFile(truthIndelCounts).getLines.toList 
-	var foundSnpCount = 0
-	var foundIndelCount = 0
-	var truthSnpCount = 0
-	var truthIndelCount = 0
+		var truthSnpList = io.Source.fromFile(truthSnpCounts).getLines.toList
+		var truthIndelList = io.Source.fromFile(truthIndelCounts).getLines.toList
+		var foundSnpCount = 0
+		var foundIndelCount = 0
+		var truthSnpCount = 0
+		var truthIndelCount = 0
 
-	for (sampleIndex <- 0 until V.size) {
-		val inFile = V(sampleIndex)		
-		foundSnpCount = foundSnpCount + ("grep -c SNP" #< inFile #| "tr -d \'\\n\'" !!).stripLineEnd.toInt
-		foundIndelCount = foundIndelCount + ("grep -c INDEL" #<  inFile #| "tr -d \\n" !!).stripLineEnd.toInt
-		truthSnpCount = truthSnpCount + truthSnpList(sampleIndex).toInt
-		truthIndelCount = truthIndelCount + truthIndelList(sampleIndex).toInt
-	}
-	val text = "Sensitivity across all samples:\n" + "SNPs: " + foundSnpCount.toFloat/truthSnpCount + "\n" + "INDELs: " + foundIndelCount.toFloat/truthIndelCount + "\n"
-	val bw = new BufferedWriter(new FileWriter(outputFile))
-	bw.write(text)
-	bw.close()	
+		for (sampleIndex <- 0 until V.size) {
+			val inFile = V(sampleIndex)
+			foundSnpCount = foundSnpCount + ("grep -c SNP" #< inFile #| "tr -d \'\\n\'" !!).stripLineEnd.toInt
+			foundIndelCount = foundIndelCount + ("grep -c INDEL" #<  inFile #| "tr -d \\n" !!).stripLineEnd.toInt
+			truthSnpCount = truthSnpCount + truthSnpList(sampleIndex).toInt
+			truthIndelCount = truthIndelCount + truthIndelList(sampleIndex).toInt
+		}
+		val text = "Sensitivity across all samples:\n" + "SNPs: " + foundSnpCount.toFloat/truthSnpCount + "\n" + "INDELs: " + foundIndelCount.toFloat/truthIndelCount + "\n"
+		val bw = new BufferedWriter(new FileWriter(outputFile))
+		bw.write(text)
+		bw.close()
 
 	}
 }
@@ -126,26 +126,25 @@ class Qscript_runHapMapPlex extends QScript {
   var scatter: Int = 1 
 
 
-    def script() {
-
-    	val tumorFiles = QScriptUtils.createSeqFromFile(tumorBAM)
-	var printReport = new ReportMaker
-	printReport.outputFile = outputFile
-	printReport.truthSnpCounts = this.truthSnpCounts
-	printReport.truthIndelCounts = this.truthIndelCounts
-	for (sampleIndex <- 0 until tumorFiles.size) {
-		val m2 = mutect2(tumorFiles(sampleIndex), normalBAM, intervalsFile)
-		add(m2)
-		val overlap = concordance(m2.out, truthVCF)
-		add(overlap)
-		val table = makeTable(overlap.out) 
-		add(table)
-		printReport.V :+= table.out
-	}
+	def script() {
+		val tumorFiles = QScriptUtils.createSeqFromFile(tumorBAM)
+		var printReport = new ReportMaker
+		printReport.outputFile = outputFile
+		printReport.truthSnpCounts = this.truthSnpCounts
+		printReport.truthIndelCounts = this.truthIndelCounts
+		for (sampleIndex <- 0 until tumorFiles.size) {
+			val m2 = mutect2(tumorFiles(sampleIndex), normalBAM, intervalsFile)
+			add(m2)
+			val overlap = concordance(m2.out, truthVCF)
+			add(overlap)
+			val table = makeTable(overlap.out)
+			add(table)
+			printReport.V :+= table.out
+		}
 	add(printReport)
 }
 
-    case class mutect2(tumorFile: File, normalFile: File, intervalFile: File)  extends M2 { 
+    case class mutect2(tumorFile: File, normalFile: File, intervalFile: File)  extends MuTect2 {
 
     this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
     this.cosmic :+= new File("/home/unix/gauthier/workspaces/MuTect/b37_cosmic_v54_120711.vcf")

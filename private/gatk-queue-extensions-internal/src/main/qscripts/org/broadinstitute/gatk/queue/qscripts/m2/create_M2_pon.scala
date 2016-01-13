@@ -5,7 +5,7 @@
 * SOFTWARE LICENSE AGREEMENT
 * FOR ACADEMIC NON-COMMERCIAL RESEARCH PURPOSES ONLY
 * 
-* This Agreement is made between the Broad Institute, Inc. with a principal address at 415 Main Street, Cambridge, MA 02142 (“BROAD”) and the LICENSEE and is effective at the date the downloading is completed (“EFFECTIVE DATE”).
+* This Agreement is made between the Broad Institute, Inc. with a principal address at 415 Main Street, Cambridge, MA 02142 ("BROAD") and the LICENSEE and is effective at the date the downloading is completed ("EFFECTIVE DATE").
 * 
 * WHEREAS, LICENSEE desires to license the PROGRAM, as defined hereinafter, and BROAD wishes to have this PROGRAM utilized in the public interest, subject only to the royalty-free, nonexclusive, nontransferable license rights of the United States Government pursuant to 48 CFR 52.227-14; and
 * WHEREAS, LICENSEE desires to license the PROGRAM and BROAD desires to grant a license on the following terms and conditions.
@@ -21,11 +21,11 @@
 * 2.3 License Limitations. Nothing in this Agreement shall be construed to confer any rights upon LICENSEE by implication, estoppel, or otherwise to any computer software, trademark, intellectual property, or patent rights of BROAD, or of any other entity, except as expressly granted herein. LICENSEE agrees that the PROGRAM, in whole or part, shall not be used for any commercial purpose, including without limitation, as the basis of a commercial software or hardware product or to provide services. LICENSEE further agrees that the PROGRAM shall not be copied or otherwise adapted in order to circumvent the need for obtaining a license for use of the PROGRAM.
 * 
 * 3. PHONE-HOME FEATURE
-* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system (“PHONE-HOME”) which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE’S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
+* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system ("PHONE-HOME") which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE’S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
-* Copyright 2012-2014 Broad Institute, Inc.
+* Copyright 2012-2016 Broad Institute, Inc.
 * Notice of attribution: The GATK3 program was made available through the generosity of Medical and Population Genetics program at the Broad Institute, Inc.
 * LICENSEE shall not use any trademark or trade name of BROAD, or any variation, adaptation, or abbreviation, of such marks or trade names, or any names of officers, faculty, students, employees, or agents of BROAD except as states above for attribution purposes.
 * 
@@ -49,58 +49,92 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.cancer.mutect;
+package org.broadinstitute.gatk.tools.walkers.cancer.m2
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.io.File
 
-/**
- * Collection of Statistical methods and tests used by MuTect
- */
-public class MuTectStats {
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.function.CommandLineFunction
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.utils.commandline.{Input, Output}
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 
-    public static double calculateMAD(ArrayList<Double> dd, double median) {
-        ArrayList<Double> dev = new ArrayList<>(dd.size());
-        for(int i=0; i<dd.size(); i++) {
-            dev.set(i, Math.abs(dd.get(i) - median));
-        }
-        return getMedian(dev);
+import scala.collection.mutable.ListBuffer
 
+class create_M2_pon extends QScript {
+
+  @Argument(shortName = "bams", required = true, doc = "file of all BAM files")
+  var allBams: String = ""
+
+  @Argument(shortName = "o", required = true, doc = "Output prefix")
+  var outputPrefix: String = ""
+
+  @Argument(shortName = "minN", required = false, doc = "minimum number of sample observations to include in PON")
+  var minN: Int = 2
+
+  @Argument(doc="Reference fasta file to process with", fullName="reference", shortName="R", required=false)
+  var reference = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
+
+  @Argument(doc="Intervals file to process with", fullName="intervals", shortName="L", required=true)
+  var intervals : File = ""
+
+  @Argument(shortName = "sc", required = false, doc = "base scatter count")
+  var scatter: Int = 10
+
+
+  def script() {
+    val bams = QScriptUtils.createSeqFromFile(allBams)
+    val genotypesVcf = outputPrefix + ".genotypes.vcf"
+    val finalVcf = outputPrefix + ".vcf"
+
+    val perSampleVcfs = new ListBuffer[File]()
+    for (bam <- bams) {
+      val outputVcf = "sample-vcfs/" + bam.getName + ".vcf"
+      add( createM2Config(bam, outputVcf))
+      perSampleVcfs += outputVcf
     }
 
-    public static double getMedian(ArrayList<Double> data) {
-        Collections.sort(data);
-        Double result;
+    val cv = new CombineVariants()
+    cv.reference_sequence = reference
+    cv.memoryLimit = 2
+    cv.setKey = "null"
+    cv.minimumN = minN
+    cv.memoryLimit = 16
+    cv.filteredrecordsmergetype = FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    cv.filteredAreUncalled = true
+    cv.variant = perSampleVcfs
+    cv.out = genotypesVcf
 
-        if (data.size() % 2 == 1) {
-            // If the number of entries in the list is not even.
+    // using this instead of "sites_only" because we want to keep the AC info
+    val vc = new VcfCutter()
+    vc.inVcf = genotypesVcf
+    vc.outVcf = finalVcf
 
-            // Get the middle value.
-            // You must floor the result of the division to drop the
-            // remainder.
-            result = data.get((int) Math.floor(data.size()/2) );
+    add (cv, vc)
 
-        } else {
-            // If the number of entries in the list are even.
+  }
 
-            // Get the middle two values and average them.
-            Double lowerMiddle = data.get(data.size()/2 );
-            Double upperMiddle = data.get(data.size()/2 - 1 );
-            result = (lowerMiddle + upperMiddle) / 2;
-        }
 
-        return result;
-    }
+  def createM2Config(bam : File, outputVcf : File): org.broadinstitute.gatk.queue.extensions.gatk.MuTect2 = {
+    val mutect2 = new org.broadinstitute.gatk.queue.extensions.gatk.MuTect2
 
-    public static double[] convertIntegersToDoubles(List<Integer> integers)
-    {
-        double[] ret = new double[integers.size()];
-        for (int i=0; i < ret.length; i++)
-        {
-            ret[i] = integers.get(i);
-        }
-        return ret;
-    }
+    mutect2.reference_sequence = reference
+    mutect2.artifact_detection_mode = true
+    mutect2.intervalsString :+= intervals
+    mutect2.memoryLimit = 2
+    mutect2.input_file = List(new TaggedFile(bam, "tumor"))
+
+    mutect2.scatterCount = scatter
+    mutect2.out = outputVcf
+
+    mutect2
+  }
+}
+
+class VcfCutter extends CommandLineFunction {
+  @Input(doc = "vcf to cut") var inVcf: File = _
+  @Output(doc = "output vcf") var outVcf: File = _
+
+  def commandLine = "cat %s | cut -f1-8 > %s".format(inVcf, outVcf)
 }
