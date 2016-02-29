@@ -51,6 +51,9 @@
 
 package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
+import htsjdk.variant.variantcontext.writer.VariantContextWriter;
+import org.broadinstitute.gatk.engine.GATKVCFUtils;
+import org.broadinstitute.gatk.tools.walkers.na12878kb.core.TruthStatus;
 import org.broadinstitute.gatk.utils.GenomeLoc;
 import org.broadinstitute.gatk.utils.Utils;
 import org.broadinstitute.gatk.utils.commandline.Argument;
@@ -70,6 +73,7 @@ import org.broadinstitute.gatk.tools.walkers.na12878kb.core.NA12878DBArgumentCol
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.SiteIterator;
 import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.gatk.utils.R.RScriptExecutor;
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils;
 
 import java.io.*;
 import java.util.*;
@@ -110,11 +114,31 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
     @Argument(fullName="requireReviewed", shortName = "requireReviewed", doc="If specified will only use reviewed sites in the knowledgebase for the assessment", required=false)
     public boolean REQUIRE_REVIEWED = false;
 
+    /**
+     * Unknown sites in the knowledgebase (like unreviewed Mills sites) are likely to be true positives and will be counted as such if this argument is used.
+     * The UNKNOWN status indicates that the variant has been seen in someone, but it is unknown if this variant is in NA12878.
+     * This argument must be specified in order to achieve concordance of TPs and FPs with AssessNA12878
+     */
+    @Argument(fullName="includeUnknownTruthSites", shortName = "includeUnknowns", doc="If specified, sites that are listed as UNKNOWN in the knowledgebase will be counted as TPs")
+    public boolean includeUnknowns = false;
+
     @Argument(fullName="highConfidenceMode", shortName = "hiConf", doc="The name of the database that should be used if running within a high confidence region given by -L", required=false)
     public String hiConf = null;
 
+    @Argument(fullName="sampleNameToCompare", shortName = "sample", doc="Specifies the sample name in the VCF that will be compared to the knowledgebase.", required=false)
+    public String sampleNameToCompare = "NA12878";
+
     @Output(fullName="plotFiles", shortName="plotFiles", doc="The base name of two plots files (TP vs FP counts and ratio) output by the R-script", required=false, defaultToStdout=false)
     private static String PLOTS_BASENAME = null;
+
+    @Argument(fullName="maxToWrite", shortName = "maxToWrite", doc="Max. number of bad sites to write out", required=false)
+    public int maxToWrite = 100_000_000;
+
+    /**
+     * An output VCF file containing the used sites (TP/FP) that were found in the input callset w.r.t. the current NA12878 knowledge base
+     */
+    @Output(fullName = "rocSites", shortName = "rocSites", doc="VCF file containing information on TP/FPss in the input callset", required=false, defaultToStdout=false)
+    public VariantContextWriter rocSites = null;
 
     private SiteIterator<MongoVariantContext> siteIterator;
     private List<ROCDatum> data = new ArrayList<>();
@@ -124,9 +148,17 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
         return NA12878DBArgumentCollection.DBType.PRODUCTION;
     }
 
+    private SitesWriter sitesWriter;
+    private Set<AssessmentType> AssessmentsToExclude;
+
+
     @Override
     public void initialize() {
         super.initialize();
+
+        AssessmentsToExclude = new HashSet<>();
+        AssessmentsToExclude.add(AssessmentType.FALSE_NEGATIVE);
+        AssessmentsToExclude.add(AssessmentType.TRUE_NEGATIVE);
 
         if(hiConf!=null){
             if(db.getCallSet(hiConf)==null){
@@ -148,6 +180,12 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
             Utils.warnUser(logger, String.format(
                     "Rscript %s not found in environment path. Plots %s will not be generated.",
                     PLOT_RSCRIPT, PLOTS_BASENAME));
+
+        if (rocSites == null)
+            sitesWriter = SitesWriter.NOOP_WRITER;
+        else
+            sitesWriter = new AllSitesWriter(maxToWrite, AssessmentsToExclude, rocSites);
+        sitesWriter.initialize(GATKVCFUtils.getHeaderFields(getToolkit()));
     }
 
     @Override
@@ -159,27 +197,46 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
         List<MongoVariantContext> kbSitesAtThisLoc = siteIterator.getSitesAtLocation(context.getLocation());
         // Does this input site overlap a KB site
         for( final MongoVariantContext cs : kbSitesAtThisLoc ) {
+            TruthStatus csType = cs.getType();
             //Check if we are in hiConf mode that this MongoVariantContext is from the correct callSet
             if(hiConf!=null && !cs.getSupportingCallSets().contains(hiConf)){
                 continue;
             }
 
             // Is it either a SNP or indel and is it marked as either a true positive or false positive
-            if( (cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive()) ) {
+            if( (cs.getVariantContext().isSNP() || cs.getVariantContext().isIndel()) && (cs.getType().isTruePositive() || cs.getType().isFalsePositive()) || (includeUnknowns && cs.getType().isUnknown()) ) {
                 if( !REQUIRE_REVIEWED || cs.isReviewed() ) {
                     boolean foundMatchingAllele = false;
-                    for ( final VariantContext vc : tracker.getValues(variants, ref.getLocus()) ) {
-                        // Do the alleles match between the input site and the KB site
-                        if( cs.getVariantContext().hasSameAllelesAs(vc) ) {
-                            foundMatchingAllele = true;
-                            data.add( new ROCDatum( cs.getType().isTruePositive(), cs.getVariantContext().isSNP(), (vc.hasAttribute("VQSLOD") ? vc.getAttributeAsDouble("VQSLOD", Double.NaN) : vc.getPhredScaledQual()), vc.getFiltersMaybeNull() ) );
+                    for ( final VariantContext vcRaw : tracker.getValues(variants, ref.getLocus()) ) {
+                        //for either true positives for false positives, this call isn't a "positive" at all if it's homRef in NA12878
+                        if (!vcRaw.hasGenotypes() || !vcRaw.hasGenotype(sampleNameToCompare) || vcRaw.getGenotype(sampleNameToCompare).isHomRef() || vcRaw.getGenotype(sampleNameToCompare).isNoCall())
+                            continue;
+                        VariantContext vcTrimmed = GATKVariantContextUtils.trimAlleles(vcRaw.subContextFromSample(sampleNameToCompare), false, true);
+                        Set<VariantContext> biallelics = new HashSet<>();
+                        for (final VariantContext biallelic : GATKVariantContextUtils.splitVariantContextToBiallelics(vcTrimmed, true, GATKVariantContextUtils.GenotypeAssignmentMethod.BEST_MATCH_TO_ORIGINAL)) {
+                            biallelics.add(biallelic);
                         }
-                        // Don't add this unmatched allele to the uncalled Sites because it is actually a false positive in hiConf mode since it exists in
-                        // the input file but not in the KB
-                        if(hiConf!=null){
-                            foundMatchingAllele = true;
+                        for (final VariantContext vc : biallelics) {
+                            // Do the alleles match between the input site and the KB site
+                            if (cs.getVariantContext().hasSameAllelesAs(vc)) {
+                                foundMatchingAllele = true;
+                                if (csType.isTruePositive() && !cs.isMonomorphic() || (includeUnknowns && csType.isUnknown())) {
+                                    data.add(new ROCDatum(true, cs.getVariantContext().isSNP(), (vc.hasAttribute("VQSLOD") ? vc.getAttributeAsDouble("VQSLOD", Double.NaN) : vc.getPhredScaledQual()), vc.getFiltersMaybeNull()));
+                                    sitesWriter.notifyOfSite(AssessmentType.TRUE_POSITIVE, vc, cs);
+                                } else if (csType.isFalsePositive() || (csType.isTruePositive() && cs.isMonomorphic())) {
+                                    data.add(new ROCDatum(false, cs.getVariantContext().isSNP(), (vc.hasAttribute("VQSLOD") ? vc.getAttributeAsDouble("VQSLOD", Double.NaN) : vc.getPhredScaledQual()), vc.getFiltersMaybeNull()));
+                                    sitesWriter.notifyOfSite(AssessmentType.FALSE_POSITIVE, vc, cs);
+                                }
+                                //unknown, discordant, and suspect consensus sites won't be counted in the ROC curve data (unknowns are counted if the appropriate arg is specified)
+                            }
+                            // Don't add this unmatched allele to the uncalled Sites because it is actually a false positive in hiConf mode since it exists in
+                            // the input file but not in the KB
+                            if (hiConf != null) {
+                                foundMatchingAllele = true;
+                            }
                         }
                     }
+                    //TODO: uncalled sites may be a little off when there are het-non-ref genotypes (i.e. 1/2s)
                     if (!foundMatchingAllele) {
                         uncalledSites[cs.getVariantContext().isSNP() ? SNP_INDEX : INDEL_INDEX][cs.getType().isTruePositive() ? TP_INDEX : FP_INDEX]++;
                     }
