@@ -227,7 +227,7 @@ public class ROCCurveNA12878 extends NA12878DBWalker {
                                     data.add(new ROCDatum(false, cs.getVariantContext().isSNP(), (vc.hasAttribute("VQSLOD") ? vc.getAttributeAsDouble("VQSLOD", Double.NaN) : vc.getPhredScaledQual()), vc.getFiltersMaybeNull()));
                                     sitesWriter.notifyOfSite(AssessmentType.FALSE_POSITIVE, vc, cs);
                                 }
-                                //unknown, discordant, and suspect consensus sites won't be counted in the ROC curve data (unknowns are counted if the appropriate arg is specified)
+                                //sites with TruthStatus of SUSPECT or DISCORDANT will never be counted and UNKNOWN consensus sites won't be counted by default (see the includeUnknowns arg)
                             }
                             // Don't add this unmatched allele to the uncalled Sites because it is actually a false positive in hiConf mode since it exists in
                             // the input file but not in the KB
