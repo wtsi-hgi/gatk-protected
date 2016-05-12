@@ -1,6 +1,6 @@
 #!/bin/tcsh
 
-use Java-1.7
+use Java-1.8
 
 set args = ""
 
