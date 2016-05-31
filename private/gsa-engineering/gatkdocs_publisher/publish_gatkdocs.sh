@@ -4,7 +4,7 @@
 #
 
 WEB_SERVER="gsaweb"
-GATKDOCS_LIVE_DIR="/local/htdocs/gatk/guide/tooldocs"
+GATKDOCS_LIVE_DIR="/local/htdocs/gatk/documentation/tooldocs"
 GATKDOCS_STAGING_DIR="/local/htdocs/staging/gatkdocs"
 GATKDOCS_LOCAL_DIR="target/gatkdocs"
 TEMP_MAVEN_REPO="tmp_mvn_repo"
@@ -13,8 +13,8 @@ TEMP_DIR="tmp"
 mkdir "${TEMP_DIR}"
 
 mvn clean && \
-mvn install "-Dmaven.repo.local=${TEMP_MAVEN_REPO}" '-P!private,!queue' -Ddisable.queue "-Djava.io.tmpdir=${TEMP_DIR}" && \
-mvn site "-Dmaven.repo.local=${TEMP_MAVEN_REPO}" '-P!private,!queue' -Ddisable.queue "-Djava.io.tmpdir=${TEMP_DIR}"
+mvn install "-Dmaven.repo.local=${TEMP_MAVEN_REPO}" '-P!private,!queue' -Ddisable.queue "-Djava.io.tmpdir=${TEMP_DIR}" -Dgatkdocs.extension=php && \
+mvn site "-Dmaven.repo.local=${TEMP_MAVEN_REPO}" '-P!private,!queue' -Ddisable.queue "-Djava.io.tmpdir=${TEMP_DIR}" -Dgatkdocs.extension=php
 
 if [ $? -ne 0 ]
 then
