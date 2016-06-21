@@ -353,7 +353,8 @@ public class CombineSampleData extends RodWalker<Integer,Integer> {
         gBuilder.DP(DPsum);
 
         gBuilder.name(sampleName);
-        GATKVariantContextUtils.updateGenotypeAfterSubsetting(fullestGenotype.getAlleles(), gBuilder,
+        // assume ploidy = 2
+        GATKVariantContextUtils.updateGenotypeAfterSubsetting(fullestGenotype.getAlleles(), 2, gBuilder,
                 GATKVariantContextUtils.GenotypeAssignmentMethod.USE_PLS_TO_ASSIGN, GenotypeLikelihoods.fromPLs(PLsum).getAsVector(), vc.getAlleles());
 
         return gBuilder.make();
