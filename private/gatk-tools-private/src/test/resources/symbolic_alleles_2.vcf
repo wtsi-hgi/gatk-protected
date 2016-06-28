@@ -16,8 +16,8 @@
 ##INFO=<ID=HOMLEN,Number=1,Type=Integer,Description="Length of base pair identical micro-homology at event breakpoints">
 ##INFO=<ID=HOMSEQ,Number=1,Type=String,Description="Sequence of base pair identical micro-homology at event breakpoints">
 ##INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Imprecise structural variation">
-##INFO=<ID=MEINFO,Number=4,Type=String,Description="Mobile element info of the form NAME>
-##INFO=<ID=METRANS,Number=4,Type=String,Description="Mobile element transduction info of the form CHR>
+##INFO=<ID=MEINFO,Number=4,Type=String,Description="Mobile element info of the form NAME">
+##INFO=<ID=METRANS,Number=4,Type=String,Description="Mobile element transduction info of the form CHR">
 ##INFO=<ID=NOVEL,Number=0,Type=Flag,Description="Indicates a novel structural variation">
 ##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Difference in length between REF and ALT alleles">
 ##INFO=<ID=SVMETHOD,Number=.,Type=String,Description="Type of approach used to detect SV: RP (read pair), RD (read depth), SR (split read), or AS (assembly)">
