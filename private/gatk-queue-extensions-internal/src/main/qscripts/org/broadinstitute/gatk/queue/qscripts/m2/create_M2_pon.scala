@@ -21,7 +21,7 @@
 * 2.3 License Limitations. Nothing in this Agreement shall be construed to confer any rights upon LICENSEE by implication, estoppel, or otherwise to any computer software, trademark, intellectual property, or patent rights of BROAD, or of any other entity, except as expressly granted herein. LICENSEE agrees that the PROGRAM, in whole or part, shall not be used for any commercial purpose, including without limitation, as the basis of a commercial software or hardware product or to provide services. LICENSEE further agrees that the PROGRAM shall not be copied or otherwise adapted in order to circumvent the need for obtaining a license for use of the PROGRAM.
 * 
 * 3. PHONE-HOME FEATURE
-* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system ("PHONE-HOME") which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE'S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
+* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system ("PHONE-HOME") which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE’S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
@@ -49,41 +49,92 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.queue.qscripts.dev
+package org.broadinstitute.gatk.tools.walkers.cancer.m2
+
+import java.io.File
 
 import org.broadinstitute.gatk.queue.QScript
 import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.function.CommandLineFunction
+import org.broadinstitute.gatk.queue.util.QScriptUtils
+import org.broadinstitute.gatk.utils.commandline.{Input, Output}
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
 
-class run_M2_dream extends QScript {
+import scala.collection.mutable.ListBuffer
 
-  @Argument(shortName = "L",  required=false, doc = "Intervals file")
-  var intervalsFile: List[File] = Nil
-  @Argument(shortName = "normal",  required=true, doc = "Normal sample BAM")
-  var normalBAM: String = ""
-  @Argument(shortName = "tumor", required=true, doc = "Tumor sample BAM")
-  var tumorBAM: String = ""
-  @Argument(shortName = "o",  required=true, doc = "Output file")
-  var outputFile: String = ""
-  @Argument(shortName = "sc",  required=false, doc = "base scatter count")
-  var scatter: Int = 10 
+class create_M2_pon extends QScript {
+
+  @Argument(shortName = "bams", required = true, doc = "file of all BAM files")
+  var allBams: String = ""
+
+  @Argument(shortName = "o", required = true, doc = "Output prefix")
+  var outputPrefix: String = ""
+
+  @Argument(shortName = "minN", required = false, doc = "minimum number of sample observations to include in PON")
+  var minN: Int = 2
+
+  @Argument(doc="Reference fasta file to process with", fullName="reference", shortName="R", required=false)
+  var reference = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
+
+  @Argument(doc="Intervals file to process with", fullName="intervals", shortName="L", required=true)
+  var intervals : File = ""
+
+  @Argument(shortName = "sc", required = false, doc = "base scatter count")
+  var scatter: Int = 10
 
 
-    def script() {
+  def script() {
+    val bams = QScriptUtils.createSeqFromFile(allBams)
+    val genotypesVcf = outputPrefix + ".genotypes.vcf"
+    val finalVcf = outputPrefix + ".vcf"
 
-    val mutect2 = new MuTect2
+    val perSampleVcfs = new ListBuffer[File]()
+    for (bam <- bams) {
+      val outputVcf = "sample-vcfs/" + bam.getName + ".vcf"
+      add( createM2Config(bam, outputVcf))
+      perSampleVcfs += outputVcf
+    }
 
-    mutect2.reference_sequence = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
-    mutect2.cosmic :+= new File("/xchip/cga/reference/hg19/hg19_cosmic_v54_120711.vcf")
-    mutect2.dbsnp = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.vcf")
-    mutect2.normal_panel :+= new File("/xchip/cga/reference/hg19/wgs_hg19_125_cancer_blood_normal_panel.vcf")
+    val cv = new CombineVariants()
+    cv.reference_sequence = reference
+    cv.memoryLimit = 2
+    cv.setKey = "null"
+    cv.minimumN = minN
+    cv.memoryLimit = 16
+    cv.filteredrecordsmergetype = FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    cv.filteredAreUncalled = true
+    cv.variant = perSampleVcfs
+    cv.out = genotypesVcf
 
-    mutect2.intervalsString = intervalsFile
-    mutect2.memoryLimit = 2
-    mutect2.input_file = List(new TaggedFile(normalBAM, "normal"), new TaggedFile(tumorBAM, "tumor"))
+    // using this instead of "sites_only" because we want to keep the AC info
+    val vc = new VcfCutter()
+    vc.inVcf = genotypesVcf
+    vc.outVcf = finalVcf
 
-    mutect2.scatterCount = scatter
-    mutect2.out = outputFile
-    add(mutect2)
+    add (cv, vc)
+
   }
 
+
+  def createM2Config(bam : File, outputVcf : File): org.broadinstitute.gatk.queue.extensions.gatk.MuTect2 = {
+    val mutect2 = new org.broadinstitute.gatk.queue.extensions.gatk.MuTect2
+
+    mutect2.reference_sequence = reference
+    mutect2.artifact_detection_mode = true
+    mutect2.intervalsString :+= intervals
+    mutect2.memoryLimit = 2
+    mutect2.input_file = List(new TaggedFile(bam, "tumor"))
+
+    mutect2.scatterCount = scatter
+    mutect2.out = outputVcf
+
+    mutect2
+  }
+}
+
+class VcfCutter extends CommandLineFunction {
+  @Input(doc = "vcf to cut") var inVcf: File = _
+  @Output(doc = "output vcf") var outVcf: File = _
+
+  def commandLine = "cat %s | cut -f1-8 > %s".format(inVcf, outVcf)
 }

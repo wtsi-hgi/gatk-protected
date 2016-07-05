@@ -21,7 +21,7 @@
 * 2.3 License Limitations. Nothing in this Agreement shall be construed to confer any rights upon LICENSEE by implication, estoppel, or otherwise to any computer software, trademark, intellectual property, or patent rights of BROAD, or of any other entity, except as expressly granted herein. LICENSEE agrees that the PROGRAM, in whole or part, shall not be used for any commercial purpose, including without limitation, as the basis of a commercial software or hardware product or to provide services. LICENSEE further agrees that the PROGRAM shall not be copied or otherwise adapted in order to circumvent the need for obtaining a license for use of the PROGRAM.
 * 
 * 3. PHONE-HOME FEATURE
-* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system ("PHONE-HOME") which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE'S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
+* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system ("PHONE-HOME") which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE’S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
@@ -49,104 +49,54 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.tools.walkers.cancer.m2;
+package org.broadinstitute.gatk.queue.qscripts.dev
 
-import org.broadinstitute.gatk.tools.walkers.haplotypecaller.AssemblyBasedCallerArgumentCollection;
-import org.broadinstitute.gatk.utils.commandline.Advanced;
-import org.broadinstitute.gatk.utils.commandline.Argument;
-import org.broadinstitute.gatk.utils.commandline.Hidden;
+import org.broadinstitute.gatk.queue.QScript
+import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.queue.util.QScriptUtils
 
-public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection {
-    @Advanced
-    @Argument(fullName="m2debug", shortName="m2debug", doc="Print out very verbose M2 debug information", required = false)
-    public boolean M2_DEBUG = false;
+class run_M2_ICE_NN extends QScript {
 
-    /**
-     * Artifact detection mode is used to prepare a panel of normals. This maintains the specified tumor LOD threshold,
-     * but disables the remaining pragmatic filters. See usage examples above for more information.
-     */
-    @Advanced
-    @Argument(fullName = "artifact_detection_mode", required = false, doc="Enable artifact detection for creating panels of normals")
-    public boolean ARTIFACT_DETECTION_MODE = false;
+  @Argument(shortName = "bams", required = true, doc = "file of all BAM files")
+  var allBams: String = ""
 
-    /**
-     * This is the LOD threshold that a variant must pass in the tumor to be emitted to the VCF. Note that the variant may pass this threshold yet still be annotated as FILTERed based on other criteria.
-     */
-    @Argument(fullName = "initial_tumor_lod", required = false, doc = "Initial LOD threshold for calling tumor variant")
-    public double INITIAL_TUMOR_LOD_THRESHOLD = 4.0;
+  @Argument(shortName = "o", required = false, doc = "Output prefix")
+  var outputPrefix: String = ""
 
-    /**
-     * This is the LOD threshold corresponding to the minimum amount of reference evidence in the normal for a variant to be considered somatic and emitted in the VCF
-     */
-    @Argument(fullName = "initial_normal_lod", required = false, doc = "Initial LOD threshold for calling normal variant")
-    public double INITIAL_NORMAL_LOD_THRESHOLD = 0.5;
+  @Argument(shortName = "pon", required = false, doc = "Normal PON")
+  var panelOfNormals: String = "/dsde/working/mutect/panel_of_normals/panel_of_normals_m2_ice_wgs_territory/m2_406_ice_normals_wgs_calling_regions.vcf";
 
-    /**
-     * Only variants with tumor LODs exceeding this threshold can pass filtering.
-     */
-    @Argument(fullName = "tumor_lod", required = false, doc = "LOD threshold for calling tumor variant")
-    public double TUMOR_LOD_THRESHOLD = 6.3;
+  @Argument(shortName = "sc", required = false, doc = "base scatter count")
+  var scatter: Int = 10
 
-    /**
-     * This is a measure of the minimum evidence to support that a variant observed in the tumor is not also present in the normal.
-     */
-    @Argument(fullName = "normal_lod", required = false, doc = "LOD threshold for calling normal non-germline")
-    public double NORMAL_LOD_THRESHOLD = 2.2;
 
-    /**
-     * The LOD threshold for the normal is typically made more strict if the variant has been seen in dbSNP (i.e. another
-     * normal sample). We thus require MORE evidence that a variant is NOT seen in this tumor's normal if it has been observed as a germline variant before.
-     */
-    @Argument(fullName = "dbsnp_normal_lod", required = false, doc = "LOD threshold for calling normal non-variant at dbsnp sites")
-    public double NORMAL_DBSNP_LOD_THRESHOLD = 5.5;
+  def script() {
+    val bams = QScriptUtils.createSeqFromFile(allBams)
 
-    /**
-     * This argument is used for the internal "alt_allele_in_normal" filter.
-     * A variant will PASS the filter if the value tested is lower or equal to the threshold value. It will FAIL the filter if the value tested is greater than the max threshold value.
-     **/
-    @Argument(fullName = "max_alt_alleles_in_normal_count", required = false, doc="Threshold for maximum alternate allele counts in normal")
-    public int MAX_ALT_ALLELES_IN_NORMAL_COUNT = 1;
+    for (tumor <- bams) {
+      for (normal <- bams) {
+        if (tumor != normal) add( createM2Config(tumor, normal, new File(panelOfNormals), outputPrefix))
+      }
+    }
+  }
 
-    /**
-     * This argument is used for the internal "alt_allele_in_normal" filter.
-     * A variant will PASS the filter if the value tested is lower or equal to the threshold value. It will FAIL the filter if the value tested is greater than the max threshold value.
-     */
-    @Argument(fullName = "max_alt_alleles_in_normal_qscore_sum", required = false, doc="Threshold for maximum alternate allele quality score sum in normal")
-    public int MAX_ALT_ALLELES_IN_NORMAL_QSCORE_SUM = 20;
 
-    /**
-     * This argument is used for the internal "alt_allele_in_normal" filter.
-     * A variant will PASS the filter if the value tested is lower or equal to the threshold value. It will FAIL the filter if the value tested is greater than the max threshold value.
-     */
-    @Argument(fullName = "max_alt_allele_in_normal_fraction", required = false, doc="Threshold for maximum alternate allele fraction in normal")
-    public double MAX_ALT_ALLELE_IN_NORMAL_FRACTION = 0.03;
+  def createM2Config(tumorBAM : File, normalBAM : File, panelOfNormals : File, outputPrefix : String): M2 = {
+    val mutect2 = new MuTect2
 
-    /**
-     * This argument is used for the M1-style strand bias filter
-     */
-    @Argument(fullName="power_constant_qscore", doc="Phred scale quality score constant to use in power calculations", required=false)
-    public int POWER_CONSTANT_QSCORE = 30;
+    mutect2.reference_sequence = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
+    mutect2.cosmic :+= new File("/xchip/cga/reference/hg19/hg19_cosmic_v54_120711.vcf")
+    mutect2.dbsnp = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.vcf")
+    mutect2.normal_panel :+= panelOfNormals
 
-    @Hidden
-    @Argument(fullName = "strand_artifact_lod", required = false, doc = "LOD threshold for calling strand bias")
-    public float STRAND_ARTIFACT_LOD_THRESHOLD = 2.0f;
+    mutect2.intervalsString :+= new File("/dsde/working/mutect/crsp_nn/whole_exome_illumina_coding_v1.Homo_sapiens_assembly19.targets.no_empty.interval_list")
+    mutect2.memoryLimit = 2
+    mutect2.input_file = List(new TaggedFile(normalBAM, "normal"), new TaggedFile(tumorBAM, "tumor"))
 
-    @Hidden
-    @Argument(fullName = "strand_artifact_power_threshold", required = false, doc = "power threshold for calling strand bias")
-    public float STRAND_ARTIFACT_POWER_THRESHOLD = 0.9f;
+    mutect2.scatterCount = scatter
+    mutect2.out = outputPrefix + tumorBAM.getName + "-vs-" + normalBAM.getName + ".vcf"
 
-    @Argument(fullName = "enable_strand_artifact_filter", required = false, doc = "turn on strand artifact filter")
-    public boolean ENABLE_STRAND_ARTIFACT_FILTER = false;
-
-    /**
-     * This argument is used for the M1-style read position filter
-     */
-    @Argument(fullName = "pir_median_threshold", required = false, doc="threshold for clustered read position artifact median")
-    public double PIR_MEDIAN_THRESHOLD = 10;
-
-    /**
-     * This argument is used for the M1-style read position filter
-     */
-    @Argument(fullName = "pir_mad_threshold", required = false, doc="threshold for clustered read position artifact MAD")
-    public double PIR_MAD_THRESHOLD = 3;
+    println("Adding " + tumorBAM + " vs " + normalBAM + " as " + mutect2.out)
+    mutect2
+  }
 }

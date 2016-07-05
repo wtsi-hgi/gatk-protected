@@ -21,7 +21,7 @@
 * 2.3 License Limitations. Nothing in this Agreement shall be construed to confer any rights upon LICENSEE by implication, estoppel, or otherwise to any computer software, trademark, intellectual property, or patent rights of BROAD, or of any other entity, except as expressly granted herein. LICENSEE agrees that the PROGRAM, in whole or part, shall not be used for any commercial purpose, including without limitation, as the basis of a commercial software or hardware product or to provide services. LICENSEE further agrees that the PROGRAM shall not be copied or otherwise adapted in order to circumvent the need for obtaining a license for use of the PROGRAM.
 * 
 * 3. PHONE-HOME FEATURE
-* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system ("PHONE-HOME") which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE’S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
+* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system ("PHONE-HOME") which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE'S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
@@ -49,133 +49,32 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.tools.walkers.cancer.m2;
 
-import org.broadinstitute.gatk.queue.QScript
-import org.broadinstitute.gatk.queue.extensions.gatk._
-import org.broadinstitute.gatk.engine.phonehome.GATKRunReport
-import org.broadinstitute.gatk.queue.util.QScriptUtils
-import org.broadinstitute.gatk.queue.function._
-import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
-import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
-import htsjdk.variant.variantcontext.VariantContext
-import org.broadinstitute.gatk.utils.commandline.ClassType
-import org.broadinstitute.gatk.utils.commandline.Argument
-import org.broadinstitute.gatk.utils.commandline.Input
-import org.broadinstitute.gatk.utils.commandline.Output
-import scala.sys.process._
-import java.nio.file.{Paths, Files}
-import java.nio.charset.StandardCharsets
-import java.io._
-import scala.io.Source
+import org.testng.annotations.Test;
 
+import static org.testng.Assert.*;
 
-class ReportMaker extends InProcessFunction {
-	@Input
-	var V: List[File] = Nil
-	@Output
-	var outputFile: File = _
+/**
+ * Created by tsato on 6/19/16.
+ */
+public class TumorPowerCalculatorTest {
 
-	@Argument(shortName = "ind", required = true, doc = "current sample index")
-	var sampleIndex: Int = _
-	@Argument(shortName = "snpCounts", required=true)
-	var truthSnpCounts: File = new File("")
-	@Argument(shortName = "indelCounts", required=true)
-	var truthIndelCounts: File = new File("")
-
-	def run {
-	var truthSnpList = io.Source.fromFile(truthSnpCounts).getLines.toList 
-	var truthIndelList = io.Source.fromFile(truthIndelCounts).getLines.toList 
-	var foundSnpCount = 0
-	var foundIndelCount = 0
-	var truthSnpCount = 0
-	var truthIndelCount = 0
-
-	for (sampleIndex <- 0 until V.size) {
-		val inFile = V(sampleIndex)		
-		foundSnpCount = foundSnpCount + ("grep -c SNP" #< inFile #| "tr -d \'\\n\'" !!).stripLineEnd.toInt
-		foundIndelCount = foundIndelCount + ("grep -c INDEL" #<  inFile #| "tr -d \\n" !!).stripLineEnd.toInt
-		truthSnpCount = truthSnpCount + truthSnpList(sampleIndex).toInt
-		truthIndelCount = truthIndelCount + truthIndelList(sampleIndex).toInt
-	}
-	val text = "Sensitivity across all samples:\n" + "SNPs: " + foundSnpCount.toFloat/truthSnpCount + "\n" + "INDELs: " + foundIndelCount.toFloat/truthIndelCount + "\n"
-	val bw = new BufferedWriter(new FileWriter(outputFile))
-	bw.write(text)
-	bw.close()	
-
-	}
-}
-
-class Qscript_runHapMapPlex extends QScript {
-
-  @Argument(shortName = "intervals",  required=true, doc = "Intervals file")
-  var intervalsFile: File = new File("")
-  @Argument(shortName = "normals",  required=false, doc = "Normal sample BAM")
-  var normalBAM:File = new File("") 
-  @Argument(shortName = "tumors", required=true, doc = "Tumor sample BAM")
-  var tumorBAM:File = new File("")
-  @Argument(shortName = "truthVCF", required=true, doc = "Truth data VCF")
-  var truthVCF: File = new File("") 
-  @Argument(shortName = "snpCounts", required=true, doc = "Truth SNP counts")
-  var truthSnpCounts: File = new File("")
-  @Argument(shortName = "indelCounts", required=true, doc = "Truth INDEL counts")
-  var truthIndelCounts: File = new File("")
-  @Argument(shortName = "o",  required=true, doc = "Output report file")
-  var outputFile: String = _
-  @Argument(shortName = "sc",  required=false, doc = "base scatter count")
-  var scatter: Int = 1 
-
-
-    def script() {
-
-    	val tumorFiles = QScriptUtils.createSeqFromFile(tumorBAM)
-	var printReport = new ReportMaker
-	printReport.outputFile = outputFile
-	printReport.truthSnpCounts = this.truthSnpCounts
-	printReport.truthIndelCounts = this.truthIndelCounts
-	for (sampleIndex <- 0 until tumorFiles.size) {
-		val m2 = mutect2(tumorFiles(sampleIndex), normalBAM, intervalsFile)
-		add(m2)
-		val overlap = concordance(m2.out, truthVCF)
-		add(overlap)
-		val table = makeTable(overlap.out) 
-		add(table)
-		printReport.V :+= table.out
-	}
-	add(printReport)
-}
-
-    case class mutect2(tumorFile: File, normalFile: File, intervalFile: File)  extends M2 { 
-
-    this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
-    this.cosmic :+= new File("/home/unix/gauthier/workspaces/MuTect/b37_cosmic_v54_120711.vcf")
-    this.dbsnp = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.vcf")
-    this.intervalsString = QScriptUtils.createSeqFromFile(intervalFile)
-    this.memoryLimit = 2
-    this.interval_padding = 50
-    this.input_file = List(new TaggedFile(tumorFile, "tumor"))
-    this.out = swapExt(tumorFile, ".bam", ".vcf")
-    this.scatterCount = scatter
-
-    //this.allowNonUniqueKmersInRef = true
-    //this.minDanglingBranchLength = 2
-    //this.minPruning = 0
-    //this.initial_tumor_lod = 0
-  }
-
-    case class concordance(inFile: File, concFile: File) extends SelectVariants {
-    this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
-    this.V = inFile
-    this.conc = concFile
-    this.out = swapExt(inFile, ".vcf", ".overlap.vcf")
+    private boolean closeEnough(double x, double y, double epsilon){
+        return(Math.abs(x - y) < epsilon);
     }
 
-    case class makeTable(inFile: File) extends VariantsToTable {
-    this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
-    this.V :+= inFile
-    this.F = List("CHROM","POS","REF","ALT","FILTER","TYPE","EVENTLENGTH")
-    this.out = swapExt(inFile, ".vcf", ".table")
-    this.raw = true
+    @Test
+    public void testCachedPowerCalculation() throws Exception {
+        TumorPowerCalculator tpc = new TumorPowerCalculator(0.001, 2.0, 0.0);
+        final double epsilon = 0.0001;
+        assertTrue(closeEnough(tpc.cachedPowerCalculation(100,0.2), 1.0, epsilon));
+        assertTrue(closeEnough(tpc.cachedPowerCalculation(30,0.1), 0.8864, epsilon));
+        assertTrue(closeEnough(tpc.cachedPowerCalculation(0,0.02), 0.0, epsilon));
+        assertTrue(closeEnough(tpc.cachedPowerCalculation(5, 0.01), 0.0520, epsilon));
+
+
     }
 
-}    
+
+}

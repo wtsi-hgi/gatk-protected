@@ -21,7 +21,7 @@
 * 2.3 License Limitations. Nothing in this Agreement shall be construed to confer any rights upon LICENSEE by implication, estoppel, or otherwise to any computer software, trademark, intellectual property, or patent rights of BROAD, or of any other entity, except as expressly granted herein. LICENSEE agrees that the PROGRAM, in whole or part, shall not be used for any commercial purpose, including without limitation, as the basis of a commercial software or hardware product or to provide services. LICENSEE further agrees that the PROGRAM shall not be copied or otherwise adapted in order to circumvent the need for obtaining a license for use of the PROGRAM.
 * 
 * 3. PHONE-HOME FEATURE
-* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system ("PHONE-HOME") which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE'S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
+* LICENSEE expressly acknowledges that the PROGRAM contains an embedded automatic reporting system ("PHONE-HOME") which is enabled by default upon download. Unless LICENSEE requests disablement of PHONE-HOME, LICENSEE agrees that BROAD may collect limited information transmitted by PHONE-HOME regarding LICENSEE and its use of the PROGRAM.  Such information shall include LICENSEE’S user identification, version number of the PROGRAM and tools being run, mode of analysis employed, and any error reports generated during run-time.  Collection of such information is used by BROAD solely to monitor usage rates, fulfill reporting requirements to BROAD funding agencies, drive improvements to the PROGRAM, and facilitate adjustments to PROGRAM-related documentation.
 * 
 * 4. OWNERSHIP OF INTELLECTUAL PROPERTY
 * LICENSEE acknowledges that title to the PROGRAM shall remain with BROAD. The PROGRAM is marked with the following BROAD copyright notice and notice of attribution to contributors. LICENSEE shall retain such notice on all copies. LICENSEE agrees to include appropriate attribution if any results obtained from use of the PROGRAM are included in any publication.
@@ -49,54 +49,132 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.gatk.queue.qscripts.dev
+package org.broadinstitute.sting.queue.qscripts.dev
 
 import org.broadinstitute.gatk.queue.QScript
 import org.broadinstitute.gatk.queue.extensions.gatk._
+import org.broadinstitute.gatk.engine.phonehome.GATKRunReport
 import org.broadinstitute.gatk.queue.util.QScriptUtils
-
-class run_M2_ICE_NN extends QScript {
-
-  @Argument(shortName = "bams", required = true, doc = "file of all BAM files")
-  var allBams: String = ""
-
-  @Argument(shortName = "o", required = false, doc = "Output prefix")
-  var outputPrefix: String = ""
-
-  @Argument(shortName = "pon", required = false, doc = "Normal PON")
-  var panelOfNormals: String = "/dsde/working/mutect/panel_of_normals/panel_of_normals_m2_ice_wgs_territory/m2_406_ice_normals_wgs_calling_regions.vcf";
-
-  @Argument(shortName = "sc", required = false, doc = "base scatter count")
-  var scatter: Int = 10
-
-
-  def script() {
-    val bams = QScriptUtils.createSeqFromFile(allBams)
-
-    for (tumor <- bams) {
-      for (normal <- bams) {
-        if (tumor != normal) add( createM2Config(tumor, normal, new File(panelOfNormals), outputPrefix))
-      }
-    }
-  }
+import org.broadinstitute.gatk.queue.function._
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
+import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
+import htsjdk.variant.variantcontext.VariantContext
+import org.broadinstitute.gatk.utils.commandline.ClassType
+import org.broadinstitute.gatk.utils.commandline.Argument
+import org.broadinstitute.gatk.utils.commandline.Input
+import org.broadinstitute.gatk.utils.commandline.Output
+import scala.sys.process._
+import java.nio.file.{Paths, Files}
+import java.nio.charset.StandardCharsets
+import java.io._
+import scala.io.Source
 
 
-  def createM2Config(tumorBAM : File, normalBAM : File, panelOfNormals : File, outputPrefix : String): M2 = {
-    val mutect2 = new MuTect2
+class ReportMaker extends InProcessFunction {
+	@Input
+	var V: List[File] = Nil
+	@Output
+	var outputFile: File = _
 
-    mutect2.reference_sequence = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
-    mutect2.cosmic :+= new File("/xchip/cga/reference/hg19/hg19_cosmic_v54_120711.vcf")
-    mutect2.dbsnp = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.vcf")
-    mutect2.normal_panel :+= panelOfNormals
+	@Argument(shortName = "ind", required = true, doc = "current sample index")
+	var sampleIndex: Int = _
+	@Argument(shortName = "snpCounts", required=true)
+	var truthSnpCounts: File = new File("")
+	@Argument(shortName = "indelCounts", required=true)
+	var truthIndelCounts: File = new File("")
 
-    mutect2.intervalsString :+= new File("/dsde/working/mutect/crsp_nn/whole_exome_illumina_coding_v1.Homo_sapiens_assembly19.targets.no_empty.interval_list")
-    mutect2.memoryLimit = 2
-    mutect2.input_file = List(new TaggedFile(normalBAM, "normal"), new TaggedFile(tumorBAM, "tumor"))
+	def run {
+		var truthSnpList = io.Source.fromFile(truthSnpCounts).getLines.toList
+		var truthIndelList = io.Source.fromFile(truthIndelCounts).getLines.toList
+		var foundSnpCount = 0
+		var foundIndelCount = 0
+		var truthSnpCount = 0
+		var truthIndelCount = 0
 
-    mutect2.scatterCount = scatter
-    mutect2.out = outputPrefix + tumorBAM.getName + "-vs-" + normalBAM.getName + ".vcf"
+		for (sampleIndex <- 0 until V.size) {
+			val inFile = V(sampleIndex)
+			foundSnpCount = foundSnpCount + ("grep -c SNP" #< inFile #| "tr -d \'\\n\'" !!).stripLineEnd.toInt
+			foundIndelCount = foundIndelCount + ("grep -c INDEL" #<  inFile #| "tr -d \\n" !!).stripLineEnd.toInt
+			truthSnpCount = truthSnpCount + truthSnpList(sampleIndex).toInt
+			truthIndelCount = truthIndelCount + truthIndelList(sampleIndex).toInt
+		}
+		val text = "Sensitivity across all samples:\n" + "SNPs: " + foundSnpCount.toFloat/truthSnpCount + "\n" + "INDELs: " + foundIndelCount.toFloat/truthIndelCount + "\n"
+		val bw = new BufferedWriter(new FileWriter(outputFile))
+		bw.write(text)
+		bw.close()
 
-    println("Adding " + tumorBAM + " vs " + normalBAM + " as " + mutect2.out)
-    mutect2
-  }
+	}
 }
+
+class Qscript_runHapMapPlex extends QScript {
+
+  @Argument(shortName = "intervals",  required=true, doc = "Intervals file")
+  var intervalsFile: File = new File("")
+  @Argument(shortName = "normals",  required=false, doc = "Normal sample BAM")
+  var normalBAM:File = new File("") 
+  @Argument(shortName = "tumors", required=true, doc = "Tumor sample BAM")
+  var tumorBAM:File = new File("")
+  @Argument(shortName = "truthVCF", required=true, doc = "Truth data VCF")
+  var truthVCF: File = new File("") 
+  @Argument(shortName = "snpCounts", required=true, doc = "Truth SNP counts")
+  var truthSnpCounts: File = new File("")
+  @Argument(shortName = "indelCounts", required=true, doc = "Truth INDEL counts")
+  var truthIndelCounts: File = new File("")
+  @Argument(shortName = "o",  required=true, doc = "Output report file")
+  var outputFile: String = _
+  @Argument(shortName = "sc",  required=false, doc = "base scatter count")
+  var scatter: Int = 1 
+
+
+	def script() {
+		val tumorFiles = QScriptUtils.createSeqFromFile(tumorBAM)
+		var printReport = new ReportMaker
+		printReport.outputFile = outputFile
+		printReport.truthSnpCounts = this.truthSnpCounts
+		printReport.truthIndelCounts = this.truthIndelCounts
+		for (sampleIndex <- 0 until tumorFiles.size) {
+			val m2 = mutect2(tumorFiles(sampleIndex), normalBAM, intervalsFile)
+			add(m2)
+			val overlap = concordance(m2.out, truthVCF)
+			add(overlap)
+			val table = makeTable(overlap.out)
+			add(table)
+			printReport.V :+= table.out
+		}
+	add(printReport)
+}
+
+    case class mutect2(tumorFile: File, normalFile: File, intervalFile: File)  extends MuTect2 {
+
+    this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
+    this.cosmic :+= new File("/home/unix/gauthier/workspaces/MuTect/b37_cosmic_v54_120711.vcf")
+    this.dbsnp = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.vcf")
+    this.intervalsString = QScriptUtils.createSeqFromFile(intervalFile)
+    this.memoryLimit = 2
+    this.interval_padding = 50
+    this.input_file = List(new TaggedFile(tumorFile, "tumor"))
+    this.out = swapExt(tumorFile, ".bam", ".vcf")
+    this.scatterCount = scatter
+
+    //this.allowNonUniqueKmersInRef = true
+    //this.minDanglingBranchLength = 2
+    //this.minPruning = 0
+    //this.initial_tumor_lod = 0
+  }
+
+    case class concordance(inFile: File, concFile: File) extends SelectVariants {
+    this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
+    this.V = inFile
+    this.conc = concFile
+    this.out = swapExt(inFile, ".vcf", ".overlap.vcf")
+    }
+
+    case class makeTable(inFile: File) extends VariantsToTable {
+    this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
+    this.V :+= inFile
+    this.F = List("CHROM","POS","REF","ALT","FILTER","TYPE","EVENTLENGTH")
+    this.out = swapExt(inFile, ".vcf", ".table")
+    this.raw = true
+    }
+
+}    
