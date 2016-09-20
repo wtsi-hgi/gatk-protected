@@ -51,6 +51,7 @@
 
 package org.broadinstitute.gatk.tools;
 
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
 import picard.PicardException;
 import picard.cmdline.CommandLineProgram;
 import picard.cmdline.CommandLineProgramProperties;
@@ -66,9 +67,12 @@ import org.broadinstitute.gatk.utils.text.XReadLines;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Reads a list of BAM files and slices all of them into a single merged BAM file
@@ -121,18 +125,22 @@ public class SliceBams extends CommandLineProgram {
      * @return
      */
     private SAMFileWriter createOutputBAM(List<File> inputBAMs) {
-        Collection<SAMFileHeader> headers = new ArrayList<SAMFileHeader>();
+        final Collection<SAMFileHeader> headers = new ArrayList<>();
 
         log.info("Reading headers");
-        int fileCounter = 1;
-        for (final File inFile : inputBAMs) {
+        AtomicInteger fileCounter = new AtomicInteger(1);
+        final SamReaderFactory readerFactory = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT);
+        inputBAMs.forEach(inFile -> {
             IOUtil.assertFileIsReadable(inFile);
-            final SAMFileReader inReader = new SAMFileReader(inFile, null); // null because we don't want it to look for the index
-            final SAMFileHeader inHeader = inReader.getFileHeader();
-            log.info("  Reading header from file " + inFile + " " + fileCounter++ + " of " + inputBAMs.size());
-            headers.add(inHeader);
-            inReader.close();
-        }
+            SamReader inReader = readerFactory.open(inFile);
+            headers.add(inReader.getFileHeader());
+            log.info("  Reading header from file " + inFile + " " + fileCounter.getAndIncrement() + " of " + inputBAMs.size());
+            try {
+                inReader.close();
+            } catch ( IOException ex ) {
+                throw new ReviewedGATKException("Unable to close " + inFile , ex);
+            }
+        });
 
         final SamFileHeaderMerger headerMerger = new SamFileHeaderMerger(SAMFileHeader.SortOrder.coordinate, headers, true);
         SAMFileWriter out = new SAMFileWriterFactory().makeSAMOrBAMWriter(headerMerger.getMergedHeader(), false, OUTPUT);
@@ -142,26 +150,27 @@ public class SliceBams extends CommandLineProgram {
     /** Combines multiple SAM/BAM files into one. */
     @Override
 	protected int doWork() {
-        SAMFileReader.setDefaultValidationStringency(ValidationStringency.SILENT);
         SAMFileWriterFactory.setDefaultCreateIndexWhileWriting(true);
 
         // Open the files for reading and writing
-        List<File> inputBAMs = parseInputFiles(INPUT_LIST);
+        final List<File> inputBAMs = parseInputFiles(INPUT_LIST);
         IOUtil.assertFileIsWritable(OUTPUT);
+
         final SAMFileWriter out = createOutputBAM(inputBAMs);
-        GenomeLocParser glParser = new GenomeLocParser(out.getFileHeader().getSequenceDictionary());
-        GenomeLoc loc = glParser.parseGenomeLoc(SLICE);
+
+        final GenomeLocParser glParser = new GenomeLocParser(out.getFileHeader().getSequenceDictionary());
+        final GenomeLoc loc = glParser.parseGenomeLoc(SLICE);
 
         log.info("Reading BAM records");
         long numRecords = 1;
-        int fileCounter = 1;
-        for (final File inFile : inputBAMs) {
+        AtomicInteger fileCounter = new AtomicInteger(1);
+        inputBAMs.forEach(inFile -> {
             IOUtil.assertFileIsReadable(inFile);
-            log.info("  Reading file " + inFile + " " + fileCounter++ + " of " + inputBAMs.size());
-            final SAMFileReader reader = new SAMFileReader(inFile);
-            SAMRecordIterator iterator = reader.queryOverlapping(loc.getContig(), loc.getStart(), loc.getStop());
+            log.info("  Reading file " + inFile + " " + fileCounter.getAndIncrement() + " of " + inputBAMs.size());
+            final SamReader reader = SamReaderFactory.makeDefault().open(inFile);
+            final SAMRecordIterator iterator = reader.queryOverlapping(loc.getContig(), loc.getStart(), loc.getStop());
 
-            while ( iterator.hasNext() ) {
+            while (iterator.hasNext()) {
                 final SAMRecord record = iterator.next();
                 out.addAlignment(record);
                 if (numRecords % PROGRESS_INTERVAL == 0) {
@@ -169,12 +178,18 @@ public class SliceBams extends CommandLineProgram {
                 }
             }
 
-            reader.close();
-        }
+            try {
+                reader.close();
+            } catch ( IOException ex ) {
+                throw new ReviewedGATKException("Unable to close " + inFile , ex);
+            }
+        });
 
         log.info("Finished reading inputs.");
         log.info("Sorting final output file.");
+
         out.close();
+
         return 0;
     }
 }

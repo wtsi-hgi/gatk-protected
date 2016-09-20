@@ -57,7 +57,7 @@ import org.broadinstitute.gatk.queue.util.QScriptUtils
 import org.broadinstitute.gatk.queue.extensions.gatk._
 import org.broadinstitute.gatk.queue.extensions.gatk.SplitByRG
 import org.broadinstitute.gatk.queue.extensions.picard._
-import htsjdk.samtools.{SAMReadGroupRecord, SAMFileReader, SAMFileHeader}
+import htsjdk.samtools.{SAMReadGroupRecord, SamReaderFactory, SAMFileHeader}
 import org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode
 import collection.JavaConversions._
 import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException
@@ -334,7 +334,7 @@ class FullProcessingPipeline extends QScript {
 
   def getSplitBAMList(bam: File) : Seq[File] = {
     var splitBAMs: Seq[File] = Seq()
-    val reader: SAMFileReader = new SAMFileReader(bam)
+    val reader = SamReaderFactory.makeDefault().open(bam);
     for (file <- SplitByRG.getSplitFileNamesForRgs(reader.getFileHeader).values()) {
       splitBAMs :+= file
     }
@@ -566,7 +566,7 @@ class FullProcessingPipeline extends QScript {
    * @return a sequence of read group records
    */
   def getReadGroupList(bam:File): Seq[SAMReadGroupRecord] = {
-    val samReader = new SAMFileReader(bam)
+    val samReader = SamReaderFactory.makeDefault().open(bam);
     val header = samReader.getFileHeader
     header.getReadGroups
   }

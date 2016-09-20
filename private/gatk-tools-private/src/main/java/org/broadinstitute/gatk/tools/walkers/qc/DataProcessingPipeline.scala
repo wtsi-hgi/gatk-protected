@@ -58,7 +58,7 @@ import org.broadinstitute.gatk.tools.walkers.indels.IndelRealigner.ConsensusDete
 import org.broadinstitute.gatk.utils.baq.BAQ.CalculationMode
 
 import collection.JavaConversions._
-import htsjdk.samtools.SAMFileReader
+import htsjdk.samtools.{SamReaderFactory, SamReader}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import org.broadinstitute.gatk.queue.util.QScriptUtils
@@ -178,9 +178,10 @@ class DataProcessingPipeline extends QScript {
     for (bam <- bamFiles) {
       val rBam = realignedIterator.next()  // advance to next element in the realignedBam list so they're in sync.
 
-      val samReader = new SAMFileReader(bam)
+      val samReader = SamReaderFactory.makeDefault().open(bam)
       val header = samReader.getFileHeader
       val readGroups = header.getReadGroups
+      samReader.close
 
       // only allow one sample per file. Bam files with multiple samples would require pre-processing of the file
       // with PrintReads to separate the samples. Tell user to do it himself!
@@ -199,7 +200,7 @@ class DataProcessingPipeline extends QScript {
   }
 
   // Rebuilds the Read Group string to give BWA
-  def addReadGroups(inBam: File, outBam: File, samReader: SAMFileReader) {
+  def addReadGroups(inBam: File, outBam: File, samReader: SamReader) {
     val readGroups = samReader.getFileHeader.getReadGroups
     var index: Int = readGroups.length
     for (rg <- readGroups) {
@@ -242,7 +243,7 @@ class DataProcessingPipeline extends QScript {
             bwa_sw(fastQ, realignedSamFile))
       }
       add(sortSam(realignedSamFile, realignedBamFile, SortOrder.coordinate))
-      addReadGroups(realignedBamFile, rgRealignedBamFile, new SAMFileReader(bam))
+      addReadGroups(realignedBamFile, rgRealignedBamFile, SamReaderFactory.makeDefault().open(bam))
       realignedBams :+= rgRealignedBamFile
       index = index + 1
     }

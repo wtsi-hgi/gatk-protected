@@ -107,11 +107,7 @@ public class BCMMarkDupes
         // end hack by kiran
 		
 		//set the reader and writer, and header
-		SAMFileReader sfr = null;
-		if(isBam)
-			sfr = new SAMFileReader(new File(inputfile), new File(index));
-		else
-			sfr = new SAMFileReader(new File(inputfile));
+		SamReader sfr = SamReaderFactory.makeDefault().open(new File(inputfile));
 		Iterator<SAMRecord> iter = sfr.iterator();
 		SAMFileWriter fw = null;
 		SAMFileHeader header = sfr.getFileHeader();

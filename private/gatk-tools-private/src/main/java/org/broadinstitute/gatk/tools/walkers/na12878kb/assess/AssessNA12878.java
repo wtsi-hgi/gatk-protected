@@ -51,7 +51,7 @@
 
 package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
-import htsjdk.samtools.SAMFileReader;
+import htsjdk.samtools.SamReader;
 import htsjdk.variant.variantcontext.GenotypeType;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
@@ -189,7 +189,6 @@ public class AssessNA12878 extends NA12878DBWalker {
     private SiteIterator<MongoVariantContext> consensusSiteIterator;
 
     private final Map<String,Assessor> assessors = new HashMap<>();
-    private SAMFileReader bamReader = null;
     private SitesWriter sitesWriter;
 
     @Override
@@ -201,10 +200,7 @@ public class AssessNA12878 extends NA12878DBWalker {
     public void initialize() {
         super.initialize();
         consensusSiteIterator = db.getConsensusSites(makeSiteManager(false));
-
-        if ( BAM != null ) {
-            bamReader = Assessor.makeSAMFileReaderForDoCInBAM(BAM);
-        }
+        final SamReader bamReader = BAM != null ? Assessor.makeSamReaderForDoCInBAM(BAM) : null;
 
         if ( badSites == null )
             sitesWriter = SitesWriter.NOOP_WRITER;

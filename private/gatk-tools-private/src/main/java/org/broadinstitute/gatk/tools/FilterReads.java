@@ -51,15 +51,18 @@
 
 package org.broadinstitute.gatk.tools;
 
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
 import picard.cmdline.CommandLineProgram;
 import picard.cmdline.CommandLineProgramProperties;
 import picard.cmdline.Option;
-import htsjdk.samtools.SAMFileReader;
+import htsjdk.samtools.SamReader;
+import htsjdk.samtools.SamReaderFactory;
 import htsjdk.samtools.SAMFileWriter;
 import htsjdk.samtools.SAMFileWriterFactory;
 import htsjdk.samtools.SAMRecord;
 
 import java.io.File;
+import java.io.IOException;
 
 /**
  * Created by IntelliJ IDEA.
@@ -106,8 +109,7 @@ public class FilterReads extends CommandLineProgram {
                 else uFilter = UnmappedFilter.MAPPED;
             }
 
-
-            SAMFileReader inReader = new SAMFileReader(IN);
+            final SamReader inReader = SamReaderFactory.makeDefault().open(IN);
 
             SAMFileWriter outWriter = new SAMFileWriterFactory().makeSAMOrBAMWriter(inReader.getFileHeader(), true, OUT) ;
 
@@ -130,7 +132,6 @@ public class FilterReads extends CommandLineProgram {
                     }
                 }
 
-
                 if ( MIN_QUAL > 0 || AVERAGE_QUAL > 0 ) {
                     byte[] quals = read.getBaseQualities();
                     double av_q = 0.0;
@@ -149,7 +150,11 @@ public class FilterReads extends CommandLineProgram {
                 outWriter.addAlignment(read);
             }
 
-            inReader.close();
+            try {
+                inReader.close();
+            } catch (IOException ex ) {
+                throw new ReviewedGATKException("Unable to close " + IN, ex);
+            }
             outWriter.close();
             return 0;
         }

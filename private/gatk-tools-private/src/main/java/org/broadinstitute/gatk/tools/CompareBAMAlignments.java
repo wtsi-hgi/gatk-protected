@@ -51,13 +51,16 @@
 
 package org.broadinstitute.gatk.tools;
 
-import htsjdk.samtools.SAMFileReader;
+import htsjdk.samtools.SamReader;
+import htsjdk.samtools.SamReaderFactory;
 import htsjdk.samtools.SAMRecord;
 import htsjdk.samtools.ValidationStringency;
 import org.broadinstitute.gatk.utils.commandline.Argument;
 import org.broadinstitute.gatk.utils.commandline.CommandLineProgram;
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
@@ -82,27 +85,33 @@ public class CompareBAMAlignments extends CommandLineProgram {
     @Override
     protected int execute() {
         try {
-            List<Iterator<SAMRecord>> readers = new ArrayList<Iterator<SAMRecord>>();
-            for ( String filename : filenames ) {
-                final File file = new File(filename);
-                SAMFileReader reader = new SAMFileReader(file);
-                reader.setValidationStringency(ValidationStringency.SILENT);
+            final List<Iterator<SAMRecord>> readers = new ArrayList<>();
+
+
+            final SamReaderFactory readerFactory = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT);
+            filenames.forEach(fileName -> {
+                SamReader reader = readerFactory.open(new File(fileName));
                 readers.add(reader.iterator());
-            }
+                try {
+                    reader.close();
+                } catch ( IOException ex ) {
+                    throw new ReviewedGATKException("Unable to close " + fileName , ex);
+                }
+            });
 
             System.out.println("Reading...");
             int next = incr;
             int counter = 0;
 
             while( true ) {
-                List<SAMRecord> reads = new ArrayList<SAMRecord>();
+                final List<SAMRecord> reads = new ArrayList<>();
                 for ( Iterator<SAMRecord> reader : readers ) {
                     if ( ! reader.hasNext() ) System.exit(0);
                     reads.add(reader.next());
                 }
 
                 // comparing
-                SAMRecord read1 = reads.get(0);
+                final SAMRecord read1 = reads.get(0);
                 if ( read1.getInferredInsertSize() > maxISize ) {
                     for ( SAMRecord read : reads ) {
                         if(incr > 0 && counter % incr == 0) {
