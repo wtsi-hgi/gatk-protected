@@ -51,12 +51,14 @@
 
 package org.broadinstitute.gatk.tools;
 
+import org.broadinstitute.gatk.utils.exceptions.ReviewedGATKException;
 import picard.cmdline.CommandLineProgram;
 import picard.cmdline.CommandLineProgramProperties;
 import picard.cmdline.Option;
 import htsjdk.samtools.*;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 @CommandLineProgramProperties(
@@ -93,7 +95,7 @@ public class SplitReads extends CommandLineProgram {
     protected int doWork() {
 
     	// if read ends are not specified explicitly on the cmd line, set default 1,2 (both ends)
-    	if ( READ_ENDS.size() == 0 ) {
+    	if ( READ_ENDS.isEmpty() ) {
     		READ_ENDS.add(1);
     		READ_ENDS.add(2);
     	}
@@ -103,7 +105,7 @@ public class SplitReads extends CommandLineProgram {
     	}
     	
     	// if suffixes are not specified, set them to "", ""
-    	if ( SUFFIXES.size() == 0 ) {
+    	if ( SUFFIXES.isEmpty() ) {
     		for ( Integer i : READ_ENDS) {
     			SUFFIXES.add( "" );
     		}
@@ -125,15 +127,14 @@ public class SplitReads extends CommandLineProgram {
             throw new RuntimeException("Number of output files must be either one, or equal to the number of read ends requested."+
 				"Passed: "+ READ_ENDS.size() +" READ_ENDS and " + OUTPUT_BAMS.size() + " OUTPUT_BAMS arguments.");
 
-        SAMFileReader inReader = new SAMFileReader(IN);
+        final SamReader inReader = SamReaderFactory.makeDefault().open(IN);
 
-        List<SAMFileWriter> outWriters = new ArrayList<SAMFileWriter>(OUTPUT_BAMS.size());
+        final List<SAMFileWriter> outWriters = new ArrayList<SAMFileWriter>(OUTPUT_BAMS.size());
         for ( File outName : OUTPUT_BAMS ) {
             outWriters.add(new SAMFileWriterFactory().makeSAMOrBAMWriter(inReader.getFileHeader(), true, outName)) ;
         }
 
-
-        for ( SAMRecord read : inReader ) {
+        for ( final SAMRecord read : inReader ) {
 
             if ( UNMAPPED && ! read.getReadUnmappedFlag() ) continue;
             
@@ -172,7 +173,12 @@ public class SplitReads extends CommandLineProgram {
 
         }
 
-        inReader.close();
+        try {
+            inReader.close();
+        } catch ( final IOException ex ){
+            throw new ReviewedGATKException("Unable to close " + IN.getAbsolutePath(), ex);
+        }
+
         for ( SAMFileWriter w : outWriters ) w.close();
 
         return 0;
