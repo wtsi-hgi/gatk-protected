@@ -87,7 +87,7 @@ import org.broadinstitute.gatk.utils.sam.GATKSAMRecord;
 import org.broadinstitute.gatk.utils.text.XReadLines;
 import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
-import htsjdk.variant.variantcontext.writer.VariantContextWriterFactory;
+import htsjdk.variant.variantcontext.writer.SortingVariantContextWriter;
 import org.broadinstitute.gatk.utils.variant.HomoSapiensConstants;
 
 import java.io.File;
@@ -248,7 +248,7 @@ public class ExonJunctionGenotyper extends ReadWalker<ExonJunctionGenotyper.Eval
         Set<String> sampleStr = ReadUtils.getSAMFileSamples(getToolkit().getSAMFileHeader());
         ilglcm.setSamples(sampleStr);
 
-        vcfWriter = VariantContextWriterFactory.sortOnTheFly(vcfWriterBase,1500000);
+        vcfWriter = new SortingVariantContextWriter(vcfWriterBase,1500000);
         vcfWriter.writeHeader(new VCFHeader(new HashSet<VCFHeaderLine>(), sampleStr));
 
         try {
