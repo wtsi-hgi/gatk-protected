@@ -53,8 +53,9 @@ package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
 import com.google.java.contract.Ensures;
 import com.google.java.contract.Requires;
-import htsjdk.samtools.SAMFileReader;
+import htsjdk.samtools.SamReader;
 import htsjdk.samtools.SAMRecord;
+import htsjdk.samtools.SamReaderFactory;
 import htsjdk.samtools.ValidationStringency;
 import htsjdk.samtools.filter.FilteringIterator;
 import htsjdk.samtools.util.CloseableIterator;
@@ -105,7 +106,7 @@ public class Assessor {
 
     private final AssessNA12878.TypesToInclude typesToInclude;
     protected final String name;
-    private final SAMFileReader bamReader;
+    private final SamReader bamReader;
     private final int minDepthForLowCoverage;
     private final Set<String> excludeKBSitesSupportedByOnlyTheseCallset;
     private final SitesWriter badSitesWriter;
@@ -152,7 +153,7 @@ public class Assessor {
                     final AssessNA12878.TypesToInclude typesToInclude,
                     final Set<String> excludeKBSitesSupportedByOnlyTheseCallset,
                     final SitesWriter badSitesWriter,
-                    final SAMFileReader bamReader,
+                    final SamReader bamReader,
                     final int minDepthForLowCoverage,
                     final int minPNonRef,
                     final int minGQ,
@@ -596,15 +597,13 @@ public class Assessor {
     }
 
     /**
-     * Create a SAMFileReader appropriately initialized for getting the DoC of sites
+     * Create a SamReader appropriately initialized for getting the DoC of sites
      *
      * @param bam a file pointing to a BAM file
-     * @return a SAMFileReader that reads reads from bam
+     * @return a SamReader that reads reads from bam
      */
-    public static SAMFileReader makeSAMFileReaderForDoCInBAM(final File bam) {
-        final SAMFileReader bamReader = new SAMFileReader(bam);
-        bamReader.setValidationStringency(ValidationStringency.SILENT);
-        return bamReader;
+    public static SamReader makeSamReaderForDoCInBAM(final File bam) {
+        return SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT).open(bam);
     }
 
     /**

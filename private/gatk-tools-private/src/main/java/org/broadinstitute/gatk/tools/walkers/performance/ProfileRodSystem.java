@@ -78,7 +78,7 @@ import htsjdk.variant.bcf2.BCF2Codec;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.Options;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
-import htsjdk.variant.variantcontext.writer.VariantContextWriterFactory;
+import htsjdk.variant.variantcontext.writer.VariantContextWriterBuilder;
 import htsjdk.variant.vcf.VCFCodec;
 import htsjdk.variant.vcf.VCFConstants;
 import htsjdk.variant.vcf.VCFHeader;
@@ -203,9 +203,14 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             final File bcf2File = new File(vcfFile.getName() + ".bcf");
             int counter = 0;
             FeatureReader<VariantContext> reader = AbstractFeatureReader.getFeatureReader(vcfFile.getAbsolutePath(), new VCFCodec(), false);
-            FileOutputStream outputStream = new FileOutputStream(bcf2File);
             EnumSet<Options> options = EnumSet.of(Options.FORCE_BCF, Options.INDEX_ON_THE_FLY);
-            final VariantContextWriter bcf2Writer = VariantContextWriterFactory.create(bcf2File, outputStream, getToolkit().getReferenceDataSource().getReference().getSequenceDictionary(), options);
+            final VariantContextWriter bcf2Writer =
+                    new VariantContextWriterBuilder()
+                            .setOutputFile(bcf2File)
+                            .setOutputFileType(VariantContextWriterBuilder.OutputType.BCF)
+                            .setReferenceDictionary(getToolkit().getReferenceDataSource().getReference().getSequenceDictionary())
+                            .setOptions(options)
+                            .build();
             VCFHeader header = GATKVCFUtils.withUpdatedContigs((VCFHeader) reader.getHeader(), getToolkit());
             bcf2Writer.writeHeader(header);
 
@@ -333,7 +338,12 @@ public class ProfileRodSystem extends RodWalker<Integer, Integer> {
             // now we start the timer
             timer.start();
 
-            VariantContextWriter writer = VariantContextWriterFactory.create(new File(f.getAbsolutePath() + ".test"), getMasterSequenceDictionary());
+            final VariantContextWriter writer =
+                    new VariantContextWriterBuilder()
+                            .setOutputFile(new File(f.getAbsolutePath() + ".test"))
+                            .setOutputFileType(VariantContextWriterBuilder.OutputType.VCF)
+                            .setReferenceDictionary(getMasterSequenceDictionary())
+                            .build();
             writer.writeHeader(header);
             for ( VariantContext vc : VCs )
                 writer.add(vc);

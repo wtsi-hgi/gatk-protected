@@ -51,7 +51,6 @@
 
 package org.broadinstitute.gatk.tools.walkers.na12878kb.assess;
 
-import htsjdk.samtools.SAMFileReader;
 import org.broadinstitute.gatk.utils.BaseTest;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoGenotype;
 import org.broadinstitute.gatk.tools.walkers.na12878kb.core.MongoVariantContext;

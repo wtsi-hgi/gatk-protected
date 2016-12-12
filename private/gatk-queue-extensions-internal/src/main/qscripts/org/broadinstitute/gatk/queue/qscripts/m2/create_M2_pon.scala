@@ -49,133 +49,92 @@
 * 8.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
-package org.broadinstitute.sting.queue.qscripts.dev
+package org.broadinstitute.gatk.tools.walkers.cancer.m2
+
+import java.io.File
 
 import org.broadinstitute.gatk.queue.QScript
 import org.broadinstitute.gatk.queue.extensions.gatk._
-import org.broadinstitute.gatk.engine.phonehome.GATKRunReport
+import org.broadinstitute.gatk.queue.function.CommandLineFunction
 import org.broadinstitute.gatk.queue.util.QScriptUtils
-import org.broadinstitute.gatk.queue.function._
+import org.broadinstitute.gatk.utils.commandline.{Input, Output}
 import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.FilteredRecordMergeType
-import org.broadinstitute.gatk.utils.variant.GATKVariantContextUtils.MultipleAllelesMergeType
-import htsjdk.variant.variantcontext.VariantContext
-import org.broadinstitute.gatk.utils.commandline.ClassType
-import org.broadinstitute.gatk.utils.commandline.Argument
-import org.broadinstitute.gatk.utils.commandline.Input
-import org.broadinstitute.gatk.utils.commandline.Output
-import scala.sys.process._
-import java.nio.file.{Paths, Files}
-import java.nio.charset.StandardCharsets
-import java.io._
-import scala.io.Source
+
+import scala.collection.mutable.ListBuffer
+
+class create_M2_pon extends QScript {
+
+  @Argument(shortName = "bams", required = true, doc = "file of all BAM files")
+  var allBams: String = ""
+
+  @Argument(shortName = "o", required = true, doc = "Output prefix")
+  var outputPrefix: String = ""
+
+  @Argument(shortName = "minN", required = false, doc = "minimum number of sample observations to include in PON")
+  var minN: Int = 2
+
+  @Argument(doc="Reference fasta file to process with", fullName="reference", shortName="R", required=false)
+  var reference = new File("/seq/references/Homo_sapiens_assembly19/v1/Homo_sapiens_assembly19.fasta")
+
+  @Argument(doc="Intervals file to process with", fullName="intervals", shortName="L", required=true)
+  var intervals : File = ""
+
+  @Argument(shortName = "sc", required = false, doc = "base scatter count")
+  var scatter: Int = 10
 
 
-class ReportMaker extends InProcessFunction {
-	@Input
-	var V: List[File] = Nil
-	@Output
-	var outputFile: File = _
+  def script() {
+    val bams = QScriptUtils.createSeqFromFile(allBams)
+    val genotypesVcf = outputPrefix + ".genotypes.vcf"
+    val finalVcf = outputPrefix + ".vcf"
 
-	@Argument(shortName = "ind", required = true, doc = "current sample index")
-	var sampleIndex: Int = _
-	@Argument(shortName = "snpCounts", required=true)
-	var truthSnpCounts: File = new File("")
-	@Argument(shortName = "indelCounts", required=true)
-	var truthIndelCounts: File = new File("")
+    val perSampleVcfs = new ListBuffer[File]()
+    for (bam <- bams) {
+      val outputVcf = "sample-vcfs/" + bam.getName + ".vcf"
+      add( createM2Config(bam, outputVcf))
+      perSampleVcfs += outputVcf
+    }
 
-	def run {
-	var truthSnpList = io.Source.fromFile(truthSnpCounts).getLines.toList 
-	var truthIndelList = io.Source.fromFile(truthIndelCounts).getLines.toList 
-	var foundSnpCount = 0
-	var foundIndelCount = 0
-	var truthSnpCount = 0
-	var truthIndelCount = 0
+    val cv = new CombineVariants()
+    cv.reference_sequence = reference
+    cv.memoryLimit = 2
+    cv.setKey = "null"
+    cv.minimumN = minN
+    cv.memoryLimit = 16
+    cv.filteredrecordsmergetype = FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED
+    cv.filteredAreUncalled = true
+    cv.variant = perSampleVcfs
+    cv.out = genotypesVcf
 
-	for (sampleIndex <- 0 until V.size) {
-		val inFile = V(sampleIndex)		
-		foundSnpCount = foundSnpCount + ("grep -c SNP" #< inFile #| "tr -d \'\\n\'" !!).stripLineEnd.toInt
-		foundIndelCount = foundIndelCount + ("grep -c INDEL" #<  inFile #| "tr -d \\n" !!).stripLineEnd.toInt
-		truthSnpCount = truthSnpCount + truthSnpList(sampleIndex).toInt
-		truthIndelCount = truthIndelCount + truthIndelList(sampleIndex).toInt
-	}
-	val text = "Sensitivity across all samples:\n" + "SNPs: " + foundSnpCount.toFloat/truthSnpCount + "\n" + "INDELs: " + foundIndelCount.toFloat/truthIndelCount + "\n"
-	val bw = new BufferedWriter(new FileWriter(outputFile))
-	bw.write(text)
-	bw.close()	
+    // using this instead of "sites_only" because we want to keep the AC info
+    val vc = new VcfCutter()
+    vc.inVcf = genotypesVcf
+    vc.outVcf = finalVcf
 
-	}
-}
+    add (cv, vc)
 
-class Qscript_runHapMapPlex extends QScript {
-
-  @Argument(shortName = "intervals",  required=true, doc = "Intervals file")
-  var intervalsFile: File = new File("")
-  @Argument(shortName = "normals",  required=false, doc = "Normal sample BAM")
-  var normalBAM:File = new File("") 
-  @Argument(shortName = "tumors", required=true, doc = "Tumor sample BAM")
-  var tumorBAM:File = new File("")
-  @Argument(shortName = "truthVCF", required=true, doc = "Truth data VCF")
-  var truthVCF: File = new File("") 
-  @Argument(shortName = "snpCounts", required=true, doc = "Truth SNP counts")
-  var truthSnpCounts: File = new File("")
-  @Argument(shortName = "indelCounts", required=true, doc = "Truth INDEL counts")
-  var truthIndelCounts: File = new File("")
-  @Argument(shortName = "o",  required=true, doc = "Output report file")
-  var outputFile: String = _
-  @Argument(shortName = "sc",  required=false, doc = "base scatter count")
-  var scatter: Int = 1 
-
-
-    def script() {
-
-    	val tumorFiles = QScriptUtils.createSeqFromFile(tumorBAM)
-	var printReport = new ReportMaker
-	printReport.outputFile = outputFile
-	printReport.truthSnpCounts = this.truthSnpCounts
-	printReport.truthIndelCounts = this.truthIndelCounts
-	for (sampleIndex <- 0 until tumorFiles.size) {
-		val m2 = mutect2(tumorFiles(sampleIndex), normalBAM, intervalsFile)
-		add(m2)
-		val overlap = concordance(m2.out, truthVCF)
-		add(overlap)
-		val table = makeTable(overlap.out) 
-		add(table)
-		printReport.V :+= table.out
-	}
-	add(printReport)
-}
-
-    case class mutect2(tumorFile: File, normalFile: File, intervalFile: File)  extends M2 { 
-
-    this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
-    this.cosmic :+= new File("/home/unix/gauthier/workspaces/MuTect/b37_cosmic_v54_120711.vcf")
-    this.dbsnp = new File("/humgen/gsa-hpprojects/GATK/bundle/current/b37/dbsnp_138.b37.vcf")
-    this.intervalsString = QScriptUtils.createSeqFromFile(intervalFile)
-    this.memoryLimit = 2
-    this.interval_padding = 50
-    this.input_file = List(new TaggedFile(tumorFile, "tumor"))
-    this.out = swapExt(tumorFile, ".bam", ".vcf")
-    this.scatterCount = scatter
-
-    //this.allowNonUniqueKmersInRef = true
-    //this.minDanglingBranchLength = 2
-    //this.minPruning = 0
-    //this.initial_tumor_lod = 0
   }
 
-    case class concordance(inFile: File, concFile: File) extends SelectVariants {
-    this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
-    this.V = inFile
-    this.conc = concFile
-    this.out = swapExt(inFile, ".vcf", ".overlap.vcf")
-    }
 
-    case class makeTable(inFile: File) extends VariantsToTable {
-    this.reference_sequence = new File("/humgen/1kg/reference/human_g1k_v37_decoy.fasta")
-    this.V :+= inFile
-    this.F = List("CHROM","POS","REF","ALT","FILTER","TYPE","EVENTLENGTH")
-    this.out = swapExt(inFile, ".vcf", ".table")
-    this.raw = true
-    }
+  def createM2Config(bam : File, outputVcf : File): org.broadinstitute.gatk.queue.extensions.gatk.MuTect2 = {
+    val mutect2 = new org.broadinstitute.gatk.queue.extensions.gatk.MuTect2
 
-}    
+    mutect2.reference_sequence = reference
+    mutect2.artifact_detection_mode = true
+    mutect2.intervalsString :+= intervals
+    mutect2.memoryLimit = 2
+    mutect2.input_file = List(new TaggedFile(bam, "tumor"))
+
+    mutect2.scatterCount = scatter
+    mutect2.out = outputVcf
+
+    mutect2
+  }
+}
+
+class VcfCutter extends CommandLineFunction {
+  @Input(doc = "vcf to cut") var inVcf: File = _
+  @Output(doc = "output vcf") var outVcf: File = _
+
+  def commandLine = "cat %s | cut -f1-8 > %s".format(inVcf, outVcf)
+}
