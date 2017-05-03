@@ -59,7 +59,7 @@ import org.testng.annotations.Test;
 import static org.broadinstitute.gatk.utils.pipeline.PicardAggregationUtilsUnitTest.*;
 
 public class PicardAnalysisFilesUnitTest extends BaseTest {
-    @Test
+    @Test (enabled = false)
     public void testParseLatest() throws Exception {
         PicardAnalysisFiles files = new PicardAnalysisFiles(PROJECT, SAMPLE);
         Assert.assertNotNull(files.getPath());
