@@ -1,0 +1,49 @@
+#:GATKReport.v1.1:6
+#:GATKTable:2:1:%s:%.8E:;
+#:GATKTable:BadGaussianPMix:Pmixture log 10 used to evaluate model
+Gaussian  pMixLog10     
+       0  0.00000000E+00
+
+#:GATKTable:2:2:%s:%.8E:;
+#:GATKTable:GoodGaussianPMix:Pmixture log 10 used to evaluate model
+Gaussian  pMixLog10     
+       0  0.00000000E+00
+       1  0.00000000E+00
+
+#:GATKTable:8:6:%s:%s:%.8E:%.8E:%.8E:%.8E:%.8E:%.8E:;
+#:GATKTable:NegativeModelCovariances:Matrix to describe the (normalized) covariance for each Gaussian in the negative model; covariance matrices are joined by row
+Gaussian  Annotation      QD               MQ               FS               SOR              ReadPosRankSum   MQRankSum      
+       0  QD               3.21907722E+00   2.30643860E+00  -1.95381595E+00  -1.70646908E+00  -2.18149846E+00  -3.06061997E+00
+       0  MQ               2.30643860E+00   4.39999726E+00  -2.92259896E+00   1.35671316E+00   9.78436822E-01  -5.77800485E-01
+       0  FS              -1.95381595E+00  -2.92259896E+00   3.25881492E+00   1.00261912E+00  -8.31364412E-01   2.70643653E+00
+       0  SOR             -1.70646908E+00   1.35671316E+00   1.00261912E+00   6.48592269E+00   6.19783303E-01   3.22000396E+00
+       0  ReadPosRankSum  -2.18149846E+00   9.78436822E-01  -8.31364412E-01   6.19783303E-01   8.67593965E+00   3.02621788E+00
+       0  MQRankSum       -3.06061997E+00  -5.77800485E-01   2.70643653E+00   3.22000396E+00   3.02621788E+00   1.34422101E+01
+
+#:GATKTable:7:1:%s:%.8E:%.8E:%.8E:%.8E:%.8E:%.8E:;
+#:GATKTable:NegativeModelMeans:Vector of annotation values to describe the (normalized) mean for each Gaussian in the negative model
+Gaussian  QD               MQ               FS              SOR              ReadPosRankSum  MQRankSum     
+       0  -1.50761623E+00  -3.62080165E+00  2.15955853E+00  -2.51538097E+00  3.38946764E+00  2.76267432E+00
+
+#:GATKTable:8:12:%s:%s:%.8E:%.8E:%.8E:%.8E:%.8E:%.8E:;
+#:GATKTable:PositiveModelCovariances:Matrix to describe the (normalized) covariance for each Gaussian in the positive model; covariance matrices are joined by row
+Gaussian  Annotation      QD               MQ               FS               SOR              ReadPosRankSum   MQRankSum      
+       0  QD               3.21907722E+00   2.30643860E+00  -1.95381595E+00  -1.70646908E+00  -2.18149846E+00  -3.06061997E+00
+       0  MQ               2.30643860E+00   4.39999726E+00  -2.92259896E+00   1.35671316E+00   9.78436822E-01  -5.77800485E-01
+       0  FS              -1.95381595E+00  -2.92259896E+00   3.25881492E+00   1.00261912E+00  -8.31364412E-01   2.70643653E+00
+       0  SOR             -1.70646908E+00   1.35671316E+00   1.00261912E+00   6.48592269E+00   6.19783303E-01   3.22000396E+00
+       0  ReadPosRankSum  -2.18149846E+00   9.78436822E-01  -8.31364412E-01   6.19783303E-01   8.67593965E+00   3.02621788E+00
+       0  MQRankSum       -3.06061997E+00  -5.77800485E-01   2.70643653E+00   3.22000396E+00   3.02621788E+00   1.34422101E+01
+       1  QD               1.99806823E+00  -1.95846571E+00   1.53392321E+00  -9.24755681E-01  -2.28527455E+00  -2.09866694E+00
+       1  MQ              -1.95846571E+00   2.37639127E+00  -1.05078240E+00  -1.82078478E-02   1.67378504E+00   1.59376871E+00
+       1  FS               1.53392321E+00  -1.05078240E+00   2.12146711E+00  -2.60265778E+00  -3.27457877E+00  -1.47560211E+00
+       1  SOR             -9.24755681E-01  -1.82078478E-02  -2.60265778E+00   4.69774802E+00   4.56845373E+00   1.83545643E+00
+       1  ReadPosRankSum  -2.28527455E+00   1.67378504E+00  -3.27457877E+00   4.56845373E+00   6.57416627E+00   3.71233111E+00
+       1  MQRankSum       -2.09866694E+00   1.59376871E+00  -1.47560211E+00   1.83545643E+00   3.71233111E+00   7.37223125E+00
+
+#:GATKTable:7:2:%s:%.8E:%.8E:%.8E:%.8E:%.8E:%.8E:;
+#:GATKTable:PositiveModelMeans:Vector of annotation values to describe the (normalized) mean for each Gaussian in the positive model
+Gaussian  QD               MQ               FS               SOR              ReadPosRankSum   MQRankSum     
+       0  -1.50761623E+00  -3.62080165E+00   2.15955853E+00  -2.51538097E+00   3.38946764E+00  2.76267432E+00
+       1  -9.60470037E-01   2.39316960E-01  -3.92657115E+00  -1.30317544E+00  -1.09341072E+00  1.77971656E+00
+
