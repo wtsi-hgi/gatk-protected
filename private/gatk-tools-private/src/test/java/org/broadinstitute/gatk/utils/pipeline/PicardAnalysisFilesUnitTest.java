@@ -59,7 +59,7 @@ import org.testng.annotations.Test;
 import static org.broadinstitute.gatk.utils.pipeline.PicardAggregationUtilsUnitTest.*;
 
 public class PicardAnalysisFilesUnitTest extends BaseTest {
-    @Test
+    @Test (enabled = false)
     public void testParseLatest() throws Exception {
         PicardAnalysisFiles files = new PicardAnalysisFiles(PROJECT, SAMPLE);
         Assert.assertNotNull(files.getPath());
@@ -104,7 +104,7 @@ public class PicardAnalysisFilesUnitTest extends BaseTest {
         new PicardAnalysisFiles(BaseTest.validationDataLocation + "non_existent_picard_analysis_file.txt");
     }
 
-    @Test(expectedExceptions = UserException.class)
+    @Test(enabled = false, expectedExceptions = UserException.class)
     public void testParseMissingVersion() throws Exception {
         new PicardAnalysisFiles(PROJECT, SAMPLE, PicardAggregationUtils.getLatestVersion(PROJECT, SAMPLE) + 2);
     }

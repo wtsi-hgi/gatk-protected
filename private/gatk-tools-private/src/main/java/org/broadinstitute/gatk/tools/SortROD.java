@@ -58,7 +58,6 @@ import org.apache.log4j.BasicConfigurator;
 import htsjdk.tribble.AsciiFeatureCodec;
 import htsjdk.tribble.Feature;
 import htsjdk.tribble.bed.BEDCodec;
-import htsjdk.tribble.gelitext.GeliTextCodec;
 import htsjdk.tribble.readers.LineIterator;
 import htsjdk.tribble.readers.PositionalBufferedStream;
 import org.broadinstitute.gatk.engine.features.maf.MafCodec;
@@ -216,7 +215,6 @@ public class SortROD {
             if (rodType.equals("vcf") ) return new VCFCodec();
             if (rodType.equals("bed") ) return new BEDCodec();
             if (rodType.equals("cgvar") || rodType.equals("CGVar") ) return new CGVarCodec();
-            if (rodType.equals("geli.calls") || rodType.equals("geli") ) return new GeliTextCodec();
             if (rodType.equals("txt") ) return new SoapSNPCodec();
             if (rodType.equals("maf") ) return new MafCodec();
             throw new GATKException("Explicitly specified rod type "+rodType+" is not recognized");
@@ -227,8 +225,6 @@ public class SortROD {
             return new BEDCodec();
         if ( featureFile.getName().endsWith(".tsv") || featureFile.getName().endsWith(".TSV") )
             return new CGVarCodec();
-        if (featureFile.getName().endsWith(".geli.calls") || featureFile.getName().endsWith(".geli") )
-            return new GeliTextCodec();
         if (featureFile.getName().endsWith(".txt") || featureFile.getName().endsWith(".TXT") )
             return new SoapSNPCodec();
         if (featureFile.getName().endsWith(".maf") || featureFile.getName().endsWith(".MAF") )

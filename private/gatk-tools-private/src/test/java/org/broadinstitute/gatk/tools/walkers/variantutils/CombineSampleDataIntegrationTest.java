@@ -66,7 +66,7 @@ public class CombineSampleDataIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -V " + privateTestDir + "uniquifiedSamples.vcf", b37KGReference),
                 1,
-                Arrays.asList("61c4d8171e8557b793b6d8f24a687781"));
+                Arrays.asList("0439aa6c5ff7535bedd3926904612f0e"));
         executeTest("testCombineAllSamples", spec);
     }
 
@@ -75,7 +75,7 @@ public class CombineSampleDataIntegrationTest extends WalkerTest {
         WalkerTestSpec spec = new WalkerTestSpec(
                 baseTestString(" -V " + privateTestDir + "uniquifiedSamples.vcf -usn NA12878.variant102 -usn NA12878.variant51 ", b37KGReference),
                 1,
-                Arrays.asList("97345cec36917ce57597e4985ea2a9ee"));
+                Arrays.asList("a2e3278c4608a5a00f4083af9818ea87"));
         executeTest("testCombineAllSamples", spec);
     }
 }

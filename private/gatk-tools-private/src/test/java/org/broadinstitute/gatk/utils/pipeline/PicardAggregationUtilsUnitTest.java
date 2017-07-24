@@ -74,14 +74,14 @@ public class PicardAggregationUtilsUnitTest {
     public static final String SPACE_SAMPLE = "FG-CR 6";
     private int latestVersion = -1;
 
-    @Test
+    @Test(enabled=false)
     public void testGetLatestVersion() {
         latestVersion = PicardAggregationUtils.getLatestVersion(PROJECT, SAMPLE);
         System.out.println(String.format("Latest version for %s %s is %d", PROJECT, SAMPLE, latestVersion));
         Assert.assertTrue(latestVersion > 0);
     }
 
-    @Test(dependsOnMethods = "testGetLatestVersion")
+    @Test(dependsOnMethods = "testGetLatestVersion", enabled=false)
     public void testGetSampleBam() throws Exception {
         File sampleBam = new File(PicardAggregationUtils.getSampleBam(PROJECT, SAMPLE, latestVersion));
         Assert.assertTrue(sampleBam.exists());
@@ -95,7 +95,7 @@ public class PicardAggregationUtilsUnitTest {
         Assert.assertEquals(currentSampleBam.getCanonicalFile(), sampleBam.getCanonicalFile());
     }
 
-    @Test(dependsOnMethods = "testGetLatestVersion")
+    @Test(dependsOnMethods = "testGetLatestVersion", enabled=false)
     public void testGetSampleDir() throws Exception {
         File sampleDir = new File(PicardAggregationUtils.getSampleDir(PROJECT, SAMPLE, latestVersion));
         Assert.assertTrue(sampleDir.exists());
@@ -109,13 +109,13 @@ public class PicardAggregationUtilsUnitTest {
         Assert.assertEquals(currentSampleDir.getCanonicalFile(), sampleDir.getCanonicalFile());
     }
 
-    @Test(dependsOnMethods = "testGetLatestVersion")
+    @Test(dependsOnMethods = "testGetLatestVersion", enabled=false)
     public void testIsFinished() {
         Assert.assertTrue(PicardAggregationUtils.isFinished(PROJECT, SAMPLE, latestVersion));
         Assert.assertFalse(PicardAggregationUtils.isFinished(PROJECT, SAMPLE, latestVersion + 1));
     }
 
-    @Test
+    @Test(enabled=false)
     public void testLatestVersionMissing() {
         Assert.assertEquals(PicardAggregationUtils.getLatestVersion(MISSING_PROJECT, MISSING_SAMPLE), 0);
     }
@@ -132,7 +132,7 @@ public class PicardAggregationUtilsUnitTest {
         PicardAggregationUtils.getSampleBam(SPACE_PROJECT, SPACE_SAMPLE, spaceLatest);
     }
 
-    @Test
+    @Test(enabled=false)
     public void testParseTsv() throws IOException {
         File tsv = writeTsv(PROJECT, SAMPLE);
         List<PicardSample> picardSamples = PicardAggregationUtils.parseSamples(tsv);
@@ -148,20 +148,20 @@ public class PicardAggregationUtilsUnitTest {
             Assert.assertTrue(new File(bam).exists(), "bam does not exist: " + bam);
     }
 
-    @Test(expectedExceptions = UserException.CouldNotReadInputFile.class)
+    @Test(expectedExceptions = UserException.CouldNotReadInputFile.class, enabled=false)
     public void testParseThrowOnBadTsv() throws IOException {
         File tsv = writeTsv(MISSING_PROJECT, MISSING_SAMPLE);
         List<PicardSample> picardSamples = PicardAggregationUtils.parseSamples(tsv);
     }
 
-    @Test
+    @Test(enabled=false)
     public void testParseCatchOnBadTsv() throws IOException {
         File tsv = writeTsv(MISSING_PROJECT, MISSING_SAMPLE);
         List<PicardSample> picardSamples = PicardAggregationUtils.parseSamples(tsv, false);
         Assert.assertEquals(picardSamples.size(), 0);
     }
 
-    @Test
+    @Test(enabled=false)
     public void testParseTsvWithPicardComments() throws Exception {
         File tsv = writeTsv("C460", "HG01359");
         List<PicardSample> picardSamples = PicardAggregationUtils.parseSamples(tsv);
