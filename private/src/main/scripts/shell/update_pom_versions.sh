@@ -16,11 +16,11 @@ mvn versions:set -DnewVersion=${version} -DgenerateBackupPoms=false && \
 # b) "Project version is inherited from parent"
 
 cd .. && \
-echo "updating package tests and Vector Pair HMM" && \
+echo "updating package tests" && \
 sed -i -e '/^        <artifactId>gatk-root<\/artifactId>$/ {
     N
     s@\(        <artifactId>gatk-root</artifactId>\n        <version>\).*\(</version>\)@\1'${version}'\2@
-}' package-tests/pom.xml VectorPairHMM/pom.xml && \
+}' package-tests/pom.xml && \
 
 echo "updating external example" && \
 sed -i -e 's@<gatk.version>.*\</gatk.version>@<gatk.version>'${version}'</gatk.version>@' external-example/pom.xml && \

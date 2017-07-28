@@ -4,7 +4,7 @@
 #
 
 WEB_SERVER="gsaweb"
-GATKDOCS_LIVE_DIR="/local/htdocs/gatk/documentation/tooldocs"
+GATKDOCS_LIVE_DIR="/local/htdocs/gatk/documentation/tooldocs/current"
 GATKDOCS_STAGING_DIR="/local/htdocs/staging/gatkdocs"
 GATKDOCS_LOCAL_DIR="target/gatkdocs"
 TEMP_MAVEN_REPO="tmp_mvn_repo"
